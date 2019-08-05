@@ -35,7 +35,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 	for _, efw := range envoyFilterWrappers {
 		// only merge is applicable for route configuration. Validation checks for the same.
 		for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
-			if patchContextMatch(patchContext, cp) &&
+			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				proto.Merge(routeConfiguration, cp.Value)
 			}
@@ -50,7 +50,7 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 				continue
 			}
 
-			if !patchContextMatch(patchContext, cp) ||
+			if !commonConditionMatch(proxy, patchContext, cp) ||
 				!routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				continue
 			}
@@ -61,13 +61,13 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 					// removed by another envoy filter
 					continue
 				}
-				if virtualHostMatch(&routeConfiguration.VirtualHosts[i], cp) {
+				if virtualHostMatch(routeConfiguration.VirtualHosts[i], cp) {
 					if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 						// set name to empty. We remove virtual hosts with empty names later in this function
 						routeConfiguration.VirtualHosts[i].Name = ""
 						virtualHostsRemoved = true
 					} else {
-						proto.Merge(&routeConfiguration.VirtualHosts[i], cp.Value)
+						proto.Merge(routeConfiguration.VirtualHosts[i], cp.Value)
 					}
 				}
 			}
@@ -79,14 +79,14 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 				continue
 			}
 
-			if patchContextMatch(patchContext, cp) &&
+			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
-				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, *cp.Value.(*route.VirtualHost))
+				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 			}
 		}
 	}
 	if virtualHostsRemoved {
-		trimmedVirtualHosts := make([]route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
+		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
 			if virtualHost.Name == "" {
 				continue

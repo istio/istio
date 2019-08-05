@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
@@ -223,9 +223,32 @@ func TestDirectResponse(t *testing.T) {
 	for _, tc := range testcases {
 		s := &session{}
 		s.handleDirectResponse(tc.status, tc.response)
-		if !reflect.DeepEqual(s.checkResult.RouteDirective, tc.directive) {
+		if s.checkResult.RouteDirective.DirectResponseCode != tc.directive.DirectResponseCode ||
+			s.checkResult.RouteDirective.DirectResponseBody != tc.directive.DirectResponseBody ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.RequestHeaderOperations, tc.directive.RequestHeaderOperations) ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.ResponseHeaderOperations, tc.directive.ResponseHeaderOperations) {
 			t.Fatalf("route directive mismatch in %s '%+v' != '%+v'", tc.desc, s.checkResult.RouteDirective, tc.directive)
 		}
-
 	}
+}
+
+func equalHeaderOperations(actual, expected []mixerpb.HeaderOperation) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	delta := make(map[mixerpb.HeaderOperation]int)
+
+	for _, ex := range expected {
+		delta[ex]++
+	}
+	for _, h := range actual {
+		if _, ok := delta[h]; !ok {
+			return false
+		}
+		delta[h]--
+		if delta[h] == 0 {
+			delete(delta, h)
+		}
+	}
+	return len(delta) == 0
 }

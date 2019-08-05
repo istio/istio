@@ -41,34 +41,24 @@ func (m *StreamTapsRequest) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetIdentifier()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return StreamTapsRequestValidationError{
-					field:  "Identifier",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetIdentifier()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StreamTapsRequestValidationError{
+				field:  "Identifier",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
 	// no validation rules for TraceId
 
-	{
-		tmp := m.GetTrace()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return StreamTapsRequestValidationError{
-					field:  "Trace",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTrace()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StreamTapsRequestValidationError{
+				field:  "Trace",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -214,17 +204,12 @@ func (m *StreamTapsRequest_Identifier) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetNode()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return StreamTapsRequest_IdentifierValidationError{
-					field:  "Node",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StreamTapsRequest_IdentifierValidationError{
+				field:  "Node",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

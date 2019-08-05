@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var (
@@ -172,7 +172,7 @@ func TestInstances(t *testing.T) {
 		},
 	}
 
-	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -188,8 +188,8 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(svc, 0, config.LabelsCollection{
-		config.Labels{filterTagKey: filterTagVal},
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{
+		labels.Instance{filterTagKey: filterTagVal},
 	})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
@@ -210,7 +210,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(svc, filterPort, config.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, filterPort, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -240,7 +240,7 @@ func TestInstancesBadHostname(t *testing.T) {
 			Namespace: model.IstioDefaultConfigNamespace,
 		},
 	}
-	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -265,7 +265,7 @@ func TestInstancesError(t *testing.T) {
 		},
 	}
 	ts.Server.Close()
-	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -470,50 +470,50 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	tests := []struct {
 		name     string
 		ips      []string
-		expected config.LabelsCollection
+		expected labels.Collection
 	}{
 		{
 			name:     "Rating",
 			ips:      []string{"10.78.11.18", "172.19.0.12"},
-			expected: config.LabelsCollection{{"version": "v1"}},
+			expected: labels.Collection{{"version": "v1"}},
 		},
 		{
 			name:     "No proxy ip",
 			ips:      nil,
-			expected: config.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "No match",
 			ips:      []string{"1.2.3.4", "2.3.4.5"},
-			expected: config.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "Only match on Service Address",
 			ips:      []string{"172.19.0.5"},
-			expected: config.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "Match multiple services",
 			ips:      []string{"172.19.0.7", "172.19.0.8"},
-			expected: config.LabelsCollection{{"version": "v2"}, {"version": "v3"}},
+			expected: labels.Collection{{"version": "v2"}, {"version": "v3"}},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			labels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
-			sort.Slice(labels, func(i, j int) bool {
-				return labels[i].String() < labels[j].String()
+			wlLabels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
+			sort.Slice(wlLabels, func(i, j int) bool {
+				return wlLabels[i].String() < wlLabels[j].String()
 			})
 			if err != nil {
 				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
 			}
-			if labels == nil {
+			if wlLabels == nil {
 				t.Error("labels should exist")
 			}
 
-			if !reflect.DeepEqual(labels, test.expected) {
-				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", labels, test.expected)
+			if !reflect.DeepEqual(wlLabels, test.expected) {
+				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", wlLabels, test.expected)
 			}
 		})
 	}
@@ -558,7 +558,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 			Namespace: model.IstioDefaultConfigNamespace,
 		},
 	}
-	instances, err := controller.InstancesByPort(svc, 0, config.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -588,7 +588,7 @@ func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	ts.Lock.Unlock()
 
 	time.Sleep(2 * time.Second)
-	instances, err = controller.InstancesByPort(svc, 0, config.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}

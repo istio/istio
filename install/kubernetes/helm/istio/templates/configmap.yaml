@@ -130,7 +130,7 @@ data:
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
-    {{- if  .Values.global.localityLbSetting }}
+    {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | indent 6 }}
     {{- end }}

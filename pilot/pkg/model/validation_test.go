@@ -23,6 +23,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -160,15 +162,15 @@ var (
 	endpoint1 = NetworkEndpoint{
 		Address:     "192.168.1.1",
 		Port:        10001,
-		ServicePort: &Port{Name: "http", Port: 81, Protocol: config.ProtocolHTTP},
+		ServicePort: &Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
 	}
 
 	service1 = &Service{
 		Hostname: "one.service.com",
 		Address:  "192.168.3.1", // VIP
 		Ports: PortList{
-			&Port{Name: "http", Port: 81, Protocol: config.ProtocolHTTP},
-			&Port{Name: "http-alt", Port: 8081, Protocol: config.ProtocolHTTP},
+			&Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
+			&Port{Name: "http-alt", Port: 8081, Protocol: protocol.HTTP},
 		},
 	}
 )
@@ -182,7 +184,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 		{
 			name: "nil service",
 			instance: &ServiceInstance{
-				Labels:   config.Labels{},
+				Labels:   labels.Instance{},
 				Endpoint: endpoint1,
 			},
 		},
@@ -190,7 +192,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 			name: "bad label",
 			instance: &ServiceInstance{
 				Service:  service1,
-				Labels:   config.Labels{"*": "-"},
+				Labels:   labels.Instance{"*": "-"},
 				Endpoint: endpoint1,
 			},
 		},
@@ -235,7 +237,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 					ServicePort: &Port{
 						Name:     "http",
 						Port:     service1.Ports[1].Port + 1,
-						Protocol: config.ProtocolGRPC,
+						Protocol: protocol.GRPC,
 					},
 				},
 			},
@@ -251,13 +253,13 @@ func TestServiceInstanceValidate(t *testing.T) {
 
 func TestServiceValidate(t *testing.T) {
 	ports := PortList{
-		{Name: "http", Port: 80, Protocol: config.ProtocolHTTP},
-		{Name: "http-alt", Port: 8080, Protocol: config.ProtocolHTTP},
+		{Name: "http", Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 	}
 	badPorts := PortList{
-		{Port: 80, Protocol: config.ProtocolHTTP},
-		{Name: "http-alt^", Port: 8080, Protocol: config.ProtocolHTTP},
-		{Name: "http", Port: -80, Protocol: config.ProtocolHTTP},
+		{Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt^", Port: 8080, Protocol: protocol.HTTP},
+		{Name: "http", Port: -80, Protocol: protocol.HTTP},
 	}
 
 	address := "192.168.1.1"

@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -24,7 +25,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -118,7 +120,55 @@ type Proxy struct {
 	ServiceInstances []*ServiceInstance
 
 	// labels associated with the workload
-	WorkloadLabels config.LabelsCollection
+	WorkloadLabels labels.Collection
+
+	// Istio version associated with the Proxy
+	IstioVersion *IstioVersion
+}
+
+var (
+	istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
+)
+
+// IstioVersion encodes the Istio version of the proxy. This is a low key way to
+// do semver style comparisons and generate the appropriate envoy config
+type IstioVersion struct {
+	Major int
+	Minor int
+	Patch int
+}
+
+var (
+	MaxIstioVersion = &IstioVersion{Major: 65535, Minor: 65535, Patch: 65535}
+)
+
+// Compare returns -1/0/1 if version is less than, equal or greater than inv
+// To compare only on major, call this function with { X, -1, -1}.
+// to compare only on major & minor, call this function with {X, Y, -1}.
+func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
+	if pversion.Major > inv.Major {
+		return 1
+	} else if pversion.Major < inv.Major {
+		return -1
+	}
+
+	// check minors
+	if inv.Minor > -1 {
+		if pversion.Minor > inv.Minor {
+			return 1
+		} else if pversion.Minor < inv.Minor {
+			return -1
+		}
+		// check patch
+		if inv.Patch > -1 {
+			if pversion.Patch > inv.Patch {
+				return 1
+			} else if pversion.Patch < inv.Patch {
+				return -1
+			}
+		}
+	}
+	return 0
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -155,12 +205,6 @@ func (node *Proxy) ServiceNode() string {
 		string(node.Type), ip, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 
-}
-
-// GetProxyVersion returns the proxy version string identifier, and whether it is present.
-func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
-	return version, found
 }
 
 // GetIstioVersion returns the Istio version of the proxy, and whether it is present
@@ -203,8 +247,7 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		labels := node.WorkloadLabels
-		node.SidecarScope = ps.getSidecarScope(node, labels)
+		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
@@ -224,13 +267,13 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	labels, err := env.GetProxyWorkloadLabels(node)
+	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
 		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		labels = config.LabelsCollection{node.Metadata}
+		l = labels.Collection{node.Metadata}
 	}
 
-	node.WorkloadLabels = labels
+	node.WorkloadLabels = l
 	return nil
 }
 
@@ -318,7 +361,34 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
+	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
 	return out, nil
+}
+
+// ParseIstioVersion parses a version string and returns IstioVersion struct
+func ParseIstioVersion(ver string) *IstioVersion {
+	if strings.HasPrefix(ver, "master-") {
+		// This proxy is from a master branch build. Assume latest version
+		return MaxIstioVersion
+	}
+
+	// strip the release- prefix if any and extract the version string
+	ver = istioVersionRegexp.FindString(strings.TrimPrefix(ver, "release-"))
+
+	if ver == "" {
+		// return very large values assuming latest version
+		return MaxIstioVersion
+	}
+
+	parts := strings.Split(ver, ".")
+	// we are guaranteed to have atleast major and minor based on the regex
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	patch := 0
+	if len(parts) > 2 {
+		patch, _ = strconv.Atoi(parts[2])
+	}
+	return &IstioVersion{Major: major, Minor: minor, Patch: patch}
 }
 
 // GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
@@ -393,9 +463,6 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
-	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
-	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
-
 	// NodeMetadataIstioVersion specifies the Istio version associated with the proxy
 	NodeMetadataIstioVersion = "ISTIO_VERSION"
 

@@ -162,6 +162,13 @@ var (
 			"could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes "+
 			"and will be removed in the near future.",
 	)
+
+	ScopePushes = env.RegisterBoolVar(
+		"PILOT_SCOPE_PUSHES",
+		true,
+		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
+			"a config or endpoint update will impact.",
+	)
 )
 
 var (

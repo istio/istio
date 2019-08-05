@@ -24,13 +24,14 @@ import (
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -203,14 +204,14 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "ns1",
-			model.NodeMetadataInstanceIPs:       "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "ns1",
+			model.NodeMetadataInstanceIPs:     "100.1.1.2", // as service instance of http2.ns1
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -239,23 +240,23 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	// plus 2 extra due to the mem registry
+	// Expect 7 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 7 {
-		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 
-	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
-	// and 2 subsets of http1), 1 blackhole, 1 passthrough
-	// plus 2 extra due to the mem registry
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
+	// Expect 12 CDS clusters:
+	// 3 inbound(http, inbound passthroughipv4 and inbound passthroughipv6)
+	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
+	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
+	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 12 {
 		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
 	// plus one extra due to mem registry
 	if len(adsResponse.Routes["8080"].VirtualHosts) != 3 {
-		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
+		t.Fatalf("Expected 3 VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
 	}
 }
 
@@ -275,14 +276,14 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "istio-system",
-			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "istio-system",
+			model.NodeMetadataInstanceIPs:     "99.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -342,7 +343,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -367,7 +368,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := config.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -393,7 +394,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		args.Service.Registries = []string{}
 	})
 	registry := memServiceDiscovery(server, t)
-	registry.AddWorkload("98.1.1.1", config.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
+	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -401,14 +402,14 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "consumerns",
-			model.NodeMetadataInstanceIPs:       "98.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "consumerns",
+			model.NodeMetadataInstanceIPs:     "98.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -469,9 +470,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	})
 	registry := memServiceDiscovery(server, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
-	registry.AddWorkload("98.1.1.1", config.Labels{"app": "envoyfilter-test-app", "some": "otherlabel"})
-	registry.AddWorkload("98.1.1.2", config.Labels{"app": "no-envoyfilter-test-app"})
-	registry.AddWorkload("98.1.1.3", config.Labels{})
+	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "envoyfilter-test-app", "some": "otherlabel"})
+	registry.AddWorkload("98.1.1.2", labels.Instance{"app": "no-envoyfilter-test-app"})
+	registry.AddWorkload("98.1.1.3", labels.Instance{})
 
 	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -479,7 +480,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 	defer tearDown()
 
 	tests := []struct {
@@ -509,9 +510,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 				Meta: map[string]string{
-					model.NodeMetadataConfigNamespace:   "consumerns",
-					model.NodeMetadataInstanceIPs:       test.ip, // as service instance of ingress gateway
-					model.NodeMetadataIstioProxyVersion: "1.1.0",
+					model.NodeMetadataConfigNamespace: "consumerns",
+					model.NodeMetadataInstanceIPs:     test.ip, // as service instance of ingress gateway
+					model.NodeMetadataIstioVersion:    "1.3.0",
 				},
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -548,7 +549,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 		var chain *xdsapi_listener.FilterChain
 		for _, fc := range l.FilterChains {
 			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
-				chain = &fc
+				chain = fc
 			}
 		}
 		if chain == nil {

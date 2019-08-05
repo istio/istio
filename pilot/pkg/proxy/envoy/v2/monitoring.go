@@ -14,10 +14,10 @@
 package v2
 
 import (
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/monitoring"
+	"istio.io/istio/pkg/mcp/status"
 )
 
 var (

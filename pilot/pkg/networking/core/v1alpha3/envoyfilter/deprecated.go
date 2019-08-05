@@ -25,10 +25,12 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
@@ -47,7 +49,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 		return nil
 	}
 
-	listenerIPAddress := getListenerIPAddress(&listener.Address)
+	listenerIPAddress := getListenerIPAddress(listener.Address)
 	if listenerIPAddress == nil {
 		log.Warnf("Failed to parse IP Address from plugin listener")
 	}
@@ -80,10 +82,10 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 					// Insert into http connection manager
-					deprecatedInsertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+					deprecatedInsertHTTPFilter(listener.Name, listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
 				} else {
 					// http listener, tcp filter
-					deprecatedInsertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+					deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
 				}
 			} else {
 				// The listener match logic does not take into account the listener protocol
@@ -106,7 +108,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 						f.FilterName)
 					continue
 				}
-				deprecatedInsertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+				deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
 			}
 		}
 	}
@@ -115,7 +117,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
-func getUserFiltersForWorkload(env *model.Environment, labels config.LabelsCollection) *networking.EnvoyFilter {
+func getUserFiltersForWorkload(env *model.Environment, labels labels.Collection) *networking.EnvoyFilter {
 	f := env.EnvoyFilter(labels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)
@@ -256,7 +258,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 	} else {
 		filterStruct.ConfigType = &xdslistener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	}
-	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
+	filterChain.Filters[len(filterChain.Filters)-1] = &filterStruct
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }
@@ -276,7 +278,7 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 	oldLen := len(filterChain.Filters)
 	switch position {
 	case networking.EnvoyFilter_InsertPosition_FIRST, networking.EnvoyFilter_InsertPosition_BEFORE:
-		filterChain.Filters = append([]xdslistener.Filter{*filter}, filterChain.Filters...)
+		filterChain.Filters = append([]*xdslistener.Filter{filter}, filterChain.Filters...)
 		if position == networking.EnvoyFilter_InsertPosition_BEFORE {
 			// bubble the filter to the right position scanning from beginning
 			for i := 1; i < len(filterChain.Filters); i++ {
@@ -287,7 +289,7 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 			}
 		}
 	case networking.EnvoyFilter_InsertPosition_LAST, networking.EnvoyFilter_InsertPosition_AFTER:
-		filterChain.Filters = append(filterChain.Filters, *filter)
+		filterChain.Filters = append(filterChain.Filters, filter)
 		if position == networking.EnvoyFilter_InsertPosition_AFTER {
 			// bubble the filter to the right position scanning from end
 			for i := len(filterChain.Filters) - 2; i >= 0; i-- {

@@ -60,7 +60,7 @@ type ParsedListener struct {
 	filterChains []*filterChain
 }
 
-func getFilterConfig(filter listener.Filter, out proto.Message) error {
+func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
 		if err := util.StructToMessage(c.Config, out); err != nil {
@@ -74,7 +74,7 @@ func getFilterConfig(filter listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func getHTTPConnectionManager(filter listener.Filter) *hcm_filter.HttpConnectionManager {
+func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectionManager {
 	cm := &hcm_filter.HttpConnectionManager{}
 	if err := getFilterConfig(filter, cm); err != nil {
 		log.Errorf("failed to get HTTP connection manager config: %s", err)

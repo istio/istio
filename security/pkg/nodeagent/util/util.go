@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	pcg "github.com/prometheus/client_model/go"
+	"go.opencensus.io/stats/view"
 )
 
 // parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
@@ -39,10 +38,14 @@ func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 }
 
 // GetMetricsCounterValue returns counter value in float64
-func GetMetricsCounterValue(c prometheus.Counter) (float64, error) {
-	counterPb := &pcg.Metric{}
-	if err := c.Write(counterPb); err != nil {
+func GetMetricsCounterValue(metricName string) (float64, error) {
+	rows, err := view.RetrieveData(metricName)
+	if err != nil {
 		return float64(0), err
 	}
-	return counterPb.GetCounter().GetValue(), nil
+	if len(rows) != 1 {
+		return float64(0), fmt.Errorf("unexpected number of data for view %s", metricName)
+	}
+
+	return rows[0].Data.(*view.SumData).Value, nil
 }

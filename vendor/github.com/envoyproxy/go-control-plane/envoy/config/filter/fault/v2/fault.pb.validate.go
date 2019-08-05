@@ -42,17 +42,12 @@ func (m *FaultDelay) Validate() error {
 
 	// no validation rules for Type
 
-	{
-		tmp := m.GetPercentage()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FaultDelayValidationError{
-					field:  "Percentage",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FaultDelayValidationError{
+				field:  "Percentage",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -77,17 +72,12 @@ func (m *FaultDelay) Validate() error {
 
 	case *FaultDelay_HeaderDelay_:
 
-		{
-			tmp := m.GetHeaderDelay()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FaultDelayValidationError{
-						field:  "HeaderDelay",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHeaderDelay()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FaultDelayValidationError{
+					field:  "HeaderDelay",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -165,17 +155,12 @@ func (m *FaultRateLimit) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetPercentage()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FaultRateLimitValidationError{
-					field:  "Percentage",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FaultRateLimitValidationError{
+				field:  "Percentage",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -184,34 +169,24 @@ func (m *FaultRateLimit) Validate() error {
 
 	case *FaultRateLimit_FixedLimit_:
 
-		{
-			tmp := m.GetFixedLimit()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FaultRateLimitValidationError{
-						field:  "FixedLimit",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetFixedLimit()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FaultRateLimitValidationError{
+					field:  "FixedLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *FaultRateLimit_HeaderLimit_:
 
-		{
-			tmp := m.GetHeaderLimit()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FaultRateLimitValidationError{
-						field:  "HeaderLimit",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHeaderLimit()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FaultRateLimitValidationError{
+					field:  "HeaderLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

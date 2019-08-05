@@ -126,76 +126,6 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func TestIsProxyVersionGE11(t *testing.T) {
-	tests := []struct {
-		name string
-		node *model.Proxy
-		want bool
-	}{
-		{
-			"the given Proxy version is 1.x",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.0",
-				},
-			},
-			false,
-		},
-		{
-			"the given Proxy version is not 1.x",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "0.8",
-				},
-			},
-			false,
-		},
-		{
-			"the given Proxy version is 1.1",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.1",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 1.1.1",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.1.1",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 2.0",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "2.0",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 10.0",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "2.0",
-				},
-			},
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := IsProxyVersionGE11(tt.node); got != tt.want {
-				t.Errorf("IsProxyVersionGE11() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestResolveHostsInNetworksConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -500,14 +430,14 @@ func buildFakeCluster() *v2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -519,7 +449,7 @@ func buildFakeCluster() *v2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -531,16 +461,16 @@ func buildFakeCluster() *v2.Cluster {
 }
 
 func TestIsHTTPFilterChain(t *testing.T) {
-	httpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	httpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.HTTPConnectionManager,
 			},
 		},
 	}
 
-	tcpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	tcpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.TCPProxy,
 			},
@@ -568,7 +498,7 @@ func BenchmarkGetByAddress(b *testing.B) {
 			listener80,
 			listener81,
 			listenerip,
-		}, listenerip.Address)
+		}, *listenerip.Address)
 	}
 }
 
@@ -576,7 +506,7 @@ func TestGetByAddress(t *testing.T) {
 	tests := []struct {
 		name      string
 		listeners []*v2.Listener
-		address   core.Address
+		address   *core.Address
 		expected  *v2.Listener
 	}{
 		{
@@ -607,7 +537,7 @@ func TestGetByAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetByAddress(tt.listeners, tt.address)
+			got := GetByAddress(tt.listeners, *tt.address)
 			if got != tt.expected {
 				t.Errorf("Got %v, expected %v", got, tt.expected)
 			}

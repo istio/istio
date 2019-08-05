@@ -20,9 +20,12 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -57,7 +60,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	defer stopFn()
 
 	expectedServices := []*model.Service{
-		makeService("*.google.com", "httpDNS", config.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
@@ -75,7 +78,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 }
 
 func TestServiceDiscoveryGetService(t *testing.T) {
-	host := "*.google.com"
+	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
 	store, sd, stopFn := initServiceDiscovery()
@@ -83,7 +86,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
 
-	service, err := sd.GetService(config.Hostname(hostDNE))
+	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -91,15 +94,15 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(config.Hostname(host))
+	service, err = sd.GetService(host.Name(hostname))
 	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
+		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
 	}
 	if service == nil {
-		t.Errorf("GetService(%q) => should exist", host)
+		t.Errorf("GetService(%q) => should exist", hostname)
 	}
-	if service.Hostname != config.Hostname(host) {
-		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
+	if service.Hostname != host.Name(hostname) {
+		t.Errorf("GetService(%q) => %q, want %q", hostname, service.Hostname, hostname)
 	}
 }
 
@@ -228,7 +231,7 @@ func sortServices(services []*model.Service) {
 }
 
 func sortServiceInstances(instances []*model.ServiceInstance) {
-	labelsToSlice := func(labels config.Labels) []string {
+	labelsToSlice := func(labels labels.Instance) []string {
 		out := make([]string, 0, len(labels))
 		for k, v := range labels {
 			out = append(out, fmt.Sprintf("%s=%s", k, v))

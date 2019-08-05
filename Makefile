@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
 # Current version, updated after a release.
-VERSION ?= 1.0-dev
+VERSION ?= 1.3-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -134,6 +134,7 @@ export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+export ARTIFACTS ?= $(ISTIO_OUT)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -492,7 +493,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ARTIFACTS)/junit_unit-tests.xml
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
@@ -574,6 +575,9 @@ selected-pkg-test:
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
 
+coverage-diff:
+	./bin/codecov_diff.sh
+
 .PHONY: pilot-coverage
 pilot-coverage:
 	bin/codecov.sh pilot
@@ -652,15 +656,14 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: artifacts gcs.push.istioctl-all artifacts installgen
+.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
-
 push: docker.push installgen
+
+gcs.push: push gcs.push.istioctl-all gcs.push.deb
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"

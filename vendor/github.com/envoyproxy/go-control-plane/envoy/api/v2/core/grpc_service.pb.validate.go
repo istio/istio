@@ -41,17 +41,12 @@ func (m *GrpcService) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetTimeout()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcServiceValidationError{
-					field:  "Timeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcServiceValidationError{
+				field:  "Timeout",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -59,17 +54,12 @@ func (m *GrpcService) Validate() error {
 	for idx, item := range m.GetInitialMetadata() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcServiceValidationError{
-						field:  fmt.Sprintf("InitialMetadata[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcServiceValidationError{
+					field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -80,34 +70,24 @@ func (m *GrpcService) Validate() error {
 
 	case *GrpcService_EnvoyGrpc_:
 
-		{
-			tmp := m.GetEnvoyGrpc()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcServiceValidationError{
-						field:  "EnvoyGrpc",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetEnvoyGrpc()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcServiceValidationError{
+					field:  "EnvoyGrpc",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_:
 
-		{
-			tmp := m.GetGoogleGrpc()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcServiceValidationError{
-						field:  "GoogleGrpc",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetGoogleGrpc()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcServiceValidationError{
+					field:  "GoogleGrpc",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -266,17 +246,12 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetChannelCredentials()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcService_GoogleGrpcValidationError{
-					field:  "ChannelCredentials",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetChannelCredentials()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcService_GoogleGrpcValidationError{
+				field:  "ChannelCredentials",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -284,17 +259,12 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 	for idx, item := range m.GetCallCredentials() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpcValidationError{
-						field:  fmt.Sprintf("CallCredentials[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpcValidationError{
+					field:  fmt.Sprintf("CallCredentials[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -310,17 +280,12 @@ func (m *GrpcService_GoogleGrpc) Validate() error {
 
 	// no validation rules for CredentialsFactoryName
 
-	{
-		tmp := m.GetConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcService_GoogleGrpcValidationError{
-					field:  "Config",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcService_GoogleGrpcValidationError{
+				field:  "Config",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -392,47 +357,32 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetRootCerts()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcService_GoogleGrpc_SslCredentialsValidationError{
-					field:  "RootCerts",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetRootCerts()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
+				field:  "RootCerts",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetPrivateKey()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcService_GoogleGrpc_SslCredentialsValidationError{
-					field:  "PrivateKey",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
+				field:  "PrivateKey",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetCertChain()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return GrpcService_GoogleGrpc_SslCredentialsValidationError{
-					field:  "CertChain",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetCertChain()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GrpcService_GoogleGrpc_SslCredentialsValidationError{
+				field:  "CertChain",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -578,51 +528,36 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials:
 
-		{
-			tmp := m.GetSslCredentials()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
-						field:  "SslCredentials",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetSslCredentials()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+					field:  "SslCredentials",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_GoogleDefault:
 
-		{
-			tmp := m.GetGoogleDefault()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
-						field:  "GoogleDefault",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetGoogleDefault()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+					field:  "GoogleDefault",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials:
 
-		{
-			tmp := m.GetLocalCredentials()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
-						field:  "LocalCredentials",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetLocalCredentials()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_ChannelCredentialsValidationError{
+					field:  "LocalCredentials",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -710,17 +645,12 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine:
 
-		{
-			tmp := m.GetGoogleComputeEngine()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentialsValidationError{
-						field:  "GoogleComputeEngine",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetGoogleComputeEngine()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
+					field:  "GoogleComputeEngine",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -730,51 +660,36 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Validate() error {
 
 	case *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJwtAccess:
 
-		{
-			tmp := m.GetServiceAccountJwtAccess()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentialsValidationError{
-						field:  "ServiceAccountJwtAccess",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetServiceAccountJwtAccess()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
+					field:  "ServiceAccountJwtAccess",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_CallCredentials_GoogleIam:
 
-		{
-			tmp := m.GetGoogleIam()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentialsValidationError{
-						field:  "GoogleIam",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetGoogleIam()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
+					field:  "GoogleIam",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_CallCredentials_FromPlugin:
 
-		{
-			tmp := m.GetFromPlugin()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentialsValidationError{
-						field:  "FromPlugin",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetFromPlugin()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentialsValidationError{
+					field:  "FromPlugin",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -1026,34 +941,24 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) V
 
 	case *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config:
 
-		{
-			tmp := m.GetConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
-						field:  "Config",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig:
 
-		{
-			tmp := m.GetTypedConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
-						field:  "TypedConfig",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPluginValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

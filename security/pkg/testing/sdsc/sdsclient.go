@@ -151,7 +151,7 @@ func ValidateResponse(response *xdsapi.DiscoveryResponse) error {
 		return fmt.Errorf("unexpected resource size in the response, %v ", response.Resources)
 	}
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(&response.Resources[0], &pb); err != nil {
+	if err := types.UnmarshalAny(response.Resources[0], &pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 	return nil

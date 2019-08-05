@@ -44,6 +44,12 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -66,18 +72,15 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -235,7 +238,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
 		} else {
-			args.Config.ClusterRegistriesNamespace = config.IstioSystemNamespace
+			args.Config.ClusterRegistriesNamespace = constants.IstioSystemNamespace
 		}
 	}
 
@@ -342,14 +345,14 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
 	if kube == nil {
-		defaultMesh := config.DefaultMeshConfig()
+		defaultMesh := mesh.DefaultMeshConfig()
 		return nil, &defaultMesh, nil
 	}
 
 	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			defaultMesh := config.DefaultMeshConfig()
+			defaultMesh := mesh.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
 		return nil, nil, err
@@ -362,11 +365,11 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := config.ApplyMeshConfigDefaults(cfgYaml)
+	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
-	return cfg, mesh, nil
+	return cfg, meshConfig, nil
 }
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
@@ -376,11 +379,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		s.mesh = args.MeshConfig
 		return nil
 	}
-	var mesh *meshconfig.MeshConfig
+	var meshConfig *meshconfig.MeshConfig
 	var err error
 
 	if args.Mesh.ConfigFile != "" {
-		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
@@ -388,29 +391,29 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		// Watch the config file for changes and reload if it got modified
 		s.addFileWatcher(args.Mesh.ConfigFile, func() {
 			// Reload the config file
-			mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 			if err != nil {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
-			if !reflect.DeepEqual(mesh, s.mesh) {
-				log.Infof("mesh configuration updated to: %s", spew.Sdump(mesh))
-				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
+			if !reflect.DeepEqual(meshConfig, s.mesh) {
+				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+				if !reflect.DeepEqual(meshConfig.ConfigSources, s.mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.mesh = mesh
+				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
-					s.EnvoyXdsServer.Env.Mesh = mesh
-					s.EnvoyXdsServer.ConfigUpdate(true)
+					s.EnvoyXdsServer.Env.Mesh = meshConfig
+					s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 				}
 			}
 		})
 	}
 
-	if mesh == nil {
+	if meshConfig == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
+		if _, meshConfig, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
 			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
 				err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
@@ -418,16 +421,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 		// Allow some overrides for testing purposes.
 		if args.Mesh.MixerAddress != "" {
-			mesh.MixerCheckServer = args.Mesh.MixerAddress
-			mesh.MixerReportServer = args.Mesh.MixerAddress
+			meshConfig.MixerCheckServer = args.Mesh.MixerAddress
+			meshConfig.MixerReportServer = args.Mesh.MixerAddress
 		}
 	}
 
-	log.Infof("mesh configuration %s", spew.Sdump(mesh))
+	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
-	s.mesh = mesh
+	s.mesh = meshConfig
 	return nil
 }
 
@@ -473,7 +476,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 			}
 		}
 	})
@@ -521,7 +524,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 		},
 	}
 
@@ -530,7 +533,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
+	reporter := monitoring.NewStatsContext("pilot")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
@@ -571,9 +574,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(config.AuthCertsPath, config.CertChainFilename),
-					KeyFile:           path.Join(config.AuthCertsPath, config.KeyFilename),
-					CACertificateFile: path.Join(config.AuthCertsPath, config.RootCertFilename),
+					CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
+					KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),
+					CACertificateFile: path.Join(constants.AuthCertsPath, constants.RootCertFilename),
 				}
 			default:
 				log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
@@ -862,11 +865,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
+		map[host.Name]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
 	discovery2 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
+		map[host.Name]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -1065,9 +1068,9 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 		certDir = PilotCertDir
 	}
 
-	ca := path.Join(certDir, config.RootCertFilename)
-	key := path.Join(certDir, config.KeyFilename)
-	cert := path.Join(certDir, config.CertChainFilename)
+	ca := path.Join(certDir, constants.RootCertFilename)
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
 
 	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
 	// certs not ready yet.

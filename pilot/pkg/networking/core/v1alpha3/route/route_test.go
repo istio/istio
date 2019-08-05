@@ -23,13 +23,17 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
-	serviceRegistry := map[config.Hostname]*model.Service{
+	serviceRegistry := map[host.Name]*model.Service{
 		"*.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
@@ -38,7 +42,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: config.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -49,14 +53,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "someID",
 		DNSDomain:   "foo.com",
-		Metadata:    map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
+		Metadata:    map[string]string{"ISTIO_VERSION": "1.3"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -65,7 +69,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Nanosecond * 100
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -98,7 +102,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -125,7 +129,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -145,7 +149,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -170,7 +174,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -188,7 +192,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Spec: portLevelDestinationRuleWithSubsetPolicy,
 			}})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -226,7 +230,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -236,7 +240,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -254,7 +258,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		meshConfig := config.DefaultMeshConfig()
+		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Env: &model.Environment{
 				Mesh: &meshConfig,
@@ -272,7 +276,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			}})
 
 		gatewayNames := map[string]bool{"some-gateway": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -291,7 +295,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
-			serviceRegistry, 8080, config.LabelsCollection{}, gatewayNames)
+			serviceRegistry, 8080, labels.Collection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -495,17 +499,17 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
-	first := []envoyroute.Route{
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+	first := []*envoyroute.Route{
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
-	second := []envoyroute.Route{
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
-		{Match: envoyroute.RouteMatch{
+	second := []*envoyroute.Route{
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
@@ -517,14 +521,14 @@ func TestCombineVHostRoutes(t *testing.T) {
 		}},
 	}
 
-	want := []envoyroute.Route{
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
-		{Match: envoyroute.RouteMatch{
+	want := []*envoyroute.Route{
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
+		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
@@ -534,7 +538,7 @@ func TestCombineVHostRoutes(t *testing.T) {
 				},
 			},
 		}},
-		{Match: envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
 	got := route.CombineVHostRoutes(first, second)
