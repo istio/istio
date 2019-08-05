@@ -39,30 +39,39 @@ var (
 
 func TestConvertProtocol(t *testing.T) {
 	type protocolCase struct {
+		port  int32
 		name  string
 		proto coreV1.Protocol
 		out   protocol.Instance
 	}
 	protocols := []protocolCase{
-		{"", coreV1.ProtocolTCP, protocol.Unsupported},
-		{"http", coreV1.ProtocolTCP, protocol.HTTP},
-		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
-		{"http", coreV1.ProtocolUDP, protocol.UDP},
-		{"httptest", coreV1.ProtocolTCP, protocol.Unsupported},
-		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
-		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
-		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
-		{"http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
-		{"grpc", coreV1.ProtocolTCP, protocol.GRPC},
-		{"grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
-		{"grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, protocol.Mongo},
-		{"mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
-		{"redis", coreV1.ProtocolTCP, protocol.Redis},
-		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
-		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
-		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
+		{8888, "", coreV1.ProtocolTCP, protocol.Unsupported},
+		{25, "", coreV1.ProtocolTCP, protocol.TCP},
+		{53, "", coreV1.ProtocolTCP, protocol.TCP},
+		{3306, "", coreV1.ProtocolTCP, protocol.TCP},
+		{27017, "", coreV1.ProtocolTCP, protocol.TCP},
+		{8888, "http", coreV1.ProtocolTCP, protocol.HTTP},
+		{8888, "http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{8888, "http", coreV1.ProtocolUDP, protocol.UDP},
+		{8888, "httptest", coreV1.ProtocolTCP, protocol.Unsupported},
+		{25, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{53, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{3306, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{27017, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{8888, "https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{8888, "https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{8888, "http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{8888, "http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{8888, "grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{8888, "mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{8888, "redis", coreV1.ProtocolTCP, protocol.Redis},
+		{8888, "redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{8888, "mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{8888, "mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -80,22 +89,14 @@ func TestConvertProtocol(t *testing.T) {
 		}
 	}
 
-	ports := append(kube.WellKnownPorts, 8888)
 	for _, c := range cases {
-		for _, p := range ports {
-			expected := c.out
-			if expected == protocol.Unsupported && p != 8888 {
-				expected = protocol.TCP
+		testName := strings.Replace(fmt.Sprintf("%s_%s_%d", c.name, c.proto, c.port), "-", "_", -1)
+		t.Run(testName, func(t *testing.T) {
+			out := kube.ConvertProtocol(c.port, c.name, c.proto)
+			if out != c.out {
+				t.Fatalf("convertProtocol(%d, %q, %q) => %q, want %q", c.port, c.name, c.proto, out, c.out)
 			}
-
-			testName := strings.Replace(fmt.Sprintf("%s_%s_%d", c.name, c.proto, p), "-", "_", -1)
-			t.Run(testName, func(t *testing.T) {
-				out := kube.ConvertProtocol(p, c.name, c.proto)
-				if out != expected {
-					t.Fatalf("convertProtocol(%d, %q, %q) => %q, want %q", p, c.name, c.proto, out, c.out)
-				}
-			})
-		}
+		})
 	}
 }
 

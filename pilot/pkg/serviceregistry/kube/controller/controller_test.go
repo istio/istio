@@ -66,7 +66,7 @@ const (
 	domainSuffix = "company.com"
 )
 
-func (*FakeXdsUpdater) ConfigUpdate(bool) {
+func (*FakeXdsUpdater) ConfigUpdate(model.UpdateRequest) {
 
 }
 

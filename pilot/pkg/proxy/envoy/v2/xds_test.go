@@ -284,7 +284,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
 
 	// Update cache
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 	// TODO: channel to notify when the push is finished and to notify individual updates, for
 	// debug and for the canary.
 	time.Sleep(2 * time.Second)

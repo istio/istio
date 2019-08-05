@@ -167,6 +167,13 @@ var (
 		"PILOT_ENABLE_PROTOCOL_SNIFFING",
 		false,
 		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	}
+	
+	ScopePushes = env.RegisterBoolVar(
+		"PILOT_SCOPE_PUSHES",
+		true,
+		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
+			"a config or endpoint update will impact.",
 	)
 )
 
