@@ -177,9 +177,9 @@ global:
 
     # Configure envoy gRPC access log service.
     envoyAccessLogService:
-      enabled: true
-      host: "accesslog-service.istio-system"
-      port: 5000
+      enabled: false
+      host: # example: accesslog-service.istio-system
+      port: # example: 15000
 
     # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
     # Expected values are: trace|debug|info|warning|error|critical|off
