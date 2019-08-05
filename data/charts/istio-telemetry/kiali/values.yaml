@@ -5,7 +5,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.19
+  tag: v1.1.0
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
 
@@ -57,3 +57,8 @@ kiali:
 
   # When true, a secret will be created with a default username and password. Useful for demos.
   createDemoSecret: true
+
+  security:
+    enabled: true
+    cert_file: /kiali-cert/cert-chain.pem
+    private_key_file: /kiali-cert/key.pem

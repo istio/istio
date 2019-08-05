@@ -11,6 +11,9 @@ data:
     istio_namespace: {{ .Release.Namespace }}
     server:
       port: 20001
+{{- if .Values.kiali.contextPath }}
+      web_root: {{ .Values.kiali.contextPath }}
+{{- end }}
     external_services:
       istio:
         url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
@@ -18,3 +21,8 @@ data:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
+{{- if .Values.kiali.security.enabled }}
+    identity:
+      cert_file: {{ .Values.kiali.security.cert_file }}
+      private_key_file: {{ .Values.kiali.security.private_key_file }}
+{{- end}}

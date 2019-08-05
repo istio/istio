@@ -6,7 +6,6 @@ template: |
   {{- if not .Values.istio_cni.enabled }}
   - name: istio-init
   {{- if contains "/" .Values.global.proxy_init.image }}
-    # TODO: use proxy image, to speed up stratup
     image: "{{ .Values.global.proxy_init.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
@@ -77,10 +76,10 @@ template: |
   {{- end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" .Values.global.proxy.image }}
+  {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
     image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
   {{- else }}
-    image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+    image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
     ports:
     - containerPort: 15090
@@ -163,6 +162,10 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
+    - --controlPlaneBootstrap=false
+  {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+    - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
+  {{- end }}
     env:
     - name: POD_NAME
       valueFrom:
@@ -176,12 +179,10 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.podIP
-  {{ if eq .Values.global.proxy.tracer "datadog" }}
     - name: HOST_IP
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-  {{ end }}
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -235,13 +236,10 @@ template: |
       capabilities:
         add:
         - NET_ADMIN
-      runAsGroup: 1337
       {{ else -}}
-      {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
-      runAsGroup: 1337
-      {{- end }}
       runAsUser: 1337
       {{- end }}
+      runAsGroup: 1337
     resources:
       {{ if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
       requests:
