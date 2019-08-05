@@ -22,7 +22,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
@@ -54,7 +53,7 @@ const (
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
-	if !(util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get()) && p == protocol.Unsupported {
+	if !util.IsProtocolSniffingEnabled(node) && p == protocol.Unsupported {
 		p = protocol.TCP
 	}
 
@@ -67,7 +66,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsIstioVersionGE13(node) && features.EnableProtocolSniffing.Get() {
+		if util.IsProtocolSniffingEnabled(node) {
 			return ListenerProtocolAuto
 		}
 

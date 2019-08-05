@@ -33,6 +33,8 @@ import (
 )
 
 var (
+	// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
+	// protocol sniffing is enabled.
 	wellKnownPorts = map[int32]struct{}{
 		25:    {}, // SMTP
 		53:    {}, // DNS. Default TCP if not specified.

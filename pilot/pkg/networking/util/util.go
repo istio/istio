@@ -276,6 +276,11 @@ func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 	return !features.DisableXDSMarshalingToAny
 }
 
+// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
+func IsProtocolSniffingEnabled(node *model.Proxy) bool {
+	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
+}
+
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
 // networks in the config and if it's not an IP address it will try to lookup
 // that hostname and replace it with the IP address in the config
