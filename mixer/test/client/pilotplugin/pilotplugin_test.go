@@ -138,6 +138,7 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
+  "destination.mesh.uid": "mydomain",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -219,6 +220,7 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
+  "destination.mesh.uid": "mydomain",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -332,6 +334,7 @@ var (
 			MixerReportServer:           "mixer_server:9091",
 			EnableClientSidePolicyCheck: true,
 		},
+		MeshUID:          "mydomain",
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{

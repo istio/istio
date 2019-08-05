@@ -420,6 +420,9 @@ global:
   #   else:  default dns domain
   trustDomain: ""
 
+  # (optional) Specify the mesh UID.
+  # meshUID: ""
+
   # Set the default behavior of the sidecar for handling outbound traffic from the application:
   # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
   #   services or ServiceEntries for the destination port

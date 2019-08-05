@@ -40,6 +40,9 @@ type Environment struct {
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
 
+	// MeshUID specifies the ID of the mesh
+	MeshUID string
+
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
 

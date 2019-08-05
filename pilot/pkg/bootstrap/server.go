@@ -193,6 +193,7 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	MeshUID   string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -892,6 +893,7 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
 		Mesh:             s.mesh,
+		MeshUID:          args.MeshUID,
 		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,

@@ -153,6 +153,9 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if .Values.global.meshUID }}
+          - --meshUID={{.Values.global.meshUID}}
+        {{- end }}
           env:
           - name: POD_NAME
             valueFrom:

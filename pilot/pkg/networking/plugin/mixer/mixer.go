@@ -151,6 +151,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"context.reporter.kind": attrStringValue("inbound"),
 	}
 
+	if in.Env.MeshUID != "" {
+		attrs["destination.mesh.uid"] = attrStringValue(in.Env.MeshUID)
+	}
+
 	switch address := mutable.Listener.Address.Address.(type) {
 	case *core.Address_SocketAddress:
 		if address != nil && address.SocketAddress != nil {
