@@ -19,7 +19,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-IMG = docker.io/sdake/build-tools:2019-08-03
+IMG = gcr.io/istio-testing/build-tools:2019-08-05
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN ?= $(GOPATH)/bin
