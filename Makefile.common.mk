@@ -22,19 +22,19 @@
 IMG = gcr.io/istio-testing/build-tools:2019-08-05
 UID = $(shell id -u)
 PWD = $(shell pwd)
-GOBIN ?= $(GOPATH)/bin
+GOBIN_SOURCE ?= $(GOPATH)/bin
+GOBIN ?= /work/out/bin
 
 RUN = docker run -t --sig-proxy=true -u $(UID) --rm \
 	-v /etc/passwd:/etc/passwd:ro \
-	-v /etc/passwd:/etc/passwd:ro \
-	-v /etc/localtime:/etc/localtime:ro \
-	-v /etc/timezeone:/etc/timezeone:ro \
+	-v $(reallink /etc/localtime):/etc/localtime:ro \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
 	--mount type=volume,source=istio-go-cache,destination="/gocache" \
-	--mount type=bind,source="$(GOBIN)",destination="/go/out/bin" \
+	--mount type=bind,source="$(GOBIN_SOURCE)",destination="/go/out/bin" \
 	-w /work $(IMG)
 
+#	-v /etc/timezeone:/etc/timezeone:ro \
 # Set the enviornment variable USE_LOCAL_TOOLCHAIN to 1 to use the
 # systemwide toolchain. Otherwise use a fairly tidy build container to
 # build the repository. In this second mode of operation, only docker
