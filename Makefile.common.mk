@@ -19,6 +19,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+IMG = docker.io/sdake/build-tools:2019-08-03
+UID = $(shell id -u)
+PWD = $(shell pwd)
+GOBIN ?= $(GOPATH)/bin
+
+RUN = docker run -t --sig-proxy=true -u $(UID) --rm \
+	-v /etc/passwd:/etc/passwd:ro \
+	-v /etc/passwd:/etc/passwd:ro \
+	-v /etc/localtime:/etc/localtime:ro \
+	-v /etc/timezeone:/etc/timezeone:ro \
+	--mount type=bind,source="$(PWD)",destination="/work" \
+	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
+	--mount type=volume,source=istio-go-cache,destination="/gocache" \
+	--mount type=bind,source="$(GOBIN)",destination="/go/out/bin" \
+	-w /work $(IMG)
+
+# Set the enviornment variable USE_LOCAL_TOOLCHAIN to 1 to use the
+# systemwide toolchain. Otherwise use a fairly tidy build container to
+# build the repository. In this second mode of operation, only docker
+# and make are required in the environment.
+export USE_LOCAL_TOOLCHAIN ?= 0
+ifeq ($(USE_LOCAL_TOOLCHAIN),1)
+RUN =
+endif
+
+MAKE = $(RUN) make -f Makefile.container.mk
+
+.PHONY: updatecommon
+
 updatecommon:
 	@git clone https://github.com/istio/common-files
 	@cd common-files
