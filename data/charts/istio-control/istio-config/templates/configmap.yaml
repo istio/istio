@@ -6,6 +6,8 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 data:
+{{- if .Values.global.configValidation }}
   validatingwebhookconfiguration.yaml: |-
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
+{{- end}}
 ---

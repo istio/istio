@@ -10,5 +10,6 @@ metadata:
 spec:
   ports:
   - port: 443
+    targetPort: 9443
   selector:
     istio: sidecar-injector

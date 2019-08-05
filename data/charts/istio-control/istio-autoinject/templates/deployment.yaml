@@ -28,7 +28,7 @@ spec:
 {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume: {{ print $.Template.BasePath "/sidecar-injector-configmap.yaml" | sha256sum }}
+        checksum/config-volume: {{ .Files.Get "files/injection-template.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
 {{- if .Values.global.priorityClassName }}
@@ -49,7 +49,7 @@ spec:
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
-            - --healthCheckFile=/health
+            - --healthCheckFile=/tmp/health
             - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
             - --log_output_level=debug
           {{- if .Values.global.logAsJson }}
@@ -70,7 +70,7 @@ spec:
               command:
                 - /usr/local/bin/sidecar-injector
                 - probe
-                - --probe-path=/health
+                - --probe-path=/tmp/health
                 - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
@@ -79,7 +79,7 @@ spec:
               command:
                 - /usr/local/bin/sidecar-injector
                 - probe
-                - --probe-path=/health
+                - --probe-path=/tmp/health
                 - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4

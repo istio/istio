@@ -28,7 +28,10 @@ spec:
       name: Age
       type: date
   group: certmanager.k8s.io
-  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
   names:
     kind: Order
     plural: orders
@@ -62,7 +65,10 @@ spec:
       name: Age
       type: date
   group: certmanager.k8s.io
-  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
   names:
     kind: Challenge
     plural: challenges
