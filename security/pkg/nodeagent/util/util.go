@@ -37,7 +37,7 @@ func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 	return cert.NotAfter, nil
 }
 
-// GetMetricsCounterValue returns counter value in float64
+// GetMetricsCounterValue returns counter value in float64. For test purpose only.
 func GetMetricsCounterValue(metricName string) (float64, error) {
 	rows, err := view.RetrieveData(metricName)
 	if err != nil {
