@@ -93,6 +93,9 @@ type SidecarScope struct {
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
+
+	// Set of all namespaces this sidecar depends on. This is determined from the egress config
+	namespaceDependencies map[string]struct{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -165,9 +168,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
 	out := &SidecarScope{
-		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:         defaultEgressListener.services,
-		destinationRules: make(map[host.Name]*Config),
+		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:              defaultEgressListener.services,
+		destinationRules:      make(map[host.Name]*Config),
+		namespaceDependencies: make(map[string]struct{}),
 	}
 	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
 
@@ -176,6 +180,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	// that these services need
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 	}
 
 	if ps.Env.Mesh.OutboundTrafficPolicy != nil {
@@ -211,12 +216,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		ConfigNamespace: configNamespace,
 	}
 
+	// Assign namespace dependencies
+	out.namespaceDependencies = make(map[string]struct{})
 	for _, listener := range out.EgressListeners {
 		for _, s := range listener.services {
 			// TODO: port merging when each listener generates a partial service
 			if _, found := servicesAdded[string(s.Hostname)]; !found {
 				servicesAdded[string(s.Hostname)] = struct{}{}
 				out.services = append(out.services, s)
+				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 			}
 		}
 	}
@@ -371,6 +379,19 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
 	}
 
 	return ilw.virtualServices
+}
+
+// DependsOnNamespace determines if the Sidecar includes the given namespace.
+func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
+	if sc == nil {
+		return true
+	}
+
+	if _, f := sc.namespaceDependencies[namespace]; f {
+		return true
+	}
+
+	return false
 }
 
 // Given a list of virtual services visible to this namespace,
