@@ -49,8 +49,8 @@ var (
 	// totalSecretUpdateFailureCounts records total number of secret update failures reported by
 	// proxy in SDS request <error_detail> field.
 	totalSecretUpdateFailureCounts = monitoring.NewSum(
-	"total_secret_update_failures",
-	"The total number of dynamic secret update failures reported by proxy.",
+		"total_secret_update_failures",
+		"The total number of dynamic secret update failures reported by proxy.",
 	)
 )
 

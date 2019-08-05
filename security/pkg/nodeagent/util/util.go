@@ -43,8 +43,12 @@ func GetMetricsCounterValue(metricName string) (float64, error) {
 	if err != nil {
 		return float64(0), err
 	}
-	if len(rows) != 1 {
-		return float64(0), fmt.Errorf("unexpected number of data for view %s", metricName)
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	if len(rows) > 1 {
+		return float64(0), fmt.Errorf("unexpected number of data for view %s: %d",
+			metricName, len(rows))
 	}
 
 	return rows[0].Data.(*view.SumData).Value, nil
