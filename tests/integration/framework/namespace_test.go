@@ -34,11 +34,11 @@ func TestNamespace(t *testing.T) {
 			namespaceName = ns.Name()
 
 			env := ctx.Environment().(*kube.Environment)
-			if !env.Accessors[0].NamespaceExists(ns.Name()) {
+			if !env.NamespaceExists(ns.Name()) {
 				t.Fatalf("The namespace %q should have existed.", ns.Name())
 			}
 
-			n, err := env.Accessors[0].GetNamespace(ns.Name())
+			n, err := env.GetNamespace(ns.Name())
 			if err != nil {
 				t.Fatalf("Error getting the namespace(%q): %v", ns.Name(), err)
 			}
@@ -51,7 +51,7 @@ func TestNamespace(t *testing.T) {
 
 	if !noCleanup {
 		// Check after run to see that the namespace is gone.
-		if err := env.Accessors[0].WaitForNamespaceDeletion(namespaceName); err != nil {
+		if err := env.WaitForNamespaceDeletion(namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
 		}
 	}

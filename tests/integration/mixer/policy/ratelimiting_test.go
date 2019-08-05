@@ -275,7 +275,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
 		return
 	}
-	red, err = redis.New(ctx)
+	red, err = redis.New(ctx, redis.Config{})
 	if err != nil {
 		return
 	}

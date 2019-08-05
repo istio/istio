@@ -28,7 +28,8 @@ import (
 type Environment struct {
 	id resource.ID
 
-	ctx       api.Context
+	ctx api.Context
+	*kube.Accessor
 	Accessors []*kube.Accessor
 	s         *Settings
 }
@@ -61,6 +62,7 @@ func New(ctx api.Context) (resource.Environment, error) {
 			return nil, err
 		}
 	}
+	e.Accessor = e.Accessors[0]
 
 	return e, nil
 }

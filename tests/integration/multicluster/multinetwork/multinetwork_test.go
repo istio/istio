@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 			if len(env.Accessors) >= 2 {
 				return nil
 			}
-			return fmt.Errorf("This test requires 2 KubeConfigs")
+			return fmt.Errorf("this test requires 2 KubeConfigs, like  --istio.test.kube.config config-a:config-b")
 		}).
 
 		// Deploy Istio
