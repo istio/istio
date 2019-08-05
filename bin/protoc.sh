@@ -27,7 +27,23 @@ if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
+api=$(go list -m -f "{{.Dir}}" istio.io/api)
+protobuf=$(go list -m -f "{{.Dir}}" github.com/gogo/protobuf)
+gogo_genproto=$(go list -m -f "{{.Dir}}" istio.io/gogo-genproto)
+
 gen_img=gcr.io/istio-testing/api-build-tools:2019-07-31
 
-docker run  -i --volume /var/run/docker.sock:/var/run/docker.sock \
-  --rm --entrypoint /usr/bin/protoc -v "$ROOTDIR:$ROOTDIR" -w "$(pwd)" $gen_img "$@"
+docker run \
+  -i \
+  --rm \
+  -v "$ROOTDIR:$ROOTDIR" \
+  -v "${api}:/protos/istio.io/api" \
+  -v "${protobuf}:/protos/github.com/gogo/protobuf" \
+  -v "${gogo_genproto}:/protos/istio.io/gogo-genproto" \
+  -w "$(pwd)" \
+  --entrypoint /usr/bin/protoc \
+  $gen_img \
+  -I/protos/istio.io/api \
+  -I/protos/github.com/gogo/protobuf \
+  -I/protos/istio.io/gogo-genproto/googleapis \
+  "$@"
