@@ -27,7 +27,7 @@ GOBIN ?= /work/out/bin
 
 RUN = docker run -t --sig-proxy=true -u $(UID) --rm \
 	-v /etc/passwd:/etc/passwd:ro \
-	-v $(reallink /etc/localtime):/etc/localtime:ro \
+	-v $(readlink /etc/localtime):/etc/localtime:ro \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
 	--mount type=volume,source=istio-go-cache,destination="/gocache" \
