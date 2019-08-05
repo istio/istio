@@ -38,24 +38,34 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster ""
 
-echo 'Build'
-(cd "${ROOT}"; make build)
-
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
-# e2e tests with kind clusters on prow will get deleted when prow
-# deleted the pod 
-E2E_ARGS+=("--skip_cleanup")
-E2E_ARGS+=("--use_local_cluster")
-
-# KinD will have the images loaded into it; it should not attempt to pull them
-# See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
-E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
+function build_kind_images() {
+  # Build just the images needed for the tests
+  for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
+     make docker.${image}
+  done
+	# Archived local images and load it into KinD's docker daemon
+	# Kubernetes in KinD can only access local images from its docker daemon.
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+}
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
     case ${!i} in
+        # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
+        # For example, kindest/node:v1.14.0
+        --node-image)
+          ((i++))
+          NODE_IMAGE=${!i}
+        ;;
+        --skip-setup)
+          SKIP_SETUP=true
+          continue
+        ;;
+        --skip-build)
+          SKIP_BUILD=true
+          continue
+        ;;
         # -s/--single_test to specify test target to run.
         # e.g. "-s e2e_mixer" will trigger e2e mixer_test
         -s|--single_test) ((i++)); SINGLE_TEST=${!i}
@@ -68,19 +78,30 @@ for ((i=1; i<=$#; i++)); do
     E2E_ARGS+=( "${!i}" )
 done
 
-export HUB=${HUB:-"kindtest"}
-export TAG="${TAG:-${GIT_SHA}}"
+
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
+# e2e tests with kind clusters on prow will get deleted when prow
+# deleted the pod
+E2E_ARGS+=("--skip_cleanup")
+E2E_ARGS+=("--use_local_cluster")
+
+# KinD will have the images loaded into it; it should not attempt to pull them
+# See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
+E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
+
+
+export HUB=${HUB:-"istio-testing"}
+export TAG="${TAG:-"istio-testing"}"
 
 make init
-make docker
 
-function build_kind_images(){
-	# Archived local images and load it into KinD's docker daemon
-	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
-}
+if [[ -z "${SKIP_SETUP:-}" ]]; then
+  time setup_kind_cluster "${NODE_IMAGE:-}"
+fi
 
-build_kind_images
+if [[ -z "${SKIP_BUILD:-}" ]]; then
+  time build_kind_images
+fi
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
