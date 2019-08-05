@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-citadel11
+  name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
     app: citadel
@@ -26,7 +26,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-citadel11-service-account
+      serviceAccountName: istio-citadel-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}

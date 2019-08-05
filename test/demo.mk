@@ -10,10 +10,17 @@ test-demo-simple:
 
 
 # Run the 'install demo' test. Should run with a valid kube config and cluster - KIND or real.
-run-test-demo: ${TMPDIR}
-	kubectl apply -k crds
-	kubectl apply -k test/demo	
-	kubectl wait deployments istio-citadel11 -n ${ISTIO_SYSTEM_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
+# The demo environment should be compatible and we should be able to upgrade from 1.2
+run-test-demo: run-build-cluster run-build-demo ${TMPDIR}
+	kubectl apply -k kustomize/cluster
+
+	# To verify upgrade
+	kubectl apply -k kustomize/istio-1.2/default --prune -l release=istio
+
+	# New label
+	kubectl apply -k test/demo --prune -l release=istio-system-istio
+
+	kubectl wait deployments istio-citadel -n ${ISTIO_SYSTEM_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl wait deployments istio-galley istio-pilot -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl wait deployments istio-sidecar-injector -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl wait deployments istio-ingressgateway -n ${ISTIO_INGRESS_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
@@ -28,6 +35,14 @@ run-test-demo: ${TMPDIR}
 		--injectConfigFile istio-control/istio-autoinject/files/injection-template.yaml \
 	 | kubectl apply -n demo -f -
 
+	# Do a simple test for bookinfo
+	ONE_NAMESPACE=1 $(MAKE) run-bookinfo
+
+	# Rollback
+	kubectl apply -k kustomize/istio-1.2/default --prune -l release=istio
+
+	# Do a simple test for bookinfo again
+	ONE_NAMESPACE=1 $(MAKE) run-bookinfo
 
 test-demo-multi:
 	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-upgrade maybe-clean maybe-prepare sync

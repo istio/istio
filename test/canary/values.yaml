@@ -1,6 +1,5 @@
-
-#sidecarInjectorWebhook:
-#  rewriteAppHTTPProbe: false
+# Subset of 'values.yaml' used in injection
+# For canary we use control plane security
 
 istio_cni:
   enabled: false
@@ -15,7 +14,7 @@ global:
 
   imagePullPolicy: Always
 
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
 
   istioNamespace: istio-system-micro
   trustDomain: ""
