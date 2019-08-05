@@ -64,7 +64,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 	}()
 
-	if err = i.deployment.Deploy(e.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
+	if err = i.deployment.Deploy(e.Accessors[cfg.KubeIndex], true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
 		return nil, err
 	}
 
@@ -85,7 +85,7 @@ func (c *kubeComponent) Namespace() namespace.Instance {
 
 func (c *kubeComponent) Close() (err error) {
 	if c.deployment != nil {
-		err = c.deployment.Delete(c.env.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+		err = c.deployment.Delete(c.env.Accessors[c.cfg.KubeIndex], true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 		c.deployment = nil
 	}
 

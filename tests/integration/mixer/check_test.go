@@ -35,7 +35,7 @@ func TestCheck_Allow(t *testing.T) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 				Galley: gal,
 			})
-			be := policybackend.NewOrFail(t, ctx)
+			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, "testcheck-allow", false)
 
@@ -78,7 +78,7 @@ func TestCheck_Deny(t *testing.T) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 				Galley: gal,
 			})
-			be := policybackend.NewOrFail(t, ctx)
+			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, "testcheck-deny", false)
 

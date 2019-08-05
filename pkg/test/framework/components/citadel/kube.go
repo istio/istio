@@ -38,19 +38,21 @@ const (
 var _ Instance = &kubeComponent{}
 
 type kubeComponent struct {
-	id     resource.ID
-	istio  istio.Instance
-	secret cv1.SecretInterface
+	id        resource.ID
+	istio     istio.Instance
+	secret    cv1.SecretInterface
+	kubeIndex int
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{
-		istio: cfg.Istio,
+		istio:     cfg.Istio,
+		kubeIndex: cfg.KubeIndex,
 	}
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
+	c.secret = env.Accessors[c.kubeIndex].GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }

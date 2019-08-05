@@ -50,7 +50,7 @@ func (c *kubeComponent) ID() resource.ID {
 func (c *kubeComponent) Invoke(args []string) (string, error) {
 	var envArgs = []string{
 		"--kubeconfig",
-		c.env.Settings().KubeConfig,
+		c.env.Settings().KubeConfig[c.config.KubeIndex],
 	}
 	var out bytes.Buffer
 	rootCmd := cmd.GetRootCmd(append(envArgs, args...))

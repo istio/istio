@@ -15,6 +15,7 @@
 package istioctl
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -30,7 +31,8 @@ type Instance interface {
 
 // Structured config for the istioctl component
 type Config struct {
-	// currently nothing, we might add stuff like OS env settings later
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // New returns a new instance of "istioctl".
@@ -55,4 +57,10 @@ func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
 		t.Fatalf("istioctl.NewOrFail:: %v", err)
 	}
 	return i
+}
+
+func (c *Config) String() string {
+	result := ""
+	result += fmt.Sprintf("KubeIndex:                      %d\n", c.KubeIndex)
+	return result
 }

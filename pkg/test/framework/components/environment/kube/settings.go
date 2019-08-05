@@ -20,8 +20,8 @@ import (
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
-	// Path to kube config file. Required if the environment is kubernetes.
-	KubeConfig string
+	// An array of paths to kube config files. Required if the environment is kubernetes.
+	KubeConfig []string
 
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.

@@ -106,34 +106,34 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	scopes.CI.Infof("Wrote out istio deployment files at: %s", workDir)
 
 	// Apply CRDs first.
-	if err = env.Accessor.Apply("", crdFile); err != nil {
+	if err = env.Accessors[cfg.KubeIndex].Apply("", crdFile); err != nil {
 		return nil, err
 	}
 
 	// Deploy Istio.
 	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, istioInstallFile)
-	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
+	if err = i.deployment.Deploy(env.Accessors[cfg.KubeIndex], true, retry.Timeout(cfg.DeployTimeout)); err != nil {
 		return nil, err
 	}
 
 	if !cfg.SkipWaitForValidationWebhook {
 
 		// Wait for Galley & the validation webhook to come online before applying Istio configurations.
-		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+		if _, _, err = env.Accessors[cfg.KubeIndex].WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
 			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
 			scopes.CI.Info(err.Error())
 			return nil, err
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.Accessor)
+		err = waitForValidationWebhook(env.Accessors[cfg.KubeIndex])
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Then, apply Istio configuration.
-	if err = env.Accessor.Apply("", istioConfigFile); err != nil {
+	if err = env.Accessors[cfg.KubeIndex].Apply("", istioConfigFile); err != nil {
 		return nil, err
 	}
 
@@ -153,10 +153,10 @@ func (i *kubeComponent) Close() (err error) {
 	if i.settings.DeployIstio {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
-		//return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
-		err = i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		//return i.deployment.Delete(i.environment.Accessors[cfg.KubeIndex], true, retry.Timeout(s.DeployTimeout))
+		err = i.environment.Accessors[i.settings.KubeIndex].DeleteNamespace(i.settings.SystemNamespace)
 		if err == nil {
-			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
+			err = i.environment.Accessors[i.settings.KubeIndex].WaitForNamespaceDeletion(i.settings.SystemNamespace)
 		}
 	}
 
@@ -172,10 +172,10 @@ func (i *kubeComponent) Dump() {
 		return
 	}
 
-	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessor)
-	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.Accessor)
+	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessors[i.settings.KubeIndex])
+	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.Accessors[i.settings.KubeIndex])
 
-	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
+	pods, err := i.environment.Accessors[i.settings.KubeIndex].GetPods(i.settings.SystemNamespace)
 	if err != nil {
 		scopes.CI.Errorf("Unable to get pods from the system namespace: %v", err)
 		return
@@ -183,7 +183,7 @@ func (i *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
+			l, err := i.environment.Accessors[i.settings.KubeIndex].Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

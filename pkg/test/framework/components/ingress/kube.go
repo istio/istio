@@ -51,14 +51,15 @@ type kubeComponent struct {
 	id        resource.ID
 	namespace string
 	env       *kube.Environment
+	kubeIndex int
 }
 
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
-func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
+func (c *kubeComponent) getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
 	if env.Settings().Minikube {
-		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+		pods, err := env.Accessors[c.kubeIndex].GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err
 		}
@@ -74,7 +75,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := env.Accessor.GetService(ns, serviceName)
+		svc, err := env.Accessors[c.kubeIndex].GetService(ns, serviceName)
 		if err != nil {
 			return nil, false, err
 		}
@@ -99,7 +100,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := env.Accessor.GetService(ns, serviceName)
+	svc, err := env.Accessors[c.kubeIndex].GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -113,14 +114,14 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 }
 
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
-func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
+func (c *kubeComponent) getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
 		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
 		// https://github.com/istio/istio/issues/14180
 		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
 	}
 
-	svc, err := env.Accessor.GetService(ns, serviceName)
+	svc, err := env.Accessors[c.kubeIndex].GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -138,6 +139,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 	c.namespace = cfg.Istio.Settings().IngressNamespace
 	c.env = ctx.Environment().(*kube.Environment)
+	c.kubeIndex = cfg.KubeIndex
 
 	return c
 }
@@ -149,7 +151,7 @@ func (c *kubeComponent) ID() resource.ID {
 // HTTPAddress returns HTTP address of ingress gateway.
 func (c *kubeComponent) HTTPAddress() string {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return getHTTPAddressInner(c.env, c.namespace)
+		return c.getHTTPAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return ""
@@ -160,7 +162,7 @@ func (c *kubeComponent) HTTPAddress() string {
 // HTTPSAddress returns HTTPS address of ingress gateway.
 func (c *kubeComponent) HTTPSAddress() string {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return getHTTPSAddressInner(c.env, c.namespace)
+		return c.getHTTPSAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return ""
@@ -294,14 +296,14 @@ func (c *kubeComponent) ProxyStats() (map[string]int, error) {
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
 func (c *kubeComponent) adminRequest(path string) (string, error) {
-	pods, err := c.env.GetPods(c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Accessors[c.kubeIndex].GetPods(c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingress gateway stats: %v", err)
 	}
 	podNs, podName := pods[0].Namespace, pods[0].Name
 	// Exec onto the pod and make a curl request to the admin port
 	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
-	return c.env.Accessor.Exec(podNs, podName, proxyContainerName, command)
+	return c.env.Accessors[c.kubeIndex].Exec(podNs, podName, proxyContainerName, command)
 }
 
 type statEntry struct {

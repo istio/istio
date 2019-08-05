@@ -78,6 +78,7 @@ var (
 		CrdsFilesDir:                   env.CrdsFilesDir,
 		ValuesFile:                     E2EValuesFile,
 		CustomSidecarInjectorNamespace: "",
+		KubeIndex:                      0,
 	}
 )
 
@@ -134,6 +135,9 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // Is mtls enabled. Check in Values flag and Values file.
@@ -292,6 +296,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
+	result += fmt.Sprintf("KubeIndex:                      %d\n", c.KubeIndex)
 
 	return result
 }

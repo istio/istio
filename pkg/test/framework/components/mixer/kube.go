@@ -41,7 +41,7 @@ type kubeComponent struct {
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
+func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
 		env: ctx.Environment().(*kube.Environment),
 	}
@@ -66,8 +66,8 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 		if serviceType == policyService {
 			ns = cfg.PolicyNamespace
 		}
-		fetchFn := c.env.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
-		pods, err := c.env.WaitUntilPodsAreReady(fetchFn)
+		fetchFn := c.env.Accessors[cfgIn.KubeIndex].NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
+		pods, err := c.env.Accessors[cfgIn.KubeIndex].WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 		}
 		scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-		forwarder, err := c.env.NewPortForwarder(pod, 0, port)
+		forwarder, err := c.env.Accessors[cfgIn.KubeIndex].NewPortForwarder(pod, 0, port)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +127,7 @@ func (c *kubeComponent) Close() error {
 }
 
 func getGrpcPort(e *kube.Environment, ns, serviceType string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, "istio-"+serviceType)
+	svc, err := e.Accessors[0].GetService(ns, "istio-"+serviceType)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}

@@ -30,6 +30,11 @@ type Instance interface {
 	QueryTraces(limit int, spanName, annotationQuery string) ([]Trace, error)
 }
 
+type Config struct {
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
+}
+
 // Span represents a single span, which includes span attributes for verification
 // TODO(bianpengyuan) consider using zipkin proto api https://github.com/istio/istio/issues/13926
 type Span struct {
@@ -46,18 +51,18 @@ type Trace struct {
 }
 
 // New returns a new instance of zipkin.
-func New(ctx resource.Context) (i Instance, err error) {
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, c)
 	})
 	return
 }
 
 // NewOrFail returns a new zipkin instance or fails test.
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
+func NewOrFail(t *testing.T, ctx resource.Context, c Config) Instance {
 	t.Helper()
-	i, err := New(ctx)
+	i, err := New(ctx, c)
 	if err != nil {
 		t.Fatalf("zipkin.NewOrFail: %v", err)
 	}

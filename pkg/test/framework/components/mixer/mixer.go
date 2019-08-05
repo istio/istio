@@ -41,6 +41,8 @@ type CheckResponse struct {
 
 type Config struct {
 	Galley galley.Instance
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // Succeeded returns true if the precondition check was successful.

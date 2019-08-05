@@ -71,26 +71,26 @@ func TestWebhook(t *testing.T) {
 			ctx.NewSubTest("galleyUninstall").
 				Run(func(ctx framework.TestContext) {
 					// Remove galley deployment
-					env.DeleteDeployment(istioNs, deployName)
+					env.Accessors[0].DeleteDeployment(istioNs, deployName)
 
 					// Verify webhook config is deleted
-					env.WaitForValidatingWebhookDeletion(vwcName)
+					env.Accessors[0].WaitForValidatingWebhookDeletion(vwcName)
 				})
 		})
 }
 
 func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, env *kube.Environment) {
-	env.ScaleDeployment(namespace, deployment, replicas)
-	if err := env.ScaleDeployment(namespace, deployment, replicas); err != nil {
+	env.Accessors[0].ScaleDeployment(namespace, deployment, replicas)
+	if err := env.Accessors[0].ScaleDeployment(namespace, deployment, replicas); err != nil {
 		t.Fatalf("Error scaling deployment %s to %d: %v", deployment, replicas, err)
 	}
-	if err := env.WaitUntilDeploymentIsReady(namespace, deployment); err != nil {
+	if err := env.Accessors[0].WaitUntilDeploymentIsReady(namespace, deployment); err != nil {
 		t.Fatalf("Error waiting for deployment %s to be ready: %v", deployment, err)
 	}
 }
 
 func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64 {
-	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
+	vwc, err := env.Accessors[0].GetValidatingWebhookConfiguration(vwcName)
 	if err != nil {
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}

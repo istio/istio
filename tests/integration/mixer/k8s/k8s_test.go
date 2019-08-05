@@ -48,7 +48,7 @@ func TestK8sDeployment(t *testing.T) {
 		var successCount int
 		var lastWasSuccess bool
 		for i := 0; i < tryCount; i++ {
-			if _, err := env.CheckPodsAreReady(env.NewPodFetch(cfg.IstioNamespace)); err != nil {
+			if _, err := env.Accessors[0].CheckPodsAreReady(env.Accessors[0].NewPodFetch(cfg.IstioNamespace)); err != nil {
 				lastWasSuccess = false
 				t.Logf("Error waiting for pods: %v", err)
 			} else {

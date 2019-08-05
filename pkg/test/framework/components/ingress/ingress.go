@@ -99,6 +99,8 @@ type Config struct {
 	Istio istio.Instance
 	// IngressType specifies the type of ingress gateway.
 	IngressType CallType
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

@@ -64,8 +64,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	ns := c.ConfigNamespace
 
-	fetchFn := n.environment.NewSinglePodFetch(ns, "istio=galley")
-	pods, err := n.environment.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := n.environment.Accessors[c.KubeIndex].NewSinglePodFetch(ns, "istio=galley")
+	pods, err := n.environment.Accessors[c.KubeIndex].WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-	if n.forwarder, err = n.environment.NewPortForwarder(pod, 0, port); err != nil {
+	if n.forwarder, err = n.environment.Accessors[c.KubeIndex].NewPortForwarder(pod, 0, port); err != nil {
 		return nil, err
 	}
 	scopes.Framework.Debugf("initialized port forwarder: %v", n.forwarder.Address())
@@ -128,7 +128,7 @@ func (c *kubeComponent) Address() string {
 func (c *kubeComponent) ClearConfig() (err error) {
 
 	for _, k := range c.cache.AllKeys() {
-		if err = c.environment.Accessor.Delete("", c.cache.GetFileFor(k)); err != nil {
+		if err = c.environment.Accessors[c.cfg.KubeIndex].Delete("", c.cache.GetFileFor(k)); err != nil {
 			return err
 		}
 	}
@@ -157,7 +157,7 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 		}
 
 		for _, k := range keys {
-			if err = c.environment.Accessor.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
+			if err = c.environment.Accessors[c.cfg.KubeIndex].Apply(nsName, c.cache.GetFileFor(k)); err != nil {
 				return err
 			}
 		}
@@ -184,7 +184,7 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 	}
 
 	for _, txt := range yamlText {
-		err := c.environment.Accessor.DeleteContents(nsName, txt)
+		err := c.environment.Accessors[c.cfg.KubeIndex].DeleteContents(nsName, txt)
 		if err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func (c *kubeComponent) Close() (err error) {
 }
 
 func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, "istio-galley")
+	svc, err := e.Accessors[0].GetService(ns, "istio-galley")
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service: %v", err)
 	}

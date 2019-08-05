@@ -63,6 +63,9 @@ type Config struct {
 	// IncludeInboundPorts provides the ports that inbound listener should capture
 	// "*" means capture all.
 	IncludeInboundPorts string
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

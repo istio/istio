@@ -278,7 +278,7 @@ type Instance interface {
 ```
 
 | NOTE: A common pattern is to provide two versions of many methods: one that returns an error as well as an `OrFail` version that fails the test upon encountering an error. This provides options to the calling test and helps to simplify the calling logic. |
-| --- |  
+| --- |
 
 Next you need to implement your component for one or more environments. If possible, create both a native and Kubernetes version.
 
@@ -383,10 +383,10 @@ parallelism within the suite, even when explicitly specified via [RunParallel](#
 
 When no flags are specified, the test framework will run all applicable tests. It is possible to filter in/out specific
 tests using 2 mechanisms:
-  
+
   1. The standard ```-run <regexp>``` flag, as exposed by Go's own test framework.
   2. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
-  
+
 For example, if a test, or test suite uses labels in this fashion:
 
 ```go
@@ -537,7 +537,7 @@ $ go test galley/... --istio.test.work_dir /foo
 
 $ ls /foo
   galley-test-4ef25d910d2746f9b38/
-  
+
 $ ls /foo/galley-test-4ef25d910d2746f9b38/
   istio-system-1537332205890088657.yaml
   ...
@@ -617,7 +617,7 @@ The test framework supports the following command-line flags:
         Common image pull policy to use when deploying container images
 
   -istio.test.kube.config string
-        The path to the kube config file for cluster environments
+        A ':' seperated list of paths to kube config files for cluster environments (default is current kube context)
 
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)

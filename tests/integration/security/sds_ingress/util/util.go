@@ -101,7 +101,7 @@ func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames 
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessors[0]
 	for _, cn := range credNames {
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
@@ -222,7 +222,7 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
 func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) { // nolint:interfacer
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessors[0]
 	for _, cn := range credNames {
 		err := kubeAccessor.DeleteSecret(systemNS.Name(), cn)
 		if err != nil {

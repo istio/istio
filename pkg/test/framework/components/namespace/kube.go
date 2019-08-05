@@ -73,8 +73,8 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 		return nil, err
 	}
 
-	if !env.Accessor.NamespaceExists(name) {
-		if err := env.CreateNamespaceWithInjectionEnabled(name, "istio-test",
+	if !env.Accessors[cfg.KubeIndex].NamespaceExists(name) {
+		if err := env.Accessors[cfg.KubeIndex].CreateNamespaceWithInjectionEnabled(name, "istio-test",
 			cfg.CustomSidecarInjectorNamespace); err != nil {
 			return nil, err
 		}
@@ -94,24 +94,24 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 	env := ctx.Environment().(*kube.Environment)
 	ns := fmt.Sprintf("%s-%d-%d", prefix, nsid, r)
 
+	cfg, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if inject {
-		cfg, err := istio.DefaultConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		err = env.CreateNamespaceWithInjectionEnabled(ns, "istio-test",
+		err = env.Accessors[cfg.KubeIndex].CreateNamespaceWithInjectionEnabled(ns, "istio-test",
 			cfg.CustomSidecarInjectorNamespace)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		err := env.CreateNamespace(ns, "istio-test")
+		err := env.Accessors[cfg.KubeIndex].CreateNamespace(ns, "istio-test")
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	n := &kubeNamespace{name: ns, a: env.Accessor}
+	n := &kubeNamespace{name: ns, a: env.Accessors[cfg.KubeIndex]}
 	id := ctx.TrackResource(n)
 	n.id = id
 

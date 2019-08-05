@@ -67,6 +67,9 @@ type Config struct {
 
 	// MeshConfig to use for this instance.
 	MeshConfig string
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // New returns a new instance of echo.
