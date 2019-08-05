@@ -140,13 +140,9 @@ template: |
     - "{{ .ProxyConfig.Concurrency }}"
     {{ end -}}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    - --discoveryAddress
-    - "istio-pilot.{{ .Values.global.istioNamespace }}:15011"
     - --controlPlaneAuthPolicy
     - MUTUAL_TLS
     {{- else }}
-    - --discoveryAddress
-    - "istio-pilot.{{ .Values.global.istioNamespace }}:15010"
     - --controlPlaneAuthPolicy
     - NONE
     {{- end }}
