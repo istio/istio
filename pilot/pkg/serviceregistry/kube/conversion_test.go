@@ -80,14 +80,22 @@ func TestConvertProtocol(t *testing.T) {
 		}
 	}
 
+	ports := append(kube.WellKnownPorts, 8888)
 	for _, c := range cases {
-		testName := strings.Replace(fmt.Sprintf("%s_%s", c.name, c.proto), "-", "_", -1)
-		t.Run(testName, func(t *testing.T) {
-			out := kube.ConvertProtocol(8888, c.name, c.proto)
-			if out != c.out {
-				t.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
+		for _, p := range ports {
+			expected := c.out
+			if expected == protocol.Unsupported && p != 8888 {
+				expected = protocol.TCP
 			}
-		})
+
+			testName := strings.Replace(fmt.Sprintf("%s_%s_%d", c.name, c.proto, p), "-", "_", -1)
+			t.Run(testName, func(t *testing.T) {
+				out := kube.ConvertProtocol(p, c.name, c.proto)
+				if out != expected {
+					t.Fatalf("convertProtocol(%d, %q, %q) => %q, want %q", p, c.name, c.proto, out, c.out)
+				}
+			})
+		}
 	}
 }
 

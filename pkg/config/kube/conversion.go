@@ -33,11 +33,12 @@ import (
 )
 
 var (
-	wellKnownPorts = map[int32]protocol.Instance{
-		25:    protocol.TCP,   // SMTP
-		53:    protocol.TCP,   // DNS. Default TCP if not specified.
-		3306:  protocol.MySQL, // MySQL
-		27017: protocol.Mongo, // MongoDB
+	// These well known ports will be skipped for protocol sniffing.
+	WellKnownPorts = []int32{
+		25,    // SMTP
+		53,    // DNS. Default TCP if not specified.
+		3306,  // MySQL
+		27017, // MongoDB
 	}
 )
 
@@ -74,8 +75,14 @@ func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.In
 	}
 
 	// For well known ports, using protocol sniffing is unnecessary
-	if proto, has := wellKnownPorts[port]; has && out == protocol.Unsupported {
-		out = proto
+	// Make TCP as default protocol for well know ports if protocol is not specified.
+	if out == protocol.Unsupported {
+		for _, p := range WellKnownPorts {
+			if p == port {
+				return protocol.TCP
+			}
+		}
 	}
+
 	return out
 }
