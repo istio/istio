@@ -726,7 +726,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}\t",
+          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Authentication Failure Count",
