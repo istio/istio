@@ -137,11 +137,11 @@ type XDSUpdater interface {
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
-	ConfigUpdate(req UpdateReq)
+	ConfigUpdate(req UpdateRequest)
 }
 
-// UpdateReq defines a request to update proxies
-type UpdateReq struct {
+// UpdateRequest defines a request to update proxies
+type UpdateRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
@@ -154,22 +154,32 @@ type UpdateReq struct {
 }
 
 // Merge two update requests together
-func (first *UpdateReq) Merge(other *UpdateReq) *UpdateReq {
+func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
 	if first == nil {
-		return other
+		return *other
 	}
-	first.Full = first.Full || other.Full
+	if other == nil {
+		return *first
+	}
+
+	merged := UpdateRequest{}
+	merged.Full = first.Full || other.Full
+	merged.TargetNamespaces = map[string]struct{}{}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		first.TargetNamespaces = map[string]struct{}{}
-	} else {
-		// Merge the updates
-		for update := range other.TargetNamespaces {
-			first.TargetNamespaces[update] = struct{}{}
-		}
+		return merged
 	}
-	return first
+
+	// Merge the updates
+	for update := range first.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
+	for update := range other.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
+
+	return merged
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.

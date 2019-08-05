@@ -116,7 +116,7 @@ type DiscoveryServer struct {
 	// pushes between the 2 packages.
 	edsUpdates map[string]struct{}
 
-	updateChannel chan *model.UpdateReq
+	updateChannel chan *model.UpdateRequest
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
@@ -175,7 +175,7 @@ func NewDiscoveryServer(
 		edsUpdates:              map[string]struct{}{},
 		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		updateChannel:           make(chan *model.UpdateReq, 10),
+		updateChannel:           make(chan *model.UpdateRequest, 10),
 		pushQueue:               NewPushQueue(),
 	}
 
@@ -239,7 +239,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
-			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateReq{Full: true}, nil)
+			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateRequest{Full: true}, nil)
 		case <-stopCh:
 			return
 		}
@@ -274,7 +274,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(req *model.UpdateReq, edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) Push(req *model.UpdateRequest, edsUpdates map[string]struct{}) {
 	if !req.Full {
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), req, edsUpdates)
 		return
@@ -340,7 +340,7 @@ func (s *DiscoveryServer) ClearCache() {
 }
 
 // Start the actual push. Called from a timer.
-func (s *DiscoveryServer) doPush(req *model.UpdateReq) {
+func (s *DiscoveryServer) doPush(req *model.UpdateRequest) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
 	s.mutex.Lock()
@@ -356,12 +356,12 @@ func (s *DiscoveryServer) doPush(req *model.UpdateReq) {
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (s *DiscoveryServer) clearCache() {
-	s.ConfigUpdate(model.UpdateReq{Full: true})
+	s.ConfigUpdate(model.UpdateRequest{Full: true})
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
-func (s *DiscoveryServer) ConfigUpdate(req model.UpdateReq) {
+func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 	inboundConfigUpdates.Increment()
 	s.updateChannel <- &req
 }
@@ -381,7 +381,7 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	debouncedEvents := 0
 
 	// Keeps track of the update requests. If updates are debounce they will be merged.
-	var req *model.UpdateReq
+	var req *model.UpdateRequest
 
 	for {
 		select {
@@ -393,7 +393,8 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 			}
 			debouncedEvents++
 
-			req = req.Merge(r)
+			merged := req.Merge(r)
+			req = &merged
 
 		case now := <-timeChan:
 			timeChan = nil

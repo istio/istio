@@ -396,7 +396,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}, req *model.UpdateReq) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}, req *model.UpdateRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
 		version, edsUpdates, adsClientCount())
 	t0 := time.Now()
@@ -483,7 +483,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 	// no other workload can be affected. Safer option is to fallback to full push.
 
 	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdate(model.UpdateReq{Full: true})
+	s.ConfigUpdate(model.UpdateRequest{Full: true})
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.
@@ -574,7 +574,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
-		s.ConfigUpdate(model.UpdateReq{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
+		s.ConfigUpdate(model.UpdateRequest{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
 	}
 }
 

@@ -607,14 +607,14 @@ func adsClientCount() int {
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateReq{Full: true}, nil)
+	s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateRequest{Full: true}, nil)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	req *model.UpdateReq, edsUpdates map[string]struct{}) {
+	req *model.UpdateRequest, edsUpdates map[string]struct{}) {
 	if !req.Full {
 		s.edsIncremental(version, push, edsUpdates, req)
 		return
@@ -650,7 +650,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.UpdateReq, edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.UpdateRequest, edsUpdates map[string]struct{}) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -674,7 +674,7 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.UpdateRe
 	}
 }
 
-func proxyNeedsPush(con *XdsConnection, req *model.UpdateReq) bool {
+func proxyNeedsPush(con *XdsConnection, req *model.UpdateRequest) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
