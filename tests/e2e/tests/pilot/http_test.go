@@ -20,6 +20,13 @@ import (
 )
 
 func TestHttp(t *testing.T) {
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
+
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b", "headless"}
 	ports := []string{"", "80", "8080"}
