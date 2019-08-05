@@ -208,7 +208,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Locality: asdc2Locality,
 		},
 	})
-	server.EnvoyXdsServer.Push(true, nil)
+	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -257,7 +257,7 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	// Test initial state
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 
-	server.EnvoyXdsServer.Push(false, map[string]struct{}{
+	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, map[string]struct{}{
 		"overlapping.cluster.local": {},
 	})
 	_, _ = adsc.Wait("", 5*time.Second)
@@ -518,7 +518,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
-			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, false, updates)
+			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.UpdateRequest{Full: true}, updates)
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}
@@ -585,7 +585,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Labels: map[string]string{"socket": "unix"},
 	})
 
-	server.EnvoyXdsServer.Push(true, nil)
+	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -622,7 +622,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(true, nil)
+	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
 }
 
 func addOverlappingEndpoints(server *bootstrap.Server) {
@@ -652,7 +652,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			},
 		},
 	})
-	server.EnvoyXdsServer.Push(true, nil)
+	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
