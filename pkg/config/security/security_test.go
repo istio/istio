@@ -20,17 +20,19 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package security_test
 
 import (
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/config/security"
 )
 
 func TestParseJwksURI(t *testing.T) {
 	cases := []struct {
 		in                   string
-		expected             JwksInfo
+		expected             security.JwksInfo
 		expectedErrorMessage string
 	}{
 		{
@@ -47,7 +49,7 @@ func TestParseJwksURI(t *testing.T) {
 		},
 		{
 			in: "http://foo.bar.com",
-			expected: JwksInfo{
+			expected: security.JwksInfo{
 				Hostname: "foo.bar.com",
 				Scheme:   "http",
 				Port:     80,
@@ -56,7 +58,7 @@ func TestParseJwksURI(t *testing.T) {
 		},
 		{
 			in: "https://foo.bar.com",
-			expected: JwksInfo{
+			expected: security.JwksInfo{
 				Hostname: "foo.bar.com",
 				Scheme:   "https",
 				Port:     443,
@@ -65,7 +67,7 @@ func TestParseJwksURI(t *testing.T) {
 		},
 		{
 			in: "http://foo.bar.com:1234",
-			expected: JwksInfo{
+			expected: security.JwksInfo{
 				Hostname: "foo.bar.com",
 				Scheme:   "http",
 				Port:     1234,
@@ -74,7 +76,7 @@ func TestParseJwksURI(t *testing.T) {
 		},
 		{
 			in: "https://foo.bar.com:1234/secure/key",
-			expected: JwksInfo{
+			expected: security.JwksInfo{
 				Hostname: "foo.bar.com",
 				Scheme:   "https",
 				Port:     1234,
@@ -83,7 +85,7 @@ func TestParseJwksURI(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		actual, err := ParseJwksURI(c.in)
+		actual, err := security.ParseJwksURI(c.in)
 		if err != nil {
 			if c.expectedErrorMessage != err.Error() {
 				t.Errorf("ParseJwksURI(%s): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
