@@ -229,6 +229,7 @@ const (
 	BPF_F_INDEX_MASK                     = 0xffffffff
 	BPF_F_INGRESS                        = 0x1
 	BPF_F_INVALIDATE_HASH                = 0x2
+	BPF_F_LOCK                           = 0x4
 	BPF_F_MARK_ENFORCE                   = 0x40
 	BPF_F_MARK_MANGLED_0                 = 0x20
 	BPF_F_NO_COMMON_LRU                  = 0x2
@@ -259,6 +260,7 @@ const (
 	BPF_JLE                              = 0xb0
 	BPF_JLT                              = 0xa0
 	BPF_JMP                              = 0x5
+	BPF_JMP32                            = 0x6
 	BPF_JNE                              = 0x50
 	BPF_JSET                             = 0x40
 	BPF_JSGE                             = 0x70
@@ -1134,6 +1136,15 @@ const (
 	MAP_STACK                            = 0x20000
 	MAP_SYNC                             = 0x80000
 	MAP_TYPE                             = 0xf
+	MCAST_BLOCK_SOURCE                   = 0x2b
+	MCAST_EXCLUDE                        = 0x0
+	MCAST_INCLUDE                        = 0x1
+	MCAST_JOIN_GROUP                     = 0x2a
+	MCAST_JOIN_SOURCE_GROUP              = 0x2e
+	MCAST_LEAVE_GROUP                    = 0x2d
+	MCAST_LEAVE_SOURCE_GROUP             = 0x2f
+	MCAST_MSFILTER                       = 0x30
+	MCAST_UNBLOCK_SOURCE                 = 0x2c
 	MCL_CURRENT                          = 0x1
 	MCL_FUTURE                           = 0x2
 	MCL_ONFAULT                          = 0x4

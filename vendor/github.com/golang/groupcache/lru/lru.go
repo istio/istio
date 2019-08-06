@@ -25,7 +25,7 @@ type Cache struct {
 	// an item is evicted. Zero means no limit.
 	MaxEntries int
 
-	// OnEvicted optionally specificies a callback function to be
+	// OnEvicted optionally specifies a callback function to be
 	// executed when an entry is purged from the cache.
 	OnEvicted func(key Key, value interface{})
 

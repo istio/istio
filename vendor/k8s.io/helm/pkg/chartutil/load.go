@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -43,6 +45,7 @@ import (
 // If a .helmignore file is present, the directory loader will skip loading any files
 // matching it. But .helmignore is not evaluated when reading out of an archive.
 func Load(name string) (*chart.Chart, error) {
+	name = filepath.FromSlash(name)
 	fi, err := os.Stat(name)
 	if err != nil {
 		return nil, err
@@ -62,11 +65,13 @@ type BufferedFile struct {
 	Data []byte
 }
 
-// LoadArchive loads from a reader containing a compressed tar archive.
-func LoadArchive(in io.Reader) (*chart.Chart, error) {
+var drivePathPattern = regexp.MustCompile(`^[a-zA-Z]:/`)
+
+// loadArchiveFiles loads files out of an archive
+func loadArchiveFiles(in io.Reader) ([]*BufferedFile, error) {
 	unzipped, err := gzip.NewReader(in)
 	if err != nil {
-		return &chart.Chart{}, err
+		return nil, err
 	}
 	defer unzipped.Close()
 
@@ -79,12 +84,18 @@ func LoadArchive(in io.Reader) (*chart.Chart, error) {
 			break
 		}
 		if err != nil {
-			return &chart.Chart{}, err
+			return nil, err
 		}
 
 		if hd.FileInfo().IsDir() {
 			// Use this instead of hd.Typeflag because we don't have to do any
 			// inference chasing.
+			continue
+		}
+
+		switch hd.Typeflag {
+		// We don't want to process these extension header files.
+		case tar.TypeXGlobalHeader, tar.TypeXHeader:
 			continue
 		}
 
@@ -100,12 +111,33 @@ func LoadArchive(in io.Reader) (*chart.Chart, error) {
 		// Normalize the path to the / delimiter
 		n = strings.Replace(n, delimiter, "/", -1)
 
+		if path.IsAbs(n) {
+			return nil, errors.New("chart illegally contains absolute paths")
+		}
+
+		n = path.Clean(n)
+		if n == "." {
+			// In this case, the original path was relative when it should have been absolute.
+			return nil, errors.New("chart illegally contains empty path")
+		}
+		if strings.HasPrefix(n, "..") {
+			return nil, errors.New("chart illegally references parent directory")
+		}
+
+		// In some particularly arcane acts of path creativity, it is possible to intermix
+		// UNIX and Windows style paths in such a way that you produce a result of the form
+		// c:/foo even after all the built-in absolute path checks. So we explicitly check
+		// for this condition.
+		if drivePathPattern.MatchString(n) {
+			return nil, errors.New("chart contains illegally named files")
+		}
+
 		if parts[0] == "Chart.yaml" {
 			return nil, errors.New("chart yaml not in base directory")
 		}
 
 		if _, err := io.Copy(b, tr); err != nil {
-			return &chart.Chart{}, err
+			return files, err
 		}
 
 		files = append(files, &BufferedFile{Name: n, Data: b.Bytes()})
@@ -115,7 +147,15 @@ func LoadArchive(in io.Reader) (*chart.Chart, error) {
 	if len(files) == 0 {
 		return nil, errors.New("no files in chart archive")
 	}
+	return files, nil
+}
 
+// LoadArchive loads from a reader containing a compressed tar archive.
+func LoadArchive(in io.Reader) (*chart.Chart, error) {
+	files, err := loadArchiveFiles(in)
+	if err != nil {
+		return nil, err
+	}
 	return LoadFiles(files)
 }
 

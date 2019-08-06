@@ -1537,9 +1537,13 @@ func Setgid(uid int) (err error) {
 	return EOPNOTSUPP
 }
 
+func Signalfd(fd int, sigmask *Sigset_t, flags int) (newfd int, err error) {
+	return signalfd(fd, sigmask, _C__NSIG/8, flags)
+}
+
 //sys	Setpriority(which int, who int, prio int) (err error)
 //sys	Setxattr(path string, attr string, data []byte, flags int) (err error)
-//sys	Signalfd(fd int, mask *Sigset_t, flags int) = SYS_SIGNALFD4
+//sys	signalfd(fd int, sigmask *Sigset_t, maskSize uintptr, flags int) (newfd int, err error) = SYS_SIGNALFD4
 //sys	Statx(dirfd int, path string, flags int, mask int, stat *Statx_t) (err error)
 //sys	Sync()
 //sys	Syncfs(fd int) (err error)
