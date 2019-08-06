@@ -25,12 +25,12 @@ import (
 //InferPodInfo Uses proxyName to infer namespace if the passed proxyName contains namespace information.
 // Otherwise uses the namespace value passed into the function
 func InferPodInfo(proxyName, namespace string) (string, string) {
-	parsedProxy := strings.Split(proxyName, ".")
-
-	if len(parsedProxy) == 1 {
+	separator := strings.LastIndex(proxyName, ".")
+	if separator < 0 {
 		return proxyName, namespace
 	}
-	return parsedProxy[0], parsedProxy[1]
+
+	return proxyName[0:separator], proxyName[separator+1:]
 }
 
 //HandleNamespace returns the defaultNamespace if the namespace is empty
