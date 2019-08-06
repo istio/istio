@@ -160,11 +160,12 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
-		Name:           VirtualOutboundListenerName,
-		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
-		Transparent:    isTransparentProxy,
-		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   filterChains,
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	configgen.onVirtualOutboundListener(env, node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
@@ -182,11 +183,12 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	builder.virtualInboundListener = &xdsapi.Listener{
-		Name:           VirtualInboundListenerName,
-		Address:        util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:    isTransparentProxy,
-		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   newInboundPassthroughFilterChains(env, node),
+		Name:             VirtualInboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     newInboundPassthroughFilterChains(env, node),
+		TrafficDirection: core.TrafficDirection_INBOUND,
 	}
 	return builder
 }

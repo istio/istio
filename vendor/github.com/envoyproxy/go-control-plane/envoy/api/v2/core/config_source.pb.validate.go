@@ -51,24 +51,34 @@ func (m *ApiConfigSource) Validate() error {
 	for idx, item := range m.GetGrpcServices() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ApiConfigSourceValidationError{
-					field:  fmt.Sprintf("GrpcServices[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ApiConfigSourceValidationError{
+						field:  fmt.Sprintf("GrpcServices[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetRefreshDelay()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ApiConfigSourceValidationError{
-				field:  "RefreshDelay",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRefreshDelay()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ApiConfigSourceValidationError{
+					field:  "RefreshDelay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -87,12 +97,17 @@ func (m *ApiConfigSource) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRateLimitSettings()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ApiConfigSourceValidationError{
-				field:  "RateLimitSettings",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRateLimitSettings()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ApiConfigSourceValidationError{
+					field:  "RateLimitSettings",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -229,12 +244,17 @@ func (m *RateLimitSettings) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMaxTokens()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RateLimitSettingsValidationError{
-				field:  "MaxTokens",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMaxTokens()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RateLimitSettingsValidationError{
+					field:  "MaxTokens",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -317,12 +337,17 @@ func (m *ConfigSource) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetInitialFetchTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ConfigSourceValidationError{
-				field:  "InitialFetchTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetInitialFetchTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ConfigSourceValidationError{
+					field:  "InitialFetchTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -334,24 +359,34 @@ func (m *ConfigSource) Validate() error {
 
 	case *ConfigSource_ApiConfigSource:
 
-		if v, ok := interface{}(m.GetApiConfigSource()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ConfigSourceValidationError{
-					field:  "ApiConfigSource",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetApiConfigSource()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ConfigSourceValidationError{
+						field:  "ApiConfigSource",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *ConfigSource_Ads:
 
-		if v, ok := interface{}(m.GetAds()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ConfigSourceValidationError{
-					field:  "Ads",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetAds()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ConfigSourceValidationError{
+						field:  "Ads",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

@@ -42,12 +42,17 @@ func (m *AccessLog) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetFilter()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return AccessLogValidationError{
-				field:  "Filter",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetFilter()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return AccessLogValidationError{
+					field:  "Filter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -56,24 +61,34 @@ func (m *AccessLog) Validate() error {
 
 	case *AccessLog_Config:
 
-		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogValidationError{
-					field:  "Config",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLog_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogValidationError{
-					field:  "TypedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetTypedConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -149,120 +164,187 @@ func (m *AccessLogFilter) Validate() error {
 
 	case *AccessLogFilter_StatusCodeFilter:
 
-		if v, ok := interface{}(m.GetStatusCodeFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "StatusCodeFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetStatusCodeFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "StatusCodeFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_DurationFilter:
 
-		if v, ok := interface{}(m.GetDurationFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "DurationFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetDurationFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "DurationFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_NotHealthCheckFilter:
 
-		if v, ok := interface{}(m.GetNotHealthCheckFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "NotHealthCheckFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetNotHealthCheckFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "NotHealthCheckFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_TraceableFilter:
 
-		if v, ok := interface{}(m.GetTraceableFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "TraceableFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetTraceableFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "TraceableFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_RuntimeFilter:
 
-		if v, ok := interface{}(m.GetRuntimeFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "RuntimeFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetRuntimeFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "RuntimeFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_AndFilter:
 
-		if v, ok := interface{}(m.GetAndFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "AndFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetAndFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "AndFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_OrFilter:
 
-		if v, ok := interface{}(m.GetOrFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "OrFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetOrFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "OrFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_HeaderFilter:
 
-		if v, ok := interface{}(m.GetHeaderFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "HeaderFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetHeaderFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "HeaderFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_ResponseFlagFilter:
 
-		if v, ok := interface{}(m.GetResponseFlagFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "ResponseFlagFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetResponseFlagFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "ResponseFlagFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *AccessLogFilter_GrpcStatusFilter:
 
-		if v, ok := interface{}(m.GetGrpcStatusFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					field:  "GrpcStatusFilter",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetGrpcStatusFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "GrpcStatusFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	case *AccessLogFilter_ExtensionFilter:
+
+		{
+			tmp := m.GetExtensionFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "ExtensionFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -347,12 +429,17 @@ func (m *ComparisonFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ComparisonFilterValidationError{
-				field:  "Value",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetValue()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ComparisonFilterValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -429,12 +516,17 @@ func (m *StatusCodeFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetComparison()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return StatusCodeFilterValidationError{
-				field:  "Comparison",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetComparison()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return StatusCodeFilterValidationError{
+					field:  "Comparison",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -511,12 +603,17 @@ func (m *DurationFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetComparison()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DurationFilterValidationError{
-				field:  "Comparison",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetComparison()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DurationFilterValidationError{
+					field:  "Comparison",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -725,12 +822,17 @@ func (m *RuntimeFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPercentSampled()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RuntimeFilterValidationError{
-				field:  "PercentSampled",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetPercentSampled()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RuntimeFilterValidationError{
+					field:  "PercentSampled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -811,12 +913,17 @@ func (m *AndFilter) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AndFilterValidationError{
-					field:  fmt.Sprintf("Filters[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AndFilterValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -897,12 +1004,17 @@ func (m *OrFilter) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return OrFilterValidationError{
-					field:  fmt.Sprintf("Filters[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return OrFilterValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -981,12 +1093,17 @@ func (m *HeaderFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HeaderFilterValidationError{
-				field:  "Header",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetHeader()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HeaderFilterValidationError{
+					field:  "Header",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -1226,3 +1343,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GrpcStatusFilterValidationError{}
+
+// Validate checks the field values on ExtensionFilter with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *ExtensionFilter) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Name
+
+	switch m.ConfigType.(type) {
+
+	case *ExtensionFilter_Config:
+
+		{
+			tmp := m.GetConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ExtensionFilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	case *ExtensionFilter_TypedConfig:
+
+		{
+			tmp := m.GetTypedConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ExtensionFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ExtensionFilterValidationError is the validation error returned by
+// ExtensionFilter.Validate if the designated constraints aren't met.
+type ExtensionFilterValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ExtensionFilterValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ExtensionFilterValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ExtensionFilterValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ExtensionFilterValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ExtensionFilterValidationError) ErrorName() string { return "ExtensionFilterValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ExtensionFilterValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sExtensionFilter.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ExtensionFilterValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ExtensionFilterValidationError{}

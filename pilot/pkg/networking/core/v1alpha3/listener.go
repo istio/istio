@@ -272,6 +272,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind:           bind,
 				port:           endpoint.Port,
 				bindToPort:     false,
+				direction:      core.TrafficDirection_INBOUND,
 			}
 
 			pluginParams := &plugin.InputParams{
@@ -344,6 +345,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bind:           bind,
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
+				direction:      core.TrafficDirection_INBOUND,
 			}
 
 			// Update the values here so that the plugins use the right ports
@@ -664,6 +666,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					bind:           bind,
 					port:           listenPort.Port,
 					bindToPort:     bindToPort,
+					direction:      core.TrafficDirection_OUTBOUND,
 				}
 
 				pluginParams := &plugin.InputParams{
@@ -728,6 +731,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						port:           servicePort.Port,
 						bind:           bind,
 						bindToPort:     bindToPort,
+						direction:      core.TrafficDirection_OUTBOUND,
 					}
 
 					pluginParams := &plugin.InputParams{
@@ -817,6 +821,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		}},
 		bindToPort:      true,
 		skipUserFilters: true,
+		direction:       core.TrafficDirection_OUTBOUND,
 	}
 	l := buildListener(opts)
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
@@ -1376,6 +1381,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				}},
 				// No user filters for the management unless we introduce new listener matches
 				skipUserFilters: true,
+				direction:       core.TrafficDirection_INBOUND,
 			}
 			l := buildListener(listenerOpts)
 			mutable := &plugin.MutableObjects{
@@ -1444,6 +1450,7 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 	bindToPort      bool
 	skipUserFilters bool
+	direction       core.TrafficDirection
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1653,11 +1660,12 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	return &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
-		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
-		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
-		ListenerFilters: listenerFilters,
-		FilterChains:    filterChains,
-		DeprecatedV1:    deprecatedV1,
+		Name:             fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Address:          util.BuildAddress(opts.bind, uint32(opts.port)),
+		ListenerFilters:  listenerFilters,
+		FilterChains:     filterChains,
+		DeprecatedV1:     deprecatedV1,
+		TrafficDirection: opts.direction,
 	}
 }
 

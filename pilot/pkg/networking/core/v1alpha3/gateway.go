@@ -77,6 +77,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
+			// see https://github.com/envoyproxy/envoy/issues/7751, keep outbound for backwards compatibility
+			direction: core.TrafficDirection_OUTBOUND,
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
