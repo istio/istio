@@ -118,6 +118,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			}
 		}
 	case plugin.ListenerProtocolAuto:
+		rbacLog.Debugf("building filter for AUTO listener protocol")
 		httpFilter := builder.BuildHTTPFilter()
 		tcpFilter := builder.BuildTCPFilter()
 
