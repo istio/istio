@@ -646,7 +646,7 @@ clean: clean.go
 	rm -f $(FILES_TO_CLEAN)
 
 clean.go: ; $(info $(H) cleaning...)
-	$(eval GO_CLEAN_FLAGS := -i -r)
+	$(eval GO_CLEAN_FLAGS := -i)
 	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
 
 #-----------------------------------------------------------------------------
