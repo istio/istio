@@ -1,4 +1,4 @@
-*                                                               @costinm @geeknoid @howardjohn @linsun @rshriram
+*                                                                @costinm @geeknoid @howardjohn @linsun @rshriram @nmittler @ozevren
 /bin/                                                            @costinm @douglas-reid @mandarjog @sdake
 /galley/                                                         @geeknoid @ozevren
 /install/                                                        @costinm @sdake @linsun @rshriram @howardjohn @mandarjog @morvencao @ostromart
@@ -13,17 +13,14 @@
 /pilot/pkg/networking/plugin/authz/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @diemtvu @yangminzhu
 /pilot/pkg/networking/plugin/mixer/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @kyessenov @douglas-reid @mandarjog
 /pilot/pkg/security/                                             @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @diemtvu @yangminzhu @quanjielin
-/pkg/                                                            @nmittler @ozevren
 /pkg/bootstrap/                                                  @mandarjog @costinm
 /pkg/mcp/                                                        @ozevren @ayj @nmittler
 /prow/                                                           @geeknoid @howardjohn @duderino @linsun
 /release/                                                        @duderino @linsun
 /samples/                                                        @frankbu @kyessenov @rshriram @vadimeisenbergibm @venilnoronha
 /security/                                                       @diemtvu @incfly @myidpt @quanjielin @JimmyCYJ
-/tests/                                                          @costinm @nmittler
 /tests/e2e/local/                                                @costinm @nmittler @gargnupur @kimikowang @JimmyCYJ @m1093782566
 /tests/e2e/tests/pilot/                                          @costinm @nmittler @andraxylia @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm @zackbutcher
-/tests/integration/                                              @costinm @nmittler @ozevren
 /tests/integration/conformance/                                  @costinm @nmittler @ozevren
 /tests/integration/framework/                                    @costinm @nmittler @ozevren
 /tests/integration/galley/                                       @costinm @nmittler @ozevren @geeknoid
