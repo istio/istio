@@ -1200,7 +1200,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = opts
 
 	case plugin.ListenerProtocolAuto:
-		// Add tcp filter chain
+		// Add tcp filter chain, build TCP filter chain first.
 		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
 			return
@@ -1208,8 +1208,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
 
 		// Add http filter chain and tcp filter chain to the listener opts
-		// Build HTTP filter chain first. If there is already another listener
-		// on the same port, return immediately.
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
 			return
