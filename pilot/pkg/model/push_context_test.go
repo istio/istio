@@ -92,16 +92,16 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"incremental merge with config updates",
-			&UpdateRequest{Full:true,
-				TargetNamespaces: map[string]struct{}{"ns1": {}},
+			&UpdateRequest{Full: true,
+				TargetNamespaces:   map[string]struct{}{"ns1": {}},
 				ConfigTypesUpdated: map[string]struct{}{ServiceEntry.Type: {}},
 			},
 			&UpdateRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[string]struct{}{VirtualService.Type: {}},
-				TargetNamespaces: map[string]struct{}{"ns1": {}},
+				TargetNamespaces:   map[string]struct{}{"ns1": {}},
 			},
-			UpdateRequest{Full:true, TargetNamespaces: map[string]struct{}{"ns1": {}},
+			UpdateRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}},
 				ConfigTypesUpdated: map[string]struct{}{ServiceEntry.Type: {}, VirtualService.Type: {}}},
 		},
 	}
