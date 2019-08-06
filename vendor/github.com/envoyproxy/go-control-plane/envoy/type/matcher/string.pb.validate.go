@@ -156,12 +156,17 @@ func (m *ListStringMatcher) Validate() error {
 	for idx, item := range m.GetPatterns() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ListStringMatcherValidationError{
-					field:  fmt.Sprintf("Patterns[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ListStringMatcherValidationError{
+						field:  fmt.Sprintf("Patterns[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

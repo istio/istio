@@ -47,12 +47,17 @@ func (m *Filter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return FilterValidationError{
-				field:  "TypedConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetTypedConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return FilterValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

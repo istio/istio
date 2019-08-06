@@ -48,22 +48,32 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetPassThroughMode()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "PassThroughMode",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetPassThroughMode()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "PassThroughMode",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetCacheTime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "CacheTime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCacheTime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "CacheTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -73,12 +83,17 @@ func (m *HealthCheck) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheckValidationError{
-					field:  fmt.Sprintf("Headers[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheckValidationError{
+						field:  fmt.Sprintf("Headers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

@@ -47,12 +47,17 @@ func (m *TcpProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetMetadataMatch()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxyValidationError{
-				field:  "MetadataMatch",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMetadataMatch()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpProxyValidationError{
+					field:  "MetadataMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -71,22 +76,32 @@ func (m *TcpProxy) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetDownstreamIdleTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxyValidationError{
-				field:  "DownstreamIdleTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDownstreamIdleTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpProxyValidationError{
+					field:  "DownstreamIdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamIdleTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxyValidationError{
-				field:  "UpstreamIdleTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetUpstreamIdleTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpProxyValidationError{
+					field:  "UpstreamIdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -94,24 +109,34 @@ func (m *TcpProxy) Validate() error {
 	for idx, item := range m.GetAccessLog() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxyValidationError{
-					field:  fmt.Sprintf("AccessLog[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxyValidationError{
+						field:  fmt.Sprintf("AccessLog[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxyValidationError{
-				field:  "DeprecatedV1",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDeprecatedV1()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpProxyValidationError{
+					field:  "DeprecatedV1",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -134,12 +159,17 @@ func (m *TcpProxy) Validate() error {
 
 	case *TcpProxy_WeightedClusters:
 
-		if v, ok := interface{}(m.GetWeightedClusters()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxyValidationError{
-					field:  "WeightedClusters",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetWeightedClusters()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxyValidationError{
+						field:  "WeightedClusters",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -227,12 +257,17 @@ func (m *TcpProxy_DeprecatedV1) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxy_DeprecatedV1ValidationError{
-					field:  fmt.Sprintf("Routes[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxy_DeprecatedV1ValidationError{
+						field:  fmt.Sprintf("Routes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -316,12 +351,17 @@ func (m *TcpProxy_WeightedCluster) Validate() error {
 	for idx, item := range m.GetClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxy_WeightedClusterValidationError{
-					field:  fmt.Sprintf("Clusters[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxy_WeightedClusterValidationError{
+						field:  fmt.Sprintf("Clusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -405,12 +445,17 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetDestinationIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
-					field:  fmt.Sprintf("DestinationIpList[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxy_DeprecatedV1_TCPRouteValidationError{
+						field:  fmt.Sprintf("DestinationIpList[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -422,12 +467,17 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Validate() error {
 	for idx, item := range m.GetSourceIpList() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TcpProxy_DeprecatedV1_TCPRouteValidationError{
-					field:  fmt.Sprintf("SourceIpList[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TcpProxy_DeprecatedV1_TCPRouteValidationError{
+						field:  fmt.Sprintf("SourceIpList[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
