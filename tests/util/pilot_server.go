@@ -24,13 +24,14 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -78,7 +79,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	httpAddr := ":" + pilotHTTP
 
-	meshConfig := config.DefaultMeshConfig()
+	meshConfig := mesh.DefaultMeshConfig()
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",

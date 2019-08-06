@@ -29,11 +29,12 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	pkgtest "istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -441,15 +442,15 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"AuthorizationPolicy", configName, model.AuthorizationPolicy, ExampleAuthorizationPolicy},
-		{"RbacConfig", config.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
-		{"ClusterRbacConfig", config.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
+		{"RbacConfig", constants.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
+		{"ClusterRbacConfig", constants.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {
 		configMeta := model.ConfigMeta{
 			Type:    c.schema.Type,
 			Name:    c.configName,
-			Group:   c.schema.Group + config.IstioAPIGroupDomain,
+			Group:   c.schema.Group + constants.IstioAPIGroupDomain,
 			Version: c.schema.Version,
 		}
 		if !c.schema.ClusterScoped {

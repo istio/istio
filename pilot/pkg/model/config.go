@@ -28,9 +28,13 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -254,10 +258,10 @@ type IstioConfigStore interface {
 	ServiceEntries() []Config
 
 	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels config.LabelsCollection) []Config
+	Gateways(workloadLabels labels.Collection) []Config
 
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
-	EnvoyFilter(workloadLabels config.LabelsCollection) *Config
+	EnvoyFilter(workloadLabels labels.Collection) *Config
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -273,7 +277,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyForWorkload(service *Service, labels config.Labels, port *Port) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels labels.Instance, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -547,7 +551,7 @@ var (
 // ResolveHostname produces a FQDN based on either the service or
 // a concat of the namespace + domain
 // Deprecated. Do not use
-func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) config.Hostname {
+func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) host.Name {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -567,20 +571,20 @@ func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) config.Hostname {
 		}
 	}
 
-	return config.Hostname(out)
+	return host.Name(out)
 }
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(host string, meta ConfigMeta) config.Hostname {
-	out := host
-	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
+func ResolveShortnameToFQDN(hostname string, meta ConfigMeta) host.Name {
+	out := hostname
+	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
-	if host == "*" {
-		return config.Hostname(out)
+	if hostname == "*" {
+		return host.Name(out)
 	}
 	// if FQDN is specified, do not append domain or namespace to hostname
-	if !strings.Contains(host, ".") {
+	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -593,7 +597,7 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) config.Hostname {
 		}
 	}
 
-	return config.Hostname(out)
+	return host.Name(out)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
@@ -624,7 +628,7 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle config.Hostname, stack []config.Hostname) (config.Hostname, bool) {
+func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
 	for _, h := range stack {
 		if needle.Matches(h) {
 			return h, true
@@ -670,7 +674,7 @@ func sortConfigByCreationTime(configs []Config) []Config {
 	return configs
 }
 
-func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) []Config {
+func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
 	configs, err := store.List(Gateway.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -684,7 +688,7 @@ func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) 
 			// no selector. Applies to all workloads asking for the gateway
 			out = append(out, cfg)
 		} else {
-			gatewaySelector := config.Labels(gateway.GetSelector())
+			gatewaySelector := labels.Instance(gateway.GetSelector())
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, cfg)
 			}
@@ -693,7 +697,7 @@ func (store *istioConfigStore) Gateways(workloadLabels config.LabelsCollection) 
 	return out
 }
 
-func (store *istioConfigStore) EnvoyFilter(workloadLabels config.LabelsCollection) *Config {
+func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -710,7 +714,7 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels config.LabelsCollectio
 		// if there is no workload selector, the filter applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		if filter.WorkloadLabels != nil {
-			workloadSelector := config.Labels(filter.WorkloadLabels)
+			workloadSelector := labels.Instance(filter.WorkloadLabels)
 			if !workloadLabels.IsSupersetOf(workloadSelector) {
 				continue
 			}
@@ -884,7 +888,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels config.Labels, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -908,11 +912,11 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
 				if len(dest.Labels) != 0 {
 					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
-					destLabels := config.Labels(dest.Labels)
-					if !destLabels.SubsetOf(labels) {
+					destLabels := labels.Instance(dest.Labels)
+					if !destLabels.SubsetOf(l) {
 						continue
 					}
-					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, l)
 				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}
@@ -955,7 +959,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
 	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
-			if spec.Name == config.DefaultAuthenticationPolicyName {
+			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				return &spec
 			}
 		}
@@ -1000,7 +1004,7 @@ func (store *istioConfigStore) ClusterRbacConfig() *Config {
 		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
 	for _, rc := range clusterRbacConfig {
-		if rc.Name == config.DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			return &rc
 		}
 	}
@@ -1017,7 +1021,7 @@ func (store *istioConfigStore) RbacConfig() *Config {
 		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
-		if rc.Name == config.DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
 			return &rc
 		}

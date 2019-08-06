@@ -92,6 +92,13 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
+
 	validJwtToken := jwt.TokenIssuer1
 	validJwt2Token := jwt.TokenIssuer2
 	invalidJwtToken := jwt.TokenInvalid

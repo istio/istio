@@ -23,10 +23,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
@@ -50,7 +51,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 				Name:      name,
 				Namespace: namespace,
 			},
-			Hostname: config.Hostname(hostname),
+			Hostname: host.Name(hostname),
 		},
 		Labels: labels,
 	}

@@ -100,15 +100,14 @@ func TestGolden(t *testing.T) {
 		{
 			base: "running",
 			envVars: map[string]string{
-				"ISTIO_META_ISTIO_PROXY_SHA":     "istio-proxy:sha",
-				"ISTIO_META_INTERCEPTION_MODE":   "REDIRECT",
-				"ISTIO_META_ISTIO_PROXY_VERSION": "istio-proxy:version",
-				"ISTIO_META_ISTIO_VERSION":       "release-3.1",
-				"ISTIO_META_POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
-				"POD_NAME":                       "svc-0-0-0-6944fb884d-4pgx8",
-				"POD_NAMESPACE":                  "test",
-				"INSTANCE_IP":                    "10.10.10.1",
-				"ISTIO_METAJSON_LABELS":          `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
+				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
+				"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
+				"ISTIO_META_ISTIO_VERSION":     "release-3.1",
+				"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAMESPACE":                "test",
+				"INSTANCE_IP":                  "10.10.10.1",
+				"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",

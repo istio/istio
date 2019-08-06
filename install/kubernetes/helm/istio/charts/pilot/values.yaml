@@ -7,6 +7,8 @@ autoscaleMin: 1
 autoscaleMax: 5
 # specify replicaCount when autoscaleEnabled: false
 # replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 image: pilot
 sidecar: true
 traceSampling: 1.0

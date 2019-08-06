@@ -26,6 +26,10 @@ spec:
       {{- range $key, $val := $spec.labels }}
       {{ $key }}: {{ $val }}
       {{- end }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ $spec.rollingMaxSurge }}
+      maxUnavailable: {{ $spec.rollingMaxUnavailable }}
   template:
     metadata:
       labels:

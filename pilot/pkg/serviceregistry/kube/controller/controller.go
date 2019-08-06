@@ -33,11 +33,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
@@ -126,9 +129,9 @@ type Controller struct {
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
-	servicesMap map[config.Hostname]*model.Service
+	servicesMap map[host.Name]*model.Service
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
-	externalNameSvcInstanceMap map[config.Hostname][]*model.ServiceInstance
+	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -155,8 +158,8 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		queue:                      kube.NewQueue(1 * time.Second),
 		ClusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[config.Hostname]*model.Service),
-		externalNameSvcInstanceMap: make(map[config.Hostname][]*model.ServiceInstance),
+		servicesMap:                make(map[host.Name]*model.Service),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -306,7 +309,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	defer c.RUnlock()
 	return c.servicesMap[hostname], nil
@@ -408,38 +411,32 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(hostname config.Hostname, reqSvcPort int,
-	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
-	name, namespace, err := configKube.ParseHostname(hostname)
-	if err != nil {
-		log.Infof("ParseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
+	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 
 	// Locate all ports in the actual service
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-	if svc == nil {
-		return nil, nil
-	}
-
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil, nil
 	}
 
 	c.RLock()
-	instances := c.externalNameSvcInstanceMap[hostname]
+	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
-		return instances, nil
+		inScopeInstances := make([]*model.ServiceInstance, 0)
+		for _, i := range instances {
+			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
+				inScopeInstances = append(inScopeInstances, i)
+			}
+		}
+
+		return inScopeInstances, nil
 	}
 
-	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(name, namespace))
+	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
-		log.Infof("get endpoint(%s, %s) => error %v", name, namespace, err)
+		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
 	}
 	if !exists {
@@ -450,9 +447,9 @@ func (c *Controller) InstancesByPort(hostname config.Hostname, reqSvcPort int,
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			labels, _ := c.pods.labelsByIP(ea.IP)
+			podLabels, _ := c.pods.labelsByIP(ea.IP)
 			// check that one of the input labels is a subset of the labels
-			if !labelsList.HasSubsetOf(labels) {
+			if !labelsList.HasSubsetOf(podLabels) {
 				continue
 			}
 
@@ -478,7 +475,7 @@ func (c *Controller) InstancesByPort(hostname config.Hostname, reqSvcPort int,
 							Locality:    az,
 						},
 						Service:        svc,
-						Labels:         labels,
+						Labels:         podLabels,
 						ServiceAccount: sa,
 					})
 				}
@@ -621,19 +618,19 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		return config.LabelsCollection{pod.Labels}, nil
+		return labels.Collection{pod.Labels}, nil
 	}
 	return nil, nil
 }
 
 func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	labels, _ := c.pods.labelsByIP(ip)
+	podLabels, _ := c.pods.labelsByIP(ip)
 	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
 	if pod != nil {
@@ -649,7 +646,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 			Locality:    az,
 		},
 		Service:        svc,
-		Labels:         labels,
+		Labels:         podLabels,
 		ServiceAccount: sa,
 	}
 }
@@ -658,28 +655,16 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname config.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	saSet := make(map[string]bool)
-
-	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
-	// from the service annotation explicitly set by the operators.
-	svc, err := c.GetService(hostname)
-	if err != nil {
-		// Do not log error here, as the service could exist in another registry
-		return nil
-	}
-	if svc == nil {
-		// Do not log error here as the service could exist in another registry
-		return nil
-	}
 
 	instances := make([]*model.ServiceInstance, 0)
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(hostname, port, config.LabelsCollection{})
+		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
 		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
 		}
 		instances = append(instances, svcinstances...)
@@ -805,7 +790,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					continue
 				}
 
-				labels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 
 				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 
@@ -816,11 +801,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          labels,
+						Labels:          podLabels,
 						UID:             uid,
 						ServiceAccount:  kube.SecureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        c.GetPodLocality(pod),
+						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}
 			}
@@ -839,7 +825,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name

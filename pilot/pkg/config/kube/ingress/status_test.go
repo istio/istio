@@ -25,10 +25,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -120,14 +121,14 @@ func makeFakeClient() *fake.Clientset {
 }
 
 func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer, error) {
-	mesh := config.DefaultMeshConfig()
-	mesh.IngressService = "istio-ingress"
+	m := mesh.DefaultMeshConfig()
+	m.IngressService = "istio-ingress"
 
 	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&mesh, client, testNamespace, kubecontroller.Options{
+	return NewStatusSyncer(&m, client, testNamespace, kubecontroller.Options{
 		WatchedNamespace: testNamespace,
 		ResyncPeriod:     resync,
 	})
@@ -151,36 +152,36 @@ func setAndRestoreEnv(t *testing.T, inputs map[string]string) map[string]string 
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
 		Annotation string
-		Mode       meshconfig.MeshConfig_IngressControllerMode
+		Mode       meshapi.MeshConfig_IngressControllerMode
 		Ignore     bool
 	}{
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "",
 			Ignore:     false,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},

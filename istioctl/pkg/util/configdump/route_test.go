@@ -48,7 +48,7 @@ func TestWrapper_GetRouteConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				w.Configs = []proto.Any{}
+				w.Configs = []*proto.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -105,7 +105,7 @@ func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				w.Configs = []proto.Any{}
+				w.Configs = []*proto.Any{}
 			}
 			got, err := w.GetDynamicRouteDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

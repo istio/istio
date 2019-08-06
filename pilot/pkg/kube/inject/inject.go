@@ -386,7 +386,7 @@ func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
 }
 
-// ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
+// ValidateExcludeOutboundPorts validates the excludeOutboundPorts parameter
 func ValidateExcludeOutboundPorts(ports string) error {
 	return validatePortList("excludeOutboundPorts", ports)
 }
@@ -540,6 +540,13 @@ func flippedContains(needle, haystack string) bool {
 func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
+
+	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
+	if spec.DNSPolicy != corev1.DNSClusterFirst {
+		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
+			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
+	}
+
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, "", err
@@ -653,7 +660,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 			return err
 		}
 
-		obj, err := fromRawToObject(raw)
+		obj, err := FromRawToObject(raw)
 		if err != nil && !runtime.IsNotRegisteredError(err) {
 			return err
 		}
@@ -681,7 +688,8 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 	return nil
 }
 
-func fromRawToObject(raw []byte) (runtime.Object, error) {
+// FromRawToObject is used to convert from raw to the runtime object
+func FromRawToObject(raw []byte) (runtime.Object, error) {
 	var typeMeta metav1.TypeMeta
 	if err := yaml.Unmarshal(raw, &typeMeta); err != nil {
 		return nil, err
@@ -711,7 +719,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		result := list
 
 		for i, item := range list.Items {
-			obj, err := fromRawToObject(item.Raw)
+			obj, err := FromRawToObject(item.Raw)
 			if runtime.IsNotRegisteredError(err) {
 				continue
 			}
@@ -754,6 +762,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		// `Template` is defined as a pointer in some older API
 		// definitions, e.g. ReplicationController
 		if templateValue.Kind() == reflect.Ptr {
+			if templateValue.IsNil() {
+				return out, fmt.Errorf("spec.template is required value")
+			}
 			templateValue = templateValue.Elem()
 		}
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
@@ -771,6 +782,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 			metadata.Name)
 		return out, nil
 	}
+
 	//skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {

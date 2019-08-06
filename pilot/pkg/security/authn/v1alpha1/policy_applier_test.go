@@ -197,7 +197,7 @@ func TestCollectJwtSpecs(t *testing.T) {
 }
 
 func setUseIstioJWTFilter(value string, t *testing.T) {
-	err := os.Setenv("USE_ISTIO_JWT_FILTER", value)
+	err := os.Setenv(features.UseIstioJWTFilter.Name, value)
 	if err != nil {
 		t.Fatalf("failed to set enable Istio JWT filter: %v", err)
 	}
@@ -253,9 +253,15 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
 						Jwt: &authn.Jwt{
-							Issuer:     "issuer",
+							Issuer:     "issuer-0",
 							JwksUri:    jwksURI,
 							JwtHeaders: []string{exchangedTokenHeaderName, "custom"},
+						},
+					},
+					{
+						Jwt: &authn.Jwt{
+							Issuer:  "issuer-1",
+							JwksUri: jwksURI,
 						},
 					},
 				},
@@ -270,26 +276,15 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-								RequiresAny: &envoy_jwt.JwtRequirementOrList{
-									Requirements: []*envoy_jwt.JwtRequirement{
-										{
-											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-												ProviderName: "origins-0",
-											},
-										},
-										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{},
-										},
-									},
-								},
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+								AllowMissingOrFailed: &types.Empty{},
 							},
 						},
 					},
 				},
 				Providers: map[string]*envoy_jwt.JwtProvider{
 					"origins-0": {
-						Issuer: "issuer",
+						Issuer: "issuer-0",
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
@@ -298,7 +293,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           true,
-						PayloadInMetadata: "issuer",
+						PayloadInMetadata: "issuer-0",
 						FromHeaders: []*envoy_jwt.JwtHeader{
 							{
 								Name:        exchangedTokenHeaderName,
@@ -308,6 +303,18 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								Name: "custom",
 							},
 						},
+					},
+					"origins-1": {
+						Issuer: "issuer-1",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:           true,
+						PayloadInMetadata: "issuer-1",
 					},
 				},
 			},
@@ -709,7 +716,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
-					ListenerFilters: []listener.ListenerFilter{
+					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
 							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},

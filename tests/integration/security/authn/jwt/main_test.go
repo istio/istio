@@ -42,7 +42,7 @@ func setupConfig(cfg *istio.Config) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("rbac_v1_group_list", m).
+		NewSuite("authn_jwt", m).
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).

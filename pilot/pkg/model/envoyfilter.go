@@ -14,16 +14,20 @@
 package model
 
 import (
+	"regexp"
+
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/xds"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector config.Labels
-	ConfigPatches    []*EnvoyFilterConfigPatchWrapper
+	workloadSelector labels.Instance
+	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -33,6 +37,8 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Match     *networking.EnvoyFilter_EnvoyConfigObjectMatch
 	ApplyTo   networking.EnvoyFilter_ApplyTo
 	Operation networking.EnvoyFilter_Patch_Operation
+	// Pre-compile the regex from proxy version match in the match
+	ProxyVersionRegex *regexp.Regexp
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -41,9 +47,9 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
-		out.workloadSelector = config.Labels(localEnvoyFilter.WorkloadSelector.Labels)
+		out.workloadSelector = labels.Instance(localEnvoyFilter.WorkloadSelector.Labels)
 	}
-	out.ConfigPatches = make([]*EnvoyFilterConfigPatchWrapper, 0, len(localEnvoyFilter.ConfigPatches))
+	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			ApplyTo:   cp.ApplyTo,
@@ -51,8 +57,28 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		// there wont be an error here because validation catches mismatched types
-		cpw.Value, _ = config.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
-		out.ConfigPatches = append(out.ConfigPatches, cpw)
+		cpw.Value, _ = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		if cp.Match == nil {
+			// create a match all object
+			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
+		} else if cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			// pre-compile the regex for proxy version if it exists
+			// ignore the error because validation catches invalid regular expressions.
+			cpw.ProxyVersionRegex, _ = regexp.Compile(cp.Match.Proxy.ProxyVersion)
+		}
+
+		if _, exists := out.Patches[cp.ApplyTo]; !exists {
+			out.Patches[cp.ApplyTo] = make([]*EnvoyFilterConfigPatchWrapper, 0)
+		}
+		if cpw.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
+			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert_before or after is applicable only for network filter and http filter
+			// convert the rest to add
+			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER && cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER {
+				cpw.Operation = networking.EnvoyFilter_Patch_ADD
+			}
+		}
+		out.Patches[cp.ApplyTo] = append(out.Patches[cp.ApplyTo], cpw)
 	}
 	return out
 }

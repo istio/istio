@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := config.DefaultProxyConfig()
+	proxyConfig := mesh.DefaultProxyConfig()
 	proxyConfig.ServiceCluster = "my-cluster"
 	proxyConfig.Concurrency = 8
 

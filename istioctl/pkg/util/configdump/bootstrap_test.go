@@ -48,7 +48,7 @@ func TestWrapper_GetBootstrapConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noBootstrap {
-				w.Configs = []proto.Any{}
+				w.Configs = []*proto.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil

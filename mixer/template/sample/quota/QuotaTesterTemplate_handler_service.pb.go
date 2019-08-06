@@ -12,10 +12,13 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta11 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -61,7 +64,7 @@ func (m *HandleQuotaRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_HandleQuotaRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +106,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +152,7 @@ func (m *Res1Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Res1Msg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +190,7 @@ func (m *Res2Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Res2Msg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +229,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -265,7 +268,7 @@ func (m *Res1Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Res1Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +305,7 @@ func (m *Res2Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Res2Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -341,7 +344,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +390,7 @@ func (m *Res1InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Res1InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -425,7 +428,7 @@ func (m *Res2InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Res2InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -592,6 +595,14 @@ type HandleQuotaServiceServer interface {
 	HandleQuota(context.Context, *HandleQuotaRequest) (*v1beta1.QuotaResult, error)
 }
 
+// UnimplementedHandleQuotaServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleQuotaServiceServer struct {
+}
+
+func (*UnimplementedHandleQuotaServiceServer) HandleQuota(ctx context.Context, req *HandleQuotaRequest) (*v1beta1.QuotaResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleQuota not implemented")
+}
+
 func RegisterHandleQuotaServiceServer(s *grpc.Server, srv HandleQuotaServiceServer) {
 	s.RegisterService(&_HandleQuotaService_serviceDesc, srv)
 }
@@ -630,7 +641,7 @@ var _HandleQuotaService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleQuotaRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -638,53 +649,65 @@ func (m *HandleQuotaRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleQuotaRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleQuotaRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Instance != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+	if m.QuotaRequest != nil {
+		{
+			size, err := m.QuotaRequest.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 		}
-		i += n1
-	}
-	if m.AdapterConfig != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
+		i--
+		dAtA[i] = 0x22
 	}
 	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
 		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.QuotaRequest != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.QuotaRequest.Size()))
-		n3, err3 := m.QuotaRequest.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Instance != nil {
+		{
+			size, err := m.Instance.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -692,90 +715,97 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0xa
-			i++
-			v := m.Dimensions[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
+	}
+	if m.Res1 != nil {
+		{
+			size, err := m.Res1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n4, err4 := v.MarshalTo(dAtA[i:])
-				if err4 != nil {
-					return 0, err4
-				}
-				i += n4
-			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x5a
 	}
 	if len(m.BoolMap) > 0 {
-		for k, _ := range m.BoolMap {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.BoolMap {
 			v := m.BoolMap[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + 1
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
+			i--
 			if v {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.Res1 != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n5, err5 := m.Res1.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
-		i += n5
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Res1Msg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -783,156 +813,167 @@ func (m *Res1Msg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res1Msg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Value != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n6, err6 := m.Value.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
-		}
-		i += n6
-	}
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
-			v := m.Dimensions[k]
-			msgSize := 0
+	if len(m.Res2Map) > 0 {
+		for k := range m.Res2Map {
+			v := m.Res2Map[k]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n7, err7 := v.MarshalTo(dAtA[i:])
-				if err7 != nil {
-					return 0, err7
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 				}
-				i += n7
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
 		}
 	}
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if m.Res2 != nil {
+		{
+			size, err := m.Res2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.Duration != nil {
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.TimeStamp != nil {
+		{
+			size, err := m.TimeStamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Int64Map) > 0 {
+		for k := range m.Int64Map {
+			v := m.Int64Map[k]
+			baseI := i
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x29
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x29
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.Int64Map) > 0 {
-		for k, _ := range m.Int64Map {
-			dAtA[i] = 0x3a
-			i++
-			v := m.Int64Map[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + sovQuotaTesterTemplateHandlerService(uint64(v))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
-		}
-	}
-	if m.TimeStamp != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n8, err8 := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
-		}
-		i += n8
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n9, err9 := m.Duration.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
-		}
-		i += n9
-	}
-	if m.Res2 != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n10, err10 := m.Res2.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
-		}
-		i += n10
-	}
-	if len(m.Res2Map) > 0 {
-		for k, _ := range m.Res2Map {
-			dAtA[i] = 0x62
-			i++
-			v := m.Res2Map[k]
-			msgSize := 0
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n11, err11 := v.MarshalTo(dAtA[i:])
-				if err11 != nil {
-					return 0, err11
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 				}
-				i += n11
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if m.Value != nil {
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Res2Msg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -940,60 +981,65 @@ func (m *Res2Msg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res2Msg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res2Msg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Value != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value.Size()))
-		n12, err12 := m.Value.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
-		}
-		i += n12
+	if m.Int64Primitive != 0 {
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.Dimensions {
 			v := m.Dimensions[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n13, err13 := v.MarshalTo(dAtA[i:])
-				if err13 != nil {
-					return 0, err13
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 				}
-				i += n13
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if m.Value != nil {
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1001,43 +1047,51 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0xa
-			i++
-			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + sovQuotaTesterTemplateHandlerService(uint64(v))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
-		}
-	}
 	if m.Res1 != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n14, err14 := m.Res1.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		{
+			size, err := m.Res1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 		}
-		i += n14
+		i--
+		dAtA[i] = 0x5a
 	}
-	return i, nil
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Res1Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1045,76 +1099,82 @@ func (m *Res1Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res1Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Value != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value))
-	}
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
-			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + sovQuotaTesterTemplateHandlerService(uint64(v))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.Res2Map) > 0 {
+		for k := range m.Res2Map {
+			v := m.Res2Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
 		}
 	}
 	if m.Res2 != nil {
+		{
+			size, err := m.Res2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n15, err15 := m.Res2.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
-		}
-		i += n15
 	}
-	if len(m.Res2Map) > 0 {
-		for k, _ := range m.Res2Map {
-			dAtA[i] = 0x62
-			i++
-			v := m.Res2Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n16, err16 := v.MarshalTo(dAtA[i:])
-				if err16 != nil {
-					return 0, err16
-				}
-				i += n16
-			}
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if m.Value != 0 {
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Res2Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1122,38 +1182,44 @@ func (m *Res2Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res2Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res2Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Value != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value))
-	}
 	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.Dimensions {
 			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + sovQuotaTesterTemplateHandlerService(uint64(v))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if m.Value != 0 {
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Value))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1161,61 +1227,72 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0xa
-			i++
-			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovQuotaTesterTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+	if m.Res1 != nil {
+		{
+			size, err := m.Res1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x5a
 	}
 	if len(m.BoolMap) > 0 {
-		for k, _ := range m.BoolMap {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.BoolMap {
 			v := m.BoolMap[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovQuotaTesterTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.Res1 != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res1.Size()))
-		n17, err17 := m.Res1.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
-		i += n17
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Res1InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1223,131 +1300,147 @@ func (m *Res1InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res1InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
-	}
-	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
-			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovQuotaTesterTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.Res2Map) > 0 {
+		for k := range m.Res2Map {
+			v := m.Res2Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.Int64Primitive) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
-		i += copy(dAtA[i:], m.Int64Primitive)
-	}
-	if len(m.BoolPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
-		i += copy(dAtA[i:], m.BoolPrimitive)
-	}
-	if len(m.DoublePrimitive) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
-		i += copy(dAtA[i:], m.DoublePrimitive)
-	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.Int64Map) > 0 {
-		for k, _ := range m.Int64Map {
-			dAtA[i] = 0x3a
-			i++
-			v := m.Int64Map[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovQuotaTesterTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
+			i--
 			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
 		}
-	}
-	if len(m.TimeStamp) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.TimeStamp)))
-		i += copy(dAtA[i:], m.TimeStamp)
-	}
-	if len(m.Duration) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Duration)))
-		i += copy(dAtA[i:], m.Duration)
 	}
 	if m.Res2 != nil {
+		{
+			size, err := m.Res2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(m.Res2.Size()))
-		n18, err18 := m.Res2.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
-		}
-		i += n18
 	}
-	if len(m.Res2Map) > 0 {
-		for k, _ := range m.Res2Map {
-			dAtA[i] = 0x62
-			i++
-			v := m.Res2Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovQuotaTesterTemplateHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.Duration) > 0 {
+		i -= len(m.Duration)
+		copy(dAtA[i:], m.Duration)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Duration)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.TimeStamp) > 0 {
+		i -= len(m.TimeStamp)
+		copy(dAtA[i:], m.TimeStamp)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.TimeStamp)))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Int64Map) > 0 {
+		for k := range m.Int64Map {
+			v := m.Int64Map[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(v.Size()))
-				n19, err19 := v.MarshalTo(dAtA[i:])
-				if err19 != nil {
-					return 0, err19
-				}
-				i += n19
-			}
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
 		}
 	}
-	return i, nil
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.DoublePrimitive) > 0 {
+		i -= len(m.DoublePrimitive)
+		copy(dAtA[i:], m.DoublePrimitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.BoolPrimitive) > 0 {
+		i -= len(m.BoolPrimitive)
+		copy(dAtA[i:], m.BoolPrimitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Int64Primitive) > 0 {
+		i -= len(m.Int64Primitive)
+		copy(dAtA[i:], m.Int64Primitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Dimensions) > 0 {
+		for k := range m.Dimensions {
+			v := m.Dimensions[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Value) > 0 {
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Value)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Res2InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1355,50 +1448,61 @@ func (m *Res2InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Res2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Res2InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+	if len(m.Int64Primitive) > 0 {
+		i -= len(m.Int64Primitive)
+		copy(dAtA[i:], m.Int64Primitive)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.Dimensions {
 			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovQuotaTesterTemplateHandlerService(uint64(len(k))) + 1 + len(v) + sovQuotaTesterTemplateHandlerService(uint64(len(v)))
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if len(m.Int64Primitive) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
-		i += copy(dAtA[i:], m.Int64Primitive)
+	if len(m.Value) > 0 {
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
+		i = encodeVarintQuotaTesterTemplateHandlerService(dAtA, i, uint64(len(m.Value)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintQuotaTesterTemplateHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovQuotaTesterTemplateHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleQuotaRequest) Size() (n int) {
 	if m == nil {
@@ -1767,14 +1871,7 @@ func (m *Res2InstanceParam) Size() (n int) {
 }
 
 func sovQuotaTesterTemplateHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozQuotaTesterTemplateHandlerService(x uint64) (n int) {
 	return sovQuotaTesterTemplateHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

@@ -114,6 +114,8 @@ func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
 	} else if updated {
 		scope.Infof("%v validatingwebhookconfiguration updated", whc.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
+	} else {
+		scope.Infof("%v validatingwebhookconfiguration unchanged, no update needed", whc.webhookConfiguration.Name)
 	}
 }
 
@@ -145,6 +147,37 @@ func createOrUpdateWebhookConfigHelper(
 		return true, err
 	}
 	return false, nil
+}
+
+// Delete validatingwebhookconfiguration if the validation is disabled
+func (whc *WebhookConfigController) deleteWebhookConfig() {
+	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	deleted, err := deleteWebhookConfigHelper(client, whc.webhookParameters.WebhookName)
+	if err != nil {
+		scope.Errorf("%v validatingwebhookconfiguration delete failed: %v", whc.webhookParameters.WebhookName, err)
+		reportValidationConfigDeleteError(err)
+	}
+	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookParameters.WebhookName, deleted)
+}
+
+// Delete validatingwebhookconfiguration if exists. otherwise, do nothing
+func deleteWebhookConfigHelper(
+	client admissionregistration.ValidatingWebhookConfigurationInterface,
+	webhookName string,
+) (bool, error) {
+	_, err := client.Get(webhookName, v1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	err = client.Delete(webhookName, &v1.DeleteOptions{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
@@ -360,8 +393,12 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 				whc.createOrUpdateWebhookConfig()
 			}
 		case <-webhookChangedCh:
-			// reconcile the desired configuration
-			whc.createOrUpdateWebhookConfig()
+			if whc.webhookParameters.EnableValidation {
+				// reconcile the desired configuration
+				whc.createOrUpdateWebhookConfig()
+			} else {
+				whc.deleteWebhookConfig()
+			}
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)

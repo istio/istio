@@ -57,6 +57,7 @@ func TestServer(t *testing.T) {
 	a.AccessListFile = accessListFile
 	a.Insecure = true
 	a.ValidationArgs.EnableValidation = false
+	a.ValidationArgs.EnableReconcileWebhookConfiguration = false
 	a.EnableProfiling = true
 
 	s := New(a)

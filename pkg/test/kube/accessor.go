@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
+	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -189,7 +190,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	return pods, err
 }
 
-// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+// CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
 func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 	scopes.CI.Infof("Checking pods ready...")
 
@@ -234,6 +235,11 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 	}, newRetryOptions(opts...)...)
 
 	return err
+}
+
+// DeleteDeployment deletes the given deployment.
+func (a *Accessor) DeleteDeployment(ns string, name string) error {
+	return a.set.AppsV1().Deployments(ns).Delete(name, deleteOptionsForeground())
 }
 
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
@@ -334,6 +340,15 @@ func (a *Accessor) WaitForValidatingWebhookDeletion(name string, opts ...retry.O
 func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
 	return err == nil
+}
+
+// GetValidatingWebhookConfigurationreturns the specified ValidatingWebhookConfiguration.
+func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
+	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
+	}
+	return whc, nil
 }
 
 // GetCustomResourceDefinitions gets the CRDs
@@ -495,6 +510,11 @@ func (a *Accessor) Logs(namespace string, pod string, container string, previous
 // Exec executes the provided command on the specified pod/container.
 func (a *Accessor) Exec(namespace, pod, container, command string) (string, error) {
 	return a.ctl.exec(namespace, pod, container, command)
+}
+
+// ScaleDeployment scales a deployment to the specified number of replicas.
+func (a *Accessor) ScaleDeployment(namespace, deployment string, replicas int) error {
+	return a.ctl.scale(namespace, deployment, replicas)
 }
 
 // CheckPodReady returns nil if the given pod and all of its containers are ready.

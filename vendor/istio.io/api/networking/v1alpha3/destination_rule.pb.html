@@ -710,7 +710,9 @@ service that can be ejected. Defaults to 10%.</p>
 pool has at least min<em>health</em>percent hosts in healthy mode. When the
 percentage of healthy hosts in the load balancing pool drops below this
 threshold, outlier detection will be disabled and the proxy will load balance
-across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
+across all hosts in the pool (healthy and unhealthy). The threshold can be
+disabled by setting it to 0%. The default is 0% as it&rsquo;s not typically
+applicable in k8s environments with few pods per service.</p>
 
 </td>
 </tr>
