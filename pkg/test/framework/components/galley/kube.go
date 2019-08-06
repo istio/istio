@@ -54,6 +54,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		environment: ctx.Environment().(*kube.Environment),
 		cfg:         cfg,
 		cache:       yml.NewCache(dir),
+		kubeIndex:   cfg.KubeIndex,
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -73,7 +74,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	scopes.Framework.Debug("completed wait for Galley pod")
 
-	port, err := getGrpcPort(n.environment, ns)
+	port, err := n.getGrpcPort(n.environment, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +111,8 @@ type kubeComponent struct {
 
 	cache     *yml.Cache
 	forwarder kube2.PortForwarder
+
+	kubeIndex int
 }
 
 var _ Instance = &kubeComponent{}
@@ -261,8 +264,8 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
-	svc, err := e.Accessors[0].GetService(ns, "istio-galley")
+func (c *kubeComponent) getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
+	svc, err := e.Accessors[c.kubeIndex].GetService(ns, "istio-galley")
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service: %v", err)
 	}

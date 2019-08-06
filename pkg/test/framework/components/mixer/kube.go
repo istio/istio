@@ -38,12 +38,15 @@ type kubeComponent struct {
 	*client
 
 	env *kube.Environment
+
+	kubeIndex int
 }
 
 // NewKubeComponent factory function for the component
 func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
-		env: ctx.Environment().(*kube.Environment),
+		env:       ctx.Environment().(*kube.Environment),
+		kubeIndex: cfgIn.KubeIndex,
 	}
 
 	c.client = &client{
@@ -75,7 +78,7 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 
 		scopes.Framework.Debugf("completed wait for Mixer pod(%s)", serviceType)
 
-		port, err := getGrpcPort(c.env, ns, serviceType)
+		port, err := c.getGrpcPort(c.env, ns, serviceType)
 		if err != nil {
 			return nil, err
 		}
@@ -126,8 +129,8 @@ func (c *kubeComponent) Close() error {
 	return nil
 }
 
-func getGrpcPort(e *kube.Environment, ns, serviceType string) (uint16, error) {
-	svc, err := e.Accessors[0].GetService(ns, "istio-"+serviceType)
+func (c *kubeComponent) getGrpcPort(e *kube.Environment, ns, serviceType string) (uint16, error) {
+	svc, err := e.Accessors[c.kubeIndex].GetService(ns, "istio-"+serviceType)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}

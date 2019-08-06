@@ -61,6 +61,9 @@ type Config struct {
 	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
 	// configured with Helm.
 	MeshConfig *meshConfig.MeshConfig
+
+	// Which KubeConfig should be used in a multicluster environment
+	KubeIndex int
 }
 
 // New returns a new instance of echo.
