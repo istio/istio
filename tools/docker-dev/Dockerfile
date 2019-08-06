@@ -58,8 +58,8 @@ RUN curl -s -Lo - https://git.io/get_helm.sh | /bin/bash
 RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-$(lsb_release -c -s) main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
 && curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
 && apt-get update && apt-get -qqy install --no-install-recommends \
-google-cloud-sdk=254.0.0-0 \
-kubectl=1.15.0-00 \
+google-cloud-sdk=257.0.0-0 \
+kubectl=1.15.2-00 \
 && rm -rf /var/lib/apt/lists/*
 
 # Install bash completion files.
