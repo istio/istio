@@ -19,7 +19,7 @@
 /prow/                                                           @geeknoid @howardjohn @duderino @linsun
 /release/                                                        @duderino @linsun
 /samples/                                                        @frankbu @kyessenov @rshriram @vadimeisenbergibm @venilnoronha
-/security/                                                       @diemtvu @incfly @myidpt @quanjielin @wattli
+/security/                                                       @diemtvu @incfly @myidpt @quanjielin @JimmyCYJ
 /tests/                                                          @costinm @nmittler
 /tests/e2e/local/                                                @costinm @nmittler @gargnupur @kimikowang @JimmyCYJ @m1093782566
 /tests/e2e/tests/pilot/                                          @costinm @nmittler @andraxylia @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm @zackbutcher

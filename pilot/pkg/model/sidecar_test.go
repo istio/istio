@@ -380,6 +380,59 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 	}
 }
 
+func TestContainsEgressNamespace(t *testing.T) {
+	cases := []struct {
+		name      string
+		egress    []string
+		namespace string
+		contains  bool
+	}{
+		{"Just wildcard", []string{"*/*"}, "ns", true},
+		{"Namespace and wildcard", []string{"ns/*", "*/*"}, "ns", true},
+		{"Just Namespace", []string{"ns/*"}, "ns", true},
+		{"Wrong Namespace", []string{"ns/*"}, "other-ns", false},
+		{"No Sidecar", nil, "ns", true},
+		{"No Sidecar Other Namespace", nil, "other-ns", false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				ConfigMeta: ConfigMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: tt.egress,
+						},
+					},
+				},
+			}
+			ps := NewPushContext()
+			meshConfig := mesh.DefaultMeshConfig()
+			ps.Env = &Environment{
+				Mesh: &meshConfig,
+			}
+
+			services := []*Service{
+				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
+				{Hostname: "ns", Attributes: ServiceAttributes{Namespace: "ns"}},
+			}
+			ps.publicServices = append(ps.publicServices, services...)
+			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
+			if len(tt.egress) == 0 {
+				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+			}
+
+			got := sidecarScope.DependsOnNamespace(tt.namespace)
+			if got != tt.contains {
+				t.Fatalf("Expected contains %v, got %v", got, tt.contains)
+			}
+		})
+	}
+}
+
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 
 	configWithoutOutboundTrafficPolicy := &Config{

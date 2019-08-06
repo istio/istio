@@ -405,7 +405,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
 					s.EnvoyXdsServer.Env.Mesh = meshConfig
-					s.EnvoyXdsServer.ConfigUpdate(true)
+					s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 				}
 			}
 		})
@@ -476,7 +476,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 			}
 		}
 	})
@@ -524,7 +524,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
 		},
 	}
 

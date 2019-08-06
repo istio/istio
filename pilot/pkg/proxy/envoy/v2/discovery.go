@@ -116,7 +116,7 @@ type DiscoveryServer struct {
 	// pushes between the 2 packages.
 	edsUpdates map[string]struct{}
 
-	updateChannel chan *updateReq
+	updateChannel chan *model.UpdateRequest
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
@@ -129,11 +129,6 @@ type DiscoveryServer struct {
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
-}
-
-// updateReq includes info about the requested update.
-type updateReq struct {
-	full bool
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -180,7 +175,7 @@ func NewDiscoveryServer(
 		edsUpdates:              map[string]struct{}{},
 		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		updateChannel:           make(chan *updateReq, 10),
+		updateChannel:           make(chan *model.UpdateRequest, 10),
 		pushQueue:               NewPushQueue(),
 	}
 
@@ -244,7 +239,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
-			s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
+			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateRequest{Full: true}, nil)
 		case <-stopCh:
 			return
 		}
@@ -279,9 +274,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
-	if !full {
-		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
+func (s *DiscoveryServer) Push(req *model.UpdateRequest, edsUpdates map[string]struct{}) {
+	if !req.Full {
+		go s.AdsPushAll(versionInfo(), s.globalPushContext(), req, edsUpdates)
 		return
 	}
 	// Reset the status during the push.
@@ -318,7 +313,7 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	version = versionLocal
 	versionMutex.Unlock()
 
-	go s.AdsPushAll(versionLocal, push, true, nil)
+	go s.AdsPushAll(versionLocal, push, req, nil)
 }
 
 func nonce() string {
@@ -345,7 +340,7 @@ func (s *DiscoveryServer) ClearCache() {
 }
 
 // Start the actual push. Called from a timer.
-func (s *DiscoveryServer) doPush(full bool) {
+func (s *DiscoveryServer) doPush(req *model.UpdateRequest) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
 	s.mutex.Lock()
@@ -355,21 +350,20 @@ func (s *DiscoveryServer) doPush(full bool) {
 	// Reset - any new updates will be tracked by the new map
 	s.edsUpdates = map[string]struct{}{}
 	s.mutex.Unlock()
-
-	s.Push(full, edsUpdates)
+	s.Push(req, edsUpdates)
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (s *DiscoveryServer) clearCache() {
-	s.ConfigUpdate(true)
+	s.ConfigUpdate(model.UpdateRequest{Full: true})
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
-func (s *DiscoveryServer) ConfigUpdate(full bool) {
+func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 	inboundConfigUpdates.Increment()
-	s.updateChannel <- &updateReq{full: full}
+	s.updateChannel <- &req
 }
 
 // Debouncing and update request happens in a separate thread, it uses locks
@@ -385,7 +379,9 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	pushCounter := 0
 
 	debouncedEvents := 0
-	fullPush := false
+
+	// Keeps track of the update requests. If updates are debounce they will be merged.
+	var req *model.UpdateRequest
 
 	for {
 		select {
@@ -396,10 +392,9 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
-			// fullPush is sticky if any debounced event requires a fullPush
-			if r.full {
-				fullPush = true
-			}
+
+			merged := req.Merge(r)
+			req = &merged
 
 		case now := <-timeChan:
 			timeChan = nil
@@ -411,10 +406,10 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
 					pushCounter, debouncedEvents,
-					quietTime, eventDelay, fullPush)
+					quietTime, eventDelay, req)
 
-				go s.doPush(fullPush)
-				fullPush = false
+				go s.doPush(req)
+				req = nil
 				debouncedEvents = 0
 				continue
 			}

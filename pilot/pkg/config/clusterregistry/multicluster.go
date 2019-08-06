@@ -105,8 +105,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
+	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(model.UpdateRequest{Full: true}) })
+	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(model.UpdateRequest{Full: true}) })
 	go kubectl.Run(stopCh)
 	return nil
 }
@@ -126,7 +126,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(true)
+		m.XDSUpdater.ConfigUpdate(model.UpdateRequest{Full: true})
 	}
 
 	return nil
