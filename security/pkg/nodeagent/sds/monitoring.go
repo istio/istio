@@ -18,7 +18,7 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-// TODO: Create an endpoint in Citadel agent to expose metrics.
+// TODO(JimmyCYJ): Create an endpoint in Citadel agent to expose metrics.
 // Previously exposed metrics: pending_push_per_connection, stale_conn_count_per_connection,
 // pushes_per_connection, push_errors_per_connection, pushed_root_cert_expiry_timestamp, pushed_server_cert_expiry_timestamp
 var (
@@ -45,6 +45,13 @@ var (
 		"total_stale_connections",
 		"The total number of stale SDS connections.",
 	)
+
+	// totalSecretUpdateFailureCounts records total number of secret update failures reported by
+	// proxy in SDS request <error_detail> field.
+	totalSecretUpdateFailureCounts = monitoring.NewSum(
+		"total_secret_update_failures",
+		"The total number of dynamic secret update failures reported by proxy.",
+	)
 )
 
 func init() {
@@ -53,5 +60,6 @@ func init() {
 		totalPushErrorCounts,
 		totalActiveConnCounts,
 		totalStaleConnCounts,
+		totalSecretUpdateFailureCounts,
 	)
 }
