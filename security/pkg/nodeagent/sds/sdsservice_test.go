@@ -1026,11 +1026,11 @@ func checkStaledConnCount(t *testing.T) {
 	// Manually clear staled clients instead of waiting for ticker.
 	clearStaledClients()
 	metricName := "total_stale_connections"
-	stale_connections, err := util.GetMetricsCounterValue(metricName)
+	staleConnections, err := util.GetMetricsCounterValue(metricName)
 	if err != nil {
 		t.Errorf("Failed to get metric value for %s: %v", metricName, err)
 	}
-	if stale_connections != float64(0) {
-		t.Errorf("expect %q to be 0, got %f", metricName, stale_connections)
+	if staleConnections != float64(0) {
+		t.Errorf("expect %q to be 0, got %f", metricName, staleConnections)
 	}
 }
