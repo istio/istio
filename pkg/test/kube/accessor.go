@@ -190,7 +190,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	return pods, err
 }
 
-// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+// CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
 func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 	scopes.CI.Infof("Checking pods ready...")
 
