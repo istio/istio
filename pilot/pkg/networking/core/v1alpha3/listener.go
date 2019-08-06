@@ -478,6 +478,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	// call plugins
 	l := buildListener(listenerOpts)
+	l.TrafficDirection = core.TrafficDirection_INBOUND
+
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
 		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
@@ -769,6 +771,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	tcpListeners = append(tcpListeners, httpListeners...)
 	httpProxy := configgen.buildHTTPProxy(env, node, push, node.ServiceInstances)
 	if httpProxy != nil {
+		httpProxy.TrafficDirection = core.TrafficDirection_OUTBOUND
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
@@ -819,6 +822,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		skipUserFilters: true,
 	}
 	l := buildListener(opts)
+
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
 	mutable := &plugin.MutableObjects{
@@ -1092,6 +1096,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
 	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
@@ -1378,6 +1383,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				skipUserFilters: true,
 			}
 			l := buildListener(listenerOpts)
+			l.TrafficDirection = core.TrafficDirection_INBOUND
 			mutable := &plugin.MutableObjects{
 				Listener:     l,
 				FilterChains: []plugin.FilterChain{{}},
@@ -1444,6 +1450,7 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 	bindToPort      bool
 	skipUserFilters bool
+	trafficDirection model.TrafficDirection
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,

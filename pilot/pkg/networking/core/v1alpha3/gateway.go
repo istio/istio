@@ -110,6 +110,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		l := buildListener(opts)
+		l.TrafficDirection = core.TrafficDirection_INBOUND
+
 		mutable := &plugin.MutableObjects{
 			Listener: l,
 			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
