@@ -3,7 +3,7 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-ingressgateway
