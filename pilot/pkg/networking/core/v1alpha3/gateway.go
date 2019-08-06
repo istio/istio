@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			filterChainOpts := make([]*filterChainOpts, 0)
 
 			for _, server := range servers {
-				if config.IsTLSServer(server) && config.IsHTTPServer(server) {
+				if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
@@ -407,7 +407,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
-	if server.Tls == nil || config.IsPassThroughServer(server) {
+	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
@@ -527,7 +527,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
-	} else if !config.IsPassThroughServer(server) {
+	} else if !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -724,12 +724,12 @@ func isPortMatch(port uint32, server *networking.Server) bool {
 	return portMatch
 }
 
-func isGatewayMatch(gatewaysForWorkload map[string]bool, gateways []string) bool {
+func isGatewayMatch(gatewaysForWorkload map[string]bool, gatewayNames []string) bool {
 	// if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
-	gatewayMatch := len(gateways) == 0
-	if len(gateways) > 0 {
-		for _, gateway := range gateways {
-			gatewayMatch = gatewayMatch || gatewaysForWorkload[gateway]
+	gatewayMatch := len(gatewayNames) == 0
+	if len(gatewayNames) > 0 {
+		for _, gatewayName := range gatewayNames {
+			gatewayMatch = gatewayMatch || gatewaysForWorkload[gatewayName]
 		}
 	}
 	return gatewayMatch

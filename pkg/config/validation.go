@@ -39,10 +39,13 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/config/xds"
 )
 
 const (
@@ -363,7 +366,7 @@ func validateServer(server *networking.Server) (errs error) {
 		} else if !p.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
 			if p.IsHTTP() {
-				if !IsPassThroughServer(server) ||
+				if !gateway.IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
 					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
 				}
@@ -575,7 +578,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			}
 		}
 		// ensure that the struct is valid
-		if _, err := BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
+		if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
 			errs = appendErrors(errs, err)
 		}
 	}
@@ -1694,7 +1697,7 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 	}
 	if jwt.JwksUri != "" {
 		// TODO: do more extensive check (e.g try to fetch JwksUri)
-		if _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -1743,8 +1746,8 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
-	for _, gateway := range virtualService.Gateways {
-		if gateway == constants.IstioMeshGateway {
+	for _, gatewayName := range virtualService.Gateways {
+		if gatewayName == constants.IstioMeshGateway {
 			appliesToMesh = true
 			break
 		}
@@ -1978,13 +1981,13 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	return
 }
 
-func validateGatewayNames(gateways []string) (errs error) {
-	for _, gateway := range gateways {
-		parts := strings.SplitN(gateway, "/", 2)
+func validateGatewayNames(gatewayNames []string) (errs error) {
+	for _, gatewayName := range gatewayNames {
+		parts := strings.SplitN(gatewayName, "/", 2)
 		if len(parts) != 2 {
 			// deprecated
 			// Old style spec with FQDN gateway name
-			errs = appendErrors(errs, ValidateFQDN(gateway))
+			errs = appendErrors(errs, ValidateFQDN(gatewayName))
 			return
 		}
 

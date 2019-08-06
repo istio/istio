@@ -20,8 +20,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/xds"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
@@ -57,7 +57,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		// there wont be an error here because validation catches mismatched types
-		cpw.Value, _ = config.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		cpw.Value, _ = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
