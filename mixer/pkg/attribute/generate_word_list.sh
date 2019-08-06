@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 Istio Authors
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-#######################################
-#                                     #
-#             e2e-suite               #
-#                                     #
-#######################################
-
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
-
-echo 'Running Simple test with rbac, auth Tests'
-
-./prow/e2e-kind-suite.sh --auth_enable --single_test e2e_simple "$@"
+istio_api=$(go list -m -f "{{.Dir}}" istio.io/api)
+./generate_word_list.py "${istio_api}/mixer/v1/global_dictionary.yaml" list.gen.go
