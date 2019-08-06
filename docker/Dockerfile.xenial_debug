@@ -18,6 +18,7 @@ RUN apt-get update && \
       iputils-ping \
       knot-dnsutils \
       netcat \
+      software-properties-common \
       tcpdump \
       net-tools \
       lsof \
@@ -28,9 +29,9 @@ RUN apt-get update && \
    && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
 
 # upgrade libstdc++6
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y software-properties-common
-
+# hadolint ignore=DL3008
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test && \
     apt-get update && \
-    apt-get install --no-install-recommends -y --only-upgrade libstdc++6
+    apt-get install --no-install-recommends -y --only-upgrade libstdc++6 \
+ && apt-get clean \
+ && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
