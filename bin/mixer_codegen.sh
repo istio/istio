@@ -63,8 +63,6 @@ while getopts ':f:o:p:i:t:a:d:x:' flag; do
   esac
 done
 
-# echo "outdir: ${outdir}"
-
 # Ensure expected GOPATH setup
 if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
@@ -72,9 +70,6 @@ fi
 
 IMPORTS=(
   "--proto_path=${ROOTDIR}"
-  "--proto_path=${ROOTDIR}/vendor/istio.io/api"
-  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/protobuf"
-  "--proto_path=${ROOTDIR}/vendor/github.com/gogo/googleapis"
   "--proto_path=$optimport"
 )
 
@@ -110,7 +105,7 @@ if [ "$opttemplate" = true ]; then
     "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
     "google/protobuf/timestamp.proto:github.com/gogo/protobuf/types"
-    "google/rpc/status.proto:github.com/gogo/googleapis/google/rpc"
+    "google/rpc/status.proto:istio.io/gogo-genproto/googleapis/google/rpc"
     "google/protobuf/struct.proto:github.com/gogo/protobuf/types"
   )
 
@@ -189,7 +184,7 @@ if [ "$optadapter" = true ]; then
   adapteCfdDS=${file}_descriptor
   err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
   if [ -n "$err" ]; then
-  die "config generation failure: $err";
+    die "config generation failure: $err";
   fi
 
   IFS=" " read -r -a extraflags_array <<< "$extraflags"
@@ -210,5 +205,5 @@ fi
 
 err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
 if [ -n "$err" ]; then
-die "config generation failure: $err";
+  die "config generation failure: $err";
 fi

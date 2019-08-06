@@ -52,7 +52,7 @@ func TestVersion(t *testing.T) {
 
 			out, err := exec.Command(cmd, args...).Output()
 			if err != nil {
-				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
+				t.Fatalf("--version failed with error: %v. Output: %v", err, string(out))
 			}
 
 			var resp version.Version
@@ -92,7 +92,7 @@ func TestFlags(t *testing.T) {
 		t.Run(b, func(t *testing.T) {
 			out, err := exec.Command(cmd, "--help").Output()
 			if err != nil {
-				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
+				t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
 			}
 
 			for _, blacklist := range blacklistedFlags {
