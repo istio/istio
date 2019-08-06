@@ -122,6 +122,8 @@ const (
 )
 
 var (
+	applicationProtocols = []string{"h2", "http/1.1", "http/1.0"}
+
 	// EnvoyJSONLogFormat map of values for envoy json based access logs
 	EnvoyJSONLogFormat = &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
@@ -533,7 +535,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 					fcm = *chain.FilterChainMatch
 				}
 
-				fcm.ApplicationProtocols = append(fcm.ApplicationProtocols, []string{"h2", "http/1.1", "http/1.0"}...)
+				fcm.ApplicationProtocols = append(fcm.ApplicationProtocols, applicationProtocols...)
 				filterChainMatch = &fcm
 
 				// Check mTLS filter chain
@@ -1220,7 +1222,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, []string{"h2", "http/1.1", "http/1.0"}...)
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1375,9 +1377,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 
 	case AutoOverAuto:
-		// Merge two TCP filter chains
-		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
-			pluginParams, listenerMapKey, listenerMap, node)
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 	}
 
@@ -2092,7 +2091,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
 		}
 
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, []string{"h2", "http/1.1", "http/1.0"}...)
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
 		newFilterChan = append(newFilterChan, fc)
 
 	}
@@ -2114,7 +2113,7 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 }
 
 // checkWellKnownPorts checks conflicts between incoming protocol and existing protocol.
-// Mongo and MySQL are now allowed to co-exist with other protocols in one port.
+// Mongo and MySQL are not allowed to co-exist with other protocols in one port.
 func checkWellKnownPorts(incoming, existing protocol.Instance, conflict int) bool {
 	if conflict == NoConflict {
 		return true
