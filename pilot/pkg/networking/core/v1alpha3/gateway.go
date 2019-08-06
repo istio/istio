@@ -110,7 +110,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		l := buildListener(opts)
-		l.TrafficDirection = core.TrafficDirection_INBOUND
+		l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 		mutable := &plugin.MutableObjects{
 			Listener: l,

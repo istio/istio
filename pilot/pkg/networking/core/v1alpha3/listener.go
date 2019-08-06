@@ -1450,7 +1450,6 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 	bindToPort      bool
 	skipUserFilters bool
-	trafficDirection model.TrafficDirection
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
