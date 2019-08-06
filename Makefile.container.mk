@@ -24,7 +24,6 @@ fmt:
 
 # make target dependencies
 vfsgen: data/
-	go get github.com/shurcooL/vfsgen
 	go generate ./cmd/mesh.go
 
 ########################
