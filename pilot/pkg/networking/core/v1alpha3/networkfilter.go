@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -37,8 +36,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
-
-const tcpEnvoyAccesslogName string = "tcp_envoy_accesslog"
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
@@ -76,32 +73,7 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		config.AccessLog = append(config.AccessLog, acc)
 	}
 
-	if env.Mesh.EnableEnvoyAccessLogService {
-		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
-			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: tcpEnvoyAccesslogName,
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: EnvoyAccessLogCluster,
-						},
-					},
-				},
-			},
-		}
-
-		acc := &accesslog.AccessLog{
-			Name: xdsutil.HTTPGRPCAccessLog,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
-
-		config.AccessLog = append(config.AccessLog, acc)
-	}
+	// envoy als is not enabled for tcp
 	return config
 }
 
