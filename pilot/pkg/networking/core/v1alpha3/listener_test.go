@@ -757,7 +757,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 
 	env := buildListenerEnv(services)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
@@ -796,7 +796,7 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 		env = buildListenerEnv(services)
 	}
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
@@ -813,7 +813,7 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 	instances := make([]*model.ServiceInstance, len(services))

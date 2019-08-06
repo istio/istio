@@ -50,13 +50,24 @@ type PushContext struct {
 	defaultVirtualServiceExportTo  map[visibility.Instance]bool
 	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
+	// Service related data
+	// TODO: move these into sub structs for easy copying across push contexts
+
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
 	// publicServices are services reachable within the mesh.
 	publicServices []*Service
 
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
+	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+
+	// Virtual Service related data
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
+
+	// Destination Rules related data
 
 	// destination rules are of three types:
 	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
@@ -68,17 +79,9 @@ type PushContext struct {
 	namespaceExportedDestRules map[string]*processedDestRules
 	allExportedDestRules       *processedDestRules
 
-	// sidecars for each namespace
-	sidecarsByNamespace map[string][]*SidecarScope
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	////////// END ////////
-
-	// The following data is either a global index or used in the inbound path.
-	// Namespace specific views do not apply here.
-
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
-	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -87,8 +90,8 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// sidecars for each namespace. Needs copying when services/configs change
+	sidecarsByNamespace map[string][]*SidecarScope
 
 	initDone bool
 }
@@ -123,7 +126,7 @@ type XDSUpdater interface {
 
 	// SvcUpdate is called when a service port mapping definition is updated.
 	// This interface is WIP - labels, annotations and other changes to service may be
-	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
+	// updated to force a EDS and CDS re-computation and incremental push, as it doesn't affect
 	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
 
@@ -145,11 +148,17 @@ type UpdateRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
+	// ConfigTypesUpdated contains the types of configs that have changed.
+	// The config types are those defined in config.go
+	// Applicable only when Full is set to true.
+	ConfigTypesUpdated map[string]struct{}
+
 	// TargetNamespaces contains a list of namespaces that were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
 	// If this is empty, then proxies in all namespaces will get an update
-	// If this is present, then only proxies that import this namespace will get an update
+	// If this is present, then only proxies that import this namespace will get an update.
+	// Applicable only when Full is set to true.
 	TargetNamespaces map[string]struct{}
 }
 
@@ -165,18 +174,28 @@ func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
 	merged := UpdateRequest{}
 	merged.Full = first.Full || other.Full
 	merged.TargetNamespaces = map[string]struct{}{}
+	merged.ConfigTypesUpdated = map[string]struct{}{}
 
 	// If either does not specify only namespaces, this means update all namespaces
-	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		return merged
+	if len(first.TargetNamespaces) != 0 && len(other.TargetNamespaces) != 0 {
+		// Merge the updates
+		for update := range first.TargetNamespaces {
+			merged.TargetNamespaces[update] = struct{}{}
+		}
+		for update := range other.TargetNamespaces {
+			merged.TargetNamespaces[update] = struct{}{}
+		}
 	}
 
-	// Merge the updates
-	for update := range first.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
-	}
-	for update := range other.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
+	// If either does not specify only config types, this means update all config types
+	if len(first.ConfigTypesUpdated) != 0 && len(other.ConfigTypesUpdated) != 0 {
+		// Merge the updates
+		for update := range first.ConfigTypesUpdated {
+			merged.ConfigTypesUpdated[update] = struct{}{}
+		}
+		for update := range other.ConfigTypesUpdated {
+			merged.ConfigTypesUpdated[update] = struct{}{}
+		}
 	}
 
 	return merged
@@ -595,8 +614,14 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
-// the push context.
-func (ps *PushContext) InitContext(env *Environment) error {
+// the push context. If updateReq is provided and oldPushContext is not nil,
+// then push context initialization will copy content from oldPushContext for config types
+// that are not in the updateReq, saving some processing time.
+// TODO: This can be expanded to completely avoid pushing to certain namespaces
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, updateReq *UpdateRequest) error {
+	// TODO: Why is this lock necessary?
+	// Can two functions simultaneously call init/update on the same push context object? That does not seem to
+	// be the case
 	ps.Mutex.Lock()
 	defer ps.Mutex.Unlock()
 	if ps.initDone {
@@ -610,6 +635,22 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	// use the default export map
 	ps.initDefaultExportMaps()
 
+	if updateReq == nil || oldPushContext == nil || len(updateReq.ConfigTypesUpdated) == 0 {
+		if err = ps.createNewContext(env); err != nil {
+			return err
+		}
+	} else {
+		if err = ps.updateFromExistingContext(env, oldPushContext, updateReq); err != nil {
+			return err
+		}
+	}
+
+	ps.initDone = true
+	return nil
+}
+
+func (ps *PushContext) createNewContext(env *Environment) error {
+	var err error
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -635,9 +676,96 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
+	return err
+}
 
-	ps.initDone = true
-	return nil
+func (ps *PushContext) updateFromExistingContext(env *Environment, oldPushContext *PushContext, updateReq *UpdateRequest) error {
+
+	var err error
+	servicesChanged := false
+	virtualServicesChanged := false
+	destinationRulesChanged := false
+	authZChanged := false
+	envoyFiltersChanged := false
+	sidecarsChanged := false
+
+	for k := range updateReq.ConfigTypesUpdated {
+		switch k {
+		case ServiceEntry.Type:
+			servicesChanged = true
+		case DestinationRule.Type:
+			destinationRulesChanged = true
+		case VirtualService.Type:
+			virtualServicesChanged = true
+		case Sidecar.Type:
+			sidecarsChanged = true
+		case EnvoyFilter.Type:
+			envoyFiltersChanged = true
+		case ServiceRoleBinding.Type, ServiceRole.Type, AuthorizationPolicy.Type:
+			authZChanged = true
+		}
+	}
+
+	if servicesChanged {
+		// Services have changed. initialize service registry
+		if err = ps.initServiceRegistry(env); err != nil {
+			return err
+		}
+	} else {
+		// copy all the relevant data structures from old push context
+		ps.privateServicesByNamespace = oldPushContext.privateServicesByNamespace
+		ps.publicServices = oldPushContext.publicServices
+		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+		ps.ServiceByHostnameAndNamespace = oldPushContext.ServiceByHostnameAndNamespace
+	}
+
+	if virtualServicesChanged {
+		if err = ps.initVirtualServices(env); err != nil {
+			return err
+		}
+	} else {
+		ps.publicVirtualServices = oldPushContext.publicVirtualServices
+		ps.privateVirtualServicesByNamespace = oldPushContext.privateVirtualServicesByNamespace
+	}
+
+	if destinationRulesChanged {
+		if err = ps.initDestinationRules(env); err != nil {
+			return err
+		}
+	} else {
+		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
+		ps.allExportedDestRules = oldPushContext.allExportedDestRules
+		ps.namespaceExportedDestRules = oldPushContext.namespaceExportedDestRules
+	}
+
+	if authZChanged {
+		if err = ps.initAuthorizationPolicies(env); err != nil {
+			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+			return err
+		}
+	} else {
+		ps.AuthzPolicies = oldPushContext.AuthzPolicies
+	}
+
+	if envoyFiltersChanged {
+		if err = ps.initEnvoyFilters(env); err != nil {
+			return err
+		}
+	} else {
+		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
+	}
+
+	// Must be initialized in the end
+	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+		if err = ps.initSidecarScopes(env); err != nil {
+			return err
+		}
+	} else {
+		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+	}
+
+	return err
 }
 
 // Caches list of services in the registry, and creates a map

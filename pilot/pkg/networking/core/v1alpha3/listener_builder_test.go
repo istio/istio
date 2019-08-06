@@ -61,7 +61,7 @@ func TestListenerBuilder(t *testing.T) {
 
 	env := buildListenerEnv(services)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -105,7 +105,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -154,7 +154,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))

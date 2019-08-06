@@ -666,7 +666,7 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		MixerSAN:         []string{},
 	}
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("failed to init push context: %v", err)
 	}
 	return env

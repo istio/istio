@@ -181,22 +181,36 @@ func NewDiscoveryServer(
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
-	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
+	serviceHandler := func(s *model.Service, e model.Event) {
+		updateReq := model.UpdateRequest{Full: true}
+		updateReq.ConfigTypesUpdated = map[string]struct{}{model.ServiceEntry.Type: {}}
+		out.clearCache(updateReq)
+	}
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil
 	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
+	instanceHandler := func(*model.ServiceInstance, model.Event) {
+		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// In all cases, this is simply an instance update and not a config update. So, we need to update
+		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
+		out.clearCache(model.UpdateRequest{Full: true})
+	}
 	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		return nil
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
+	// TODO: This should cause a full config push only to the proxies using the Authn configs
 	authn_model.JwtKeyResolver.PushFunc = out.ClearCache
 
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		configHandler := func(c model.Config, e model.Event) {
+			updateReq := model.UpdateRequest{Full: true}
+			updateReq.ConfigTypesUpdated = map[string]struct{}{c.Type: {}}
+			out.clearCache(updateReq)
+		}
 		for _, descriptor := range model.IstioConfigTypes {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
@@ -280,15 +294,16 @@ func (s *DiscoveryServer) Push(req *model.UpdateRequest, edsUpdates map[string]s
 		return
 	}
 	// Reset the status during the push.
-	pc := s.globalPushContext()
-	if pc != nil {
-		pc.OnConfigChange()
+	// this returns s.Env.PushContext
+	oldPushContext := s.globalPushContext()
+	if oldPushContext != nil {
+		oldPushContext.OnConfigChange()
 	}
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
-	err := push.InitContext(s.Env)
+	err := push.InitContext(s.Env, oldPushContext, req)
 	if err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
@@ -336,7 +351,7 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
 func (s *DiscoveryServer) ClearCache() {
-	s.clearCache()
+	s.clearCache(model.UpdateRequest{Full: true})
 }
 
 // Start the actual push. Called from a timer.
@@ -355,12 +370,12 @@ func (s *DiscoveryServer) doPush(req *model.UpdateRequest) {
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
-func (s *DiscoveryServer) clearCache() {
-	s.ConfigUpdate(model.UpdateRequest{Full: true})
+func (s *DiscoveryServer) clearCache(updateRequest model.UpdateRequest) {
+	s.ConfigUpdate(updateRequest)
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
+// This is called only by the multi cluster code currently.
 func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 	inboundConfigUpdates.Increment()
 	s.updateChannel <- &req
