@@ -181,11 +181,11 @@ func (s *Status) WithDetails(details ...proto.Message) (*Status, error) {
 	// s.Code() != OK implies that s.Proto() != nil.
 	p := s.Proto()
 	for _, detail := range details {
-		any, err := types.MarshalAny(detail)
+		body, err := types.MarshalAny(detail)
 		if err != nil {
 			return nil, err
 		}
-		p.Details = append(p.Details, any)
+		p.Details = append(p.Details, body)
 	}
 	return &Status{s: p}, nil
 }
@@ -197,9 +197,9 @@ func (s *Status) Details() []interface{} {
 		return nil
 	}
 	details := make([]interface{}, 0, len(s.s.Details))
-	for _, any := range s.s.Details {
+	for _, body := range s.s.Details {
 		detail := &types.DynamicAny{}
-		if err := types.UnmarshalAny(any, detail); err != nil {
+		if err := types.UnmarshalAny(body, detail); err != nil {
 			details = append(details, err)
 			continue
 		}
