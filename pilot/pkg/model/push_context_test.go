@@ -29,26 +29,80 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"left nil",
 			nil,
-			&UpdateRequest{true, nil},
-			UpdateRequest{true, nil},
+			&UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   nil,
+			},
+			UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   nil,
+			},
 		},
 		{
 			"right nil",
-			&UpdateRequest{true, nil},
+			&UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   nil,
+			},
 			nil,
-			UpdateRequest{true, nil},
+			UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   nil,
+			},
 		},
 		{
 			"simple merge",
-			&UpdateRequest{true, map[string]struct{}{"ns1": {}}},
-			&UpdateRequest{false, map[string]struct{}{"ns2": {}}},
-			UpdateRequest{true, map[string]struct{}{"ns1": {}, "ns2": {}}},
+			&UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   map[string]struct{}{"ns1": {}},
+			},
+			&UpdateRequest{
+				Full:               false,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   map[string]struct{}{"ns2": {}},
+			},
+			UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   map[string]struct{}{"ns1": {}, "ns2": {}},
+			},
 		},
 		{
 			"incremental merge",
-			&UpdateRequest{false, map[string]struct{}{"ns1": {}}},
-			&UpdateRequest{false, map[string]struct{}{"ns2": {}}},
-			UpdateRequest{false, map[string]struct{}{"ns1": {}, "ns2": {}}},
+			&UpdateRequest{
+				Full:               false,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   map[string]struct{}{"ns1": {}},
+			},
+			&UpdateRequest{
+				Full:               false,
+				ConfigTypesUpdated: map[string]struct{}{ServiceEntry.Type: {}},
+				TargetNamespaces:   map[string]struct{}{"ns2": {}},
+			},
+			UpdateRequest{
+				Full:               false,
+				ConfigTypesUpdated: nil,
+				TargetNamespaces:   map[string]struct{}{"ns1": {}, "ns2": {}},
+			},
+		},
+		{
+			"incremental merge with config updates",
+			&UpdateRequest{Full:true,
+				TargetNamespaces: map[string]struct{}{"ns1": {}},
+				ConfigTypesUpdated: map[string]struct{}{ServiceEntry.Type: {}},
+			},
+			&UpdateRequest{
+				Full:               true,
+				ConfigTypesUpdated: map[string]struct{}{VirtualService.Type: {}},
+				TargetNamespaces: map[string]struct{}{"ns1": {}},
+			},
+			UpdateRequest{Full:true, TargetNamespaces: map[string]struct{}{"ns1": {}},
+				ConfigTypesUpdated: map[string]struct{}{ServiceEntry.Type: {}, VirtualService.Type: {}}},
 		},
 	}
 

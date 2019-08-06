@@ -173,11 +173,10 @@ func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
 
 	merged := UpdateRequest{}
 	merged.Full = first.Full || other.Full
-	merged.TargetNamespaces = map[string]struct{}{}
-	merged.ConfigTypesUpdated = map[string]struct{}{}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) != 0 && len(other.TargetNamespaces) != 0 {
+		merged.TargetNamespaces = map[string]struct{}{}
 		// Merge the updates
 		for update := range first.TargetNamespaces {
 			merged.TargetNamespaces[update] = struct{}{}
@@ -189,6 +188,7 @@ func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
 
 	// If either does not specify only config types, this means update all config types
 	if len(first.ConfigTypesUpdated) != 0 && len(other.ConfigTypesUpdated) != 0 {
+		merged.ConfigTypesUpdated = map[string]struct{}{}
 		// Merge the updates
 		for update := range first.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
