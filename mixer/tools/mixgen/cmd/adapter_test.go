@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo.descriptor --include_imports -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo_without_imports.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo.descriptor --include_imports -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/simple/foo.proto -otestdata/simple/foo_without_imports.descriptor -I.
 package cmd
 
 import (
