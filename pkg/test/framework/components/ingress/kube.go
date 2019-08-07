@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/test"
@@ -51,6 +52,11 @@ type kubeComponent struct {
 	id        resource.ID
 	namespace string
 	env       *kube.Environment
+}
+
+type httpsAddress struct {
+	ip   string
+	port int32
 }
 
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
@@ -115,9 +121,44 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
 func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
-		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
-		// https://github.com/istio/istio/issues/14180
-		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
+		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Querying ingress, pods:\n%+v\n", pods)
+		if len(pods) == 0 {
+			return nil, false, fmt.Errorf("no ingress pod found")
+		}
+
+		scopes.Framework.Debugf("Found pod: \n%+v\n", pods[0])
+		ip := pods[0].Status.HostIP
+		if ip == "" {
+			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
+		}
+
+		svc, err := env.Accessor.GetService(ns, serviceName)
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Found service for the gateway:\n%+v\n", svc)
+		if len(svc.Spec.Ports) == 0 {
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 443 {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		return httpsAddress{ip: ip, port: nodePort}, true, nil
 	}
 
 	svc, err := env.Accessor.GetService(ns, serviceName)
@@ -130,7 +171,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return ip, true, nil
+	return httpsAddress{ip: ip, port: 443}, true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
@@ -157,15 +198,15 @@ func (c *kubeComponent) HTTPAddress() string {
 	return address.(string)
 }
 
-// HTTPSAddress returns HTTPS address of ingress gateway.
-func (c *kubeComponent) HTTPSAddress() string {
+// HTTPSAddress returns HTTPS IP address and port number of ingress gateway.
+func (c *kubeComponent) HTTPSAddress() (string, string) {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return getHTTPSAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	return address.(string)
+	return address.(httpsAddress).ip, strconv.Itoa(int(address.(httpsAddress).port))
 }
 
 // createClient creates a client which sends HTTP requests or HTTPS requests, depending on
@@ -196,8 +237,8 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
-				if addr == options.Host+":443" {
-					addr = options.Address + ":443"
+				if addr == options.Host+":"+options.Port {
+					addr = options.Address + ":" + options.Port
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
 				if err != nil {
@@ -219,7 +260,7 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error) {
 	url := options.Address + options.Path
 	if options.CallType != PlainText {
-		url = "https://" + options.Host + ":443" + options.Path
+		url = "https://" + options.Host + ":" + options.Port + options.Path
 	}
 
 	req, err := http.NewRequest("GET", url, nil)

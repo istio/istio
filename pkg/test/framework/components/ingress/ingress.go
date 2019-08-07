@@ -55,8 +55,11 @@ type CallOptions struct {
 	// Cert is inline base64 encoded certificate for test client.
 	Cert string
 
-	// Address is the ingress gateway address to call to.
+	// Address is the ingress gateway IP address to call to.
 	Address string
+
+	// Port is the ingress gateway port to call to.
+	Port string
 
 	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
 	CallType CallType
@@ -83,9 +86,9 @@ type Instance interface {
 	// HTTPAddress returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
 	HTTPAddress() string
-	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
-	HTTPSAddress() string
+	// HTTPSAddress returns the external HTTPS address and port number of the ingress gateway (or the
+	// NodePort address, when running under Minikube).
+	HTTPSAddress() (string, string)
 
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)

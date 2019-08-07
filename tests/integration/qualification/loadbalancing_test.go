@@ -169,7 +169,7 @@ func getCPUSamples(v model.Value, t *testing.T) []float64 {
 
 func sendTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGroup) {
 	timeout := time.After(duration)
-	endpointIP := ing.HTTPSAddress()
+	endpointIP, _ := ing.HTTPSAddress()
 	for {
 		select {
 		case <-timeout:

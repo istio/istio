@@ -173,7 +173,7 @@ type TLSContext struct {
 func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TLSContext,
 	timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
 	start := time.Now()
-	endpointIP := ing.HTTPSAddress()
+	endpointIP, endpointPort := ing.HTTPSAddress()
 	for {
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
@@ -183,6 +183,7 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
 			Address:    endpointIP,
+			Port:       endpointPort,
 		})
 		errorMatch := true
 		if err != nil {
