@@ -39,7 +39,6 @@ jaeger:
     BADGER_DIRECTORY_VALUE: "/badger/data"
     BADGER_DIRECTORY_KEY: "/badger/key"
     COLLECTOR_ZIPKIN_HTTP_PORT: "9411"
-    MEMORY_MAX_TRACES: 50000
     QUERY_BASE_PATH: "/jaeger"
 
 zipkin:
@@ -47,6 +46,7 @@ zipkin:
   image: zipkin
   tag: 2.14.2
   probeStartupDelay: 200
+  queryPort: 9411
   resources:
     limits:
       cpu: 300m
@@ -61,7 +61,6 @@ zipkin:
   # A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus
   # 100 MB for a safety buffer.  You'll need to verify in your own environment.
     ZIPKIN_STORAGE_MEM_MAXSPANS: "500000"
-    QUERY_PORT: "9411"
     JAVA_OPTS: "-XX:ConcGCThreads=2 -XX:ParallelGCThreads=2 -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 -Xms700M -Xmx700M -XX:+UseG1GC -server"
 
 service:
