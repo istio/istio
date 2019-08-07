@@ -42,9 +42,18 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
+{{- if .Values.sidecar }}
+          - containerPort: 15019
+            protocol: TCP
+          - containerPort: 9443
+{{- else }}
           - containerPort: 443
+{{- end }}
+            protocol: TCP
           - containerPort: {{ .Values.global.monitoringPort }}
+            protocol: TCP
           - containerPort: 9901
+            protocol: TCP
           command:
           - /usr/local/bin/galley
           - server
@@ -55,9 +64,12 @@ spec:
           - --readinessProbeInterval=1s
           - --deployment-namespace={{ .Release.Namespace }}
           - --insecure=true
-          - --server-address=tcp://127.0.0.1:9901
+          - --enable-validation=true
+          - --validation-port=9443
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
+{{- else }}
+          - --enable-server=true
 {{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
@@ -66,7 +78,7 @@ spec:
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
           volumeMounts:
-          - name: certs
+          - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
           - name: config
@@ -82,8 +94,11 @@ spec:
                 - probe
                 - --probe-path=/healthliveness
                 - --interval=10s
+            failureThreshold: 3
             initialDelaySeconds: 5
             periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           readinessProbe:
             exec:
               command:
@@ -91,8 +106,11 @@ spec:
                 - probe
                 - --probe-path=/healthready
                 - --interval=10s
+            failureThreshold: 3
             initialDelaySeconds: 5
             periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -101,15 +119,17 @@ spec:
 {{- end }}
 {{- if .Values.sidecar }}
         - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
+      {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
-{{- else }}
+      {{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-{{- end }}
+      {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 9902
+          {{- if not .Values.sidecar }}
             - containerPort: 15019
+          {{- end }}
           args:
             - proxy
             - --domain
@@ -151,12 +171,16 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
-            - name: certs
+            - name: istio-certs
               mountPath: /etc/certs
               readOnly: true
+          {{- if .Values.sidecar }}
+            - name: envoy-config
+              mountPath: /var/lib/istio/galley/envoy
+          {{- end }}
 {{- end }}
       volumes:
-      - name: certs
+      - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account
       - name: config
@@ -165,6 +189,11 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
+{{- if .Values.sidecar }}
+      - name: envoy-config
+        configMap:
+          name: galley-envoy-config
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
