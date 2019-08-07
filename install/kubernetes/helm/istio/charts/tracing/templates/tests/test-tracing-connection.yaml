@@ -22,7 +22,7 @@ spec:
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
       {{- if eq .Values.provider "jaeger" }}
-      args: ['http://tracing:80{{ .Values.jaeger.contextPath}}']
+      args: ['http://tracing:80/jaeger']
       {{- else }}
       args: ['http://tracing:80']
       {{- end }}
