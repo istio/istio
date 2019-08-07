@@ -59,8 +59,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
+          {{- if .Values.jaeger.env }}
+          {{- range $key, $val := .Values.jaeger.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
