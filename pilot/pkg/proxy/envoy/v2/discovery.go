@@ -350,20 +350,21 @@ func (s *DiscoveryServer) doPush(req *model.UpdateRequest) {
 	// Reset - any new updates will be tracked by the new map
 	s.edsUpdates = map[string]struct{}{}
 	s.mutex.Unlock()
+
 	s.Push(req, edsUpdates)
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (s *DiscoveryServer) clearCache() {
-	s.ConfigUpdate(model.UpdateRequest{Full: true})
+	s.ConfigUpdate(&model.UpdateRequest{Full: true})
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
-func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
+func (s *DiscoveryServer) ConfigUpdate(req *model.UpdateRequest) {
 	inboundConfigUpdates.Increment()
-	s.updateChannel <- &req
+	s.updateChannel <- req
 }
 
 // Debouncing and update request happens in a separate thread, it uses locks
@@ -407,8 +408,7 @@ func debounce(ch chan *model.UpdateRequest, stopCh <-chan struct{}, fn func(req 
 			}
 			debouncedEvents++
 
-			merged := req.Merge(r)
-			req = &merged
+			req = req.Merge(r)
 
 		case now := <-timeChan:
 			timeChan = nil

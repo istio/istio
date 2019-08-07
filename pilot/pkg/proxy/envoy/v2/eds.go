@@ -483,7 +483,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 	// no other workload can be affected. Safer option is to fallback to full push.
 
 	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdate(model.UpdateRequest{Full: true})
+	s.ConfigUpdate(&model.UpdateRequest{Full: true})
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.
@@ -574,7 +574,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
-		s.ConfigUpdate(model.UpdateRequest{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
+		s.ConfigUpdate(&model.UpdateRequest{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
 	}
 }
 

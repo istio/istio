@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"istio.io/istio/pilot/pkg/features"
 	"sort"
 	"sync"
 
@@ -140,7 +141,7 @@ type XDSUpdater interface {
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
-	ConfigUpdate(req UpdateRequest)
+	ConfigUpdate(req *UpdateRequest)
 }
 
 // UpdateRequest defines a request to update proxies
@@ -157,16 +158,22 @@ type UpdateRequest struct {
 }
 
 // Merge two update requests together
-func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
+func (first *UpdateRequest) Merge(other *UpdateRequest) *UpdateRequest {
 	if first == nil {
-		return *other
+		return other
 	}
 	if other == nil {
-		return *first
+		return first
 	}
 
-	merged := UpdateRequest{}
+	merged := &UpdateRequest{}
 	merged.Full = first.Full || other.Full
+
+	if !features.ScopePushes.Get() {
+		// If push scoping is not enabled, we donot care about target namespaces
+		return merged
+	}
+
 	merged.TargetNamespaces = map[string]struct{}{}
 
 	// If either does not specify only namespaces, this means update all namespaces

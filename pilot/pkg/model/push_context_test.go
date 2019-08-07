@@ -55,7 +55,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.left.Merge(tt.right)
-			if !reflect.DeepEqual(tt.merged, got) {
+			if !reflect.DeepEqual(&tt.merged, got) {
 				t.Fatalf("expected %v, got %v", tt.merged, got)
 			}
 		})
