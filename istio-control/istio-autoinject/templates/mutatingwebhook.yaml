@@ -41,6 +41,9 @@ webhooks:
         - disabled
       - key: istio-env
         operator: DoesNotExist
+{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
+      matchLabels:
+        istio-injection: enabled
 {{- else }}
       matchLabels:
         istio-env: {{ .Release.Namespace }}

@@ -5,28 +5,29 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-pilot
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: pilot
-      release: istio-control-istio-discovery
+      release: istio-system-istio
       istio: pilot
+---
 
 ---
 # Source: istio-discovery/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-control
+  namespace: istio-system
   name: pilot-envoy-config
   labels:
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -188,6 +189,8 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 
+---
+
 
 ---
 # Source: istio-discovery/templates/configmap.yaml
@@ -196,9 +199,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-control
+  namespace: istio-system
   labels:
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 data:
 
   meshNetworks: |-
@@ -264,9 +267,22 @@ data:
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "OFF"
     ingressClass: "istio"
+    # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: 
+    sdsUdsPath: ""
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: false
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: false
     config_sources:
     - address: localhost:15019
 
@@ -313,28 +329,33 @@ data:
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-control:15011
+      discoveryAddress: istio-pilot.istio-system:15011
+---
 
 ---
 # Source: istio-discovery/templates/serviceaccount.yaml
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
+---
+
 
 ---
 # Source: istio-discovery/templates/clusterrole.yaml
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-control
+  name: istio-pilot-istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -360,24 +381,29 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+---
+
 
 ---
 # Source: istio-discovery/templates/clusterrolebinding.yaml
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-control
+  name: istio-pilot-istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-pilot-istio-control
+  name: istio-pilot-istio-system
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-control
+    namespace: istio-system
+---
+
 
 ---
 # Source: istio-discovery/templates/service.yaml
@@ -385,10 +411,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
     istio: pilot
 spec:
   ports:
@@ -402,6 +428,7 @@ spec:
     name: http-monitoring
   selector:
     istio: pilot
+---
 
 ---
 # Source: istio-discovery/templates/deployment.yaml
@@ -409,14 +436,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
-  namespace: istio-control
+  namespace: istio-system
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
     istio: pilot
   annotations:
-    checksum/config-volume:  c20ce28acd114c762cba065c6107f355d66db3e93c5e73d37fe13bfb62846449
+    checksum/config-volume-envoy:  ae3e510332fa815a51f1f24f8b3d7a94462292f550a5556eba29cfb52366cb0a
+    checksum/config-volume:  53dcb099afe28bc87179eb0750e63d29b0cc7282d069af93d613c8b3b0f502e1
 spec:
   strategy:
     rollingUpdate:
@@ -429,7 +457,12 @@ spec:
     metadata:
       labels:
         app: pilot
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
+        heritage: Tiller
+        release: istio
+        chart: pilot
       annotations:
         sidecar.istio.io/inject: "false"
         checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
@@ -576,18 +609,20 @@ spec:
                 operator: In
                 values:
                 - s390x      
+---
 
 ---
 # Source: istio-discovery/templates/enable-mesh-mtls.yaml
+
 # Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
 # Customer should add similar destination rules for other services that dont' have sidecar.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-  namespace: istio-control
+  namespace: istio-system
   labels:
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:
@@ -595,29 +630,35 @@ spec:
       mode: DISABLE
 
 ---
+
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
-  namespace: istio-control
+  namespace: istio-system
   labels:
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 spec:
   host: "*.local"
   trafficPolicy:
     tls:
       mode: DISABLE
+---
+
+
+
 
 ---
 # Source: istio-discovery/templates/autoscale.yaml
+
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-pilot
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-control-istio-discovery
+    release: istio-system-istio
 spec:
   maxReplicas: 5
   minReplicas: 1

@@ -5,10 +5,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-galley-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   galley-dashboard.json: '{
@@ -1836,10 +1836,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-istio-mesh-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   istio-mesh-dashboard.json: '{
@@ -2801,10 +2801,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-istio-performance-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   istio-performance-dashboard.json: '{
@@ -4635,10 +4635,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-istio-service-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   istio-service-dashboard.json: '{
@@ -7248,10 +7248,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-istio-workload-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   istio-workload-dashboard.json: '{
@@ -9563,10 +9563,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-mixer-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   mixer-dashboard.json: '{
@@ -11383,10 +11383,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana-configuration-dashboards-pilot-dashboard
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   pilot-dashboard.json: '{
@@ -13187,10 +13187,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-grafana
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
     istio: grafana
 data:
   datasources.yaml: |-
@@ -13222,11 +13222,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: istio-telemetry
+  namespace: istio-system
   annotations:
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
 spec:
   type: ClusterIP
   ports:
@@ -13243,10 +13243,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
 spec:
   replicas: 1
   selector:
@@ -13394,9 +13394,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: grafana
-  namespace: istio-telemetry
+  namespace: istio-system
 spec:
-  host: grafana.istio-telemetry
+  host: grafana.istio-system
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -13407,10 +13407,10 @@ apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
   name: grafana-ports-mtls-disabled
-  namespace: istio-telemetry
+  namespace: istio-system
   labels:
     app: grafana
-    release: istio-telemetry-istio-telemetry
+    release: istio-system-istio
 spec:
   targets:
   - name: grafana

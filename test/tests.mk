@@ -3,9 +3,33 @@
 
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
+#
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-full \
-	run-test.integration.kube.presubmit run-simple run-simple-strict run-bookinfo run-prometheus-operator-config-test
+#
+# This is set as default value for TEST_TARGET for runs of "make test" (full test) and "make docker-run-test" (re-running
+# the tests without cleanup)
+#
+# If a test fails, you can re-run it by setting it as TEST_TARGET.
+#
+# The order of the tests is important if running all tests locally:
+# - noauth/knative tests run without citadel, minimal installation - need to verify lack of certificates is not a problem
+# - demo will install the demo profile, including citadel, and will call run-bookinfo test
+# - run-simple, run-simple-strict, integration will use the existing 'demo' installation.
+#
+# Pre-submit tests shards the execution of the tests.
+run-all-tests: run-build \
+    run-test-noauth-micro \
+    run-test-knative \
+    run-test-demo \
+	run-simple \
+	run-simple-strict \
+	test-canary \
+    run-test.integration.kube.presubmit \
+    run-reachability-test \
+	run-prometheus-operator-config-test
+
+# Tests using multiple namespaces. Out of scope for 1.3
+run-multinamespace: run-build install-full
 
 # Tests running against 'micro' environment - just citadel + pilot + ingress
 # TODO: also add 'nano' - pilot + ingress without citadel, some users are using this a-la-carte option
@@ -42,11 +66,11 @@ run-simple-base: ${TMPDIR}
            2>&1 | tee ${GOPATH}/out/logs/$@.log)
 
 run-simple:
-	$(MAKE) run-simple-base MODE=permissive NS=simple
+	$(MAKE) run-simple-base ISTIO_CONTROL_NS=istio-system MODE=permissive NS=simple
 
 # Simple test, strict mode
 run-simple-strict:
-	$(MAKE) run-simple-base MODE=strict NS=simple-strict SIMPLE_AUTH=true
+	$(MAKE) run-simple-base MODE=strict ISTIO_CONTROL_NS=istio-system NS=simple-strict SIMPLE_AUTH=true
 
 run-bookinfo-demo:
 	kubectl create ns bookinfo-demo || true
@@ -56,6 +80,7 @@ run-bookinfo-demo:
 		E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 
 # Simple bookinfo install and curl command
+# In 1.3 we'll use istio-system
 run-bookinfo:
 	kubectl create ns bookinfo || true
 	echo ${BASE} ${GOPATH}
@@ -63,7 +88,8 @@ run-bookinfo:
 	#kubectl label namespace bookinfo istio-env=${ISTIO_CONTROL_NS} --overwrite
 	kubectl -n bookinfo apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n bookinfo apply -f test/k8s/sidecar-local.yaml
-	SKIP_CLEANUP=1 ISTIO_CONTROL=${ISTIO_CONTROL_NS} INGRESS_NS=${ISTIO_INGRESS_NS} SKIP_DELETE=1 SKIP_LABEL=1 bin/test.sh ${GOPATH}/src/istio.io/istio
+	ONE_NAMESPACE=1 SKIP_CLEANUP=1 ISTIO_CONTROL=${ISTIO_SYSTEM_NS} INGRESS_NS=${ISTIO_SYSTEM_NS} SKIP_DELETE=1 SKIP_LABEL=1 \
+	  bin/test.sh ${GOPATH}/src/istio.io/istio
 
 # Simple fortio install and curl command
 #run-fortio:
@@ -77,7 +103,9 @@ run-mixer:
 		E2E_ARGS="${E2E_ARGS} --namespace=mixertest")
 
 # Test targets to run. Exclude tests that are broken for now
-INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|telemetry/tracing\|/istioctl")
+# Reachability tests are run in the 'run-minimal-test', no need to duplicate it.
+# (also helps to shard the tests)
+INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|security/reachability\|telemetry/tracing\|/istioctl")
 
 INT_FLAGS ?= \
 	--istio.test.hub ${HUB} \
@@ -138,7 +166,7 @@ run-prometheus-operator-config-test: install-prometheus-operator install-prometh
 	until timeout ${WAIT_TIMEOUT} kubectl -n ${ISTIO_CONTROL_NS} get pod/prometheus-prometheus-0; do echo "Waiting for pods to be created..."; done
 	kubectl -n ${ISTIO_CONTROL_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
 
-run-minimal-test:
+run-reachability-test:
 	mkdir -p ${GOPATH}/out/logs ${GOPATH}/out/tmp
 	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
 		go test ./tests/integration/security/reachability/... \
@@ -146,6 +174,6 @@ run-minimal-test:
 			-istio.test.kube.config=${KUBECONFIG} \
 			-istio.test.nocleanup \
 			-istio.test.kube.deploy=0 \
-			-istio.test.kube.configNamespace=istio-control \
+			-istio.test.kube.configNamespace=${ISTIO_CONTROL_NS} \
 			-istio.test.kube.customSidecarInjectorNamespace=${CUSTOM_SIDECAR_INJECTOR_NAMESPACE} \
 			-v)

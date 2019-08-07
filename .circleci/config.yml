@@ -31,6 +31,7 @@ integrationRemoteIsolatedNamespaces: &integrationRemoteIsolatedNamespaces
       environment:
         GOPATH: /go
         SKIP_CLEANUP: 1
+        ONE_NAMESPACE: 0
         TMPDIR: /go/tmp
 
 # Common procedure to initialize working directory
@@ -209,6 +210,7 @@ jobs:
           path: /go/out/logs
 
   # Verify a-la-carte with no certificates ( smallest possible install, and cases without certs/mtls)
+  # KNative tests.
   noauth:
     <<: *integrationRemoteOneNamespace
 
@@ -226,17 +228,40 @@ jobs:
       - run:
           command: make info dep prepare
       - run:
-          command: make sync
+          command: make sync run-build
       - run:
           command: make docker-run-test TEST_TARGET="run-test-noauth-micro"
       - run:
           command: make docker-run-test TEST_TARGET="run-test-noauth-full"
       - run:
-          command: make clean
+          command: make docker-run-test TEST_TARGET="run-test-knative"
+      - run:
+          when: always
+          command: make kind-logs
+      - store_test_results:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+
+  # KNative standalone test.
+  knative:
+    <<: *integrationRemoteOneNamespace
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          command: |
+            mkdir -p $GOPATH/tmp
+            mkdir -p $GOPATH/src/istio.io/
+            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
+            git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
       - run:
           command: make info dep prepare
       - run:
-          command: make sync
+          command: make sync run-build
       - run:
           command: make docker-run-test TEST_TARGET="run-test-knative"
       - run:
@@ -248,7 +273,8 @@ jobs:
           path: /go/out/logs
 
   # Uses machine and minikube --root, using one-step installation
-  # Used to verify that minikube still works, and get a baseline/compare performance.
+  # Used to verify that minikube still works, and get a baseline/compare performance with remote docker.
+  # This is testing the demo - should match install-demo results and time.
   install-minikube:
     <<: *integrationDefaults
     environment: &minikubeEnv
@@ -262,19 +288,14 @@ jobs:
       - checkout
       - run: bin/testEnvRootMinikube.sh start
       - run: bin/testEnvRootMinikube.sh wait
+      - run: make gitdep
       - run:
-          command: make install-crds install-base
+          # Create KIND cluster (separate so we get time info)
+          command: make info dep prepare
       - run:
-          command: make install-ingress
+          command: make sync
       - run:
-          command: make install-telemetry
-      - run:
-          command: make install-policy
-      - run:
-          command: make info dep
-      - run:
-          no_output_timeout: 20m
-          command: make git.dep run-test.integration.kube.presubmit
+          command: make docker-run-test TEST_TARGET="run-test-demo"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -285,9 +306,7 @@ jobs:
           path: /go/out/tests
 
   run-test-on-base-installation:
-    <<: *integrationRemoteIsolatedNamespaces
-
-    # Can run multiple images, first is primary, all use localhost
+    <<: *integrationRemoteOneNamespace
     steps:
       - checkout
       - setup_remote_docker:
@@ -301,7 +320,7 @@ jobs:
       - run:
           command: make kind-run TARGET="install-base ENABLE_NAMESPACES_BY_DEFAULT=false"
       - run:
-          command: make docker-run-test TEST_TARGET="run-minimal-test ENABLE_NAMESPACES_BY_DEFAULT=false"
+          command: make docker-run-test TEST_TARGET="run-reachability-test ENABLE_NAMESPACES_BY_DEFAULT=false"
       - run:
           when: always
           command: make kind-logs
@@ -329,6 +348,7 @@ workflows:
       - install-minikube
       - install-demo
       - noauth
+      - knative
       - run-test-on-base-installation
 
   all:

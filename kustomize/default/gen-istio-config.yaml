@@ -5,30 +5,31 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-galley
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: galley
-    release: istio-control-istio-config
+    release: istio-system-istio
     istio: galley
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: galley
-      release: istio-control-istio-config
+      release: istio-system-istio
       istio: galley
+---
 
 ---
 # Source: istio-config/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-control
+  namespace: istio-system
   name: galley-envoy-config
   labels:
     app: galley
     istio: galley
-    release: istio-control-istio-config
+    release: istio-system-istio
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -108,7 +109,7 @@ data:
                 trusted_ca:
                   filename: /etc/certs/root-cert.pem
             require_client_certificate: true
-
+---
 
 
 ---
@@ -117,15 +118,16 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mesh-galley
-  namespace: istio-control
+  namespace: istio-system
   labels:
-    release: istio-control-istio-config
+    release: istio-system-istio
 data:
 
 
   mesh: |-
     {}
-
+    
+---
 
 ---
 # Source: istio-config/templates/configmap.yaml
@@ -133,26 +135,26 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-galley-configuration
-  namespace: istio-control
+  namespace: istio-system
   labels:
-    release: istio-control-istio-config
+    release: istio-system-istio
 data:
-  validatingwebhookconfiguration.yaml: |-
+  validatingwebhookconfiguration.yaml: |-    
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
-      name: istio-galley-istio-control
-      namespace: istio-control
+      name: istio-galley-istio-system
+      namespace: istio-system
       labels:
         app: galley
-        release: istio-control-istio-config
+        release: istio-system-istio
         istio: galley
     webhooks:
       - name: pilot.validation.istio.io
         clientConfig:
           service:
             name: istio-galley
-            namespace: istio-control
+            namespace: istio-system
             path: "/admitpilot"
           caBundle: ""
         rules:
@@ -206,7 +208,7 @@ data:
         clientConfig:
           service:
             name: istio-galley
-            namespace: istio-control
+            namespace: istio-system
             path: "/admitmixer"
           caBundle: ""
         rules:
@@ -253,7 +255,7 @@ data:
             - zipkins
         failurePolicy: Fail
         sideEffects: None
-
+---
 
 ---
 # Source: istio-config/templates/serviceaccount.yaml
@@ -261,19 +263,20 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-galley-service-account
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: galley
-    release: istio-control-istio-config
+    release: istio-system-istio
+---
 
 ---
 # Source: istio-config/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-galley-istio-control
+  name: istio-galley-istio-system
   labels:
-    release: istio-control-istio-config
+    release: istio-system-istio
 rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
@@ -304,6 +307,7 @@ rules:
   resources: ["deployments/finalizers"]
   resourceNames: ["istio-galley"]
   verbs: ["update"]
+---
 
 
 ---
@@ -311,17 +315,18 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-galley-admin-role-binding-istio-control
+  name: istio-galley-admin-role-binding-istio-system
   labels:
-    release: istio-control-istio-config
+    release: istio-system-istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-galley-istio-control
+  name: istio-galley-istio-system
 subjects:
   - kind: ServiceAccount
     name: istio-galley-service-account
-    namespace: istio-control
+    namespace: istio-system
+---
 
 ---
 # Source: istio-config/templates/service.yaml
@@ -329,16 +334,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-galley
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: galley
     istio: galley
-    release: istio-control-istio-config
+    release: istio-system-istio
 spec:
   ports:
   - port: 443
-    targetPort: 9443
     name: https-validation
+    targetPort: 9443
   - port: 15014
     name: http-monitoring
   - port: 9901
@@ -347,6 +352,7 @@ spec:
     name: grpc-tls-mcp
   selector:
     istio: galley
+---
 
 ---
 # Source: istio-config/templates/deployment.yaml
@@ -354,16 +360,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-galley
-  namespace: istio-control
+  namespace: istio-system
   labels:
     app: galley
     istio: galley
-    release: istio-control-istio-config
+    release: istio-system-istio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: galley
       istio: galley
   strategy:
     rollingUpdate:
@@ -374,6 +379,9 @@ spec:
       labels:
         app: galley
         istio: galley
+        heritage: Tiller
+        release: istio
+        chart: galley
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -392,13 +400,14 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/tmp/healthliveness
-          - --readinessProbePath=/tmp/healthready
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
           - --enable-validation=true
+          - --validation-port=9443
           - --enable-server=true
-          - --deployment-namespace=istio-control
+          - --deployment-namespace=istio-system
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
@@ -419,7 +428,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthliveness
+                - --probe-path=/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -428,14 +437,14 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthready
+                - --probe-path=/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
           resources:
             requests:
               cpu: 100m
-
+            
         - name: istio-proxy
           image: "gcr.io/istio-release/proxyv2:master-latest-daily"
           imagePullPolicy: Always
@@ -472,7 +481,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-
+            
 
           volumeMounts:
           - name: istio-certs
@@ -497,7 +506,7 @@ spec:
         configMap:
           name: istio-mesh-galley
 
-      affinity:
+      affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -529,9 +538,11 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x
+                - s390x      
+---
 
 ---
 # Source: istio-config/templates/validatingwebhookconfiguration.yaml.tpl
 
+---
 
