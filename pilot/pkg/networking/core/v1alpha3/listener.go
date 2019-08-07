@@ -96,6 +96,10 @@ const (
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
+
+	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
+	// So the meta data can be erased when pushing to envoy.
+	PilotMetaKey = "pilot_meta"
 )
 
 var (
