@@ -72,6 +72,8 @@ type PushContext struct {
 	sidecarsByNamespace map[string][]*SidecarScope
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
+	// gateways for each namespace
+	gatewaysByNamespace map[string][]Config
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -1057,6 +1059,46 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
 		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
 			out = append(out, efw)
+		}
+	}
+	return out
+}
+
+// pre computes gateways per namespace
+func (ps *PushContext) initGateways(env *Environment) error {
+	gatewayConfigs, err := env.List(Gateway.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(gatewayConfigs)
+
+	ps.gatewaysByNamespace = make(map[string][]Config)
+	for _, gatewayConfig := range gatewayConfigs {
+		if _, exists := ps.gatewaysByNamespace[gatewayConfig.Namespace]; !exists {
+			ps.gatewaysByNamespace[gatewayConfig.Namespace] = make([]Config, 0)
+		}
+		ps.gatewaysByNamespace[gatewayConfig.Namespace] = append(ps.gatewaysByNamespace[gatewayConfig.Namespace], gatewayConfig)
+	}
+	return nil
+}
+
+func (ps *PushContext) Gateways(proxy *Proxy) []Config {
+	// this should never happen
+	if proxy == nil {
+		return nil
+	}
+	out := make([]Config, 0)
+	for _, cfg := range ps.gatewaysByNamespace[proxy.ConfigNamespace] {
+		gw := cfg.Spec.(*networking.Gateway)
+		if gw.GetSelector() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			out = append(out, cfg)
+		} else {
+			gatewaySelector := labels.Instance(gw.GetSelector())
+			if proxy.WorkloadLabels.IsSupersetOf(gatewaySelector) {
+				out = append(out, cfg)
+			}
 		}
 	}
 	return out
