@@ -229,23 +229,8 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 	}
 }
 
-type istioMetadata struct {
-	CanonicalTelemetryService string            `json:"canonical_telemetry_service,omitempty"`
-	IP                        string            `json:"ip,omitempty"`
-	Labels                    map[string]string `json:"labels,omitempty"`
-	Name                      string            `json:"name,omitempty"`
-	Namespace                 string            `json:"namespace,omitempty"`
-	Owner                     string            `json:"owner,omitempty"`
-	PortsToContainers         map[string]string `json:"ports_to_containers,omitempty"`
-	ServiceAccount            string            `json:"service_account,omitempty"`
-	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
-	WorkloadName              string            `json:"workload_name,omitempty"`
-}
-
 func shouldExtract(envVar, prefix string) bool {
-	if strings.HasPrefix(envVar, "ISTIO_META_OWNER") ||
-		strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") ||
-		strings.HasPrefix(envVar, "ISTIO_METAJSON_PORTS") {
+	if strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") {
 		return false
 	}
 	return strings.HasPrefix(envVar, prefix)
@@ -271,35 +256,41 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
-	im := istioMetadata{}
+func extractAttributesMetadata(envVars []string, plat platform.Environment, meta map[string]interface{}) {
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
-		case "INSTANCE_IP":
-			im.IP = val
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
-			im.Labels = m
-			im.CanonicalTelemetryService = m["istioTelemetryService"]
+			meta[model.NodeMetadataLabels] = m
+			if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
+				meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+			}
 		case "POD_NAME":
-			im.Name = val
+			meta[model.NodeMetadataInstanceName] = val
 		case "POD_NAMESPACE":
-			im.Namespace = val
-		case "ISTIO_META_OWNER":
-			im.Owner = val
+			meta[model.NodeMetadataNamespace] = val
+		case "ISTIO_META_WORKLOAD_API_VERSION":
+			meta[model.NodeMetadataWorkloadAPIVersion] = val
+		case "ISTIO_META_WORKLOAD_KIND":
+			meta[model.NodeMetadataWorkloadKind] = val
 		case "ISTIO_META_WORKLOAD_NAME":
-			im.WorkloadName = val
-		case "ISTIO_METAJSON_PORTS_TO_CONTAINERS":
-			m := jsonStringToMap(val)
-			im.PortsToContainers = m
+			meta[model.NodeMetadataWorkloadName] = val
 		}
 	}
-	if plat != nil {
-		im.PlatformMetadata = plat.Metadata()
+	if plat != nil && len(plat.Metadata()) > 0 {
+		meta[model.NodeMetadataPlatformMetadata] = plat.Metadata()
 	}
-	return im
 }
+
+// func ownerHeuristic(name string) string {
+// 	if len(name) == 0 {
+// 		return ""
+// 	}
+// 	// TODO: generateName field in sidecar injector to trim
+// 	// Otherwise, look for (10 digits of uint32)<dash>(5 chararacters) and trim
+// 	// Otherwise, just use as is
+// }
 
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
@@ -320,7 +311,7 @@ func getNodeMetaData(envs []string, plat platform.Environment) map[string]interf
 	}, meta)
 	meta["istio"] = "sidecar"
 
-	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
+	extractAttributesMetadata(envs, plat, meta)
 
 	return meta
 }

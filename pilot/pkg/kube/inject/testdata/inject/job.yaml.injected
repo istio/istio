@@ -82,9 +82,6 @@ spec:
           value: pi
         - name: ISTIO_META_OWNER
           value: kubernetes://api/batch/v1/namespaces/default/job/pi
-        - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-          value: |
-            {}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

@@ -598,16 +598,6 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return bbuf.String()
 	}
 
-	funcMap["portsToContainers"] = func(podSpec *corev1.PodSpec) map[string]string {
-		out := map[string]string{}
-		for _, container := range podSpec.Containers {
-			for _, cPort := range container.Ports {
-				out[strconv.Itoa(int(cPort.ContainerPort))] = container.Name
-			}
-		}
-		return out
-	}
-
 	bbuf, err := parseTemplate(sidecarTemplate, funcMap, data)
 	if err != nil {
 		return nil, "", err

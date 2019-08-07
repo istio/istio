@@ -529,6 +529,16 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"
+	NodeMetadataLabels                    = "LABELS"
+	NodeMetadataWorkloadName              = "WORKLOAD_NAME"
+	NodeMetadataWorkloadAPIVersion        = "WORKLOAD_API_VERSION"
+	NodeMetadataWorkloadKind              = "WORKLOAD_KIND"
+	NodeMetadataServiceAccount            = "SERVICE_ACCOUNT"
+	NodeMetadataPlatformMetadata          = "PLATFORM_METADATA"
+	NodeMetadataInstanceName              = "NAME"      // replaces POD_NAME
+	NodeMetadataNamespace                 = "NAMESPACE" // Possibly replaces CONFIG_NAMESPACE
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

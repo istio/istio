@@ -90,9 +90,6 @@ spec:
           value: hello
         - name: ISTIO_META_OWNER
           value: kubernetes://api/apps/v1/namespaces/default/replicaset/hello
-        - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-          value: |
-            {"80":"hello"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
