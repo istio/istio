@@ -102,7 +102,8 @@ type ManifestMap map[ComponentName]string
 func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (bool, error) {
 	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
 	if err != nil {
-		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath featureEnabled for feature=%s, component=%s: %s", featureName, componentName, err)
+		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath featureEnabled for feature=%s, component=%s: %s",
+			featureName, componentName, err)
 	}
 	if !found || featureNodeI == nil {
 		return false, nil
@@ -117,7 +118,8 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 
 	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Common.Enabled")
 	if err != nil {
-		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for feature=%s, component=%s: %s", featureName, componentName, err)
+		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for feature=%s, component=%s: %s",
+			featureName, componentName, err)
 	}
 	if !found || componentNodeI == nil {
 		return featureNode.Value, nil
