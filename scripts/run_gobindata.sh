@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
 # The original version of this file is located in the https://github.com/istio/common-files repo.
@@ -5,7 +7,7 @@
 # common-files repo, make the change there and check it in. Then come back to this repo and run
 # "make updatecommon".
 
-# Copyright 2019 Istio Authors
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +21,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-updatecommon:
-	@git clone --depth 1 --single-branch --branch master https://github.com/istio/common-files
-	@cd common-files
-	@git rev-parse HEAD >.commonfiles.sha
-	@cp -r common-files/files/* common-files/files/.[^.]* .
-	@rm -fr common-files
+set -e
+
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+
+img=gcr.io/istio-testing/api-build-tools:2019-07-30
+
+docker run -i --sig-proxy=true --rm --entrypoint go-bindata --user "$(id -u)" -v /etc/passwd:/etc/passwd:ro -v "${ROOTDIR}:${ROOTDIR}" -w "$(pwd)" ${img} "$@"

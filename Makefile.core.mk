@@ -119,3 +119,5 @@ gen_patch_values:
 
 mesh: vfsgen
 	go build -o ${GOBIN}/mesh ./cmd/mesh.go
+
+include Makefile.common.mk
