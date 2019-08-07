@@ -55,6 +55,10 @@ while (( "$#" )); do
       SKIP_SETUP=true
       shift
     ;;
+    --skip-cleanup)
+      SKIP_CLEANUP=true
+      shift
+    ;;
     --skip-build)
       SKIP_BUILD=true
       shift

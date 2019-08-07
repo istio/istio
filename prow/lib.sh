@@ -103,6 +103,14 @@ function check_kind() {
   fi
 }
 
+function cleanup_kind_cluster() {
+    kind export logs --name istio-testing "${ARTIFACTS}/kind"
+    if [[ -z "${SKIP_CLEANUP:-}" ]]; then
+      echo "Cleaning up kind cluster"
+      kind delete cluster --name=istio-testing
+    fi
+}
+
 function setup_kind_cluster() {
   IMAGE="${1}"
   # Installing KinD
@@ -113,10 +121,12 @@ function setup_kind_cluster() {
   if ! (kind delete cluster --name=istio-testing) > /dev/null; then
     echo "No existing kind cluster with name istio-testing. Continue..."
   fi
+
+  trap cleanup_kind_cluster EXIT
+
   # Create KinD cluster
   if ! (kind create cluster --name=istio-testing --config ./prow/config/trustworthy-jwt.yaml --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
-    kind export logs --name istio-testing "${ARTIFACTS}/kind"
     exit 1
   fi
 
