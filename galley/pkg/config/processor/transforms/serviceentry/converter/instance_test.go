@@ -199,11 +199,11 @@ func TestServicePorts(t *testing.T) {
 		proto coreV1.Protocol
 		out   protocol.Instance
 	}{
-		{"", coreV1.ProtocolTCP, protocol.TCP},
+		{"", coreV1.ProtocolTCP, protocol.Unsupported},
 		{"http", coreV1.ProtocolTCP, protocol.HTTP},
 		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
 		{"http", coreV1.ProtocolUDP, protocol.UDP},
-		{"httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{"httptest", coreV1.ProtocolTCP, protocol.Unsupported},
 		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
 		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
 		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
