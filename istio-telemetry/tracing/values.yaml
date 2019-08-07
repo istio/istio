@@ -30,9 +30,14 @@ tracing:
 
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.9
+    tag: 1.12
     memory:
       max_traces: 50000
+    # spanStorageType value can be "memory" and "badger" for all-in-one image
+    spanStorageType: badger
+    persist: false
+    storageClassName: ""
+    accessMode: ReadWriteMany
 
   zipkin:
     hub: docker.io/openzipkin
