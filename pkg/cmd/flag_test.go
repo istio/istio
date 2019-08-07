@@ -37,7 +37,7 @@ func TestInitializeIntFlag(t *testing.T) {
 	cmd := &cobra.Command{}
 	var testInt int
 	flag.IntVar(&testInt, "testint", defaultInt, "test int flag")
-	InitializeFlags(cmd)
+	AddFlags(cmd)
 
 	testName := "Initialize int Flag"
 	if !flag.Parsed() {
@@ -60,7 +60,7 @@ func TestInitializeStringFlag(t *testing.T) {
 	cmd := &cobra.Command{}
 	var testString string
 	flag.StringVar(&testString, "teststring", defaultString, "test string flag")
-	InitializeFlags(cmd)
+	AddFlags(cmd)
 
 	testName := "Initialize String Flag"
 	if !flag.Parsed() {
@@ -83,7 +83,7 @@ func TestInitializeBoolFlag(t *testing.T) {
 	cmd := &cobra.Command{}
 	var testBool bool
 	flag.BoolVar(&testBool, "testbool", defaultBool, "test bool flag")
-	InitializeFlags(cmd)
+	AddFlags(cmd)
 
 	testName := "Initialize bool Flag"
 	if !flag.Parsed() {
@@ -106,7 +106,7 @@ func TestInitializeDurationFlag(t *testing.T) {
 	cmd := &cobra.Command{}
 	var testDuration time.Duration
 	flag.DurationVar(&testDuration, "testduration", defaultDuration, "test duration flag")
-	InitializeFlags(cmd)
+	AddFlags(cmd)
 
 	testName := "Initialize duration flag"
 	if !flag.Parsed() {
