@@ -1,7 +1,3 @@
-
-#sidecarInjectorWebhook:
-#  rewriteAppHTTPProbe: false
-
 istio_cni:
   enabled: false
 
@@ -17,7 +13,7 @@ global:
 
   controlPlaneSecurityEnabled: false
 
-  istioNamespace: istio-system
+  istioNamespace: istio-micro
   trustDomain: ""
 
   #network: default

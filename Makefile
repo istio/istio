@@ -56,7 +56,7 @@ TAG ?= master-latest-daily
 export HUB
 export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}
-OUT ?= ${GOPATH}/out
+OUT ?= ${TOP}/out
 
 BUILD_IMAGE ?= istionightly/ci:2019-07-01
 
@@ -79,6 +79,9 @@ CUSTOM_SIDECAR_INJECTOR_NAMESPACE ?=
 # A cluster must support multiple control plane versions.
 ISTIO_SYSTEM_NS ?= istio-system
 ISTIO_TESTING_NS ?= istio-testing
+# Default is ONE_NAMESPACE for 1.3. Set it to 0 to test multiple control planes.
+ONE_NAMESPACE ?= 1
+
 ifeq ($(ONE_NAMESPACE), 1)
 ISTIO_CONTROL_NS ?= ${ISTIO_SYSTEM_NS}
 ISTIO_TELEMETRY_NS ?= ${ISTIO_SYSTEM_NS}
@@ -106,10 +109,12 @@ ISTIO_ADMIN_NS ?= istio-admin
 TEST_TARGET ?= run-all-tests
 
 # Required, tests in docker may not execute in /tmp
-export TMPDIR=${GOPATH}/out/tmp
+export TMPDIR=${TOP}/out/tmp
 
-# Setting MOUNT to 1 will mount the current GOPATH into the kind cluster, and run the tests as the
+# Setting MOUNT to 1 will mount the current TOP into the kind cluster, and run the tests as the
 # current user. The default value for kind cluster will be 'local' instead of test.
+# If MOUNT is 0, 'make sync' will copy files from the local workspace/git into the docker container running the tests
+# and kind.
 MOUNT ?= 0
 
 # If SKIP_CLEANUP is set, the cleanup will be skipped even if the test is successful.
@@ -124,7 +129,7 @@ WAIT_TIMEOUT ?= 240s
 IOP_OPTS="-f test/kind/user-values.yaml"
 
 ifeq ($(MOUNT), 1)
-	KIND_CONFIG ?= --config ${GOPATH}/kind.yaml
+	KIND_CONFIG ?= --config ${TOP}/kind.yaml
 	KIND_CLUSTER ?= local
 else
 	# Customize this if you want to run tests in different kind clusters in parallel
@@ -133,7 +138,7 @@ else
 	# Remember that 'make test' will clean the previous cluster at startup - but leave it running after in case of errors,
 	# so failures can be debugged.
 	KIND_CLUSTER ?= test
-
+	LOCALVOL=""
 	KIND_CONFIG =
 endif
 
@@ -152,41 +157,52 @@ KUBECONFIG ?= ~/.kube/config
 # 2. Errors reported
 # 3. make sync ( to copy modified files - unless MOUNT=1 was used)
 # 4. make docker-run-test - run the tests in the same KIND environment
-test: info dep maybe-clean maybe-prepare sync docker-run-test maybe-clean
+#
+# Make test will cleanup the previous run at startup
+test: pretest docker-run-test maybe-clean
 
+# Retest is like test, but without creating the cluster and cleanup. Use it to repeat tests in case of failure.
+retest: sync docker-run-test
+
+pretest: info dep maybe-clean maybe-prepare sync
 
 # Build all templates inside the hermetic docker image. Tools are installed.
 build:
-	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash -e GOPATH=${GOPATH} \
+	docker run -it --rm -v ${TOP}:${TOP} --entrypoint /bin/bash -e GOPATH=${GOPATH} \
 		$(BUILD_IMAGE) \
-		-c "cd ${GOPATH}/src/istio.io/installer; ls; make run-build"
+		-c "cd ${TOP}/src/istio.io/installer; ls; make run-build"
 
 # Run a command in the docker image running kind. Command passed as "TARGET" env.
 kind-run:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf -e ONE_NAMESPACE=$(ONE_NAMESPACE) \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/istio.io/installer; make ${TARGET}"
+		bash -c "cd ${TOP}/src/istio.io/installer; make ${TARGET}"
 
 
 # Runs the test in docker. Will exec into KIND and run "make $TEST_TARGET" (default: run-all-tests)
 docker-run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf -e ONE_NAMESPACE=$(ONE_NAMESPACE) \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/istio.io/installer; make git.dep ${TEST_TARGET}"
+		bash -c "cd ${TOP}/src/istio.io/installer; make git.dep ${TEST_TARGET}"
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
 prepare:
+ifeq ($(MOUNT), 1)
 	mkdir -p ${TMPDIR}
-	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
+	# This will mount the directory inside the kind cluster, no need to copy
+	cat test/kind/kind.yaml | sed s,TOP,$(TOP), > ${TOP}/kind.yaml
 	# Kind version and node image need to be in sync - that's not ideal, working on a fix.
+	kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)
+else
+	# Not this will create a kind cluster inside a docker container - the kube config will be in the container.
 	docker run --privileged \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
-		-e GOPATH=${GOPATH} \
+		-e GOPATH=${TOP} \
 		-it --entrypoint /bin/bash --rm \
 		$(BUILD_IMAGE) -c \
 		"/usr/local/bin/kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)"
-
+endif
 	#kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)
 
 ${TMPDIR}:
@@ -200,7 +216,7 @@ endif
 clean:
 	docker run --privileged \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
-		-e GOPATH=${GOPATH} \
+		-e GOPATH=${TOP} \
 		-it --entrypoint /bin/bash --rm \
 		$(BUILD_IMAGE) -c \
 		"/usr/local/bin/kind delete cluster --name ${KIND_CLUSTER}" 2>&1 || true
@@ -227,33 +243,33 @@ info:
 # Copy source code from the current machine to the docker.
 sync:
 ifneq ($(MOUNT), 1)
-	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${GOPATH}/src/istio.io/installer \
-		${GOPATH}/src/istio.io
-	docker cp . ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io/installer
+	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${TOP}/src/istio.io/installer \
+		${TOP}/src/istio.io
+	docker cp . ${KIND_CLUSTER}-control-plane:${TOP}/src/istio.io/installer
 endif
 
 # Run an iterative shell in the docker image running the tests and k8s kind
 kind-shell:
 ifneq ($(MOUNT), 1)
 	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
-		-w ${GOPATH}/src/istio.io/installer \
+		-w ${TOP}/src/istio.io/installer \
 		${KIND_CLUSTER}-control-plane bash
 else
 	docker exec ${KIND_CLUSTER}-control-plane bash -c "cp /etc/kubernetes/admin.conf /tmp && chown $(shell id -u) /tmp/admin.conf"
 	docker exec -it -e KUBECONFIG=/tmp/admin.conf \
-		-u "$(shell id -u)" -e USER="${USER}" -e HOME="${GOPATH}" \
-		-w ${GOPATH}/src/istio.io/installer \
+		-u "$(shell id -u)" -e USER="${USER}" -e HOME="${TOP}" \
+		-w ${TOP}/src/istio.io/installer \
 		${KIND_CLUSTER}-control-plane bash
 endif
 
 # Run a shell in docker image, as root
 kind-shell-root:
 	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
-		-w ${GOPATH}/src/istio.io/installer \
+		-w ${TOP}/src/istio.io/installer \
 		${KIND_CLUSTER}-control-plane bash
 
 
-# Grab kind logs to $GOPATH/out/logs
+# Grab kind logs to $TOP/out/logs
 kind-logs:
 	mkdir -p ${OUT}/logs
 	kind export logs  --loglevel debug --name ${KIND_CLUSTER} ${OUT}/logs || true
@@ -261,53 +277,53 @@ kind-logs:
 # Build the Kind+build tools image that will be useed in CI/CD or local testing
 # This replaces the istio-builder.
 docker.istio-builder: test/docker/Dockerfile
-	mkdir -p ${GOPATH}/out/istio-builder
+	mkdir -p ${TOP}/out/istio-builder
 	curl -Lo - https://github.com/istio/istio/releases/download/${STABLE_TAG}/istio-${STABLE_TAG}-linux.tar.gz | \
-    		(cd ${GOPATH}/out/istio-builder;  tar --strip-components=1 -xzf - )
-	cp $^ ${GOPATH}/out/istio-builder/
-	docker build -t $(BUILD_IMAGE) ${GOPATH}/out/istio-builder
+    		(cd ${TOP}/out/istio-builder;  tar --strip-components=1 -xzf - )
+	cp $^ ${TOP}/out/istio-builder/
+	docker build -t $(BUILD_IMAGE) ${TOP}/out/istio-builder
 
 push.docker.istio-builder:
 	docker push $(BUILD_IMAGE)
 
 docker.buildkite: test/buildkite/Dockerfile
-	mkdir -p ${GOPATH}/out/istio-buildkite
-	cp $^ ${GOPATH}/out/istio-buildkite
-	docker build -t istionightly/buildkite ${GOPATH}/out/istio-buildkite
+	mkdir -p ${TOP}/out/istio-buildkite
+	cp $^ ${TOP}/out/istio-buildkite
+	docker build -t istionightly/buildkite ${TOP}/out/istio-buildkite
 
 # Build or get the dependencies.
 dep:
 
 GITBASE ?= "https://github.com"
 
-${GOPATH}/src/istio.io/istio:
-	mkdir -p ${GOPATH}/src/istio.io
-	git clone ${GITBASE}/istio/istio.git ${GOPATH}/src/istio.io/istio
+${TOP}/src/istio.io/istio:
+	mkdir -p ${TOP}/src/istio.io
+	git clone ${GITBASE}/istio/istio.git ${TOP}/src/istio.io/istio
 
-${GOPATH}/src/istio.io/tools:
-	mkdir -p ${GOPATH}/src/istio.io
-	git clone ${GITBASE}/istio/tools.git ${GOPATH}/src/istio.io/tools
+${TOP}/src/istio.io/tools:
+	mkdir -p ${TOP}/src/istio.io
+	git clone ${GITBASE}/istio/tools.git ${TOP}/src/istio.io/tools
 
 gitdep:
-	mkdir -p ${GOPATH}/tmp
-	mkdir -p ${GOPATH}/src/istio.io/
-	git clone https://github.com/istio/istio.git ${GOPATH}/src/istio.io/istio
-	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/tools
+	mkdir -p ${TOP}/tmp
+	mkdir -p ${TOP}/src/istio.io/
+	git clone https://github.com/istio/istio.git ${TOP}/src/istio.io/istio
+	git clone https://github.com/istio/tools.git ${TOP}/src/istio.io/tools
 
 #
-git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
+git.dep: ${TOP}/src/istio.io/istio ${TOP}/src/istio.io/tools
 
-${GOPATH}/src/sigs.k8s.io/kind:
-	git clone https://github.com/sigs.k8s.io/kind ${GOPATH}/src/sigs.k8s.io/kind
+${TOP}/src/sigs.k8s.io/kind:
+	git clone https://github.com/sigs.k8s.io/kind ${TOP}/src/sigs.k8s.io/kind
 
 # Istio releases: deb and charts on https://storage.googleapis.com/istio-release
 #
-${GOPATH}/bin/kind: ${GOPATH}/src/sigs.k8s.io/kind
-	echo ${GOPATH}
+${TOP}/bin/kind: ${TOP}/src/sigs.k8s.io/kind
+	echo ${TOP}
 	mkdir -p ${TMPDIR}
 	GO111MODULE="on" go get -u sigs.k8s.io/kind@master
 
-${GOPATH}/bin/dep:
+${TOP}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
 lint:

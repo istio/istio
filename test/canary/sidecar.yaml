@@ -5,6 +5,6 @@ metadata:
 spec:
   egress:
     - hosts:
-        - "./*"
-        - fortio-canary
-        - fortio-canary-inject
+        - ./*
+        - fortio-canary/*
+        - fortio-canary-inject/*

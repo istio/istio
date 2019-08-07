@@ -5,17 +5,17 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-pilot
-  namespace: istio-micro
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
     istio: pilot
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: pilot
-      release: istio-micro-istio-discovery
+      release: istio-system-istio-discovery
       istio: pilot
 ---
 
@@ -24,10 +24,10 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: istio-micro
+  namespace: istio-system
   name: pilot-envoy-config
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 data:
   envoy.yaml.tmpl: |-
     admin:
@@ -199,9 +199,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-micro
+  namespace: istio-system
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 data:
 
   meshNetworks: |-
@@ -328,7 +328,7 @@ data:
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-micro:15010
+      discoveryAddress: istio-pilot.istio-system:15010
 ---
 
 ---
@@ -338,10 +338,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-micro
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 ---
 
 
@@ -351,10 +351,10 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-micro
+  name: istio-pilot-istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -389,18 +389,18 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-micro
+  name: istio-pilot-istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-pilot-istio-micro
+  name: istio-pilot-istio-system
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-micro
+    namespace: istio-system
 ---
 
 
@@ -410,10 +410,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: istio-micro
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
     istio: pilot
 spec:
   ports:
@@ -435,15 +435,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
-  namespace: istio-micro
+  namespace: istio-system
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
     istio: pilot
   annotations:
-    checksum/config-volume-envoy:  484d861bd4b1aeb2ed1be80162d1a548f91495d15ae62122ce020acd8f9e7d1e
-    checksum/config-volume:  5022a7d9a3e6d91edfc3a1993a6b0997ae7f127f475e10d428fced86ee476020
+    checksum/config-volume-envoy:  f8738cc7654e333743071d7c7054e1eb093c87b4f2157e9a8cf2fb2e66569c8c
+    checksum/config-volume:  ba9737ada4e391755ca381dd190792600445dd9bec6622c9cf2cac7a49b0aae5
 spec:
   strategy:
     rollingUpdate:
@@ -459,6 +459,9 @@ spec:
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
+        heritage: Tiller
+        release: istio
+        chart: pilot
       annotations:
         sidecar.istio.io/inject: "false"
         checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
@@ -567,9 +570,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-  namespace: istio-micro
+  namespace: istio-system
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:
@@ -582,9 +585,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
-  namespace: istio-micro
+  namespace: istio-system
   labels:
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 spec:
   host: "*.local"
   trafficPolicy:
@@ -602,10 +605,10 @@ apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-pilot
-  namespace: istio-micro
+  namespace: istio-system
   labels:
     app: pilot
-    release: istio-micro-istio-discovery
+    release: istio-system-istio-discovery
 spec:
   maxReplicas: 5
   minReplicas: 1

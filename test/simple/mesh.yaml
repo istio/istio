@@ -2,12 +2,6 @@
 # Used to test manual injector with the new template
 # This includes values used in inject template - not everything
 
-## Default value - not defined in values.yaml or in the override used in pilot.
-## TODO: remove from template, use values with default value.
-# See .MeshConfig.ProxyListenPort
-proxyListenPort: 15001
-
-# .ProxyConfig.*
 defaultConfig:
   interceptionMode: REDIRECT
 
@@ -16,20 +10,9 @@ defaultConfig:
 
   parentShutdownDuration: 1m0s
 
-  discoveryAddress: istio-pilot.istio-system-micro:15010
-
-#  tracing:
-#    lightstep:
-#      address: ""
-#      accessToken: ""
-#      cacertPath: ""
-#    zipking:
-#      address: ""
-#    datadog:
-#      address: ""
+  discoveryAddress: istio-pilot.istio-system:15010
 
   connectTimeout: 1s
-  #statsdUdpAddress: "1111"
   envoyMetricsServiceAddress: ""
 
   proxyAdminPort: 15000

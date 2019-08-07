@@ -18,15 +18,15 @@ global:
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
   # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
   # used (citadel generating the secrets).
-  istioNamespace: istio-control
-  configNamespace: istio-control
+  istioNamespace: istio-system
+  configNamespace: istio-system
 
   # Telemetry namespace, including tracing.
-  telemetryNamespace: istio-telemetry
+  telemetryNamespace: istio-system
 
-  prometheusNamespace: istio-telemetry
+  prometheusNamespace: istio-system
 
-  policyNamespace: istio-policy
+  policyNamespace: istio-system
 
 
   ## End new settings
