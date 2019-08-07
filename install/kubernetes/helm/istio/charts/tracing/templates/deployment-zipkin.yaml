@@ -61,6 +61,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+            - name: QUERY_PORT
+              value: "{{ .Values.zipkin.queryPort }}"
             {{- if .Values.zipkin.env }}
             {{- range $key, $val := .Values.zipkin.env }}
             - name: {{ $key }}
