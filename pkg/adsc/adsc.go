@@ -79,23 +79,23 @@ type ADSC struct {
 	// InitialLoad tracks the time to receive the initial configuration.
 	InitialLoad time.Duration
 
-	// HTTPListeners contains received listeners with a http_connection_manager filter.
-	HTTPListeners map[string]*xdsapi.Listener
+	// httpListeners contains received listeners with a http_connection_manager filter.
+	httpListeners map[string]*xdsapi.Listener
 
-	// TCPListeners contains all listeners of type TCP (not-HTTP)
-	TCPListeners map[string]*xdsapi.Listener
+	// tcpListeners contains all listeners of type TCP (not-HTTP)
+	tcpListeners map[string]*xdsapi.Listener
 
-	// All received clusters of type EDS, keyed by name
-	EDSClusters map[string]*xdsapi.Cluster
+	// All received clusters of type eds, keyed by name
+	edsClusters map[string]*xdsapi.Cluster
 
-	// All received clusters of no-EDS type, keyed by name
-	Clusters map[string]*xdsapi.Cluster
+	// All received clusters of no-eds type, keyed by name
+	clusters map[string]*xdsapi.Cluster
 
 	// All received routes, keyed by route name
-	Routes map[string]*xdsapi.RouteConfiguration
+	routes map[string]*xdsapi.RouteConfiguration
 
 	// All received endpoints, keyed by cluster name
-	EDS map[string]*xdsapi.ClusterLoadAssignment
+	eds map[string]*xdsapi.ClusterLoadAssignment
 
 	// DumpCfg will print all received config
 	DumpCfg bool
@@ -364,8 +364,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	if len(routes) > 0 {
 		a.sendRsc(routeType, routes)
 	}
-	a.HTTPListeners = lh
-	a.TCPListeners = lt
+	a.httpListeners = lh
+	a.tcpListeners = lt
 
 	select {
 	case a.Updates <- "lds":
@@ -392,18 +392,18 @@ type Target struct {
 	// Address is a go address, extracted from the mangled cluster name.
 	Address string
 
-	// Endpoints are the resolved endpoints from EDS or cluster static.
+	// Endpoints are the resolved endpoints from eds or cluster static.
 	Endpoints map[string]Endpoint
 }
 
 type Endpoint struct {
-	// Weight extracted from EDS
+	// Weight extracted from eds
 	Weight int
 }
 
 // Save will save the json configs to files, using the base directory
 func (a *ADSC) Save(base string) error {
-	strResponse, err := json.MarshalIndent(a.TCPListeners, "  ", "  ")
+	strResponse, err := json.MarshalIndent(a.tcpListeners, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -411,7 +411,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.HTTPListeners, "  ", "  ")
+	strResponse, err = json.MarshalIndent(a.httpListeners, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.Routes, "  ", "  ")
+	strResponse, err = json.MarshalIndent(a.routes, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.EDSClusters, "  ", "  ")
+	strResponse, err = json.MarshalIndent(a.edsClusters, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -435,7 +435,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.Clusters, "  ", "  ")
+	strResponse, err = json.MarshalIndent(a.clusters, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.EDS, "  ", "  ")
+	strResponse, err = json.MarshalIndent(a.eds, "  ", "  ")
 	if err != nil {
 		return err
 	}
@@ -486,8 +486,8 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	a.EDSClusters = edscds
-	a.Clusters = cds
+	a.edsClusters = edscds
+	a.clusters = cds
 
 	select {
 	case a.Updates <- "cds":
@@ -533,7 +533,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 		ep += len(cla.Endpoints)
 	}
 
-	log.Println("EDS: ", len(eds), "size=", edsSize, "ep=", ep)
+	log.Println("eds: ", len(eds), "size=", edsSize, "ep=", ep)
 	if a.DumpCfg {
 		b, _ := json.MarshalIndent(eds, " ", " ")
 		log.Println(string(b))
@@ -549,7 +549,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	a.EDS = la
+	a.eds = la
 
 	select {
 	case a.Updates <- "eds":
@@ -590,7 +590,7 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	}
 
 	a.mutex.Lock()
-	a.Routes = rds
+	a.routes = rds
 	a.mutex.Unlock()
 
 	select {
@@ -630,7 +630,7 @@ func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
 
 // EndpointsJSON returns the endpoints, formatted as JSON, for debugging.
 func (a *ADSC) EndpointsJSON() string {
-	out, _ := json.MarshalIndent(a.EDS, " ", " ")
+	out, _ := json.MarshalIndent(a.eds, " ", " ")
 	return string(out)
 }
 
@@ -661,4 +661,46 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 		Node:          a.node(),
 		VersionInfo:   msg.VersionInfo,
 	})
+}
+
+// GetHTTPListeners returns all the http listeners.
+func (a *ADSC) GetHTTPListeners() map[string]*xdsapi.Listener {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.httpListeners
+}
+
+// GetTCPListeners returns all the tcp listeners.
+func (a *ADSC) GetTCPListeners() map[string]*xdsapi.Listener {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.tcpListeners
+}
+
+// GetEdsClusters returns all the eds type clusters.
+func (a *ADSC) GetEdsClusters() map[string]*xdsapi.Cluster {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.edsClusters
+}
+
+// GetClusters returns all the non-eds type clusters.
+func (a *ADSC) GetClusters() map[string]*xdsapi.Cluster {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.clusters
+}
+
+// GetRoutes returns all the routes.
+func (a *ADSC) GetRoutes() map[string]*xdsapi.RouteConfiguration {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.routes
+}
+
+// GetEndpoints returns all the routes.
+func (a *ADSC) GetEndpoints() map[string]*xdsapi.ClusterLoadAssignment {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.eds
 }
