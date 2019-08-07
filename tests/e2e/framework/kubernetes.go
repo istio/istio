@@ -995,6 +995,10 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
 		return err
 	}
+	if err := util.KubeWait("kube-system", yamlFileName, k.KubeConfig); err != nil {
+		return err
+	}
+
 	return nil
 }
 

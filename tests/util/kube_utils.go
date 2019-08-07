@@ -184,6 +184,11 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+func KubeWait(namespace, yamlFileName string, kubeconfig string) error {
+	_, err := Shell(fmt.Sprintf("kubectl wait --for=condition=Established -f %s -n %s --kubeconfig=%s", yamlFileName, namespace, kubeconfig))
+	return err
+}
+
 // KubeCommand executes the given kubectl command with the given yaml file
 func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
