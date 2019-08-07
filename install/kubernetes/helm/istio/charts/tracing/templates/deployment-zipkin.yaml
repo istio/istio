@@ -61,14 +61,12 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-            - name: QUERY_PORT
-              value: "{{ .Values.zipkin.queryPort }}"
-            - name: JAVA_OPTS
-              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.javaOptsHeap }}M -Xmx{{ .Values.zipkin.javaOptsHeap }}M -XX:+UseG1GC -server"
-            - name: STORAGE_METHOD
-              value: "mem"
-            - name: ZIPKIN_STORAGE_MEM_MAXSPANS
-              value: "{{ .Values.zipkin.maxSpans }}"
+            {{- if .Values.env }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
+            {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

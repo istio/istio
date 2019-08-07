@@ -59,22 +59,12 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          {{- if eq .Values.jaeger.spanStorageType "badger" }}
-          - name: BADGER_EPHEMERAL
-            value: "false"
-          - name: SPAN_STORAGE_TYPE
-            value: "badger"
-          - name: BADGER_DIRECTORY_VALUE
-            value: "/badger/data"
-          - name: BADGER_DIRECTORY_KEY
-            value: "/badger/key"
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
           {{- end }}
-          - name: COLLECTOR_ZIPKIN_HTTP_PORT
-            value: "9411"
-          - name: MEMORY_MAX_TRACES
-            value: "{{ .Values.jaeger.memory.max_traces }}"
-          - name: QUERY_BASE_PATH
-            value: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /
@@ -83,11 +73,9 @@ spec:
             httpGet:
               path: /
               port: 16686
-{{- if eq .Values.jaeger.spanStorageType "badger" }}
           volumeMounts:
           - name: data
             mountPath: /badger
-{{- end }}
           resources:
 {{- if .Values.jaeger.resources }}
 {{ toYaml .Values.jaeger.resources | indent 12 }}
@@ -104,7 +92,6 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
       {{- end }}
-{{- if eq .Values.jaeger.spanStorageType "badger" }}
       volumes:
       - name: data
 {{- if .Values.jaeger.persist }}
@@ -112,6 +99,5 @@ spec:
           claimName: istio-jaeger-pvc
 {{- else }}
         emptyDir: {}
-{{- end }}
 {{- end }}
 {{ end }}
