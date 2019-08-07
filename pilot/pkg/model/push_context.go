@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"istio.io/istio/pilot/pkg/features"
 	"sort"
 	"sync"
 
