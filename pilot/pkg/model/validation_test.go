@@ -21,10 +21,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 const (
@@ -144,7 +144,7 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 		{
 			name:    "Successful validation",
 			typ:     MockConfig.Type,
-			config:  &test.MockConfig{Key: "test"},
+			config:  &testConfig.MockConfig{Key: "test"},
 			wantErr: false,
 		},
 	}
