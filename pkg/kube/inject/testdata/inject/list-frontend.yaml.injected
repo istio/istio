@@ -112,9 +112,6 @@ items:
             value: frontend
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/default/deployment/frontend
-          - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-            value: |
-              {}
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy

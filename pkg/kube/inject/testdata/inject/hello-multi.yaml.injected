@@ -97,9 +97,6 @@ spec:
           value: hello-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://api/apps/v1/namespaces/default/deployment/hello-v1
-        - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-          value: |
-            {"80":"hello"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -273,9 +270,6 @@ spec:
           value: hello-v2
         - name: ISTIO_META_OWNER
           value: kubernetes://api/apps/v1/namespaces/default/deployment/hello-v2
-        - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-          value: |
-            {"81":"hello"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

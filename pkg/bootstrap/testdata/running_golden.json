@@ -20,7 +20,7 @@
       "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",
-      "istio.io/metadata": {
+      "alpha.istio.io/metadata": {
         "ip": "10.10.10.1",
         "name" : "svc-0-0-0-6944fb884d-4pgx8",
         "namespace": "test",

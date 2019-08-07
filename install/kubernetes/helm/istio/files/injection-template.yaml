@@ -204,13 +204,12 @@ containers:
   - name: ISTIO_META_WORKLOAD_NAME
     value: {{ .DeploymentMeta.Name }}
   {{ end }}
-  {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
-  - name: ISTIO_META_OWNER
-    value: kubernetes://api/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}/{{ .DeploymentMeta.Name }}
+  {{- if and .TypeMeta.APIVersion .TypeMeta.Kind }}
+  - name: ISTIO_META_WORKLOAD_API_VERSION
+    value: {{ .TypeMeta.APIVersion }}
+  - name: ISTIO_META_WORKLOAD_KIND
+    value: {{ toLower .TypeMeta.Kind }}
   {{- end}}
-  - name: ISTIO_METAJSON_PORTS_TO_CONTAINERS
-    value: |
-           {{ toJson (portsToContainers .Spec) }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: ISTIO_BOOTSTRAP_OVERRIDE
     value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
