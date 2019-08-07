@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
 # The original version of this file is located in the https://github.com/istio/common-files repo.
@@ -19,9 +21,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-updatecommon:
-	@git clone --depth 1 --single-branch --branch master https://github.com/istio/common-files
-	@cd common-files
-	@git rev-parse HEAD >.commonfiles.sha
-	@cp -r common-files/files/* common-files/files/.[^.]* .
-	@rm -fr common-files
+set -e
+
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
+
+CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
+HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
+
+# shellcheck disable=SC2044
+for df in $(find "${ROOTDIR}" -path "${ROOTDIR}/vendor" -prune -o -name 'Dockerfile*'); do
+  docker run --rm -i hadolint/hadolint:v1.17.1 < "$df" > "${HL_TMPFILE}"
+  if [ "" != "$(cat "${HL_TMPFILE}")" ]
+  then
+    {
+      echo "$df:"
+      cut -d":" -f2- < "${HL_TMPFILE}"
+      echo
+    } >> "${CD_TMPFILE}"
+  fi
+done
+
+rm -f "${HL_TMPFILE}"
+if [ "" != "$(cat "${CD_TMPFILE}")" ]; then
+  cat "${CD_TMPFILE}"
+  rm -f "${CD_TMPFILE}"
+  exit 1
+fi
+rm -f "${CD_TMPFILE}"
