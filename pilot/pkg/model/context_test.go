@@ -186,32 +186,3 @@ func Test_parseIstioVersion(t *testing.T) {
 		})
 	}
 }
-
-func Test_toStringIstioVersion(t *testing.T) {
-	type args struct {
-		ver *model.IstioVersion
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "major.minor.patch",
-			args: args{ver: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0}},
-			want: "1.2.0",
-		},
-		{
-			name: "max",
-			args: args{ver: model.MaxIstioVersion},
-			want: "65535.65535.65535",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.args.ver.ToString(); got != tt.want {
-				t.Errorf("ver.toString() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
