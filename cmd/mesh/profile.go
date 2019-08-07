@@ -19,7 +19,7 @@ import (
 )
 
 // ProfileCmd is a group of commands related to profile listing, dumping and diffing.
-func ProfileCmd(args *rootArgs) *cobra.Command {
+func ProfileCmd() *cobra.Command {
 	pc := &cobra.Command{
 		Use:   "profile",
 		Short: "Commands related to Istio configuration profiles.",
@@ -27,6 +27,7 @@ func ProfileCmd(args *rootArgs) *cobra.Command {
 	}
 
 	pdArgs := &profileDumpArgs{}
+	args := &rootArgs{}
 
 	plc := profileListCmd(args)
 	pdc := profileDumpCmd(args, pdArgs)
