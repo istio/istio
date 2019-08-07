@@ -146,7 +146,6 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
-
 	// prepare
 	t.Helper()
 	ldsEnv := getDefaultLdsEnv()
@@ -194,5 +193,27 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 		t.Fatalf("expect virtual listener, found %s", listeners[2].Name)
 	} else {
 		t.Logf("found virtual inbound listener: %s", listeners[2].Name)
+	}
+
+	l := listeners[2]
+	// 2 is the passthrough tcp filter chains one for ipv4 and one for ipv6
+	if len(l.FilterChains) != len(listeners[0].FilterChains)+2 {
+		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
+			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
+	}
+
+	byListenerName := map[string]int{}
+
+	for _, fc := range l.FilterChains {
+		byListenerName[fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue()]++
+	}
+
+	for k, v := range byListenerName {
+		if k == VirtualInboundListenerName && v != 2 {
+			t.Fatalf("expect virtual listener has 2 passthrough listeners, found %d", v)
+		}
+		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
+			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
+		}
 	}
 }
