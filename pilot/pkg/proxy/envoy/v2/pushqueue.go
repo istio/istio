@@ -77,9 +77,7 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushEvent) {
 			event.edsUpdatedServices = nil
 		}
 	}
-	if len(p.connections) > 0 {
-		p.cond.Signal()
-	}
+	p.cond.Signal()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
