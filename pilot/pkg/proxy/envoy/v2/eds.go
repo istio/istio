@@ -396,9 +396,9 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}, req *model.UpdateRequest) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, edsUpdates, adsClientCount())
+		version, req.EdsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -408,7 +408,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
-		if _, ok := edsUpdates[string(hostname)]; !ok {
+		if _, ok := req.EdsUpdates[string(hostname)]; !ok {
 			// Cluster was not updated, skip recomputing.
 			continue
 		}
@@ -426,7 +426,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
-	s.startPush(push, req, edsUpdates)
+	s.startPush(push, req)
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.

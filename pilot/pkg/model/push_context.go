@@ -192,6 +192,17 @@ func (first *UpdateRequest) Merge(other *UpdateRequest) *UpdateRequest {
 	return merged
 }
 
+// PushRequest defines a request to push to proxies
+// It is used after doPush and before pushQueue
+type PushRequest struct {
+	// UpdateRequest keeps all the merged update request since last push.
+	*UpdateRequest
+
+	// EdsUpdates keeps track of all service updated since last full push.
+	// Key is the hostname (serviceName).
+	EdsUpdates map[string]struct{}
+}
+
 // ProxyPushStatus represents an event captured during config push to proxies.
 // It may contain additional message and the affected proxy.
 type ProxyPushStatus struct {

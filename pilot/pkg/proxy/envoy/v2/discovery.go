@@ -239,7 +239,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
-			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateRequest{Full: true}, nil)
+			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.PushRequest{&model.UpdateRequest{Full: true}, nil})
 		case <-stopCh:
 			return
 		}
@@ -276,7 +276,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.UpdateRequest, edsUpdates map[string]struct{}) {
 	if !req.Full {
-		go s.AdsPushAll(versionInfo(), s.globalPushContext(), req, edsUpdates)
+		go s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.PushRequest{req, edsUpdates})
 		return
 	}
 	// Reset the status during the push.
@@ -313,7 +313,7 @@ func (s *DiscoveryServer) Push(req *model.UpdateRequest, edsUpdates map[string]s
 	version = versionLocal
 	versionMutex.Unlock()
 
-	go s.AdsPushAll(versionLocal, push, req, nil)
+	go s.AdsPushAll(versionLocal, push, &model.PushRequest{req, nil})
 }
 
 func nonce() string {
