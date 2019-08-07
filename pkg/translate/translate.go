@@ -112,17 +112,50 @@ var (
 				"Security.Components.Namespace":      {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity":            {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Env":                 {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.HpaSpec":             {"[HorizontalPodAutoscaler:{{.ResourceName}}].spec", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ImagePullPolicy":     {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.NodeSelector":        {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodDisruptionBudget": {"[PodDisruptionBudget:{{.ResourceName}}].spec", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodAnnotations":      {"[Deployment:{{.ResourceName}}].spec.template.metadata.annotations", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PriorityClassName":   {"[Deployment:{{.ResourceName}}].spec.template.spec.priorityClassName.", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReadinessProbe":      {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount":        {"[Deployment:{{.ResourceName}}].spec.replicas", nil},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources":           {"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources", nil},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Env": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.HpaSpec": {
+					"[HorizontalPodAutoscaler:{{.ResourceName}}].spec",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ImagePullPolicy": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.NodeSelector": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodDisruptionBudget": {
+					"[PodDisruptionBudget:{{.ResourceName}}].spec",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodAnnotations": {
+					"[Deployment:{{.ResourceName}}].spec.template.metadata.annotations",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PriorityClassName": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.priorityClassName.",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReadinessProbe": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount": {
+					"[Deployment:{{.ResourceName}}].spec.replicas",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources": {
+					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
+					nil,
+				},
 			},
 			ToFeature: map[name.ComponentName]name.FeatureName{
 				name.IstioBaseComponentName:       name.IstioBaseFeatureName,
