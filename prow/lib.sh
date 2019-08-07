@@ -113,9 +113,8 @@ function setup_kind_cluster() {
   if ! (kind delete cluster --name=istio-testing) > /dev/null; then
     echo "No existing kind cluster with name istio-testing. Continue..."
   fi
-
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name=istio-testing --config ./prow/config/trustworthy-jwt.yaml --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     kind export logs --name istio-testing "${ARTIFACTS}/kind"
     exit 1

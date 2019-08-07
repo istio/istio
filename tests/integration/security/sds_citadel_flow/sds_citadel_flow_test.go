@@ -59,7 +59,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				},
 			}
 
-			// Sleep 10 seconds for the policy to take effect.
+			// Sleep 10 seconds for the workload pods to be ready.
 			time.Sleep(10 * time.Second)
 
 			for _, checker := range checkers {
