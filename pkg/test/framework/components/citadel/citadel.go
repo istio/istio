@@ -29,8 +29,8 @@ type Instance interface {
 
 	WaitForSecretToExist() (*corev1.Secret, error)
 	WaitForSecretToExistOrFail(t test.Failer) *corev1.Secret
-	DeleteSecret() error
-	DeleteSecretOrFail(t test.Failer)
+	DeleteSecret(name string) error
+	DeleteSecretOrFail(t test.Failer, name string)
 }
 
 type Config struct {

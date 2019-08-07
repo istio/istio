@@ -75,7 +75,10 @@ func TestFailover(t *testing.T) {
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-cds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-cds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -107,7 +110,10 @@ func TestFailover(t *testing.T) {
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-eds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).

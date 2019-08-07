@@ -250,7 +250,10 @@ func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) 
 // DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
 // nolint: interfacer
 func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNs, err := namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
