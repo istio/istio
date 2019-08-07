@@ -30,7 +30,10 @@ func TestNamespace(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			noCleanup = ctx.Settings().NoCleanup
-			ns := namespace.NewOrFail(t, ctx, "testns", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "testns",
+				Inject: true,
+			})
 			namespaceName = ns.Name()
 
 			env := ctx.Environment().(*kube.Environment)

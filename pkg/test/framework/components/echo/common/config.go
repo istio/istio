@@ -45,7 +45,11 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil {
-		if c.Namespace, err = namespace.New(ctx, defaultNamespace, true); err != nil {
+		nsConfig := namespace.Config{
+			Prefix: defaultNamespace,
+			Inject: true,
+		}
+		if c.Namespace, err = namespace.New(ctx, nsConfig); err != nil {
 			return err
 		}
 	}
