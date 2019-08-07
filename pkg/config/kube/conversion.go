@@ -32,6 +32,17 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
+	// protocol sniffing is enabled.
+	wellKnownPorts = map[int32]struct{}{
+		25:    {}, // SMTP
+		53:    {}, // DNS. Default TCP if not specified.
+		3306:  {}, // MySQL
+		27017: {}, // MongoDB
+	}
+)
+
 func ConvertLabels(obj metaV1.ObjectMeta) labels.Instance {
 	out := make(labels.Instance, len(obj.Labels))
 	for k, v := range obj.Labels {
@@ -44,12 +55,12 @@ var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(name string, proto coreV1.Protocol) protocol.Instance {
+func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.Instance {
 	out := protocol.TCP
 	switch proto {
 	case coreV1.ProtocolUDP:
 		out = protocol.UDP
-	case coreV1.ProtocolTCP:
+	default:
 		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 			out = protocol.GRPCWeb
 			break
@@ -59,9 +70,15 @@ func ConvertProtocol(name string, proto coreV1.Protocol) protocol.Instance {
 			name = name[:i]
 		}
 		p := protocol.Parse(name)
-		if p != protocol.UDP && p != protocol.Unsupported {
+		if p != protocol.UDP {
 			out = p
 		}
 	}
+
+	// Make TCP as default protocol for well know ports if protocol is not specified.
+	if _, has := wellKnownPorts[port]; has && out == protocol.Unsupported {
+		return protocol.TCP
+	}
+
 	return out
 }
