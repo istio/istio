@@ -59,10 +59,8 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootArgs := &rootArgs{}
-
-	mc := ManifestCmd(rootArgs)
-	pc := ProfileCmd(rootArgs)
+	mc := ManifestCmd()
+	pc := ProfileCmd()
 
 	rootCmd.AddCommand(mc)
 	rootCmd.AddCommand(pc)
