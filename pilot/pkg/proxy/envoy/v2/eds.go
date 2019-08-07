@@ -181,11 +181,11 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 	}
 
 	if uid != "" {
-		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
+		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
 	}
 
 	if network != "" {
-		metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: network}}
+		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: network}}
 	}
 
 	return metadata
