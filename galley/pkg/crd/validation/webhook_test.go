@@ -44,9 +44,9 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 const (
@@ -233,9 +233,9 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 				"annotationkey": name,
 			},
 		},
-		Spec: &test.MockConfig{
+		Spec: &testConfig.MockConfig{
 			Key: key,
-			Pairs: []*test.ConfigPair{{
+			Pairs: []*testConfig.ConfigPair{{
 				Key:   key,
 				Value: strconv.Itoa(i),
 			}},
