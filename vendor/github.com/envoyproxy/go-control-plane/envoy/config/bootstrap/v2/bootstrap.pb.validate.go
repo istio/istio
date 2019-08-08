@@ -40,52 +40,77 @@ func (m *Bootstrap) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Node",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetNode()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetStaticResources()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "StaticResources",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetStaticResources()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "StaticResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetDynamicResources()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "DynamicResources",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDynamicResources()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "DynamicResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetClusterManager()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "ClusterManager",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetClusterManager()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "ClusterManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetHdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "HdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetHdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "HdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -95,94 +120,139 @@ func (m *Bootstrap) Validate() error {
 	for idx, item := range m.GetStatsSinks() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return BootstrapValidationError{
-					field:  fmt.Sprintf("StatsSinks[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return BootstrapValidationError{
+						field:  fmt.Sprintf("StatsSinks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetStatsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "StatsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetStatsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "StatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetStatsFlushInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "StatsFlushInterval",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetStatsFlushInterval()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "StatsFlushInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetWatchdog()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Watchdog",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetWatchdog()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "Watchdog",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetTracing()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Tracing",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetTracing()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetRuntime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Runtime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRuntime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "Runtime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetLayeredRuntime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "LayeredRuntime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetLayeredRuntime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "LayeredRuntime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetAdmin()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "Admin",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAdmin()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "Admin",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetOverloadManager()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BootstrapValidationError{
-				field:  "OverloadManager",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetOverloadManager()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BootstrapValidationError{
+					field:  "OverloadManager",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -259,12 +329,17 @@ func (m *Admin) Validate() error {
 
 	// no validation rules for ProfilePath
 
-	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return AdminValidationError{
-				field:  "Address",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAddress()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return AdminValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -272,12 +347,17 @@ func (m *Admin) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AdminValidationError{
-					field:  fmt.Sprintf("SocketOptions[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AdminValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -351,32 +431,47 @@ func (m *ClusterManager) Validate() error {
 
 	// no validation rules for LocalClusterName
 
-	if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ClusterManagerValidationError{
-				field:  "OutlierDetection",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetOutlierDetection()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ClusterManagerValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetUpstreamBindConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ClusterManagerValidationError{
-				field:  "UpstreamBindConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetUpstreamBindConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ClusterManagerValidationError{
+					field:  "UpstreamBindConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetLoadStatsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ClusterManagerValidationError{
-				field:  "LoadStatsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetLoadStatsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ClusterManagerValidationError{
+					field:  "LoadStatsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -445,42 +540,62 @@ func (m *Watchdog) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMissTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return WatchdogValidationError{
-				field:  "MissTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMissTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return WatchdogValidationError{
+					field:  "MissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetMegamissTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return WatchdogValidationError{
-				field:  "MegamissTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMegamissTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return WatchdogValidationError{
+					field:  "MegamissTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetKillTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return WatchdogValidationError{
-				field:  "KillTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetKillTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return WatchdogValidationError{
+					field:  "KillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetMultikillTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return WatchdogValidationError{
-				field:  "MultikillTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMultikillTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return WatchdogValidationError{
+					field:  "MultikillTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -555,12 +670,17 @@ func (m *Runtime) Validate() error {
 
 	// no validation rules for OverrideSubdirectory
 
-	if v, ok := interface{}(m.GetBase()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RuntimeValidationError{
-				field:  "Base",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetBase()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RuntimeValidationError{
+					field:  "Base",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -641,48 +761,68 @@ func (m *RuntimeLayer) Validate() error {
 
 	case *RuntimeLayer_StaticLayer:
 
-		if v, ok := interface{}(m.GetStaticLayer()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RuntimeLayerValidationError{
-					field:  "StaticLayer",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetStaticLayer()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RuntimeLayerValidationError{
+						field:  "StaticLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *RuntimeLayer_DiskLayer_:
 
-		if v, ok := interface{}(m.GetDiskLayer()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RuntimeLayerValidationError{
-					field:  "DiskLayer",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetDiskLayer()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RuntimeLayerValidationError{
+						field:  "DiskLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *RuntimeLayer_AdminLayer_:
 
-		if v, ok := interface{}(m.GetAdminLayer()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RuntimeLayerValidationError{
-					field:  "AdminLayer",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetAdminLayer()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RuntimeLayerValidationError{
+						field:  "AdminLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *RuntimeLayer_RtdsLayer_:
 
-		if v, ok := interface{}(m.GetRtdsLayer()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RuntimeLayerValidationError{
-					field:  "RtdsLayer",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetRtdsLayer()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RuntimeLayerValidationError{
+						field:  "RtdsLayer",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -757,12 +897,17 @@ func (m *LayeredRuntime) Validate() error {
 	for idx, item := range m.GetLayers() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return LayeredRuntimeValidationError{
-					field:  fmt.Sprintf("Layers[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return LayeredRuntimeValidationError{
+						field:  fmt.Sprintf("Layers[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -837,12 +982,17 @@ func (m *Bootstrap_StaticResources) Validate() error {
 	for idx, item := range m.GetListeners() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Bootstrap_StaticResourcesValidationError{
-					field:  fmt.Sprintf("Listeners[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Listeners[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -852,12 +1002,17 @@ func (m *Bootstrap_StaticResources) Validate() error {
 	for idx, item := range m.GetClusters() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Bootstrap_StaticResourcesValidationError{
-					field:  fmt.Sprintf("Clusters[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Clusters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -867,12 +1022,17 @@ func (m *Bootstrap_StaticResources) Validate() error {
 	for idx, item := range m.GetSecrets() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Bootstrap_StaticResourcesValidationError{
-					field:  fmt.Sprintf("Secrets[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return Bootstrap_StaticResourcesValidationError{
+						field:  fmt.Sprintf("Secrets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -946,32 +1106,47 @@ func (m *Bootstrap_DynamicResources) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetLdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Bootstrap_DynamicResourcesValidationError{
-				field:  "LdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetLdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Bootstrap_DynamicResourcesValidationError{
+					field:  "LdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetCdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Bootstrap_DynamicResourcesValidationError{
-				field:  "CdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Bootstrap_DynamicResourcesValidationError{
+					field:  "CdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetAdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Bootstrap_DynamicResourcesValidationError{
-				field:  "AdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Bootstrap_DynamicResourcesValidationError{
+					field:  "AdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -1255,12 +1430,17 @@ func (m *RuntimeLayer_RtdsLayer) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetRtdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RuntimeLayer_RtdsLayerValidationError{
-				field:  "RtdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRtdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RuntimeLayer_RtdsLayerValidationError{
+					field:  "RtdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
