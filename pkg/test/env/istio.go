@@ -59,6 +59,9 @@ var (
 	// nolint: golint
 	PULL_POLICY Variable = "PULL_POLICY"
 
+	// VERSION is Docker tag used for the base_debug image.
+	VERSION Variable = "1.3.0-dev"
+
 	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
 	// is specified on the command-line, that takes precedence.
 	// nolint: golint

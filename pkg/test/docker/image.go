@@ -47,7 +47,8 @@ type entry struct {
 type ImageBuilder struct {
 	entries map[string]entry
 	tags    []string
-	err     error
+	buildArgs map[string]*string
+	err       error
 }
 
 // NewImageBuilder creates a new ImageBuilder instance.
@@ -141,6 +142,12 @@ func (b *ImageBuilder) Tag(tags ...string) *ImageBuilder {
 	return b
 }
 
+// BuildArgs adds the given buildArg to the image.
+func (b *ImageBuilder) BuildArg(arg string, value *string) *ImageBuilder {
+	b.buildArgs[arg] = value
+	return b
+}
+
 // Build the image and return the ID.
 func (b *ImageBuilder) Build(dockerClient *client.Client) (Image, error) {
 	if b.err != nil {
@@ -169,6 +176,7 @@ func (b *ImageBuilder) Build(dockerClient *client.Client) (Image, error) {
 		Remove:      true,
 		ForceRemove: true,
 		NoCache:     true,
+		BuildArgs:   b.buildArgs,
 	})
 	if err != nil {
 		return "", err

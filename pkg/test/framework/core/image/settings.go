@@ -40,6 +40,9 @@ type Settings struct {
 
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
+
+	// Version to use for base image. If not specified, latest is used by default in the build system.
+	Version string
 }
 
 func (s *Settings) clone() *Settings {

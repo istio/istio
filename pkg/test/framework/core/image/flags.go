@@ -27,6 +27,7 @@ var (
 		Hub:        env.HUB.Value(),
 		Tag:        env.TAG.Value(),
 		PullPolicy: env.PULL_POLICY.Value(),
+		Version:    env.VERSION.Value(),
 	}
 )
 
@@ -57,4 +58,6 @@ func init() {
 		"Common Container tag to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.PullPolicy,
 		"Common image pull policy to use when deploying container images")
+	flag.StringVar(&settingsFromCommandLine.Version, "istio.test.version", settingsFromCommandLine.Version,
+		"The base image version when deploying container images")
 }
