@@ -63,7 +63,13 @@ func (example *Example) AddScript(namespace string, script string, output output
 // AddFile adds an existing file
 func (example *Example) AddFile(namespace string, path string) {
 	fullPath := getFullPath(istioPath + path)
-	example.steps = append(example.steps, newStepFile(namespace, fullPath))
+	example.steps = append(example.steps, newStepFile(namespace, fullPath, false))
+}
+
+// DeleteFile deletes an existing file
+func (example *Example) DeleteFile(namespace string, path string) {
+	fullPath := getFullPath(istioPath + path)
+	example.steps = append(example.steps, newStepFile(namespace, fullPath, true))
 }
 
 // todo: get last script run output

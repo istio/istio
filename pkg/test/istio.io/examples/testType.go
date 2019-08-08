@@ -31,19 +31,28 @@ type testStep interface {
 type fileTestType struct {
 	path      string
 	namespace string
+	delete    bool
 }
 
-func newStepFile(namespace string, path string) testStep {
+func newStepFile(namespace string, path string, delete bool) testStep {
 	return fileTestType{
 		path:      path,
 		namespace: namespace,
+		delete:    delete,
 	}
 }
 
 func (test fileTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	t.Logf(fmt.Sprintf("Executing %s\n", test.path))
-	if err := env.Apply(test.namespace, test.path); err != nil {
-		return "", err
+	if test.delete {
+		t.Logf(fmt.Sprintf("Deleting %s\n", test.path))
+		if err := env.Delete(test.namespace, test.path); err != nil {
+			return "", err
+		}
+	} else {
+		t.Logf(fmt.Sprintf("Applying %s\n", test.path))
+		if err := env.Apply(test.namespace, test.path); err != nil {
+			return "", err
+		}
 	}
 
 	return "", nil
