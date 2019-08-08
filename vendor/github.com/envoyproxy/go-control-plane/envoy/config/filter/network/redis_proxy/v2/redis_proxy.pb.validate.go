@@ -56,34 +56,49 @@ func (m *RedisProxy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSettings()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxyValidationError{
-				field:  "Settings",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSettings()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxyValidationError{
+					field:  "Settings",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
 	// no validation rules for LatencyInMicros
 
-	if v, ok := interface{}(m.GetPrefixRoutes()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxyValidationError{
-				field:  "PrefixRoutes",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetPrefixRoutes()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxyValidationError{
+					field:  "PrefixRoutes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetDownstreamAuthPassword()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxyValidationError{
-				field:  "DownstreamAuthPassword",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDownstreamAuthPassword()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxyValidationError{
+					field:  "DownstreamAuthPassword",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -153,12 +168,17 @@ func (m *RedisProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAuthPassword()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProtocolOptionsValidationError{
-				field:  "AuthPassword",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAuthPassword()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProtocolOptionsValidationError{
+					field:  "AuthPassword",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -243,22 +263,32 @@ func (m *RedisProxy_ConnPoolSettings) Validate() error {
 
 	// no validation rules for MaxBufferSizeBeforeFlush
 
-	if v, ok := interface{}(m.GetBufferFlushTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxy_ConnPoolSettingsValidationError{
-				field:  "BufferFlushTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetBufferFlushTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxy_ConnPoolSettingsValidationError{
+					field:  "BufferFlushTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetMaxUpstreamUnknownConnections()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxy_ConnPoolSettingsValidationError{
-				field:  "MaxUpstreamUnknownConnections",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMaxUpstreamUnknownConnections()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxy_ConnPoolSettingsValidationError{
+					field:  "MaxUpstreamUnknownConnections",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -334,12 +364,17 @@ func (m *RedisProxy_PrefixRoutes) Validate() error {
 	for idx, item := range m.GetRoutes() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RedisProxy_PrefixRoutesValidationError{
-					field:  fmt.Sprintf("Routes[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RedisProxy_PrefixRoutesValidationError{
+						field:  fmt.Sprintf("Routes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -350,12 +385,17 @@ func (m *RedisProxy_PrefixRoutes) Validate() error {
 
 	// no validation rules for CatchAllCluster
 
-	if v, ok := interface{}(m.GetCatchAllRoute()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxy_PrefixRoutesValidationError{
-				field:  "CatchAllRoute",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCatchAllRoute()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxy_PrefixRoutesValidationError{
+					field:  "CatchAllRoute",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -441,12 +481,17 @@ func (m *RedisProxy_PrefixRoutes_Route) Validate() error {
 	for idx, item := range m.GetRequestMirrorPolicy() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RedisProxy_PrefixRoutes_RouteValidationError{
-					field:  fmt.Sprintf("RequestMirrorPolicy[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RedisProxy_PrefixRoutes_RouteValidationError{
+						field:  fmt.Sprintf("RequestMirrorPolicy[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -529,12 +574,17 @@ func (m *RedisProxy_PrefixRoutes_Route_RequestMirrorPolicy) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetRuntimeFraction()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RedisProxy_PrefixRoutes_Route_RequestMirrorPolicyValidationError{
-				field:  "RuntimeFraction",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRuntimeFraction()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RedisProxy_PrefixRoutes_Route_RequestMirrorPolicyValidationError{
+					field:  "RuntimeFraction",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

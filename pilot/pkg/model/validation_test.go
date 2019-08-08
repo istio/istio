@@ -21,7 +21,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	testConfig "istio.io/istio/pkg/test/config"
@@ -35,8 +34,8 @@ const (
 )
 
 func TestConfigDescriptorValidate(t *testing.T) {
-	badLabel := strings.Repeat("a", config.DNS1123LabelMaxLength+1)
-	goodLabel := strings.Repeat("a", config.DNS1123LabelMaxLength-1)
+	badLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength+1)
+	goodLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength-1)
 
 	cases := []struct {
 		name       string

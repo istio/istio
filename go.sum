@@ -123,6 +123,8 @@ github.com/emicklei/go-restful v2.6.0+incompatible h1:luAX89wpjId5gV+GJV11MFD56G
 github.com/emicklei/go-restful v2.6.0+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/envoyproxy/go-control-plane v0.8.4 h1:moNlmfa71yZkzDxAb4Fz5qwaW1giZmTtwn6P/gYIK6E=
 github.com/envoyproxy/go-control-plane v0.8.4/go.mod h1:XB9+ce7x+IrsjgIVnRnql0O61gj/np0/bGDfhJI3sCU=
+github.com/envoyproxy/go-control-plane v0.8.5 h1:YoOj1XYqT+pSFtVUYbmGYUmDZVdobz1EZ3Yiu0WOfFI=
+github.com/envoyproxy/go-control-plane v0.8.5/go.mod h1:XB9+ce7x+IrsjgIVnRnql0O61gj/np0/bGDfhJI3sCU=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109 h1:FNgqGzbOm637YKRbYGKb9cqGo8i50++w/LWvMau7jrw=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evanphx/json-patch v3.0.0+incompatible h1:l91aby7TzBXBdmF8heZqjskeH9f3g7ZOL8/sSe+vTlU=
