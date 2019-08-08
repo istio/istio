@@ -195,7 +195,7 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": workloadAnnotations,
-		"IncludeInboundPorts": cfg.IncludeInboundPorts,
+		"IncludeInboundPorts": "*",
 	}
 
 	// Generate the YAML content.
