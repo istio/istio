@@ -47,12 +47,8 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Instance to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(p *protocol.Instance) ListenerProtocol {
-	if *p == protocol.Unsupported {
-		*p = protocol.TCP
-	}
-
-	switch *p {
+func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
+	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
