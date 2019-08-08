@@ -47,6 +47,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ConnectTimeout:             types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:           "",
 		EnvoyMetricsServiceAddress: "",
+		EnvoyAccessLogService:      &meshconfig.RemoteService{Address: ""},
 		ProxyAdminPort:             15000,
 		ControlPlaneAuthPolicy:     meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:           "",

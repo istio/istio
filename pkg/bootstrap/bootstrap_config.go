@@ -512,8 +512,8 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 		StoreHostPort(h, p, "envoy_metrics_service", opts)
 	}
 
-	if config.EnvoyAccessLogServiceAddress != "" {
-		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogServiceAddress)
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
+		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogService.Address)
 		if err != nil {
 			return "", err
 		}
