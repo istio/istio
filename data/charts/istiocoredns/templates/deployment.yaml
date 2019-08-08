@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiocoredns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiocoredns
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.istiocoredns.replicaCount }}
+  selector:
+    matchLabels:
+      app: istiocoredns
+  template:
+    metadata:
+      name: istiocoredns
+      labels:
+        app: istiocoredns
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istiocoredns-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+      - name: coredns
+        image: {{ .Values.istiocoredns.coreDNSImage }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 9153
+          name: metrics
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        resources:
+{{- if .Values.istiocoredns.resources }}
+{{ toYaml .Values.istiocoredns.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+      - name: istio-coredns-plugin
+        command:
+        - /usr/local/bin/plugin
+        image: {{ .Values.istiocoredns.coreDNSPluginImage }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+        ports:
+        - containerPort: 8053
+          name: dns-grpc
+          protocol: TCP
+        resources:
+{{- if .Values.istiocoredns.resources }}
+{{ toYaml .Values.istiocorednsresources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+      dnsPolicy: Default
+      volumes:
+      - name: config-volume
+        configMap:
+          name: coredns
+          items:
+          - key: Corefile
+            path: Corefile
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.istiocoredns.tolerations }}
+      tolerations:
+{{ toYaml .Values.istiocoredns.tolerations | indent 6 }}
+{{- end }}

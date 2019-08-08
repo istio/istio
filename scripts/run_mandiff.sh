@@ -17,7 +17,39 @@
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
-OUT=${OUT:-$ROOT/out}
+OUT=${OUT:-/tmp/istio-mandiff-out}
+CHARTS_DIR="${GOPATH}/src/istio.io/installer"
+rm -Rf "${OUT}/*"
+mkdir -p "${OUT}"
+
+ISTIO_SYSTEM_NS=${ISTIO_SYSTEM_NS:-istio-system}
+ISTIO_RELEASE=${ISTIO_RELEASE:-istio}
+ISTIO_DEFAULT_PROFILE=${ISTIO_DEFAULT_PROFILE:-default}
+ISTIO_DEMO_PROFILE=${ISTIO_DEMO_PROFILE:-demo}
+ISTIO_DEMOAUTH_PROFILE=${ISTIO_DEMOAUTH_PROFILE:-"demo-auth"}
+ISTIO_MINIMAL_PROFILE=${ISTIO_MINIMAL_PROFILE:-minimal}
+ISTIO_SDS_PROFILE=${ISTIO_SDS_PROFILE:-sds}\
+
+# declare map with profile as key and charts as values
+declare -A PROFILE_CHARTS_MAP
+PROFILE_CHARTS_MAP["${ISTIO_DEFAULT_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_DEMO_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_DEMOAUTH_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_MINIMAL_PROFILE}"]="crds istio-control/istio-discovery"
+PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel security/nodeagent"
+
+# declare map with profile as key and charts as values
+declare -A NAMESPACES_MAP
+NAMESPACES_MAP["crds"]="istio-system"
+NAMESPACES_MAP["istio-control/istio-discovery"]="istio-control"
+NAMESPACES_MAP["istio-control/istio-config"]="istio-control"
+NAMESPACES_MAP["istio-control/istio-autoinject"]="istio-control"
+NAMESPACES_MAP["gateways/istio-ingress"]="istio-ingress"
+NAMESPACES_MAP["gateways/istio-egress"]="istio-egress"
+NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-telemetry"
+NAMESPACES_MAP["istio-policy"]="istio-policy"
+NAMESPACES_MAP["security/citadel"]="istio-security"
+NAMESPACES_MAP["security/nodeagent"]="istio-security"
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
@@ -29,110 +61,58 @@ cd "${ROOT}"
 
 export GO111MODULE=on
 # build the istio operator binary
-go build -o $GOPATH/bin/mesh ./cmd/mesh.go
+go build -o "${GOPATH}/bin/mesh" ./cmd/mesh.go
 
 # download the helm binary
 ${ROOT}/bin/init_helm.sh
 
-function helm_render_template() {
-    local namespace=${1}
-    shift
-    local relase=${1}
-    shift
-    local chart=${1}
-    shift
-    local cfg=${1}
-    shift
-
-    # render the chart with helm template
-    helm template --namespace $namespace --name $relase $chart $cfg $*
-}
-
 # render all the templates with helm template.
 function helm_manifest() {
-    local namespace=${1}
-    shift
-    local relase=${1}
-    shift
-    local chart=${1}
-    shift
-    local profile=${1}
-    shift
+    local namespace="${1}"
+    local release="${2}"
+    local chart="${3}"
+    local profile="${4}"
 
     # the global settings are the default for the chart
-    local cfg="-f ${chart}/global.yaml"
-
     # the specified profile will override the gloal settings
-    if [ -f "${ROOT}/tests/profiles/helm/values-istio-${profile}.yaml" ]; then
-        cfg="${cfg} -f ${ROOT}/tests/profiles/helm/values-istio-${profile}.yaml"
-    else
-        echo "Please verify the values file for ${profile} path exists."
-        exit 1
-    fi
+    local cfg="-f ${chart}/global.yaml -f ${ROOT}/tests/profiles/helm/values-istio-${profile}.yaml"
 
     # create parent directory for the manifests rendered by helm template
-    mkdir -p ${OUT}/helm-template/istio-${namespace}-${relase}-${profile}
+    local out_dir="${OUT}/helm-template/istio-${profile}"
+    mkdir -p "${out_dir}"
 
-    local charts=${profile_charts_map[${profile}]}
+    local charts="${PROFILE_CHARTS_MAP[${profile}]}"
     for c in $(echo $charts | tr " " "\n")
     do
-        # create the parent directory if it doesn't exist.
-        mkdir -p $(dirname ${OUT}/helm-template/istio-${namespace}-${relase}-${profile}/${c}.yaml)
-        helm_render_template ${namespace} ${relase} ${chart}/${c} ${cfg} $* > ${OUT}/helm-template/istio-${namespace}-${relase}-${profile}/${c}.yaml
+       echo "Rendering ${c}"
+       mkdir -p "${out_dir}/${c}"
+       helm template --namespace "${NAMESPACES_MAP[${c}]}" --name "${release}" "${chart}/${c}" ${cfg} > "${out_dir}/${c}.yaml"
     done
+ #   cat $(find "${out_dir}" -name '*.yaml') > "${out_dir}/combined.yaml"
 }
 
 # render all the templates with mesh manifest.
 function mesh_manifest() {
-    local profile=${1}
-    shift
-
-    # check the specified profile CR
-    if [ -f "${ROOT}/tests/profiles/mesh/${profile}-profile.yaml" ]; then
-        mkdir -p ${OUT}/mesh-manifest/istio-${profile}
-        mesh manifest generate --filename "${ROOT}/tests/profiles/mesh/${profile}-profile.yaml" --dry-run=false --output ${OUT}/mesh-manifest/istio-${profile} 2>&1
-    else
-        echo "Please verify the input IstioIstall CR path exists."
-        exit 1
-    fi
+    local profile="${1}"
+    local out_dir="${OUT}/mesh-manifest/istio-${profile}"
+    mkdir -p "${out_dir}"
+    mesh manifest generate --filename "${ROOT}/tests/profiles/mesh/${profile}-profile.yaml" --dry-run=false --output "${out_dir}" 2>&1
+#    cat $(find "${out_dir}" -name "*.yaml") > "${out_dir}/combined.yaml"
 }
 
 # compare the manifests generated by the helm template and mesh manifest
 function mesh_mandiff_with_profile() {
-    local profile=${1}
+    local profile="${1}"
 
-    helm_manifest ${ISTIO_SYSTEM_NS} ${ISTIO_RELEASE} "${ROOT}/data/charts" ${profile}
+    helm_manifest ${ISTIO_SYSTEM_NS} ${ISTIO_RELEASE} ${CHARTS_DIR} ${profile}
     mesh_manifest ${profile}
 
-    if [ -d "${OUT}/helm-template/istio-${ISTIO_SYSTEM_NS}-${ISTIO_RELEASE}-${profile}" ] && [ -d "${OUT}/mesh-manifest/istio-${profile}" ]; then
-        # compare the manifests with mesh diff-manifest command
-        mesh manifest diff --directory ${OUT}/helm-template/istio-${ISTIO_SYSTEM_NS}-${ISTIO_RELEASE}-${profile} ${OUT}/mesh-manifest/istio-${profile}
-    else
-        echo "Please verify the outpath for the manifests does exist."
-        exit 1
-    fi
+    mesh manifest diff --directory "${OUT}/helm-template/istio-${profile}" "${OUT}/mesh-manifest/istio-${profile}"
 }
 
-# TODO: handle the case that different components are deployed in different namespaces
-ISTIO_SYSTEM_NS=${ISTIO_SYSTEM_NS:-istio-system}
-ISTIO_RELEASE=${ISTIO_RELEASE:-istio}
-ISTIO_DEFAULT_PROFILE=${ISTIO_DEFAULT_PROFILE:-default}
-ISTIO_DEMO_PROFILE=${ISTIO_DEMO_PROFILE:-demo}
-ISTIO_DEMOAUTH_PROFILE=${ISTIO_DEMOAUTH_PROFILE:-"demo-auth"}
-ISTIO_MINIMAL_PROFILE=${ISTIO_MINIMAL_PROFILE:-minimal}
-ISTIO_SDS_PROFILE=${ISTIO_SDS_PROFILE:-sds}\
-
-# declare map with profile as key and charts as values
-declare -A profile_charts_map
-profile_charts_map[${ISTIO_DEFAULT_PROFILE}]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel"
-profile_charts_map[${ISTIO_DEMO_PROFILE}]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
-profile_charts_map[${ISTIO_DEMOAUTH_PROFILE}]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
-profile_charts_map[${ISTIO_MINIMAL_PROFILE}]="crds istio-control/istio-discovery"
-profile_charts_map[${ISTIO_SDS_PROFILE}]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel security/nodeagent"
-
-mesh_mandiff_with_profile ${ISTIO_DEFAULT_PROFILE}
-mesh_mandiff_with_profile ${ISTIO_DEMO_PROFILE}
-mesh_mandiff_with_profile ${ISTIO_DEMOAUTH_PROFILE}
-mesh_mandiff_with_profile ${ISTIO_MINIMAL_PROFILE}
-mesh_mandiff_with_profile ${ISTIO_SDS_PROFILE}
+mesh_mandiff_with_profile "${ISTIO_DEFAULT_PROFILE}" > "${OUT}/mandiff-default-profile.diff" || echo "default profile has diffs"
+mesh_mandiff_with_profile "${ISTIO_DEMO_PROFILE}" > "${OUT/}mandiff-demo-profile.diff" || echo "default profile has diffs"
+mesh_mandiff_with_profile "${ISTIO_DEMOAUTH_PROFILE}" > "${OUT}/mandiff-demoauth-profile.diff" || echo "default profile has diffs"
+mesh_mandiff_with_profile "${ISTIO_MINIMAL_PROFILE}" > "${OUT}/mandiff-minimal-profile.diff" || echo "default profile has diffs"
+mesh_mandiff_with_profile "${ISTIO_SDS_PROFILE}" > "${OUT}/mandiff-sds-profile.diff" || echo "default profile has diffs"
 
