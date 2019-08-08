@@ -47,20 +47,21 @@ var (
 	flags = struct {
 		loggingOptions *log.Options
 
-		meshconfig          string
-		injectConfigFile    string
-		injectValuesFile    string
-		certFile            string
-		privateKeyFile      string
-		caCertFile          string
-		port                int
-		healthCheckInterval time.Duration
-		healthCheckFile     string
-		probeOptions        probe.Options
-		kubeconfigFile      string
-		webhookConfigName   string
-		webhookName         string
-		monitoringPort      int
+		meshconfig                string
+		injectConfigFile          string
+		injectValuesFile          string
+		certFile                  string
+		privateKeyFile            string
+		caCertFile                string
+		port                      int
+		healthCheckInterval       time.Duration
+		healthCheckFile           string
+		probeOptions              probe.Options
+		kubeconfigFile            string
+		webhookConfigName         string
+		webhookName               string
+		monitoringPort            int
+		enableManageWebhookConfig bool
 	}{
 		loggingOptions: log.DefaultOptions(),
 	}
@@ -95,8 +96,10 @@ var (
 			}
 
 			stop := make(chan struct{})
-			if err := patchCertLoop(stop); err != nil {
-				return multierror.Prefix(err, "failed to start patch cert loop")
+			if flags.enableManageWebhookConfig {
+				if err := patchCertLoop(stop); err != nil {
+					return multierror.Prefix(err, "failed to start patch cert loop")
+				}
 			}
 
 			go wh.Run(stop)
@@ -228,6 +231,8 @@ func init() {
 		"Name of the mutatingwebhookconfiguration resource in Kubernetes.")
 	rootCmd.PersistentFlags().StringVar(&flags.webhookName, "webhookName", "sidecar-injector.istio.io",
 		"Name of the webhook entry in the webhook config.")
+	rootCmd.PersistentFlags().BoolVar(&flags.enableManageWebhookConfig, "enableManageWebhookConfig", true,
+		"Enable managing webhook configuration.")
 	// Attach the Istio logging options to the command.
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
 

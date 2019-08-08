@@ -43,3 +43,6 @@ rewriteAppHTTPProbe: false
 neverInjectSelector: []
 
 alwaysInjectSelector: []
+
+# Enable managing webhookconfiguration
+enableManageWebhookConfig: true
