@@ -35,6 +35,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolUDP is a UDP listener.
+	ListenerProtocolUDP
 
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
@@ -54,6 +56,8 @@ func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
+	case protocol.UDP:
+		return ListenerProtocolUDP
 	default:
 		return ListenerProtocolUnknown
 	}

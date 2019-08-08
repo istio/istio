@@ -125,7 +125,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 		}
 		return nil
-	case plugin.ListenerProtocolTCP:
+	case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
@@ -187,7 +187,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
-	case plugin.ListenerProtocolTCP:
+	case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 		filter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
@@ -200,7 +200,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 // OnVirtualListener implements the Plugin interface method.
 func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
+	if in.ListenerProtocol == plugin.ListenerProtocolTCP || in.ListenerProtocol == plugin.ListenerProtocolUnknown {
 		attrs := createOutboundListenerAttributes(in)
 		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
@@ -283,7 +283,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			routeConfiguration.VirtualHosts[i] = virtualHost
 		}
 
-	case plugin.ListenerProtocolTCP:
+	case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}

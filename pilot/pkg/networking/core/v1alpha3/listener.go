@@ -278,9 +278,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bindToPort:     false,
 			}
 
-			if endpoint.ServicePort.Protocol == protocol.Unsupported {
-				endpoint.ServicePort.Protocol = protocol.TCP
-			}
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
@@ -363,9 +360,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
 			instance.Endpoint.Port = listenPort.Port
 
-			if listenPort.Protocol == protocol.Unsupported {
-				listenPort.Protocol = protocol.TCP
-			}
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
@@ -468,7 +462,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		case plugin.ListenerProtocolHTTP:
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
-		case plugin.ListenerProtocolTCP:
+		case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		default:
@@ -676,10 +670,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					bindToPort:     bindToPort,
 				}
 
-				if listenPort.Protocol == protocol.Unsupported {
-					listenPort.Protocol = protocol.TCP
-				}
-
 				pluginParams := &plugin.InputParams{
 					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
@@ -744,9 +734,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bindToPort:     bindToPort,
 					}
 
-					if servicePort.Protocol == protocol.Unsupported {
-						servicePort.Protocol = protocol.TCP
-					}
 					pluginParams := &plugin.InputParams{
 						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
@@ -1077,7 +1064,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		}
 
 		listenerOpts.filterChainOpts = opts
-	case plugin.ListenerProtocolTCP:
+	case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(&destinationCIDR, &listenerMapKey, &currentListenerEntry,
 			&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
 			return

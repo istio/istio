@@ -85,7 +85,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	}
 
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolTCP:
+	case plugin.ListenerProtocolTCP, plugin.ListenerProtocolUnknown:
 		rbacLog.Debugf("building filter for TCP listener protocol")
 		tcpFilter := builder.BuildTCPFilter()
 		if in.Node.Type == model.Router {
