@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/core/image"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
@@ -28,17 +27,9 @@ var (
 	ist istio.Instance
 )
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.DeployIstio = true
-	cfg.Values[image.ImagePullPolicyValuesKey] = "IfNotPresent"
-}
-
 func TestMain(m *testing.M) {
 	framework.NewSuite("mtls-migration", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		RequireEnvironment(environment.Kube).
 		Run()
 }
