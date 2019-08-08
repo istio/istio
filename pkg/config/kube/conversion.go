@@ -91,9 +91,6 @@ func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.In
 }
 
 func isWellKnownPort(port int32) bool {
-	if _, has := wellKnownPorts[port]; has {
-		return true
-	}
-
-	return false
+	_, has := wellKnownPorts[port]
+	return has
 }
