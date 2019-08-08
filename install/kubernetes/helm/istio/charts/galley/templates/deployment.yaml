@@ -71,8 +71,8 @@ spec:
 {{- if not $.Values.global.configValidation }}
           - --enable-validation=false
 {{- end }}
-          - --validation-webhook-config-file
           - --enable-reconcileWebhookConfiguration={{ .Values.enableReconcileWebhookConfiguration }}
+          - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
 {{- if $.Values.global.logging.level }}
