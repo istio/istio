@@ -397,6 +397,8 @@ type Endpoint struct {
 
 // Save will save the json configs to files, using the base directory
 func (a *ADSC) Save(base string) error {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	strResponse, err := json.MarshalIndent(a.tcpListeners, "  ", "  ")
 	if err != nil {
 		return err

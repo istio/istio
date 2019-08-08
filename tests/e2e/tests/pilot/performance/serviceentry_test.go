@@ -178,7 +178,7 @@ func adsConnectAndWait(n int, pilotAddr string, t *testing.T) (adscs []*adsc.ADS
 			t.Fatal(err)
 		}
 		c.Watch()
-		_, err = c.Wait("eds", 10*time.Second)
+		_, err = c.Wait(10*time.Second, "eds")
 		if err != nil {
 			t.Fatal(err)
 		}
