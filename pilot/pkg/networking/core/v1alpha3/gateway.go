@@ -53,7 +53,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	if features.ScopeGatewayToNamespace.Get() {
 		gatewaysForWorkload = push.Gateways(node)
 	} else {
-		gatewaysForWorkload = env.Gateways(node.WorkloadLabels)
+		var workloadLabels labels.Collection
+		for _, w := range node.ServiceInstances {
+			workloadLabels = append(workloadLabels, w.Labels)
+		}
+		gatewaysForWorkload = env.Gateways(workloadLabels)
 	}
 
 	if len(gatewaysForWorkload) == 0 {
