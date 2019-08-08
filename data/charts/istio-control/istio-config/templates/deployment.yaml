@@ -11,7 +11,6 @@ spec:
   replicas: {{ .Values.galley.replicaCount }}
   selector:
     matchLabels:
-      app: galley
       istio: galley
   strategy:
     rollingUpdate:
@@ -52,8 +51,8 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/tmp/healthliveness
-          - --readinessProbePath=/tmp/healthready
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
   {{- if .Values.global.configValidation }}
@@ -61,6 +60,7 @@ spec:
   {{- else }}
           - --enable-validation=false
   {{- end }}
+          - --validation-port=9443
           - --enable-server=true
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
@@ -87,7 +87,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthliveness
+                - --probe-path=/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -96,7 +96,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthready
+                - --probe-path=/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5

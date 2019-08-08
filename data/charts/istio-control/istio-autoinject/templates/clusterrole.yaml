@@ -13,5 +13,5 @@ rules:
   verbs: ["get", "list", "watch"]
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
-  resourceNames: ["istio-sidecar-injector-{{.Release.Namespace}}"]
+  resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]

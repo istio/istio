@@ -1,17 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-pilot
+  name: istio-pilot{{ .Values.version }}
   namespace: {{ .Release.Namespace }}
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
+    {{- if ne .Values.version ""}}
+    version: {{ .Values.version }}
+    {{- end }}
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
     istio: pilot
   annotations:
+    checksum/config-volume-envoy:  {{ include (print $.Template.BasePath "/configmap-envoy.yaml") . | sha256sum }}
     checksum/config-volume:  {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
 {{- if not .Values.pilot.autoscaleEnabled }}
@@ -27,12 +31,23 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
+      {{- if ne .Values.version ""}}
+      app: pilot
+      version: {{ .Values.version }}
+      {{ else }}
       istio: pilot
+      {{- end }}
   template:
     metadata:
       labels:
         app: pilot
+        {{- if ne .Values.version ""}}
+        version: {{ .Values.version }}
+        {{ else }}
+        # Label used by the 'default' service. For versioned deployments we match with app and version.
+        # This avoids default deployment picking the canary
         istio: pilot
+        {{- end }}
 {{- if eq .Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
@@ -214,10 +229,10 @@ spec:
       {{- end }}
       - name: config-volume
         configMap:
-          name: istio
+          name: istio{{ .Values.version }}
       - name: pilot-envoy-config
         configMap:
-          name: pilot-envoy-config
+          name: pilot-envoy-config{{ .Values.version }}
   {{- if .Values.global.controlPlaneSecurityEnabled}}
       - name: istio-certs
         secret:

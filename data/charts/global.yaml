@@ -47,6 +47,9 @@ global:
   logging:
     level: "default:info"
 
+  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
+  logAsJson: false
+
   k8sIngress:
     enabled: false
     # Gateway used for k8s Ingress resources. By default it is
@@ -409,3 +412,14 @@ global:
   enableHelmTest: false
 
 certmanager: {}
+
+# Internal setting - used when generating helm templates for kustomize.
+# clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
+# For backward compat, it is set to 'true', resulting in the old-style installation.
+# When set to 'false', all cluster-wide resources will be omitted, and are expected to be installed
+# at the same time with the CRDs.
+clusterResources: true
+
+# Version is set as 'version' label and part of the resource names when installing.
+# It is used to support multiple version in same namespace, similar with normal app traffic shift.
+version: ""

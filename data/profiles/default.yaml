@@ -15,8 +15,24 @@ spec:
         common:
           k8s:
             env:
-            - name: GODEBUG
-              value: "gctrace=1"
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.name
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+              - name: GODEBUG
+                value: gctrace=1
+              - name: PILOT_TRACE_SAMPLING
+                value: "1"
+              - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
+                value: "1"
+              - name: CONFIG_NAMESPACE
+                value: istio-config
             hpaSpec:
               maxReplicas: 5
               minReplicas: 1
@@ -44,6 +60,8 @@ spec:
 
           values:
             image: pilot
+            # TODO: derive from top level
+            version: ""
             traceSampling: 1.0
             configNamespace: istio-config
             keepaliveMaxServerConnectionAge: 30m
@@ -154,18 +172,6 @@ spec:
             loadshedding:
               mode: enforce
               latencyThreshold: 100ms
-            adapters:
-              stdio:
-                enabled: false
-                outputAsJson: false
-              prometheus:
-                enabled: true
-                metricsExpiryDuration: 10m
-              kubernetesenv:
-                enabled: true
-              stackdriver:
-                enabled: false
-              useAdapterCRDs: false
 
   # Security feature
   security:
@@ -406,50 +412,143 @@ spec:
 
   # Global values passed through to helm global.yaml.
   values:
-    logging:
-      level: "default:info"
-    k8sIngress:
-      enabled: false
-      gatewayName: ingressgateway
-      enableHttps: false
-    proxy_init:
-      image: proxy_init
-    imagePullPolicy: Always
-    controlPlaneSecurityEnabled: true
-    disablePolicyChecks: true
-    policyCheckFailOpen: false
-    enableTracing: true
-    mtls:
-      enabled: false
-    arch:
-      amd64: 2
-      s390x: 2
-      ppc64le: 2
-    oneNamespace: false
-    configValidation: true
-    defaultResources:
-      requests:
-        cpu: 10m
-    defaultPodDisruptionBudget:
+    # TODO: derive from operator API
+    version: ""
+    clusterResources: true
+
+    global:
+      logging:
+        level: "default:info"
+      k8sIngress:
+        enabled: false
+        gatewayName: ingressgateway
+        enableHttps: false
+      proxy_init:
+        image: proxy_init
+      imagePullPolicy: Always
+      controlPlaneSecurityEnabled: true
+      disablePolicyChecks: true
+      policyCheckFailOpen: false
+      enableTracing: true
+      mtls:
+        enabled: false
+      arch:
+        amd64: 2
+        s390x: 2
+        ppc64le: 2
+      oneNamespace: false
+      configValidation: true
+      defaultResources:
+        requests:
+          cpu: 10m
+      defaultPodDisruptionBudget:
+        enabled: true
+      useMCP: true
+      outboundTrafficPolicy:
+        mode: ALLOW_ANY
+      # TODO: derive from operator API version.
+      version: ""
+      prometheusNamespace: istio-telemetry
+      # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
+      meshExpansion: {}
+      multiCluster: {}
+      sds:
+        enabled: false
+        udsPath: ""
+        useTrustworthyJwt: false
+        useNormalJwt: false
+      tracer:
+        lightstep:
+          address: ""
+          accessToken: ""
+          secure: true
+          cacertPath: ""
+        zipkin:
+          address: ""
+        datadog:
+          address: "$(HOST_IP):8126"
+
+    mixer:
+      adapters:
+        stdio:
+          enabled: false
+          outputAsJson: false
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        kubernetesenv:
+          enabled: true
+        stackdriver:
+          enabled: false
+        useAdapterCRDs: false
+
+    prometheus:
       enabled: true
-    useMCP: true
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-  # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
-    meshExpansion: {}
-    multiCluster: {}
-    sds:
-      enabled: false
-      udsPath: ""
-      useTrustworthyJwt: false
-      useNormalJwt: false
-    tracer:
-      lightstep:
-        address: ""
-        accessToken: ""
-        secure: true
-        cacertPath: ""
-      zipkin:
-        address: ""
-      datadog:
-        address: "$(HOST_IP):8126"
+      replicaCount: 1
+      hub: docker.io/prom
+      tag: v2.8.0
+      retention: 6h
+      scrapeInterval: 15s
+      contextPath: /prometheus
+      ingress:
+        enabled: false
+        hosts:
+          - prometheus.local
+        annotations:
+        tls:
+      security:
+        enabled: true
+      nodeSelector: {}
+      tolerations: []
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+
+    grafana:
+      enabled: true
+      replicaCount: 1
+      image:
+        repository: grafana/grafana
+        tag: 6.1.6
+      persist: false
+      storageClassName: ""
+      accessMode: ReadWriteMany
+      security:
+        enabled: false
+        secretName: grafana
+        usernameKey: username
+        passphraseKey: passphrase
+
+      contextPath: /grafana
+      service:
+        annotations: {}
+        name: http
+        type: ClusterIP
+        externalPort: 3000
+        loadBalancerIP:
+        loadBalancerSourceRanges:
+      ingress:
+        enabled: false
+        hosts:
+          - grafana.local
+        annotations:
+        tls:
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+            - name: 'istio'
+              orgId: 1
+              folder: 'istio'
+              type: file
+              disableDeletion: false
+              options:
+                path: /var/lib/grafana/dashboards/istio
+      nodeSelector: {}
+      tolerations: []
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+

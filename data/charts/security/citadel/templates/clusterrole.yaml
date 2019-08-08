@@ -1,7 +1,8 @@
+{{ if .Values.clusterResources }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: istio-citadel11-{{ .Release.Namespace }}
+  name: istio-citadel-{{ .Release.Namespace }}
   labels:
     app: citadel
     release: {{ .Release.Name }}
@@ -18,3 +19,6 @@ rules:
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]
   verbs: ["create"]
+
+---
+{{ end }}

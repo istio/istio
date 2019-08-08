@@ -385,10 +385,6 @@ func (t *Translator) ProtoToValues(ii *v1alpha2.IstioControlPlaneSpec) (string, 
 func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
 	out := make(map[string]interface{})
 	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
-	if toPath == "" {
-		log.Errorf("missing translation path for %s in ValuesOverlaysToHelmValues", cname)
-		return nil
-	}
 	pv := strings.Split(toPath, ".")
 	cur := out
 	for len(pv) > 1 {

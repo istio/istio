@@ -13,7 +13,7 @@ template: |
     command:
     - "/usr/local/bin/istio-iptables.sh"
     - "-p"
-    - "{{ .MeshConfig.ProxyListenPort }}"
+    - 15001
     - "-u"
     - 1337
     - "-m"
@@ -140,13 +140,9 @@ template: |
     - "{{ .ProxyConfig.Concurrency }}"
     {{ end -}}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    - --discoveryAddress
-    - "istio-pilot.{{ .Values.global.istioNamespace }}:15011"
     - --controlPlaneAuthPolicy
     - MUTUAL_TLS
     {{- else }}
-    - --discoveryAddress
-    - "istio-pilot.{{ .Values.global.istioNamespace }}:15010"
     - --controlPlaneAuthPolicy
     - NONE
     {{- end }}

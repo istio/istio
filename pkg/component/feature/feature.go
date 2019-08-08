@@ -277,6 +277,41 @@ func (f *GatewayFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
+// ThirdPartyFeature is the traffic management feature.
+type ThirdPartyFeature struct {
+	// CommonFeatureFields is the struct shared among all features.
+	CommonFeatureFields
+}
+
+// NewThirdPartyFeature creates a new ThirdPartyFeature and returns a pointer to it.
+func NewThirdPartyFeature(opts *Options) *ThirdPartyFeature {
+	cff := &CommonFeatureFields{
+		Options: *opts,
+	}
+	cff.components = []component.IstioComponent{
+		component.NewPrometheusComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+		component.NewPrometheusOperatorComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+		component.NewGrafanaComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+		component.NewKialiComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+		component.NewCNIComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+		component.NewTracingComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
+	}
+
+	return &ThirdPartyFeature{
+		CommonFeatureFields: *cff,
+	}
+}
+
+// Run implements the IstioFeature interface.
+func (f *ThirdPartyFeature) Run() error {
+	return runComponents(f.components)
+}
+
+// RenderManifest implements the IstioFeature interface.
+func (f *ThirdPartyFeature) RenderManifest() (name.ManifestMap, util.Errors) {
+	return renderComponents(f.components)
+}
+
 // newComponentOptions creates a component.ComponentOptions ptr from the given parameters.
 func newComponentOptions(cff *CommonFeatureFields, featureName name.FeatureName) *component.Options {
 	return &component.Options{
