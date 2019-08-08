@@ -328,7 +328,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		ServiceCluster:             "istio-proxy",
 		StatsdUdpAddress:           "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsServiceAddress: "metrics-service.istio-system:15000",
-		EnvoyAccessLogService:      "accesslog-service.istio-system:15000",
+		EnvoyAccessLogService:      &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
 		ControlPlaneAuthPolicy:     1,
 		Tracing:                    nil,
 	}
@@ -410,8 +410,10 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "envoy access log service address invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyAccessLogService = "accesslog-service.istio-system" }),
+			name: "envoy access log service address invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.EnvoyAccessLogService = &meshconfig.RemoteService{Address: "accesslog-service.istio-system"}
+			}),
 			isValid: false,
 		},
 		{
@@ -642,7 +644,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		ServiceCluster:             "",
 		StatsdUdpAddress:           "10.0.0.100",
 		EnvoyMetricsServiceAddress: "metrics-service",
-		EnvoyAccessLogService:      "accesslog-service",
+		EnvoyAccessLogService:      &meshconfig.RemoteService{Address: "accesslog-service"},
 		ControlPlaneAuthPolicy:     -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
