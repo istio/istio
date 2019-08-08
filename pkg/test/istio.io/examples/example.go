@@ -56,12 +56,16 @@ func New(t *testing.T, name string) Example {
 
 // AddScript adds a directive to run a script
 func (example *Example) AddScript(namespace string, script string, output outputType) {
+	example.t.Helper()
+
 	//fullPath := getFullPath(istioPath + script)
 	example.steps = append(example.steps, newStepScript("./"+script, output))
 }
 
 // AddFile adds an existing file
 func (example *Example) AddFile(namespace string, path string) {
+	example.t.Helper()
+
 	fullPath := getFullPath(istioPath + path)
 	example.steps = append(example.steps, newStepFile(namespace, fullPath))
 }
@@ -72,6 +76,8 @@ type testFunc func(t *testing.T)
 // Exec registers a callback to be invoked synchronously. This is typically used for
 // validation logic to ensure command-lines worked as intended
 func (example *Example) Exec(testFunction testFunc) {
+	example.t.Helper()
+
 	example.steps = append(example.steps, newStepFunction(testFunction))
 }
 
@@ -80,12 +86,12 @@ func (example *Example) Exec(testFunction testFunc) {
 func getFullPath(path string) string {
 	gopath := os.Getenv("GOPATH")
 	return gopath + "/src/" + path
-
 }
 
 // Run runs the scripts and capture output
 // Note that this overrides os.Stdout/os.Stderr and is not thread-safe
 func (example *Example) Run() {
+	example.t.Helper()
 
 	//override stdout and stderr for test. Is there a better way of doing this?
 
@@ -112,6 +118,8 @@ func (example *Example) Run() {
 	framework.
 		NewTest(example.t).
 		Run(func(ctx framework.TestContext) {
+			example.t.Helper()
+
 			kubeEnv, ok := ctx.Environment().(*kube.Environment)
 			if !ok {
 				example.t.Fatalf("test framework unable to get Kubernetes environment")

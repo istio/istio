@@ -41,6 +41,8 @@ func newStepFile(namespace string, path string) testStep {
 }
 
 func (test fileTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
+	t.Helper()
+
 	t.Logf(fmt.Sprintf("Executing %s\n", test.path))
 	if err := env.Apply(test.namespace, test.path); err != nil {
 		return "", err
@@ -64,6 +66,8 @@ type functionTestType struct {
 }
 
 func (test functionTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
+	t.Helper()
+
 	t.Logf(fmt.Sprintf("Executing function\n"))
 	test.testFunction(t)
 	return "", nil
@@ -88,6 +92,8 @@ type scriptTestType struct {
 }
 
 func (test scriptTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
+	t.Helper()
+
 	t.Logf(fmt.Sprintf("Executing %s\n", test.script))
 	cmd := exec.Command(test.script)
 
