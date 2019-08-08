@@ -20,10 +20,11 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package config
+package gateway
 
 import (
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config/protocol"
 )
 

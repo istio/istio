@@ -88,12 +88,24 @@ func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
 }
 
+// proxyVersionToString converts IstioVersion to a semver format string.
+func proxyVersionToString(v *model.IstioVersion) string {
+	major := strconv.Itoa(v.Major)
+	minor := strconv.Itoa(v.Minor)
+	patch := strconv.Itoa(v.Patch)
+	return strings.Join([]string{major, minor, patch}, ".")
+}
+
 func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 	attrs := attributes{
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
+	}
+	if in.Node.IstioVersion != nil {
+		vs := proxyVersionToString(in.Node.IstioVersion)
+		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 	return attrs
 }
@@ -149,6 +161,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("inbound"),
+	}
+	if in.Node.IstioVersion != nil {
+		vs := proxyVersionToString(in.Node.IstioVersion)
+		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {

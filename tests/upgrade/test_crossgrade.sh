@@ -209,8 +209,8 @@ installIstioSystemAtVersionHelmTemplate() {
         --set mixer.telemetry.autoscaleMin=2 \
         --set mixer.policy.autoscaleMin=2 \
         --set prometheus.enabled=false \
-        --set global.hub="${1}" \
-        --set global.tag="${2}" \
+        --set-string global.hub="${1}" \
+        --set-string global.tag="${2}" \
         --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
     else
         helm template "${release_path}" "${auth_opts}" \
@@ -220,8 +220,8 @@ installIstioSystemAtVersionHelmTemplate() {
         --set mixer.istio-telemetry.autoscaleMin=2 \
         --set mixer.istio-policy.autoscaleMin=2 \
         --set prometheus.enabled=false \
-        --set global.hub="${1}" \
-        --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
+        --set-string global.hub="${1}" \
+        --set-string global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
     fi
 
 

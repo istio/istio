@@ -88,7 +88,7 @@ export ENABLE_COREDUMP ?= false
 export ENABLE_ISTIO_CNI ?= false
 
 # NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
+# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -690,8 +690,8 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
 
@@ -706,9 +706,9 @@ istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HEL
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -743,9 +743,9 @@ $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \

@@ -16,6 +16,8 @@
 package permissive
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -23,7 +25,6 @@ import (
 	"istio.io/istio/tests/integration/security/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
@@ -36,13 +37,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
+func verifyListener(listener *xdsapi.Listener, t *testing.T) error {
 	t.Helper()
 	if listener == nil {
-		return false
+		return errors.New("no such listener")
 	}
 	if len(listener.ListenerFilters) == 0 {
-		return false
+		return errors.New("no listener filter")
 	}
 	// We expect tls_inspector filter exist.
 	inspector := false
@@ -53,28 +54,28 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 		}
 	}
 	if !inspector {
-		return false
+		return errors.New("no tls inspector")
 	}
 	// Check filter chain match.
-	if len(listener.FilterChains) != 2 {
-		return false
+	if l := len(listener.FilterChains); l != 2 {
+		return fmt.Errorf("expect exactly 2 filter chains, actually %d", l)
 	}
 	mtlsChain := listener.FilterChains[0]
 	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio"}) {
-		return false
+		return errors.New("alpn is not istio")
 	}
 	if mtlsChain.TlsContext == nil {
-		return false
+		return errors.New("tls context is empty")
 	}
 	// Second default filter chain should have empty filter chain match and no tls context.
 	defaultChain := listener.FilterChains[1]
-	if !reflect.DeepEqual(defaultChain.FilterChainMatch, &lis.FilterChainMatch{}) {
-		return false
+	if l := len(defaultChain.FilterChainMatch.ApplicationProtocols); l != 0 {
+		return fmt.Errorf("expect empty alpn, actually %v", defaultChain.FilterChainMatch.ApplicationProtocols)
 	}
 	if defaultChain.TlsContext != nil {
-		return false
+		return errors.New("non empty tls context")
 	}
-	return true
+	return nil
 }
 
 // TestAuthnPermissive checks when authentication policy is permissive, Pilot generates expected
@@ -104,24 +105,32 @@ spec:
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				BuildOrFail(t)
-
+			t.Logf("echo boot warmed")
 			nodeID := a.WorkloadsOrFail(t)[0].Sidecar().NodeID()
 			req := pilot.NewDiscoveryRequest(nodeID, pilot.Listener)
 			err := p.StartDiscovery(req)
 			if err != nil {
 				t.Fatalf("failed to call discovery %v", err)
 			}
-			p.WatchDiscoveryOrFail(t, time.Second*10,
+			p.WatchDiscoveryOrFail(t, time.Second*30,
 				func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
+					var errs []error
 					for _, r := range resp.Resources {
 						foo := &xdsapi.Listener{}
 						err := types.UnmarshalAny(r, foo)
-						result := verifyListener(foo, t)
-						if err == nil && result {
-							return true, nil
+						if err != nil {
+							errs = append(errs, err)
+							continue
 						}
+						//TODO(silentdai): use listener meta data to validate all the listeners: in/out, virtual/nonvirtual
+						err = verifyListener(foo, t)
+						if err != nil {
+							errs = append(errs, fmt.Errorf("listener %s has error %s. details: %s", foo.Name, err, foo.String()))
+							continue
+						}
+						return true, nil
 					}
-					return false, nil
+					return false, fmt.Errorf("no inbound listener passes the validation. Errors: %v", errs)
 				})
 		})
 }

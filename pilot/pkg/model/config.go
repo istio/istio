@@ -30,11 +30,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -324,7 +324,7 @@ var (
 		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(name, namespace string, config proto.Message) error {
-			if config.(*test.MockConfig).Key == "" {
+			if config.(*testConfig.MockConfig).Key == "" {
 				return errors.New("empty key")
 			}
 			return nil

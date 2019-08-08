@@ -103,6 +103,14 @@ function check_kind() {
   fi
 }
 
+function cleanup_kind_cluster() {
+    kind export logs --name istio-testing "${ARTIFACTS}/kind"
+    if [[ -z "${SKIP_CLEANUP:-}" ]]; then
+      echo "Cleaning up kind cluster"
+      kind delete cluster --name=istio-testing
+    fi
+}
+
 function setup_kind_cluster() {
   IMAGE="${1}"
   # Installing KinD
@@ -114,10 +122,11 @@ function setup_kind_cluster() {
     echo "No existing kind cluster with name istio-testing. Continue..."
   fi
 
+  trap cleanup_kind_cluster EXIT
+
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name=istio-testing --config ./prow/config/trustworthy-jwt.yaml --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
-    kind export logs --name istio-testing "${ARTIFACTS}/kind"
     exit 1
   fi
 
@@ -137,7 +146,7 @@ function cni_run_daemon() {
   helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
   helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
  
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
 
   kubectl apply -f istio-cni_install.yaml
 

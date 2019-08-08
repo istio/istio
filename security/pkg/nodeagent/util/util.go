@@ -19,6 +19,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"time"
+
+	"go.opencensus.io/stats/view"
 )
 
 // parseCertAndGetExpiryTimestamp parses certificate and returns cert expire time, or return error
@@ -33,4 +35,21 @@ func ParseCertAndGetExpiryTimestamp(certByte []byte) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("failed to parse certificate: %v", err)
 	}
 	return cert.NotAfter, nil
+}
+
+// GetMetricsCounterValue returns counter value in float64. For test purpose only.
+func GetMetricsCounterValue(metricName string) (float64, error) {
+	rows, err := view.RetrieveData(metricName)
+	if err != nil {
+		return float64(0), err
+	}
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	if len(rows) > 1 {
+		return float64(0), fmt.Errorf("unexpected number of data for view %s: %d",
+			metricName, len(rows))
+	}
+
+	return rows[0].Data.(*view.SumData).Value, nil
 }

@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+syntax = "proto3";
 
-import (
-	"flag"
+// Basic config resource consisting
+// of a set of key-value pairs
 
-	"github.com/spf13/cobra"
-)
+package config;
 
-// InitializeFlags carries over glog flags with new defaults, and makes
-// `flag.Parsed()` to return true.
-func InitializeFlags(rootCmd *cobra.Command) {
-	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		rootCmd.PersistentFlags().AddGoFlag(gf)
-	})
+message MockConfig {
+  string key = 1;
+  repeated ConfigPair pairs = 2;
+}
+
+message ConfigPair {
+  string key = 1;
+  string value = 2;
 }

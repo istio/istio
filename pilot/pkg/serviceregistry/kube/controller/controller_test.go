@@ -157,6 +157,11 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		XDSUpdater:       fx,
 		stop:             make(chan struct{}),
 	})
+	ctl.Env = &model.Environment{
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer: "mixer",
+		},
+	}
 	go ctl.Run(ctl.stop)
 	return ctl, fx
 }
@@ -177,6 +182,11 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {
 		t.Log("Service event received")
 	})
+	c.Env = &model.Environment{
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer: "mixer",
+		},
+	}
 	go c.Run(c.stop)
 	return c, fx
 }
@@ -215,6 +225,9 @@ func TestServices(t *testing.T) {
 	})
 
 	ctl.Env = &model.Environment{
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer: "mixer",
+		},
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
