@@ -53,4 +53,4 @@ podAntiAffinityTermLabelSelector: []
 # - If true, Citadel will not generate webhook certificates.
 # If there is another component generate webhook certificates,
 # this parameter should be set as false.
-appendDnsNames: true
+enableGenerateWebhookCerts: true
