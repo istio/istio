@@ -72,6 +72,13 @@ var (
 			"for this time, we'll trigger a push.",
 	).Get()
 
+	EnableEDSDebounce = env.RegisterBoolVar(
+		"PILOT_ENABLE_EDS_DEBOUNCE",
+		true,
+		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
+			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
+	)
+
 	// BaseDir is the base directory for locating configs.
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
 	// be used, "/"
