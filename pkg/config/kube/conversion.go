@@ -32,14 +32,21 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	SMTP    = 25
+	DNS     = 53
+	MySQL   = 3306
+	MongoDB = 27017
+)
+
 var (
 	// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
 	// protocol sniffing is enabled.
 	wellKnownPorts = map[int32]struct{}{
-		25:    {}, // SMTP
-		53:    {}, // DNS. Default TCP if not specified.
-		3306:  {}, // MySQL
-		27017: {}, // MongoDB
+		SMTP:    {},
+		DNS:     {},
+		MySQL:   {},
+		MongoDB: {},
 	}
 )
 
@@ -76,9 +83,17 @@ func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.In
 	}
 
 	// Make TCP as default protocol for well know ports if protocol is not specified.
-	if _, has := wellKnownPorts[port]; has && out == protocol.Unsupported {
+	if out == protocol.Unsupported && isWellKnownPort(port) {
 		return protocol.TCP
 	}
 
 	return out
+}
+
+func isWellKnownPort(port int32) bool {
+	if _, has := wellKnownPorts[port]; has {
+		return true
+	}
+
+	return false
 }
