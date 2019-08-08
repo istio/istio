@@ -105,7 +105,7 @@ func (example *Example) Run() {
 	//f, err := os.Create(
 	//os.StdOut =
 
-	example.t.Log(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
+	example.t.Log(fmt.Sprintf("Executing example %s (%d steps)", example.name, len(example.steps)))
 
 	//create directory if it doesn't exist
 	if _, err := os.Stat(example.name); os.IsNotExist(err) {
