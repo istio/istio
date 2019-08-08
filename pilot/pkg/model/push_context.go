@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -350,6 +351,7 @@ func NewPushContext() *PushContext {
 		},
 		sidecarsByNamespace:     map[string][]*SidecarScope{},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:     map[string][]Config{},
 
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
@@ -631,6 +633,12 @@ func (ps *PushContext) InitContext(env *Environment) error {
 
 	if err = ps.initEnvoyFilters(env); err != nil {
 		return err
+	}
+
+	if features.ScopeGatewayToNamespace.Get() {
+		if err = ps.initGateways(env); err != nil {
+			return err
+		}
 	}
 
 	// Must be initialized in the end
