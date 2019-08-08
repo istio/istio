@@ -50,19 +50,14 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(chartsRootDir, helmBaseDir, profile, componentName, namespace string) (TemplateRenderer, error) {
-	globalValues, err := ReadValuesYAML(profile)
-	if err != nil {
-		return nil, err
-	}
-
+func NewHelmRenderer(chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
 	// filepath would remove leading slash here if chartsRootDir is empty.
 	dir := chartsRootDir + "/" + helmBaseDir
 	switch {
 	case chartsRootDir == "":
-		return NewVFSRenderer(helmBaseDir, globalValues, componentName, namespace), nil
+		return NewVFSRenderer(helmBaseDir, componentName, namespace), nil
 	case util.IsFilePath(dir):
-		return NewFileTemplateRenderer(dir, globalValues, componentName, namespace), nil
+		return NewFileTemplateRenderer(dir, componentName, namespace), nil
 	default:
 		return nil, fmt.Errorf("unknown helm renderer with chartsRoot=%s", chartsRootDir)
 	}
@@ -98,13 +93,8 @@ func ReadValuesYAML(profile string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, baseValues, overlayValues string, chrt *chart.Chart) (string, error) {
-	mergedValues, err := OverlayYAML(baseValues, overlayValues)
-	if err != nil {
-		return "", err
-	}
-
-	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
+func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
+	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),

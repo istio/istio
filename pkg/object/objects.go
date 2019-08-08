@@ -383,7 +383,12 @@ func ManifestDiff(a, b string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		by, err := bom[ak].YAML()
+		bo := bom[ak]
+		if bo == nil {
+			writeStringSafe(&sb, "\n\nObject "+ak+" is missing in B:\n\n")
+			continue
+		}
+		by, err := bo.YAML()
 		if err != nil {
 			return "", err
 		}
@@ -393,17 +398,11 @@ func ManifestDiff(a, b string) (string, error) {
 			writeStringSafe(&sb, diff)
 		}
 	}
-	for bk, bv := range bom {
-		if aom[bk] == nil {
-			by, err := bv.YAML()
-			if err != nil {
-				return "", err
-			}
-			diff := util.YAMLDiff(string(by), "")
-			if diff != "" {
-				writeStringSafe(&sb, "\n\nObject "+bk+" is missing:\n\n")
-				writeStringSafe(&sb, diff)
-			}
+	for bk := range bom {
+		ao := aom[bk]
+		if ao == nil {
+			writeStringSafe(&sb, "\n\nObject "+bk+" is missing in A:\n\n")
+			continue
 		}
 	}
 	return sb.String(), err

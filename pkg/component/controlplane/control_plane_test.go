@@ -28,6 +28,94 @@ import (
 	"istio.io/operator/pkg/version"
 )
 
+const (
+	baseValues = `
+values:
+  global:
+    # TODO: this should be derived
+    configNamespace: istio-control
+    defaultPodDisruptionBudget:
+      enabled: false
+    mtls:
+      enabled: false
+    logging:
+      level: "default:info"
+    k8sIngress:
+      enabled: false
+      gatewayName: ingressgateway
+      enableHttps: false
+    proxy_init:
+      image: proxy_init
+    imagePullPolicy: Always
+    controlPlaneSecurityEnabled: true
+    disablePolicyChecks: true
+    policyCheckFailOpen: false
+    enableTracing: true
+    mtls:
+      enabled: false
+    arch:
+      amd64: 2
+      s390x: 2
+      ppc64le: 2
+    oneNamespace: false
+    configValidation: true
+    defaultResources:
+      requests:
+        cpu: 10m
+    defaultPodDisruptionBudget:
+      enabled: true
+    useMCP: true
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    # TODO: derive from operator API version.
+    version: ""
+    prometheusNamespace: istio-telemetry
+    # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
+    meshExpansion: {}
+    multiCluster: {}
+    sds:
+      enabled: false
+      udsPath: ""
+      useTrustworthyJwt: false
+      useNormalJwt: false
+    tracer:
+      lightstep:
+        address: ""
+        accessToken: ""
+        secure: true
+        cacertPath: ""
+      zipkin:
+        address: ""
+      datadog:
+        address: "$(HOST_IP):8126"
+
+    proxy:
+      image: proxyv2
+      clusterDomain: "cluster.local"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 128Mi
+      concurrency: 2
+      accessLogEncoding: TEXT
+      logLevel: warning
+      componentLogLevel: "misc:error"
+      dnsRefreshRate: 300s
+      privileged: false
+      enableCoreDump: false
+      statusPort: 15020
+      readinessInitialDelaySeconds: 1
+      readinessPeriodSeconds: 2
+      readinessFailureThreshold: 30
+      includeIPRanges: "*"
+      autoInject: enabled
+      tracer: "zipkin"
+`
+)
+
 var (
 	testDataDir      string
 	helmChartTestDir string
@@ -70,6 +158,8 @@ autoInjection:
 		{
 			desc: "pilot_default",
 			installSpec: `
+hub: docker.io/istio
+tag: 1.1.4
 defaultNamespace: istio-system
 policy:
   enabled: false
@@ -87,11 +177,15 @@ trafficManagement:
     proxy:
       common:
         enabled: false
+
+
 `,
 		},
 		{
 			desc: "pilot_override_values",
 			installSpec: `
+hub: docker.io/istio
+tag: 1.1.4
 defaultNamespace: istio-system
 policy:
   enabled: false
@@ -125,6 +219,8 @@ trafficManagement:
 		{
 			desc: "pilot_override_kubernetes",
 			installSpec: `
+hub: docker.io/istio
+tag: 1.1.4
 defaultNamespace: istio-system
 policy:
   enabled: false
@@ -167,6 +263,7 @@ trafficManagement:
 			spec := `installPackagePath: ` + helmChartTestDir + "\n"
 			spec += `profile: ` + helmChartTestDir + `/global.yaml` + "\n"
 			spec += tt.installSpec
+			spec += baseValues
 			err := util.UnmarshalWithJSONPB(spec, &is)
 			if err != nil {
 				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)

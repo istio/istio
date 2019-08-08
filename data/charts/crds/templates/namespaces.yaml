@@ -8,7 +8,7 @@ metadata:
     istio-injection: disabled
 ---
 
-{{- if .Values.global.istioNamespace }}
+{{- if ne .Values.global.istioNamespace .Release.Namespace }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -19,7 +19,7 @@ metadata:
 ---
 {{- end }}
 
-{{- if .Values.global.configNamespace }}
+{{- if and (ne .Values.global.configNamespace .Release.Namespace) (ne .Values.global.configNamespace .Values.global.istioNamespace) }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -30,7 +30,7 @@ metadata:
 ---
 {{- end }}
 
-{{- if .Values.global.telemetryNamespace }}
+{{- if ne .Values.global.telemetryNamespace .Release.Namespace }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -41,7 +41,7 @@ metadata:
 ---
 {{- end }}
 
-{{- if .Values.global.prometheusNamespace }}
+{{- if and (ne .Values.global.prometheusNamespace .Release.Namespace) (ne .Values.global.prometheusNamespace .Values.global.telemetryNamespace) }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -52,7 +52,7 @@ metadata:
 ---
 {{- end }}
 
-{{- if .Values.global.policyNamespace }}
+{{- if ne .Values.global.policyNamespace .Release.Namespace }}
 apiVersion: v1
 kind: Namespace
 metadata:

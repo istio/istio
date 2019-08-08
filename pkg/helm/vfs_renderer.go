@@ -59,18 +59,16 @@ type VFSRenderer struct {
 	helmChartDirPath string
 	chart            *chart.Chart
 	started          bool
-	valuesYAML       string
 }
 
 // NewVFSRenderer creates a VFSRenderer with the given relative path to helm charts, component name and namespace and
 // a base values YAML string.
-func NewVFSRenderer(helmChartDirPath, valuesYAML, componentName, namespace string) *VFSRenderer {
+func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRenderer {
 	log.Infof("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
 	return &VFSRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
 		helmChartDirPath: helmChartDirPath,
-		valuesYAML:       valuesYAML,
 	}
 }
 
@@ -90,7 +88,7 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 	if !h.started {
 		return "", fmt.Errorf("VFSRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, h.valuesYAML, values, h.chart)
+	return renderChart(h.namespace, values, h.chart)
 }
 
 // LoadValuesVFS loads the compiled in file corresponding to the given profile name.

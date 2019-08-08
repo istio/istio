@@ -2,7 +2,7 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-pilot
+  name: istio-pilot{{ .Values.version }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
@@ -13,6 +13,9 @@ spec:
   selector:
     matchLabels:
       app: pilot
+      {{- if ne .Values.version ""}}
+      version: {{ .Values.version }}
+      {{- end }}
       release: {{ .Release.Name }}
       istio: pilot
 ---
