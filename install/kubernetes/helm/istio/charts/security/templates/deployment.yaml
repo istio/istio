@@ -46,7 +46,7 @@ spec:
           {{- if .Values.global.sds.enabled }}
             - --sds-enabled=true
           {{- end }}
-            - --append-dns-names=true
+            - --append-dns-names={{ .Values.appendDnsNames }}
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}
             - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
