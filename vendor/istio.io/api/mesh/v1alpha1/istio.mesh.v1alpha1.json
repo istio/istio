@@ -252,7 +252,7 @@
             "format": "string"
           },
           "envoyMetricsServiceAddress": {
-            "description": "Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000). See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto) for details about Envoy's Metrics Service API.",
+            "description": "$hide_from_docs",
             "type": "string",
             "format": "string"
           },
@@ -298,10 +298,11 @@
           "sds": {
             "$ref": "#/components/schemas/istio.mesh.v1alpha1.SDS"
           },
-          "envoyAccessLogServiceAddress": {
-            "description": "Address of the service to which access logs from Envoys should be sent. (e.g. accesslog-service:15000). See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto) for details about Envoy's gRPC Access Log Service API.",
-            "type": "string",
-            "format": "string"
+          "envoyAccessLogService": {
+            "$ref": "#/components/schemas/istio.mesh.v1alpha1.RemoteService"
+          },
+          "envoyMetricsService": {
+            "$ref": "#/components/schemas/istio.mesh.v1alpha1.RemoteService"
           }
         }
       },
@@ -638,6 +639,22 @@
         ],
         "default": "REDIRECT"
       },
+      "istio.mesh.v1alpha1.RemoteService": {
+        "type": "object",
+        "properties": {
+          "tcpKeepalive": {
+            "$ref": "#/components/schemas/istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive"
+          },
+          "address": {
+            "description": "Address of a remove service used for various purposes (access log receiver, metrics receiver, etc.). Can be IP address or a fully qualified DNS name.",
+            "type": "string",
+            "format": "string"
+          },
+          "tlsSettings": {
+            "$ref": "#/components/schemas/istio.networking.v1alpha3.TLSSettings"
+          }
+        }
+      },
       "google.protobuf.Duration": {
         "description": "The time duration between keep-alive probes. Default is to use the OS level configuration (unless overridden, Linux defaults to 75s.)",
         "type": "object",
@@ -682,7 +699,7 @@
         }
       },
       "istio.networking.v1alpha3.TLSSettings": {
-        "description": "Use the tls_settings to specify the tls mode to use. If the MCP server uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS mode as `ISTIO_MUTUAL`.",
+        "description": "Use the tls_settings to specify the tls mode to use. If the remote service uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS mode as `ISTIO_MUTUAL`.",
         "type": "object",
         "properties": {
           "mode": {
