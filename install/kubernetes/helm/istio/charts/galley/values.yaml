@@ -36,3 +36,6 @@ enableServiceDiscovery: false
 
 # Enable analysis and status update in Galley
 enableAnalysis: false
+
+# Enable reconcile validatingwebhookconfiguration
+enableReconcileWebhookConfiguration: true
