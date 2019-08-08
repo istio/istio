@@ -110,10 +110,16 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
+				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation)
+
+				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+				if hashPolicy := getHashPolicyByService(node, push, svc, port); hashPolicy != nil {
+					httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
+				}
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []*route.Route{BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
+					Routes:   []*route.Route{httpRoute},
 				})
 			}
 		}
@@ -794,6 +800,61 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
+func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
+	switch consistentHash.GetHashKey().(type) {
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Header_{
+				Header: &route.RouteAction_HashPolicy_Header{
+					HeaderName: consistentHash.GetHttpHeaderName(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		cookie := consistentHash.GetHttpCookie()
+
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+				Cookie: &route.RouteAction_HashPolicy_Cookie{
+					Name: cookie.GetName(),
+					Ttl:  cookie.GetTtl(),
+					Path: cookie.GetPath(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
+				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
+					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	}
+	return nil
+}
+
+func getHashPolicyByService(node *model.Proxy, push *model.PushContext, svc *model.Service, port *model.Port) *route.RouteAction_HashPolicy {
+	if push == nil {
+		return nil
+	}
+	destinationRule := push.DestinationRule(node, svc)
+	if destinationRule == nil {
+		return nil
+	}
+	rule := destinationRule.Spec.(*networking.DestinationRule)
+	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	for _, setting := range portLevelSettings {
+		number := setting.GetPort().GetNumber()
+		if int(number) == port.Port {
+			consistentHash = setting.GetLoadBalancer().GetConsistentHash()
+			break
+		}
+	}
+	return consistentHashToHashPolicy(consistentHash)
+}
+
 func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string) *route.RouteAction_HashPolicy {
 	if push == nil {
@@ -834,39 +895,7 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	case plsHash != nil:
 		consistentHash = plsHash
 	}
-
-	switch consistentHash.GetHashKey().(type) {
-	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
-		return &route.RouteAction_HashPolicy{
-			PolicySpecifier: &route.RouteAction_HashPolicy_Header_{
-				Header: &route.RouteAction_HashPolicy_Header{
-					HeaderName: consistentHash.GetHttpHeaderName(),
-				},
-			},
-		}
-	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
-		cookie := consistentHash.GetHttpCookie()
-
-		return &route.RouteAction_HashPolicy{
-			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
-				Cookie: &route.RouteAction_HashPolicy_Cookie{
-					Name: cookie.GetName(),
-					Ttl:  cookie.GetTtl(),
-					Path: cookie.GetPath(),
-				},
-			},
-		}
-	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
-		return &route.RouteAction_HashPolicy{
-			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
-				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
-					SourceIp: consistentHash.GetUseSourceIp(),
-				},
-			},
-		}
-	}
-
-	return nil
+	return consistentHashToHashPolicy(consistentHash)
 }
 
 type envoyRouteType int
