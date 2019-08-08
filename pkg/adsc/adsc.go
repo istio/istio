@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -124,11 +123,6 @@ const (
 	listenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
 	routeType = typePrefix + "RouteConfiguration"
-)
-
-var (
-	// ErrTimeout is returned by Wait if no update is received in the given time.
-	ErrTimeout = errors.New("timeout")
 )
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
@@ -612,18 +606,25 @@ func (a *ADSC) WaitClear() {
 	}
 }
 
-// Wait for an update of the specified type. If type is empty, wait for next update.
-func (a *ADSC) Wait(update string, to time.Duration) (string, error) {
+// Wait for an updates for all the specified types
+// If updates is empty, this will wait for any update
+func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
-
+	want := map[string]struct{}{}
+	for _, update := range updates {
+		want[update] = struct{}{}
+	}
+	got := make([]string, 0, len(updates))
 	for {
 		select {
 		case t := <-a.Updates:
-			if len(update) == 0 || update == t {
-				return t, nil
+			delete(want, t)
+			got = append(got, t)
+			if len(want) == 0 {
+				return got, nil
 			}
 		case <-t.C:
-			return "", ErrTimeout
+			return got, fmt.Errorf("timeout, still waiting for updates: %v", want)
 		}
 	}
 }
