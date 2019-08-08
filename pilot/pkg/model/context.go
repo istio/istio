@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"regexp"
@@ -267,9 +268,15 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+	// The WorkloadLabels is already parsed from Node metadata["istio.io/metadata"][labels]
+	if node.WorkloadLabels != nil {
+		return nil
+	}
+
 	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
 		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
+		// TODO: node.Metadata also includes all the labels, not sure whether will be removed in future
 		l = labels.Collection{node.Metadata}
 	}
 
@@ -362,6 +369,16 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
 	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
+
+	if data, ok := metadata[NodeMetadataLabels]; ok {
+		nodeLabels := make(map[string]string)
+		if err := json.Unmarshal([]byte(data), nodeLabels); err != nil {
+			return out, fmt.Errorf("invalid %s: %s", NodeMetadataLabels, data)
+		}
+		if len(nodeLabels) > 0 {
+			out.WorkloadLabels = labels.Collection{nodeLabels}
+		}
+	}
 	return out, nil
 }
 
