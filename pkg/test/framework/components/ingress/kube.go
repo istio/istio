@@ -55,11 +55,6 @@ type kubeComponent struct {
 	env       *kube.Environment
 }
 
-type httpsAddress struct {
-	ip   string
-	port int32
-}
-
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
 func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
