@@ -38,11 +38,6 @@ var _ io.Closer = &nativeComponent{}
 // when debugging tests that fail in CI.
 var _ resource.Dumper = &nativeComponent{}
 
-// If the component implements resource.Resetter, then the framework will call Reset whenever a *sub* context
-// gets closed. This is useful for creating suite-level resources (or top-level test resources) that needs to
-// reset their state after the execution of each test.
-var _ resource.Resetter = &nativeComponent{}
-
 // ID implements resource.Resource.
 func (n *nativeComponent) ID() resource.ID {
 	return n.id
@@ -62,11 +57,6 @@ func (n *nativeComponent) Close() error {
 func (n *nativeComponent) Dump() {
 	// Dump diagnostic information to the file system. Allocate directories via resource.Context, so that they will
 	// get captured by the CI system as artifacts.
-}
-
-// Reset implements resource.Resetter
-func (n *nativeComponent) Reset() error {
-	return nil
 }
 
 func newNative(ctx resource.Context, _ Config) Instance {

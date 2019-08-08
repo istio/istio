@@ -17,6 +17,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -39,9 +40,9 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Params_QuotaAlgorithm int32
 
 const (
-	// FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+	// `FIXED_WINDOW` The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
 	FIXED_WINDOW Params_QuotaAlgorithm = 0
-	// ROLLING_WINDOW The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
+	// `ROLLING_WINDOW` The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
 	ROLLING_WINDOW Params_QuotaAlgorithm = 1
 )
 
@@ -68,19 +69,19 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
-//   - name: requestcount.quota.istio-system
-//     maxAmount: 50
-//     validDuration: 60s
-//     bucketDuration: 1s
-//     rateLimitAlgorithm: ROLLING_WINDOW
-//     overrides:
-//       - dimensions:
-//           destination: ratings
-//           source: reviews
-//         maxAmount: 12
-//       - dimensions:
-//           destination: reviews
-//         maxAmount: 5
+// - name: requestcount.quota.istio-system
+//   maxAmount: 50
+//   validDuration: 60s
+//   bucketDuration: 1s
+//   rateLimitAlgorithm: ROLLING_WINDOW
+//   overrides:
+//   - dimensions:
+//       destination: ratings
+//       source: reviews
+//     maxAmount: 12
+//   - dimensions:
+//       destination: reviews
+//     maxAmount: 5
 // ```
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
@@ -106,7 +107,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +129,7 @@ var xxx_messageInfo_Params proto.InternalMessageInfo
 type Params_Override struct {
 	// The specific dimensions for which this override applies.
 	// String representation of instance dimensions is used to check against configured dimensions.
-	// dimensions should not be empty
+	// `dimensions` should not be empty
 	Dimensions map[string]string `protobuf:"bytes,1,rep,name=dimensions,proto3" json:"dimensions" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// The upper limit for this quota override.
 	// This value should be bigger than 0
@@ -148,7 +149,7 @@ func (m *Params_Override) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_Params_Override.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -188,12 +189,12 @@ type Params_Quota struct {
 	MaxAmount int64 `protobuf:"varint,2,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
 	// The amount of time allocated quota remains valid before it is
 	// automatically released. This is only meaningful for rate limit quotas.
-	// value should be 0 < valid_duration
+	// value should be `0 < validDuration`
 	ValidDuration time.Duration `protobuf:"bytes,3,opt,name=valid_duration,json=validDuration,proto3,stdduration" json:"valid_duration"`
-	// bucket_duration will be ignored if rate_limit_algorithm is FIXED_WINDOW
-	// value should be 0 < bucket_duration < valid_duration
+	// The `bucketDuration` will be ignored if `rateLimitAlgorithm` is `FIXED_WINDOW`
+	// value should be `0 < bucketDuration < validDuration`
 	BucketDuration time.Duration `protobuf:"bytes,4,opt,name=bucket_duration,json=bucketDuration,proto3,stdduration" json:"bucket_duration"`
-	// Quota management algorithm. The default value is FIXED_WINDOW
+	// Quota management algorithm. The default value is `FIXED_WINDOW`
 	RateLimitAlgorithm Params_QuotaAlgorithm `protobuf:"varint,5,opt,name=rate_limit_algorithm,json=rateLimitAlgorithm,proto3,enum=adapter.redisquota.config.Params_QuotaAlgorithm" json:"rate_limit_algorithm,omitempty"`
 	// Overrides associated with this quota.
 	// The first matching override is applied.
@@ -213,7 +214,7 @@ func (m *Params_Quota) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Params_Quota.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +338,7 @@ func (x Params_QuotaAlgorithm) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -345,40 +346,48 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Quotas) > 0 {
-		for _, msg := range m.Quotas {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.ConnectionPoolSize != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectionPoolSize))
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.RedisServerUrl) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.RedisServerUrl)
+		copy(dAtA[i:], m.RedisServerUrl)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.RedisServerUrl)))
-		i += copy(dAtA[i:], m.RedisServerUrl)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.ConnectionPoolSize != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectionPoolSize))
+	if len(m.Quotas) > 0 {
+		for iNdEx := len(m.Quotas) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Quotas[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_Override) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -386,39 +395,46 @@ func (m *Params_Override) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_Override) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_Override) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.MaxAmount != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
+		i--
+		dAtA[i] = 0x10
+	}
 	if len(m.Dimensions) > 0 {
-		for k, _ := range m.Dimensions {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Dimensions {
 			v := m.Dimensions[k]
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + 1 + len(v) + sovConfig(uint64(len(v)))
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintConfig(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.MaxAmount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_Quota) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -426,65 +442,75 @@ func (m *Params_Quota) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_Quota) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.Overrides) > 0 {
+		for iNdEx := len(m.Overrides) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Overrides[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x32
+		}
 	}
-	if m.MaxAmount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
+	if m.RateLimitAlgorithm != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.RateLimitAlgorithm))
+		i--
+		dAtA[i] = 0x28
 	}
-	dAtA[i] = 0x1a
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration):])
 	if err1 != nil {
 		return 0, err1
 	}
-	i += n1
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
 	dAtA[i] = 0x22
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration)))
-	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
+	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration):])
 	if err2 != nil {
 		return 0, err2
 	}
-	i += n2
-	if m.RateLimitAlgorithm != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.RateLimitAlgorithm))
+	i -= n2
+	i = encodeVarintConfig(dAtA, i, uint64(n2))
+	i--
+	dAtA[i] = 0x1a
+	if m.MaxAmount != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxAmount))
+		i--
+		dAtA[i] = 0x10
 	}
-	if len(m.Overrides) > 0 {
-		for _, msg := range m.Overrides {
-			dAtA[i] = 0x32
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -558,14 +584,7 @@ func (m *Params_Quota) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

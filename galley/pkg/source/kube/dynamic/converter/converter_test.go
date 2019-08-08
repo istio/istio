@@ -22,16 +22,18 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
+	authn "istio.io/api/authentication/v1alpha1"
+	meshcfg "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/config/mesh"
+
 	extensions "k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	authn "istio.io/api/authentication/v1alpha1"
-	meshcfg "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestGet(t *testing.T) {
@@ -144,7 +146,7 @@ func TestIdentity(t *testing.T) {
 
 func TestIdentity_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Any")
 	s := b.Build()
 
 	info := s.Get("foo")
@@ -163,6 +165,27 @@ func TestIdentity_Error(t *testing.T) {
 	_, err := identity(nil, info, key, "", u)
 	if err == nil {
 		t.Fatal("Expected error not found")
+	}
+}
+
+func TestIdentity_IgnoreExtraValue(t *testing.T) {
+	b := resource.NewSchemaBuilder()
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	s := b.Build()
+
+	info := s.Get("foo")
+
+	u := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"extra": "value",
+		},
+	}
+
+	key := resource.FullNameFromNamespaceAndName("", "Key")
+
+	_, err := identity(nil, info, key, "", u)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
@@ -522,7 +545,7 @@ func TestKubeIngressResource(t *testing.T) {
 }
 
 func TestShouldProcessIngress(t *testing.T) {
-	istio := model.DefaultMeshConfig().IngressClass
+	istio := mesh.DefaultMeshConfig().IngressClass
 	cases := []struct {
 		ingressClass  string
 		ingressMode   meshcfg.MeshConfig_IngressControllerMode
@@ -553,7 +576,7 @@ func TestShouldProcessIngress(t *testing.T) {
 			},
 		}
 
-		mesh := model.DefaultMeshConfig()
+		mesh := mesh.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 		cch := meshconfig.NewInMemory()
 		cch.Set(mesh)

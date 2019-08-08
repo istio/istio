@@ -51,34 +51,24 @@ func (m *Filter) Validate() error {
 
 	case *Filter_Config:
 
-		{
-			tmp := m.GetConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterValidationError{
-						field:  "Config",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *Filter_TypedConfig:
 
-		{
-			tmp := m.GetTypedConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterValidationError{
-						field:  "TypedConfig",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -164,17 +154,12 @@ func (m *FilterChainMatch) Validate() error {
 	for idx, item := range m.GetPrefixRanges() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterChainMatchValidationError{
-						field:  fmt.Sprintf("PrefixRanges[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterChainMatchValidationError{
+					field:  fmt.Sprintf("PrefixRanges[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -183,17 +168,12 @@ func (m *FilterChainMatch) Validate() error {
 
 	// no validation rules for AddressSuffix
 
-	{
-		tmp := m.GetSuffixLen()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainMatchValidationError{
-					field:  "SuffixLen",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetSuffixLen()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainMatchValidationError{
+				field:  "SuffixLen",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -208,17 +188,12 @@ func (m *FilterChainMatch) Validate() error {
 	for idx, item := range m.GetSourcePrefixRanges() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterChainMatchValidationError{
-						field:  fmt.Sprintf("SourcePrefixRanges[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterChainMatchValidationError{
+					field:  fmt.Sprintf("SourcePrefixRanges[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -228,18 +203,10 @@ func (m *FilterChainMatch) Validate() error {
 	for idx, item := range m.GetSourcePorts() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterChainMatchValidationError{
-						field:  fmt.Sprintf("SourcePorts[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
-				}
+		if val := item; val < 1 || val > 65535 {
+			return FilterChainMatchValidationError{
+				field:  fmt.Sprintf("SourcePorts[%v]", idx),
+				reason: "value must be inside range [1, 65535]",
 			}
 		}
 
@@ -312,32 +279,22 @@ func (m *FilterChain) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetFilterChainMatch()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainValidationError{
-					field:  "FilterChainMatch",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetFilterChainMatch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainValidationError{
+				field:  "FilterChainMatch",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetTlsContext()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainValidationError{
-					field:  "TlsContext",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTlsContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainValidationError{
+				field:  "TlsContext",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -345,64 +302,44 @@ func (m *FilterChain) Validate() error {
 	for idx, item := range m.GetFilters() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return FilterChainValidationError{
-						field:  fmt.Sprintf("Filters[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterChainValidationError{
+					field:  fmt.Sprintf("Filters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetUseProxyProto()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainValidationError{
-					field:  "UseProxyProto",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetUseProxyProto()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainValidationError{
+				field:  "UseProxyProto",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetMetadata()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainValidationError{
-					field:  "Metadata",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetTransportSocket()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return FilterChainValidationError{
-					field:  "TransportSocket",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTransportSocket()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FilterChainValidationError{
+				field:  "TransportSocket",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -483,34 +420,24 @@ func (m *ListenerFilter) Validate() error {
 
 	case *ListenerFilter_Config:
 
-		{
-			tmp := m.GetConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListenerFilterValidationError{
-						field:  "Config",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerFilterValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *ListenerFilter_TypedConfig:
 
-		{
-			tmp := m.GetTypedConfig()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ListenerFilterValidationError{
-						field:  "TypedConfig",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerFilterValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

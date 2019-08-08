@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
@@ -28,9 +29,14 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -94,8 +100,8 @@ func TestEventString(t *testing.T) {
 
 func TestPortList(t *testing.T) {
 	pl := model.PortList{
-		{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-		{Name: "http-alt", Port: 8080, Protocol: model.ProtocolHTTP},
+		{Name: "http", Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 	}
 
 	gotNames := pl.GetNames()
@@ -128,61 +134,61 @@ func TestServiceKey(t *testing.T) {
 	// Verify Service.Key() delegates to ServiceKey()
 	{
 		want := "hostname|http|a=b,c=d"
-		port := &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}
-		labels := model.Labels{"a": "b", "c": "d"}
-		got := svc.Key(port, labels)
+		port := &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}
+		l := labels.Instance{"a": "b", "c": "d"}
+		got := svc.Key(port, l)
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("Service.Key() failed: got %v want %v", got, want)
 		}
 	}
 
 	cases := []struct {
-		port   model.PortList
-		labels model.LabelsCollection
-		want   string
+		port model.PortList
+		l    labels.Collection
+		want string
 	}{
 		{
 			port: model.PortList{
-				{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-				{Name: "http-alt", Port: 8080, Protocol: model.ProtocolHTTP},
+				{Name: "http", Port: 80, Protocol: protocol.HTTP},
+				{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 			},
-			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
-			want:   "hostname|http,http-alt|a=b,c=d",
+			l:    labels.Collection{{"a": "b", "c": "d"}},
+			want: "hostname|http,http-alt|a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
-			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
-			want:   "hostname|http|a=b,c=d",
+			port: model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+			l:    labels.Collection{{"a": "b", "c": "d"}},
+			want: "hostname|http|a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Port: 80, Protocol: model.ProtocolHTTP}},
-			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
-			want:   "hostname||a=b,c=d",
+			port: model.PortList{{Port: 80, Protocol: protocol.HTTP}},
+			l:    labels.Collection{{"a": "b", "c": "d"}},
+			want: "hostname||a=b,c=d",
 		},
 		{
-			port:   model.PortList{},
-			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
-			want:   "hostname||a=b,c=d",
+			port: model.PortList{},
+			l:    labels.Collection{{"a": "b", "c": "d"}},
+			want: "hostname||a=b,c=d",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
-			labels: model.LabelsCollection{nil},
-			want:   "hostname|http",
+			port: model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+			l:    labels.Collection{nil},
+			want: "hostname|http",
 		},
 		{
-			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
-			labels: model.LabelsCollection{},
-			want:   "hostname|http",
+			port: model.PortList{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+			l:    labels.Collection{},
+			want: "hostname|http",
 		},
 		{
-			port:   model.PortList{},
-			labels: model.LabelsCollection{},
-			want:   "hostname",
+			port: model.PortList{},
+			l:    labels.Collection{},
+			want: "hostname",
 		},
 	}
 
 	for _, c := range cases {
-		got := model.ServiceKey(svc.Hostname, c.port, c.labels)
+		got := model.ServiceKey(svc.Hostname, c.port, c.l)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Failed: got %q want %q", got, c.want)
 		}
@@ -190,9 +196,9 @@ func TestServiceKey(t *testing.T) {
 }
 
 func TestSubsetKey(t *testing.T) {
-	hostname := model.Hostname("hostname")
+	hostname := host.Name("hostname")
 	cases := []struct {
-		hostname model.Hostname
+		hostname host.Name
 		subset   string
 		port     int
 		want     string
@@ -227,20 +233,20 @@ func TestSubsetKey(t *testing.T) {
 
 func TestLabelsEquals(t *testing.T) {
 	cases := []struct {
-		a, b model.Labels
+		a, b labels.Instance
 		want bool
 	}{
 		{
 			a: nil,
-			b: model.Labels{"a": "b"},
+			b: labels.Instance{"a": "b"},
 		},
 		{
-			a: model.Labels{"a": "b"},
+			a: labels.Instance{"a": "b"},
 			b: nil,
 		},
 		{
-			a:    model.Labels{"a": "b"},
-			b:    model.Labels{"a": "b"},
+			a:    labels.Instance{"a": "b"},
+			b:    labels.Instance{"a": "b"},
 			want: true,
 		},
 	}
@@ -252,9 +258,9 @@ func TestLabelsEquals(t *testing.T) {
 }
 
 func TestConfigKey(t *testing.T) {
-	config := mock_config.Make("ns", 2)
+	cfg := mock_config.Make("ns", 2)
 	want := "mock-config/ns/mock-config2"
-	if key := config.ConfigMeta.Key(); key != want {
+	if key := cfg.ConfigMeta.Key(); key != want {
 		t.Errorf("config.Key() => got %q, want %q", key, want)
 	}
 }
@@ -263,7 +269,7 @@ func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
 		svc  *mccpb.IstioService
-		want model.Hostname
+		want host.Name
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
@@ -321,7 +327,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		model.DefaultAuthenticationPolicyName: {},
+		constants.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -362,7 +368,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		},
 	}
 	for key, value := range authNPolicies {
-		config := model.Config{
+		cfg := model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:      model.AuthenticationPolicy.Type,
 				Name:      key,
@@ -373,17 +379,17 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			},
 			Spec: value,
 		}
-		if _, err := store.Create(config); err != nil {
+		if _, err := store.Create(cfg); err != nil {
 			t.Error(err)
 		}
 	}
 
 	cases := []struct {
-		hostname  model.Hostname
+		hostname  host.Name
 		namespace string
 		port      int
 		expected  string
-		labels    map[string]string
+		l         map[string]string
 	}{
 		{
 			hostname:  "hello.default.svc.cluster.local",
@@ -414,7 +420,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			namespace: "default",
 			port:      80,
 			expected:  "httpbin",
-			labels:    map[string]string{"app": "httpbin", "version": "v1", "env": "prod"},
+			l:         map[string]string{"app": "httpbin", "version": "v1", "env": "prod"},
 		},
 	}
 
@@ -425,7 +431,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
 		}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyForWorkload(service, testCase.labels, port)
+		out := store.AuthenticationPolicyForWorkload(service, testCase.l, port)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
@@ -465,11 +471,11 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		policy    *authn.Policy
 	}{
 		{
-			name:   model.DefaultAuthenticationPolicyName,
+			name:   constants.DefaultAuthenticationPolicyName,
 			policy: &globalPolicy,
 		},
 		{
-			name:      model.DefaultAuthenticationPolicyName,
+			name:      constants.DefaultAuthenticationPolicyName,
 			namespace: "default",
 			policy:    &namespacePolicy,
 		},
@@ -480,7 +486,7 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		},
 	}
 	for _, in := range authNPolicies {
-		config := model.Config{
+		cfg := model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Name:    in.name,
 				Group:   "authentication",
@@ -491,18 +497,18 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		}
 		if in.namespace == "" {
 			// Cluster-scoped policy
-			config.ConfigMeta.Type = model.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Type = model.AuthenticationMeshPolicy.Type
 		} else {
-			config.ConfigMeta.Type = model.AuthenticationPolicy.Type
-			config.ConfigMeta.Namespace = in.namespace
+			cfg.ConfigMeta.Type = model.AuthenticationPolicy.Type
+			cfg.ConfigMeta.Namespace = in.namespace
 		}
-		if _, err := store.Create(config); err != nil {
+		if _, err := store.Create(cfg); err != nil {
 			t.Error(err)
 		}
 	}
 
 	cases := []struct {
-		hostname  model.Hostname
+		hostname  host.Name
 		namespace string
 		port      int
 		expected  *authn.Policy
@@ -567,7 +573,7 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
 		meta model.ConfigMeta
-		out  model.Hostname
+		out  host.Name
 	}{
 		{
 			"*", model.ConfigMeta{}, "*",
@@ -600,24 +606,24 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 
 func TestMostSpecificHostMatch(t *testing.T) {
 	tests := []struct {
-		in     []model.Hostname
-		needle model.Hostname
-		want   model.Hostname
+		in     []host.Name
+		needle host.Name
+		want   host.Name
 	}{
 		// this has to be a sorted list
-		{[]model.Hostname{}, "*", ""},
-		{[]model.Hostname{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
-		{[]model.Hostname{"*.foo.com", "*.com"}, "foo.com", "*.com"},
-		{[]model.Hostname{"foo.com", "*.com"}, "*.foo.com", "*.com"},
+		{[]host.Name{}, "*", ""},
+		{[]host.Name{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "*.com"}, "foo.com", "*.com"},
+		{[]host.Name{"foo.com", "*.com"}, "*.foo.com", "*.com"},
 
-		{[]model.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
-		{[]model.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
 
 		// this passes because we sort alphabetically
-		{[]model.Hostname{"bar.com", "foo.com"}, "*.com", "bar.com"},
+		{[]host.Name{"bar.com", "foo.com"}, "*.com", "bar.com"},
 
-		{[]model.Hostname{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
-		{[]model.Hostname{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
+		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
 	}
 
 	for idx, tt := range tests {
@@ -647,15 +653,15 @@ func TestServiceRoles(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		config := store.ServiceRoles(tt.namespace)
+		cfg := store.ServiceRoles(tt.namespace)
 		if tt.expectName != nil {
-			for _, cfg := range config {
+			for _, cfg := range cfg {
 				if !tt.expectName[cfg.Name] {
-					t.Errorf("model.ServiceRoles: expecting %v, but got %v", tt.expectName, config)
+					t.Errorf("model.ServiceRoles: expecting %v, but got %v", tt.expectName, cfg)
 				}
 			}
-		} else if len(config) != 0 {
-			t.Errorf("model.ServiceRoles: expecting nil, but got %v", config)
+		} else if len(cfg) != 0 {
+			t.Errorf("model.ServiceRoles: expecting nil, but got %v", cfg)
 		}
 	}
 }
@@ -675,15 +681,15 @@ func TestServiceRoleBindings(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		config := store.ServiceRoleBindings(tt.namespace)
+		cfg := store.ServiceRoleBindings(tt.namespace)
 		if tt.expectName != nil {
-			for _, cfg := range config {
+			for _, cfg := range cfg {
 				if !tt.expectName[cfg.Name] {
-					t.Errorf("model.ServiceRoleBinding: expecting %v, but got %v", tt.expectName, config)
+					t.Errorf("model.ServiceRoleBinding: expecting %v, but got %v", tt.expectName, cfg)
 				}
 			}
-		} else if len(config) != 0 {
-			t.Errorf("model.ServiceRoleBinding: expecting nil, but got %v", config)
+		} else if len(cfg) != 0 {
+			t.Errorf("model.ServiceRoleBinding: expecting nil, but got %v", cfg)
 		}
 	}
 }
@@ -703,34 +709,34 @@ func TestAuthorizationPolicies(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		config := store.AuthorizationPolicies(tt.namespace)
+		cfg := store.AuthorizationPolicies(tt.namespace)
 		if tt.expectName != nil {
-			for _, cfg := range config {
+			for _, cfg := range cfg {
 				if !tt.expectName[cfg.Name] {
-					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, config)
+					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, cfg)
 				}
 			}
-		} else if len(config) != 0 {
-			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", config)
+		} else if len(cfg) != 0 {
+			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", cfg)
 		}
 	}
 }
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.RbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.RbacConfig()
-	if rbacConfig.Name != model.DefaultRbacConfigName {
-		t.Errorf("model.RbacConfig: expecting %s, but got %s", model.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.RbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 
 func TestClusterRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.ClusterRbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
+	addRbacConfigToStore(model.ClusterRbacConfig.Type, constants.DefaultRbacConfigName, "", store, t)
 	rbacConfig := store.ClusterRbacConfig()
-	if rbacConfig.Name != model.DefaultRbacConfigName {
-		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", model.DefaultRbacConfigName, rbacConfig.Name)
+	if rbacConfig.Name != constants.DefaultRbacConfigName {
+		t.Errorf("model.ClusterRbacConfig: expecting %s, but got %s", constants.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 
@@ -753,7 +759,7 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 	default:
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	}
-	config := model.Config{
+	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      configType,
 			Name:      name,
@@ -761,7 +767,7 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 		},
 		Spec: value, // Not used in test, added to pass validation.
 	}
-	if _, err := store.Create(config); err != nil {
+	if _, err := store.Create(cfg); err != nil {
 		t.Error(err)
 	}
 }
@@ -830,7 +836,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ii := model.MakeIstioStore(l)
 	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: model.Hostname("a." + ns + ".svc.cluster.local"),
+			Hostname: host.Name("a." + ns + ".svc.cluster.local"),
 		},
 	})
 
@@ -939,9 +945,57 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	}
 }
 
+func TestIstioConfigStore_Gateway(t *testing.T) {
+	workloadLabels := labels.Collection{}
+	now := time.Now()
+	gw1 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: now,
+		},
+		Spec: &networking.Gateway{},
+	}
+	gw2 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "aaa",
+			CreationTimestamp: now,
+		},
+		Spec: &networking.Gateway{},
+	}
+	gw3 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "ns2",
+			CreationTimestamp: now.Add(time.Second * -1),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	l := &fakeStore{
+		cfg: map[string][]model.Config{
+			model.Gateway.Type: {gw1, gw2, gw3},
+		},
+	}
+	ii := model.MakeIstioStore(l)
+
+	// Gateways should be returned in a stable order
+	expectedConfig := []model.Config{
+		gw3, // first config by timestamp
+		gw2, // timestamp match with gw1, but name comes first
+		gw1, // timestamp match with gw2, but name comes last
+	}
+	cfgs := ii.Gateways(workloadLabels)
+
+	if !reflect.DeepEqual(expectedConfig, cfgs) {
+		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
+	}
+}
+
 func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	ns := "ns1"
-	workloadLabels := model.LabelsCollection{}
+	workloadLabels := labels.Collection{}
 
 	l := &fakeStore{
 		cfg: map[string][]model.Config{
@@ -969,7 +1023,6 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mergedFilterConfig := &networking.EnvoyFilter{
-		WorkloadLabels: make(map[string]string),
 		Filters: []*networking.EnvoyFilter_Filter{
 			{
 				InsertPosition: &networking.EnvoyFilter_InsertPosition{
@@ -1002,14 +1055,14 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 					Spec: &mccpb.HTTPAPISpec{
 						Attributes: &mpb.Attributes{
 							Attributes: map[string]*mpb.Attributes_AttributeValue{
-								"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+								"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
 							},
 						},
 						Patterns: []*mccpb.HTTPAPISpecPattern{
 							{
 								Attributes: &mpb.Attributes{
 									Attributes: map[string]*mpb.Attributes_AttributeValue{
-										"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+										"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
 									},
 								},
 								HttpMethod: "POST",
@@ -1018,7 +1071,7 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 								},
 							},
 						},
-						ApiKeys: []*mccpb.APIKey{{Key: &mccpb.APIKey_Query{"api_key"}}},
+						ApiKeys: []*mccpb.APIKey{{Key: &mccpb.APIKey_Query{Query: "api_key"}}},
 					},
 				},
 			},
@@ -1051,11 +1104,32 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 	ii := model.MakeIstioStore(l)
 	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
 		Service: &model.Service{
-			Hostname: model.Hostname("foo." + ns + ".svc.cluster.local"),
+			Hostname: host.Name("foo." + ns + ".svc.cluster.local"),
 		},
 	})
 
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
+}
+
+func TestDeepCopy(t *testing.T) {
+	cfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:              "name1",
+			Namespace:         "zzz",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.Gateway{},
+	}
+
+	copied := cfg.DeepCopy()
+
+	if !(cfg.Spec.String() == copied.Spec.String() &&
+		cfg.Namespace == copied.Namespace &&
+		cfg.Name == copied.Name &&
+		cfg.CreationTimestamp == copied.CreationTimestamp) {
+		t.Fatalf("cloned config is not identical")
+	}
+
 }

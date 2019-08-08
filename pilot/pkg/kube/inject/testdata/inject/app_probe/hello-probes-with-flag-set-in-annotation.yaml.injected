@@ -14,8 +14,11 @@ spec:
   template:
     metadata:
       annotations:
+        sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"48223a2bdf0874fbf126b9de064f387c42898c5f6d6bfdc41457caef22593b82","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: 80,90
       creationTimestamp: null
       labels:
         app: hello
@@ -70,7 +73,7 @@ spec:
         - --discoveryAddress
         - istio-pilot:15010
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -106,6 +109,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: 80,90
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
             {"sidecar.istio.io/rewriteAppHTTPProbers":"true"}
@@ -131,7 +136,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -148,6 +153,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m

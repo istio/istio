@@ -794,21 +794,21 @@ func (t *http2Client) Close() error {
 // stream is closed.  If there are no active streams, the transport is closed
 // immediately.  This does nothing if the transport is already draining or
 // closing.
-func (t *http2Client) GracefulClose() error {
+func (t *http2Client) GracefulClose() {
 	t.mu.Lock()
 	// Make sure we move to draining only from active.
 	if t.state == draining || t.state == closing {
 		t.mu.Unlock()
-		return nil
+		return
 	}
 	t.state = draining
 	active := len(t.activeStreams)
 	t.mu.Unlock()
 	if active == 0 {
-		return t.Close()
+		t.Close()
+		return
 	}
 	t.controlBuf.put(&incomingGoAway{})
-	return nil
 }
 
 // Write formats the data into HTTP2 data frame(s) and sends it out. The caller

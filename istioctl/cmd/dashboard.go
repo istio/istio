@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 
 	"istio.io/pkg/log"
 )
@@ -265,7 +266,7 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("specify a pod")
 			}
 
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
@@ -304,7 +305,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("specify a pod")
 			}
 
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)

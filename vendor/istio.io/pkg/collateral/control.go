@@ -40,15 +40,13 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
-	"istio.io/pkg/annotations"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 
+	"istio.io/pkg/collateral/metrics"
 	"istio.io/pkg/env"
 )
 
@@ -332,7 +330,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 	}
 
 	g.genVars(cmd)
-	g.genAnnotations(cmd)
+	g.genMetrics()
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -685,50 +683,19 @@ func (g *generator) genVars(root *cobra.Command) {
 	g.emit("</table>")
 }
 
-func (g *generator) genAnnotations(root *cobra.Command) {
-	anns := annotations.Descriptions()
+func (g *generator) genMetrics() {
+	g.emit(`<h2 id="metrics">Exported metrics</h2>
+<table class="metrics">
+<thead>
+<tr><th>Metric Name</th><th>Type</th><th>Description</th></tr>
+</thead>
+<tbody>`)
 
-	count := 0
-	for _, a := range anns {
-		if a.Hidden {
-			continue
-		}
-		count++
+	r := metrics.NewOpenCensusRegistry()
+	for _, metric := range r.ExportedMetrics() {
+		g.emit("<tr><td><code>", metric.Name, "</code></td><td><code>", metric.Type, "</code></td><td>", metric.Description, "</td></tr>")
 	}
 
-	if count == 0 {
-		return
-	}
-
-	g.emit("<h2 id=\"annotations\">Annotations</h2>")
-
-	g.emit("These resource annotations are used by the <code>", root.Name(), "</code> command.")
-
-	g.emit("<table class=\"annotations\">")
-	g.emit("<thead>")
-	g.emit("<tr>")
-	g.emit("<th>Annotation Name</th>")
-	g.emit("<th>Description</th>")
-	g.emit("</tr>")
-	g.emit("</thead>")
-	g.emit("<tbody>")
-
-	for _, a := range anns {
-		if a.Hidden {
-			continue
-		}
-
-		if a.Deprecated {
-			g.emit("<tr class='deprecated'>")
-		} else {
-			g.emit("<tr>")
-		}
-		g.emit("<td><code>", html.EscapeString(a.Name), "</code></td>")
-
-		g.emit("<td>", html.EscapeString(a.Description), "</td>")
-		g.emit("</tr>")
-	}
-
-	g.emit("</tbody>")
-	g.emit("</table>")
+	g.emit(`</tbody>
+</table>`)
 }

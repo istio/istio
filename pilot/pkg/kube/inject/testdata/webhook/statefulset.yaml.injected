@@ -51,7 +51,7 @@ spec:
         - --zipkinAddress
         - ""
         - --dnsRefreshRate
-        - 5s
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -87,6 +87,8 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "80"
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -104,7 +106,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -121,6 +123,8 @@ spec:
       - args:
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -144,11 +148,11 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - hostPath:
           path: /mnt/disks/ssd0

@@ -47,17 +47,12 @@ func (m *Clusters) Validate() error {
 	for idx, item := range m.GetClusterStatuses() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ClustersValidationError{
-						field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClustersValidationError{
+					field:  fmt.Sprintf("ClusterStatuses[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -133,17 +128,12 @@ func (m *ClusterStatus) Validate() error {
 
 	// no validation rules for AddedViaApi
 
-	{
-		tmp := m.GetSuccessRateEjectionThreshold()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return ClusterStatusValidationError{
-					field:  "SuccessRateEjectionThreshold",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClusterStatusValidationError{
+				field:  "SuccessRateEjectionThreshold",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -151,21 +141,26 @@ func (m *ClusterStatus) Validate() error {
 	for idx, item := range m.GetHostStatuses() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return ClusterStatusValidationError{
-						field:  fmt.Sprintf("HostStatuses[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClusterStatusValidationError{
+					field:  fmt.Sprintf("HostStatuses[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
+	}
+
+	if v, ok := interface{}(m.GetLocalOriginSuccessRateEjectionThreshold()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClusterStatusValidationError{
+				field:  "LocalOriginSuccessRateEjectionThreshold",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	return nil
@@ -232,17 +227,12 @@ func (m *HostStatus) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetAddress()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HostStatusValidationError{
-					field:  "Address",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HostStatusValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -250,54 +240,53 @@ func (m *HostStatus) Validate() error {
 	for idx, item := range m.GetStats() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HostStatusValidationError{
-						field:  fmt.Sprintf("Stats[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HostStatusValidationError{
+					field:  fmt.Sprintf("Stats[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetHealthStatus()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HostStatusValidationError{
-					field:  "HealthStatus",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetHealthStatus()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HostStatusValidationError{
+				field:  "HealthStatus",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetSuccessRate()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return HostStatusValidationError{
-					field:  "SuccessRate",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetSuccessRate()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HostStatusValidationError{
+				field:  "SuccessRate",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
 	// no validation rules for Weight
+
+	// no validation rules for Hostname
+
+	// no validation rules for Priority
+
+	if v, ok := interface{}(m.GetLocalOriginSuccessRate()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HostStatusValidationError{
+				field:  "LocalOriginSuccessRate",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	return nil
 }
@@ -369,6 +358,10 @@ func (m *HostHealthStatus) Validate() error {
 	// no validation rules for FailedOutlierCheck
 
 	// no validation rules for FailedActiveDegradedCheck
+
+	// no validation rules for PendingDynamicRemoval
+
+	// no validation rules for PendingActiveHc
 
 	// no validation rules for EdsHealthStatus
 

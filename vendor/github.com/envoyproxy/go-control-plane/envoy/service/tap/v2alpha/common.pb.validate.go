@@ -47,17 +47,12 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetMatchConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TapConfigValidationError{
-					field:  "MatchConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMatchConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TapConfigValidationError{
+				field:  "MatchConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -69,17 +64,22 @@ func (m *TapConfig) Validate() error {
 		}
 	}
 
-	{
-		tmp := m.GetOutputConfig()
+	if v, ok := interface{}(m.GetOutputConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TapConfigValidationError{
+				field:  "OutputConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return TapConfigValidationError{
-					field:  "OutputConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetTapEnabled()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TapConfigValidationError{
+				field:  "TapEnabled",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -153,51 +153,36 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_OrMatch:
 
-		{
-			tmp := m.GetOrMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "OrMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetOrMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "OrMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *MatchPredicate_AndMatch:
 
-		{
-			tmp := m.GetAndMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "AndMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetAndMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "AndMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *MatchPredicate_NotMatch:
 
-		{
-			tmp := m.GetNotMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "NotMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetNotMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "NotMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -213,68 +198,48 @@ func (m *MatchPredicate) Validate() error {
 
 	case *MatchPredicate_HttpRequestHeadersMatch:
 
-		{
-			tmp := m.GetHttpRequestHeadersMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "HttpRequestHeadersMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHttpRequestHeadersMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "HttpRequestHeadersMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *MatchPredicate_HttpRequestTrailersMatch:
 
-		{
-			tmp := m.GetHttpRequestTrailersMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "HttpRequestTrailersMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHttpRequestTrailersMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "HttpRequestTrailersMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *MatchPredicate_HttpResponseHeadersMatch:
 
-		{
-			tmp := m.GetHttpResponseHeadersMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "HttpResponseHeadersMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHttpResponseHeadersMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "HttpResponseHeadersMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *MatchPredicate_HttpResponseTrailersMatch:
 
-		{
-			tmp := m.GetHttpResponseTrailersMatch()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicateValidationError{
-						field:  "HttpResponseTrailersMatch",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetHttpResponseTrailersMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicateValidationError{
+					field:  "HttpResponseTrailersMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -355,17 +320,12 @@ func (m *HttpHeadersMatch) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return HttpHeadersMatchValidationError{
-						field:  fmt.Sprintf("Headers[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpHeadersMatchValidationError{
+					field:  fmt.Sprintf("Headers[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -447,49 +407,34 @@ func (m *OutputConfig) Validate() error {
 	for idx, item := range m.GetSinks() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return OutputConfigValidationError{
-						field:  fmt.Sprintf("Sinks[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OutputConfigValidationError{
+					field:  fmt.Sprintf("Sinks[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	}
 
-	{
-		tmp := m.GetMaxBufferedRxBytes()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return OutputConfigValidationError{
-					field:  "MaxBufferedRxBytes",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMaxBufferedRxBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OutputConfigValidationError{
+				field:  "MaxBufferedRxBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetMaxBufferedTxBytes()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return OutputConfigValidationError{
-					field:  "MaxBufferedTxBytes",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMaxBufferedTxBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OutputConfigValidationError{
+				field:  "MaxBufferedTxBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -571,34 +516,36 @@ func (m *OutputSink) Validate() error {
 
 	case *OutputSink_StreamingAdmin:
 
-		{
-			tmp := m.GetStreamingAdmin()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return OutputSinkValidationError{
-						field:  "StreamingAdmin",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetStreamingAdmin()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OutputSinkValidationError{
+					field:  "StreamingAdmin",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
 
 	case *OutputSink_FilePerTap:
 
-		{
-			tmp := m.GetFilePerTap()
+		if v, ok := interface{}(m.GetFilePerTap()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OutputSinkValidationError{
+					field:  "FilePerTap",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
 
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+	case *OutputSink_StreamingGrpc:
 
-				if err := v.Validate(); err != nil {
-					return OutputSinkValidationError{
-						field:  "FilePerTap",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetStreamingGrpc()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OutputSinkValidationError{
+					field:  "StreamingGrpc",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -807,6 +754,92 @@ var _ interface {
 	ErrorName() string
 } = FilePerTapSinkValidationError{}
 
+// Validate checks the field values on StreamingGrpcSink with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *StreamingGrpcSink) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for TapId
+
+	if m.GetGrpcService() == nil {
+		return StreamingGrpcSinkValidationError{
+			field:  "GrpcService",
+			reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StreamingGrpcSinkValidationError{
+				field:  "GrpcService",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// StreamingGrpcSinkValidationError is the validation error returned by
+// StreamingGrpcSink.Validate if the designated constraints aren't met.
+type StreamingGrpcSinkValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StreamingGrpcSinkValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StreamingGrpcSinkValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StreamingGrpcSinkValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StreamingGrpcSinkValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StreamingGrpcSinkValidationError) ErrorName() string {
+	return "StreamingGrpcSinkValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StreamingGrpcSinkValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStreamingGrpcSink.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StreamingGrpcSinkValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StreamingGrpcSinkValidationError{}
+
 // Validate checks the field values on MatchPredicate_MatchSet with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -825,17 +858,12 @@ func (m *MatchPredicate_MatchSet) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return MatchPredicate_MatchSetValidationError{
-						field:  fmt.Sprintf("Rules[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return MatchPredicate_MatchSetValidationError{
+					field:  fmt.Sprintf("Rules[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}

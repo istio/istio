@@ -23,15 +23,17 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/util/wait"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -77,7 +79,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	httpAddr := ":" + pilotHTTP
 
-	meshConfig := model.DefaultMeshConfig()
+	meshConfig := mesh.DefaultMeshConfig()
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
@@ -157,7 +159,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		if err != nil {
 			return false, nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		_, _ = ioutil.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusOK {
 			return true, nil

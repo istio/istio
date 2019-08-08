@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
@@ -563,6 +564,30 @@ func buildTableWithTemplatesAndAdapters(templates map[string]*template.Info, ada
 	ht := handler.NewTable(handler.Empty(), s, nil)
 
 	return BuildTable(ht, s, "istio-system", debugInfo), s
+}
+
+func TestAddRuleOperations(t *testing.T) {
+	b := &builder{
+		table: &Table{entries: make(map[tpb.TemplateVariety]*varietyTable)},
+	}
+	// put something into the table for a different namespace
+	b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] = &varietyTable{
+		entries: map[string]*NamespaceTable{
+			"ns2": {
+				entries:    []*Destination{},
+				directives: []*DirectiveGroup{},
+			},
+		},
+	}
+
+	// catch the panic
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fail()
+		}
+	}()
+
+	b.addRuleOperations("ns1", nil, nil)
 }
 
 func TestNonPointerAdapter(t *testing.T) {

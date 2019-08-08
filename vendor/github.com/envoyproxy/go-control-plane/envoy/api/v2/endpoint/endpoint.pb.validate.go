@@ -44,32 +44,22 @@ func (m *Endpoint) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetAddress()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return EndpointValidationError{
-					field:  "Address",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EndpointValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetHealthCheckConfig()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return EndpointValidationError{
-					field:  "HealthCheckConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetHealthCheckConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EndpointValidationError{
+				field:  "HealthCheckConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -140,27 +130,22 @@ func (m *LbEndpoint) Validate() error {
 
 	// no validation rules for HealthStatus
 
-	{
-		tmp := m.GetMetadata()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return LbEndpointValidationError{
-					field:  "Metadata",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LbEndpointValidationError{
+				field:  "Metadata",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
 	if wrapper := m.GetLoadBalancingWeight(); wrapper != nil {
 
-		if val := wrapper.GetValue(); val < 1 || val > 128 {
+		if wrapper.GetValue() < 1 {
 			return LbEndpointValidationError{
 				field:  "LoadBalancingWeight",
-				reason: "value must be inside range [1, 128]",
+				reason: "value must be greater than or equal to 1",
 			}
 		}
 
@@ -170,17 +155,12 @@ func (m *LbEndpoint) Validate() error {
 
 	case *LbEndpoint_Endpoint:
 
-		{
-			tmp := m.GetEndpoint()
-
-			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return LbEndpointValidationError{
-						field:  "Endpoint",
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LbEndpointValidationError{
+					field:  "Endpoint",
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -255,17 +235,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetLocality()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return LocalityLbEndpointsValidationError{
-					field:  "Locality",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetLocality()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LocalityLbEndpointsValidationError{
+				field:  "Locality",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -273,17 +248,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 	for idx, item := range m.GetLbEndpoints() {
 		_, _ = idx, item
 
-		{
-			tmp := item
-
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
-
-				if err := v.Validate(); err != nil {
-					return LocalityLbEndpointsValidationError{
-						field:  fmt.Sprintf("LbEndpoints[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					}
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LocalityLbEndpointsValidationError{
+					field:  fmt.Sprintf("LbEndpoints[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
 				}
 			}
 		}
@@ -292,10 +262,10 @@ func (m *LocalityLbEndpoints) Validate() error {
 
 	if wrapper := m.GetLoadBalancingWeight(); wrapper != nil {
 
-		if val := wrapper.GetValue(); val < 1 || val > 128 {
+		if wrapper.GetValue() < 1 {
 			return LocalityLbEndpointsValidationError{
 				field:  "LoadBalancingWeight",
-				reason: "value must be inside range [1, 128]",
+				reason: "value must be greater than or equal to 1",
 			}
 		}
 
@@ -305,6 +275,16 @@ func (m *LocalityLbEndpoints) Validate() error {
 		return LocalityLbEndpointsValidationError{
 			field:  "Priority",
 			reason: "value must be less than or equal to 128",
+		}
+	}
+
+	if v, ok := interface{}(m.GetProximity()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LocalityLbEndpointsValidationError{
+				field:  "Proximity",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
 		}
 	}
 

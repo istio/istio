@@ -8,16 +8,3 @@ spec:
   - services: ["ratings.svc.cluster.local"]
     methods: ["GET"]
     paths: ["/prod/*"]
----
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
-# This comment will be removed in the converted version of this file.
-metadata:
-  name: bind-service-viewer
-  namespace: default
-spec:
-  subjects:
-    - user: "foo"
-  roleRef:
-    kind: ServiceRole
-    name: "service-viewer"

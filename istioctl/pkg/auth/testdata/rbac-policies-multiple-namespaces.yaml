@@ -1,0 +1,45 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: foo
+spec:
+  rules:
+  - services: ["productpage.svc.cluster.local"]
+    methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: bar
+spec:
+  rules:
+    - services: ["ratings.svc.cluster.local"]
+      methods: ["POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+# This comment will be removed in the converted version of this file.
+metadata:
+  name: bind-service-viewer
+  namespace: foo
+spec:
+  subjects:
+    - user: "foo"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+# This comment will be removed in the converted version of this file.
+metadata:
+  name: bind-service-viewer
+  namespace: bar
+spec:
+  subjects:
+    - user: "bar"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"

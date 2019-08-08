@@ -79,11 +79,15 @@ spec:
 {{- if ne .Locality "" }}
         istio-locality: {{ .Locality }}
 {{- end }}
-{{- if .WorkloadAnnotations }}
       annotations:
+        foo: bar
+{{- if .WorkloadAnnotations }}
 {{- range $name, $value := .WorkloadAnnotations }}
-       {{ $name }}: {{ printf "%q" $value }}
+        {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
+{{- end }}
+{{- if .IncludeInboundPorts }}
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ .IncludeInboundPorts }}"
 {{- end }}
     spec:
 {{- if .ServiceAccount }}
@@ -143,7 +147,6 @@ UVoCqQmzjPoB3c3JoYFpJo-9jTN1_mNRtZUcNvYl-tDlTmBlaKEvoC5P2WGVUF3AoLsES66u4FG9Wllm
 LV92LG1WNqx_ltkT1tahSy9WiHQgyzPqwtwE72T1jAGdgVIoJy1lfSaLam_bo9rqkRlgSg-au9BAjZiD\
 Gtm9tf3lwrcgfbxccdlG4jAsTFa2aNs3dW4NLk7mFnWCJa-iWj-TgFxf9TW-9XPK0g3oYIQ0Id0CIW2S\
 iFxKGPAjB-g"
----
 `
 )
 
@@ -192,6 +195,7 @@ func generateYAML(cfg echo.Config) (string, error) {
 		"ContainerPorts":      getContainerPorts(cfg.Ports),
 		"ServiceAnnotations":  serviceAnnotations,
 		"WorkloadAnnotations": workloadAnnotations,
+		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 	}
 
 	// Generate the YAML content.

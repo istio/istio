@@ -59,6 +59,10 @@ type Config struct {
 
 	// Annotations provides metadata hints for deployment of the instance.
 	Annotations Annotations
+
+	// IncludeInboundPorts provides the ports that inbound listener should capture
+	// "*" means capture all.
+	IncludeInboundPorts string
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)
@@ -70,7 +74,7 @@ func (c Config) String() string {
 func (c Config) FQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
-		out += "." + c.Namespace.Name()
+		out += "." + c.Namespace.Name() + ".svc"
 	}
 	if c.Domain != "" {
 		out += "." + c.Domain

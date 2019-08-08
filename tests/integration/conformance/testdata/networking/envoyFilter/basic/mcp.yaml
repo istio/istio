@@ -1,0 +1,80 @@
+constraints:
+  - collection: istio/networking/v1alpha3/envoyfilters
+    check:
+    - exactlyOne:
+      - equals: {
+        "Body": {
+          "filters": [
+          {
+            "filter_config": {
+              "fields": {
+                "abort": {
+                  "Kind": {
+                    "StructValue": {
+                      "fields": {
+                        "httpStatus": {
+                          "Kind": {
+                            "NumberValue": 444
+                          }
+                        },
+                        "percentage": {
+                          "Kind": {
+                            "StructValue": {
+                              "fields": {
+                                "denominator": {
+                                  "Kind": {
+                                    "StringValue": "HUNDRED"
+                                  }
+                                },
+                                "numerator": {
+                                  "Kind": {
+                                    "NumberValue": 100
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "headers": {
+                  "Kind": {
+                    "StructValue": {
+                      "fields": {
+                        "exactMatch": {
+                          "Kind": {
+                            "StringValue": "foobar123"
+                          }
+                        },
+                        "name": {
+                          "Kind": {
+                            "StringValue": "envoyfilter-test"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "filter_name": "envoy.fault",
+            "filter_type": 1,
+            "insert_position": {},
+            "listener_match": {
+              "listener_protocol": 1,
+              "listener_type": 1
+            }
+          }
+          ],
+          "workload_labels": {
+            "app": "c"
+          }
+        },
+        "Metadata": {
+          "name": "{{.Namespace}}/simple-envoy-filter"
+        },
+        "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.EnvoyFilter"
+      }
+

@@ -40,32 +40,22 @@ func (m *RBAC) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetRules()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return RBACValidationError{
-					field:  "Rules",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetRules()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RBACValidationError{
+				field:  "Rules",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
 
-	{
-		tmp := m.GetShadowRules()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return RBACValidationError{
-					field:  "ShadowRules",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetShadowRules()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RBACValidationError{
+				field:  "ShadowRules",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}
@@ -135,17 +125,12 @@ func (m *RBACPerRoute) Validate() error {
 		return nil
 	}
 
-	{
-		tmp := m.GetRbac()
-
-		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
-
-			if err := v.Validate(); err != nil {
-				return RBACPerRouteValidationError{
-					field:  "Rbac",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
+	if v, ok := interface{}(m.GetRbac()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RBACPerRouteValidationError{
+				field:  "Rbac",
+				reason: "embedded message failed validation",
+				cause:  err,
 			}
 		}
 	}

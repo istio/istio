@@ -30,7 +30,7 @@ func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error
 	}
 	bootstrapDumpAny := w.Configs[0]
 	bootstrapDump := &adminapi.BootstrapConfigDump{}
-	err := proto.UnmarshalAny(&bootstrapDumpAny, bootstrapDump)
+	err := proto.UnmarshalAny(bootstrapDumpAny, bootstrapDump)
 	if err != nil {
 		return nil, err
 	}

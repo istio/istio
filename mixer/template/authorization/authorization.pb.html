@@ -14,23 +14,25 @@ enforcement within Istio. It is primarily concerned with enabling Mixer</p>
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: authorization
+kind: instance
 metadata:
   name: authinfo
   namespace: istio-system
 spec:
- subject:
-   user: source.principal | request.auth.principal | &quot;&quot;
-   groups: request.auth.claims[&quot;groups&quot;] | &quot;&quot;
-   properties:
-    iss: request.auth.claims[&quot;iss&quot;]
- action:
-   namespace: destination.namespace | &quot;default&quot;
-   service: destination.service.host | &quot;&quot;
-   path: request.path | &quot;/&quot;
-   method: request.method | &quot;post&quot;
-   properties:
-     version: destination.labels[version] | &quot;&quot;
+  compiledTemplate: authorization
+  params:
+    subject:
+      user: source.principal | request.auth.principal | &quot;&quot;
+      groups: request.auth.claims[&quot;groups&quot;] | &quot;&quot;
+      properties:
+        iss: request.auth.claims[&quot;iss&quot;]
+    action:
+      namespace: destination.namespace | &quot;default&quot;
+      service: destination.service.host | &quot;&quot;
+      path: request.path | &quot;/&quot;
+      method: request.method | &quot;post&quot;
+      properties:
+        version: destination.labels[version] | &quot;&quot;
 </code></pre>
 
 <h2 id="Action">Action</h2>

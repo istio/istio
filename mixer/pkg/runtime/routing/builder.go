@@ -734,15 +734,17 @@ func (b *builder) addRuleOperations(
 		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] = &varietyTable{}
 	}
 	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries == nil {
-		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = map[string]*NamespaceTable{
-			namespace: {
-				entries:    []*Destination{},
-				directives: []*DirectiveGroup{},
-			},
-		}
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = make(map[string]*NamespaceTable)
 	}
 
-	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
+	byNamespace, found := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
+	if !found {
+		byNamespace = &NamespaceTable{
+			entries:    []*Destination{},
+			directives: []*DirectiveGroup{},
+		}
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace] = byNamespace
+	}
 
 	var group *DirectiveGroup
 	for _, set := range byNamespace.directives {

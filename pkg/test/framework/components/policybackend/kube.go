@@ -52,12 +52,16 @@ spec:
   selector:
     app: {{.app}}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.deployment}}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: {{.app}}
+      version: {{.version}}
   template:
     metadata:
       labels:
@@ -135,10 +139,9 @@ spec:
 )
 
 var (
-	_ Instance          = &kubeComponent{}
-	_ resource.Resetter = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
-	_ resource.Dumper   = &kubeComponent{}
+	_ Instance        = &kubeComponent{}
+	_ io.Closer       = &kubeComponent{}
+	_ resource.Dumper = &kubeComponent{}
 )
 
 type kubeComponent struct {
@@ -257,13 +260,6 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-func (c *kubeComponent) Reset() error {
-	if c.client != nil {
-		return c.client.Reset()
-	}
-	return nil
-}
-
 func (c *kubeComponent) Close() (err error) {
 	if c.forwarder != nil {
 		err = c.forwarder.Close()
@@ -289,7 +285,7 @@ func (c *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name)
+			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

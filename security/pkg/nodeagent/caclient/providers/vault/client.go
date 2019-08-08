@@ -28,6 +28,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	vaultClientLog = log.RegisterScope("vaultClientLog", "Vault client debugging", 0)
+)
+
 type vaultClient struct {
 	enableTLS   bool
 	tlsRootCert []byte
@@ -63,7 +67,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 		return nil, err
 	}
 	c.client = client
-	log.Infof("created Vault client for Vault address: %s, TLS: %v", vaultAddr, tls)
+	vaultClientLog.Infof("created Vault client for Vault address: %s, TLS: %v", vaultAddr, tls)
 
 	return c, nil
 }
@@ -82,7 +86,7 @@ func (c *vaultClient) CSRSign(ctx context.Context, csrPEM []byte, saToken string
 	}
 
 	if len(certChain) <= 1 {
-		log.Errorf("certificate chain length is %d, expected more than 1", len(certChain))
+		vaultClientLog.Errorf("certificate chain length is %d, expected more than 1", len(certChain))
 		return nil, fmt.Errorf("invalid certificate chain in the response")
 	}
 
@@ -97,7 +101,7 @@ func createVaultClient(vaultAddr string) (*api.Client, error) {
 
 	client, err := api.NewClient(config)
 	if err != nil {
-		log.Errorf("failed to create a Vault client: %v", err)
+		vaultClientLog.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
 	}
 
@@ -110,8 +114,12 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
-		log.Errorf("could not get SystemCertPool: %v", err)
+		vaultClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
+	}
+	if pool == nil {
+		log.Info("system cert pool is nil, create a new cert pool")
+		pool = x509.NewCertPool()
 	}
 	if len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
@@ -132,7 +140,7 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 
 	client, err := api.NewClient(config)
 	if err != nil {
-		log.Errorf("failed to create a Vault client: %v", err)
+		vaultClientLog.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
 	}
 
@@ -153,15 +161,15 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 		})
 
 	if err != nil {
-		log.Errorf("failed to login Vault: %v", err)
+		vaultClientLog.Errorf("failed to login Vault: %v", err)
 		return "", err
 	}
 	if resp == nil {
-		log.Errorf("login response is nil")
+		vaultClientLog.Errorf("login response is nil")
 		return "", fmt.Errorf("login response is nil")
 	}
 	if resp.Auth == nil {
-		log.Errorf("login response auth field is nil")
+		vaultClientLog.Errorf("login response auth field is nil")
 		return "", fmt.Errorf("login response auth field is nil")
 	}
 	return resp.Auth.ClientToken, nil
@@ -181,36 +189,36 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 	}
 	res, err := client.Logical().Write(csrSigningPath, m)
 	if err != nil {
-		log.Errorf("failed to post to %v: %v", csrSigningPath, err)
+		vaultClientLog.Errorf("failed to post to %v: %v", csrSigningPath, err)
 		return nil, fmt.Errorf("failed to post to %v: %v", csrSigningPath, err)
 	}
 	if res == nil {
-		log.Error("sign response is nil")
+		vaultClientLog.Error("sign response is nil")
 		return nil, fmt.Errorf("sign response is nil")
 	}
 	if res.Data == nil {
-		log.Error("sign response has a nil Data field")
+		vaultClientLog.Error("sign response has a nil Data field")
 		return nil, fmt.Errorf("sign response has a nil Data field")
 	}
 	//Extract the certificate and the certificate chain
 	certificate, ok := res.Data["certificate"]
 	if !ok {
-		log.Error("no certificate in the CSR response")
+		vaultClientLog.Error("no certificate in the CSR response")
 		return nil, fmt.Errorf("no certificate in the CSR response")
 	}
 	cert, ok := certificate.(string)
 	if !ok {
-		log.Error("the certificate in the CSR response is not a string")
+		vaultClientLog.Error("the certificate in the CSR response is not a string")
 		return nil, fmt.Errorf("the certificate in the CSR response is not a string")
 	}
 	caChain, ok := res.Data["ca_chain"]
 	if !ok {
-		log.Error("no certificate chain in the CSR response")
+		vaultClientLog.Error("no certificate chain in the CSR response")
 		return nil, fmt.Errorf("no certificate chain in the CSR response")
 	}
 	chain, ok := caChain.([]interface{})
 	if !ok {
-		log.Error("the certificate chain in the CSR response is of unexpected format")
+		vaultClientLog.Error("the certificate chain in the CSR response is of unexpected format")
 		return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
@@ -218,7 +226,7 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 	for idx, c := range chain {
 		_, ok := c.(string)
 		if !ok {
-			log.Errorf("the certificate in the certificate chain %v is not a string", idx)
+			vaultClientLog.Errorf("the certificate in the certificate chain %v is not a string", idx)
 			return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
 		}
 		certChain = append(certChain, c.(string)+"\n")

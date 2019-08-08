@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
-	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,7 +31,7 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 var (
@@ -86,7 +86,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 		}
 		switch kind {
 		case "Deployment":
-			deployment := &v1beta1.Deployment{}
+			deployment := &appsv1.Deployment{}
 			err = info.Client.
 				Get().
 				Resource(kinds).
@@ -194,13 +194,13 @@ func NewVerifyCommand() *cobra.Command {
 `,
 		Example: `
 		# Verify that Istio can be freshly installed
-		istioctl experimental verify-install
+		istioctl verify-install
 		
 		# Verify that the deployment matches the istio-demo profile
-		istioctl experimental verify-install -f istio-demo.yaml
+		istioctl verify-install -f istio-demo.yaml
 		
 		# Verify the deployment matches a custom Istio deployment configuration
-		istioctl experimental verify-install -f $HOME/istio.yaml
+		istioctl verify-install -f $HOME/istio.yaml
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
@@ -209,7 +209,7 @@ func NewVerifyCommand() *cobra.Command {
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
-	flags.StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
+	flags.StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
@@ -226,8 +226,8 @@ func boolPtr(val bool) *bool {
 	return &val
 }
 
-func getDeploymentStatus(deployment *v1beta1.Deployment, name, fileName string) error {
-	cond := getDeploymentCondition(deployment.Status, v1beta1.DeploymentProgressing)
+func getDeploymentStatus(deployment *appsv1.Deployment, name, fileName string) error {
+	cond := getDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
 	if cond != nil && cond.Reason == "ProgressDeadlineExceeded" {
 		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
 			" - deployment %q exceeded its progress deadline", fileName, name)
@@ -254,7 +254,7 @@ func getDeploymentStatus(deployment *v1beta1.Deployment, name, fileName string) 
 	return nil
 }
 
-func getDeploymentCondition(status v1beta1.DeploymentStatus, condType v1beta1.DeploymentConditionType) *v1beta1.DeploymentCondition {
+func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
 	for i := range status.Conditions {
 		c := status.Conditions[i]
 		if c.Type == condType {

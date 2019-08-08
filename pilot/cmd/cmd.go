@@ -17,10 +17,11 @@ package cmd
 import (
 	"io/ioutil"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+
+	"istio.io/istio/pkg/config/mesh"
 )
 
 // ReadMeshConfig gets mesh configuration from a config file
@@ -29,7 +30,7 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
-	return model.ApplyMeshConfigDefaults(string(yaml))
+	return mesh.ApplyMeshConfigDefaults(string(yaml))
 }
 
 // ReadMeshNetworksConfig gets mesh networks configuration from a config file
@@ -38,5 +39,5 @@ func ReadMeshNetworksConfig(filename string) (*meshconfig.MeshNetworks, error) {
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read networks config file")
 	}
-	return model.LoadMeshNetworksConfig(string(yaml))
+	return mesh.LoadMeshNetworksConfig(string(yaml))
 }

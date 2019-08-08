@@ -42,15 +42,15 @@ func TestQueue(t *testing.T) {
 	}
 	go q.Run(stop)
 
-	q.Push(Task{handler: add, obj: 1})
-	q.Push(Task{handler: add, obj: 1})
-	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
-		out += obj.(int)
+	q.Push(Task{Handler: add, Obj: 1})
+	q.Push(Task{Handler: add, Obj: 1})
+	q.Push(Task{Handler: func(Obj interface{}, event model.Event) error {
+		out += Obj.(int)
 		if out != 3 {
 			t.Errorf("Queue => %d, want %d", out, 3)
 		}
 		return nil
-	}, obj: 1})
+	}, Obj: 1})
 
 	// wait for all task processed
 	<-done
@@ -69,18 +69,18 @@ func TestChainedHandler(t *testing.T) {
 		}
 	}
 	handler := ChainHandler{
-		funcs: []Handler{f(1), f(2)},
+		Funcs: []Handler{f(1), f(2)},
 	}
 	go q.Run(stop)
 
-	q.Push(Task{handler: handler.Apply, obj: 0})
-	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
+	q.Push(Task{Handler: handler.Apply, Obj: 0})
+	q.Push(Task{Handler: func(obj interface{}, Event model.Event) error {
 		if out != 3 {
 			t.Errorf("ChainedHandler => %d, want %d", out, 3)
 		}
 		close(done)
 		return nil
-	}, obj: 0})
+	}, Obj: 0})
 
 	<-done
 	close(stop)

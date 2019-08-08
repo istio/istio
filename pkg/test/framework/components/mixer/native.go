@@ -135,7 +135,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	//_, err = env.ServiceManager.Create(localServiceName, "", model.PortList{
 	//	&model.Port{
 	//		Name:     grpcPortName,
-	//		Protocol: model.ProtocolGRPC,
+	//		Protocol: protocol.GRPC,
 	//		Port:     port,
 	//	},
 	//})

@@ -22,15 +22,17 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	metadata2 "istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,15 +116,15 @@ func TestServiceDefaults(t *testing.T) {
 			"l2": "v2",
 		},
 		Annotations: resource.Annotations{
-			"a1":                       "v1",
-			"a2":                       "v2",
-			annotations.ServiceVersion: version,
+			"a1": "v1",
+			"a2": "v2",
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(namespace)},
 		Addresses:  []string{ip},
-		Resolution: networking.ServiceEntry_STATIC,
+		Resolution: networking.ServiceEntry_NONE,
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Ports: []*networking.Port{
 			{
@@ -138,6 +140,157 @@ func TestServiceDefaults(t *testing.T) {
 	g.Expect(actual).To(Equal(expected))
 }
 
+func TestServiceResolution(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	externalName := "myexternalsvc"
+	tests := []struct {
+		name       string
+		endpoints  *resource.Entry
+		service    *resource.Entry
+		resolution networking.ServiceEntry_Resolution
+	}{
+		{
+			name: "DNS resolution",
+			service: &resource.Entry{
+				ID: serviceID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					Type:         coreV1.ServiceTypeExternalName,
+					ExternalName: externalName,
+				},
+			},
+			resolution: networking.ServiceEntry_DNS,
+		},
+		{
+			name: "NONE resolution",
+			service: &resource.Entry{
+				ID: serviceID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					ClusterIP: constants.UnspecifiedIP,
+				},
+			},
+			resolution: networking.ServiceEntry_NONE,
+		},
+		{
+			name: "STATIC resolution",
+			endpoints: &resource.Entry{
+				ID: endpointsID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.Endpoints{
+					ObjectMeta: metaV1.ObjectMeta{},
+					Subsets: []coreV1.EndpointSubset{
+						{
+							Addresses: []coreV1.EndpointAddress{
+								{
+									IP: "10.0.0.1",
+								},
+							},
+							Ports: []coreV1.EndpointPort{
+								{
+									Name:     "http",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     80,
+								},
+							},
+						},
+					},
+				},
+			},
+			service: &resource.Entry{
+				ID: serviceID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					ClusterIP: constants.UnspecifiedIP,
+				},
+			},
+			resolution: networking.ServiceEntry_STATIC,
+		},
+		{
+			name: "STATIC resolution",
+			endpoints: &resource.Entry{
+				ID: endpointsID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.Endpoints{
+					ObjectMeta: metaV1.ObjectMeta{},
+					Subsets: []coreV1.EndpointSubset{
+						{
+							Addresses: []coreV1.EndpointAddress{
+								{
+									IP: "10.0.0.1",
+								},
+								{
+									IP: "10.0.0.2",
+								},
+								{
+									IP: "10.0.0.3",
+								},
+							},
+							Ports: []coreV1.EndpointPort{
+								{
+									Name:     "http",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     80,
+								},
+								{
+									Name:     "https",
+									Protocol: coreV1.ProtocolTCP,
+									Port:     443,
+								},
+							},
+						},
+					},
+				},
+			},
+			service: &resource.Entry{
+				ID: serviceID,
+				Metadata: resource.Metadata{
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					Type: coreV1.ServiceTypeNodePort,
+					Ports: []coreV1.ServicePort{
+						{
+							Name:     "http",
+							Port:     8080,
+							Protocol: coreV1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, actual := doConvert(t, tt.service, tt.endpoints, newPodCache())
+			g.Expect(actual.Resolution).To(Equal(tt.resolution))
+			switch tt.resolution {
+			case networking.ServiceEntry_DNS:
+				g.Expect(len(actual.Addresses)).To(Equal(0))
+				for _, host := range actual.Hosts {
+					g.Expect(config.ValidateFQDN(host)).To(BeNil())
+
+				}
+			case networking.ServiceEntry_STATIC:
+				g.Expect(len(actual.Endpoints)).ToNot(BeZero())
+			}
+		})
+	}
+}
+
 func TestServiceExportTo(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -146,7 +299,7 @@ func TestServiceExportTo(t *testing.T) {
 		Metadata: resource.Metadata{
 			CreateTime: tnow,
 			Annotations: resource.Annotations{
-				kube.ServiceExportAnnotation: "c, a, b",
+				annotation.NetworkingExportTo.Name: "c, a, b",
 			},
 		},
 		Item: &coreV1.ServiceSpec{
@@ -158,15 +311,15 @@ func TestServiceExportTo(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			kube.ServiceExportAnnotation: "c, a, b",
-			annotations.ServiceVersion:   "v1",
+			annotation.NetworkingExportTo.Name:            "c, a, b",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(namespace)},
 		Addresses:  []string{ip},
-		Resolution: networking.ServiceEntry_STATIC,
+		Resolution: networking.ServiceEntry_NONE,
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Ports:      []*networking.Port{},
 		Endpoints:  []*networking.ServiceEntry_Endpoint{},
@@ -201,14 +354,14 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			annotations.ServiceVersion: "v1",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(coreV1.NamespaceDefault)},
 		Addresses:  []string{ip},
-		Resolution: networking.ServiceEntry_STATIC,
+		Resolution: networking.ServiceEntry_NONE,
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Ports:      []*networking.Port{},
 		Endpoints:  []*networking.ServiceEntry_Endpoint{},
@@ -223,27 +376,27 @@ func TestServicePorts(t *testing.T) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   model.Protocol
+		out   protocol.Instance
 	}{
-		{"", coreV1.ProtocolTCP, model.ProtocolTCP},
-		{"http", coreV1.ProtocolTCP, model.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, model.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, model.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, model.ProtocolTCP},
-		{"https", coreV1.ProtocolTCP, model.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, model.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, model.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, model.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, model.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, model.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, model.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, model.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, model.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, model.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, model.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, model.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, model.ProtocolMySQL},
+		{"", coreV1.ProtocolTCP, protocol.TCP},
+		{"http", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{"http", coreV1.ProtocolUDP, protocol.UDP},
+		{"httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{"grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{"grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{"mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{"redis", coreV1.ProtocolTCP, protocol.Redis},
+		{"redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{"mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{"mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	ip := "10.0.0.1"
@@ -272,13 +425,13 @@ func TestServicePorts(t *testing.T) {
 				Name:       service.ID.FullName.String(),
 				CreateTime: tnowMcp,
 				Annotations: resource.Annotations{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
 				Addresses:  []string{ip},
-				Resolution: networking.ServiceEntry_STATIC,
+				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports: []*networking.Port{
 					{
@@ -329,12 +482,12 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 				Name:       service.ID.FullName.String(),
 				CreateTime: tnowMcp,
 				Annotations: resource.Annotations{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
-				Addresses:  []string{model.UnspecifiedIP},
+				Addresses:  []string{constants.UnspecifiedIP},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports:      []*networking.Port{},
@@ -374,12 +527,11 @@ func TestExternalService(t *testing.T) {
 		Name:       service.ID.FullName.String(),
 		CreateTime: tnowMcp,
 		Annotations: resource.Annotations{
-			annotations.ServiceVersion: version,
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
 		Hosts:      []string{hostForNamespace(namespace)},
-		Addresses:  []string{model.UnspecifiedIP},
 		Resolution: networking.ServiceEntry_DNS,
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Ports: []*networking.Port{
@@ -417,7 +569,7 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -512,8 +664,8 @@ func TestEndpoints(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
-			annotations.NotReadyEndpoints: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
+			annotation.AlphaNetworkingNotReadyEndpoints.Name: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
 				ip1, 80,
 				ip2, 80,
 				ip3, 80,
@@ -594,7 +746,7 @@ func TestEndpointsPodNotFound(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -654,7 +806,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 
 	expectedMeta := mcp.Metadata{
 		Annotations: resource.Annotations{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{

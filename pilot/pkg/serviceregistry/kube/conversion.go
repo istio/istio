@@ -15,19 +15,26 @@
 package kube
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/api/annotation"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
-
-	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -35,56 +42,33 @@ const (
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"
 
-	// KubeServiceAccountsOnVMAnnotation is to specify the K8s service accounts that are allowed to run
-	// this service on the VMs
-	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/kubernetes-serviceaccounts"
-
-	// CanonicalServiceAccountsAnnotation is to specify the non-Kubernetes service accounts that
-	// are allowed to run this service.
-	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
-
-	// ServiceExportAnnotation specifies the namespaces to which this service should be exported to.
-	//   "*" which is the default, indicates it is reachable within the mesh
-	//   "." indicates it is reachable within its namespace
-	ServiceExportAnnotation = "networking.istio.io/exportTo"
-
 	managementPortPrefix = "mgmt-"
-
-	IdentityPodAnnotation = "alpha.istio.io/identity"
 )
 
-func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
-	out := make(model.Labels, len(obj.Labels))
-	for k, v := range obj.Labels {
-		out[k] = v
-	}
-	return out
-}
-
-func convertPort(port v1.ServicePort) *model.Port {
+func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: ConvertProtocol(port.Name, port.Protocol),
+		Protocol: kube.ConvertProtocol(port.Name, port.Protocol),
 	}
 }
 
-func convertService(svc v1.Service, domainSuffix string) *model.Service {
-	addr, external := model.UnspecifiedIP, ""
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
+func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
+	addr, external := constants.UnspecifiedIP, ""
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
 	}
 
 	resolution := model.ClientSideLB
 	meshExternal := false
 
-	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
+	if svc.Spec.Type == coreV1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
 		resolution = model.DNSLB
 		meshExternal = true
 	}
 
-	if addr == model.UnspecifiedIP && external == "" { // headless services should not be load balanced
+	if addr == constants.UnspecifiedIP && external == "" { // headless services should not be load balanced
 		resolution = model.Passthrough
 	}
 
@@ -93,28 +77,28 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[model.Visibility]bool
+	var exportTo map[visibility.Instance]bool
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
-		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
-			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",")...)
+		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
+			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name], ",")...)
 		}
-		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
-			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
+		if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
+			for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
-		if svc.Annotations[ServiceExportAnnotation] != "" {
-			exportTo = make(map[model.Visibility]bool)
-			for _, e := range strings.Split(svc.Annotations[ServiceExportAnnotation], ",") {
-				exportTo[model.Visibility(e)] = true
+		if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
+			exportTo = make(map[visibility.Instance]bool)
+			for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
+				exportTo[visibility.Instance(e)] = true
 			}
 		}
 	}
 	sort.Strings(serviceaccounts)
 
-	return &model.Service{
-		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+	istioService := &model.Service{
+		Hostname:        ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
 		Address:         addr,
 		ServiceAccounts: serviceaccounts,
@@ -128,10 +112,29 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			ExportTo:  exportTo,
 		},
 	}
+
+	if svc.Spec.Type == coreV1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
+		var lbAddrs []string
+		for _, ingress := range svc.Status.LoadBalancer.Ingress {
+			if len(ingress.IP) > 0 {
+				lbAddrs = append(lbAddrs, ingress.IP)
+			} else if len(ingress.Hostname) > 0 {
+				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
+				if err != nil {
+					lbAddrs = append(lbAddrs, addrs...)
+				}
+			}
+		}
+		if len(lbAddrs) > 0 {
+			istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+		}
+	}
+
+	return istioService
 }
 
-func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*model.ServiceInstance {
+	if k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
@@ -149,9 +152,9 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 	return out
 }
 
-// serviceHostname produces FQDN for a k8s service
-func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
-	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+// ServiceHostname produces FQDN for a k8s service
+func ServiceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
@@ -159,11 +162,11 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
-// secureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func secureNamingSAN(pod *v1.Pod) string {
+// SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
+func SecureNamingSAN(pod *coreV1.Pod) string {
 
 	//use the identity annotation
-	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
+	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {
 		return spiffe.GenCustomSpiffe(identity)
 	}
 
@@ -179,60 +182,22 @@ func KeyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-// parseHostname extracts service name and namespace from the service hostname
-func parseHostname(hostname model.Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(string(hostname), ".")
-	if len(parts) < 2 {
-		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
-		return
-	}
-	name = parts[0]
-	namespace = parts[1]
-	return
-}
-
-var grpcWeb = string(model.ProtocolGRPCWeb)
-var grpcWebLen = len(grpcWeb)
-
-// ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
-	out := model.ProtocolTCP
-	switch proto {
-	case v1.ProtocolUDP:
-		out = model.ProtocolUDP
-	case v1.ProtocolTCP:
-		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
-			out = model.ProtocolGRPCWeb
-			break
-		}
-		i := strings.IndexByte(name, '-')
-		if i >= 0 {
-			name = name[:i]
-		}
-		protocol := model.ParseProtocol(name)
-		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
-			out = protocol
-		}
-	}
-	return out
-}
-
-func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error) {
+func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port, error) {
 	if handler == nil {
 		return nil, nil
 	}
 
-	var protocol model.Protocol
+	var p protocol.Instance
 	var portVal intstr.IntOrString
 
 	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
 	switch {
 	case handler.HTTPGet != nil:
 		portVal = handler.HTTPGet.Port
-		protocol = model.ProtocolHTTP
+		p = protocol.HTTP
 	case handler.TCPSocket != nil:
 		portVal = handler.TCPSocket.Port
-		protocol = model.ProtocolTCP
+		p = protocol.TCP
 	default:
 		return nil, nil
 	}
@@ -243,7 +208,7 @@ func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error)
 		return &model.Port{
 			Name:     managementPortPrefix + strconv.Itoa(port),
 			Port:     port,
-			Protocol: protocol,
+			Protocol: p,
 		}, nil
 	case intstr.String:
 		for _, named := range c.Ports {
@@ -252,7 +217,7 @@ func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error)
 				return &model.Port{
 					Name:     managementPortPrefix + strconv.Itoa(port),
 					Port:     port,
-					Protocol: protocol,
+					Protocol: p,
 				}, nil
 			}
 		}
@@ -262,18 +227,18 @@ func convertProbePort(c *v1.Container, handler *v1.Handler) (*model.Port, error)
 	}
 }
 
-// convertProbesToPorts returns a PortList consisting of the ports where the
+// ConvertProbesToPorts returns a PortList consisting of the ports where the
 // pod is configured to do Liveness and Readiness probes
-func convertProbesToPorts(t *v1.PodSpec) (model.PortList, error) {
+func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
 	set := make(map[string]*model.Port)
 	var errs error
 	for _, container := range t.Containers {
-		for _, probe := range []*v1.Probe{container.LivenessProbe, container.ReadinessProbe} {
+		for _, probe := range []*coreV1.Probe{container.LivenessProbe, container.ReadinessProbe} {
 			if probe == nil {
 				continue
 			}
 
-			p, err := convertProbePort(&container, &probe.Handler)
+			p, err := ConvertProbePort(&container, &probe.Handler)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else if p != nil && set[p.Name] == nil {

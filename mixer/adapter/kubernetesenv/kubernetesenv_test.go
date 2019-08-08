@@ -505,6 +505,10 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 }
 
 func Test_KubeSecretController(t *testing.T) {
+	if len(os.Getenv("RACE_TEST")) > 0 {
+		t.Skip("https://github.com/istio/istio/issues/15610")
+	}
+
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig

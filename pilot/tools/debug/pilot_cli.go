@@ -71,8 +71,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/util/protomarshal"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -91,11 +92,11 @@ type PodInfo struct {
 }
 
 func getAllPods(kubeconfig string) (*v1.PodList, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +185,7 @@ func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryRespo
 	if err != nil {
 		panic(err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
@@ -213,7 +214,7 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	if err != nil {
 		panic(err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
 	stream, err := edsClient.StreamEndpoints(context.Background())
@@ -279,7 +280,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 	for i := 0; i < 10 && !reachable; i++ {
 		conn, err := net.Dial("tcp", url)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			reachable = true
 		}
 		time.Sleep(1 * time.Second)
@@ -325,7 +326,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strResponse, _ := model.ToJSONWithIndent(resp, " ")
+	strResponse, _ := protomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {

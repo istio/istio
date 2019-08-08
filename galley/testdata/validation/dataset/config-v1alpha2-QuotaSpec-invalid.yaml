@@ -3,3 +3,4 @@ kind: QuotaSpec
 metadata:
   name: invalid-quota-spec
 spec:
+  quota:

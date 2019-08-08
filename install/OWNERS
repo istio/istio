@@ -1,5 +1,0 @@
-# No changes should be made here
-# Make all changes to istio-installer
-approvers:
-  - costinm
-  - sdake

@@ -33,8 +33,6 @@ const (
 
 	// DefaultLogEntryPrefix the default prefix for all log lines from Envoy.
 	DefaultLogEntryPrefix = "[ENVOY]"
-
-	envoyFileNamePattern = "^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$"
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -182,21 +180,24 @@ func checkFileExists(f string) error {
 	return nil
 }
 
+var envoyFileNamePattern = regexp.MustCompile("^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$")
+
 func isEnvoyBinary(f os.FileInfo) bool {
 	if f.IsDir() {
 		return false
 	}
-	matches, _ := regexp.MatchString(envoyFileNamePattern, f.Name())
-	return matches
+	return envoyFileNamePattern.MatchString(f.Name())
 }
 
 func findEnvoyBinaries() ([]string, error) {
 	binPaths := make([]string, 0)
 	err := filepath.Walk(env.IstioOut, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if isEnvoyBinary(f) {
 			binPaths = append(binPaths, path)
 		}
-
 		return nil
 	})
 	if err != nil {

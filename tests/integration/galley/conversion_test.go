@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/galley/testdata/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/galley/pkg/metadata"
@@ -48,7 +47,6 @@ func TestConversion(t *testing.T) {
 			// component
 
 			framework.NewTest(t).
-				Label(label.Presubmit).
 				RequiresEnvironment(environment.Native).
 				Run(func(ctx framework.TestContext) {
 
@@ -141,8 +139,8 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 		}
 
 		if err := v.Select("{.Metadata.annotations}").
-			Exists("{.['networking.istio.io/serviceVersion']}").
-			Exists("{.['networking.istio.io/endpointsVersion']}").
+			Exists("{.['networking.alpha.istio.io/serviceVersion']}").
+			Exists("{.['networking.alpha.istio.io/endpointsVersion']}").
 			Check(); err != nil {
 			return err
 		}

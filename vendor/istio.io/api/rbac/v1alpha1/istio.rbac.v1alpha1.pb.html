@@ -4,7 +4,7 @@ description: Configuration for Role Based Access Control.
 location: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 8
+number_of_entries: 9
 ---
 <p>Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 objects.</p>
@@ -14,7 +14,9 @@ the following standard fields:</p>
 
 <ul>
 <li>services: a list of services.</li>
-<li>methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.</li>
+<li>methods: A list of HTTP methods. You can set the value to <code>*</code> to include all HTTP methods.
+         This field should not be set for TCP services. The policy will be ignored.
+         For gRPC services, only <code>POST</code> is allowed; other methods will result in denying services.</li>
 <li>paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 presented in the form of &ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.</li>
 </ul>
@@ -109,7 +111,8 @@ gRPC methods must be presented as fully-qualified name in the form of
 Exact match, prefix match, and suffix match are supported. For example,
 the path &ldquo;/books/review&rdquo; matches &ldquo;/books/review&rdquo; (exact match),
 or &ldquo;/books/<em>&rdquo; (prefix match), or &ldquo;</em>/review&rdquo; (suffix match).
-If not specified, it matches to any path.</p>
+If not specified, it matches to any path.
+This field should not be set for TCP services. The policy will be ignored.</p>
 
 </td>
 </tr>
@@ -118,8 +121,9 @@ If not specified, it matches to any path.</p>
 <td><code>string[]</code></td>
 <td>
 <p>Optional. A list of HTTP methods (e.g., &ldquo;GET&rdquo;, &ldquo;POST&rdquo;).
-It is ignored in gRPC case because the value is always &ldquo;POST&rdquo;.
-If not specified, it matches to any methods.</p>
+If not specified or specified as &ldquo;*&rdquo;, it matches to any methods.
+This field should not be set for TCP services. The policy will be ignored.
+For gRPC services, only <code>POST</code> is allowed; other methods will result in denying services.</p>
 
 </td>
 </tr>
@@ -169,6 +173,64 @@ or &ldquo;v1<em>&rdquo; (prefix match), or &ldquo;</em>alpha2&rdquo; (suffix mat
 </tbody>
 </table>
 </section>
+<h2 id="RbacConfig">RbacConfig</h2>
+<section>
+<p>RbacConfig implements the ClusterRbaConfig Custom Resource Definition for controlling Istio RBAC behavior.
+The ClusterRbaConfig Custom Resource is a singleton where only one ClusterRbaConfig should be created
+globally in the mesh and the namespace should be the same to other Istio components, which usually is <code>istio-system</code>.</p>
+
+<p>Below is an example of an <code>ClusterRbacConfig</code> resource called <code>istio-rbac-config</code> which enables Istio RBAC for all
+services in the default namespace.</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;rbac.istio.io/v1alpha1&quot;
+kind: ClusterRbacConfig
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mode: ON_WITH_INCLUSION
+  inclusion:
+    namespaces: [ &quot;default&quot; ]
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RbacConfig-mode">
+<td><code>mode</code></td>
+<td><code><a href="#RbacConfig-Mode">RbacConfig.Mode</a></code></td>
+<td>
+<p>Istio RBAC mode.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig-inclusion">
+<td><code>inclusion</code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
+<td>
+<p>A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
+effect only when mode is ON<em>WITH</em>INCLUSION and will be ignored for any other modes.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig-exclusion">
+<td><code>exclusion</code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
+<td>
+<p>A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
+effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any other modes.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="RbacConfig-Mode">RbacConfig.Mode</h2>
 <section>
 <table class="enum-values">
@@ -182,15 +244,15 @@ or &ldquo;v1<em>&rdquo; (prefix match), or &ldquo;</em>alpha2&rdquo; (suffix mat
 <tr id="RbacConfig-Mode-OFF">
 <td><code>OFF</code></td>
 <td>
-<p>Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
-will not be enforced.</p>
+<p>Disable Istio RBAC completely, Istio RBAC policies will not be enforced.</p>
 
 </td>
 </tr>
 <tr id="RbacConfig-Mode-ON">
 <td><code>ON</code></td>
 <td>
-<p>Enable Istio RBAC for all services and namespaces.</p>
+<p>Enable Istio RBAC for all services and namespaces. Note Istio RBAC is deny-by-default
+which means all requests will be denied if it&rsquo;s not allowed by RBAC rules.</p>
 
 </td>
 </tr>

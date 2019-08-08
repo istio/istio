@@ -30,6 +30,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,6 +111,10 @@ func getTopics() []topic {
 	return topics
 }
 
+func normalize(input string) string {
+	return strings.Replace(input, "/", "-", -1)
+}
+
 // RegisterTopic registers a new Control-Z topic for the current process.
 func RegisterTopic(t fw.Topic) {
 	topicMutex.Lock()
@@ -134,6 +139,7 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 
 	funcs := template.FuncMap{
 		"getTopics": getTopics,
+		"normalize": normalize,
 	}
 
 	baseLayout := template.Must(template.New("base").Parse(string(assets.MustAsset("templates/layouts/base.html"))))

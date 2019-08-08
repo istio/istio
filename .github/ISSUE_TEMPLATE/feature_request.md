@@ -9,4 +9,17 @@ about: Suggest an idea to improve Istio
 
 **Describe alternatives you've considered**
 
+**Affected product area (please put an X in all that apply)**
+
+[ ] Configuration Infrastructure
+[ ] Docs
+[ ] Installation
+[ ] Networking
+[ ] Performance and Scalability
+[ ] Policies and Telemetry
+[ ] Security
+[ ] Test and Release
+[ ] User Experience
+[ ] Developer Infrastructure
+
 **Additional context**

@@ -23,6 +23,8 @@ function usage() {
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
+  # shellcheck disable=SC2016
+  echo '  -z: Port to which all inbound TCP traffic to the pod/VM should be redirected to. For REDIRECT only (default $INBOUND_CAPTURE_PORT = 15006)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
   echo '      applied. Typically, this is the UID of the proxy container'
   # shellcheck disable=SC2016
@@ -46,13 +48,12 @@ function usage() {
   echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
   # shellcheck disable=SC2016
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
+  echo '  -o: Comma separated list of outbound ports to be excluded from redirection to Envoy (optional).'
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
   # shellcheck disable=SC2016
   echo ''
-  # shellcheck disable=SC2016
-  echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
 function dump {
@@ -119,25 +120,11 @@ function isIPv6() {
 # Use a comma as the separator for multi-value arguments.
 IFS=,
 
-# The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
-# This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
-# settings (CIDR range)
-ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
-if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_CLUSTER_CONFIG}"
-fi
-
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
-if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_SIDECAR_CONFIG}"
-fi
-
 # TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
 PROXY_PORT=${ENVOY_PORT:-15001}
+PROXY_INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-15006}
 PROXY_UID=
 PROXY_GID=
 INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
@@ -147,12 +134,16 @@ INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
 INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
 OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
+OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
 
-while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
+      ;;
+    z)
+      PROXY_INBOUND_CAPTURE_PORT=${OPTARG}
       ;;
     u)
       PROXY_UID=${OPTARG}
@@ -174,6 +165,9 @@ while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
       ;;
     x)
       OUTBOUND_IP_RANGES_EXCLUDE=${OPTARG}
+      ;;
+    o)
+      OUTBOUND_PORTS_EXCLUDE=${OPTARG}
       ;;
     k)
       KUBEVIRT_INTERFACES=${OPTARG}
@@ -292,6 +286,7 @@ fi
 echo "Environment:"
 echo "------------"
 echo "ENVOY_PORT=${ENVOY_PORT-}"
+echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT-}"
 echo "ISTIO_INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE-}"
 echo "ISTIO_INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK-}"
 echo "ISTIO_INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE-}"
@@ -303,7 +298,7 @@ echo
 echo "Variables:"
 echo "----------"
 echo "PROXY_PORT=${PROXY_PORT}"
-echo "INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}"
+echo "PROXY_INBOUND_CAPTURE_PORT=${PROXY_INBOUND_CAPTURE_PORT}"
 echo "PROXY_UID=${PROXY_UID}"
 echo "INBOUND_INTERCEPTION_MODE=${INBOUND_INTERCEPTION_MODE}"
 echo "INBOUND_TPROXY_MARK=${INBOUND_TPROXY_MARK}"
@@ -312,11 +307,19 @@ echo "INBOUND_PORTS_INCLUDE=${INBOUND_PORTS_INCLUDE}"
 echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
 echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
 echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
+echo "OUTBOUND_PORTS_EXCLUDE=${OUTBOUND_PORTS_EXCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
-INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}
+
+set +o nounset
+# Blindly add a ipv6 address. If it fails it's fine.
+# Add local ipv6 address to lo. Used in redirecting unknown ipv6 traffic to original dst.
+# This address does not show up in neigh table so each Pod/Vm will only see its own. Think about 127.0.0.6.
+if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+  ip -6 addr add ::6/128 dev lo
+fi
 
 set -o errexit
 set -o nounset
@@ -332,7 +335,13 @@ iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
 # Use this chain also for redirecting inbound traffic to the common Envoy port
 # when not using TPROXY.
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
+
+# PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+  iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+else
+  iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+fi
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -410,10 +419,21 @@ iptables -t nat -N ISTIO_OUTPUT
 # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
+# Apply port based exclusions. Must be applied before connections back to self
+# are redirected.
+if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
+  for port in ${OUTBOUND_PORTS_EXCLUDE}; do
+    iptables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
+  done
+fi
+
+# 127.0.0.6 is bind connect from inbound passthrough cluster
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
+
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
-  # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
+  # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
+  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
 fi
 
 for uid in ${PROXY_UID}; do
@@ -500,7 +520,12 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Use this chain also for redirecting inbound traffic to the common Envoy port
   # when not using TPROXY.
   ip6tables -t nat -N ISTIO_IN_REDIRECT
-  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
+  # PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+  else
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+  fi
 
   # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
   # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -532,9 +557,20 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
   ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
+  # Apply port based exclusions. Must be applied before connections back to self
+  # are redirected.
+  if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
+    for port in ${OUTBOUND_PORTS_EXCLUDE}; do
+      ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
+    done
+  fi
+
+  # ::6 is bind when connect from inbound passthrough cluster
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
+
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_REDIRECT
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT
 
   for uid in ${PROXY_UID}; do
     # Avoid infinite loops. Don't redirect Envoy traffic directly back to

@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	// DefaultScopeName defines the name of the default scope.
 	DefaultScopeName          = "default"
+	OverrideScopeName         = "all"
 	defaultOutputLevel        = InfoLevel
 	defaultStackTraceLevel    = NoneLevel
 	defaultOutputPath         = "stdout"
@@ -119,9 +119,6 @@ type Options struct {
 	outputLevels     string
 	logCallers       string
 	stackTraceLevels string
-
-	// If not nil, called instead of os.Exit.
-	testonlyExit func()
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
@@ -361,6 +358,7 @@ func (o *Options) AttachFlags(
 		for name := range allScopes {
 			keys = append(keys, name)
 		}
+		keys = append(keys, OverrideScopeName)
 		sort.Strings(keys)
 		s := strings.Join(keys, ", ")
 

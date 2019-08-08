@@ -30,10 +30,14 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Headers with special meaning in Envoy
@@ -63,7 +67,7 @@ type VirtualHostWrapper struct {
 	VirtualServiceHosts []string
 
 	// Routes in the virtual host
-	Routes []route.Route
+	Routes []*route.Route
 }
 
 // BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
@@ -72,8 +76,8 @@ type VirtualHostWrapper struct {
 func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[host.Name]*model.Service,
+	proxyLabels labels.Collection,
 	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
@@ -89,12 +93,12 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	}
 
 	// compute services missing virtual service configs
-	missing := make(map[model.Hostname]bool)
+	missing := make(map[host.Name]bool)
 	for fqdn := range serviceRegistry {
 		missing[fqdn] = true
 	}
-	for _, host := range out {
-		for _, service := range host.Services {
+	for _, hostname := range out {
+		for _, service := range hostname.Services {
 			delete(missing, service.Hostname)
 		}
 	}
@@ -109,7 +113,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
+					Routes:   []*route.Route{BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -121,13 +125,13 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
-	for _, host := range rule.Hosts {
+	for _, hostname := range rule.Hosts {
 		// Say host is *.global
-		vsHostname := model.Hostname(host)
+		vsHostname := host.Name(hostname)
 		foundSvcMatch := false
 		// TODO: Optimize me. This is O(n2) or worse. Need to prune at top level in config
 		// Say we have services *.foo.global, *.bar.global
@@ -139,7 +143,7 @@ func separateVSHostsAndServices(virtualService model.Config,
 			}
 		}
 		if !foundSvcMatch {
-			hosts = append(hosts, host)
+			hosts = append(hosts, hostname)
 		}
 	}
 	return hosts, servicesInVirtualService
@@ -152,8 +156,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[host.Name]*model.Service,
+	proxyLabels labels.Collection,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
@@ -180,7 +184,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
@@ -221,7 +225,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -236,28 +240,28 @@ func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
+	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
-	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) ([]route.Route, error) {
+	proxyLabels labels.Collection,
+	gatewayNames map[string]bool) ([]*route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	out := make([]route.Route, 0, len(vs.Http))
+	out := make([]*route.Route, 0, len(vs.Http))
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-				out = append(out, *r)
+				out = append(out, r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-					out = append(out, *r)
+					out = append(out, r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
 						// We have a catch all route. No point building other routes, with match conditions
@@ -276,7 +280,7 @@ allroutes:
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool) bool {
 	if match == nil {
 		return true
 	}
@@ -299,8 +303,8 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	virtualService model.Config,
-	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
+	serviceRegistry map[host.Name]*model.Service,
+	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
@@ -328,13 +332,31 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	if redirect := in.Redirect; redirect != nil {
-		out.Action = &route.Route_Redirect{
+		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
 				HostRedirect: redirect.Authority,
 				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
 					PathRedirect: redirect.Uri,
 				},
 			}}
+
+		switch in.Redirect.RedirectCode {
+		case 0, 301:
+			action.Redirect.ResponseCode = route.RedirectAction_MOVED_PERMANENTLY
+		case 302:
+			action.Redirect.ResponseCode = route.RedirectAction_FOUND
+		case 303:
+			action.Redirect.ResponseCode = route.RedirectAction_SEE_OTHER
+		case 307:
+			action.Redirect.ResponseCode = route.RedirectAction_TEMPORARY_REDIRECT
+		case 308:
+			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
+		default:
+			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			action = nil
+		}
+
+		out.Action = action
 	} else {
 		action := &route.RouteAction{
 			Cors:        translateCORSPolicy(in.CorsPolicy, node),
@@ -344,8 +366,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
-			action.Timeout = &d
-			action.MaxGrpcTimeout = &d
+			action.Timeout = d
+			action.MaxGrpcTimeout = d
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
@@ -382,7 +404,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
+			n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -413,7 +435,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
 			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
 
-			hostname := model.Hostname(dst.GetDestination().GetHost())
+			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
@@ -508,8 +530,8 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
-	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
+func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
+	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
@@ -535,6 +557,8 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		}
 	}
 
+	out.CaseSensitive = &types.BoolValue{Value: !in.IgnoreUriCase}
+
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
 		out.Headers = append(out.Headers, &matcher)
@@ -548,6 +572,28 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 	if in.Scheme != nil {
 		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, &matcher)
+	}
+
+	for name, stringMatch := range in.QueryParams {
+		matcher := translateQueryParamMatch(name, stringMatch)
+		out.QueryParameters = append(out.QueryParameters, &matcher)
+	}
+
+	return out
+}
+
+// translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
+func translateQueryParamMatch(name string, in *networking.StringMatch) route.QueryParameterMatcher {
+	out := route.QueryParameterMatcher{
+		Name: name,
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		out.Value = m.Exact
+	case *networking.StringMatch_Regex:
+		out.Value = m.Regex
+		out.Regex = &types.BoolValue{Value: true}
 	}
 
 	return out
@@ -574,7 +620,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -584,17 +630,13 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 		AllowOrigin: in.AllowOrigin,
 	}
 
-	if util.IsProxyVersionGE11(node) {
-		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
-			FilterEnabled: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
-					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
-				},
+	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
+		FilterEnabled: &core.RuntimeFractionalPercent{
+			DefaultValue: &xdstype.FractionalPercent{
+				Numerator:   100,
+				Denominator: xdstype.FractionalPercent_HUNDRED,
 			},
-		}
-	} else {
-		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
+		},
 	}
 
 	out.AllowCredentials = in.AllowCredentials
@@ -699,7 +741,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: &delayDuration,
+				FixedDelay: delayDuration,
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -761,7 +803,7 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	destination := dst.GetDestination()
 	destinationRule := push.DestinationRule(node,
 		&model.Service{
-			Hostname:   model.Hostname(destination.Host),
+			Hostname:   host.Name(destination.Host),
 			Attributes: model.ServiceAttributes{Namespace: configNamespace},
 		})
 	if destinationRule == nil {
@@ -867,12 +909,12 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
 // time.
-func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route {
-	allroutes := make([]route.Route, 0, len(first)+len(second))
-	catchAllRoutes := make([]route.Route, 0)
+func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Route {
+	allroutes := make([]*route.Route, 0, len(first)+len(second))
+	catchAllRoutes := make([]*route.Route, 0)
 
 	for _, f := range first {
-		rType, _ := getEnvoyRouteTypeAndVal(&f)
+		rType, _ := getEnvoyRouteTypeAndVal(f)
 		switch rType {
 		case envoyCatchAll:
 			catchAllRoutes = append(catchAllRoutes, f)
@@ -882,7 +924,7 @@ func CombineVHostRoutes(first []route.Route, second []route.Route) []route.Route
 	}
 
 	for _, s := range second {
-		rType, _ := getEnvoyRouteTypeAndVal(&s)
+		rType, _ := getEnvoyRouteTypeAndVal(s)
 		switch rType {
 		case envoyCatchAll:
 			catchAllRoutes = append(catchAllRoutes, s)

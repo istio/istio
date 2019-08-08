@@ -15,19 +15,17 @@
 package model_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func TestServiceNode(t *testing.T) {
-	nodes := []struct {
+	cases := []struct {
 		in  *model.Proxy
 		out string
 	}{
@@ -37,10 +35,11 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:        model.Router,
-				ID:          "random",
-				IPAddresses: []string{"10.3.3.3"},
-				DNSDomain:   "local",
+				Type:         model.Router,
+				ID:           "random",
+				IPAddresses:  []string{"10.3.3.3"},
+				DNSDomain:    "local",
+				IstioVersion: model.MaxIstioVersion,
 			},
 			out: "router~10.3.3.3~random~local",
 		},
@@ -53,12 +52,13 @@ func TestServiceNode(t *testing.T) {
 				Metadata: map[string]string{
 					"INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
 				},
+				IstioVersion: model.MaxIstioVersion,
 			},
 			out: "sidecar~10.3.3.3~random~local",
 		},
 	}
 
-	for _, node := range nodes {
+	for _, node := range cases {
 		out := node.in.ServiceNode()
 		if out != node.out {
 			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
@@ -83,106 +83,106 @@ func TestParsePort(t *testing.T) {
 	}
 }
 
-func TestDefaultConfig(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	if err := model.ValidateProxyConfig(&config); err != nil {
-		t.Errorf("validation of default proxy config failed with %v", err)
-	}
-}
-
-func TestDefaultMeshConfig(t *testing.T) {
-	mesh := model.DefaultMeshConfig()
-	if err := model.ValidateMeshConfig(&mesh); err != nil {
-		t.Errorf("validation of default mesh config failed with %v", err)
-	}
-}
-
-func TestApplyMeshConfigDefaults(t *testing.T) {
-	configPath := "/test/config/patch"
-	yaml := fmt.Sprintf(`
-defaultConfig:
-  configPath: %s
-`, configPath)
-
-	want := model.DefaultMeshConfig()
-	want.DefaultConfig.ConfigPath = configPath
-
-	got, err := model.ApplyMeshConfigDefaults(yaml)
-	if err != nil {
-		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
-	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
-	}
-}
-
-func TestApplyMeshNetworksDefaults(t *testing.T) {
-	yml := fmt.Sprintf(`
-networks:
-  network1:
-    endpoints:
-    - fromCidr: "192.168.0.1/24"
-    gateways:
-    - address: 1.1.1.1
-      port: 80
-  network2:
-    endpoints:
-    - fromRegistry: reg1
-    gateways:
-    - registryServiceName: reg1
-      port: 443
-`)
-
-	want := model.EmptyMeshNetworks()
-	want.Networks = map[string]*meshconfig.Network{
-		"network1": {
-			Endpoints: []*meshconfig.Network_NetworkEndpoints{
-				{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-						FromCidr: "192.168.0.1/24",
-					},
-				},
-			},
-			Gateways: []*meshconfig.Network_IstioNetworkGateway{
-				{
-					Gw: &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: "1.1.1.1",
-					},
-					Port: 80,
-				},
-			},
-		},
-		"network2": {
-			Endpoints: []*meshconfig.Network_NetworkEndpoints{
-				{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
-						FromRegistry: "reg1",
-					},
-				},
-			},
-			Gateways: []*meshconfig.Network_IstioNetworkGateway{
-				{
-					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
-						RegistryServiceName: "reg1",
-					},
-					Port: 443,
-				},
-			},
-		},
-	}
-
-	got, err := model.LoadMeshNetworksConfig(yml)
-	if err != nil {
-		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
-	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
-	}
-}
-
 func TestGetOrDefaultFromMap(t *testing.T) {
 	meta := map[string]string{"key1": "key1ValueFromMap"}
 	assert.Equal(t, "key1ValueFromMap", model.GetOrDefaultFromMap(meta, "key1", "unexpected"))
 	assert.Equal(t, "expectedDefaultKey2Value", model.GetOrDefaultFromMap(meta, "key2", "expectedDefaultKey2Value"))
 	assert.Equal(t, "expectedDefaultFromNilMap", model.GetOrDefaultFromMap(nil, "key", "expectedDefaultFromNilMap"))
+}
+
+func TestProxyVersion_Compare(t *testing.T) {
+	type fields struct {
+		Major int
+		Minor int
+		Patch int
+	}
+	type args struct {
+		inv *model.IstioVersion
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   int
+	}{
+		{
+			name:   "greater major",
+			fields: fields{Major: 2, Minor: 1, Patch: 1},
+			args:   args{&model.IstioVersion{Major: 1, Minor: 2, Patch: 1}},
+			want:   1,
+		},
+		{
+			name:   "equal at minor",
+			fields: fields{Major: 2, Minor: 1, Patch: 1},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: -1}},
+			want:   0,
+		},
+		{
+			name:   "less at patch",
+			fields: fields{Major: 2, Minor: 1, Patch: 0},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: 1}},
+			want:   -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pversion := &model.IstioVersion{
+				Major: tt.fields.Major,
+				Minor: tt.fields.Minor,
+				Patch: tt.fields.Patch,
+			}
+			if got := pversion.Compare(tt.args.inv); got != tt.want {
+				t.Errorf("ProxyVersion.Compare() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_parseIstioVersion(t *testing.T) {
+	type args struct {
+		ver string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *model.IstioVersion
+	}{
+		{
+			name: "major.minor.patch",
+			args: args{ver: "1.2.3"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 3},
+		},
+		{
+			name: "major.minor",
+			args: args{ver: "1.2"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+		},
+		{
+			name: "release-major.minor-date",
+			args: args{ver: "release-1.2-123214234"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+		},
+		{
+			name: "master-date",
+			args: args{ver: "master-123214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "junk-major.minor.patch",
+			args: args{ver: "junk-1.2.3214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "junk-garbage",
+			args: args{ver: "junk-garbage"},
+			want: model.MaxIstioVersion,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := model.ParseIstioVersion(tt.args.ver); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseIstioVersion() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

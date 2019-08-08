@@ -18,62 +18,61 @@ import (
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext) error {
-	rawRoutes, err := s.generateRawRoutes(con, push)
-	if err != nil {
-		return err
-	}
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
+	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
 			if adsLog.DebugEnabled() {
-				resp, _ := model.ToJSONWithIndent(r, " ")
+				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
 				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.modelNode.ID)
 			}
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes)
-	err = con.send(response)
+	response := routeDiscoveryResponse(rawRoutes, version)
+	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
-		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
+		recordSendError(rdsSendErrPushes, err)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+	rdsPushes.Increment()
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.modelNode.ID, len(rawRoutes))
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) ([]*xdsapi.RouteConfiguration, error) {
+func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
 	// TODO: Follow this logic for other xDS resources as well
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
-		if err != nil {
-			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route:%s for node:%v: %v", routeName, con.modelNode.ID, err)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			return nil, retErr
-		}
+		r := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
-			continue
+
+			// Explicitly send an empty route configuration
+			r = &xdsapi.RouteConfiguration{
+				Name:             routeName,
+				VirtualHosts:     []*route.VirtualHost{},
+				ValidateClusters: proto.BoolFalse,
+			}
 		}
 
-		if err = r.Validate(); err != nil {
+		if err := r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
@@ -81,18 +80,18 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 		}
 		rc = append(rc, r)
 	}
-	return rc, nil
+	return rc
 }
 
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration) *xdsapi.DiscoveryResponse {
+func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
 		rr, _ := types.MarshalAny(rc)
-		resp.Resources = append(resp.Resources, *rr)
+		resp.Resources = append(resp.Resources, rr)
 	}
 
 	return resp

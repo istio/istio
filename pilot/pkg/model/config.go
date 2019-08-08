@@ -21,19 +21,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/copystructure"
+
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/pilot/pkg/model/test"
-)
 
-const (
-	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
-	// policy with this name in the cluster-scoped will be considered.
-	DefaultAuthenticationPolicyName = "default"
+	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -221,7 +222,7 @@ type ProtoSchema struct {
 
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
-	Validate func(name, namespace string, config proto.Message) error
+	Validate config.ValidationFunc
 
 	// MCP collection for this configuration resource schema
 	Collection string
@@ -257,10 +258,10 @@ type IstioConfigStore interface {
 	ServiceEntries() []Config
 
 	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels LabelsCollection) []Config
+	Gateways(workloadLabels labels.Collection) []Config
 
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
-	EnvoyFilter(workloadLabels LabelsCollection) *Config
+	EnvoyFilter(workloadLabels labels.Collection) *Config
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -276,7 +277,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels labels.Instance, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -295,21 +296,11 @@ type IstioConfigStore interface {
 }
 
 const (
-	// IstioAPIGroupDomain defines API group domain of all Istio configuration resources.
-	// Group domain suffix to the proto schema's group to generate the full resource group.
-	IstioAPIGroupDomain = ".istio.io"
-
 	// Default API version of an Istio config proto message.
 	istioAPIVersion = "v1alpha2"
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
-
-	// IstioMeshGateway is the built in gateway for all sidecars
-	IstioMeshGateway = "mesh"
-
-	// IstioSystemNamespace is the namespace where Istio's components are deployed
-	IstioSystemNamespace = "istio-system"
 )
 
 /*
@@ -333,7 +324,7 @@ var (
 		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(name, namespace string, config proto.Message) error {
-			if config.(*test.MockConfig).Key == "" {
+			if config.(*testConfig.MockConfig).Key == "" {
 				return errors.New("empty key")
 			}
 			return nil
@@ -347,7 +338,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
-		Validate:    ValidateVirtualService,
+		Validate:    config.ValidateVirtualService,
 		Collection:  metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
 	}
 
@@ -358,7 +349,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
-		Validate:    ValidateGateway,
+		Validate:    config.ValidateGateway,
 		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
 	}
 
@@ -369,7 +360,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
-		Validate:    ValidateServiceEntry,
+		Validate:    config.ValidateServiceEntry,
 		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
 	}
 
@@ -380,7 +371,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
-		Validate:    ValidateDestinationRule,
+		Validate:    config.ValidateDestinationRule,
 		Collection:  metadata.IstioNetworkingV1alpha3Destinationrules.Collection.String(),
 	}
 
@@ -391,7 +382,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
-		Validate:    ValidateEnvoyFilter,
+		Validate:    config.ValidateEnvoyFilter,
 		Collection:  metadata.IstioNetworkingV1alpha3Envoyfilters.Collection.String(),
 	}
 
@@ -402,7 +393,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Sidecar",
-		Validate:    ValidateSidecar,
+		Validate:    config.ValidateSidecar,
 		Collection:  metadata.IstioNetworkingV1alpha3Sidecars.Collection.String(),
 	}
 
@@ -413,7 +404,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
-		Validate:    ValidateHTTPAPISpec,
+		Validate:    config.ValidateHTTPAPISpec,
 		Collection:  metadata.IstioConfigV1alpha2Httpapispecs.Collection.String(),
 	}
 
@@ -424,7 +415,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-		Validate:    ValidateHTTPAPISpecBinding,
+		Validate:    config.ValidateHTTPAPISpecBinding,
 		Collection:  metadata.IstioConfigV1alpha2Httpapispecbindings.Collection.String(),
 	}
 
@@ -435,7 +426,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
-		Validate:    ValidateQuotaSpec,
+		Validate:    config.ValidateQuotaSpec,
 		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecs.Collection.String(),
 	}
 
@@ -446,7 +437,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
-		Validate:    ValidateQuotaSpecBinding,
+		Validate:    config.ValidateQuotaSpecBinding,
 		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecbindings.Collection.String(),
 	}
 
@@ -458,7 +449,7 @@ var (
 		Group:            "authentication",
 		Version:          "v1alpha1",
 		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         ValidateAuthenticationPolicy,
+		Validate:         config.ValidateAuthenticationPolicy,
 		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
@@ -471,7 +462,7 @@ var (
 		Group:            "authentication",
 		Version:          "v1alpha1",
 		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         ValidateAuthenticationPolicy,
+		Validate:         config.ValidateAuthenticationPolicy,
 		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
@@ -482,7 +473,7 @@ var (
 		Group:       "rbac",
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
-		Validate:    ValidateServiceRole,
+		Validate:    config.ValidateServiceRole,
 		Collection:  metadata.IstioRbacV1alpha1Serviceroles.Collection.String(),
 	}
 
@@ -494,7 +485,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
-		Validate:      ValidateServiceRoleBinding,
+		Validate:      config.ValidateServiceRoleBinding,
 		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
 	}
 
@@ -506,7 +497,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.AuthorizationPolicy",
-		Validate:      ValidateAuthorizationPolicy,
+		Validate:      config.ValidateAuthorizationPolicy,
 		Collection:    metadata.IstioRbacV1alpha1Authorizationpolicies.Collection.String(),
 	}
 
@@ -519,7 +510,7 @@ var (
 		Group:       "rbac",
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.RbacConfig",
-		Validate:    ValidateRbacConfig,
+		Validate:    config.ValidateRbacConfig,
 		Collection:  metadata.IstioRbacV1alpha1Rbacconfigs.Collection.String(),
 	}
 
@@ -531,7 +522,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      ValidateClusterRbacConfig,
+		Validate:      config.ValidateClusterRbacConfig,
 		Collection:    metadata.IstioRbacV1alpha1Clusterrbacconfigs.Collection.String(),
 	}
 
@@ -560,7 +551,7 @@ var (
 // ResolveHostname produces a FQDN based on either the service or
 // a concat of the namespace + domain
 // Deprecated. Do not use
-func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) Hostname {
+func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) host.Name {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -580,20 +571,20 @@ func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) Hostname {
 		}
 	}
 
-	return Hostname(out)
+	return host.Name(out)
 }
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
-	out := host
-	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
+func ResolveShortnameToFQDN(hostname string, meta ConfigMeta) host.Name {
+	out := hostname
+	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
-	if host == "*" {
-		return Hostname(out)
+	if hostname == "*" {
+		return host.Name(out)
 	}
 	// if FQDN is specified, do not append domain or namespace to hostname
-	if !strings.Contains(host, ".") {
+	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -606,7 +597,7 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 		}
 	}
 
-	return Hostname(out)
+	return host.Name(out)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
@@ -637,7 +628,7 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle Hostname, stack []Hostname) (Hostname, bool) {
+func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
 	for _, h := range stack {
 		if needle.Matches(h) {
 			return h, true
@@ -670,12 +661,20 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortConfigByCreationTime(configs []Config) []Config {
 	sort.SliceStable(configs, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
+			in := configs[i].Name + "." + configs[i].Namespace
+			jn := configs[j].Name + "." + configs[j].Namespace
+			return in < jn
+		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
 	return configs
 }
 
-func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
+func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
 	configs, err := store.List(Gateway.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -683,22 +682,22 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 
 	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
-	for _, config := range configs {
-		gateway := config.Spec.(*networking.Gateway)
+	for _, cfg := range configs {
+		gateway := cfg.Spec.(*networking.Gateway)
 		if gateway.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, config)
+			out = append(out, cfg)
 		} else {
-			gatewaySelector := Labels(gateway.GetSelector())
+			gatewaySelector := labels.Instance(gateway.GetSelector())
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, config)
+				out = append(out, cfg)
 			}
 		}
 	}
 	return out
 }
 
-func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {
+func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -710,17 +709,16 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 	// merge them instead of randomly picking one
 	mergedFilterConfig := &networking.EnvoyFilter{}
 
-	for _, config := range configs {
-		filter := config.Spec.(*networking.EnvoyFilter)
+	for _, cfg := range configs {
+		filter := cfg.Spec.(*networking.EnvoyFilter)
 		// if there is no workload selector, the filter applies to all workloads
 		// if there is a workload selector, check for matching workload labels
-		if filter.GetWorkloadLabels() != nil {
-			workloadSelector := Labels(filter.GetWorkloadLabels())
+		if filter.WorkloadLabels != nil {
+			workloadSelector := labels.Instance(filter.WorkloadLabels)
 			if !workloadLabels.IsSupersetOf(workloadSelector) {
 				continue
 			}
 		}
-		mergedFilterConfig.WorkloadLabels = make(map[string]string)
 		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
 	}
 
@@ -890,7 +888,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -914,11 +912,11 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
 				if len(dest.Labels) != 0 {
 					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
-					destLabels := Labels(dest.Labels)
-					if !destLabels.SubsetOf(labels) {
+					destLabels := labels.Instance(dest.Labels)
+					if !destLabels.SubsetOf(l) {
 						continue
 					}
-					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, l)
 				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}
@@ -961,7 +959,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
 	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
-			if spec.Name == DefaultAuthenticationPolicyName {
+			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				return &spec
 			}
 		}
@@ -1006,7 +1004,7 @@ func (store *istioConfigStore) ClusterRbacConfig() *Config {
 		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
 	for _, rc := range clusterRbacConfig {
-		if rc.Name == DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			return &rc
 		}
 	}
@@ -1023,7 +1021,7 @@ func (store *istioConfigStore) RbacConfig() *Config {
 		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
-		if rc.Name == DefaultRbacConfigName {
+		if rc.Name == constants.DefaultRbacConfigName {
 			log.Warnf("RbacConfig is deprecated, Use ClusterRbacConfig instead.")
 			return &rc
 		}
@@ -1049,4 +1047,16 @@ func SortQuotaSpec(specs []Config) {
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
+}
+
+func (config Config) DeepCopy() Config {
+	copied, err := copystructure.Copy(config)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied.(Config)
 }

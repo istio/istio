@@ -16,6 +16,7 @@ package common_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -23,9 +24,10 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -43,52 +45,52 @@ func TestCheckOutboundConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfgs := []config{
+	cfgs := []testConfig{
 		{
-			protocol:    model.ProtocolHTTP,
+			protocol:    protocol.HTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 80,
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTP,
+			protocol:    protocol.HTTP,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 8080,
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolTCP,
+			protocol:    protocol.TCP,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 90,
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTPS,
+			protocol:    protocol.HTTPS,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 9090,
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolHTTP2,
+			protocol:    protocol.HTTP2,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 70,
 			address:     "10.43.241.185",
 		},
 		{
-			protocol:    model.ProtocolGRPC,
+			protocol:    protocol.GRPC,
 			service:     "b",
 			namespace:   "apps-1-99281",
-			domain:      "svc.cluster.local",
+			domain:      "cluster.local",
 			servicePort: 7070,
 			address:     "10.43.241.185",
 		},
@@ -105,11 +107,11 @@ func TestCheckOutboundConfig(t *testing.T) {
 	}
 }
 
-var _ echo.Instance = &config{}
-var _ echo.Workload = &config{}
+var _ echo.Instance = &testConfig{}
+var _ echo.Workload = &testConfig{}
 
-type config struct {
-	protocol    model.Protocol
+type testConfig struct {
+	protocol    protocol.Instance
 	servicePort int
 	address     string
 	service     string
@@ -117,22 +119,22 @@ type config struct {
 	namespace   string
 }
 
-func (e *config) Owner() echo.Instance {
+func (e *testConfig) Owner() echo.Instance {
 	return e
 }
 
-func (e *config) Port() echo.Port {
+func (e *testConfig) Port() echo.Port {
 	return echo.Port{
 		ServicePort: e.servicePort,
 		Protocol:    e.protocol,
 	}
 }
 
-func (e *config) Address() string {
+func (e *testConfig) Address() string {
 	return e.address
 }
 
-func (e *config) Config() echo.Config {
+func (e *testConfig) Config() echo.Config {
 	return echo.Config{
 		Service: e.service,
 		Namespace: &fakeNamespace{
@@ -148,35 +150,39 @@ func (e *config) Config() echo.Config {
 	}
 }
 
-func (e *config) Workloads() ([]echo.Workload, error) {
+func (e *testConfig) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{e}, nil
 }
 
-func (e *config) ID() resource.ID {
+func (*testConfig) ID() resource.ID {
 	panic("not implemented")
 }
 
-func (e *config) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (*testConfig) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilCallable(_ ...echo.Instance) error {
+func (*testConfig) WaitUntilCallable(_ ...echo.Instance) error {
 	panic("not implemented")
 }
 
-func (e *config) WaitUntilCallableOrFail(_ test.Failer, _ ...echo.Instance) {
+func (*testConfig) WaitUntilCallableOrFail(_ test.Failer, _ ...echo.Instance) {
 	panic("not implemented")
 }
 
-func (e *config) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
+func (*testConfig) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
-func (e *config) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedResponses {
+func (*testConfig) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedResponses {
 	panic("not implemented")
 }
 
-func (e *config) Sidecar() echo.Sidecar {
+func (*testConfig) Sidecar() echo.Sidecar {
+	panic("not implemented")
+}
+
+func (*testConfig) ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
