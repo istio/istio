@@ -132,7 +132,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "123"
         image: gcr.io/istio-release/proxy_init:master-latest-daily

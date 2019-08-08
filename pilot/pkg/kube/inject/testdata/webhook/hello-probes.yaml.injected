@@ -151,7 +151,7 @@ spec:
         - -x
         - ""
         - -b
-        - 80,90
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily

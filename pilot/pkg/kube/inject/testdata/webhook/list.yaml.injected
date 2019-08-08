@@ -133,7 +133,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
@@ -298,7 +298,7 @@ spec:
         - -x
         - ""
         - -b
-        - "81"
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
