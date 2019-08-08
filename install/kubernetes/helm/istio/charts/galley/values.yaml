@@ -37,5 +37,11 @@ enableServiceDiscovery: false
 # Enable analysis and status update in Galley
 enableAnalysis: false
 
-# Enable reconcile validatingwebhookconfiguration
+# Enable reconcile validatingwebhookconfiguration.
+# This parameter sets the CLI parameter enable-reconcileWebhookConfiguration of
+# Galley, which:
+# - If true, Galley will configure its k8s validatingwebhookconfiguration.
+# - If false, Galley will not configure its k8s validatingwebhookconfiguration.
+# If there is another component configures Galley's validatingwebhookconfiguration,
+# this parameter should be set as false.
 enableReconcileWebhookConfiguration: true
