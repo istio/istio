@@ -116,6 +116,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_kind_images
 fi
 
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
+   cni_run_daemon_kind
+fi
+
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
