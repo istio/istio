@@ -62,12 +62,17 @@ func (m *ScopedRouteConfiguration) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetKey()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ScopedRouteConfigurationValidationError{
-				field:  "Key",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetKey()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ScopedRouteConfigurationValidationError{
+					field:  "Key",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -149,12 +154,17 @@ func (m *ScopedRouteConfiguration_Key) Validate() error {
 	for idx, item := range m.GetFragments() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ScopedRouteConfiguration_KeyValidationError{
-					field:  fmt.Sprintf("Fragments[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ScopedRouteConfiguration_KeyValidationError{
+						field:  fmt.Sprintf("Fragments[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

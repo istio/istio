@@ -46,24 +46,34 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetVirtualHosts() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RouteConfigurationValidationError{
-					field:  fmt.Sprintf("VirtualHosts[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RouteConfigurationValidationError{
+						field:  fmt.Sprintf("VirtualHosts[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetVhds()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteConfigurationValidationError{
-				field:  "Vhds",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetVhds()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RouteConfigurationValidationError{
+					field:  "Vhds",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -78,12 +88,17 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetResponseHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RouteConfigurationValidationError{
-					field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RouteConfigurationValidationError{
+						field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -100,24 +115,34 @@ func (m *RouteConfiguration) Validate() error {
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RouteConfigurationValidationError{
-					field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return RouteConfigurationValidationError{
+						field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	}
 
-	if v, ok := interface{}(m.GetValidateClusters()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteConfigurationValidationError{
-				field:  "ValidateClusters",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetValidateClusters()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RouteConfigurationValidationError{
+					field:  "ValidateClusters",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -195,12 +220,17 @@ func (m *Vhds) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfigSource()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return VhdsValidationError{
-				field:  "ConfigSource",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetConfigSource()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return VhdsValidationError{
+					field:  "ConfigSource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
