@@ -279,7 +279,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
+				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(&endpoint.ServicePort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -361,7 +361,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			instance.Endpoint.Port = listenPort.Port
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(&listenPort.Protocol),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -518,7 +518,7 @@ type outboundListenerEntry struct {
 }
 
 func protocolName(p protocol.Instance) string {
-	switch plugin.ModelProtocolToListenerProtocol(p) {
+	switch plugin.ModelProtocolToListenerProtocol(&p) {
 	case plugin.ListenerProtocolHTTP:
 		return "HTTP"
 	case plugin.ListenerProtocolTCP:
@@ -671,7 +671,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				pluginParams := &plugin.InputParams{
-					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(&listenPort.Protocol),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 					Env:                        env,
 					Node:                       node,
@@ -735,7 +735,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					}
 
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(&servicePort.Protocol),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 						Env:                        env,
 						Node:                       node,
