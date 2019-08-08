@@ -59,7 +59,17 @@ func (example *Example) AddScript(namespace string, script string, output output
 	example.t.Helper()
 
 	//fullPath := getFullPath(istioPath + script)
-	example.steps = append(example.steps, newStepScript("./"+script, output))
+	fullPath :=  "./"+script
+	stats, err := os.Stat(fullPath)
+	if os.IsNotExist(err) {
+		example.t.Fatalf("Script %q was not found", script)
+	}
+ 	if !stats.Mode().IsRegular() || stats.Mode().Perm() & 0x1 == 0 {
+		example.t.Fatalf("Script %q is not executable (mode: %s)",
+			script, stats.Mode().Perm().String())
+	}
+
+	example.steps = append(example.steps, newStepScript(fullPath, output))
 }
 
 // AddFile adds an existing file
