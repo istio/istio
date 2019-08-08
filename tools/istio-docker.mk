@@ -96,7 +96,7 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&) chmod 755 envoy pilot-agent &&
-docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
+docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_VERSION=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
@@ -117,7 +117,7 @@ ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_VERSION=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -132,7 +132,7 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
-docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
+docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_VERSION=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -146,12 +146,14 @@ docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
+docker.pilot: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
+docker.app: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-client
 docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-server
@@ -165,10 +167,11 @@ ifeq ($(DEBUG_IMAGE),1)
 	sed -e "s,FROM \${BASE_DISTRIBUTION},FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER)/testapp && \
-		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+		docker build --build-arg ISTIO_VERSION=${VERSION} -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
 
 # Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
@@ -190,10 +193,12 @@ docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
+docker.test_policybackend: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT_LINUX)/mixer-test-policybackend
 	$(DOCKER_RULE)
 
+docker.kubectl: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.kubectl: docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
@@ -211,6 +216,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 
 # galley docker images
 
+docker.galley: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
 	$(DOCKER_RULE)
@@ -232,6 +238,7 @@ docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
 	$(DOCKER_RULE)
 
+docker.node-agent-k8s: BUILD_ARGS=--build-arg ISTIO_VERSION=${VERSION}
 docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
 docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)
@@ -314,23 +321,23 @@ docker.scan_images: $(DOCKER_PUSH_TARGETS)
 # Base image for 'debug' containers.
 # You can run it first to use local changes (or guarantee it is built from scratch)
 docker.basedebug:
-	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
+	docker build -t docker.io/sdake/base_debug:${VERSION} -f docker/Dockerfile.xenial_debug docker/
 
 # Run this target to generate images based on Bionic Ubuntu
 # This must be run as a first step, before the 'docker' step.
 docker.basedebug_bionic:
-	docker build -t istionightly/base_debug_bionic -f docker/Dockerfile.bionic_debug docker/
-	docker tag istionightly/base_debug_bionic istionightly/base_debug
+	docker build -t docker.io/sdake/base_debug_bionic:$(VERSION) -f docker/Dockerfile.bionic_debug docker/
+	docker tag docker.io/sdake/base_debug_bionic:$(VERSION) docker.io/sdake/base_debug:$(VERSION)
 
 # Run this target to generate images based on Debian Slim
 # This must be run as a first step, before the 'docker' step.
 docker.basedebug_deb:
-	docker build -t istionightly/base_debug_deb -f docker/Dockerfile.deb_debug docker/
-	docker tag istionightly/base_debug_deb istionightly/base_debug
+	docker build -t docker.io/sdake/base_debug_deb:$(VERSION) -f docker/Dockerfile.deb_debug docker/
+	docker tag docker.io/sdake/base_debug_deb:$(VERSION) docker.io/sdake/base_debug;$(VERSION)
 
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug
-	docker push istionightly/base_debug:latest
+	docker push docker.io/sdake/base_debug:$(VERSION)
 
 # Build a dev environment Docker image.
 DEV_IMAGE_NAME = istio/dev:$(USER)

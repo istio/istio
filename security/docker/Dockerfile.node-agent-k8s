@@ -1,9 +1,12 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
+# ISTIO_VERSION is used to specify the version of the release
+ARG ISTIO_VERSION=latest
+
 # The following section is used as base image if BASE_DISTRIBUTION=default
-# hadolint ignore=DL3006
-FROM istionightly/base_debug as default
+FROM docker.io/sdake/base_debug:${ISTIO_VERSION} as default
+
 # hadolint ignore=DL3005,DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && update-ca-certificates && apt-get clean  && rm -rf /var/lib/apt/lists/*
 

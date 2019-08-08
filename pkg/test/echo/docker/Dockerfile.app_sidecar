@@ -1,5 +1,8 @@
-# hadolint ignore=DL3006
-FROM istionightly/base_debug
+# ISTIO_VERSION is used to specify the version of the release
+ARG ISTIO_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/sdake/base_debug:${ISTIO_VERSION} as default
 
 # Add CA certificates for SSL connections.
 # obtained from debian ca-certs deb using fetch_cacerts.sh
