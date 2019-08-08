@@ -42,11 +42,17 @@ setup_and_export_git_sha
 function build_kind_images() {
   # Build just the images needed for the tests
   for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-     make docker.${image}
+    DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make docker.${image}
   done
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
 	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+
+	# If a variant is specified, load those images as well.
+	# We should load non-variant images as well for things like `app` which do not use variants
+	if [[ "${VARIANT:-}" != "" ]]; then
+	  docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+  fi
 }
 
 # getopts only handles single character flags
@@ -76,6 +82,9 @@ for ((i=1; i<=$#; i++)); do
         continue
         ;;
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
+        continue
+        ;;
+        --variant) ((i++)); VARIANT="${!i}"
         continue
         ;;
     esac
@@ -110,4 +119,4 @@ fi
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+  make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
