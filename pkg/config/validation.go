@@ -1155,13 +1155,13 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		}
 	}
 
-	if config.EnvoyMetricsService != nil {
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))
 		}
 	}
 
-	if config.EnvoyAccessLogService != nil {
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
 		if err := ValidateProxyAddress(config.EnvoyAccessLogService.Address); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogService.Address)))
 		}
