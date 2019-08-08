@@ -19,8 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -31,6 +29,8 @@ import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
