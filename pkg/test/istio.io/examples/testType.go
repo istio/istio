@@ -91,6 +91,9 @@ func (test scriptTestType) Run(env *kube.Environment, t *testing.T) (string, err
 	t.Logf(fmt.Sprintf("Executing %s\n", test.script))
 	cmd := exec.Command(test.script)
 
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }
