@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/core/image"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -27,7 +26,6 @@ import (
 
 var (
 	ist istio.Instance
-	env *kube.Environment
 )
 
 func setupConfig(cfg *istio.Config) {
