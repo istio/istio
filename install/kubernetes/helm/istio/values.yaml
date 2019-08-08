@@ -456,13 +456,13 @@ global:
   # assigned.
   #
   # Within a multicluster mesh, each cluster must be (manually or auto)
-  # configured to have the same Mesh ID value. If an existing cluster ‘joins’ a
+  # configured to have the same Mesh ID value. If an existing cluster 'joins' a
   # multicluster mesh, it will need to be migrated to the new mesh ID. Details
   # of migration TBD, and it may be a disruptive operation to change the Mesh
   # ID post-install.
   #
   # If the mesh admin does not specify a value, Istio will use the value of the
-  # mesh’s Trust Domain. The best practice is to select a proper Trust Domain
+  # mesh's Trust Domain. The best practice is to select a proper Trust Domain
   # value.
   meshID: ""
 
