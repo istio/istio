@@ -6,7 +6,7 @@ metadata:
   name: istio-jaeger-pvc
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: {{ template "tracing.name" . }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

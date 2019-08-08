@@ -1,28 +1,28 @@
-{{ if eq .Values.provider "jaeger" }}
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: {{ template "tracing.name" . }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   selector:
     matchLabels:
-      app: jaeger
+      app: {{ template "tracing.name" . }}
   template:
     metadata:
       labels:
-        app: jaeger
+        app: {{ template "tracing.name" . }}
         chart: {{ template "tracing.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- if eq .Values.provider "jaeger" }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "16686"
 {{- if .Values.contextPath }}
@@ -44,6 +44,7 @@ spec:
 {{- end }}
 {{- end }}
       containers:
+{{- if eq .Values.provider "jaeger" }}
         - name: jaeger
           image: "{{ .Values.jaeger.hub }}/{{ .Values.jaeger.image }}:{{ .Values.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -97,16 +98,6 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-      {{- if .Values.tolerations }}
-      tolerations:
-{{ toYaml .Values.tolerations | indent 6 }}
-      {{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-      {{- end }}
 {{- if eq .Values.jaeger.spanStorageType "badger" }}
       volumes:
       - name: data
@@ -117,4 +108,49 @@ spec:
         emptyDir: {}
 {{- end }}
 {{- end }}
-{{ end }}
+{{- else if eq .Values.provider "zipkin"}}
+        - name: zipkin
+          image: "{{ .Values.zipkin.hub }}/{{ .Values.zipkin.image }}:{{ .Values.zipkin.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.zipkin.queryPort }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            tcpSocket:
+              port: {{ .Values.zipkin.queryPort }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            httpGet:
+              path: /health
+              port: {{ .Values.zipkin.queryPort }}
+          resources:
+{{- if .Values.zipkin.resources }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: QUERY_PORT
+              value: "{{ .Values.zipkin.queryPort }}"
+            - name: JAVA_OPTS
+              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.javaOptsHeap }}M -Xmx{{ .Values.zipkin.javaOptsHeap }}M -XX:+UseG1GC -server"
+            - name: STORAGE_METHOD
+              value: "mem"
+            - name: ZIPKIN_STORAGE_MEM_MAXSPANS
+              value: "{{ .Values.zipkin.maxSpans }}"
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}

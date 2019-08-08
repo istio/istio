@@ -5,7 +5,7 @@ metadata:
   name: {{ template "tracing.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.provider }}
+    app: {{ template "tracing.name" . }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
