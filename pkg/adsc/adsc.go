@@ -479,7 +479,7 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	}
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
-		adscLog.Infof(string(b))
+		adscLog.Info(string(b))
 	}
 
 	a.mutex.Lock()
@@ -534,7 +534,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(eds, " ", " ")
-		adscLog.Infof(string(b))
+		adscLog.Info(string(b))
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
@@ -584,7 +584,7 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(configurations, " ", " ")
-		adscLog.Infof(string(b))
+		adscLog.Info(string(b))
 	}
 
 	a.mutex.Lock()
