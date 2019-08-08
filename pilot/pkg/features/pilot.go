@@ -176,6 +176,13 @@ var (
 		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
 			"a config or endpoint update will impact.",
 	)
+
+	ScopeGatewayToNamespace = env.RegisterBoolVar(
+		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
+		false,
+		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
+			"Gateways with same selectors in different namespaces will not be applicable.",
+	)
 )
 
 var (

@@ -48,15 +48,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	node *model.Proxy,
 	push *model.PushContext,
 	builder *ListenerBuilder) *ListenerBuilder {
-	// collect workload labels
-	workloadInstances := node.ServiceInstances
 
-	var workloadLabels labels.Collection
-	for _, w := range workloadInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
+	var gatewaysForWorkload []model.Config
+	if features.ScopeGatewayToNamespace.Get() {
+		gatewaysForWorkload = push.Gateways(node)
+	} else {
+		var workloadLabels labels.Collection
+		for _, w := range node.ServiceInstances {
+			workloadLabels = append(workloadLabels, w.Labels)
+		}
+		gatewaysForWorkload = env.Gateways(workloadLabels)
 	}
 
-	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
 		return builder
@@ -133,7 +136,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// end shady logic
 
 		var si *model.ServiceInstance
-		for _, w := range workloadInstances {
+		for _, w := range node.ServiceInstances {
 			if w.Endpoint.Port == int(portNumber) {
 				si = w
 				break
