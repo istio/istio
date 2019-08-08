@@ -70,7 +70,7 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 
 	overlayFromSet, err := makeTreeFromSetList(maArgs.set)
 	if err != nil {
-		logAndFatalf(args, err)
+		logAndFatalf(args, err.Error())
 	}
 	manifests, err := genManifests(maArgs.inFilename, overlayFromSet)
 	if err != nil {

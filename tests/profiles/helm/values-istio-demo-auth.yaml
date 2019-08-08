@@ -1,7 +1,7 @@
 # This is used to generate minimal demo mode. It is included from demo and demo-auth values.
 # It is shipped with the release, used for bookinfo or quick installation of istio.
 # Includes components used in the demo, defaults to alpha3 rules.
-# Note: please only put common configuration for the demo profiles here.    
+# Note: please only put common configuration for the demo profiles here.
 global:
   proxy:
     accessLogFile: "/dev/stdout"
@@ -49,11 +49,11 @@ mixer:
       requests:
         cpu: 50m
         memory: 100Mi
- 
+
   adapters:
     stdio:
       enabled: true
- 
+
 grafana:
   enabled: true
 
@@ -79,3 +79,5 @@ gateways:
       requests:
         cpu: 10m
         memory: 40Mi
+
+certmanager: {}
