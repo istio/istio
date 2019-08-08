@@ -18,6 +18,10 @@ prometheus:
       enabled: false
       port: 32090
 
+  # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
+  security:
+    enabled: true
+
   nodeSelector: {}
   tolerations: []
 

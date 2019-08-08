@@ -114,6 +114,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
+{{- if .Values.prometheus-operator.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -169,6 +170,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_name]
       action: replace
       targetLabel: pod_name
+{{- end }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -215,6 +217,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
+{{- if .Values.prometheus-operator.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -270,6 +273,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_name]
       action: replace
       targetLabel: pod_name
+{{- end }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
