@@ -326,18 +326,18 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Domains: []string{"domain"},
 				Routes: []*route.Route{
 					{
-						Name:                    "foo",
-						Action:                  &route.Route_Route{
+						Name: "foo",
+						Action: &route.Route_Route{
 							Route: &route.RouteAction{
-								PrefixRewrite:               "/",
+								PrefixRewrite: "/",
 							},
 						},
 					},
 					{
-						Name:                    "bar",
-						Action:                  &route.Route_Redirect{
+						Name: "bar",
+						Action: &route.Route_Redirect{
 							Redirect: &route.RedirectAction{
-								ResponseCode:           301,
+								ResponseCode: 301,
 							},
 						},
 					},
@@ -354,10 +354,10 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Domains: []string{"domain", "domain:80"},
 				Routes: []*route.Route{
 					{
-						Name:                    "foo",
-						Action:                  &route.Route_Route{
+						Name: "foo",
+						Action: &route.Route_Route{
 							Route: &route.RouteAction{
-								PrefixRewrite:               "/foo",
+								PrefixRewrite: "/foo",
 							},
 						},
 					},

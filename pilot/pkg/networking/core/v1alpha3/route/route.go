@@ -334,7 +334,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-
 	if util.IsIstioVersionGE13(node) {
 		routeName := in.Name
 		if match != nil && match.Name != "" {
