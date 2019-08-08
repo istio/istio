@@ -44,5 +44,9 @@ neverInjectSelector: []
 
 alwaysInjectSelector: []
 
-# Enable managing webhookconfiguration
-enableManageWebhookConfig: true
+# Enable Sidecar Injector to configure its k8s mutatingwebhookconfiguration,
+# When it is true, Sidecar Injector configures its k8s mutatingwebhookconfiguration.
+# When it is false, Sidecar Injector does not configure its k8s mutatingwebhookconfiguration.
+# If another component configures the k8s mutatingwebhookconfiguration for Sidecar Injector,
+# this parameter should be set as false.
+enableSidecarInjectorToManageWebhookConfig: true

@@ -52,7 +52,7 @@ spec:
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
             - --healthCheckFile=/health
-            - --enableManageWebhookConfig={{ .Values.enableManageWebhookConfig }}
+            - --enableSidecarInjectorToManageWebhookConfig={{ .Values.enableSidecarInjectorToManageWebhookConfig }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
