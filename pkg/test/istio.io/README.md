@@ -1,10 +1,13 @@
 # Istio.io Example Tests
 
 ## Overview
-This folder contains a test framework as well as tests for the different examples
-on Istio.io. The framework relies on
-[istio.io/istio/pkg/test/framework](https://github.com/istio/istio/tree/master/pkg/test/framework)
-to set up an environment to run the tests
+This folder contains tests for the different examples on Istio.io.
 
 ## Writing Tests
+
+
+## Executing Tests Locally using Minikube
+* Create a Minikube environment as advised on istio.io
+* Run the tests as follows:
+ go test ./... -p 1 --istio.test.env kube --istio.test.kube.config ~/.kube/config -v
 

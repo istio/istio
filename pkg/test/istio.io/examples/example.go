@@ -17,6 +17,10 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+
+	"istio.io/istio/pkg/test/framework"
 )
 
 type outputType string
@@ -51,16 +55,15 @@ func New(t *testing.T, name string) Example {
 }
 
 // AddScript adds a directive to run a script
-func (example *Example) AddScript(script string, output outputType) {
+func (example *Example) AddScript(namespace string, script string, output outputType) {
 	//fullPath := getFullPath(istioPath + script)
 	example.steps = append(example.steps, newStepScript("./"+script, output))
 }
 
 // AddFile adds an existing file
-func (example *Example) AddFile(path string) {
+func (example *Example) AddFile(namespace string, path string) {
 	fullPath := getFullPath(istioPath + path)
-	example.steps = append(example.steps, newStepFile(fullPath))
-	panic("Not yet implemneted")
+	example.steps = append(example.steps, newStepFile(namespace, fullPath))
 }
 
 // todo: get last script run output
@@ -85,6 +88,7 @@ func getFullPath(path string) string {
 func (example *Example) Run() {
 
 	//override stdout and stderr for test. Is there a better way of doing this?
+
 	/*prevStdOut := os.Stdout
 	prevStdErr := os.Stderr
 	defer func() {
@@ -96,6 +100,7 @@ func (example *Example) Run() {
 	//os.StdOut =
 
 	example.t.Log(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
+
 	//create directory if it doesn't exist
 	if _, err := os.Stat(example.name); os.IsNotExist(err) {
 		err := os.Mkdir(example.name, os.ModePerm)
@@ -104,7 +109,19 @@ func (example *Example) Run() {
 		}
 	}
 
-	for _, step := range example.steps {
-		step.Run(example.t)
-	}
+	framework.
+		NewTest(example.t).
+		Run(func(ctx framework.TestContext) {
+			kubeEnv, ok := ctx.Environment().(*kube.Environment)
+			if !ok {
+				example.t.Fatalf("test framework unable to get Kubernetes environment")
+			}
+			for _, step := range example.steps {
+				output, err := step.Run(kubeEnv, example.t)
+				if err != nil {
+					example.t.Log(output)
+					example.t.Fatal(output)
+				}
+			}
+		})
 }

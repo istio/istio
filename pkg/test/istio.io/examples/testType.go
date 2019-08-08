@@ -19,31 +19,38 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
 
 type testStep interface {
-	Run(t *testing.T)
+	Run(*kube.Environment, *testing.T) (string, error)
 	Copy(path string) error
 }
 
-func newStepFile(path string) testStep {
+type fileTestType struct {
+	path      string
+	namespace string
+}
+
+func newStepFile(namespace string, path string) testStep {
 	return fileTestType{
-		path: path,
+		path:      path,
+		namespace: namespace,
 	}
 }
 
-type fileTestType struct {
-	path string
-}
-
-func (test fileTestType) Run(t *testing.T) {
+func (test fileTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
 	t.Logf(fmt.Sprintf("Executing %s\n", test.path))
-	//todo: add file support
+	if err := env.Apply(test.namespace, test.path); err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
 func (test fileTestType) Copy(path string) error {
-	//todo: implement copy
-	return nil
+	return copyFile(test.path, path)
 }
 
 func newStepFunction(testFunction testFunc) testStep {
@@ -56,9 +63,10 @@ type functionTestType struct {
 	testFunction testFunc
 }
 
-func (test functionTestType) Run(t *testing.T) {
+func (test functionTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
 	t.Logf(fmt.Sprintf("Executing function\n"))
 	test.testFunction(t)
+	return "", nil
 }
 
 func (test functionTestType) Copy(path string) error {
@@ -79,19 +87,15 @@ type scriptTestType struct {
 	output outputType
 }
 
-func (test scriptTestType) Run(t *testing.T) {
+func (test scriptTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
 	t.Logf(fmt.Sprintf("Executing %s\n", test.script))
 	cmd := exec.Command(test.script)
 
 	output, err := cmd.CombinedOutput()
-	/*if err != nil {
-		t.Fatalf("test framework could not get script output: %s", err)
-	}*/
-	t.Logf("script output: %s err: %s\n", output, err)
+	return string(output), err
 }
 func (test scriptTestType) Copy(path string) error {
-	//todo: implement copy
-	return nil
+	return copyFile(test.script, path)
 }
 
 func copyFile(src string, dest string) error {
