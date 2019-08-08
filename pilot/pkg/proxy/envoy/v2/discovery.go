@@ -372,6 +372,13 @@ func (s *DiscoveryServer) ConfigUpdate(req model.UpdateRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
+	debounce(s.updateChannel, stopCh, func(req *model.UpdateRequest) {
+		go s.doPush(req)
+	})
+}
+
+// The debounce helper function is implemented to enable mocking
+func debounce(ch chan *model.UpdateRequest, stopCh <-chan struct{}, fn func(req *model.UpdateRequest)) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -385,7 +392,14 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 
 	for {
 		select {
-		case r := <-s.updateChannel:
+		case r := <-ch:
+
+			if !features.EnableEDSDebounce.Get() && !r.Full {
+				// trigger push now, just for EDS
+				fn(r)
+				continue
+			}
+
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
 				timeChan = time.After(DebounceAfter)
@@ -408,7 +422,7 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 					pushCounter, debouncedEvents,
 					quietTime, eventDelay, req)
 
-				go s.doPush(req)
+				fn(req)
 				req = nil
 				debouncedEvents = 0
 				continue
