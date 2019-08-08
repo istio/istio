@@ -63,6 +63,7 @@ func NewTest(t *testing.T) *Test {
 
 // Label applies the given labels to this test.
 func (t *Test) Label(labels ...label.Instance) *Test {
+	t.goTest.Helper()
 	t.labels = append(t.labels, labels...)
 	return t
 }
@@ -70,12 +71,14 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 // RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {
+	t.goTest.Helper()
 	t.requiredEnv = name
 	return t
 }
 
 // Run the test, supplied as a lambda.
 func (t *Test) Run(fn func(ctx TestContext)) {
+	t.goTest.Helper()
 	t.runInternal(fn, false)
 }
 
@@ -139,6 +142,8 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
 	}
 
+	t.goTest.Helper()
+
 	if t.parent != nil {
 		// Create a new subtest under the parent's test.
 		parentGoTest := t.parent.goTest
@@ -154,6 +159,8 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 }
 
 func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) {
+	t.goTest.Helper()
+
 	// Initial setup if we're running in Parallel.
 	if parallel {
 		// Inform the parent, who will need to call ctx.Done asynchronously.
