@@ -188,7 +188,10 @@ func NewDiscoveryServer(
 	}
 
 	instanceUpdateHandler := func(instance *model.ServiceInstance, event model.Event) {
-		out.updateProxyServiceInstances(instance)
+		err := out.updateProxyServiceInstances(instance)
+		if err != nil {
+			adsLog.Errorf("Error updating proxy service instances for instance %s: %v", instance.Endpoint.UID, err)
+		}
 	}
 	if err := ctl.AppendInstanceHandler(instanceUpdateHandler); err != nil {
 		return nil
