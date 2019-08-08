@@ -1484,6 +1484,8 @@ func TestRunAndServe(t *testing.T) {
 			}
 		})
 	}
+	// Now Validate that metrics are created.
+	testSideCarInjectorMetrics(t)
 }
 
 func TestReloadCert(t *testing.T) {
@@ -1519,6 +1521,45 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 		t.Fatalf("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func testSideCarInjectorMetrics(t *testing.T) {
+	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
+	defer cleanup()
+	stop := make(chan struct{})
+	defer func() { close(stop) }()
+	go wh.Run(stop)
+
+	srv := httptest.NewServer(wh.exporter)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("failed to get /metrics: %v", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read body: %v", err)
+	}
+	resp.Body.Close()
+
+	output := string(body)
+
+	if !strings.Contains(output, "sidecar_total_injection_requests") {
+		t.Fatalf("metric sidecar_total_injection_requests not found")
+	}
+
+	if !strings.Contains(output, "sidecar_total_injection_success") {
+		t.Fatalf("metric sidecar_total_injection_success not found")
+	}
+
+	if !strings.Contains(output, "sidecar_total_injection_skip") {
+		t.Fatalf("metric sidecar_total_injection_skip not found")
+	}
+
+	if !strings.Contains(output, "sidecar_total_injection_failure") {
+		t.Fatalf("incorrect value for metric sidecar_total_injection_failure")
+	}
 }
 
 func BenchmarkInjectServe(b *testing.B) {
