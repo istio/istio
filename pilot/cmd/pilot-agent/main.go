@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networkingconfig "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -62,34 +63,43 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                   string
-	controlPlaneBootstrap        bool
-	binaryPath                   string
-	serviceCluster               string
-	drainDuration                time.Duration
-	parentShutdownDuration       time.Duration
-	discoveryAddress             string
-	zipkinAddress                string
-	lightstepAddress             string
-	lightstepAccessToken         string
-	lightstepSecure              bool
-	lightstepCacertPath          string
-	datadogAgentAddress          string
-	connectTimeout               time.Duration
-	statsdUDPAddress             string
-	envoyMetricsServiceAddress   string
-	envoyAccessLogServiceAddress string
-	proxyAdminPort               uint16
-	controlPlaneAuthPolicy       string
-	customConfigFile             string
-	proxyLogLevel                string
-	proxyComponentLogLevel       string
-	dnsRefreshRate               string
-	concurrency                  int
-	templateFile                 string
-	disableInternalTelemetry     bool
-	tlsCertsToWatch              []string
-	loggingOptions               = log.DefaultOptions()
+	configPath                                string
+	controlPlaneBootstrap                     bool
+	binaryPath                                string
+	serviceCluster                            string
+	drainDuration                             time.Duration
+	parentShutdownDuration                    time.Duration
+	discoveryAddress                          string
+	zipkinAddress                             string
+	lightstepAddress                          string
+	lightstepAccessToken                      string
+	lightstepSecure                           bool
+	lightstepCacertPath                       string
+	datadogAgentAddress                       string
+	connectTimeout                            time.Duration
+	statsdUDPAddress                          string
+	envoyMetricsServiceAddress                string
+	envoyAccessLogServiceAddress              string
+	envoyAccessLogServiceTlsMode              string
+	envoyAccessLogServiceTlsClientCertificate string
+	envoyAccessLogServiceTlsPrivateKey        string
+	envoyAccessLogServiceTlsCaCertificates    string
+	envoyAccessLogServiceTlsSni               string
+	envoyAccessLogServiceTlsSubjectAltNames   []string
+	envoyAccessLogServiceTcpKeepaliveProbes   uint32
+	envoyAccessLogServiceTcpKeepaliveTime     time.Duration
+	envoyAccessLogServiceTcpKeepaliveInterval time.Duration
+	proxyAdminPort                            uint16
+	controlPlaneAuthPolicy                    string
+	customConfigFile                          string
+	proxyLogLevel                             string
+	proxyComponentLogLevel                    string
+	dnsRefreshRate                            string
+	concurrency                               int
+	templateFile                              string
+	disableInternalTelemetry                  bool
+	tlsCertsToWatch                           []string
+	loggingOptions                            = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -197,7 +207,26 @@ var (
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
-			proxyConfig.EnvoyAccessLogServiceAddress = envoyAccessLogServiceAddress
+			proxyConfig.EnvoyAccessLogService.Address = envoyAccessLogServiceAddress
+			if envoyAccessLogServiceTlsMode != "" {
+				proxyConfig.EnvoyAccessLogService.TlsSettings = &networkingconfig.TLSSettings{
+					Mode: networkingconfig.TLSSettings_TLSmode(networkingconfig.
+						TLSSettings_TLSmode_value[envoyAccessLogServiceTlsMode]),
+					ClientCertificate: envoyAccessLogServiceTlsClientCertificate,
+					PrivateKey:        envoyAccessLogServiceTlsPrivateKey,
+					CaCertificates:    envoyAccessLogServiceTlsCaCertificates,
+					Sni:               envoyAccessLogServiceTlsSni,
+					SubjectAltNames:   envoyAccessLogServiceTlsSubjectAltNames,
+				}
+			}
+			if envoyAccessLogServiceTcpKeepaliveProbes > 0 || envoyAccessLogServiceTcpKeepaliveTime.Seconds() > 0 ||
+				envoyAccessLogServiceTcpKeepaliveInterval.Seconds() > 0 {
+				proxyConfig.EnvoyAccessLogService.TcpKeepalive = &networkingconfig.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+					Probes:   envoyAccessLogServiceTcpKeepaliveProbes,
+					Time:     types.DurationProto(envoyAccessLogServiceTcpKeepaliveTime),
+					Interval: types.DurationProto(envoyAccessLogServiceTcpKeepaliveInterval),
+				}
+			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -598,8 +627,26 @@ func init() {
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogServiceAddress,
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogService.Address,
 		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsMode, "envoyAccessLogServiceTlsMode", "",
+		"Mode Indicates whether connections to this port should be secured")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsClientCertificate, "envoyAccessLogServiceTlsClientCertificate",
+		"", "Path to client certificate file")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsPrivateKey, "envoyAccessLogServiceTlsPrivateKey",
+		"", "Path to private key file file")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsCaCertificates, "envoyAccessLogServiceTlsCaCertificates",
+		"", "Path to private ca certificate file")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsSni, "envoyAccessLogServiceTlsSni",
+		"", "A name to be used during TLS handshake")
+	proxyCmd.PersistentFlags().StringSliceVar(&envoyAccessLogServiceTlsSubjectAltNames, "envoyAccessLogServiceTlsSubjectAltNames",
+		[]string{}, "List to verify subject identity in certificate")
+	proxyCmd.PersistentFlags().Uint32Var(&envoyAccessLogServiceTcpKeepaliveProbes, "envoyAccessLogServiceTcpKeepaliveProbes",
+		0, "Maximum number of keepalive probes to send without response before deciding the connection is dead")
+	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTcpKeepaliveTime, "envoyAccessLogServiceTcpKeepaliveTime",
+		0, "The time duration a connection needs to be idle before keep-alive probes start being sent")
+	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTcpKeepaliveInterval, "envoyAccessLogServiceTcpKeepaliveInterval",
+		0, "The time duration between keep-alive probes")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",

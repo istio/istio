@@ -136,7 +136,39 @@ containers:
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogServiceAddress
-  - "{{ .ProxyConfig.EnvoyAccessLogServiceAddress }}"
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
+  - --envoyAccessLogServiceTlsMode
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetMode }}"
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.clientCertificate }}
+  - --envoyAccessLogServiceTlsClientCertificate
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetClientCertificate }}"
+{{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.privateKey }}
+  - --envoyAccessLogServiceTlsPrivateKey
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetPrivateKey }}"
+{{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.caCertificates }}
+  - --envoyAccessLogServiceTlsCaCertificates
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetCaCertificates }}"
+{{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.sni }}
+  - --envoyAccessLogServiceTlsSni
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSni }}"
+{{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.subjectAltNames }}
+  - --envoyAccessLogServiceTlsSubjectAltNames
+  - {{ range $i, $v := .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSubjectAltNames }}{{ if $i }},{{ end }}{{ $v }}{{ end }}
+{{- end }}
+{{- end }}
+{{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
+  - --envoyAccessLogServiceTcpKeepaliveProbes
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetProbes }}"
+  - --envoyAccessLogServiceTcpKeepaliveTime
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetTime }}"
+  - --envoyAccessLogServiceTcpKeepaliveInterval
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetInterval }}"
+{{- end }}
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"

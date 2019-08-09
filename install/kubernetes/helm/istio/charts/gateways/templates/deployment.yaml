@@ -148,6 +148,38 @@ spec:
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
           - --envoyAccessLogServiceAddress
           - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings }}
+          - --envoyAccessLogServiceTlsMode
+          - {{ $.Values.global.proxy.envoyAccessLogService.tlsSettings.mode }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings.clientCertificate }}
+          - --envoyAccessLogServiceTlsClientCertificate
+          - {{ $.Values.global.proxy.envoyAccessLogService.tlsSettings.clientCertificate }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings.privateKey }}
+          - --envoyAccessLogServiceTlsPrivateKey
+          - {{ $.Values.global.proxy.envoyAccessLogService.tlsSettings.privateKey }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings.caCertificates }}
+          - --envoyAccessLogServiceTlsCaCertificates
+          - {{ $.Values.global.proxy.envoyAccessLogService.tlsSettings.caCertificates }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings.sni }}
+          - --envoyAccessLogServiceTlsSni
+          - {{ $.Values.global.proxy.envoyAccessLogService.tlsSettings.sni }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tlsSettings.subjectAltNames }}
+          - --envoyAccessLogServiceTlsSubjectAltNames
+          - {{ join "," $.Values.global.proxy.envoyAccessLogService.tlsSettings.subjectAltNames | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
+          - --envoyAccessLogServiceTcpKeepaliveProbes
+          - {{ $.Values.global.proxy.envoyAccessLogService.tcpKeepalive.probes }}
+          - --envoyAccessLogServiceTcpKeepaliveTime
+          - {{ $.Values.global.proxy.envoyAccessLogService.tcpKeepalive.time }}
+          - --envoyAccessLogServiceTcpKeepaliveInterval
+          - {{ $.Values.global.proxy.envoyAccessLogService.tcpKeepalive.interval }}
+        {{- end }}
         {{- end }}
           - --proxyAdminPort
           - "15000"
