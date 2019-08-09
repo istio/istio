@@ -208,29 +208,6 @@ func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (
 	return res, err
 }
 
-func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
-	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
-	if err != nil {
-		panic(err.Error())
-	}
-	defer func() { _ = conn.Close() }()
-
-	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
-	stream, err := adsClient.StreamAggregatedResources(context.Background())
-	if err != nil {
-		panic(err.Error())
-	}
-	err = stream.Send(p.makeRequest(configType))
-	if err != nil {
-		panic(err.Error())
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		panic(err.Error())
-	}
-	return res
-}
-
 var homeVar = env.RegisterStringVar("HOME", "", "")
 
 func resolveKubeConfigPath(kubeConfig string) string {
