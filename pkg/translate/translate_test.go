@@ -57,6 +57,12 @@ global:
   enabled: true
   namespace: istio-system
   istioNamespace: istio-system
+  configNamespace: istio-system
+  policyNamespace: istio-system
+  prometheusNamespace: istio-system
+  securityNamespace: istio-system
+  telemetryNamespace: istio-system
+
 mixer:
   policy:
     enabled: false
@@ -104,6 +110,11 @@ global:
   enabled: true
   hub: docker.io/istio
   istioNamespace: istio-system
+  configNamespace: istio-system
+  policyNamespace: istio-system
+  prometheusNamespace: istio-system
+  securityNamespace: istio-system
+  telemetryNamespace: istio-system
   namespace: istio-system
   tag: 1.2.3
 mixer:
@@ -155,6 +166,11 @@ global:
   controlPlaneSecurityEnabled: true
   enabled: true
   istioNamespace: istio-system
+  configNamespace: istio-system
+  policyNamespace: istio-system
+  prometheusNamespace: istio-system
+  securityNamespace: istio-system
+  telemetryNamespace: istio-system
   mtls:
     enabled: false
   namespace: istio-system

@@ -140,7 +140,7 @@ func TestRenderInstallationSuccessV13(t *testing.T) {
 		{
 			desc: "all_off",
 			installSpec: `
-defaultNamespace: istio-system
+defaultNamespace: istio-control
 trafficManagement:
   enabled: false
 policy:
@@ -160,7 +160,7 @@ autoInjection:
 			installSpec: `
 hub: docker.io/istio
 tag: 1.1.4
-defaultNamespace: istio-system
+defaultNamespace: istio-control
 policy:
   enabled: false
 telemetry:
@@ -186,7 +186,7 @@ trafficManagement:
 			installSpec: `
 hub: docker.io/istio
 tag: 1.1.4
-defaultNamespace: istio-system
+defaultNamespace: istio-control
 policy:
   enabled: false
 telemetry:
@@ -200,7 +200,7 @@ autoInjection:
 trafficManagement:
   enabled: true
   components:
-    namespace: istio-system
+    namespace: istio-control
     proxy:
       common:
         enabled: false
@@ -221,7 +221,7 @@ trafficManagement:
 			installSpec: `
 hub: docker.io/istio
 tag: 1.1.4
-defaultNamespace: istio-system
+defaultNamespace: istio-control
 policy:
   enabled: false
 telemetry:
