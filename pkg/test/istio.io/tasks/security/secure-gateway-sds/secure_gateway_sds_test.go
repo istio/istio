@@ -15,8 +15,10 @@
 package securegatewaysds
 
 import (
-	"istio.io/istio/pkg/test/istio.io/examples"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/istio.io/examples"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -36,7 +38,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_gateway", m).
+		NewSuite("sds_ingress_gateway_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
@@ -65,42 +67,65 @@ func setupConfig(cfg *istio.Config) {
 }
 
 // https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/
-func TestMTLS(t *testing.T) {
-	ex := examples.New(t, "secure-gateway-sds")
+func TestIngressSDS(t *testing.T) {
+	framework.
+		NewTest(t).
+			Run(func(ctx framework.TestContext) {
+				ex := examples.New(t, "secure-gateway-sds")
 
-	////The following line is just an example of how to use addfile.
-	//ex.AddFile("istio-system", "samples/sleep/sleep.yaml")
-	//ex.AddScript("", "create-ns-foo-bar.sh", examples.TextOutput)
-	//
-	//ex.AddScript("", "curl-foo-bar-legacy.sh", examples.TextOutput)
-	//
-	////verify that all requests returns 200 ok
-	//
-	//ex.AddScript("", "verify-initial-policies.sh", examples.TextOutput)
-	//
-	////verify that only the following exist:
-	//// NAMESPACE      NAME                          AGE
-	//// istio-system   grafana-ports-mtls-disabled   3m
-	//
-	//ex.AddScript("", "verify-initial-destinationrules.sh", examples.TextOutput)
-	//
-	////verify that only the following exists:
-	////NAMESPACE      NAME              AGE
-	////istio-system   istio-policy      25m
-	////istio-system   istio-telemetry   25m
-	//
-	//ex.AddScript("", "configure-mtls-destinationrule.sh", examples.TextOutput)
-	//ex.AddScript("", "curl-foo-bar-legacy.sh", examples.TextOutput)
-	//
-	////verify 200ok from all requests
-	//
-	//ex.AddScript("", "httpbin-foo-mtls-only.sh", examples.TextOutput)
-	//ex.AddScript("", "curl-foo-bar-legacy.sh", examples.TextOutput)
-	//
-	////verify 200 from first 2 requests and 503 from 3rd request
-	//
-	//ex.AddScript("", "cleanup.sh", examples.TextOutput)
+				env := ctx.Environment().(*kube.Environment)
+				// Configure a TLS ingress gateway for a single host.
+				ex.AddScript("", "httpbin-deployment.sh", examples.TextOutput)
+				ex.AddScript("", "create-httpbin-tls-secret.sh", examples.TextOutput)
+				ex.AddScript("", "create-httpbin-tls-gateway.sh", examples.TextOutput)
+				ex.AddScript("", "check-envoy-sds-update-1.sh", examples.TextOutput)
+				// Send an HTTPS request to access the httpbin service TLS gateway.
+				if env.Settings().Minikube {
+					ex.AddScript("", "curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput)
+				} else {
+					ex.AddScript("", "curl-httpbin-tls-gateway-gke.sh", examples.TextOutput)
+				}
 
-	ex.AddScript("", "mtls-go-example.sh", examples.TextOutput)
-	ex.Run()
+				// Rotate secret and send HTTPS request with new credentials.
+				ex.AddScript("", "rotate-httpbin-tls-secret.sh", examples.TextOutput)
+				ex.AddScript("", "check-envoy-sds-update-2.sh", examples.TextOutput)
+				if env.Settings().Minikube {
+					ex.AddScript("", "curl-httpbin-tls-gateway-minikube-new-tls-secret.sh", examples.TextOutput)
+				} else {
+					ex.AddScript("", "curl-httpbin-tls-gateway-gke-new-tls-secret.sh", examples.TextOutput)
+				}
+
+				// Configure a TLS ingress gateway for multiple hosts
+				ex.AddScript("", "restore-httpbin-tls-secret.sh", examples.TextOutput)
+				ex.AddScript("", "helloworld-deployment.sh", examples.TextOutput)
+				ex.AddScript("", "create-helloworld-tls-secret.sh", examples.TextOutput)
+				ex.AddScript("", "create-helloworld-tls-gateway.sh", examples.TextOutput)
+				// Send an HTTPS request to access the helloworld service TLS gateway.
+				ex.AddScript("", "check-envoy-sds-update-4.sh", examples.TextOutput)
+				if env.Settings().Minikube {
+					ex.AddScript("", "curl-helloworld-tls-gateway-minikube.sh", examples.TextOutput)
+				} else {
+					ex.AddScript("", "curl-helloworld-tls-gateway-gke.sh", examples.TextOutput)
+				}
+				// Send an HTTPS request to access the httpbin service TLS gateway.
+				if env.Settings().Minikube {
+					ex.AddScript("", "curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput)
+				} else {
+					ex.AddScript("", "curl-httpbin-tls-gateway-gke.sh", examples.TextOutput)
+				}
+
+				// Configure a mutual TLS ingress gateway
+				ex.AddScript("", "rotate-httpbin-mtls-secret.sh", examples.TextOutput)
+				ex.AddScript("", "create-httpbin-mtls-gateway.sh", examples.TextOutput)
+				ex.AddScript("", "check-envoy-sds-update-5.sh", examples.TextOutput)
+				// Send an HTTPS request to access the httpbin service mTLS gateway.
+				if env.Settings().Minikube {
+					ex.AddScript("", "curl-httpbin-mtls-gateway-minikube.sh", examples.TextOutput)
+				} else {
+					ex.AddScript("", "curl-httpbin-mtls-gateway-gke.sh", examples.TextOutput)
+				}
+				// Cleanup
+				ex.AddScript("", "cleanup.sh", examples.TextOutput)
+				ex.Run()
+			})
 }

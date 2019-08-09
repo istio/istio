@@ -118,6 +118,7 @@ func (example *Example) Run() {
 			}
 			for _, step := range example.steps {
 				output, err := step.Run(kubeEnv, example.t)
+				example.t.Log(output)
 				if err != nil {
 					example.t.Log(output)
 					example.t.Fatal(output)
