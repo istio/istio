@@ -412,14 +412,7 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	if opts["sds_uds_path"] != nil && opts["sds_token_path"] != nil {
 		// sds is enabled
 		meta[model.NodeMetadataSdsEnabled] = "1"
-
-		if opts["sds_token_path"] == "/var/run/secrets/kubernetes.io/serviceaccount/token" {
-			// use default jwt.
-			meta[model.NodeMetadataSdsTrustJwt] = "0"
-		} else {
-			// use trustworthy jwt.
-			meta[model.NodeMetadataSdsTrustJwt] = "1"
-		}
+		meta[model.NodeMetadataSdsTrustJwt] = "1"
 	}
 
 	ba, err := json.Marshal(meta)
@@ -512,7 +505,13 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 		StoreHostPort(h, p, "statsd", opts)
 	}
 
-	if config.EnvoyMetricsServiceAddress != "" {
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
+		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsService.Address)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_metrics_service", opts)
+	} else if config.EnvoyMetricsServiceAddress != "" {
 		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
 		if err != nil {
 			return "", err
@@ -520,7 +519,7 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 		StoreHostPort(h, p, "envoy_metrics_service", opts)
 	}
 
-	if config.EnvoyAccessLogService.Address != "" {
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
 		h, p, err = GetHostPort("envoy accesslog service address", config.EnvoyAccessLogService.Address)
 		if err != nil {
 			return "", err

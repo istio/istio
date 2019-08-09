@@ -539,7 +539,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					}
 				}
 			}
-		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST:
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetRouteConfiguration() == nil {
 					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
@@ -1150,10 +1150,18 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
+		} else {
+			log.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
 		}
 	}
 
-	if config.EnvoyAccessLogService != nil {
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))
+		}
+	}
+
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
 		if err := ValidateProxyAddress(config.EnvoyAccessLogService.Address); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogService.Address)))
 		}
@@ -1575,20 +1583,6 @@ func ValidateServiceRoleBinding(_, _ string, msg proto.Message) error {
 		return errors.New("cannot cast to ServiceRoleBinding")
 	}
 	return checkServiceRoleBinding(in)
-}
-
-// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.AuthorizationPolicy)
-	if !ok {
-		return errors.New("cannot cast to AuthorizationPolicy")
-	}
-	for _, binding := range in.Allow {
-		if err := checkServiceRoleBinding(binding); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)

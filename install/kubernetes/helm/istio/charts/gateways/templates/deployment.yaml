@@ -279,10 +279,8 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
-          {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
-          {{- end }}
           {{- end }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
@@ -312,7 +310,6 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -320,7 +317,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ $.Values.global.trustDomain }}
-      {{- end }}
       {{- end }}
       - name: istio-certs
         secret:

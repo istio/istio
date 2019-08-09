@@ -38,18 +38,16 @@ import (
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:                 constants.ConfigPathDir,
-		BinaryPath:                 constants.BinaryPathFilename,
-		ServiceCluster:             constants.ServiceClusterName,
-		DrainDuration:              types.DurationProto(45 * time.Second),
-		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
-		DiscoveryAddress:           constants.DiscoveryPlainAddress,
-		ConnectTimeout:             types.DurationProto(1 * time.Second),
-		StatsdUdpAddress:           "",
-		EnvoyMetricsServiceAddress: "",
-		EnvoyAccessLogService: &meshconfig.RemoteService{
-			Address: "",
-		},
+		ConfigPath:             constants.ConfigPathDir,
+		BinaryPath:             constants.BinaryPathFilename,
+		ServiceCluster:         constants.ServiceClusterName,
+		DrainDuration:          types.DurationProto(45 * time.Second),
+		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		DiscoveryAddress:       constants.DiscoveryPlainAddress,
+		ConnectTimeout:         types.DurationProto(1 * time.Second),
+		StatsdUdpAddress:       "",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
