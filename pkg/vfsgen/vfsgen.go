@@ -14,7 +14,7 @@
 
 /*
 Package vfsgen is a set of file system utilities for compiled in helm charts which are generated using
-github.com/shurcooL/vfsgen and included in this package in vfsgen_data.go.
+github.com/shurcooL/vfsgen and included in this package in vfsgen.gen.go.
 */
 package vfsgen
 
