@@ -26,3 +26,6 @@ RUN apt-get update && \
    && apt-get upgrade -y \
    && apt-get clean \
    && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
+
+RUN useradd -m --uid 1337 istio && \
+    echo "istio ALL=NOPASSWD: ALL" >> /etc/sudoers
