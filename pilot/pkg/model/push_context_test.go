@@ -22,33 +22,33 @@ import (
 func TestMergeUpdateRequest(t *testing.T) {
 	cases := []struct {
 		name   string
-		left   *UpdateRequest
-		right  *UpdateRequest
-		merged UpdateRequest
+		left   *PushRequest
+		right  *PushRequest
+		merged PushRequest
 	}{
 		{
 			"left nil",
 			nil,
-			&UpdateRequest{true, nil},
-			UpdateRequest{true, nil},
+			&PushRequest{Full: true},
+			PushRequest{Full: true},
 		},
 		{
 			"right nil",
-			&UpdateRequest{true, nil},
+			&PushRequest{Full: true},
 			nil,
-			UpdateRequest{true, nil},
+			PushRequest{Full: true},
 		},
 		{
 			"simple merge",
-			&UpdateRequest{true, map[string]struct{}{"ns1": {}}},
-			&UpdateRequest{false, map[string]struct{}{"ns2": {}}},
-			UpdateRequest{true, map[string]struct{}{"ns1": {}, "ns2": {}}},
+			&PushRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}}},
+			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}},
+			PushRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
 		},
 		{
 			"incremental merge",
-			&UpdateRequest{false, map[string]struct{}{"ns1": {}}},
-			&UpdateRequest{false, map[string]struct{}{"ns2": {}}},
-			UpdateRequest{false, map[string]struct{}{"ns1": {}, "ns2": {}}},
+			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}},
+			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}},
+			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
 		},
 	}
 
