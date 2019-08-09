@@ -21,7 +21,7 @@ spec:
     name: foo  # http. This is for testing protocol sniffing.
   - port: 8080
     targetPort: {{.port2}}
-    name: bar  # http-two. This is for testing protocol sniffing.
+    name: http-two
 {{if eq .headless "true"}}
   - port: 10090
     targetPort: {{.port3}}
