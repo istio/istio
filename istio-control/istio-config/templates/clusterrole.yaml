@@ -34,5 +34,7 @@ rules:
   resources: ["deployments/finalizers"]
   resourceNames: ["istio-galley"]
   verbs: ["update"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
 ---
-
