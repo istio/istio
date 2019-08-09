@@ -111,3 +111,32 @@ func TestGoogleCAClient(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRegion(t *testing.T) {
+	testCases := map[string]struct {
+		clusterURL     string
+		expectedProj   string
+		expectedRegion string
+	}{
+		"Valid URL": {
+			clusterURL:     "https://container.googleapis.com/v1/projects/testproj1/locations/us-central1-c/clusters/c1",
+			expectedProj:   "testproj1",
+			expectedRegion: "us-central1-c",
+		},
+		"InValid response": {
+			clusterURL:     "aaa",
+			expectedProj:   "",
+			expectedRegion: "",
+		},
+	}
+
+	for id, tc := range testCases {
+		proj, region := parseRegion(tc.clusterURL)
+		if proj != tc.expectedProj {
+			t.Errorf("Test case [%s]: proj: got %+v, expected %v", id, proj, tc.expectedProj)
+		}
+		if region != tc.expectedRegion {
+			t.Errorf("Test case [%s]: proj: got %+v, expected %v", id, region, tc.expectedRegion)
+		}
+	}
+}
