@@ -67,6 +67,7 @@ spec:
         sidecar.istio.io/inject: "false"
 {{end}}
         sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
+        traffic.sidecar.alpha.istio.io/enableProtocolSniffing: "true"
     spec:
 {{if eq .serviceAccount "true"}}
       serviceAccountName: {{.service}}

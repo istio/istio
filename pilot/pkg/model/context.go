@@ -529,6 +529,9 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataEnableProtocolSniffing specifies the flag for enabling/disabling protocol sniffing.
+	NodeMetadataEnableProtocolSniffing = "ENABLE_PROTOCOL_SNIFFING"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
