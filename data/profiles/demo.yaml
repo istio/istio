@@ -1,405 +1,136 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
-  defaultNamespace: istio-system
-
-  # Traffic management feature
-  trafficManagement:
-    enabled: true
+  gateways:
     components:
-      namespace: istio-control
-
-      pilot:
+      egressGateway:
         common:
+          enabled: false
+      ingressGateway:
+        common:
+          enabled: true
           k8s:
-            env:
-            - name: GODEBUG
-              value: "gctrace=1"
-            replicaCount: 1
-            readinessProbe:
-              httpGet:
-                path: /ready
-                port: 8080
-              initialDelaySeconds: 5
-              periodSeconds: 30
-              timeoutSeconds: 5
-            resources:
-              requests:
-                cpu: 10m
-                memory: 100Mi
-
-          values:
-            image: pilot
-            autoscaleEnabled: false
-            traceSampling: 100.0
-            configNamespace: istio-config
-            keepaliveMaxServerConnectionAge: 30m
-            configMap: true
-            ingress:
-              ingressService: istio-ingressgateway
-              ingressControllerMode: "OFF"
-              ingressClass: istio
-            telemetry:
-              enabled: true
-            policy:
-              enabled: false
-            useMCP: true
-
-      proxy:
-        common:
-          values:
-            image: proxyv2
-            clusterDomain: "cluster.local"
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
-            concurrency: 2
-            accessLogFile: "/dev/stdout"
-            accessLogEncoding: TEXT
-            logLevel: warning
-            componentLogLevel: "misc:error"
-            dnsRefreshRate: 300s
-            privileged: false
-            enableCoreDump: false
-            statusPort: 15020
-            readinessInitialDelaySeconds: 1
-            readinessPeriodSeconds: 2
-            readinessFailureThreshold: 30
-            includeIPRanges: "*"
-            autoInject: enabled
-            tracer: "zipkin"
-
-  # Policy feature
+          values:
+            autoscaleEnabled: false
   policy:
-    enabled: true
     components:
       namespace: istio-policy
       policy:
         common:
           k8s:
-            replicaCount: 1
             resources:
               requests:
                 cpu: 10m
                 memory: 100Mi
-            env:
-              - name: GODEBUG
-                value: "gctrace=1"
           values:
-            image: mixer
             autoscaleEnabled: false
-            adapters:
-              kubernetesenv:
-                enabled: true
 
-  # Telemetry feature
+  security:
+    controlPlaneMtls: false
+    dataPlaneMtlsStrict: false
+
   telemetry:
-    enabled: true
     components:
       namespace: istio-telemetry
       telemetry:
         common:
           k8s:
-            env:
-            - name: GODEBUG
-              value: "gctrace=1"
-            - name: GOMAXPROCS
-              value: "6"
-            replicaCount: 1
             resources:
+              limits:
+                cpu: 4800m
+                memory: 4G
               requests:
                 cpu: 50m
                 memory: 100Mi
           values:
-            image: mixer
-            autoscaleEnabled: false
-            sessionAffinityEnabled: false
-            loadshedding:
-              mode: enforce
-              latencyThreshold: 100ms
             adapters:
-              stdio:
+              kubernetesenv:
                 enabled: true
-                outputAsJson: false
               prometheus:
                 enabled: true
                 metricsExpiryDuration: 10m
-              kubernetesenv:
-                enabled: true
               stackdriver:
                 enabled: false
+              stdio:
+                enabled: true
+                outputAsJson: false
               useAdapterCRDs: false
-
-  # Security feature
-  security:
-    enabled: true
-    controlPlaneMtls: false
-    dataPlaneMtlsStrict: false
-    components:
-      namespace: istio-security
-
-      citadel:
-        common:
-          values:
-            image: citadel
-            selfSigned: true # indicate if self-signed CA is used.
-            trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
-            dnsCerts:
-              istio-pilot-service-account.istio-system: istio-pilot.istio-system
-
-      certManager:
-        common:
-          values:
-            replicaCount: 1
-            hub: quay.io/jetstack
-            tag: v0.6.2
-
-      nodeAgent:
-        common:
-          values:
-            image: node-agent-k8s
-            env:
-              CA_PROVIDER: ""
-              CA_ADDR: ""
-              Plugins: ""
-
-  # Config management feature
-  configManagement:
-    enabled: true
+            autoscaleEnabled: false
+  trafficManagement:
     components:
       namespace: istio-control
-      galley:
+      pilot:
         common:
           k8s:
-            replicaCount: 1
+            env:
+              - name: GODEBUG
+                value: gctrace=1
             resources:
               requests:
-                cpu: 100m
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      namespace: istio-control
-      injector:
-        common:
+                cpu: 10m
+                memory: 100Mi
           values:
-            replicaCount: 1
-            image: sidecar_injector
-            enableNamespacesByDefault: false
-            rewriteAppHTTPProbe: false
-            selfSigned: false
-
-  # Istio Gateway feature
-  gateways:
-    enabled: true
-    components:
-      ingressGateway:
+            traceSampling: 100
+      proxy:
         common:
-          namespace: istio-ingress
           k8s:
-            replicaCount: 1
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
           values:
-            autoscaleEnabled: false
-            # Debug level for envoy. Can be set to 'debug'
-            debug: info
-            domain: ""
-            # Enable cross-cluster access using SNI matching
-            zvpn:
-              enabled: true
-              suffix: global
-            # Domain name for telemetry addons
-            telemetry_domain_name: ""
-            env:
-              # A gateway with this mode ensures that pilot generates an additional
-              # set of clusters for internal services but without Istio mTLS, to
-              # enable cross cluster routing.
-              ISTIO_META_ROUTER_MODE: "sni-dnat"
-            ports:
-            ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
-            # Note that AWS ELB will by default perform health checks on the first port
-            # on this list. Setting this to the health check port will ensure that health
-            # checks always work. https://github.com/istio/istio/issues/12503
-            - port: 15020
-              targetPort: 15020
-              name: status-port
-            - port: 80
-              targetPort: 80
-              name: http2
-            - port: 443
-              name: https
-            - port: 15029
-              targetPort: 15029
-              name: kiali
-            - port: 15030
-              targetPort: 15030
-              name: prometheus
-            - port: 15031
-              targetPort: 15031
-              name: grafana
-            - port: 15032
-              targetPort: 15032
-              name: tracing
-              # This is the port where sni routing happens
-            - port: 15443
-              targetPort: 15443
-              name: tls
-            #### MESH EXPANSION PORTS  ########
-            # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
-            # to pilot/citadel if global.meshExpansion settings are enabled.
-            # Delete these ports if mesh expansion is not enabled, to avoid
-            # exposing unnecessary ports on the web.
-            # You can remove these ports if you are not using mesh expansion
-            meshExpansionPorts:
-            - port: 15011
-              targetPort: 15011
-              name: tcp-pilot-grpc-tls
-            - port: 8060
-              targetPort: 8060
-              name: tcp-citadel-grpc-tls
-            - port: 853
-              targetPort: 853
-              name: tcp-dns-tls
-            ####### end MESH EXPANSION PORTS ######
-            ##############
-            secretVolumes:
-            - name: ingressgateway-certs
-              secretName: istio-ingressgateway-certs
-              mountPath: /etc/istio/ingressgateway-certs
-            - name: ingressgateway-ca-certs
-              secretName: istio-ingressgateway-ca-certs
-              mountPath: /etc/istio/ingressgateway-ca-certs
-            # Telemetry addon gateways example config
-            telemetry_addon_gateways:
-              tracing_gateway:
-                name: tracing
-                port: 15032
-                desPort: 80
-                enabled: false
-                tls: false
-              kiali_gateway:
-                name: kiali
-                port: 15029
-                desPort: 20001
-                enabled: false
-                tls: false
-              grafana_gateway:
-                name: grafana
-                port: 15031
-                desPort: 3000
-                enabled: false
-                tls: false
-              prometheus_gateway:
-                name: prometheus
-                port: 15030
-                desPort: 9090
-                enabled: false
-                tls: false
-      egressGateway:
-        common:
-          namespace: istio-egress
-          k8s:
-            replicaCount: 1
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
-          values:
-            autoscaleEnabled: false
-            # Enable cross-cluster access using SNI matching.
-            # Make sure you set suffix if deploying multiple egress gateways.
-            zvpn:
-              # Must be different for each egress namespace.
-              # Used to control the domain name suffix for zero vpn routing.
-              # Domain names ending with this suffix will be routed to this egress gateway
-              # automatically.
-              # This can be a real domain name ( istio.example.com )
-              suffix: global
-              enabled: true
-            drainDuration: 45s
-            connectTimeout: 10s
-            env:
-              # Set this to "external" if and only if you want the egress gateway to
-              # act as a transparent SNI gateway that routes mTLS/TLS traffic to
-              # external services defined using service entries, where the service
-              # entry has resolution set to DNS, has one or more endpoints with
-              # network field set to "external". By default its set to "" so that
-              # the egress gateway sees the same set of endpoints as the sidecars
-              # preserving backward compatibility
-              # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
-              # A gateway with this mode ensures that pilot generates an additional
-              # set of clusters for internal services but without Istio mTLS, to
-              ISTIO_META_ROUTER_MODE: "sni-dnat"
-            ports:
-            - port: 80
-              name: http2
-            - port: 443
-              name: https
-              # This is the port where sni routing happens
-            - port: 15443
-              targetPort: 15443
-              name: tls
-            secretVolumes:
-            - name: egressgateway-certs
-              secretName: istio-egressgateway-certs
-              mountPath: /etc/istio/egressgateway-certs
-            - name: egressgateway-ca-certs
-              secretName: istio-egressgateway-ca-certs
-              mountPath: /etc/istio/egressgateway-ca-certs
+            accessLogFile: /dev/stdout
 
-  # Global values passed through to helm global.yaml.
   values:
-    logging:
-      level: "default:info"
-    k8sIngress:
-      enabled: false
-      gatewayName: ingressgateway
-      enableHttps: false
-    proxy_init:
-      image: proxy_init
-    imagePullPolicy: Always
-    controlPlaneSecurityEnabled: true
-    disablePolicyChecks: false
-    policyCheckFailOpen: false
-    enableTracing: true
-    mtls:
-      enabled: false
-    arch:
-      amd64: 2
-      s390x: 2
-      ppc64le: 2
-    oneNamespace: false
-    configValidation: true
-    defaultResources:
-      requests:
-        cpu: 10m
-    defaultPodDisruptionBudget:
-      enabled: true
-    useMCP: true
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-  # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
-    meshExpansion: {}
-    multiCluster: {}
-    sds:
-      enabled: false
-      udsPath: ""
-      useTrustworthyJwt: false
-      useNormalJwt: false
-    tracer:
-      lightstep:
-        address: ""
-        accessToken: ""
-        secure: true
-        cacertPath: ""
-      zipkin:
-        address: ""
-      datadog:
-        address: "$(HOST_IP):8126"
+    global:
+      arch:
+        amd64: 2
+        ppc64le: 2
+        s390x: 2
+      clusterResources: true
+      configValidation: true
+      controlPlaneSecurityEnabled: true
+      defaultPodDisruptionBudget:
+        enabled: true
+      defaultResources:
+        requests:
+          cpu: 10m
+      disablePolicyChecks: false
+      enableTracing: true
+      imagePullPolicy: Always
+      k8sIngress:
+        enableHttps: false
+        enabled: false
+        gatewayName: ingressgateway
+      logging:
+        level: default:info
+      meshExpansion: {}
+      mtls:
+        enabled: false
+      multiCluster: {}
+      oneNamespace: false
+      outboundTrafficPolicy:
+        mode: ALLOW_ANY
+      policyCheckFailOpen: false
+      proxy_init:
+        image: proxy_init
+      sds:
+        enabled: false
+        udsPath: ""
+        useNormalJwt: false
+        useTrustworthyJwt: false
+      tracer:
+        datadog:
+          address: $(HOST_IP):8126
+        lightstep:
+          accessToken: ""
+          address: ""
+          cacertPath: ""
+          secure: true
+        zipkin:
+          address: ""
+      useMCP: true

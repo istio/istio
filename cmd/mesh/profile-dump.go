@@ -18,15 +18,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
-	"istio.io/operator/pkg/manifest"
-
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/component/component"
 	"istio.io/operator/pkg/helm"
+	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -41,9 +39,6 @@ type profileDumpArgs struct {
 	helmValues bool
 	// configPath sets the root node for the subtree to display the config for.
 	configPath string
-	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
-	// value to set the node at that path to.
-	set []string
 }
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
@@ -52,7 +47,6 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree. ")
 	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
 		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered.")
-	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
@@ -60,65 +54,79 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 		Use:   "dump",
 		Short: "Dumps an Istio configuration profile.",
 		Long:  "The dump subcommand is used to dump the values in an Istio configuration profile.",
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			profileDump(rootArgs, pdArgs)
+			profileDump(args, rootArgs, pdArgs)
 		}}
 
 }
 
-func profileDump(args *rootArgs, pdArgs *profileDumpArgs) {
-	checkLogsOrExit(args)
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs) {
+	checkLogsOrExit(rootArgs)
+
+	if len(args) == 1 && pdArgs.inFilename != "" {
+		logAndFatalf(rootArgs, "Cannot specify both profile name and filename flag.")
+	}
 
 	writer, err := getWriter("")
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		logAndFatalf(rootArgs, err.Error())
 	}
 	defer func() {
 		if err := writer.Close(); err != nil {
-			logAndFatalf(args, "Did not close output successfully: %v", err)
+			logAndFatalf(rootArgs, "Did not close output successfully: %v", err)
 		}
 	}()
 
-	overlayFromSet, err := makeTreeFromSetList(pdArgs.set)
-	if err != nil {
-		logAndFatalf(args, err.Error())
+	profile := ""
+	if len(args) == 1 {
+		profile = args[0]
 	}
-
-	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, overlayFromSet, pdArgs.configPath)
+	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		logAndFatalf(rootArgs, err.Error())
 	}
 
 	if _, err := writer.WriteString(y); err != nil {
-		logAndFatalf(args, "Could not write values; %s", err)
+		logAndFatalf(rootArgs, "Could not write values; %s", err)
 	}
 }
 
-func genProfile(helmValues bool, inFilename, setOverlayYAML, configPath string) (string, error) {
-	overlayCRYAML := ""
+func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string) (string, error) {
+	overlayYAML := ""
+	var overlayICPS *v1alpha2.IstioControlPlaneSpec
 	if inFilename != "" {
 		b, err := ioutil.ReadFile(inFilename)
 		if err != nil {
 			return "", fmt.Errorf("could not read values file %s: %s", inFilename, err)
 		}
-		overlayCRYAML = string(b)
+		overlayICPS, overlayYAML, err = unmarshalAndValidateICP(string(b))
+		if err != nil {
+			return "", err
+		}
+		profile = overlayICPS.Profile
 	}
 
-	overlayICPS, overlayYAML, err := unmarshalAndValidateICP(overlayCRYAML)
-	if err != nil {
-		return "", err
-	}
-
-	// Now read the base profile specified in the user spec.
-	fname, err := helm.FilenameFromProfile(overlayICPS.Profile)
-	if err != nil {
-		return "", fmt.Errorf("could not get filename from profile: %s", err)
-	}
 	// This contains the IstioControlPlane CR.
-	baseCRYAML, err := helm.ReadValuesYAML(overlayICPS.Profile)
+	baseCRYAML, err := helm.ReadValuesYAML(profile)
 	if err != nil {
-		return "", fmt.Errorf("could not read the profile values for %s: %s", fname, err)
+		return "", fmt.Errorf("could not read the profile values for %s: %s", profile, err)
+	}
+
+	if !helm.IsDefaultProfile(profile) {
+		// Profile definitions are relative to the default profile, so read that first.
+		dfn, err := helm.DefaultFilenameForProfile(profile)
+		if err != nil {
+			return "", err
+		}
+		defaultYAML, err := helm.ReadValuesYAML(dfn)
+		if err != nil {
+			return "", fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
+		}
+		baseCRYAML, err = helm.OverlayYAML(defaultYAML, baseCRYAML)
+		if err != nil {
+			return "", fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
+		}
 	}
 
 	_, baseYAML, err := unmarshalAndValidateICP(baseCRYAML)
