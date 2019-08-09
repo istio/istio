@@ -25,7 +25,7 @@
 /samples/                                                        @frankbu @kyessenov @vadimeisenbergibm @venilnoronha
 /security/                                                       @diemtvu @incfly @myidpt @quanjielin @JimmyCYJ
 /tests/e2e/local/                                                @costinm @nmittler @gargnupur @kimikowang @JimmyCYJ @m1093782566
-/tests/e2e/tests/pilot/                                          @costinm @howardjohn @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm
+/tests/e2e/tests/pilot/                                          @costinm @nmittler @howardjohn @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm
 /tests/integration/conformance/                                  @costinm @nmittler @ozevren
 /tests/integration/framework/                                    @costinm @nmittler @ozevren
 /tests/integration/galley/                                       @costinm @nmittler @ozevren @geeknoid
