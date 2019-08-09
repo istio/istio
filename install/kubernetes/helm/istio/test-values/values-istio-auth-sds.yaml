@@ -9,9 +9,6 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
-    # The e2e tests (old framework) are still using old Kubernetes version with no trustworthy jwts support.
-    useNormalJwt: true
-    useTrustworthyJwt: false
 
   proxy:
     enableCoreDump: true
