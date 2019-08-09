@@ -76,7 +76,7 @@ func ManifestCmd() *cobra.Command {
 }
 
 func genManifests(inFilename string, setOverlayYAML string) (name.ManifestMap, error) {
-	mergedYAML, err := genProfile(false, inFilename, setOverlayYAML, "")
+	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "")
 	if err != nil {
 		return nil, err
 	}

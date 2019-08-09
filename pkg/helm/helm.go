@@ -17,6 +17,7 @@ package helm
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -34,8 +35,8 @@ const (
 	// YAMLSeparator is a separator for multi-document YAML files.
 	YAMLSeparator = "\n---\n"
 
-	// DefaultGlobalValuesFilename is the default name for a global values file if none is specified.
-	DefaultGlobalValuesFilename = "global.yaml"
+	// DefaultProfileString is the name of the default profile.
+	DefaultProfileString = "default"
 )
 
 // TemplateRenderer defines a helm template renderer interface.
@@ -156,19 +157,22 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
-func FilenameFromProfile(profile string) (string, error) {
+// DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
+func DefaultFilenameForProfile(profile string) (string, error) {
 	switch {
-	case profile == "":
-		return DefaultProfileFilename, nil
 	case util.IsFilePath(profile):
-		return profile, nil
+		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename), nil
 	default:
-		if _, ok := ProfileNames[profile]; ok {
-			return BuiltinProfileToFilename(profile), nil
+		if _, ok := ProfileNames[profile]; ok || profile == "" {
+			return DefaultProfileString, nil
 		}
+		return "", fmt.Errorf("bad profile string %s", profile)
 	}
+}
 
-	return "", fmt.Errorf("bad profile string: %s", profile)
+// IsDefaultProfile reports whether the given profile is the default profile.
+func IsDefaultProfile(profile string) bool {
+	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileFilename
 }
 
 func readFile(path string) (string, error) {

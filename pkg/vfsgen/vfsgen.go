@@ -38,7 +38,7 @@ func ReadFile(path string) ([]byte, error) {
 	}
 	b := make([]byte, fi.Size())
 
-	if _, err := f.Read(b); err != io.EOF {
+	if _, err := f.Read(b); err != nil && err != io.EOF {
 		return nil, err
 	}
 	return b, nil
