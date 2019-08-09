@@ -539,7 +539,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					}
 				}
 			}
-		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST:
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetRouteConfiguration() == nil {
 					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
@@ -1150,12 +1150,20 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
+		} else {
+			log.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
 		}
 	}
 
-	if config.EnvoyAccessLogServiceAddress != "" {
-		if err := ValidateProxyAddress(config.EnvoyAccessLogServiceAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogServiceAddress)))
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))
+		}
+	}
+
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
+		if err := ValidateProxyAddress(config.EnvoyAccessLogService.Address); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogService.Address)))
 		}
 	}
 

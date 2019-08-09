@@ -302,6 +302,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 				},
 			},
 		}}
+		if util.IsIstioVersionGE13(node) {
+			// add a name to the route
+			virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
+		}
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {

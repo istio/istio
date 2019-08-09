@@ -318,19 +318,19 @@ func TestValidateMeshConfig(t *testing.T) {
 
 func TestValidateProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
-		ConfigPath:                   "/etc/istio/proxy",
-		BinaryPath:                   "/usr/local/bin/envoy",
-		DiscoveryAddress:             "istio-pilot.istio-system:15010",
-		ProxyAdminPort:               15000,
-		DrainDuration:                types.DurationProto(45 * time.Second),
-		ParentShutdownDuration:       types.DurationProto(60 * time.Second),
-		ConnectTimeout:               types.DurationProto(10 * time.Second),
-		ServiceCluster:               "istio-proxy",
-		StatsdUdpAddress:             "istio-statsd-prom-bridge.istio-system:9125",
-		EnvoyMetricsServiceAddress:   "metrics-service.istio-system:15000",
-		EnvoyAccessLogServiceAddress: "accesslog-service.istio-system:15000",
-		ControlPlaneAuthPolicy:       1,
-		Tracing:                      nil,
+		ConfigPath:             "/etc/istio/proxy",
+		BinaryPath:             "/usr/local/bin/envoy",
+		DiscoveryAddress:       "istio-pilot.istio-system:15010",
+		ProxyAdminPort:         15000,
+		DrainDuration:          types.DurationProto(45 * time.Second),
+		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		ConnectTimeout:         types.DurationProto(10 * time.Second),
+		ServiceCluster:         "istio-proxy",
+		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
+		ControlPlaneAuthPolicy: 1,
+		Tracing:                nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -405,13 +405,17 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "envoy metrics service address invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
+			name: "envoy metrics service address invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.EnvoyMetricsService = &meshconfig.RemoteService{Address: "metrics-service.istio-system"}
+			}),
 			isValid: false,
 		},
 		{
-			name:    "envoy access log service address invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyAccessLogServiceAddress = "accesslog-service.istio-system" }),
+			name: "envoy access log service address invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.EnvoyAccessLogService = &meshconfig.RemoteService{Address: "accesslog-service.istio-system"}
+			}),
 			isValid: false,
 		},
 		{
@@ -632,18 +636,18 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:                   "",
-		BinaryPath:                   "",
-		DiscoveryAddress:             "10.0.0.100",
-		ProxyAdminPort:               0,
-		DrainDuration:                types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration:       types.DurationProto(-1 * time.Second),
-		ConnectTimeout:               types.DurationProto(-1 * time.Second),
-		ServiceCluster:               "",
-		StatsdUdpAddress:             "10.0.0.100",
-		EnvoyMetricsServiceAddress:   "metrics-service",
-		EnvoyAccessLogServiceAddress: "accesslog-service",
-		ControlPlaneAuthPolicy:       -1,
+		ConfigPath:             "",
+		BinaryPath:             "",
+		DiscoveryAddress:       "10.0.0.100",
+		ProxyAdminPort:         0,
+		DrainDuration:          types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
+		ConnectTimeout:         types.DurationProto(-1 * time.Second),
+		ServiceCluster:         "",
+		StatsdUdpAddress:       "10.0.0.100",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
+		ControlPlaneAuthPolicy: -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
