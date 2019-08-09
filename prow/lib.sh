@@ -124,8 +124,21 @@ function setup_kind_cluster() {
 
   trap cleanup_kind_cluster EXIT
 
+  # Different Kubernetes versions need different patches
+  K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
+  if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
+    # Kubernetes 1.12
+    CONFIG=./prow/config/trustworthy-jwt-12.yaml
+  elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
+    # Kubernetes 1.13, 1.14
+    CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
+  else
+    # Kubernetes 1.15
+    CONFIG=./prow/config/trustworthy-jwt.yaml
+  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --config ./prow/config/trustworthy-jwt.yaml --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
