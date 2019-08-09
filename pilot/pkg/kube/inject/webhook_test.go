@@ -861,12 +861,17 @@ type configMapBody struct {
 	Template string `yaml:"template"`
 }
 
-func loadSidecarTemplate(t testing.TB) string {
+func loadSidecarTemplate(t testing.TB) Config {
 	injectionConfig, err := ioutil.ReadFile(injectorConfig) // nolint: vetshadow
 	if err != nil {
 		t.Fatalf("failed to load sidecar template: %v", err)
 	}
-	return string(injectionConfig)
+
+	injectConfig := Config{
+		Policy:   InjectionPolicyEnabled,
+		Template: string(injectionConfig),
+	}
+	return injectConfig
 }
 
 func getValues(params *Params, t testing.TB) string {

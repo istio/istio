@@ -1,4 +1,7 @@
 policy: enabled
+neverInjectSelector:
+  - matchLabels:
+      test: new
 template: |-
   initContainers:
   - name: istio-init

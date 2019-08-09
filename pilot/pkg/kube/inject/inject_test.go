@@ -553,7 +553,7 @@ func TestIntoResourceFile(t *testing.T) {
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
 			}
-			sidecarTemplate := loadSidecarTemplate(t)
+			injectConfig := loadSidecarTemplate(t)
 			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
@@ -563,7 +563,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &m, in, &got); err != nil {
+			if err = IntoResourceFile(injectConfig, valuesConfig, &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -655,7 +655,7 @@ func TestRewriteAppProbe(t *testing.T) {
 				ReadinessFailureThreshold:    DefaultReadinessFailureThreshold,
 				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
 			}
-			sidecarTemplate := loadSidecarTemplate(t)
+			injectConfig := loadSidecarTemplate(t)
 			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
@@ -665,7 +665,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &m, in, &got); err != nil {
+			if err = IntoResourceFile(injectConfig, valuesConfig, &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -760,7 +760,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
 			params := newTestParams()
-			sidecarTemplate := loadSidecarTemplate(t)
+			injectConfig := loadSidecarTemplate(t)
 			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
@@ -769,7 +769,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, valuesConfig, params.Mesh, in, &got); err == nil {
+			if err = IntoResourceFile(injectConfig, valuesConfig, params.Mesh, in, &got); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)

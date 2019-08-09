@@ -104,15 +104,16 @@ func getValuesFromConfigMap(kubeconfig string) (string, error) {
 	return valuesData, nil
 }
 
-func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
+func getInjectConfigFromConfigMap(kubeconfig string) (inject.Config, error) {
+	var injectConfig inject.Config
 	client, err := createInterface(kubeconfig)
 	if err != nil {
-		return "", err
+		return injectConfig, err
 	}
 
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
+		return injectConfig, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
 			injectConfigMapName, istioNamespace, err)
 	}
@@ -121,16 +122,15 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 	// key
 	injectData, exists := meshConfigMap.Data[injectConfigMapKey]
 	if !exists {
-		return "", fmt.Errorf("missing configuration map key %q in %q",
+		return injectConfig, fmt.Errorf("missing configuration map key %q in %q",
 			injectConfigMapKey, injectConfigMapName)
 	}
-	var injectConfig inject.Config
 	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
-		return "", fmt.Errorf("unable to convert data from configmap %q: %v",
+		return injectConfig, fmt.Errorf("unable to convert data from configmap %q: %v",
 			injectConfigMapName, err)
 	}
 	log.Debugf("using inject template from configmap %q", injectConfigMapName)
-	return injectConfig.Template, nil
+	return injectConfig, nil
 }
 
 func validateFlags() error {
@@ -266,18 +266,16 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				}
 			}
 
-			var sidecarTemplate string
+			var injectConfig inject.Config
 			if injectConfigFile != "" {
 				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
 				if err != nil {
 					return err
 				}
-				var injectConfig inject.Config
 				if err := yaml.Unmarshal(injectionConfig, &injectConfig); err != nil {
 					return multierr.Append(fmt.Errorf("loading --injectConfigFile"), err)
 				}
-				sidecarTemplate = injectConfig.Template
-			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+			} else if injectConfig, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
 				return err
 			}
 
@@ -295,7 +293,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 			if emitTemplate {
 				cfg := inject.Config{
 					Policy:   inject.InjectionPolicyEnabled,
-					Template: sidecarTemplate,
+					Template: injectConfig.Template,
 				}
 				out, err := yaml.Marshal(&cfg)
 				if err != nil {
@@ -305,7 +303,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
+			return inject.IntoResourceFile(injectConfig, valuesConfig, meshConfig, reader, writer)
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;

@@ -649,7 +649,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+func IntoResourceFile(injectConfig Config, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -667,7 +667,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			outObject, err := intoObject(injectConfig, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -707,7 +707,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+func intoObject(injectConfig Config, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -727,7 +727,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			r, err := intoObject(injectConfig, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -770,16 +770,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
-
-	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
-	// in fact, they are changing the routing at the host level. This
-	// often results in routing failures within a node which can
-	// affect the network provider within the cluster causing
-	// additional pod failures.
-	if podSpec.HostNetwork {
-		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n",
-			metadata.Name)
+	if !injectRequired(ignoredNamespaces, &injectConfig, podSpec, metadata) {
+		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection for %s/%s due to policy check\n",
+			metadata.Namespace, metadata.Name)
 		return out, nil
 	}
 
@@ -795,9 +788,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	spec, status, err := InjectionData(
-		sidecarTemplate,
+		injectConfig.Template,
 		valuesConfig,
-		sidecarTemplateVersionHash(sidecarTemplate),
+		sidecarTemplateVersionHash(injectConfig.Template),
 		deploymentMetadata,
 		podSpec,
 		metadata,
