@@ -1,0 +1,201 @@
+# Demo-level allocations
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-egressgateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  template:
+    spec:
+      containers:
+        - name: grafana
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  template:
+    spec:
+      containers:
+        - name: prometheus
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-telemetry
+spec:
+  template:
+    spec:
+      containers:
+        - name: mixer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-policy
+spec:
+  template:
+    spec:
+      containers:
+        - name: mixer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-sidecar-injector
+spec:
+  template:
+    spec:
+      containers:
+        - name: sidecar-injector-webhook
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-citadel
+spec:
+  template:
+    spec:
+      containers:
+        - name: citadel
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-galley
+spec:
+  template:
+    spec:
+      containers:
+        - name: galley
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-pilot
+spec:
+  template:
+    spec:
+      containers:
+        - name: discovery
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+          env:
+            - name: foo
+              value: bar
+        - name: istio-proxy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali
+spec:
+  template:
+    spec:
+      containers:
+        - name: kiali
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+spec:
+  template:
+    spec:
+      containers:
+        - name: jaeger
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+---

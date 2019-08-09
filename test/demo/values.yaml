@@ -3,12 +3,6 @@
 # Includes components used in the demo, defaults to alpha3 rules.
 # Note: please only put common configuration for the demo profiles here.
 global:
-  istioNamespace: istio-system
-  configNamespace: istio-system
-  telemetryNamespace: istio-system
-  prometheusNamespace: istio-system
-  policyNamespace: istio-system
-
   defaultPodDisruptionBudget:
     enabled:
       false
@@ -20,6 +14,7 @@ global:
         cpu: 10m
         memory: 40Mi
 
+  # Reflects in pilot config - should move to proper API and istio-config
   disablePolicyChecks: false
 
   sidecarInjectorWebhook:
@@ -31,34 +26,14 @@ global:
 
 pilot:
   traceSampling: 100.0
-  resources:
-    requests:
-      cpu: 10m
-      memory: 100Mi
-    limits:
-      cpu: 100m
-      memory: 200Mi
+  autoscaleEnabled: false
 
 mixer:
   policy:
     enabled: true
-    resources:
-      requests:
-        cpu: 10m
-        memory: 100Mi
-      limits:
-        cpu: 100m
-        memory: 100Mi
 
   telemetry:
     enabled: true
-    resources:
-      requests:
-        cpu: 50m
-        memory: 100Mi
-      limits:
-        cpu: 100m
-        memory: 100Mi
 
   adapters:
     stdio:
@@ -74,22 +49,3 @@ kiali:
   enabled: true
   createDemoSecret: true
 
-gateways:
-  istio-ingressgateway:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi
-
-  istio-egressgateway:
-    enabled: true
-    resources:
-      requests:
-        cpu: 10m
-        memory: 40Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi

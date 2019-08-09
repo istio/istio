@@ -1,3 +1,4 @@
+{{ if not (eq .Release.Namespace "istio-system") }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -137,6 +138,7 @@ spec:
       valueType: BOOL
     quota.cache_hit:
       valueType: BOOL
+
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -291,6 +293,8 @@ spec:
     destination.workload.name: $out.destination_workload_name | "unknown"
     destination.workload.namespace: $out.destination_workload_namespace | "unknown"
 {{- end }}
+{{- end }}
+
 ---
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS

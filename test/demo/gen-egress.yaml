@@ -1,0 +1,322 @@
+---
+# Source: istio-egress/templates/service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egressgateway
+  namespace: istio-system
+  annotations:
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+  type: ClusterIP
+  selector:
+    app: istio-egressgateway
+  ports:
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
+---
+
+---
+# Source: istio-egress/templates/deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    istio: egressgateway
+    release: istio-system-istio
+spec:
+  selector:
+    matchLabels:
+      app: istio-egressgateway
+      istio: egressgateway
+  template:
+    metadata:
+      labels:
+        app: istio-egressgateway
+        istio: egressgateway
+        heritage: Tiller
+        release: istio
+        chart: gateways
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+        - name: istio-proxy
+          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 15443
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --proxyLogLevel=warning
+          - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - istio-egressgateway
+          - --zipkinAddress
+          - zipkin.istio-system:9411
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          - istio-pilot.istio-system:15011
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          volumeMounts:
+          
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: egressgateway-certs
+            mountPath: "/etc/istio/egressgateway-certs"
+            readOnly: true
+          - name: egressgateway-ca-certs
+            mountPath: "/etc/istio/egressgateway-ca-certs"
+            readOnly: true
+      volumes:
+      
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: egressgateway-certs
+        secret:
+          secretName: "istio-egressgateway-certs"
+          optional: true
+      - name: egressgateway-ca-certs
+        secret:
+          secretName: "istio-egressgateway-ca-certs"
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x      
+
+---
+# Source: istio-egress/templates/preconfigured.yaml
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - hosts:
+    - "*.global"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system 
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+  gateways:
+  - istio-multicluster-egressgateway
+  hosts:
+  - "*.global"
+  tls:
+  - match:
+    - port: 15443
+      sniHosts:
+      - "*.global"
+    route:
+    - destination:
+        host: non.existent.cluster
+        port:
+          number: 15443
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+   workloadLabels:
+     istio: egressgateway
+   filters:
+   - listenerMatch:
+       portNumber: 15443
+       listenerType: GATEWAY
+     filterName: envoy.filters.network.sni_cluster
+     filterType: NETWORK
+     filterConfig: {}
+---
+## To ensure all traffic to *.global is using mTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-destinationrule
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+  host: "*.global"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+---
+# Source: istio-egress/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: egressgateway
+  namespace: istio-system
+  labels:
+    app: istio-egressgateway
+    release: istio-system-istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: egressgateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+
+---
+# Source: istio-egress/templates/poddisruptionbudget.yaml
+
+
+---
+# Source: istio-egress/templates/serviceaccount.yaml
+
+

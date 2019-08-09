@@ -60,7 +60,6 @@ spec:
   {{- else }}
           - --enable-validation=false
   {{- end }}
-          - --validation-port=9443
           - --enable-server=true
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
