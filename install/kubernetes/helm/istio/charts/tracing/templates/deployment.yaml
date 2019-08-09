@@ -21,7 +21,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if eq .Values.provider "jaeger" }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "16686"
