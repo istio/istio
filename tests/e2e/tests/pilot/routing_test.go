@@ -815,13 +815,13 @@ func TestSidecarScope(t *testing.T) {
 		}
 	}
 	// Upon function exit, delete the active rule.
-	defer func() {
-		for _, cfg := range cfgs {
-			if cfg != nil {
-				_ = cfg.Teardown()
-			}
-		}
-	}()
+	//defer func() {
+	//	for _, cfg := range cfgs {
+	//		if cfg != nil {
+	//			_ = cfg.Teardown()
+	//		}
+	//	}
+	//}()
 
 	rules := make(map[string][]string)
 	rules[tc.Kube.Namespace] = []string{"testdata/networking/v1alpha3/sidecar-scope-ns1-ns2.yaml"}
@@ -838,11 +838,11 @@ func TestSidecarScope(t *testing.T) {
 		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
 			t.Errorf("Unable to create namespace %s: %v", ns, err)
 		}
-		defer func(ns string) {
-			if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
-				t.Errorf("Failed to delete namespace %s", ns)
-			}
-		}(ns)
+		//defer func(ns string) {
+		//	if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+		//		t.Errorf("Failed to delete namespace %s", ns)
+		//	}
+		//}(ns)
 	}
 	applyRuleFunc(t, rules)
 	// Wait a few seconds so that the older proxy listeners get overwritten
