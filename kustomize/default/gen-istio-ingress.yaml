@@ -145,7 +145,7 @@ spec:
           - --serviceCluster
           - istio-ingressgateway
           - --zipkinAddress
-          - zipkin.istio-telemetry:9411
+          - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -153,7 +153,7 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - istio-pilot.istio-control:15011
+          - istio-pilot.istio-system:15011
           readinessProbe:
             failureThreshold: 30
             httpGet:

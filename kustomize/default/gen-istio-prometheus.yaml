@@ -56,7 +56,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - istio-policy
+          - istio-system
 
 
       relabel_configs:
@@ -81,7 +81,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - istio-control
+          - istio-system
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -93,7 +93,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - istio-control
+          - istio-system
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -237,7 +237,6 @@ data:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: pod_name
-
     - job_name: 'kubernetes-pods-istio-secure'
       scheme: https
       tls_config:
@@ -396,7 +395,8 @@ spec:
               port: 9090
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
           volumeMounts:
           - name: config-volume
