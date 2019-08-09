@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -50,6 +50,20 @@ func Parse(s string) (map[string]interface{}, error) {
 	return vals, err
 }
 
+// ParseFile parses a set line, but its final value is loaded from the file at the path specified by the original value.
+//
+// A set line is of the form name1=path1,name2=path2
+//
+// When the files at path1 and path2 contained "val1" and "val2" respectively, the set line is consumed as
+// name1=val1,name2=val2
+func ParseFile(s string, runesToVal runesToVal) (map[string]interface{}, error) {
+	vals := map[string]interface{}{}
+	scanner := bytes.NewBufferString(s)
+	t := newFileParser(scanner, vals, runesToVal)
+	err := t.parse()
+	return vals, err
+}
+
 // ParseString parses a set line and forces a string value.
 //
 // A set line is of the form name1=value1,name2=value2
@@ -71,7 +85,16 @@ func ParseInto(s string, dest map[string]interface{}) error {
 	return t.parse()
 }
 
-// ParseIntoString parses a strvals line nad merges the result into dest.
+// ParseIntoFile parses a filevals line and merges the result into dest.
+//
+// This method always returns a string as the value.
+func ParseIntoFile(s string, dest map[string]interface{}, runesToVal runesToVal) error {
+	scanner := bytes.NewBufferString(s)
+	t := newFileParser(scanner, dest, runesToVal)
+	return t.parse()
+}
+
+// ParseIntoString parses a strvals line and merges the result into dest.
 //
 // This method always returns a string as the value.
 func ParseIntoString(s string, dest map[string]interface{}) error {
@@ -82,14 +105,27 @@ func ParseIntoString(s string, dest map[string]interface{}) error {
 
 // parser is a simple parser that takes a strvals line and parses it into a
 // map representation.
+//
+// where sc is the source of the original data being parsed
+// where data is the final parsed data from the parses with correct types
+// where st is a boolean to figure out if we're forcing it to parse values as string
 type parser struct {
-	sc   *bytes.Buffer
-	data map[string]interface{}
-	st   bool
+	sc         *bytes.Buffer
+	data       map[string]interface{}
+	runesToVal runesToVal
 }
 
+type runesToVal func([]rune) (interface{}, error)
+
 func newParser(sc *bytes.Buffer, data map[string]interface{}, stringBool bool) *parser {
-	return &parser{sc: sc, data: data, st: stringBool}
+	rs2v := func(rs []rune) (interface{}, error) {
+		return typedVal(rs, stringBool), nil
+	}
+	return &parser{sc: sc, data: data, runesToVal: rs2v}
+}
+
+func newFileParser(sc *bytes.Buffer, data map[string]interface{}, runesToVal runesToVal) *parser {
+	return &parser{sc: sc, data: data, runesToVal: runesToVal}
 }
 
 func (t *parser) parse() error {
@@ -153,8 +189,12 @@ func (t *parser) key(data map[string]interface{}) error {
 				set(data, string(k), "")
 				return e
 			case ErrNotList:
-				v, e := t.val()
-				set(data, string(k), typedVal(v, t.st))
+				rs, e := t.val()
+				if e != nil && e != io.EOF {
+					return e
+				}
+				v, e := t.runesToVal(rs)
+				set(data, string(k), v)
 				return e
 			default:
 				return e
@@ -226,8 +266,12 @@ func (t *parser) listItem(list []interface{}, i int) ([]interface{}, error) {
 		case io.EOF:
 			return setIndex(list, i, ""), err
 		case ErrNotList:
-			v, e := t.val()
-			return setIndex(list, i, typedVal(v, t.st)), e
+			rs, e := t.val()
+			if e != nil && e != io.EOF {
+				return list, e
+			}
+			v, e := t.runesToVal(rs)
+			return setIndex(list, i, v), e
 		default:
 			return list, e
 		}
@@ -244,7 +288,13 @@ func (t *parser) listItem(list []interface{}, i int) ([]interface{}, error) {
 		// We have a nested object. Send to t.key
 		inner := map[string]interface{}{}
 		if len(list) > i {
-			inner = list[i].(map[string]interface{})
+			var ok bool
+			inner, ok = list[i].(map[string]interface{})
+			if !ok {
+				// We have indices out of order. Initialize empty value.
+				list[i] = map[string]interface{}{}
+				inner = list[i].(map[string]interface{})
+			}
 		}
 
 		// Recurse
@@ -275,7 +325,7 @@ func (t *parser) valList() ([]interface{}, error) {
 	list := []interface{}{}
 	stop := runeSet([]rune{',', '}'})
 	for {
-		switch v, last, err := runesUntil(t.sc, stop); {
+		switch rs, last, err := runesUntil(t.sc, stop); {
 		case err != nil:
 			if err == io.EOF {
 				err = errors.New("list must terminate with '}'")
@@ -286,10 +336,15 @@ func (t *parser) valList() ([]interface{}, error) {
 			if r, _, e := t.sc.ReadRune(); e == nil && r != ',' {
 				t.sc.UnreadRune()
 			}
-			list = append(list, typedVal(v, t.st))
-			return list, nil
+			v, e := t.runesToVal(rs)
+			list = append(list, v)
+			return list, e
 		case last == ',':
-			list = append(list, typedVal(v, t.st))
+			v, e := t.runesToVal(rs)
+			if e != nil {
+				return list, e
+			}
+			list = append(list, v)
 		}
 	}
 }
@@ -321,6 +376,11 @@ func inMap(k rune, m map[rune]bool) bool {
 
 func typedVal(v []rune, st bool) interface{} {
 	val := string(v)
+
+	if st {
+		return val
+	}
+
 	if strings.EqualFold(val, "true") {
 		return true
 	}
@@ -329,8 +389,16 @@ func typedVal(v []rune, st bool) interface{} {
 		return false
 	}
 
-	// If this value does not start with zero, and not returnString, try parsing it to an int
-	if !st && len(val) != 0 && val[0] != '0' {
+	if strings.EqualFold(val, "null") {
+		return nil
+	}
+
+	if strings.EqualFold(val, "0") {
+		return int64(0)
+	}
+
+	// If this value does not start with zero, try parsing it to an int
+	if len(val) != 0 && val[0] != '0' {
 		if iv, err := strconv.ParseInt(val, 10, 64); err == nil {
 			return iv
 		}

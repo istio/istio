@@ -60,7 +60,7 @@ func reflectTypeName(sample interface{}) string {
 func (w *WebService) compilePathExpression() {
 	compiled, err := newPathExpression(w.rootPath)
 	if err != nil {
-		log.Printf("[restful] invalid path:%s because:%v", w.rootPath, err)
+		log.Printf("invalid path:%s because:%v", w.rootPath, err)
 		os.Exit(1)
 	}
 	w.pathExpr = compiled
