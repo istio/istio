@@ -24,7 +24,7 @@ spec:
         app: {{ template "galley.name" . }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}      
+        release: {{ .Release.Name }}
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -42,7 +42,12 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
+{{- if .Values.sidecar }}
+          - containerPort: 15019
+          - containerPort: 9443
+{{- else }}
           - containerPort: 443
+{{- end }}
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
@@ -54,13 +59,17 @@ spec:
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --deployment-namespace={{ .Release.Namespace }}
-{{- if $.Values.global.controlPlaneSecurityEnabled}}
+{{- if and $.Values.global.controlPlaneSecurityEnabled (not .Values.sidecar) }}
           - --insecure=false
 {{- else }}
           - --insecure=true
 {{- end }}
+          - --enable-validation=true
+          - --validation-port=9443
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
+{{- else }}
+          - --enable-server=true
 {{- end }}
 {{- if not $.Values.global.configValidation }}
           - --enable-validation=false
@@ -72,7 +81,7 @@ spec:
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
           volumeMounts:
-          - name: certs
+          - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
           - name: config
@@ -88,8 +97,11 @@ spec:
                 - probe
                 - --probe-path=/healthliveness
                 - --interval=10s
+            failureThreshold: 3
             initialDelaySeconds: 5
             periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           readinessProbe:
             exec:
               command:
@@ -97,16 +109,81 @@ spec:
                 - probe
                 - --probe-path=/healthready
                 - --interval=10s
+            failureThreshold: 3
             initialDelaySeconds: 5
             periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+{{- if .Values.sidecar }}
+        - name: istio-proxy
+      {{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+      {{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+      {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 9902
+          {{- if not .Values.sidecar }}
+            - containerPort: 15019
+          {{- end }}
+          args:
+            - proxy
+            - --domain
+            - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            - --serviceCluster
+            - istio-galley
+            - --templateFile
+            - /etc/istio/proxy/envoy_galley.yaml.tmpl
+          {{- if $.Values.global.controlPlaneSecurityEnabled}}
+            - --controlPlaneAuthPolicy
+            - MUTUAL_TLS
+          {{- else }}
+            - --controlPlaneAuthPolicy
+            - NONE
+          {{- end }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+          {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+          resources:
+{{- if .Values.global.proxy.resources }}
+{{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          volumeMounts:
+            - name: istio-certs
+              mountPath: /etc/certs
+              readOnly: true
+          {{- if .Values.sidecar }}
+            - name: envoy-config
+              mountPath: /var/lib/istio/galley/envoy
+          {{- end }}
+{{- end }}
       volumes:
-      - name: certs
+      - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account
       - name: config
@@ -114,7 +191,12 @@ spec:
           name: istio-galley-configuration
       - name: mesh-config
         configMap:
-          name: istio
+          name: istio-mesh-galley
+{{- if .Values.sidecar }}
+      - name: envoy-config
+        configMap:
+          name: galley-envoy-config
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
