@@ -27,9 +27,9 @@ import (
 
 func main() {
 	var cwd, _ = os.Getwd()
-	templates := http.Dir(filepath.Join(cwd, "../data"))
+	templates := http.Dir(filepath.Join(cwd, "data"))
 	if err := vfsgen.Generate(templates, vfsgen.Options{
-		Filename:    "../pkg/vfsgen/vfsgen_data.go",
+		Filename:    "pkg/vfsgen/vfsgen_data.go",
 		PackageName: "vfsgen",
 		//		BuildTags:    "deploy_build",
 		VariableName: "Assets",
