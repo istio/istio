@@ -74,7 +74,7 @@ for ((i=1; i<=$#; i++)); do
         ;;
         --skip-cleanup)
           SKIP_CLEANUP=true
-          shift
+          continue
         ;;
         # -s/--single_test to specify test target to run.
         # e.g. "-s e2e_mixer" will trigger e2e mixer_test
