@@ -6,6 +6,13 @@ spec:
       egressGateway:
         common:
           enabled: false
+          k8s:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 40Mi
+          values:
+            autoscaleEnabled: false
       ingressGateway:
         common:
           enabled: true
@@ -40,13 +47,11 @@ spec:
         common:
           k8s:
             resources:
-              limits:
-                cpu: 4800m
-                memory: 4G
               requests:
                 cpu: 50m
                 memory: 100Mi
           values:
+            autoscaleEnabled: false
             adapters:
               kubernetesenv:
                 enabled: true
@@ -59,22 +64,20 @@ spec:
                 enabled: true
                 outputAsJson: false
               useAdapterCRDs: false
-            autoscaleEnabled: false
+
   trafficManagement:
     components:
       namespace: istio-control
       pilot:
         common:
           k8s:
-            env:
-              - name: GODEBUG
-                value: gctrace=1
             resources:
               requests:
                 cpu: 10m
                 memory: 100Mi
           values:
             traceSampling: 100
+            autoscaleEnabled: false
       proxy:
         common:
           k8s:
@@ -87,50 +90,19 @@ spec:
 
   values:
     global:
-      arch:
-        amd64: 2
-        ppc64le: 2
-        s390x: 2
-      clusterResources: true
-      configValidation: true
-      controlPlaneSecurityEnabled: true
-      defaultPodDisruptionBudget:
-        enabled: true
-      defaultResources:
-        requests:
-          cpu: 10m
       disablePolicyChecks: false
-      enableTracing: true
-      imagePullPolicy: Always
-      k8sIngress:
-        enableHttps: false
-        enabled: false
-        gatewayName: ingressgateway
-      logging:
-        level: default:info
-      meshExpansion: {}
-      mtls:
-        enabled: false
-      multiCluster: {}
-      oneNamespace: false
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
-      policyCheckFailOpen: false
-      proxy_init:
-        image: proxy_init
-      sds:
-        enabled: false
-        udsPath: ""
-        useNormalJwt: false
-        useTrustworthyJwt: false
-      tracer:
-        datadog:
-          address: $(HOST_IP):8126
-        lightstep:
-          accessToken: ""
-          address: ""
-          cacertPath: ""
-          secure: true
-        zipkin:
-          address: ""
-      useMCP: true
+
+    mixer:
+      adapters:
+        stdio:
+          enabled: true
+
+    grafana:
+      enabled: true
+
+    tracing:
+      enabled: true
+
+    kiali:
+      enabled: true
+      createDemoSecret: true
