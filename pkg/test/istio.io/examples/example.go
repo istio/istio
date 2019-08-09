@@ -54,20 +54,20 @@ func New(t *testing.T, name string) Example {
 	}
 }
 
-// AddScript adds a directive to run a script
-func (example *Example) AddScript(namespace string, script string, output outputType) {
+// RunScript adds a directive to run a script
+func (example *Example) RunScript(script string, output outputType) {
 	//fullPath := getFullPath(istioPath + script)
 	example.steps = append(example.steps, newStepScript("./"+script, output))
 }
 
-// AddFile adds an existing file
-func (example *Example) AddFile(namespace string, path string) {
+// Apply applies an existing file
+func (example *Example) Apply(namespace string, path string) {
 	fullPath := getFullPath(istioPath + path)
 	example.steps = append(example.steps, newStepFile(namespace, fullPath, false))
 }
 
-// DeleteFile deletes an existing file
-func (example *Example) DeleteFile(namespace string, path string) {
+// Delete deletes an existing file
+func (example *Example) Delete(namespace string, path string) {
 	fullPath := getFullPath(istioPath + path)
 	example.steps = append(example.steps, newStepFile(namespace, fullPath, true))
 }

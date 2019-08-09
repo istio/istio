@@ -40,62 +40,80 @@ func TestMain(m *testing.M) {
 
 // TestAuthzHTTP simulates the task in https://www.istio.io/docs/tasks/security/authz-http/
 func TestAuthzHTTP(t *testing.T) {
-	ex := examples.New(t, "authz-http")
+	setup(t)
 
-	setup(&ex)
+	enablingIstioAuthorization(t)
 
-	enablingIstioAuthorization(&ex)
-	enforcingNamespaceLevelAccessControl(&ex)
-	enforcingServiceLevelAccessControlStep1(&ex)
-	enforcingServiceLevelAccessControlStep2(&ex)
-	enforcingServiceLevelAccessControlStep3(&ex)
+	enforcingNamespaceLevelAccessControl(t)
+	enforcingServiceLevelAccessControlStep1(t)
+	enforcingServiceLevelAccessControlStep2(t)
+	enforcingServiceLevelAccessControlStep3(t)
 
-	clean(&ex)
-
-	ex.Run()
+	cleanup(t)
 }
 
-func setup(ex *examples.Example) {
-	ex.AddScript(ns, "setup.sh", examples.TextOutput)
-	ex.AddFile(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
-	ex.AddFile(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
-	ex.AddFile(ns, "samples/sleep/sleep.yaml")
-	ex.AddScript(ns, "wait.sh", examples.TextOutput)
+func setup(t *testing.T) {
+	ex := examples.New(t, "Setup")
+	defer ex.Run()
+
+	ex.RunScript("setup.sh", examples.TextOutput)
+	ex.Apply(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
+	ex.Apply(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
+	ex.Apply(ns, "samples/sleep/sleep.yaml")
+	ex.RunScript("wait.sh", examples.TextOutput)
 }
 
-func enablingIstioAuthorization(ex *examples.Example) {
-	ex.AddFile("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
-	ex.AddScript(ns, "verify-enablingIstioAuthorization.sh", examples.TextOutput)
+func enablingIstioAuthorization(t *testing.T) {
+	ex := examples.New(t, "Enabling Istio authorization")
+	defer ex.Run()
+
+	ex.Apply("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
+	ex.RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput)
 }
 
-func enforcingNamespaceLevelAccessControl(ex *examples.Example) {
-	ex.AddFile(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
-	ex.AddScript(ns, "verify-enforcingNamespaceLevelAccessControl.sh", examples.TextOutput)
-	ex.DeleteFile(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
+func enforcingNamespaceLevelAccessControl(t *testing.T) {
+	ex := examples.New(t, "Enforcing Namespace-level access control")
+	defer ex.Run()
+
+	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
+	ex.RunScript("verify-enforcingNamespaceLevelAccessControl.sh", examples.TextOutput)
+	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
 }
 
-func enforcingServiceLevelAccessControlStep1(ex *examples.Example) {
-	ex.AddFile(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
-	ex.AddScript(ns, "verify-enforcingServiceLevelAccessControlStep1.sh", examples.TextOutput)
+func enforcingServiceLevelAccessControlStep1(t *testing.T) {
+	ex := examples.New(t, "Enforcing Service-level access control Step 1")
+	defer ex.Run()
+
+	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
+	ex.RunScript("verify-enforcingServiceLevelAccessControlStep1.sh", examples.TextOutput)
 }
 
-func enforcingServiceLevelAccessControlStep2(ex *examples.Example) {
-	ex.AddFile(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
-	ex.AddScript(ns, "verify-enforcingServiceLevelAccessControlStep2.sh", examples.TextOutput)
+func enforcingServiceLevelAccessControlStep2(t *testing.T) {
+	ex := examples.New(t, "Enforcing Service-level access control Step 2")
+	defer ex.Run()
+
+	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
+	ex.RunScript("verify-enforcingServiceLevelAccessControlStep2.sh", examples.TextOutput)
 }
 
-func enforcingServiceLevelAccessControlStep3(ex *examples.Example) {
-	ex.AddFile(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
-	ex.AddScript(ns, "verify-enforcingServiceLevelAccessControlStep3.sh", examples.TextOutput)
+func enforcingServiceLevelAccessControlStep3(t *testing.T) {
+	ex := examples.New(t, "Enforcing Service-level access control Step 3")
+	defer ex.Run()
+
+	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
+	ex.RunScript("verify-enforcingServiceLevelAccessControlStep3.sh", examples.TextOutput)
 }
 
-func clean(ex *examples.Example) {
-	ex.AddScript(ns, "clean.sh", examples.TextOutput)
-	ex.DeleteFile(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
-	ex.DeleteFile(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
-	ex.DeleteFile(ns, "samples/sleep/sleep.yaml")
-	ex.DeleteFile("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
-	ex.DeleteFile(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
-	ex.DeleteFile(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
-	ex.DeleteFile(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
+func cleanup(t *testing.T) {
+	ex := examples.New(t, "Cleanup")
+	defer ex.Run()
+
+	ex.RunScript("clean.sh", examples.TextOutput)
+	ex.Delete(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
+	ex.Delete(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
+	ex.Delete(ns, "samples/sleep/sleep.yaml")
+	ex.Delete("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
+	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
+	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
+	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
 }
