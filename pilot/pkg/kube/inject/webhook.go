@@ -26,11 +26,8 @@ import (
 	"sync"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -79,7 +76,7 @@ type Webhook struct {
 	certFile   string
 	keyFile    string
 	cert       *tls.Certificate
-	exporter   *ocprom.Exporter
+	mon        *monitor
 }
 
 func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
@@ -131,6 +128,9 @@ type WebhookParameters struct {
 
 	// Port is the webhook port, e.g. typically 443 for https.
 	Port int
+
+	// MonitoringPort is the webhook port, e.g. typically 15014.
+	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
 	// file is updated. Value of zero disables the health check
@@ -189,14 +189,13 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
 
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
-	if err != nil {
-		log.Errorf("could not set up prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(exporter)
-	wh.exporter = exporter
-	h.Handle("/metrics", exporter)
+	mon, err := startMonitor(h, p.MonitoringPort)
 
+	if err != nil {
+		return nil, fmt.Errorf("could not start monitoring server %v", err)
+	}
+
+	wh.mon = mon
 	wh.server.Handler = h
 
 	return wh, nil
@@ -211,6 +210,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.watcher.Close()
 	defer wh.server.Close()
+	defer wh.mon.monitoringServer.Close()
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {

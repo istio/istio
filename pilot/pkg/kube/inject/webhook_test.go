@@ -1277,12 +1277,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 	valuesBytes := []byte(getValues(&Params{}, t))
 	var (
-		configFile = filepath.Join(dir, "config-file.yaml")
-		valuesFile = filepath.Join(dir, "values-file.yaml")
-		meshFile   = filepath.Join(dir, "mesh-file.yaml")
-		certFile   = filepath.Join(dir, "cert-file.yaml")
-		keyFile    = filepath.Join(dir, "key-file.yaml")
-		port       = 0
+		configFile     = filepath.Join(dir, "config-file.yaml")
+		valuesFile     = filepath.Join(dir, "values-file.yaml")
+		meshFile       = filepath.Join(dir, "mesh-file.yaml")
+		certFile       = filepath.Join(dir, "cert-file.yaml")
+		keyFile        = filepath.Join(dir, "key-file.yaml")
+		port           = 0
+		monitoringPort = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -1322,12 +1323,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	wh, err := NewWebhook(WebhookParameters{
-		ConfigFile: configFile,
-		ValuesFile: valuesFile,
-		MeshFile:   meshFile,
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		Port:       port,
+		ConfigFile:     configFile,
+		ValuesFile:     valuesFile,
+		MeshFile:       meshFile,
+		CertFile:       certFile,
+		KeyFile:        keyFile,
+		Port:           port,
+		MonitoringPort: monitoringPort,
 	})
 	if err != nil {
 		cleanup()
@@ -1485,7 +1487,7 @@ func TestRunAndServe(t *testing.T) {
 		})
 	}
 	// Now Validate that metrics are created.
-	testSideCarInjectorMetrics(t)
+	testSideCarInjectorMetrics(t, wh)
 }
 
 func TestReloadCert(t *testing.T) {
@@ -1523,14 +1525,8 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
-func testSideCarInjectorMetrics(t *testing.T) {
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go wh.Run(stop)
-
-	srv := httptest.NewServer(wh.exporter)
+func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
+	srv := httptest.NewServer(wh.mon.exporter)
 	defer srv.Close()
 	resp, err := http.Get(srv.URL)
 	if err != nil {
@@ -1545,20 +1541,20 @@ func testSideCarInjectorMetrics(t *testing.T) {
 
 	output := string(body)
 
-	if !strings.Contains(output, "sidecar_total_injection_requests") {
-		t.Fatalf("metric sidecar_total_injection_requests not found")
+	if !strings.Contains(output, "sidecar_injection_requests_total") {
+		t.Fatalf("metric sidecar_injection_requests_total not found")
 	}
 
-	if !strings.Contains(output, "sidecar_total_injection_success") {
-		t.Fatalf("metric sidecar_total_injection_success not found")
+	if !strings.Contains(output, "sidecar_injection_success_total") {
+		t.Fatalf("metric sidecar_injection_success_total not found")
 	}
 
-	if !strings.Contains(output, "sidecar_total_injection_skip") {
-		t.Fatalf("metric sidecar_total_injection_skip not found")
+	if !strings.Contains(output, "sidecar_injection_skip_total") {
+		t.Fatalf("metric sidecar_injection_skip_total not found")
 	}
 
-	if !strings.Contains(output, "sidecar_total_injection_failure") {
-		t.Fatalf("incorrect value for metric sidecar_total_injection_failure")
+	if !strings.Contains(output, "sidecar_injection_failure_total") {
+		t.Fatalf("incorrect value for metric sidecar_injection_failure_total")
 	}
 }
 

@@ -15,36 +15,103 @@
 package inject
 
 import (
-	"istio.io/istio/pilot/pkg/monitoring"
+	"fmt"
+	"net"
+	"net/http"
+
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
+	"istio.io/pkg/monitoring"
 )
+
+const (
+	metricsPath = "/metrics"
+)
+
+type monitor struct {
+	monitoringServer *http.Server
+	exporter         *ocprom.Exporter
+	shutdown         chan struct{}
+}
 
 var (
 	totalInjections = monitoring.NewSum(
-		"sidecar_total_injection_requests",
+		"sidecar_injection_requests_total",
 		"Total number of Side car injection requests.",
 	)
 
 	totalSuccessfulInjections = monitoring.NewSum(
-		"sidecar_total_injection_success",
+		"sidecar_injection_success_total",
 		"Total number of successful Side car injection requests.",
 	)
 
 	totalFailedInjections = monitoring.NewSum(
-		"sidecar_total_injection_failure",
+		"sidecar_injection_failure_total",
 		"Total number of failed Side car injection requests.",
 	)
 
 	totalSkippedInjections = monitoring.NewSum(
-		"sidecar_total_injection_skip",
+		"sidecar_injection_skip_total",
 		"Total number of skipped injection requests.",
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(
+	monitoring.MustRegister(
 		totalInjections,
 		totalSuccessfulInjections,
 		totalFailedInjections,
 		totalSkippedInjections,
 	)
+}
+
+func startMonitor(mux *http.ServeMux, port int) (*monitor, error) {
+	m := &monitor{
+		shutdown: make(chan struct{}),
+	}
+
+	// get the network stuff setup
+	var listener net.Listener
+	var err error
+	var exporter *ocprom.Exporter
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
+		return nil, fmt.Errorf("unable to listen on socket: %v", err)
+	}
+
+	// NOTE: this is a temporary solution to provide bare-bones debug functionality
+	// for pilot. a full design / implementation of self-monitoring and reporting
+	// is coming. that design will include proper coverage of statusz/healthz type
+	// functionality, in addition to how pilot reports its own metrics.
+	if exporter, err = addMonitor(mux); err != nil {
+		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
+	}
+	m.exporter = exporter
+	m.monitoringServer = &http.Server{
+		Handler: mux,
+	}
+
+	go func() {
+		m.shutdown <- struct{}{}
+		_ = m.monitoringServer.Serve(listener)
+		m.shutdown <- struct{}{}
+	}()
+
+	// This is here to work around (mostly) a race condition in the Serve
+	// function. If the Close method is called before or during the execution of
+	// Serve, the call may be ignored and Serve never returns.
+	<-m.shutdown
+
+	return m, nil
+}
+
+func addMonitor(mux *http.ServeMux) (*ocprom.Exporter, error) {
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle(metricsPath, exporter)
+
+	return exporter, nil
 }

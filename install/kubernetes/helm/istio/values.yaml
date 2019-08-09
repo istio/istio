@@ -118,7 +118,7 @@ global:
   logging:
     level: "default:info"
 
-  # monitoring port used by mixer, pilot, galley
+  # monitoring port used by mixer, pilot, galley and sidecar injector
   monitoringPort: 15014
 
   k8sIngress:
