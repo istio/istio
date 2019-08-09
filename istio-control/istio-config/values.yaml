@@ -1,6 +1,8 @@
 galley:
   image: galley
   replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
 
   resources:
     requests:

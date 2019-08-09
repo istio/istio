@@ -3,6 +3,8 @@ sidecarInjectorWebhook:
   # If down, new pods will fail to start or restart for a short time, but they will
   # retry.
   replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
 
   image: sidecar_injector
 

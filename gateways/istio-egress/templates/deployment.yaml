@@ -20,6 +20,10 @@ spec:
     matchLabels:
       app: istio-egressgateway
       istio: egressgateway
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ $gateway.rollingMaxSurge }}
+      maxUnavailable: {{ $gateway.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
