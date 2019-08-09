@@ -6,6 +6,8 @@ pilot:
   autoscaleMin: 1
   autoscaleMax: 5
   replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
 
   # Can be a full hub/image:tag
   image: pilot

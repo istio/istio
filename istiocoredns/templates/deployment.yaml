@@ -11,6 +11,10 @@ spec:
   selector:
     matchLabels:
       app: istiocoredns
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.istiocoredns.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.istiocoredns.rollingMaxUnavailable }}
   template:
     metadata:
       name: istiocoredns
