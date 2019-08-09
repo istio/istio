@@ -5,7 +5,7 @@ ARG BASE_DISTRIBUTION=default
 # No tag available https://hub.docker.com/_/scratch?tab=description
 # hadolint ignore=DL3006
 FROM istionightly/base_debug as default
-USER istio
+USER istio-proxy
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
