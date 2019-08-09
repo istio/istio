@@ -1,4 +1,8 @@
+#vendor
+vendor/
+
 # Created by .ignore support plugin (hsz.mobi)
+coverage.txt
 ### Go template
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o

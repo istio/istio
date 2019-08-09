@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -40,9 +40,9 @@ var (
 
 // Capabilities describes the capabilities of the Kubernetes cluster that Tiller is attached to.
 type Capabilities struct {
-	// List of all supported API versions
+	// APIVersions list of all supported API versions
 	APIVersions VersionSet
-	// KubeVerison is the Kubernetes version
+	// KubeVersion is the Kubernetes version
 	KubeVersion *version.Info
 	// TillerVersion is the Tiller version
 	//

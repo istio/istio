@@ -15,7 +15,8 @@ install:
   - dep ensure
 
 script:
- - make test 
+ - make checkdocs
+ - make test
  
 after_success:
   - bash <(curl -s https://codecov.io/bash)
