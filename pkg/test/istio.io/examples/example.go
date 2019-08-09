@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
 )
@@ -105,7 +106,7 @@ func (example *Example) Run() {
 	//f, err := os.Create(
 	//os.StdOut =
 
-	example.t.Log(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
+	scopes.CI.Infof(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
 
 	//create directory if it doesn't exist
 	if _, err := os.Stat(example.name); os.IsNotExist(err) {
@@ -125,7 +126,7 @@ func (example *Example) Run() {
 			for _, step := range example.steps {
 				output, err := step.Run(kubeEnv, example.t)
 				if err != nil {
-					example.t.Log(output)
+					scopes.CI.Error(output)
 					example.t.Fatal(output)
 				}
 			}

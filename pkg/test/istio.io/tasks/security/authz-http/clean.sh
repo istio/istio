@@ -14,5 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#!/bin/bash
+
+ISTIODIR="$GOPATH/src/istio.io/istio"
+
+if [ ! -d "$ISTIODIR" ]; then
+  echo "istio.io not found in: ${GOPATH}"
+  exit 1
+fi
+
+pushd "$ISTIODIR" || exit
+
 kubectl delete policy default -n default || true
 kubectl delete destinationrule default -n default || true
+kubectl delete clusterrbacconfig default || true
+kubectl delete servicerole --all -n default || true
+kubectl delete servicerolebinding --all -n default || true
+
+kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml || true
+kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml || true
+kubectl delete -f samples/sleep/sleep.yaml || true
+
+popd || exit

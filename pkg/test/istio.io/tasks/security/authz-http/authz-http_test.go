@@ -13,9 +13,11 @@
 package tests
 
 import (
+	"os/exec"
 	"testing"
 
 	"istio.io/istio/pkg/test/istio.io/examples"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -40,6 +42,14 @@ func TestMain(m *testing.M) {
 
 // TestAuthzHTTP simulates the task in https://www.istio.io/docs/tasks/security/authz-http/
 func TestAuthzHTTP(t *testing.T) {
+	defer func() {
+		cmd := exec.Command("./clean.sh")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			scopes.CI.Errorf("cleanup failed: %s", string(output))
+		}
+	}()
+
 	setup(t)
 
 	enablingIstioAuthorization(t)
@@ -48,8 +58,6 @@ func TestAuthzHTTP(t *testing.T) {
 	enforcingServiceLevelAccessControlStep1(t)
 	enforcingServiceLevelAccessControlStep2(t)
 	enforcingServiceLevelAccessControlStep3(t)
-
-	cleanup(t)
 }
 
 func setup(t *testing.T) {
@@ -78,6 +86,7 @@ func enforcingNamespaceLevelAccessControl(t *testing.T) {
 	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
 	ex.RunScript("verify-enforcingNamespaceLevelAccessControl.sh", examples.TextOutput)
 	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
+	ex.RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput)
 }
 
 func enforcingServiceLevelAccessControlStep1(t *testing.T) {
@@ -102,18 +111,4 @@ func enforcingServiceLevelAccessControlStep3(t *testing.T) {
 
 	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
 	ex.RunScript("verify-enforcingServiceLevelAccessControlStep3.sh", examples.TextOutput)
-}
-
-func cleanup(t *testing.T) {
-	ex := examples.New(t, "Cleanup")
-	defer ex.Run()
-
-	ex.RunScript("clean.sh", examples.TextOutput)
-	ex.Delete(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
-	ex.Delete(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
-	ex.Delete(ns, "samples/sleep/sleep.yaml")
-	ex.Delete("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
-	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
-	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
-	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
 }
