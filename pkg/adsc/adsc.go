@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -35,6 +34,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	istiolog "istio.io/pkg/log"
 )
 
 // Config for the ADS connection.
@@ -96,9 +97,6 @@ type ADSC struct {
 	// All received endpoints, keyed by cluster name
 	eds map[string]*xdsapi.ClusterLoadAssignment
 
-	// DumpCfg will print all received config
-	DumpCfg bool
-
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
 	Metadata map[string]string
@@ -123,6 +121,10 @@ const (
 	listenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
 	routeType = typePrefix + "RouteConfiguration"
+)
+
+var (
+	adscLog = istiolog.RegisterScope("adsc", "adsc debugging", 0)
 )
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
@@ -249,7 +251,7 @@ func (a *ADSC) handleRecv() {
 	for {
 		msg, err := a.stream.Recv()
 		if err != nil {
-			log.Println("Connection closed ", err, a.nodeID)
+			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			a.Close()
 			a.WaitClear()
 			a.Updates <- "close"
@@ -325,7 +327,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 				config, _ = xdsutil.MessageToStruct(filter.GetTypedConfig())
 			}
 			c := config.Fields["cluster"].GetStringValue()
-			log.Printf("TCP: %s -> %s", l.Name, c)
+			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
 		} else if filter.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
@@ -344,14 +346,14 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			// ignore for now
 		} else {
 			tm := &jsonpb.Marshaler{Indent: "  "}
-			log.Println(tm.MarshalToString(l))
+			adscLog.Infof(tm.MarshalToString(l))
 		}
 	}
 
-	log.Println("LDS: http=", len(lh), "tcp=", len(lt), "size=", ldsSize)
-	if a.DumpCfg {
+	adscLog.Infof("LDS: http=%d tcp=%d size=%d", len(lh), len(lt), ldsSize)
+	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
-		log.Println(string(b))
+		adscLog.Debugf(string(b))
 	}
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -470,14 +472,14 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 		edscds[c.Name] = c
 	}
 
-	log.Println("CDS: ", len(cn), "size=", cdsSize)
+	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
 	if len(cn) > 0 {
 		a.sendRsc(endpointType, cn)
 	}
-	if a.DumpCfg {
+	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
-		log.Println(string(b))
+		adscLog.Info(string(b))
 	}
 
 	a.mutex.Lock()
@@ -529,10 +531,10 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 		ep += len(cla.Endpoints)
 	}
 
-	log.Println("eds: ", len(eds), "size=", edsSize, "ep=", ep)
-	if a.DumpCfg {
+	adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
+	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(eds, " ", " ")
-		log.Println(string(b))
+		adscLog.Info(string(b))
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
@@ -567,7 +569,7 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 			for _, rt := range h.Routes {
 				rcount++
 				// Example: match:<prefix:"/" > route:<cluster:"outbound|9154||load-se-154.local" ...
-				log.Println(h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
+				adscLog.Debugf("Handle route %v, path %v, cluster %v", h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
 			}
 		}
 		rds[r.Name] = r
@@ -575,14 +577,14 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	}
 	if a.InitialLoad == 0 {
 		a.InitialLoad = time.Since(a.watchTime)
-		log.Println("RDS: ", len(configurations), "size=", size, "vhosts=", vh, "routes=", rcount, " time=", a.InitialLoad)
+		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.InitialLoad)
 	} else {
-		log.Println("RDS: ", len(configurations), "size=", size, "vhosts=", vh, "routes=", rcount)
+		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d", len(configurations), size, vh, rcount)
 	}
 
-	if a.DumpCfg {
+	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(configurations, " ", " ")
-		log.Println(string(b))
+		adscLog.Info(string(b))
 	}
 
 	a.mutex.Lock()
