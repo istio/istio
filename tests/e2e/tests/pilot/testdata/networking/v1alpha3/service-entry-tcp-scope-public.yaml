@@ -6,7 +6,7 @@ spec:
   hosts:
   - "service.tcp.com"
   addresses:
-  - "127.255.255.11"
+  - "192.168.9.251"
   ports:
   - number: 8888
     name: tcp
