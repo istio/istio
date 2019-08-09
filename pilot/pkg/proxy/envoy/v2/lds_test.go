@@ -283,7 +283,6 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
-	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
 	_, err = adsResponse.Wait(10*time.Second, "lds")
@@ -409,7 +408,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
-	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
 	_, err = adsResponse.Wait(10*time.Second, "lds")
@@ -511,7 +509,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 			defer adsResponse.Close()
 
-			adsResponse.DumpCfg = false
 			adsResponse.Watch()
 			_, err = adsResponse.Wait(10*time.Second, "lds")
 			if err != nil {
