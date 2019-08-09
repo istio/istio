@@ -632,13 +632,11 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: proto.BoolTrue,
 	}
 	cases := []struct {
-		name              string
-		in                *authn.Policy
-		sdsUdsPath        string
-		useTrustworthyJwt bool
-		useNormalJwt      bool
-		expected          []plugin.FilterChain
-		meta              map[string]string
+		name       string
+		in         *authn.Policy
+		sdsUdsPath string
+		expected   []plugin.FilterChain
+		meta       map[string]string
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -815,8 +813,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 	for _, c := range cases {
 		got := NewPolicyApplier(c.in).InboundFilterChain(
 			c.sdsUdsPath,
-			c.useTrustworthyJwt,
-			c.useNormalJwt,
 			c.meta,
 		)
 		if !reflect.DeepEqual(got, c.expected) {
@@ -826,6 +822,19 @@ func TestOnInboundFilterChains(t *testing.T) {
 }
 
 func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsudspath,
+		StatPrefix: authn_model.SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+			},
+		},
+	}
+
+	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
+	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
+
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -836,22 +845,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: &core.GrpcService_GoogleGrpc{
-									TargetUri:  sdsudspath,
-									StatPrefix: authn_model.SDSStatPrefix,
-									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-										},
-									},
-									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-										{
-											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-												GoogleComputeEngine: &types.Empty{},
-											},
-										},
-									},
-								},
+								GoogleGrpc: gRPCConfig,
 							},
 						},
 					},

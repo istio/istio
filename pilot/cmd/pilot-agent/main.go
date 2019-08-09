@@ -52,7 +52,7 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
@@ -93,15 +93,13 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar            = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar               = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar          = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar        = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar     = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar            = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar            = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
-	sdsTrustworthyJWTPathVar = env.RegisterStringVar("SDS_JWT_PATH", "/var/run/secrets/tokens/istio-token",
-		"path of token which is used for request key/cert through SDS")
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -291,7 +289,7 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), sdsTrustworthyJWTPathVar.Get(), jwtPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
@@ -474,7 +472,7 @@ func getDNSDomain(domain string) string {
 
 // check if SDS UDS path and token path exist, if both exist, requests key/cert
 // using SDS instead of secret mount.
-func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, preferJwtpath, jwtpath string) (bool, string) {
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
 	}
@@ -485,11 +483,8 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, pre
 		if _, err := os.Stat(udspath); err != nil {
 			return false, ""
 		}
-		if _, err := os.Stat(preferJwtpath); err == nil {
-			return true, preferJwtpath
-		}
-		if _, err := os.Stat(jwtpath); err == nil {
-			return true, jwtpath
+		if _, err := os.Stat(trustworthyJWTPath); err == nil {
+			return true, trustworthyJWTPath
 		}
 
 		return false, ""
@@ -507,11 +502,8 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, pre
 	if !waitForFile(udspath, sdsUdsWaitTimeout) {
 		return false, ""
 	}
-	if _, err := os.Stat(preferJwtpath); err == nil {
-		return true, preferJwtpath
-	}
-	if _, err := os.Stat(jwtpath); err == nil {
-		return true, jwtpath
+	if _, err := os.Stat(trustworthyJWTPath); err == nil {
+		return true, trustworthyJWTPath
 	}
 
 	return false, ""
