@@ -590,18 +590,18 @@ func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[stri
 		}
 	}
 
-	var tlsContext *auth.UpstreamTlsContext
+	var tlsContext *auth.UpstreamTLSContext
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
 		tlsContext = nil
 	case networking.TLSSettings_SIMPLE:
-		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{
 				ValidationContext: certValidationContext,
 			},
 			Sni: tls.Sni,
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		clientCertificate := tls.ClientCertificate
 		if tls.ClientCertificate == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -616,13 +616,13 @@ func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[stri
 			return
 		}
 
-		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{},
 			Sni:              tls.Sni,
 		}
 
-		tlsContext.CommonTlsContext.ValidationContext = certValidationContext
-		tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+		tlsContext.CommonTLSContext.ValidationContext = certValidationContext
+		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
 			{
 				CertificateChain: &auth.DataSource{
 					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, clientCertificate),
@@ -636,9 +636,9 @@ func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[stri
 			tlsContext.Sni = name
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
 		} else {
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
 	if tlsContext != nil {

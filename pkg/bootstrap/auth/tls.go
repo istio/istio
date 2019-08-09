@@ -20,7 +20,7 @@ type DataSource struct {
 	Filename string `json:"filename,omitempty"`
 }
 
-type TlsCertificate struct {
+type TLSCertificate struct {
 	// The TLS certificate chain.
 	CertificateChain *DataSource `json:"certificate_chain,omitempty"`
 	// The TLS private key.
@@ -28,18 +28,18 @@ type TlsCertificate struct {
 }
 
 // TLS context shared by both client and server TLS contexts.
-type CommonTlsContext struct {
+type CommonTLSContext struct {
 	// Only a single TLS certificate is supported in client contexts.
-	TlsCertificates []*TlsCertificate `json:"tls_certificates,omitempty"`
+	TLSCertificates []*TLSCertificate `json:"tls_certificates,omitempty"`
 	//How to validate peer certificates
 	ValidationContext *CertificateValidationContext `json:"validation_context,omitempty"`
 	// Supplies the list of ALPN protocols that the listener should expose.
 	AlpnProtocols []string `json:"alpn_protocols,omitempty"`
 }
 
-type UpstreamTlsContext struct {
+type UpstreamTLSContext struct {
 	// Common TLS context settings.
-	CommonTlsContext *CommonTlsContext `json:"common_tls_context,omitempty"`
+	CommonTLSContext *CommonTLSContext `json:"common_tls_context,omitempty"`
 	// SNI string to use when creating TLS backend connections.
 	Sni string `json:"sni,omitempty"`
 }
