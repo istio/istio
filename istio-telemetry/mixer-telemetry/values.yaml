@@ -27,6 +27,9 @@ mixer:
         cpu: 4800m
         memory: 4G
 
+    # Indicate if Galley is enabled to send MCP queries
+    useMCP: true
+
   env:
     GODEBUG: gctrace=1
     # max procs should be ceil(cpu limit + 1)

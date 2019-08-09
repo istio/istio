@@ -87,7 +87,7 @@ spec:
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
-{{- if .Values.global.useMCP }}
+{{- if .Values.mixer.telemetry.useMCP }}
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
@@ -122,7 +122,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-{{- if .Values.global.useMCP }}
+{{- if .Values.mixer.telemetry.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -138,7 +138,7 @@ spec:
             port: 15014
           initialDelaySeconds: 5
           periodSeconds: 5
-
+{{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
         image: "{{ .Values.global.proxy.image }}"
@@ -212,4 +212,5 @@ spec:
         {{- end }}
         - name: uds-socket
           mountPath: /sock
+{{- end }}
 ---

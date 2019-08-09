@@ -94,6 +94,7 @@ pilot:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
 
+  # Indicate if Galley is enabled to send MCP queries
   useMCP: true
 
 ## Mixer settings
