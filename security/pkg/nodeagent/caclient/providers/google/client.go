@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -27,6 +28,7 @@ import (
 
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	gcapb "istio.io/istio/security/proto/providers/google"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -34,6 +36,7 @@ const bearerTokenPrefix = "Bearer "
 
 var (
 	googleCAClientLog = log.RegisterScope("googleCAClientLog", "Google CA client debugging", 0)
+	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 type googleCAClient struct {
@@ -85,7 +88,16 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 		token = bearerTokenPrefix + token
 	}
 
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
+	out, _ := metadata.FromOutgoingContext(ctx)
+	out = out.Copy()
+	out["Authorization"] = []string{token}
+
+	proj, region := parseRegion(gkeClusterURL)
+	if proj != "" && region != "" {
+		out["x-goog-request-params"] = []string{fmt.Sprintf("parent=projects/%s/locations/%s", proj, region)}
+	}
+
+	ctx = metadata.NewOutgoingContext(ctx, out)
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to create certificate: %v", err)
@@ -109,4 +121,15 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	}
 	creds := credentials.NewClientTLSFromCert(pool, "")
 	return grpc.WithTransportCredentials(creds), nil
+}
+
+func parseRegion(clusterURL string) (string /*project*/, string) /*region*/ {
+	// input: https://container.googleapis.com/v1/projects/quanlinpilot1/locations/us-central1-c/clusters/mpibetacluster2
+	// output: quanlinpilot1 us-central1-c
+	var rgx = regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)
+	rs := rgx.FindStringSubmatch(clusterURL)
+	if len(rs) < 3 {
+		return "", ""
+	}
+	return rs[1], rs[2]
 }
