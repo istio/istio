@@ -50,6 +50,8 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 		obj = &listener.Filter{}
 	case networking.EnvoyFilter_VIRTUAL_HOST:
 		obj = &route.VirtualHost{}
+	case networking.EnvoyFilter_HTTP_ROUTE:
+		obj = &route.Route{}
 	default:
 		return nil, fmt.Errorf("envoy filter: unknown object type for applyTo %s", applyTo.String())
 	}

@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 23
+number_of_entries: 24
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -1061,16 +1061,6 @@ DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig-envoy_metrics_service_address">
-<td><code>envoyMetricsServiceAddress</code></td>
-<td><code>string</code></td>
-<td>
-<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
-See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
-for details about Envoy&rsquo;s Metrics Service API.</p>
-
-</td>
-</tr>
 <tr id="ProxyConfig-proxy_admin_port">
 <td><code>proxyAdminPort</code></td>
 <td><code>int32</code></td>
@@ -1149,14 +1139,24 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
-<tr id="ProxyConfig-envoy_access_log_service_address">
-<td><code>envoyAccessLogServiceAddress</code></td>
-<td><code>string</code></td>
+<tr id="ProxyConfig-envoy_access_log_service">
+<td><code>envoyAccessLogService</code></td>
+<td><code><a href="#RemoteService">RemoteService</a></code></td>
 <td>
 <p>Address of the service to which access logs from Envoys should be
 sent. (e.g. accesslog-service:15000). See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log
 Service</a>
 for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_metrics_service">
+<td><code>envoyMetricsService</code></td>
+<td><code><a href="#RemoteService">RemoteService</a></code></td>
+<td>
+<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
+for details about Envoy&rsquo;s Metrics Service API.</p>
 
 </td>
 </tr>
@@ -1192,6 +1192,48 @@ source IP addresses during redirection.</p>
 source and destination IP addresses and ports, so that they can be used for advanced
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RemoteService">RemoteService</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RemoteService-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of a remove service used for various purposes (access log
+receiver, metrics receiver, etc.). Can be IP address or a fully
+qualified DNS name.</p>
+
+</td>
+</tr>
+<tr id="RemoteService-tls_settings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td>
+<p>Use the tls_settings to specify the tls mode to use. If the remote service
+uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+mode as <code>ISTIO_MUTUAL</code>.</p>
+
+</td>
+</tr>
+<tr id="RemoteService-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
 
 </td>
 </tr>
