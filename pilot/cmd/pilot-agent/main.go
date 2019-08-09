@@ -80,15 +80,15 @@ var (
 	statsdUDPAddress                          string
 	envoyMetricsServiceAddress                string
 	envoyAccessLogServiceAddress              string
-	envoyAccessLogServiceTlsMode              string
-	envoyAccessLogServiceTlsClientCertificate string
-	envoyAccessLogServiceTlsPrivateKey        string
-	envoyAccessLogServiceTlsCaCertificates    string
-	envoyAccessLogServiceTlsSni               string
-	envoyAccessLogServiceTlsSubjectAltNames   []string
-	envoyAccessLogServiceTcpKeepaliveProbes   uint32
-	envoyAccessLogServiceTcpKeepaliveTime     time.Duration
-	envoyAccessLogServiceTcpKeepaliveInterval time.Duration
+	envoyAccessLogServiceTLSMode              string
+	envoyAccessLogServiceTLSClientCertificate string
+	envoyAccessLogServiceTLSPrivateKey        string
+	envoyAccessLogServiceTLSCaCertificates    string
+	envoyAccessLogServiceTLSSni               string
+	envoyAccessLogServiceTLSSubjectAltNames   []string
+	envoyAccessLogServiceTCPKeepaliveProbes   uint32
+	envoyAccessLogServiceTCPKeepaliveTime     time.Duration
+	envoyAccessLogServiceTCPKeepaliveInterval time.Duration
 	proxyAdminPort                            uint16
 	controlPlaneAuthPolicy                    string
 	customConfigFile                          string
@@ -208,23 +208,23 @@ var (
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
 			proxyConfig.EnvoyAccessLogService.Address = envoyAccessLogServiceAddress
-			if envoyAccessLogServiceTlsMode != "" {
+			if envoyAccessLogServiceTLSMode != "" {
 				proxyConfig.EnvoyAccessLogService.TlsSettings = &networkingconfig.TLSSettings{
 					Mode: networkingconfig.TLSSettings_TLSmode(networkingconfig.
-						TLSSettings_TLSmode_value[envoyAccessLogServiceTlsMode]),
-					ClientCertificate: envoyAccessLogServiceTlsClientCertificate,
-					PrivateKey:        envoyAccessLogServiceTlsPrivateKey,
-					CaCertificates:    envoyAccessLogServiceTlsCaCertificates,
-					Sni:               envoyAccessLogServiceTlsSni,
-					SubjectAltNames:   envoyAccessLogServiceTlsSubjectAltNames,
+						TLSSettings_TLSmode_value[envoyAccessLogServiceTLSMode]),
+					ClientCertificate: envoyAccessLogServiceTLSClientCertificate,
+					PrivateKey:        envoyAccessLogServiceTLSPrivateKey,
+					CaCertificates:    envoyAccessLogServiceTLSCaCertificates,
+					Sni:               envoyAccessLogServiceTLSSni,
+					SubjectAltNames:   envoyAccessLogServiceTLSSubjectAltNames,
 				}
 			}
-			if envoyAccessLogServiceTcpKeepaliveProbes > 0 || envoyAccessLogServiceTcpKeepaliveTime.Seconds() > 0 ||
-				envoyAccessLogServiceTcpKeepaliveInterval.Seconds() > 0 {
+			if envoyAccessLogServiceTCPKeepaliveProbes > 0 || envoyAccessLogServiceTCPKeepaliveTime.Seconds() > 0 ||
+				envoyAccessLogServiceTCPKeepaliveInterval.Seconds() > 0 {
 				proxyConfig.EnvoyAccessLogService.TcpKeepalive = &networkingconfig.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-					Probes:   envoyAccessLogServiceTcpKeepaliveProbes,
-					Time:     types.DurationProto(envoyAccessLogServiceTcpKeepaliveTime),
-					Interval: types.DurationProto(envoyAccessLogServiceTcpKeepaliveInterval),
+					Probes:   envoyAccessLogServiceTCPKeepaliveProbes,
+					Time:     types.DurationProto(envoyAccessLogServiceTCPKeepaliveTime),
+					Interval: types.DurationProto(envoyAccessLogServiceTCPKeepaliveInterval),
 				}
 			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
@@ -629,23 +629,23 @@ func init() {
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
 	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogService.Address,
 		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsMode, "envoyAccessLogServiceTlsMode", "",
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTLSMode, "envoyAccessLogServiceTLSMode", "",
 		"Mode Indicates whether connections to this port should be secured")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsClientCertificate, "envoyAccessLogServiceTlsClientCertificate",
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTLSClientCertificate, "envoyAccessLogServiceTLSClientCertificate",
 		"", "Path to client certificate file")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsPrivateKey, "envoyAccessLogServiceTlsPrivateKey",
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTLSPrivateKey, "envoyAccessLogServiceTLSPrivateKey",
 		"", "Path to private key file file")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsCaCertificates, "envoyAccessLogServiceTlsCaCertificates",
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTLSCaCertificates, "envoyAccessLogServiceTLSCaCertificates",
 		"", "Path to private ca certificate file")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTlsSni, "envoyAccessLogServiceTlsSni",
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceTLSSni, "envoyAccessLogServiceTLSSni",
 		"", "A name to be used during TLS handshake")
-	proxyCmd.PersistentFlags().StringSliceVar(&envoyAccessLogServiceTlsSubjectAltNames, "envoyAccessLogServiceTlsSubjectAltNames",
+	proxyCmd.PersistentFlags().StringSliceVar(&envoyAccessLogServiceTLSSubjectAltNames, "envoyAccessLogServiceTLSSubjectAltNames",
 		[]string{}, "List to verify subject identity in certificate")
-	proxyCmd.PersistentFlags().Uint32Var(&envoyAccessLogServiceTcpKeepaliveProbes, "envoyAccessLogServiceTcpKeepaliveProbes",
+	proxyCmd.PersistentFlags().Uint32Var(&envoyAccessLogServiceTCPKeepaliveProbes, "envoyAccessLogServiceTCPKeepaliveProbes",
 		0, "Maximum number of keepalive probes to send without response before deciding the connection is dead")
-	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTcpKeepaliveTime, "envoyAccessLogServiceTcpKeepaliveTime",
+	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTCPKeepaliveTime, "envoyAccessLogServiceTCPKeepaliveTime",
 		0, "The time duration a connection needs to be idle before keep-alive probes start being sent")
-	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTcpKeepaliveInterval, "envoyAccessLogServiceTcpKeepaliveInterval",
+	proxyCmd.PersistentFlags().DurationVar(&envoyAccessLogServiceTCPKeepaliveInterval, "envoyAccessLogServiceTCPKeepaliveInterval",
 		0, "The time duration between keep-alive probes")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")

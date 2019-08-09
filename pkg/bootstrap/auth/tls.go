@@ -47,7 +47,7 @@ type UpstreamTlsContext struct {
 type CertificateValidationContext struct {
 	// TLS certificate data containing certificate authority certificates to use in verifying
 	// a presented peer certificate (e.g. server certificate for clusters or client certificate
-	// for listeners). 
+	// for listeners).
 	TrustedCa *DataSource `json:"trusted_ca,omitempty"`
 	// An optional list of Subject Alternative Names. If specified, Envoy will verify that the
 	// Subject Alternative Name of the presented certificate matches one of the specified values.

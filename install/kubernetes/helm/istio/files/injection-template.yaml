@@ -138,35 +138,35 @@ containers:
   - --envoyAccessLogServiceAddress
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
-  - --envoyAccessLogServiceTlsMode
+  - --envoyAccessLogServiceTLSMode
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetMode }}"
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.clientCertificate }}
-  - --envoyAccessLogServiceTlsClientCertificate
+  - --envoyAccessLogServiceTLSClientCertificate
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetClientCertificate }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.privateKey }}
-  - --envoyAccessLogServiceTlsPrivateKey
+  - --envoyAccessLogServiceTLSPrivateKey
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetPrivateKey }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.caCertificates }}
-  - --envoyAccessLogServiceTlsCaCertificates
+  - --envoyAccessLogServiceTLSCaCertificates
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetCaCertificates }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.sni }}
-  - --envoyAccessLogServiceTlsSni
+  - --envoyAccessLogServiceTLSSni
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSni }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.subjectAltNames }}
-  - --envoyAccessLogServiceTlsSubjectAltNames
+  - --envoyAccessLogServiceTLSSubjectAltNames
   - {{ range $i, $v := .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSubjectAltNames }}{{ if $i }},{{ end }}{{ $v }}{{ end }}
 {{- end }}
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
-  - --envoyAccessLogServiceTcpKeepaliveProbes
+  - --envoyAccessLogServiceTCPKeepaliveProbes
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetProbes }}"
-  - --envoyAccessLogServiceTcpKeepaliveTime
+  - --envoyAccessLogServiceTCPKeepaliveTime
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetTime }}"
-  - --envoyAccessLogServiceTcpKeepaliveInterval
+  - --envoyAccessLogServiceTCPKeepaliveInterval
   - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetInterval }}"
 {{- end }}
 {{- end }}

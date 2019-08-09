@@ -526,7 +526,7 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 			return "", err
 		}
 		StoreHostPort(h, p, "envoy_accesslog_service_address", opts)
-		storeTlsContext(envoyAccessLogServiceName, config.EnvoyAccessLogService.TlsSettings, meta,
+		storeTLSContext(envoyAccessLogServiceName, config.EnvoyAccessLogService.TlsSettings, meta,
 			"envoy_accesslog_service_tls", opts)
 		storeKeepalive(config.EnvoyAccessLogService.TcpKeepalive, "envoy_accesslog_service_tcp_keepalive", opts)
 	}
@@ -567,7 +567,7 @@ func isIPv6Proxy(ipAddrs []string) bool {
 	return true
 }
 
-func storeTlsContext(name string, tls *networking.TLSSettings, metadata map[string]interface{}, field string, opts map[string]interface{}) {
+func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[string]interface{}, field string, opts map[string]interface{}) {
 	if tls == nil {
 		return
 	}
@@ -648,7 +648,6 @@ func storeTlsContext(name string, tls *networking.TLSSettings, metadata map[stri
 		}
 		opts[field] = tlsContextStr
 	}
-	return
 }
 
 func convertToJSON(v interface{}) string {
@@ -697,5 +696,4 @@ func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_
 		return
 	}
 	opts[field] = upstreamConnectionOptionsStr
-	return
 }
