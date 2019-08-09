@@ -32,9 +32,9 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
 	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/config"
 )
 
 var (
@@ -201,15 +201,6 @@ var (
 		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 	}
 
-	ExampleAuthorizationPolicy = &rbac.AuthorizationPolicy{
-		WorkloadSelector: &rbac.WorkloadSelector{
-			Labels: map[string]string{
-				"app":     "httpbin",
-				"version": "v1",
-			},
-		},
-	}
-
 	// ExampleRbacConfig is an example rbac config
 	ExampleRbacConfig = &rbac.RbacConfig{
 		Mode: rbac.RbacConfig_ON,
@@ -233,9 +224,9 @@ func Make(namespace string, i int) model.Config {
 				"annotationkey": name,
 			},
 		},
-		Spec: &test.MockConfig{
+		Spec: &config.MockConfig{
 			Key: name,
-			Pairs: []*test.ConfigPair{
+			Pairs: []*config.ConfigPair{
 				{Key: "key", Value: strconv.Itoa(i)},
 			},
 		},
@@ -299,7 +290,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			Name:            "invalid",
 			ResourceVersion: revs[0],
 		},
-		Spec: &test.MockConfig{},
+		Spec: &config.MockConfig{},
 	}
 
 	missing := model.Config{
@@ -308,7 +299,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			Name:            "missing",
 			ResourceVersion: revs[0],
 		},
-		Spec: &test.MockConfig{Key: "missing"},
+		Spec: &config.MockConfig{Key: "missing"},
 	}
 
 	if _, err := r.Create(model.Config{}); err == nil {
@@ -382,7 +373,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	// update all elements
 	for i := 0; i < n; i++ {
 		elt := Make(namespace, i)
-		elt.Spec.(*test.MockConfig).Pairs[0].Value += "(updated)"
+		elt.Spec.(*config.MockConfig).Pairs[0].Value += "(updated)"
 		elt.ResourceVersion = revs[i]
 		elts[i] = elt
 		if _, err = r.Update(elt); err != nil {
@@ -441,7 +432,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
-		{"AuthorizationPolicy", configName, model.AuthorizationPolicy, ExampleAuthorizationPolicy},
 		{"RbacConfig", constants.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
 		{"ClusterRbacConfig", constants.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
 	}

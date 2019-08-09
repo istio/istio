@@ -49,11 +49,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "someID",
-		DNSDomain:   "foo.com",
-		Metadata:    map[string]string{"ISTIO_VERSION": "1.3"},
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{"1.1.1.1"},
+		ID:           "someID",
+		DNSDomain:    "foo.com",
+		Metadata:     map[string]string{"ISTIO_VERSION": "1.3"},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -303,6 +304,55 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 	})
+	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		meshConfig := mesh.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+		push.SetDestinationRules([]model.Config{
+			{
+				ConfigMeta: model.ConfigMeta{
+					Type:    model.DestinationRule.Type,
+					Version: model.DestinationRule.Version,
+					Name:    "acme",
+				},
+				Spec: networkingDestinationRule,
+			}})
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, labels.Collection{}, []model.Config{}, 8080)
+		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
+	})
+	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		meshConfig := mesh.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+		push.SetDestinationRules([]model.Config{
+			{
+				ConfigMeta: model.ConfigMeta{
+					Type:    model.DestinationRule.Type,
+					Version: model.DestinationRule.Version,
+					Name:    "acme",
+				},
+				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
+			}})
+
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, labels.Collection{}, []model.Config{}, 8080)
+
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+					Name: "hash-cookie-1",
+				},
+			},
+		}
+		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).To(gomega.ConsistOf(hashPolicy))
+	})
 }
 
 func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {
@@ -460,7 +510,24 @@ var networkingDestinationRule = &networking.DestinationRule{
 		},
 	},
 }
-
+var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.DestinationRule{
+	Host: "*.example.org",
+	TrafficPolicy: &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: loadBalancerPolicy("hash-cookie"),
+		},
+		PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+			{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: loadBalancerPolicy("hash-cookie-1"),
+				},
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{Number: 8080},
+				},
+			},
+		},
+	},
+}
 var networkingSubset = &networking.Subset{
 	Name:   "some-subset",
 	Labels: map[string]string{},

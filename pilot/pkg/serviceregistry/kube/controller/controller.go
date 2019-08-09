@@ -443,6 +443,8 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return nil, nil
 	}
 
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
+
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
@@ -458,7 +460,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
-				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				if mixerEnabled {
+					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				}
 			}
 
 			// identify the port by name. K8S EndpointPort uses the service port name
@@ -775,6 +779,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -792,7 +797,10 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 
-				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				uid := ""
+				if mixerEnabled {
+					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.

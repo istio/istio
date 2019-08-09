@@ -21,10 +21,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 const (
@@ -35,8 +34,8 @@ const (
 )
 
 func TestConfigDescriptorValidate(t *testing.T) {
-	badLabel := strings.Repeat("a", config.DNS1123LabelMaxLength+1)
-	goodLabel := strings.Repeat("a", config.DNS1123LabelMaxLength-1)
+	badLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength+1)
+	goodLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength-1)
 
 	cases := []struct {
 		name       string
@@ -144,7 +143,7 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 		{
 			name:    "Successful validation",
 			typ:     MockConfig.Type,
-			config:  &test.MockConfig{Key: "test"},
+			config:  &testConfig.MockConfig{Key: "test"},
 			wantErr: false,
 		},
 	}

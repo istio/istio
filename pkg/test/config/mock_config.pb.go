@@ -11,7 +11,7 @@
 		MockConfig
 		ConfigPair
 */
-package test
+package config
 
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"

@@ -217,32 +217,47 @@ func (m *TcpKeepalive) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveProbes()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpKeepaliveValidationError{
-				field:  "KeepaliveProbes",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetKeepaliveProbes()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpKeepaliveValidationError{
+					field:  "KeepaliveProbes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveTime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpKeepaliveValidationError{
-				field:  "KeepaliveTime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetKeepaliveTime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpKeepaliveValidationError{
+					field:  "KeepaliveTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetKeepaliveInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpKeepaliveValidationError{
-				field:  "KeepaliveInterval",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetKeepaliveInterval()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpKeepaliveValidationError{
+					field:  "KeepaliveInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -318,22 +333,32 @@ func (m *BindConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSourceAddress()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BindConfigValidationError{
-				field:  "SourceAddress",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSourceAddress()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BindConfigValidationError{
+					field:  "SourceAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetFreebind()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return BindConfigValidationError{
-				field:  "Freebind",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetFreebind()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return BindConfigValidationError{
+					field:  "Freebind",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -341,12 +366,17 @@ func (m *BindConfig) Validate() error {
 	for idx, item := range m.GetSocketOptions() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return BindConfigValidationError{
-					field:  fmt.Sprintf("SocketOptions[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return BindConfigValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -421,24 +451,34 @@ func (m *Address) Validate() error {
 
 	case *Address_SocketAddress:
 
-		if v, ok := interface{}(m.GetSocketAddress()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AddressValidationError{
-					field:  "SocketAddress",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetSocketAddress()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AddressValidationError{
+						field:  "SocketAddress",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *Address_Pipe:
 
-		if v, ok := interface{}(m.GetPipe()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AddressValidationError{
-					field:  "Pipe",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetPipe()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AddressValidationError{
+						field:  "Pipe",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

@@ -17,6 +17,7 @@ package helm
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -34,8 +35,8 @@ const (
 	// YAMLSeparator is a separator for multi-document YAML files.
 	YAMLSeparator = "\n---\n"
 
-	// DefaultGlobalValuesFilename is the default name for a global values file if none is specified.
-	DefaultGlobalValuesFilename = "global.yaml"
+	// DefaultProfileString is the name of the default profile.
+	DefaultProfileString = "default"
 )
 
 // TemplateRenderer defines a helm template renderer interface.
@@ -50,19 +51,14 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(chartsRootDir, helmBaseDir, profile, componentName, namespace string) (TemplateRenderer, error) {
-	globalValues, err := ReadValuesYAML(profile)
-	if err != nil {
-		return nil, err
-	}
-
+func NewHelmRenderer(chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
 	// filepath would remove leading slash here if chartsRootDir is empty.
 	dir := chartsRootDir + "/" + helmBaseDir
 	switch {
 	case chartsRootDir == "":
-		return NewVFSRenderer(helmBaseDir, globalValues, componentName, namespace), nil
+		return NewVFSRenderer(helmBaseDir, componentName, namespace), nil
 	case util.IsFilePath(dir):
-		return NewFileTemplateRenderer(dir, globalValues, componentName, namespace), nil
+		return NewFileTemplateRenderer(dir, componentName, namespace), nil
 	default:
 		return nil, fmt.Errorf("unknown helm renderer with chartsRoot=%s", chartsRootDir)
 	}
@@ -98,13 +94,8 @@ func ReadValuesYAML(profile string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, baseValues, overlayValues string, chrt *chart.Chart) (string, error) {
-	mergedValues, err := OverlayYAML(baseValues, overlayValues)
-	if err != nil {
-		return "", err
-	}
-
-	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
+func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
+	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
@@ -166,19 +157,22 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
-func FilenameFromProfile(profile string) (string, error) {
+// DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
+func DefaultFilenameForProfile(profile string) (string, error) {
 	switch {
-	case profile == "":
-		return DefaultProfileFilename, nil
 	case util.IsFilePath(profile):
-		return profile, nil
+		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename), nil
 	default:
-		if _, ok := ProfileNames[profile]; ok {
-			return BuiltinProfileToFilename(profile), nil
+		if _, ok := ProfileNames[profile]; ok || profile == "" {
+			return DefaultProfileString, nil
 		}
+		return "", fmt.Errorf("bad profile string %s", profile)
 	}
+}
 
-	return "", fmt.Errorf("bad profile string: %s", profile)
+// IsDefaultProfile reports whether the given profile is the default profile.
+func IsDefaultProfile(profile string) bool {
+	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileFilename
 }
 
 func readFile(path string) (string, error) {

@@ -48,13 +48,6 @@ import (
 	"istio.io/istio/pkg/config/xds"
 )
 
-const (
-	DNS1123LabelMaxLength int    = 63
-	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
-	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
-	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
-)
-
 // Constants for duration fields
 const (
 	connectTimeoutMax = time.Second * 30
@@ -67,11 +60,6 @@ const (
 // UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 // ServiceEntry.Endpoint.Address message.
 const UnixAddressPrefix = "unix://"
-
-var (
-	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
-)
 
 // envoy supported retry on header values
 var supportedRetryOnPolicies = map[string]bool{
@@ -142,7 +130,7 @@ func ValidateWildcardDomain(domain string) error {
 	}
 	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
 	parts := strings.SplitN(domain, ".", 2)
-	if !IsWildcardDNS1123Label(parts[0]) {
+	if !labels.IsWildcardDNS1123Label(parts[0]) {
 		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
 	} else if len(parts) > 1 {
 		return validateDNS1123Labels(parts[1])
@@ -172,23 +160,11 @@ func validateDNS1123Labels(domain string) error {
 		if i == len(parts)-1 && label == "" {
 			return nil
 		}
-		if !IsDNS1123Label(label) {
+		if !labels.IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
 	}
 	return nil
-}
-
-// IsDNS1123Label tests for a string that conforms to the definition of a label in
-// DNS (RFC 1123).
-func IsDNS1123Label(value string) bool {
-	return len(value) <= DNS1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
-}
-
-// IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows
-// the wildcard label (`*`), and typical labels with a leading astrisk instead of alphabetic character (e.g. "*-foo")
-func IsWildcardDNS1123Label(value string) bool {
-	return len(value) <= DNS1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
 }
 
 // ValidateMixerService checks for validity of a service reference
@@ -205,12 +181,12 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 			errs = multierror.Append(errs, errors.New("domain is not valid when service is provided"))
 		}
 	} else if svc.Name != "" {
-		if !IsDNS1123Label(svc.Name) {
+		if !labels.IsDNS1123Label(svc.Name) {
 			errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
 		}
 	}
 
-	if svc.Namespace != "" && !IsDNS1123Label(svc.Namespace) {
+	if svc.Namespace != "" && !labels.IsDNS1123Label(svc.Namespace) {
 		errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", svc.Namespace))
 	}
 
@@ -312,7 +288,7 @@ func ValidateUnixAddress(addr string) error {
 // ValidateGateway checks gateway specifications
 func ValidateGateway(name, _ string, msg proto.Message) (errs error) {
 	// Gateway name must conform to the DNS label format (no dots)
-	if !IsDNS1123Label(name) {
+	if !labels.IsDNS1123Label(name) {
 		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
 	}
 	value, ok := msg.(*networking.Gateway)
@@ -563,7 +539,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					}
 				}
 			}
-		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST:
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetRouteConfiguration() == nil {
 					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
@@ -626,14 +602,14 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 	if !isGateway {
 		// namespace can be * or . or ~ or a valid DNS label in sidecars
 		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
-			if !IsDNS1123Label(parts[0]) {
+			if !labels.IsDNS1123Label(parts[0]) {
 				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
 			}
 		}
 	} else {
 		// namespace can be * or . or a valid DNS label in gateways
 		if parts[0] != "*" && parts[0] != "." {
-			if !IsDNS1123Label(parts[0]) {
+			if !labels.IsDNS1123Label(parts[0]) {
 				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
 			}
 		}
@@ -1174,12 +1150,20 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
+		} else {
+			log.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
 		}
 	}
 
-	if config.EnvoyAccessLogServiceAddress != "" {
-		if err := ValidateProxyAddress(config.EnvoyAccessLogServiceAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogServiceAddress)))
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))
+		}
+	}
+
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
+		if err := ValidateProxyAddress(config.EnvoyAccessLogService.Address); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy access log service address %q:", config.EnvoyAccessLogService.Address)))
 		}
 	}
 
@@ -1325,7 +1309,7 @@ func ValidateHTTPAPISpecBinding(_, _ string, msg proto.Message) error {
 		if spec.Name == "" {
 			errs = multierror.Append(errs, errors.New("name is mandatory for HTTPAPISpecReference"))
 		}
-		if spec.Namespace != "" && !IsDNS1123Label(spec.Namespace) {
+		if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
 			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
 		}
 	}
@@ -1405,7 +1389,7 @@ func ValidateQuotaSpecBinding(_, _ string, msg proto.Message) error {
 		if spec.Name == "" {
 			errs = multierror.Append(errs, errors.New("name is mandatory for QuotaSpecReference"))
 		}
-		if spec.Namespace != "" && !IsDNS1123Label(spec.Namespace) {
+		if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
 			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
 		}
 	}
@@ -1601,20 +1585,6 @@ func ValidateServiceRoleBinding(_, _ string, msg proto.Message) error {
 	return checkServiceRoleBinding(in)
 }
 
-// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.AuthorizationPolicy)
-	if !ok {
-		return errors.New("cannot cast to AuthorizationPolicy")
-	}
-	for _, binding := range in.Allow {
-		if err := checkServiceRoleBinding(binding); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
 func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
 	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
@@ -1722,7 +1692,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	}
 
 	// AuthN policy target (host)name must be a shortname
-	if !IsDNS1123Label(target.Name) {
+	if !labels.IsDNS1123Label(target.Name) {
 		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
@@ -1996,11 +1966,11 @@ func validateGatewayNames(gatewayNames []string) (errs error) {
 		}
 
 		// namespace and name must be DNS labels
-		if !IsDNS1123Label(parts[0]) {
+		if !labels.IsDNS1123Label(parts[0]) {
 			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
 		}
 
-		if !IsDNS1123Label(parts[1]) {
+		if !labels.IsDNS1123Label(parts[1]) {
 			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
 	}
@@ -2215,7 +2185,7 @@ func validateSubsetName(name string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("subset name cannot be empty")
 	}
-	if !IsDNS1123Label(name) {
+	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("subset name is invalid: %s", name)
 	}
 	return nil
@@ -2453,7 +2423,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 }
 
 func validatePortName(name string) error {
-	if !IsDNS1123Label(name) {
+	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
 	}
 	return nil

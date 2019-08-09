@@ -206,15 +206,6 @@ resources:
     proto:       "istio.rbac.v1alpha1.ServiceRoleBinding"
     collection:  "istio/rbac/v1alpha1/servicerolebindings"
 
-  - kind:        "AuthorizationPolicy"
-    singular:    "authorizationpolicy"
-    plural:      "authorizationpolicies"
-    group:       "rbac.istio.io"
-    versions:    
-    - "v1alpha1"
-    proto:       "istio.rbac.v1alpha1.AuthorizationPolicy"
-    collection:  "istio/rbac/v1alpha1/authorizationpolicies"
-
   - kind:        "RbacConfig"
     listKind:    "RbacConfigList"
     singular:    "rbacconfig"

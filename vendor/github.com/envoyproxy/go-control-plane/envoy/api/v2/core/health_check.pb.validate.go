@@ -83,64 +83,94 @@ func (m *HealthCheck) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetInitialJitter()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "InitialJitter",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetInitialJitter()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "InitialJitter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetIntervalJitter()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "IntervalJitter",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetIntervalJitter()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "IntervalJitter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
 	// no validation rules for IntervalJitterPercent
 
-	if v, ok := interface{}(m.GetUnhealthyThreshold()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "UnhealthyThreshold",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetUnhealthyThreshold()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "UnhealthyThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetHealthyThreshold()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "HealthyThreshold",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetHealthyThreshold()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "HealthyThreshold",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetAltPort()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "AltPort",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAltPort()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "AltPort",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetReuseConnection()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheckValidationError{
-				field:  "ReuseConnection",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetReuseConnection()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					field:  "ReuseConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -237,48 +267,68 @@ func (m *HealthCheck) Validate() error {
 
 	case *HealthCheck_HttpHealthCheck_:
 
-		if v, ok := interface{}(m.GetHttpHealthCheck()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheckValidationError{
-					field:  "HttpHealthCheck",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetHttpHealthCheck()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheckValidationError{
+						field:  "HttpHealthCheck",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *HealthCheck_TcpHealthCheck_:
 
-		if v, ok := interface{}(m.GetTcpHealthCheck()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheckValidationError{
-					field:  "TcpHealthCheck",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetTcpHealthCheck()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheckValidationError{
+						field:  "TcpHealthCheck",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *HealthCheck_GrpcHealthCheck_:
 
-		if v, ok := interface{}(m.GetGrpcHealthCheck()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheckValidationError{
-					field:  "GrpcHealthCheck",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetGrpcHealthCheck()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheckValidationError{
+						field:  "GrpcHealthCheck",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *HealthCheck_CustomHealthCheck_:
 
-		if v, ok := interface{}(m.GetCustomHealthCheck()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheckValidationError{
-					field:  "CustomHealthCheck",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetCustomHealthCheck()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheckValidationError{
+						field:  "CustomHealthCheck",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -454,22 +504,32 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetSend()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheck_HttpHealthCheckValidationError{
-				field:  "Send",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSend()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheck_HttpHealthCheckValidationError{
+					field:  "Send",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetReceive()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheck_HttpHealthCheckValidationError{
-				field:  "Receive",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetReceive()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheck_HttpHealthCheckValidationError{
+					field:  "Receive",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -486,12 +546,17 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 	for idx, item := range m.GetRequestHeadersToAdd() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheck_HttpHealthCheckValidationError{
-					field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheck_HttpHealthCheckValidationError{
+						field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -503,12 +568,17 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 	for idx, item := range m.GetExpectedStatuses() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheck_HttpHealthCheckValidationError{
-					field:  fmt.Sprintf("ExpectedStatuses[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheck_HttpHealthCheckValidationError{
+						field:  fmt.Sprintf("ExpectedStatuses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -583,12 +653,17 @@ func (m *HealthCheck_TcpHealthCheck) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSend()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheck_TcpHealthCheckValidationError{
-				field:  "Send",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSend()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HealthCheck_TcpHealthCheckValidationError{
+					field:  "Send",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -596,12 +671,17 @@ func (m *HealthCheck_TcpHealthCheck) Validate() error {
 	for idx, item := range m.GetReceive() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheck_TcpHealthCheckValidationError{
-					field:  fmt.Sprintf("Receive[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheck_TcpHealthCheckValidationError{
+						field:  fmt.Sprintf("Receive[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -828,24 +908,34 @@ func (m *HealthCheck_CustomHealthCheck) Validate() error {
 
 	case *HealthCheck_CustomHealthCheck_Config:
 
-		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheck_CustomHealthCheckValidationError{
-					field:  "Config",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheck_CustomHealthCheckValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *HealthCheck_CustomHealthCheck_TypedConfig:
 
-		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HealthCheck_CustomHealthCheckValidationError{
-					field:  "TypedConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetTypedConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return HealthCheck_CustomHealthCheckValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}

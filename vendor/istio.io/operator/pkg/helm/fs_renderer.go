@@ -31,18 +31,16 @@ type FileTemplateRenderer struct {
 	helmChartDirPath string
 	chart            *chart.Chart
 	started          bool
-	globalValues     string
 }
 
 // NewFileTemplateRenderer creates a TemplateRenderer with the given parameters and returns a pointer to it.
 // helmChartDirPath must be an absolute file path to the root of the helm charts.
-func NewFileTemplateRenderer(helmChartDirPath, globalValues, componentName, namespace string) *FileTemplateRenderer {
+func NewFileTemplateRenderer(helmChartDirPath, componentName, namespace string) *FileTemplateRenderer {
 	log.Infof("NewFileTemplateRenderer with helmChart=%s, componentName=%s", helmChartDirPath, componentName)
 	return &FileTemplateRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
 		helmChartDirPath: helmChartDirPath,
-		globalValues:     globalValues,
 	}
 }
 
@@ -76,7 +74,7 @@ func (h *FileTemplateRenderer) RenderManifest(values string) (string, error) {
 	if !h.started {
 		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, h.globalValues, values, h.chart)
+	return renderChart(h.namespace, values, h.chart)
 }
 
 // loadChart implements the TemplateRenderer interface.
