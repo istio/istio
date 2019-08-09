@@ -180,6 +180,34 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
+func (p PodInfo) appendResources(req *xdsapi.DiscoveryRequest, resources []string) *xdsapi.DiscoveryRequest {
+	req.ResourceNames = resources
+	return req
+}
+
+func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
+	if err != nil {
+		panic(err.Error())
+	}
+	defer func() { _ = conn.Close() }()
+
+	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
+	stream, err := adsClient.StreamAggregatedResources(context.Background())
+	if err != nil {
+		panic(err.Error())
+	}
+	err = stream.Send(req)
+	if err != nil {
+		panic(err.Error())
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		panic(err.Error())
+	}
+	return res, err
+}
+
 func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
@@ -193,35 +221,6 @@ func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryRespo
 		panic(err.Error())
 	}
 	err = stream.Send(p.makeRequest(configType))
-	if err != nil {
-		panic(err.Error())
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		panic(err.Error())
-	}
-	return res
-}
-
-func makeEDSRequest(resources string) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		ResourceNames: strings.Split(resources, ","),
-	}
-}
-
-func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
-	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
-	if err != nil {
-		panic(err.Error())
-	}
-	defer func() { _ = conn.Close() }()
-
-	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := edsClient.StreamEndpoints(context.Background())
-	if err != nil {
-		panic(err.Error())
-	}
-	err = stream.Send(req)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -296,8 +295,8 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
-	// nolint: lll
-	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	proxyTag := flag.String("proxytag", "", "Pod name or app label or istio label to identify the proxy.")
+	resources := flag.String("res", "", "Resource(s) to get config for. LDS/CDS should leave it empty.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
@@ -314,18 +313,23 @@ func main() {
 			}
 		}
 	}()
+	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType)
 
 	var resp *xdsapi.DiscoveryResponse
-	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
-		resp = pod.getResource(pilot, *configType)
-	} else if *configType == "eds" {
-		resp = edsRequest(pilot, makeEDSRequest(*resources))
-	} else {
+	switch *configType {
+	case "lds", "cds":
+		resp, err = pod.getXdsResponse(pilot, pod.makeRequest(*configType))
+	case "rds", "eds":
+		resp, err = pod.getXdsResponse(pilot, pod.appendResources(pod.makeRequest(*configType), strings.Split(*resources, ",")))
+	default:
 		log.Errorf("Unknown config type: %q", *configType)
 		os.Exit(1)
 	}
 
+	if err != nil {
+		log.Errorf("Failed to get Xds response for %v. Error: %v", *resources, err)
+		return
+	}
 	strResponse, _ := protomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
