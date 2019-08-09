@@ -22,7 +22,7 @@ fmt:
 
 # make target dependencies
 vfsgen: data/
-	go generate ./cmd/mesh.go
+	go run ./cmd/vfsgen/vfsgen.go
 
 ########################
 # protoc_gen_gogo*
