@@ -93,13 +93,14 @@ var (
 		NodeAgentComponentName:       SecurityFeatureName,
 		IngressComponentName:         GatewayFeatureName,
 		EgressComponentName:          GatewayFeatureName,
+		// External
+		PrometheusComponentName:         TelemetryFeatureName,
+		PrometheusOperatorComponentName: TelemetryFeatureName,
+		GrafanaComponentName:            TelemetryFeatureName,
+		KialiComponentName:              TelemetryFeatureName,
+		TracingComponentName:            TelemetryFeatureName,
 		// ThirdParty
-		PrometheusComponentName:         ThirdPartyFeatureName,
-		PrometheusOperatorComponentName: ThirdPartyFeatureName,
-		GrafanaComponentName:            ThirdPartyFeatureName,
-		KialiComponentName:              ThirdPartyFeatureName,
-		CNIComponentName:                ThirdPartyFeatureName,
-		TracingComponentName:            ThirdPartyFeatureName,
+		CNIComponentName: ThirdPartyFeatureName,
 	}
 )
 

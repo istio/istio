@@ -10,7 +10,6 @@ spec:
     enabled: true
     components:
       namespace: istio-control
-
       pilot:
         common:
           k8s:
@@ -45,7 +44,6 @@ spec:
                   resource:
                     name: cpu
                     targetAverageUtilization: 80
-            replicaCount: 1
             readinessProbe:
               httpGet:
                 path: /ready
@@ -60,8 +58,6 @@ spec:
 
           values:
             image: pilot
-            # TODO: derive from top level
-            version: ""
             traceSampling: 1.0
             configNamespace: istio-config
             keepaliveMaxServerConnectionAge: 30m
@@ -190,19 +186,11 @@ spec:
 
       certManager:
         common:
-          values:
-            replicaCount: 1
-            hub: quay.io/jetstack
-            tag: v0.6.2
+          enabled: false
 
       nodeAgent:
         common:
-          values:
-            image: node-agent-k8s
-            env:
-              CA_PROVIDER: ""
-              CA_ADDR: ""
-              Plugins: ""
+          enabled: false
 
   # Config management feature
   configManagement:
@@ -235,12 +223,11 @@ spec:
   gateways:
     enabled: true
     components:
+      namespace: istio-control
       ingressGateway:
         common:
           enabled: true
-          namespace: istio-ingress
           k8s:
-            replicaCount: 1
             hpaSpec:
               maxReplicas: 5
               minReplicas: 1
@@ -352,7 +339,6 @@ spec:
       egressGateway:
         common:
           enabled: false
-          namespace: istio-egress
           k8s:
             replicaCount: 1
             hpaSpec:
@@ -448,7 +434,6 @@ spec:
         mode: ALLOW_ANY
       # TODO: derive from operator API version.
       version: ""
-      prometheusNamespace: istio-telemetry
       # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
       meshExpansion: {}
       multiCluster: {}

@@ -44,8 +44,8 @@ NAMESPACES_MAP["crds"]="istio-system"
 NAMESPACES_MAP["istio-control/istio-discovery"]="istio-control"
 NAMESPACES_MAP["istio-control/istio-config"]="istio-control"
 NAMESPACES_MAP["istio-control/istio-autoinject"]="istio-control"
-NAMESPACES_MAP["gateways/istio-ingress"]="istio-ingress"
-NAMESPACES_MAP["gateways/istio-egress"]="istio-egress"
+NAMESPACES_MAP["gateways/istio-ingress"]="istio-control"
+NAMESPACES_MAP["gateways/istio-egress"]="istio-control"
 NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-telemetry"
 NAMESPACES_MAP["istio-policy"]="istio-policy"
 NAMESPACES_MAP["security/citadel"]="istio-security"
@@ -96,7 +96,7 @@ function mesh_manifest() {
     local profile="${1}"
     local out_dir="${OUT}/mesh-manifest/istio-${profile}"
     mkdir -p "${out_dir}"
-    mesh manifest generate --filename "${ROOT}/tests/profiles/mesh/${profile}-profile.yaml" --dry-run=false --output "${out_dir}" 2>&1
+    mesh manifest generate --filename "${ROOT}/data/profiles/${profile}.yaml" --dry-run=false --output "${out_dir}" 2>&1
 #    cat $(find "${out_dir}" -name "*.yaml") > "${out_dir}/combined.yaml"
 }
 

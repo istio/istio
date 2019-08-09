@@ -56,6 +56,8 @@ type Translator struct {
 	KubernetesMapping map[string]*Translation
 	// ToFeature maps a component to its parent feature.
 	ToFeature map[name.ComponentName]name.FeatureName
+	// GlobalNamespaces maps feature namespaces to Helm global namespace definitions.
+	GlobalNamespaces map[name.ComponentName]string
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps
 
@@ -169,6 +171,14 @@ var (
 				name.NodeAgentComponentName:       name.SecurityFeatureName,
 				name.IngressComponentName:         name.GatewayFeatureName,
 				name.EgressComponentName:          name.GatewayFeatureName,
+			},
+			GlobalNamespaces: map[name.ComponentName]string{
+				name.PilotComponentName:      "istioNamespace",
+				name.GalleyComponentName:     "configNamespace",
+				name.TelemetryComponentName:  "telemetryNamespace",
+				name.PolicyComponentName:     "policyNamespace",
+				name.PrometheusComponentName: "prometheusNamespace",
+				name.CitadelComponentName:    "securityNamespace",
 			},
 			ComponentMaps: map[name.ComponentName]*ComponentMaps{
 				name.IstioBaseComponentName: {
@@ -471,6 +481,17 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp
 			return err
 		}
 	}
+
+	for cn, gns := range t.GlobalNamespaces {
+		ns, err := name.Namespace(t.ToFeature[cn], cn, icp)
+		if err != nil {
+			return err
+		}
+		if err := tpath.WriteNode(root, util.PathFromString("global."+gns), ns); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
