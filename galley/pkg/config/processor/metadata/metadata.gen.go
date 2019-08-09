@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -146,10 +147,6 @@ collections:
     proto:        "istio.policy.v1beta1.Rule"
     protoPackage: "istio.io/api/policy/v1beta1"
 
-  - name:         "istio/rbac/v1alpha1/authorizationpolicies"
-    proto:        "istio.rbac.v1alpha1.AuthorizationPolicy"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-
   - name:         "istio/rbac/v1alpha1/clusterrbacconfigs"
     proto:        "istio.rbac.v1alpha1.RbacConfig"
     protoPackage: "istio.io/api/rbac/v1alpha1"
@@ -263,10 +260,6 @@ collections:
   - name:         "k8s/config.istio.io/v1alpha2/handlers"
     proto:        "istio.policy.v1beta1.Handler"
     protoPackage: "istio.io/api/policy/v1beta1"
-
-  - name:         "k8s/rbac.istio.io/v1alpha1/authorizationpolicies"
-    proto:        "istio.rbac.v1alpha1.AuthorizationPolicy"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
 
   - name:         "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
     proto:        "istio.rbac.v1alpha1.RbacConfig"
@@ -558,7 +551,6 @@ snapshots:
       - "istio/policy/v1beta1/handlers"
       - "istio/policy/v1beta1/instances"
       - "istio/policy/v1beta1/rules"
-      - "istio/rbac/v1alpha1/authorizationpolicies"
       - "istio/rbac/v1alpha1/clusterrbacconfigs"
       - "istio/rbac/v1alpha1/rbacconfigs"
       - "istio/rbac/v1alpha1/servicerolebindings"
@@ -722,13 +714,7 @@ sources:
       plural:       "servicerolebindings"
       group:        "rbac.istio.io"
       version:      "v1alpha1"
-  
-    - collection:   "k8s/rbac.istio.io/v1alpha1/authorizationpolicies"
-      kind:         "AuthorizationPolicy"
-      plural:       "authorizationpolicies"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
-  
+
     - collection:   "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
       kind:         "RbacConfig"
       plural:       "rbacconfigs"
@@ -1021,7 +1007,6 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/serviceentries":   "istio/networking/v1alpha3/serviceentries"
       "k8s/networking.istio.io/v1alpha3/sidecars":         "istio/networking/v1alpha3/sidecars"
       "k8s/networking.istio.io/v1alpha3/virtualservices":  "istio/networking/v1alpha3/virtualservices"
-      "k8s/rbac.istio.io/v1alpha1/authorizationpolicies":  "istio/rbac/v1alpha1/authorizationpolicies"
       "k8s/rbac.istio.io/v1alpha1/policy":                 "istio/rbac/v1alpha1/servicerolebindings"
       "k8s/rbac.istio.io/v1alpha1/rbacconfigs":            "istio/rbac/v1alpha1/rbacconfigs"
       "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs":     "istio/rbac/v1alpha1/clusterrbacconfigs"
@@ -1173,6 +1158,7 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"metadata.yaml": &bintree{metadataYaml, map[string]*bintree{}},
 }}
@@ -1223,4 +1209,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

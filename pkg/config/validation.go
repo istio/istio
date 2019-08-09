@@ -1585,20 +1585,6 @@ func ValidateServiceRoleBinding(_, _ string, msg proto.Message) error {
 	return checkServiceRoleBinding(in)
 }
 
-// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.AuthorizationPolicy)
-	if !ok {
-		return errors.New("cannot cast to AuthorizationPolicy")
-	}
-	for _, binding := range in.Allow {
-		if err := checkServiceRoleBinding(binding); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
 func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
 	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&

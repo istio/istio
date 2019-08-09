@@ -170,32 +170,6 @@ func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func SimpleAuthorizationPolicy(name string, namespace string, labels map[string]string, role string) *model.Config {
-	cfg := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.AuthorizationPolicy.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &istio_rbac.AuthorizationPolicy{
-			WorkloadSelector: &istio_rbac.WorkloadSelector{
-				Labels: labels,
-			},
-			Allow: []*istio_rbac.ServiceRoleBinding{
-				{
-					Subjects: []*istio_rbac.Subject{
-						{
-							User: AuthzPolicyTag(name),
-						},
-					},
-					Role: role,
-				},
-			},
-		},
-	}
-	return cfg
-}
-
 func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 	var err error
 	if len(want) == 0 {
