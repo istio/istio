@@ -22,6 +22,7 @@ import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
+
 	"istio.io/pkg/monitoring"
 )
 
