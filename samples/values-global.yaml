@@ -1,0 +1,7 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    global:
+      logging:
+        level: "default:warning" # override from info

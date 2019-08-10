@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    components:
+      pilot:
+        common:
+          k8s:
+            resources:
+              requests:
+                cpu: 1000m # override from default 500m
+                memory: 4096Mi # ... default 2048Mi
+            hpaSpec:
+              maxReplicas: 10 # ... default 5
+              minReplicas: 2  # ... default 1

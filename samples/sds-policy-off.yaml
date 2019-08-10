@@ -1,4 +1,6 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  profile: demo
+  profile: sds
+  policy:
+    enabled: false
