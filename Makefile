@@ -18,7 +18,8 @@
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
-
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
 # Current version, updated after a release.
 VERSION ?= 1.3-dev
 
