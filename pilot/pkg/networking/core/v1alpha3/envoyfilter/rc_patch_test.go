@@ -233,6 +233,45 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 		},
 		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 80,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+								Action: networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ROUTE,
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`{"route": { "prefix_rewrite": "/foo"}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 80,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+								Name: "bar",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
 			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_ADD,
@@ -285,6 +324,24 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain"},
+				Routes: []*route.Route{
+					{
+						Name: "foo",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/",
+							},
+						},
+					},
+					{
+						Name: "bar",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 301,
+							},
+						},
+					},
+				},
 			},
 		},
 		RequestHeadersToRemove: []string{"h1", "h2"},
@@ -295,6 +352,16 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain", "domain:80"},
+				Routes: []*route.Route{
+					{
+						Name: "foo",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/foo",
+							},
+						},
+					},
+				},
 			},
 			{
 				Name:    "new-vhost",
@@ -405,6 +472,109 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				tt.args.push, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func Test_routeMatch(t *testing.T) {
+	type args struct {
+		httpRoute *route.Route
+		cp        *model.EnvoyFilterConfigPatchWrapper
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "route is nil",
+			args: args{
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "full match by name",
+			args: args{
+				httpRoute: &route.Route{
+					Name: "scooby",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+										Name: "scooby",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "full match by action",
+			args: args{
+				httpRoute: &route.Route{
+					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+										Action: networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_REDIRECT,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "mis match by action",
+			args: args{
+				httpRoute: &route.Route{
+					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+										Action: networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ROUTE,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := routeMatch(tt.args.httpRoute, tt.args.cp); got != tt.want {
+				t.Errorf("routeMatch() = %v, want %v", got, tt.want)
 			}
 		})
 	}

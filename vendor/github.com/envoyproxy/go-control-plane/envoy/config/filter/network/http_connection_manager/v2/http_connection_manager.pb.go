@@ -113,6 +113,7 @@ func (HttpConnectionManager_ForwardClientCertDetails) EnumDescriptor() ([]byte, 
 	return fileDescriptor_8fe65268985a88f7, []int{0, 1}
 }
 
+// [#comment:TODO(kyessenov): Align this field with listener traffic direction field.]
 type HttpConnectionManager_Tracing_OperationName int32
 
 const (

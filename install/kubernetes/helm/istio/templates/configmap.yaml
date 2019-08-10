@@ -104,20 +104,6 @@ data:
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
     sdsUdsPath: {{ .Values.global.sds.udsPath }}
 
-    # This flag is used by secret discovery service(SDS). 
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
-    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
-    enableSdsTokenMount: {{ .Values.global.sds.useTrustworthyJwt }}
-
-    # This flag is used by secret discovery service(SDS). 
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token' 
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod) 
-    # and pass to sds server, which will be used to request key/cert eventually. 
-    # this flag is ignored if enableSdsTokenMount is set.
-    # This isn't supported for non-k8s case.
-    sdsUseK8sSaJwt: {{ .Values.global.sds.useNormalJwt }}
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain }}
@@ -249,13 +235,15 @@ data:
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
-      envoyMetricsServiceAddress: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+      envoyMetricsService:
+        address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
     {{- end}}
 
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
       #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
-      envoyAccessLogServiceAddress: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+      envoyAccessLogService:
+        address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- end}}
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}

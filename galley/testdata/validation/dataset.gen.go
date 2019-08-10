@@ -36,8 +36,6 @@
 // dataset/networking-v1alpha3-Sidecar-valid.yaml
 // dataset/networking-v1alpha3-VirtualService-invalid.yaml
 // dataset/networking-v1alpha3-VirtualService-valid.yaml
-// dataset/rbac-v1alpha1-AuthorizationPolicy-invalid.yaml
-// dataset/rbac-v1alpha1-AuthorizationPolicy-valid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml
 // dataset/rbac-v1alpha1-RBacConfig-invalid.yaml
@@ -1267,65 +1265,6 @@ func datasetNetworkingV1alpha3VirtualserviceValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _datasetRbacV1alpha1AuthorizationpolicyInvalidYaml = []byte(`apiVersion: rbac.istio.io/v1alpha1
-kind: AuthorizationPolicy
-metadata:
-  name: bind-service-viewer
-spec:
-  allow:
-      subjects:
-        - names:
-            - foo
-  workloadSelector:
-    labels:
-      app: ratings
-`)
-
-func datasetRbacV1alpha1AuthorizationpolicyInvalidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1AuthorizationpolicyInvalidYaml, nil
-}
-
-func datasetRbacV1alpha1AuthorizationpolicyInvalidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1AuthorizationpolicyInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-AuthorizationPolicy-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetRbacV1alpha1AuthorizationpolicyValidYaml = []byte(`apiVersion: rbac.istio.io/v1alpha1
-kind: AuthorizationPolicy
-metadata:
-  name: bind-service-viewer
-spec:
-  allow:
-    - role: service-viewer
-      subjects:
-        - names:
-            - foo
-  workloadSelector:
-    labels:
-      app: ratings
-`)
-
-func datasetRbacV1alpha1AuthorizationpolicyValidYamlBytes() ([]byte, error) {
-	return _datasetRbacV1alpha1AuthorizationpolicyValidYaml, nil
-}
-
-func datasetRbacV1alpha1AuthorizationpolicyValidYaml() (*asset, error) {
-	bytes, err := datasetRbacV1alpha1AuthorizationpolicyValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/rbac-v1alpha1-AuthorizationPolicy-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _datasetRbacV1alpha1ClusterrbacconfigInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
 kind: ClusterRbacConfig
 metadata:
@@ -1617,8 +1556,6 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1alpha3-Sidecar-valid.yaml":           datasetNetworkingV1alpha3SidecarValidYaml,
 	"dataset/networking-v1alpha3-VirtualService-invalid.yaml":  datasetNetworkingV1alpha3VirtualserviceInvalidYaml,
 	"dataset/networking-v1alpha3-VirtualService-valid.yaml":    datasetNetworkingV1alpha3VirtualserviceValidYaml,
-	"dataset/rbac-v1alpha1-AuthorizationPolicy-invalid.yaml":   datasetRbacV1alpha1AuthorizationpolicyInvalidYaml,
-	"dataset/rbac-v1alpha1-AuthorizationPolicy-valid.yaml":     datasetRbacV1alpha1AuthorizationpolicyValidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":     datasetRbacV1alpha1ClusterrbacconfigInvalidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml":       datasetRbacV1alpha1ClusterrbacconfigValidYaml,
 	"dataset/rbac-v1alpha1-RBacConfig-invalid.yaml":            datasetRbacV1alpha1RbacconfigInvalidYaml,
@@ -1707,8 +1644,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1alpha3-Sidecar-valid.yaml":           &bintree{datasetNetworkingV1alpha3SidecarValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-invalid.yaml":  &bintree{datasetNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-valid.yaml":    &bintree{datasetNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-AuthorizationPolicy-invalid.yaml":   &bintree{datasetRbacV1alpha1AuthorizationpolicyInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-AuthorizationPolicy-valid.yaml":     &bintree{datasetRbacV1alpha1AuthorizationpolicyValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":     &bintree{datasetRbacV1alpha1ClusterrbacconfigInvalidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-valid.yaml":       &bintree{datasetRbacV1alpha1ClusterrbacconfigValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-RBacConfig-invalid.yaml":            &bintree{datasetRbacV1alpha1RbacconfigInvalidYaml, map[string]*bintree{}},

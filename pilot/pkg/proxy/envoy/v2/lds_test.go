@@ -64,7 +64,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
+		_, err = ldsr.Wait(5*time.Second, "lds")
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
@@ -141,8 +141,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
-		if err != nil {
+		if _, err := ldsr.Wait(5*time.Second, "lds"); err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
@@ -172,8 +171,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
-		if err != nil {
+		if _, err = ldsr.Wait(5*time.Second, "lds"); err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
@@ -224,19 +222,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait("lds", 10*time.Second)
+	upd, err := adsResponse.Wait(10*time.Second, "lds", "rds", "cds")
 	if err != nil {
-		t.Fatal("Failed to receive LDS response", err)
-		return
-	}
-	_, err = adsResponse.Wait("rds", 10*time.Second)
-	if err != nil {
-		t.Fatal("Failed to receive RDS response", err)
-		return
-	}
-	_, err = adsResponse.Wait("cds", 10*time.Second)
-	if err != nil {
-		t.Fatal("Failed to receive CDS response", err)
+		t.Fatal("Failed to receive XDS response", err, upd)
 		return
 	}
 
@@ -295,10 +283,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
-	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	_, err = adsResponse.Wait(10*time.Second, "lds")
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -421,10 +408,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
-	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait("lds", 10*time.Second)
+	_, err = adsResponse.Wait(10*time.Second, "lds")
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -523,9 +509,8 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 			defer adsResponse.Close()
 
-			adsResponse.DumpCfg = false
 			adsResponse.Watch()
-			_, err = adsResponse.Wait("lds", 100*time.Second)
+			_, err = adsResponse.Wait(10*time.Second, "lds")
 			if err != nil {
 				t.Fatal("Failed to receive LDS response", err)
 				return

@@ -961,7 +961,7 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 	paramsVals := params.intoHelmValues()
 	for path, value := range paramsVals {
 		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
-		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
+		if err := strvals.ParseInto(setStr, valMap); err != nil {
 			t.Fatal(err)
 		}
 	}

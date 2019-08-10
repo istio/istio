@@ -15,12 +15,14 @@ package autorest
 //  limitations under the License.
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/Azure/go-autorest/tracing"
 )
 
 const (
@@ -30,6 +32,8 @@ const (
 	apiKeyAuthorizerHeader      = "Ocp-Apim-Subscription-Key"
 	bingAPISdkHeader            = "X-BingApis-SDK-Client"
 	golangBingAPISdkHeaderValue = "Go-SDK"
+	authorization               = "Authorization"
+	basic                       = "Basic"
 )
 
 // Authorizer is the interface that provides a PrepareDecorator used to supply request
@@ -68,7 +72,7 @@ func NewAPIKeyAuthorizer(headers map[string]interface{}, queryParameters map[str
 	return &APIKeyAuthorizer{headers: headers, queryParameters: queryParameters}
 }
 
-// WithAuthorization returns a PrepareDecorator that adds an HTTP headers and Query Paramaters
+// WithAuthorization returns a PrepareDecorator that adds an HTTP headers and Query Parameters.
 func (aka *APIKeyAuthorizer) WithAuthorization() PrepareDecorator {
 	return func(p Preparer) Preparer {
 		return DecoratePreparer(p, WithHeaders(aka.headers), WithQueryParameters(aka.queryParameters))
@@ -147,7 +151,7 @@ type BearerAuthorizerCallback struct {
 // is invoked when the HTTP request is submitted.
 func NewBearerAuthorizerCallback(sender Sender, callback BearerAuthorizerCallbackFunc) *BearerAuthorizerCallback {
 	if sender == nil {
-		sender = &http.Client{}
+		sender = &http.Client{Transport: tracing.Transport}
 	}
 	return &BearerAuthorizerCallback{sender: sender, callback: callback}
 }
@@ -255,5 +259,29 @@ func (egta EventGridKeyAuthorizer) WithAuthorization() PrepareDecorator {
 	headers := map[string]interface{}{
 		"aeg-sas-key": egta.topicKey,
 	}
+	return NewAPIKeyAuthorizerWithHeaders(headers).WithAuthorization()
+}
+
+// BasicAuthorizer implements basic HTTP authorization by adding the Authorization HTTP header
+// with the value "Basic <TOKEN>" where <TOKEN> is a base64-encoded username:password tuple.
+type BasicAuthorizer struct {
+	userName string
+	password string
+}
+
+// NewBasicAuthorizer creates a new BasicAuthorizer with the specified username and password.
+func NewBasicAuthorizer(userName, password string) *BasicAuthorizer {
+	return &BasicAuthorizer{
+		userName: userName,
+		password: password,
+	}
+}
+
+// WithAuthorization returns a PrepareDecorator that adds an HTTP Authorization header whose
+// value is "Basic " followed by the base64-encoded username:password tuple.
+func (ba *BasicAuthorizer) WithAuthorization() PrepareDecorator {
+	headers := make(map[string]interface{})
+	headers[authorization] = basic + " " + base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", ba.userName, ba.password)))
+
 	return NewAPIKeyAuthorizerWithHeaders(headers).WithAuthorization()
 }

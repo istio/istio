@@ -9,13 +9,6 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
-    # Trustworthy JWTs are available from Kubernetes 1.12 (beta) and later.
-    # On-prem k8s needs extra configuration.
-    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/?origin_team=T382U9E4U#service-account-token-volume-projection
-    # //TODO: Deprecate the useNormalJwt and useTrustworthyJwt fields, since trustworthy JWT
-    # is used by default when SDS is enabled.
-    useNormalJwt: false
-    useTrustworthyJwt: true
 
 nodeagent:
   enabled: true

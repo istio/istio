@@ -13,7 +13,7 @@ import (
 // or SetNodeInterface then it will be set automatically.  If the NodeID cannot
 // be set NewUUID returns nil.  If clock sequence has not been set by
 // SetClockSequence then it will be set automatically.  If GetTime fails to
-// return the current NewUUID returns Nil and an error.
+// return the current NewUUID returns nil and an error.
 //
 // In most cases, New should be used.
 func NewUUID() (UUID, error) {
