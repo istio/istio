@@ -77,9 +77,8 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace:        "not-default",
-			"ISTIO_VERSION":                          "1.3",
-			model.NodeMetadataEnableProtocolSniffing: "true",
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_VERSION":                   "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -89,10 +88,9 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace:        "not-default",
-			"ISTIO_VERSION":                          "1.3",
-			model.NodeMetadataHTTP10:                 "1",
-			model.NodeMetadataEnableProtocolSniffing: "true",
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_VERSION":                   "1.3",
+			model.NodeMetadataHTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -139,6 +137,9 @@ var (
 )
 
 func TestInboundListenerConfigProxyV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
 		testInboundListenerConfigV13(t, p,
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
@@ -152,6 +153,9 @@ func TestInboundListenerConfigProxyV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
@@ -161,6 +165,9 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
@@ -172,6 +179,9 @@ func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
@@ -181,6 +191,9 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
@@ -190,6 +203,9 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflictV13(t,
@@ -199,6 +215,9 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),

@@ -278,20 +278,7 @@ func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
 func IsProtocolSniffingEnabled(node *model.Proxy) bool {
-	if !IsIstioVersionGE13(node) {
-		return false
-	}
-
-	// fetch metadata from node
-	val, has := node.Metadata[model.NodeMetadataEnableProtocolSniffing]
-	if !has {
-		return false
-	}
-
-	if enabled, err := strconv.ParseBool(val); err == nil {
-		return enabled
-	}
-	return false
+	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

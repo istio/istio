@@ -19,6 +19,7 @@ resources:
     memory: 2048Mi
 env:
   PILOT_PUSH_THROTTLE: 100
+  PILOT_ENABLE_PROTOCOL_SNIFFING: false
   GODEBUG: gctrace=1
 cpu:
   targetAverageUtilization: 80

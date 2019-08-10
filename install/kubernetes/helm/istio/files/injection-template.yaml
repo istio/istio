@@ -186,8 +186,6 @@ containers:
     value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
   - name: ISTIO_META_INCLUDE_INBOUND_PORTS
     value: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (applicationPorts .Spec.Containers) }}"
-  - name: ISTIO_META_ENABLE_PROTOCOL_SNIFFING
-    value: "{{ annotation .ObjectMeta `traffic.sidecar.alpha.istio.io/enableProtocolSniffing` `false` }}"
   {{- if .Values.global.network }}
   - name: ISTIO_META_NETWORK
     value: "{{ .Values.global.network }}"
