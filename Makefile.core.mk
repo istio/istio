@@ -1,3 +1,8 @@
+export GO111MODULE=on
+ifeq ($(BUILD_WITH_CONTAINER),0)
+override GOBIN := $(GOPATH)/bin
+endif
+
 # make targets
 .PHONY: lint test_with_coverage mandiff build fmt vfsgen
 
