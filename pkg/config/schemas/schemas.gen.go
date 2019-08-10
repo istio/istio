@@ -220,6 +220,19 @@ var (
 		VariableName:  "ClusterRbacConfig",
 	}
 
+	// AuthorizationPolicy describes the authorization policy.
+	AuthorizationPolicy = schema.Instance{
+		Type:          "authorization-policy",
+		Plural:        "authorizationpolicies",
+		Group:         "security",
+		Version:       "v1beta1",
+		MessageName:   "istio.security.v1beta1.AuthorizationPolicy",
+		Validate:      validation.ValidateAuthorizationPolicy,
+		Collection:    "istio/security/v1beta1/authorizationpolicies",
+		ClusterScoped: false,
+		VariableName:  "AuthorizationPolicy",
+	}
+
 	// Istio lists all Istio schemas.
 	Istio = schema.Set{
 		VirtualService,
@@ -238,5 +251,6 @@ var (
 		ServiceRoleBinding,
 		RbacConfig,
 		ClusterRbacConfig,
+		AuthorizationPolicy,
 	}
 )
