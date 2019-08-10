@@ -48,8 +48,8 @@ NAMESPACES_MAP["gateways/istio-ingress"]="istio-control"
 NAMESPACES_MAP["gateways/istio-egress"]="istio-control"
 NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-telemetry"
 NAMESPACES_MAP["istio-policy"]="istio-policy"
-NAMESPACES_MAP["security/citadel"]="istio-security"
-NAMESPACES_MAP["security/nodeagent"]="istio-security"
+NAMESPACES_MAP["security/citadel"]="istio-system"
+NAMESPACES_MAP["security/nodeagent"]="istio-system"
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code

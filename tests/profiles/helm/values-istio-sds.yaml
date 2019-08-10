@@ -1,4 +1,10 @@
 global:
+  istioNamespace: istio-system
+  configNamespace: istio-control
+  # Telemetry namespace, including tracing.
+  telemetryNamespace: istio-telemetry
+  policyNamespace: istio-policy
+
   controlPlaneSecurityEnabled: false
 
   mtls:
