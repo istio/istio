@@ -1,13 +1,9 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  profile: sds
   trafficManagement:
     components:
       pilot:
         common:
-          k8s:
-            resources:
-              requests:
-                cpu: 200m
-                memory: 1024Mi
+          values:
+            traceSampling: 0.1 # override from 1.0

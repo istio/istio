@@ -1,0 +1,25 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    enabled: true
+    components:
+      proxy:
+        common:
+          enabled: false
+      pilot:
+        common:
+          k8s:
+            overlays:
+              - kind: Deployment
+                name: istio-pilot
+                patches:
+                  - path: spec.template.spec.containers.[name:discovery].args.[30m]
+                    value: "60m" # OVERRIDDEN
+                  - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
+                    value: 8090 # OVERRIDDEN
+              - kind: Service
+                name: istio-pilot
+                patches:
+                  - path: spec.ports.[name:grpc-xds].port
+                    value: 15099 # OVERRIDDEN
