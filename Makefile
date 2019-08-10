@@ -501,14 +501,11 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-# This is passed to mixer and other tests to limit how many builds are used.
-# In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?=
 
 TEST_APP_BINS:=server client
 $(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
@@ -794,8 +791,6 @@ ${ISTIO_OUT}/dist/Gopkg.lock:
 dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
 
 dist: dist-bin
-
-include .circleci/Makefile
 
 # deb, rpm, etc packages
 include tools/packaging/packaging.mk
