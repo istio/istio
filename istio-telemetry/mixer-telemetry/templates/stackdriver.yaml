@@ -10,7 +10,20 @@ metadata:
 spec:
   compiledAdapter: stackdriver
   params:
+    {{- if .Values.mixer.adapters.stackdriver.tracer.enabled }}
+    trace:
+      sampleProbability: {{ .Values.mixer.adapters.stackdriver.tracer.sampleProbability | default 1 }}
+    {{- end }}
     pushInterval: 10s
+    {{- if ne .Values.mixer.adapters.stackdriver.auth.serviceAccountPath "" }}
+    serviceAccountPath: {{ .Values.mixer.adapters.stackdriver.auth.serviceAccountPath }}
+    {{- end }}
+    {{- if ne .Values.mixer.adapters.stackdriver.auth.apiKey "" }}
+    apiKey: {{ .Values.mixer.adapters.stackdriver.auth.apiKey }}
+    {{- end }}
+    {{- if .Values.mixer.adapters.stackdriver.auth.appCredentials }}
+    appCredentials: {{ .Values.mixer.adapters.stackdriver.auth.appCredentials }}
+    {{- end }}
     metricInfo:
       server-request-count.instance.{{ .Release.Namespace }}:
         # Due to a bug in gogoproto deserialization, Enums in maps must be
@@ -817,4 +830,60 @@ spec:
     instances:
     - server-tcp-accesslog-stackdriver
 ---
+{{- if .Values.mixer.adapters.stackdriver.tracer.enabled }}
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: stackdriver-span
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  compiledTemplate: tracespan
+  params:
+    traceId: request.headers["x-b3-traceid"]
+    spanId: request.headers["x-b3-spanid"] | ""
+    parentSpanId: request.headers["x-b3-parentspanid"] | ""
+    spanName: destination.service.host | destination.service.name | destination.workload.name | "unknown"
+    startTime: request.time
+    endTime: response.time
+    clientSpan: (context.reporter.kind | "inbound") == "outbound"
+    rewriteClientSpanId: "true"
+    spanTags:
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      destination_port: destination.port | 0
+      request_operation: conditional((context.protocol | "unknown") == "grpc", request.path | "unknown", request.method | "unknown")
+      request_protocol: context.protocol | "unknown"
+      api_version: api.version | "unknown"
+      api_name: api.service | "unknown"
+      response_code: response.code | 0
+      service_authentication_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_workload_name: source.workload.name | "unknown"
+      source_owner: source.owner | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_workload_name: destination.workload.name | "unknown"
+      destination_owner: destination.owner | "unknown"
+      http_url: request.path | ""
+      request_size: request.size | 0
+      response_size: response.size | 0
+      source_ip: source.ip | ip("0.0.0.0")
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stackdriver-tracing-rule
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  match: (context.protocol == "http" || context.protocol == "grpc") && request.headers["x-b3-sampled"] == "1" && destination.workload.name != "istio-telemetry" && destination.workload.name != "istio-pilot"
+  actions:
+  - handler: stackdriver
+    instances:
+    - stackdriver-span
+{{- end }}
 {{- end }}

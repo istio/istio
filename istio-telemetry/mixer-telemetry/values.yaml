@@ -22,6 +22,15 @@ mixer:
     stackdriver:
       enabled: false
 
+      auth:
+        appCredentials: false
+        apiKey: ""
+        serviceAccountPath: ""
+
+      tracer:
+        enabled: false
+        sampleProbability: 1
+
     # Setting this to false sets the useAdapterCRDs mixer startup argument to false
     useAdapterCRDs: false
 
