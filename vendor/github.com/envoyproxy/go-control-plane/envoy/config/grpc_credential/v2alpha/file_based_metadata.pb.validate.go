@@ -41,12 +41,17 @@ func (m *FileBasedMetadataConfig) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetSecretData()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return FileBasedMetadataConfigValidationError{
-				field:  "SecretData",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSecretData()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return FileBasedMetadataConfigValidationError{
+					field:  "SecretData",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

@@ -443,7 +443,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return nil, nil
 	}
 
-	mixerEnabled := c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != ""
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
@@ -779,7 +779,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-	mixerEnabled := c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != ""
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/operator/cmd/mesh"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 )
@@ -109,6 +110,9 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(dashboard())
 	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd)
+
+	experimentalCmd.AddCommand(mesh.ManifestCmd())
+	experimentalCmd.AddCommand(mesh.ProfileCmd())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

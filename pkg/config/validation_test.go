@@ -318,19 +318,19 @@ func TestValidateMeshConfig(t *testing.T) {
 
 func TestValidateProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
-		ConfigPath:                   "/etc/istio/proxy",
-		BinaryPath:                   "/usr/local/bin/envoy",
-		DiscoveryAddress:             "istio-pilot.istio-system:15010",
-		ProxyAdminPort:               15000,
-		DrainDuration:                types.DurationProto(45 * time.Second),
-		ParentShutdownDuration:       types.DurationProto(60 * time.Second),
-		ConnectTimeout:               types.DurationProto(10 * time.Second),
-		ServiceCluster:               "istio-proxy",
-		StatsdUdpAddress:             "istio-statsd-prom-bridge.istio-system:9125",
-		EnvoyMetricsServiceAddress:   "metrics-service.istio-system:15000",
-		EnvoyAccessLogServiceAddress: "accesslog-service.istio-system:15000",
-		ControlPlaneAuthPolicy:       1,
-		Tracing:                      nil,
+		ConfigPath:             "/etc/istio/proxy",
+		BinaryPath:             "/usr/local/bin/envoy",
+		DiscoveryAddress:       "istio-pilot.istio-system:15010",
+		ProxyAdminPort:         15000,
+		DrainDuration:          types.DurationProto(45 * time.Second),
+		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		ConnectTimeout:         types.DurationProto(10 * time.Second),
+		ServiceCluster:         "istio-proxy",
+		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
+		ControlPlaneAuthPolicy: 1,
+		Tracing:                nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -405,13 +405,17 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "envoy metrics service address invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
+			name: "envoy metrics service address invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.EnvoyMetricsService = &meshconfig.RemoteService{Address: "metrics-service.istio-system"}
+			}),
 			isValid: false,
 		},
 		{
-			name:    "envoy access log service address invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyAccessLogServiceAddress = "accesslog-service.istio-system" }),
+			name: "envoy access log service address invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.EnvoyAccessLogService = &meshconfig.RemoteService{Address: "accesslog-service.istio-system"}
+			}),
 			isValid: false,
 		},
 		{
@@ -632,18 +636,18 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:                   "",
-		BinaryPath:                   "",
-		DiscoveryAddress:             "10.0.0.100",
-		ProxyAdminPort:               0,
-		DrainDuration:                types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration:       types.DurationProto(-1 * time.Second),
-		ConnectTimeout:               types.DurationProto(-1 * time.Second),
-		ServiceCluster:               "",
-		StatsdUdpAddress:             "10.0.0.100",
-		EnvoyMetricsServiceAddress:   "metrics-service",
-		EnvoyAccessLogServiceAddress: "accesslog-service",
-		ControlPlaneAuthPolicy:       -1,
+		ConfigPath:             "",
+		BinaryPath:             "",
+		DiscoveryAddress:       "10.0.0.100",
+		ProxyAdminPort:         0,
+		DrainDuration:          types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
+		ConnectTimeout:         types.DurationProto(-1 * time.Second),
+		ServiceCluster:         "",
+		StatsdUdpAddress:       "10.0.0.100",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
+		ControlPlaneAuthPolicy: -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -4026,167 +4030,6 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			}
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
-		}
-	}
-}
-
-func TestValidateAuthorizationPolicy(t *testing.T) {
-	cases := []struct {
-		name         string
-		in           proto.Message
-		expectErrMsg string
-	}{
-		{
-			name:         "invalid proto",
-			expectErrMsg: "cannot cast to AuthorizationPolicy",
-		},
-		{
-			name: "proto with no roleRef or inline role definition",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-					},
-				},
-			},
-			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
-		},
-		{
-			name: "proto with both roleRef and inline role definition",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						RoleRef: &rbac.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
-						},
-						Actions: []*rbac.AccessRule{
-							{
-								Ports: []int32{3000},
-							},
-						},
-					},
-				},
-			},
-			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
-		},
-		{
-			name: "proto with both roleRef and role",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						RoleRef: &rbac.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
-						},
-						Role: "service-role-1",
-					},
-				},
-			},
-			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
-		},
-		{
-			name: "proto with both role and inline role definition",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						Role: "service-role-1",
-						Actions: []*rbac.AccessRule{
-							{
-								Ports: []int32{3000},
-							},
-						},
-					},
-				},
-			},
-			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
-		},
-		{
-			name: "success proto with roleRef",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						RoleRef: &rbac.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "proto with inline but invalid role definition",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						Actions: []*rbac.AccessRule{
-							{
-								Ports:    []int32{3000},
-								NotPorts: []int32{8080},
-							},
-						},
-					},
-				},
-			},
-			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
-		},
-		{
-			name: "success proto with inline role definition",
-			in: &rbac.AuthorizationPolicy{
-				Allow: []*rbac.ServiceRoleBinding{
-					{
-						Subjects: []*rbac.Subject{
-							{
-								Namespaces: []string{"default, istio-system"},
-							},
-						},
-						Actions: []*rbac.AccessRule{
-							{
-								Methods: []string{"GET"},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	for _, c := range cases {
-		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
-		if err == nil {
-			if len(c.expectErrMsg) != 0 {
-				t.Errorf("ValidateAuthorizationPolicy(%v): got nil but want %q\n", c.name, c.expectErrMsg)
-			}
-		} else if err.Error() != c.expectErrMsg {
-			t.Errorf("ValidateAuthorizationPolicy(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

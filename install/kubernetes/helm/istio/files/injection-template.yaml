@@ -132,11 +132,11 @@ containers:
 {{- end }}
 {{- if .Values.global.proxy.envoyMetricsService.enabled }}
   - --envoyMetricsServiceAddress
-  - "{{ .ProxyConfig.EnvoyMetricsServiceAddress }}"
+  - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogServiceAddress
-  - "{{ .ProxyConfig.EnvoyAccessLogServiceAddress }}"
+  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"
@@ -231,7 +231,7 @@ containers:
       - NET_ADMIN
     runAsGroup: 1337
     {{ else -}}
-    {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
+    {{ if .Values.global.sds.enabled }}
     runAsGroup: 1337
     {{- end }}
     runAsUser: 1337
@@ -261,10 +261,8 @@ containers:
   - mountPath: /var/run/sds
     name: sds-uds-path
     readOnly: true
-  {{- if .Values.global.sds.useTrustworthyJwt }}
   - mountPath: /var/run/secrets/tokens
     name: istio-token
-  {{- end }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
     name: custom-sds-token
@@ -299,19 +297,17 @@ volumes:
 - name: sds-uds-path
   hostPath:
     path: /var/run/sds
+- name: istio-token
+  projected:
+    sources:
+      - serviceAccountToken:
+          path: istio-token
+          expirationSeconds: 43200
+          audience: {{ .Values.global.trustDomain }}
 {{- if .Values.global.sds.customTokenDirectory }}
 - name: custom-sds-token
   secret:
     secretName: sdstokensecret
-{{- end }}
-{{- if .Values.global.sds.useTrustworthyJwt }}
-- name: istio-token
-  projected:
-    sources:
-    - serviceAccountToken:
-        path: istio-token
-        expirationSeconds: 43200
-        audience: {{ .Values.global.trustDomain }}
 {{- end }}
 {{- else }}
 - name: istio-certs

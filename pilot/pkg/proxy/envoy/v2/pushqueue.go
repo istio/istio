@@ -63,15 +63,19 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushEvent) {
 	} else {
 		event.push = pushInfo.push
 		event.full = event.full || pushInfo.full
-
-		edsUpdates := map[string]struct{}{}
-		for endpoint := range pushInfo.edsUpdatedServices {
-			edsUpdates[endpoint] = struct{}{}
+		// When full push, do not care about edsUpdatedServices
+		if !event.full {
+			edsUpdates := map[string]struct{}{}
+			for endpoint := range pushInfo.edsUpdatedServices {
+				edsUpdates[endpoint] = struct{}{}
+			}
+			for endpoint := range event.edsUpdatedServices {
+				edsUpdates[endpoint] = struct{}{}
+			}
+			event.edsUpdatedServices = edsUpdates
+		} else {
+			event.edsUpdatedServices = nil
 		}
-		for endpoint := range event.edsUpdatedServices {
-			edsUpdates[endpoint] = struct{}{}
-		}
-		event.edsUpdatedServices = edsUpdates
 	}
 	p.cond.Signal()
 }

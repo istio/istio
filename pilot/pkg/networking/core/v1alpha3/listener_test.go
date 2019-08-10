@@ -57,6 +57,7 @@ var (
 			model.NodeMetadataConfigNamespace: "not-default",
 			"ISTIO_VERSION":                   "1.3",
 		},
+		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
 	}
 	proxyHTTP10 = model.Proxy{
@@ -69,6 +70,7 @@ var (
 			"ISTIO_VERSION":                   "1.3",
 			model.NodeMetadataHTTP10:          "1",
 		},
+		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
 	}
 	proxyInstances = []*model.ServiceInstance{

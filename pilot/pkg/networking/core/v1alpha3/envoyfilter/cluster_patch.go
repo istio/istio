@@ -57,7 +57,7 @@ func ApplyClusterPatches(patchContext networking.EnvoyFilter_PatchContext, proxy
 		for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 				if commonConditionMatch(proxy, patchContext, cp) {
-					clusters = append(clusters, cp.Value.(*xdsapi.Cluster))
+					clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
 				}
 			}
 		}

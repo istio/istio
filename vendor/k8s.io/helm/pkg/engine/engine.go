@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package engine
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"path"
 	"sort"
 	"strings"
@@ -37,8 +38,9 @@ type Engine struct {
 	FuncMap template.FuncMap
 	// If strict is enabled, template rendering will fail if a template references
 	// a value that was not passed in.
-	Strict           bool
-	CurrentTemplates map[string]renderable
+	Strict bool
+	// In LintMode, some 'required' template values may be missing, so don't fail
+	LintMode bool
 }
 
 // New creates a new Go template Engine instance.
@@ -119,7 +121,6 @@ func FuncMap() template.FuncMap {
 func (e *Engine) Render(chrt *chart.Chart, values chartutil.Values) (map[string]string, error) {
 	// Render the charts
 	tmap := allTemplates(chrt, values)
-	e.CurrentTemplates = tmap
 	return e.render(tmap)
 }
 
@@ -129,14 +130,14 @@ type renderable struct {
 	tpl string
 	// vals are the values to be supplied to the template.
 	vals chartutil.Values
-	// namespace prefix to the templates of the current chart
+	// basePath namespace prefix to the templates of the current chart
 	basePath string
 }
 
 // alterFuncMap takes the Engine's FuncMap and adds context-specific functions.
 //
 // The resulting FuncMap is only valid for the passed-in template.
-func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
+func (e *Engine) alterFuncMap(t *template.Template, referenceTpls map[string]renderable) template.FuncMap {
 	// Clone the func map because we are adding context-specific functions.
 	var funcMap template.FuncMap = map[string]interface{}{}
 	for k, v := range e.FuncMap {
@@ -155,9 +156,20 @@ func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
 	// Add the 'required' function here
 	funcMap["required"] = func(warn string, val interface{}) (interface{}, error) {
 		if val == nil {
-			return val, fmt.Errorf(warn)
+			if e.LintMode {
+				// Don't fail on missing required values when linting
+				log.Printf("[INFO] Missing required value: %s", warn)
+				return "", nil
+			}
+			// Convert nil to "" in case required is piped into other functions
+			return "", fmt.Errorf(warn)
 		} else if _, ok := val.(string); ok {
 			if val == "" {
+				if e.LintMode {
+					// Don't fail on missing required values when linting
+					log.Printf("[INFO] Missing required value: %s", warn)
+					return val, nil
+				}
 				return val, fmt.Errorf(warn)
 			}
 		}
@@ -185,7 +197,7 @@ func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
 
 		templates[templateName.(string)] = r
 
-		result, err := e.render(templates)
+		result, err := e.renderWithReferences(templates, referenceTpls)
 		if err != nil {
 			return "", fmt.Errorf("Error during tpl function execution for %q: %s", tpl, err.Error())
 		}
@@ -197,6 +209,12 @@ func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
 
 // render takes a map of templates/values and renders them.
 func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string, err error) {
+	return e.renderWithReferences(tpls, tpls)
+}
+
+// renderWithReferences takes a map of templates/values to render, and a map of
+// templates which can be referenced within them.
+func (e *Engine) renderWithReferences(tpls map[string]renderable, referenceTpls map[string]renderable) (rendered map[string]string, err error) {
 	// Basically, what we do here is start with an empty parent template and then
 	// build up a list of templates -- one for each file. Once all of the templates
 	// have been parsed, we loop through again and execute every template.
@@ -218,7 +236,7 @@ func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string,
 		t.Option("missingkey=zero")
 	}
 
-	funcMap := e.alterFuncMap(t)
+	funcMap := e.alterFuncMap(t, referenceTpls)
 
 	// We want to parse the templates in a predictable order. The order favors
 	// higher-level (in file system) templates over deeply nested templates.
@@ -235,9 +253,9 @@ func (e *Engine) render(tpls map[string]renderable) (rendered map[string]string,
 		files = append(files, fname)
 	}
 
-	// Adding the engine's currentTemplates to the template context
+	// Adding the reference templates to the template context
 	// so they can be referenced in the tpl function
-	for fname, r := range e.CurrentTemplates {
+	for fname, r := range referenceTpls {
 		if t.Lookup(fname) == nil {
 			t = t.New(fname).Funcs(funcMap)
 			if _, err := t.Parse(r.tpl); err != nil {
