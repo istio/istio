@@ -181,6 +181,9 @@
 {{- define "telemetry_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
