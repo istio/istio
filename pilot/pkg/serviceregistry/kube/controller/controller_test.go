@@ -44,8 +44,8 @@ import (
 
 func makeClient(t *testing.T) kubernetes.Interface {
 	// Don't depend on symlink, and don't use real cluster.
-	// This is the circleci config matching localhost (testEnvLocalK8S.sh start)
-	kubeconfig := filepath.Join(env.IstioSrc, ".circleci/config")
+	// This is the local kube config matching localhost (testEnvLocalK8S.sh start)
+	kubeconfig := filepath.Join(env.IstioSrc, "tests/util/kubeconfig")
 	client, err := CreateInterface(kubeconfig)
 	if err != nil {
 		t.Skipf("Unable to create kube client from config %s, skipping test. Error: %v", kubeconfig, err)
