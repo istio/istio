@@ -173,7 +173,7 @@ spec:
   security:
     enabled: true
     components:
-      namespace: istio-security
+      namespace: istio-system
 
       citadel:
         common:

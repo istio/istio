@@ -3,6 +3,12 @@
 # Includes components used in the demo, defaults to alpha3 rules.
 # Note: please only put common configuration for the demo profiles here.
 global:
+  istioNamespace: istio-system
+  configNamespace: istio-control
+  # Telemetry namespace, including tracing.
+  telemetryNamespace: istio-telemetry
+  policyNamespace: istio-policy
+
   proxy:
     accessLogFile: "/dev/stdout"
     resources:

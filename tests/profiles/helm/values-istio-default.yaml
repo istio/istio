@@ -1,2 +1,9 @@
 # default profile will use all the settings in global.yaml
+global:
+  istioNamespace: istio-system
+  configNamespace: istio-control
+  # Telemetry namespace, including tracing.
+  telemetryNamespace: istio-telemetry
+  policyNamespace: istio-policy
+
 certmanager: {}
