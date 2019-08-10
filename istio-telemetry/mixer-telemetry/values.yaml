@@ -1,4 +1,30 @@
 mixer:
+  env:
+    GODEBUG: gctrace=1
+    # max procs should be ceil(cpu limit + 1)
+    GOMAXPROCS: "6"
+
+  adapters:
+    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
+    stdio:
+      # If set to true, will add 'rule' and 'stdio' handler for access logs.
+      # If false, user will need to configure their own rules outside of installer.
+      enabled: false
+      outputAsJson: false
+
+    prometheus:
+      enabled: true
+      metricsExpiryDuration: 10m
+
+    kubernetesenv:
+      enabled: true
+
+    stackdriver:
+      enabled: false
+
+    # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+    useAdapterCRDs: false
+
   telemetry:
     image: mixer
     enabled: true
@@ -31,32 +57,6 @@ mixer:
 
     # Indicate if Galley is enabled to send MCP queries
     useMCP: true
-
-  env:
-    GODEBUG: gctrace=1
-    # max procs should be ceil(cpu limit + 1)
-    GOMAXPROCS: "6"
-
-  adapters:
-    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
-    stdio:
-      # If set to true, will add 'rule' and 'stdio' handler for access logs.
-      # If false, user will need to configure their own rules outside of installer.
-      enabled: false
-      outputAsJson: false
-
-    prometheus:
-      enabled: true
-      metricsExpiryDuration: 10m
-
-    kubernetesenv:
-      enabled: true
-
-    stackdriver:
-      enabled: false
-
-    # Setting this to false sets the useAdapterCRDs mixer startup argument to false
-    useAdapterCRDs: false
 
     nodeSelector: {}
     tolerations: []
