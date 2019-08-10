@@ -30,20 +30,21 @@
 //
 // To get LDS or CDS, use -type lds or -type cds, and provide the pod id or app label. For example:
 // ```bash
-// go run pilot_cli.go -type lds -res httpbin-5766dd474b-2hlnx
-// go run pilot_cli.go -type lds -res httpbin
+// go run pilot_cli.go --type lds --proxytag httpbin-5766dd474b-2hlnx  # --res will be ignored
+// go run pilot_cli.go --type lds --proxytag httpbin
 // ```
 // Note If more than one pod match with the app label, one will be picked arbitrarily.
 //
-// For EDS, provide comma-separated-list of clusters. For example:
+// For EDS/RDS, provide comma-separated-list of corresponding clusters or routes name. For example:
 // ```bash
-// go run ./pilot/tools/debug/pilot_cli.go -type eds -res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
+// go run ./pilot/tools/debug/pilot_cli.go --type eds --proxytag httpbin \
+// --res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
 // ```
 //
 // Script requires kube config in order to connect to k8s registry to get pod information (for LDS and CDS type). The default
 // value for kubeconfig path is .kube/config in home folder (works for Linux only). It can be changed via -kubeconfig flag.
 // ```bash
-// go run ./pilot/debug/pilot_cli.go -type lds -res httpbin -kubeconfig path/to/kube/config
+// go run ./pilot/debug/pilot_cli.go --type lds --proxytag httpbin --kubeconfig path/to/kube/config
 // ```
 
 package main
