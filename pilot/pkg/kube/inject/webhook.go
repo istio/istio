@@ -76,6 +76,7 @@ type Webhook struct {
 	certFile   string
 	keyFile    string
 	cert       *tls.Certificate
+	mon        *monitor
 }
 
 func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
@@ -127,6 +128,9 @@ type WebhookParameters struct {
 
 	// Port is the webhook port, e.g. typically 443 for https.
 	Port int
+
+	// MonitoringPort is the webhook port, e.g. typically 15014.
+	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
 	// file is updated. Value of zero disables the health check
@@ -184,6 +188,14 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
+
+	mon, err := startMonitor(h, p.MonitoringPort)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not start monitoring server %v", err)
+	}
+
+	wh.mon = mon
 	wh.server.Handler = h
 
 	return wh, nil
@@ -198,6 +210,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.watcher.Close()
 	defer wh.server.Close()
+	defer wh.mon.monitoringServer.Close()
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -541,8 +554,8 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
-		log.Errorf("Could not unmarshal raw object: %v %s", err,
-			string(req.Object.Raw))
+		handleError(fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
+			string(req.Object.Raw)))
 		return toAdmissionResponse(err)
 	}
 
@@ -559,6 +572,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 	if !injectRequired(ignoredNamespaces, wh.sidecarConfig, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
+		totalSkippedInjections.Increment()
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
@@ -576,7 +590,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
-		log.Infof("Injection data: err=%v spec=%v\n", err, iStatus)
+		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
 	}
 
@@ -584,8 +598,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
-		log.Infof("AdmissionResponse: err=%v spec=%v\n", err, spec)
-
+		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)
 	}
 
@@ -599,10 +612,12 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 			return &pt
 		}(),
 	}
+	totalSuccessfulInjections.Increment()
 	return &reviewResponse
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
+	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
 		if data, err := ioutil.ReadAll(r.Body); err == nil {
@@ -610,7 +625,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(body) == 0 {
-		log.Errorf("no body found")
+		handleError("no body found")
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -618,7 +633,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		log.Errorf("contentType=%s, expect application/json", contentType)
+		handleError(fmt.Sprintf("contentType=%s, expect application/json", contentType))
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -626,7 +641,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	var reviewResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
-		log.Errorf("Could not decode body: %v", err)
+		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		reviewResponse = wh.inject(&ar)
@@ -649,4 +664,9 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("Could not write response: %v", err)
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func handleError(message string) {
+	log.Errorf(message)
+	totalFailedInjections.Increment()
 }
