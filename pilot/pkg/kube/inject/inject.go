@@ -577,6 +577,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"toJSON":              toJSON,
 		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
+		"structToJSON":        structToJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
@@ -871,6 +872,20 @@ func includeInboundPorts(containers []corev1.Container) string {
 
 func kubevirtInterfaces(s string) string {
 	return s
+}
+
+func structToJSON(v interface{}) string {
+	if v == nil {
+		return "{}"
+	}
+
+	ba, err := json.Marshal(v)
+	if err != nil {
+		log.Warnf("Unable to marshal %v", v)
+		return "{}"
+	}
+
+	return string(ba)
 }
 
 func toJSON(m map[string]string) string {

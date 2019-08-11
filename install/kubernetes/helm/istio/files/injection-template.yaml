@@ -135,40 +135,8 @@ containers:
   - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-  - --envoyAccessLogServiceAddress
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
-  - --envoyAccessLogServiceTLSMode
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetMode }}"
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.clientCertificate }}
-  - --envoyAccessLogServiceTLSClientCertificate
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetClientCertificate }}"
-{{- end }}
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.privateKey }}
-  - --envoyAccessLogServiceTLSPrivateKey
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetPrivateKey }}"
-{{- end }}
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.caCertificates }}
-  - --envoyAccessLogServiceTLSCaCertificates
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetCaCertificates }}"
-{{- end }}
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.sni }}
-  - --envoyAccessLogServiceTLSSni
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSni }}"
-{{- end }}
-{{- if .Values.global.proxy.envoyAccessLogService.tlsSettings.subjectAltNames }}
-  - --envoyAccessLogServiceTLSSubjectAltNames
-  - {{ range $i, $v := .ProxyConfig.GetEnvoyAccessLogService.GetTlsSettings.GetSubjectAltNames }}{{ if $i }},{{ end }}{{ $v }}{{ end }}
-{{- end }}
-{{- end }}
-{{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
-  - --envoyAccessLogServiceTCPKeepaliveProbes
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetProbes }}"
-  - --envoyAccessLogServiceTCPKeepaliveTime
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetTime }}"
-  - --envoyAccessLogServiceTCPKeepaliveInterval
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetTcpKeepalive.GetInterval }}"
-{{- end }}
+  - --envoyAccessLogService
+  - '{{ structToJSON .ProxyConfig.EnvoyAccessLogService }}'
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"
