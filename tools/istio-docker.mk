@@ -318,6 +318,9 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
 
+docker.base:
+	docker build --no-cache -t docker.io/sdake/base:${VERSION} -f docker/Dockerfile.xenial_debug docker/
+
 # Base image for 'debug' containers.
 # You can run it first to use local changes (or guarantee it is built from scratch)
 docker.basedebug:
@@ -338,6 +341,10 @@ docker.basedebug_deb:
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug
 	docker push docker.io/sdake/base_debug:$(VERSION)
+
+# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
+docker.push.base: docker.base
+	docker push docker.io/sdake/base:$(VERSION)
 
 # Build a dev environment Docker image.
 DEV_IMAGE_NAME = istio/dev:$(USER)
