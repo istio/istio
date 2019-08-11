@@ -1277,12 +1277,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 	valuesBytes := []byte(getValues(&Params{}, t))
 	var (
-		configFile = filepath.Join(dir, "config-file.yaml")
-		valuesFile = filepath.Join(dir, "values-file.yaml")
-		meshFile   = filepath.Join(dir, "mesh-file.yaml")
-		certFile   = filepath.Join(dir, "cert-file.yaml")
-		keyFile    = filepath.Join(dir, "key-file.yaml")
-		port       = 0
+		configFile     = filepath.Join(dir, "config-file.yaml")
+		valuesFile     = filepath.Join(dir, "values-file.yaml")
+		meshFile       = filepath.Join(dir, "mesh-file.yaml")
+		certFile       = filepath.Join(dir, "cert-file.yaml")
+		keyFile        = filepath.Join(dir, "key-file.yaml")
+		port           = 0
+		monitoringPort = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -1322,12 +1323,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	wh, err := NewWebhook(WebhookParameters{
-		ConfigFile: configFile,
-		ValuesFile: valuesFile,
-		MeshFile:   meshFile,
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		Port:       port,
+		ConfigFile:     configFile,
+		ValuesFile:     valuesFile,
+		MeshFile:       meshFile,
+		CertFile:       certFile,
+		KeyFile:        keyFile,
+		Port:           port,
+		MonitoringPort: monitoringPort,
 	})
 	if err != nil {
 		cleanup()
@@ -1484,6 +1486,8 @@ func TestRunAndServe(t *testing.T) {
 			}
 		})
 	}
+	// Now Validate that metrics are created.
+	testSideCarInjectorMetrics(t, wh)
 }
 
 func TestReloadCert(t *testing.T) {
@@ -1519,6 +1523,39 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 		t.Fatalf("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
+	srv := httptest.NewServer(wh.mon.exporter)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("failed to get /metrics: %v", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read body: %v", err)
+	}
+	resp.Body.Close()
+
+	output := string(body)
+
+	if !strings.Contains(output, "sidecar_injection_requests_total") {
+		t.Fatalf("metric sidecar_injection_requests_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_success_total") {
+		t.Fatalf("metric sidecar_injection_success_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_skip_total") {
+		t.Fatalf("metric sidecar_injection_skip_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_failure_total") {
+		t.Fatalf("incorrect value for metric sidecar_injection_failure_total")
+	}
 }
 
 func BenchmarkInjectServe(b *testing.B) {
