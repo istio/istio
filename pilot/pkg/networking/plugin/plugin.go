@@ -53,7 +53,7 @@ const (
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
-	if !util.IsProtocolSniffingEnabled(node) && p == protocol.Unsupported {
+	if !util.IsProtocolSniffingEnabledForNode(node) && p == protocol.Unsupported {
 		p = protocol.TCP
 	}
 
@@ -66,7 +66,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsProtocolSniffingEnabled(node) {
+		if util.IsProtocolSniffingEnabledForNode(node) {
 			return ListenerProtocolAuto
 		}
 
