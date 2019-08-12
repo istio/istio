@@ -16,9 +16,10 @@ package model
 
 import (
 	"encoding/json"
-	networking "istio.io/api/networking/v1alpha3"
 	"sort"
 	"sync"
+
+	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/monitoring"
@@ -177,6 +178,8 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		for update := range other.EdsUpdates {
 			first.EdsUpdates[update] = struct{}{}
 		}
+	} else {
+		first.EdsUpdates = nil
 	}
 
 	if !features.ScopePushes.Get() {

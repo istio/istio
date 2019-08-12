@@ -66,7 +66,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip eds merge: right full",
 			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
 			&PushRequest{Full: true},
-			PushRequest{Full: true, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			PushRequest{Full: true},
 		},
 		{
 			"incremental merge",
