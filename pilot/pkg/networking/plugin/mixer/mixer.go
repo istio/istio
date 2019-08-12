@@ -145,6 +145,18 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		}
 		return nil
+	case plugin.ListenerProtocolAuto:
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
+		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
@@ -192,6 +204,19 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
+		return nil
+	case plugin.ListenerProtocolAuto:
+		httpFilter := buildInboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		tcpFilter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+
 		return nil
 	}
 

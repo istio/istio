@@ -170,6 +170,12 @@ var (
 			"and will be removed in the near future.",
 	)
 
+	EnableProtocolSniffing = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING",
+		false,
+		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	)
+
 	ScopePushes = env.RegisterBoolVar(
 		"PILOT_SCOPE_PUSHES",
 		true,

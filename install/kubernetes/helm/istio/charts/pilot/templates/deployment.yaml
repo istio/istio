@@ -110,6 +110,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
+{{- if .Values.enableProtocolSniffing }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
+            value: "{{ .Values.enableProtocolSniffing }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

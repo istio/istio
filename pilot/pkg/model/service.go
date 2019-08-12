@@ -475,8 +475,7 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num && port.Protocol != protocol.UDP &&
-			port.Protocol != protocol.Unsupported {
+		if port.Port == num && port.Protocol != protocol.UDP {
 			return port, true
 		}
 	}
