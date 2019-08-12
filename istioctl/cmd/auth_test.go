@@ -69,27 +69,6 @@ func TestAuthCheck(t *testing.T) {
 	}
 }
 
-func TestAuthUpgrade(t *testing.T) {
-	testCases := []struct {
-		name     string
-		in       string
-		services []string
-		golden   string
-	}{
-		{
-			name:     "v1 policies",
-			in:       "testdata/auth/authz-policy.yaml",
-			services: []string{"testdata/auth/svc-other.yaml", "testdata/auth/svc-bookinfo.yaml"},
-			golden:   "testdata/auth/authz-policy.golden",
-		},
-	}
-
-	for _, c := range testCases {
-		command := fmt.Sprintf("experimental auth upgrade -f %s --service %s", c.in, strings.Join(c.services, ","))
-		runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
-	}
-}
-
 func TestAuthValidator(t *testing.T) {
 	testCases := []struct {
 		name     string

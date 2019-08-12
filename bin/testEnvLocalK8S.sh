@@ -18,7 +18,7 @@ set -euo pipefail
 
 # testEnv will setup a local test environment, for running Istio unit tests.
 
-# Based on circleCI config - used to reproduce the environment and to improve local testing
+# Based on local kubeconfig - used to reproduce the environment and to improve local testing
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
 
@@ -47,12 +47,12 @@ export MASTER_IP=127.0.0.1
 export MASTER_CLUSTER_IP=10.99.0.1
 
 # TODO: customize the ports and generate a local config
-export KUBECONFIG=${GO_TOP}/src/istio.io/istio/.circleci/config
+export KUBECONFIG=${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig
 
 "${ISTIO_GO}/bin/init.sh"
 
 # Checked in certificates, to avoid regenerating them
-CERTDIR=${CERTDIR:-${ISTIO_GO}/.circleci/pki/istio-certs}
+CERTDIR=${CERTDIR:-${ISTIO_GO}/tests/util/pki/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
 ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
@@ -205,7 +205,7 @@ function startPilot() {
   "${ISTIO_OUT}/pilot-discovery" discovery --httpAddr ":18080" \
                                          --monitoringAddr ":19093" \
                                          --log_target "${LOG_DIR}/pilot.log" \
-                                         --kubeconfig "${ISTIO_GO}/.circleci/config" &
+                                         --kubeconfig "${ISTIO_GO}/tests/util/kubeconfig" &
   echo $! > "$LOG_DIR/pilot.pid"
 }
 

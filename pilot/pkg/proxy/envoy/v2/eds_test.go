@@ -164,7 +164,7 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 		t.Fatal("Error connecting ", err)
 	}
 	adscConn.Watch()
-	_, err = adscConn.Wait("rds", 10*time.Second)
+	_, err = adscConn.Wait(10*time.Second, "eds", "lds", "cds", "rds")
 	if err != nil {
 		t.Fatal("Error getting initial config ", err)
 	}
@@ -210,7 +210,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Locality: asdc2Locality,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -262,10 +262,12 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	// Test initial state
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, map[string]struct{}{
-		"overlapping.cluster.local": {},
-	})
-	_, _ = adsc.Wait("", 5*time.Second)
+	server.EnvoyXdsServer.Push(&model.PushRequest{
+		Full: true,
+		EdsUpdates: map[string]struct{}{
+			"overlapping.cluster.local": {},
+		}})
+	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
@@ -336,8 +338,7 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 	// will trigger recompute and push
 
-	_, err := adsc.Wait("eds", 5*time.Second)
-	if err != nil {
+	if _, err := adsc.Wait(5*time.Second, "eds"); err != nil {
 		t.Fatal("EDS push failed", err)
 	}
 	testTCPEndpoints("127.0.0.3", adsc, t)
@@ -345,17 +346,9 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 // edsFullUpdateCheck checks for updates required in a full push after the CDS update
 func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
-	upd, err := adsc.Wait("eds", 5*time.Second)
-	if err != nil {
-		t.Fatal("Expecting EDS update as part of a full push", err, upd)
-	}
-	upd, err = adsc.Wait("lds", 5*time.Second)
-	if err != nil {
-		t.Fatal("Expecting LDS update as part of a full push", err, upd)
-	}
-	upd, err = adsc.Wait("rds", 5*time.Second)
-	if err != nil {
-		t.Fatal("Expecting RDS update as part of a full push", err, upd)
+	t.Helper()
+	if upd, err := adsc.Wait(15*time.Second, "cds", "eds", "lds", "rds"); err != nil {
+		t.Fatal("Expecting CDS, EDS, LDS, and RDS update as part of a full push", err, upd)
 	}
 }
 
@@ -379,16 +372,12 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
 
-	upd, err := adsc.Wait("", 5*time.Second)
+	upd, err := adsc.Wait(5 * time.Second)
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if upd != "eds" {
+	if !reflect.DeepEqual(upd, []string{"eds"}) {
 		t.Error("Expecting EDS only update, got", upd)
-		_, err = adsc.Wait("lds", 5*time.Second)
-		if err != nil {
-			t.Fatal("Incremental push failed", err)
-		}
 	}
 
 	testTCPEndpoints("127.0.0.2", adsc, t)
@@ -396,10 +385,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	// Update the endpoint with different SA - expect full
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.3", "account2", "v1"))
-	upd, err = adsc.Wait("", 5*time.Second)
-	if upd != "cds" || err != nil {
-		t.Fatal("Expecting full push after service account update", err, upd)
-	}
+
 	edsFullUpdateCheck(adsc, t)
 	testTCPEndpoints("127.0.0.3", adsc, t)
 
@@ -407,19 +393,18 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.4", "account2", "v1"))
 
-	upd, err = adsc.Wait("", 5*time.Second)
-	if upd != "eds" || err != nil {
-		t.Fatal("Expecting inc push ", err, upd)
+	upd, err = adsc.Wait(5 * time.Second)
+	if err != nil {
+		t.Fatal("Incremental push failed", err)
+	}
+	if !reflect.DeepEqual(upd, []string{"eds"}) {
+		t.Error("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
 	// Update the endpoint with different label - expect full
 	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v2"}, nil)
 
-	upd, err = adsc.Wait("", 5*time.Second)
-	if upd != "cds" || err != nil {
-		t.Fatal("Expecting full push after label update", err, upd)
-	}
 	edsFullUpdateCheck(adsc, t)
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
@@ -427,9 +412,12 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.5", "account2", "v1"))
 
-	upd, err = adsc.Wait("", 5*time.Second)
-	if upd != "eds" || err != nil {
-		t.Fatal("Expecting eds push ", err, upd)
+	upd, err = adsc.Wait(5 * time.Second)
+	if err != nil {
+		t.Fatal("Incremental push failed", err)
+	}
+	if !reflect.DeepEqual(upd, []string{"eds"}) {
+		t.Error("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.5", adsc, t)
 }
@@ -476,7 +464,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			}
 			defer adscConn.Close()
 			adscConn.Watch()
-			_, err = adscConn.Wait("rds", 15*time.Second)
+			_, err = adscConn.Wait(15*time.Second, "rds")
 			if err != nil {
 				errChan <- errors.New("failed to get initial rds: " + err.Error())
 				wgConnect.Done()
@@ -495,7 +483,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait("eds", 15*time.Second)
+			_, err = adscConn.Wait(15*time.Second, "eds")
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
@@ -523,7 +511,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
-			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.UpdateRequest{Full: true}, updates)
+			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.PushRequest{Full: true, EdsUpdates: updates})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}
@@ -590,7 +578,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Labels: map[string]string{"socket": "unix"},
 	})
 
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -627,7 +615,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addOverlappingEndpoints(server *bootstrap.Server) {
@@ -657,7 +645,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			},
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify the endpoint debug interface is installed and returns some string.

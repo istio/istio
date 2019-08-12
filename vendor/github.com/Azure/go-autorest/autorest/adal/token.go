@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-autorest/autorest/date"
-	"github.com/Azure/go-autorest/version"
+	"github.com/Azure/go-autorest/tracing"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -385,8 +385,13 @@ func (spt *ServicePrincipalToken) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	spt.refreshLock = &sync.RWMutex{}
-	spt.sender = &http.Client{}
+	// Don't override the refreshLock or the sender if those have been already set.
+	if spt.refreshLock == nil {
+		spt.refreshLock = &sync.RWMutex{}
+	}
+	if spt.sender == nil {
+		spt.sender = &http.Client{Transport: tracing.Transport}
+	}
 	return nil
 }
 
@@ -433,7 +438,7 @@ func NewServicePrincipalTokenWithSecret(oauthConfig OAuthConfig, id string, reso
 			RefreshWithin: defaultRefresh,
 		},
 		refreshLock:      &sync.RWMutex{},
-		sender:           &http.Client{},
+		sender:           &http.Client{Transport: tracing.Transport},
 		refreshCallbacks: callbacks,
 	}
 	return spt, nil
@@ -674,7 +679,7 @@ func newServicePrincipalTokenFromMSI(msiEndpoint, resource string, userAssignedI
 			RefreshWithin: defaultRefresh,
 		},
 		refreshLock:           &sync.RWMutex{},
-		sender:                &http.Client{},
+		sender:                &http.Client{Transport: tracing.Transport},
 		refreshCallbacks:      callbacks,
 		MaxMSIRefreshAttempts: defaultMaxMSIRefreshAttempts,
 	}
@@ -791,7 +796,7 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 	if err != nil {
 		return fmt.Errorf("adal: Failed to build the refresh request. Error = '%v'", err)
 	}
-	req.Header.Add("User-Agent", version.UserAgent())
+	req.Header.Add("User-Agent", UserAgent())
 	req = req.WithContext(ctx)
 	if !isIMDS(spt.inner.OauthConfig.TokenEndpoint) {
 		v := url.Values{}

@@ -44,32 +44,47 @@ func (m *ServerInfo) Validate() error {
 
 	// no validation rules for State
 
-	if v, ok := interface{}(m.GetUptimeCurrentEpoch()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ServerInfoValidationError{
-				field:  "UptimeCurrentEpoch",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetUptimeCurrentEpoch()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ServerInfoValidationError{
+					field:  "UptimeCurrentEpoch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetUptimeAllEpochs()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ServerInfoValidationError{
-				field:  "UptimeAllEpochs",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetUptimeAllEpochs()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ServerInfoValidationError{
+					field:  "UptimeAllEpochs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommandLineOptions()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ServerInfoValidationError{
-				field:  "CommandLineOptions",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCommandLineOptions()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ServerInfoValidationError{
+					field:  "CommandLineOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -169,32 +184,47 @@ func (m *CommandLineOptions) Validate() error {
 
 	// no validation rules for ServiceZone
 
-	if v, ok := interface{}(m.GetFileFlushInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommandLineOptionsValidationError{
-				field:  "FileFlushInterval",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetFileFlushInterval()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommandLineOptionsValidationError{
+					field:  "FileFlushInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetDrainTime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommandLineOptionsValidationError{
-				field:  "DrainTime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDrainTime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommandLineOptionsValidationError{
+					field:  "DrainTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetParentShutdownTime()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommandLineOptionsValidationError{
-				field:  "ParentShutdownTime",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetParentShutdownTime()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommandLineOptionsValidationError{
+					field:  "ParentShutdownTime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

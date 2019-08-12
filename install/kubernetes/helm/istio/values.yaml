@@ -106,7 +106,7 @@ istiocoredns:
 global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+  # Daily builds from prow are on gcr.io
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
@@ -118,7 +118,7 @@ global:
   logging:
     level: "default:info"
 
-  # monitoring port used by mixer, pilot, galley
+  # monitoring port used by mixer, pilot, galley and sidecar injector
   monitoringPort: 15014
 
   k8sIngress:
@@ -449,8 +449,6 @@ global:
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
     enabled: false
     udsPath: ""
-    useTrustworthyJwt: false
-    useNormalJwt: false
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #

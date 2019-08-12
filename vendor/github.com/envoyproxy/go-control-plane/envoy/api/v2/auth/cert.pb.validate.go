@@ -120,42 +120,62 @@ func (m *TlsCertificate) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCertificateChain()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TlsCertificateValidationError{
-				field:  "CertificateChain",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCertificateChain()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TlsCertificateValidationError{
+					field:  "CertificateChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TlsCertificateValidationError{
-				field:  "PrivateKey",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetPrivateKey()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TlsCertificateValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetPassword()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TlsCertificateValidationError{
-				field:  "Password",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetPassword()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TlsCertificateValidationError{
+					field:  "Password",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetOcspStaple()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TlsCertificateValidationError{
-				field:  "OcspStaple",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetOcspStaple()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TlsCertificateValidationError{
+					field:  "OcspStaple",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -163,12 +183,17 @@ func (m *TlsCertificate) Validate() error {
 	for idx, item := range m.GetSignedCertificateTimestamp() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TlsCertificateValidationError{
-					field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TlsCertificateValidationError{
+						field:  fmt.Sprintf("SignedCertificateTimestamp[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -250,12 +275,17 @@ func (m *TlsSessionTicketKeys) Validate() error {
 	for idx, item := range m.GetKeys() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return TlsSessionTicketKeysValidationError{
-					field:  fmt.Sprintf("Keys[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return TlsSessionTicketKeysValidationError{
+						field:  fmt.Sprintf("Keys[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -329,12 +359,17 @@ func (m *CertificateValidationContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTrustedCa()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CertificateValidationContextValidationError{
-				field:  "TrustedCa",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetTrustedCa()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CertificateValidationContextValidationError{
+					field:  "TrustedCa",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -363,32 +398,47 @@ func (m *CertificateValidationContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetRequireOcspStaple()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CertificateValidationContextValidationError{
-				field:  "RequireOcspStaple",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRequireOcspStaple()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CertificateValidationContextValidationError{
+					field:  "RequireOcspStaple",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireSignedCertificateTimestamp()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CertificateValidationContextValidationError{
-				field:  "RequireSignedCertificateTimestamp",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRequireSignedCertificateTimestamp()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CertificateValidationContextValidationError{
+					field:  "RequireSignedCertificateTimestamp",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetCrl()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CertificateValidationContextValidationError{
-				field:  "Crl",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCrl()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CertificateValidationContextValidationError{
+					field:  "Crl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -463,12 +513,17 @@ func (m *CommonTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetTlsParams()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommonTlsContextValidationError{
-				field:  "TlsParams",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetTlsParams()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonTlsContextValidationError{
+					field:  "TlsParams",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -476,12 +531,17 @@ func (m *CommonTlsContext) Validate() error {
 	for idx, item := range m.GetTlsCertificates() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return CommonTlsContextValidationError{
-					field:  fmt.Sprintf("TlsCertificates[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificates[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -498,12 +558,17 @@ func (m *CommonTlsContext) Validate() error {
 	for idx, item := range m.GetTlsCertificateSdsSecretConfigs() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return CommonTlsContextValidationError{
-					field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return CommonTlsContextValidationError{
+						field:  fmt.Sprintf("TlsCertificateSdsSecretConfigs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -514,36 +579,51 @@ func (m *CommonTlsContext) Validate() error {
 
 	case *CommonTlsContext_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return CommonTlsContextValidationError{
-					field:  "ValidationContext",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetValidationContext()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return CommonTlsContextValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *CommonTlsContext_ValidationContextSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return CommonTlsContextValidationError{
-					field:  "ValidationContextSdsSecretConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetValidationContextSdsSecretConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return CommonTlsContextValidationError{
+						field:  "ValidationContextSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *CommonTlsContext_CombinedValidationContext:
 
-		if v, ok := interface{}(m.GetCombinedValidationContext()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return CommonTlsContextValidationError{
-					field:  "CombinedValidationContext",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetCombinedValidationContext()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return CommonTlsContextValidationError{
+						field:  "CombinedValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -615,12 +695,17 @@ func (m *UpstreamTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return UpstreamTlsContextValidationError{
-				field:  "CommonTlsContext",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCommonTlsContext()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return UpstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -634,12 +719,17 @@ func (m *UpstreamTlsContext) Validate() error {
 
 	// no validation rules for AllowRenegotiation
 
-	if v, ok := interface{}(m.GetMaxSessionKeys()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return UpstreamTlsContextValidationError{
-				field:  "MaxSessionKeys",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetMaxSessionKeys()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return UpstreamTlsContextValidationError{
+					field:  "MaxSessionKeys",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -711,32 +801,47 @@ func (m *DownstreamTlsContext) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetCommonTlsContext()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DownstreamTlsContextValidationError{
-				field:  "CommonTlsContext",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCommonTlsContext()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DownstreamTlsContextValidationError{
+					field:  "CommonTlsContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireClientCertificate()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DownstreamTlsContextValidationError{
-				field:  "RequireClientCertificate",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRequireClientCertificate()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DownstreamTlsContextValidationError{
+					field:  "RequireClientCertificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
 
-	if v, ok := interface{}(m.GetRequireSni()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DownstreamTlsContextValidationError{
-				field:  "RequireSni",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetRequireSni()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DownstreamTlsContextValidationError{
+					field:  "RequireSni",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -745,24 +850,34 @@ func (m *DownstreamTlsContext) Validate() error {
 
 	case *DownstreamTlsContext_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return DownstreamTlsContextValidationError{
-					field:  "SessionTicketKeys",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetSessionTicketKeys()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig:
 
-		if v, ok := interface{}(m.GetSessionTicketKeysSdsSecretConfig()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return DownstreamTlsContextValidationError{
-					field:  "SessionTicketKeysSdsSecretConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetSessionTicketKeysSdsSecretConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return DownstreamTlsContextValidationError{
+						field:  "SessionTicketKeysSdsSecretConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -838,12 +953,17 @@ func (m *SdsSecretConfig) Validate() error {
 
 	// no validation rules for Name
 
-	if v, ok := interface{}(m.GetSdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return SdsSecretConfigValidationError{
-				field:  "SdsConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetSdsConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return SdsSecretConfigValidationError{
+					field:  "SdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -918,36 +1038,51 @@ func (m *Secret) Validate() error {
 
 	case *Secret_TlsCertificate:
 
-		if v, ok := interface{}(m.GetTlsCertificate()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return SecretValidationError{
-					field:  "TlsCertificate",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetTlsCertificate()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return SecretValidationError{
+						field:  "TlsCertificate",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *Secret_SessionTicketKeys:
 
-		if v, ok := interface{}(m.GetSessionTicketKeys()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return SecretValidationError{
-					field:  "SessionTicketKeys",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetSessionTicketKeys()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return SecretValidationError{
+						field:  "SessionTicketKeys",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
 
 	case *Secret_ValidationContext:
 
-		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return SecretValidationError{
-					field:  "ValidationContext",
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := m.GetValidationContext()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return SecretValidationError{
+						field:  "ValidationContext",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -1027,12 +1162,17 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 		}
 	}
 
-	if v, ok := interface{}(m.GetDefaultValidationContext()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
-				field:  "DefaultValidationContext",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDefaultValidationContext()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "DefaultValidationContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -1044,12 +1184,17 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error
 		}
 	}
 
-	if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
-				field:  "ValidationContextSdsSecretConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetValidationContextSdsSecretConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+					field:  "ValidationContextSdsSecretConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
