@@ -30,8 +30,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -111,7 +111,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		}
 	}
 
-	if err := config.ValidateMeshConfig(&out); err != nil {
+	if err := validation.ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
 
