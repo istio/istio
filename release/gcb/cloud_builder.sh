@@ -45,6 +45,7 @@ export GOPATH
 echo gopath is "$GOPATH"
 # this is needed for istioctl and other parts of build to get the version info
 export ISTIO_VERSION="${CB_VERSION}"
+export VERSION="${CB_VERSION}"
 
 # build docker tar images
 REL_DOCKER_HUB=docker.io/istio
