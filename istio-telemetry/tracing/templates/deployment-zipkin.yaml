@@ -32,7 +32,7 @@ spec:
 {{- end }}
       containers:
         - name: zipkin
-          image: "{{ .Values.tracing.zipkin.hub }}/zipkin:{{ .Values.tracing.zipkin.tag }}"
+          image: "{{ .Values.tracing.zipkin.hub }}/{{ .Values.tracing.zipkin.image }}:{{ .Values.tracing.zipkin.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}

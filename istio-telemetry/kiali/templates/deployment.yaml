@@ -29,7 +29,7 @@ spec:
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-      - image: "{{ .Values.kiali.hub }}/kiali:{{ .Values.kiali.tag }}"
+      - image: "{{ .Values.kiali.hub }}/{{ .Values.kiali.image }}:{{ .Values.kiali.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         name: kiali
         command:

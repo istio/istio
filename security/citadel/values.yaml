@@ -12,6 +12,16 @@ security:
 
   # 90*24hour = 2160h
   workloadCertTtl: 2160h
+ 
+  # Determines Citadel default behavior if the ca.istio.io/env or ca.istio.io/override
+  # labels are not found on a given namespace.
+  #
+  # For example: consider a namespace called "target", which has neither the "ca.istio.io/env"
+  # nor the "ca.istio.io/override" namespace labels. To decide whether or not to generate secrets
+  # for service accounts created in this "target" namespace, Citadel will defer to this option. If the value
+  # of this option is "true" in this case, secrets will be generated for the "target" namespace.
+  # If the value of this option is "false" Citadel will not generate secrets upon service account creation.
+  enableNamespacesByDefault: true
 
   # Galley, pilot in each 'profile' must have a DNS cert.
   dnsCerts:
@@ -41,7 +51,7 @@ security:
   # There are currently two types of anti-affinity:
   #    "requiredDuringSchedulingIgnoredDuringExecution"
   #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote “hard” vs. “soft” requirements, you can define your values
+  # which denote "hard" vs. "soft" requirements, you can define your values
   # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
   # correspondingly.
   # For example:
@@ -52,6 +62,6 @@ security:
   #   topologyKey: "kubernetes.io/hostname"
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
-  # “security” and value “S1”.
+  # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []

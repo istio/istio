@@ -66,7 +66,7 @@ gateways:
         memory: 128Mi
       limits:
         cpu: 2000m
-        memory: 256Mi
+        memory: 1024Mi
 
     # Debug level for envoy. Can be set to 'debug'
     debug: info
@@ -121,6 +121,14 @@ gateways:
     # Domain name for telemetry addons
     telemetry_domain_name: ""
 
+    # Ports to explicitly check for readiness. If configured, the readiness check will expect a
+    # listener on these ports. A comma separated list is expected, such as "80,443".
+    #
+    # Warning: If you do not have a gateway configured for the ports provided, this check will always
+    # fail. This is intended for use cases where you always expect to have a listener on the port,
+    # such as 80 or 443 in typical setups.
+    applicationPorts: ""
+
     # Telemetry addon gateways example config
     telemetry_addon_gateways:
       tracing_gateway:
@@ -168,7 +176,7 @@ gateways:
     # There are currently two types of anti-affinity:
     #    "requiredDuringSchedulingIgnoredDuringExecution"
     #    "preferredDuringSchedulingIgnoredDuringExecution"
-    # which denote “hard” vs. “soft” requirements, you can define your values
+    # which denote "hard" vs. "soft" requirements, you can define your values
     # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
     # correspondingly.
     # For example:
@@ -179,6 +187,6 @@ gateways:
     #   topologyKey: "kubernetes.io/hostname"
     # This pod anti-affinity rule says that the pod requires not to be scheduled
     # onto a node if that node is already running a pod with label having key
-    # “security” and value “S1”.
+    # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []

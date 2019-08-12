@@ -25,15 +25,30 @@ global:
     rewriteAppHTTPProbe: false
 
 pilot:
+  autoscaleEnabled: false
   traceSampling: 100.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
   autoscaleEnabled: false
 
 mixer:
   policy:
+    autoscaleEnabled: false
     enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100Mi
 
   telemetry:
     enabled: true
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
 
   adapters:
     stdio:
@@ -49,3 +64,18 @@ kiali:
   enabled: true
   createDemoSecret: true
 
+gateways:
+  istio-ingressgateway:
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+  istio-egressgateway:
+    enabled: true
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi

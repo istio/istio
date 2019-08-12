@@ -26,7 +26,7 @@ spec:
 {{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.prometheus.hub }}/prometheus:{{ .Values.prometheus.tag }}"
+          image: "{{ .Values.prometheus.hub }}/{{ .Values.prometheus.image }}:{{ .Values.prometheus.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
             - '--storage.tsdb.retention={{ .Values.prometheus.retention }}'

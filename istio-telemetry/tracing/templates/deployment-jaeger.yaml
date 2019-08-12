@@ -38,7 +38,7 @@ spec:
 {{- end }}
       containers:
         - name: jaeger
-          image: "{{ .Values.tracing.jaeger.hub }}/all-in-one:{{ .Values.tracing.jaeger.tag }}"
+          image: "{{ .Values.tracing.jaeger.hub }}/{{ .Values.tracing.jaeger.image }}:{{ .Values.tracing.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
             - containerPort: 9411

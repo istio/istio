@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-kiali-admin-role-binding-{{ .Release.Namespace }}
+  name: kiali
   labels:
     app: kiali
     release: {{ .Release.Name }}
