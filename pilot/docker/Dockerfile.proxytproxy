@@ -2,7 +2,7 @@
 ARG ISTIO_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/sdake/base_debug:${ISTIO_VERSION} as default
+FROM docker.io/sdake/base:${ISTIO_VERSION} as default
 ARG proxy_version
 ARG istio_version
 

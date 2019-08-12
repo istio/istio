@@ -4,7 +4,7 @@
 ARG ISTIO_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/sdake/base_debug:${ISTIO_VERSION} as default
+FROM docker.io/sdake/base:${ISTIO_VERSION} as default
 
 # Micro pilot+mock mixer+echo, local kube
 COPY hyperistio kube-apiserver etcd kubectl /usr/local/bin/

@@ -4,7 +4,7 @@
 ARG ISTIO_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/sdake/base_debug:${ISTIO_VERSION} as default
+FROM docker.io/sdake/base:${ISTIO_VERSION} as default
 
 # This container should only contain kubectl.  Hard-coding to use Linux K8s 1.11.1 version.
 ADD https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl /usr/bin/kubectl
