@@ -15,10 +15,6 @@ global:
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
 
-pilot:
-  env:
-    PILOT_ENABLE_PROTOCOL_SNIFFING: true
-
 prometheus:
   scrapeInterval: 5s
 

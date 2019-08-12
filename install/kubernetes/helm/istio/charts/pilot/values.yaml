@@ -12,6 +12,7 @@ rollingMaxUnavailable: 25%
 image: pilot
 sidecar: true
 traceSampling: 1.0
+enableProtocolSniffing: false
 # Resources for a small pilot install
 resources:
   requests:
@@ -19,7 +20,6 @@ resources:
     memory: 2048Mi
 env:
   PILOT_PUSH_THROTTLE: 100
-  PILOT_ENABLE_PROTOCOL_SNIFFING: false
   GODEBUG: gctrace=1
 cpu:
   targetAverageUtilization: 80

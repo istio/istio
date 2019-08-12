@@ -109,6 +109,8 @@ spec:
 {{- if .Values.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
+            value: "{{ .Values.enableProtocolSniffing }}"
 {{- end }}
           resources:
 {{- if .Values.resources }}
