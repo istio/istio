@@ -34,19 +34,56 @@ type PushEvent struct {
 	full bool
 }
 
+func (event *PushEvent) Merge(other *PushEvent) *PushEvent {
+	if event == nil {
+		return other
+	}
+	if other == nil {
+		return event
+	}
+	merged := &PushEvent{}
+	merged.push = other.push
+	merged.full = event.full || other.full
+	merged.start = event.start
+
+	// When full push, do not care about edsUpdatedServices
+	if !merged.full {
+		edsUpdates := map[string]struct{}{}
+		for endpoint := range other.edsUpdatedServices {
+			edsUpdates[endpoint] = struct{}{}
+		}
+		for endpoint := range event.edsUpdatedServices {
+			edsUpdates[endpoint] = struct{}{}
+		}
+		merged.edsUpdatedServices = edsUpdates
+	}
+	return merged
+}
+
 type PushQueue struct {
-	mu          *sync.RWMutex
-	cond        *sync.Cond
-	eventsMap   map[*XdsConnection]*PushEvent
+	mu   *sync.RWMutex
+	cond *sync.Cond
+
+	// eventsMap stores all connections in the queue. If the same connection is enqueued again, the
+	// PushEvents will be merged.
+	eventsMap map[*XdsConnection]*PushEvent
+
+	// connections maintains ordering of the queue
 	connections []*XdsConnection
+
+	// inProgress stores all connections that have been Dequeue(), but not MarkDone().
+	// The value stored will be initially be nil, but may be populated if the connection is Enqueue().
+	// If PushEvent is not nil, it will be Enqueued again once MarkDone has been called.
+	inProgress map[*XdsConnection]*PushEvent
 }
 
 func NewPushQueue() *PushQueue {
 	mu := &sync.RWMutex{}
 	return &PushQueue{
-		mu:        mu,
-		eventsMap: make(map[*XdsConnection]*PushEvent),
-		cond:      sync.NewCond(mu),
+		mu:         mu,
+		eventsMap:  make(map[*XdsConnection]*PushEvent),
+		inProgress: make(map[*XdsConnection]*PushEvent),
+		cond:       sync.NewCond(mu),
 	}
 }
 
@@ -56,27 +93,20 @@ func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushEvent) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	event, exists := p.eventsMap[proxy]
-	if !exists {
-		p.eventsMap[proxy] = pushInfo
-		p.connections = append(p.connections, proxy)
-	} else {
-		event.push = pushInfo.push
-		event.full = event.full || pushInfo.full
-		// When full push, do not care about edsUpdatedServices
-		if !event.full {
-			edsUpdates := map[string]struct{}{}
-			for endpoint := range pushInfo.edsUpdatedServices {
-				edsUpdates[endpoint] = struct{}{}
-			}
-			for endpoint := range event.edsUpdatedServices {
-				edsUpdates[endpoint] = struct{}{}
-			}
-			event.edsUpdatedServices = edsUpdates
-		} else {
-			event.edsUpdatedServices = nil
-		}
+	// If its already in progress, merge the info and return
+	if event, f := p.inProgress[proxy]; f {
+		p.inProgress[proxy] = event.Merge(pushInfo)
+		return
 	}
+
+	if event, f := p.eventsMap[proxy]; f {
+		p.eventsMap[proxy] = event.Merge(pushInfo)
+		return
+	}
+
+	p.eventsMap[proxy] = pushInfo
+	p.connections = append(p.connections, proxy)
+	// Signal waiters on Dequeue that a new item is available
 	p.cond.Signal()
 }
 
@@ -92,9 +122,28 @@ func (p *PushQueue) Dequeue() (*XdsConnection, *PushEvent) {
 
 	head := p.connections[0]
 	p.connections = p.connections[1:]
+
 	info := p.eventsMap[head]
 	delete(p.eventsMap, head)
+
+	// Mark the connection as in progress
+	p.inProgress[head] = nil
+
 	return head, info
+}
+
+func (p *PushQueue) MarkDone(con *XdsConnection) {
+	p.mu.Lock()
+
+	info := p.inProgress[con]
+	delete(p.inProgress, con)
+	p.mu.Unlock()
+
+	// If the info is present, that means Enqueue was called while connection was not yet marked done.
+	// This means we need to add it back to the queue
+	if info != nil {
+		p.Enqueue(con, info)
+	}
 }
 
 // Get number of pending proxies
