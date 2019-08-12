@@ -44,6 +44,7 @@ func getDefaultProxy() model.Proxy {
 			model.NodeMetadataConfigNamespace: "not-default",
 			"ISTIO_VERSION":                   "1.3",
 		},
+		IstioVersion:    model.ParseIstioVersion("1.3"),
 		ConfigNamespace: "not-default",
 	}
 }

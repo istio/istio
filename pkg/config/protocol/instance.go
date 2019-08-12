@@ -137,3 +137,7 @@ func (i Instance) IsGRPC() bool {
 		return false
 	}
 }
+
+func (i Instance) IsUnsupported() bool {
+	return i == Unsupported
+}

@@ -251,6 +251,6 @@ func convertPort(port coreV1.ServicePort) *networking.Port {
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
-		Protocol: string(configKube.ConvertProtocol(port.Name, port.Protocol)),
+		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
 	}
 }

@@ -55,12 +55,35 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+			"ISTIO_VERSION":                   "1.1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
 	}
 	proxyHTTP10 = model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_VERSION":                   "1.1",
+			model.NodeMetadataHTTP10:          "1",
+		},
+		ConfigNamespace: "not-default",
+	}
+	proxy13 = model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_VERSION":                   "1.3",
+		},
+		ConfigNamespace: "not-default",
+	}
+	proxy13HTTP10 = model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
@@ -115,6 +138,96 @@ var (
 	}
 )
 
+func TestInboundListenerConfigProxyV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
+		testInboundListenerConfigV13(t, p,
+			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIP, "unknown", tnow),
+			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
+		testInboundListenerConfigWithoutServiceV13(t, p)
+		testInboundListenerConfigWithSidecarV13(t, p,
+			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
+		testInboundListenerConfigWithSidecarWithoutServicesV13(t, p)
+	}
+}
+
+func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	testOutboundListenerConflictV13(t,
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, "unknown", tnow),
+		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	testOutboundListenerConflictV13(t,
+		buildServiceWithPort("test1.com", 3306, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", 3306, protocol.MySQL, tnow))
+	testOutboundListenerConflictV13(t,
+		buildServiceWithPort("test1.com", 9999, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", 9999, protocol.MySQL, tnow))
+}
+
+func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	testOutboundListenerConflictV13(t,
+		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, "unknown", tnow),
+		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	testOutboundListenerConflictV13(t,
+		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
+		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+	// storing the services out of time order to test that it's being sorted properly.
+	testOutboundListenerConflictV13(t,
+		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
+		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
+}
+
+func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	// Add a service and verify it's config
+	services := []*model.Service{
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
+		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second))}
+	testOutboundListenerConfigWithSidecarV13(t, services...)
+}
+
 func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -148,7 +261,7 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		buildService("test3.com", "1.2.3.4", protocol.TCP, tnow.Add(2*time.Second)),
 	}
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -212,7 +325,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 				},
 				Spec: virtualServiceSpec,
 			}
-			listeners := buildOutboundListeners(p, nil, &virtualService, services...)
+			listeners := buildOutboundListeners(p, &proxy, nil, &virtualService, services...)
 
 			if len(listeners) != 1 {
 				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -296,7 +409,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, nil, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -314,6 +427,277 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 
 	if p.outboundListenerParams[0].Service != oldestService {
 		t.Fatalf("listener conflict failed to preserve listener for the oldest service")
+	}
+}
+
+func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	oldestService := getOldestService(services...)
+	p := &fakePlugin{}
+	listeners := buildOutboundListeners(p, &proxy13, nil, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	oldestProtocol := oldestService.Ports[0].Protocol
+	if oldestProtocol == protocol.MySQL {
+		if len(listeners[0].FilterChains) != 2 {
+			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+		} else if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+		}
+	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
+		if len(listeners[0].FilterChains) != 3 {
+			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+		} else {
+			if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
+				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+			}
+
+			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+			}
+		}
+
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		if len(listeners[0].ListenerFilters) != 1 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		}
+	} else {
+		if len(listeners[0].FilterChains) != 3 {
+			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+		}
+
+		if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+		}
+
+		if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
+			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+		}
+
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		if len(listeners[0].ListenerFilters) != 1 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		}
+	}
+}
+
+func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(p, proxy, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	if len(listeners[0].FilterChains) != 4 ||
+		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
+		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[3]) {
+		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+}
+
+func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "unknown",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildInboundListeners(p, proxy, sidecarConfig, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	if len(listeners[0].FilterChains) != 4 ||
+		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
+		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[3]) {
+		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+}
+
+func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy *model.Proxy) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo-without-service",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "unknown",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildInboundListeners(p, proxy, sidecarConfig)
+	if expected := 0; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+}
+
+func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(p, proxy, nil)
+	if expected := 0; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+}
+
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
+	t.Helper()
+	if len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
+		fc.FilterChainMatch.ApplicationProtocols[0] != "h2" ||
+		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
+		fc.FilterChainMatch.ApplicationProtocols[2] != "http/1.0" {
+		t.Fatalf("expected %d application protocols, [h2, http/1.1, http/1.0]", 3)
+	}
+}
+
+func isHTTPFilterChain(fc *listener.FilterChain) bool {
+	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.http_connection_manager"
+}
+
+func isTCPFilterChain(fc *listener.FilterChain) bool {
+	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp_proxy"
+}
+
+func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/*"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   3306,
+						Protocol: string(protocol.MySQL),
+						Name:     "MySQL",
+					},
+					Bind:  "8.8.8.8",
+					Hosts: []string{"*/*"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8888,
+						Protocol: "unknown",
+						Name:     "unknown",
+					},
+					Bind:  "2.2.2.2",
+					Hosts: []string{"*/*"},
+				},
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	// enable mysql filter that is used here
+	_ = os.Setenv(features.EnableMysqlFilter.Name, "true")
+
+	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
+
+	listeners := buildOutboundListeners(p, &proxy13, sidecarConfig, nil, services...)
+	if len(listeners) != 4 {
+		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
+	}
+
+	l := findListenerByPort(listeners, 8080)
+	if len(l.FilterChains) != 4 {
+		t.Fatalf("expectd %d filter chains, found %d", 4, len(l.FilterChains))
+	} else {
+		if !isHTTPFilterChain(l.FilterChains[3]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[3].Filters[0].Name)
+		}
+
+		if !isTCPFilterChain(l.FilterChains[1]) {
+			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		}
+
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
+
+		if len(l.ListenerFilters) != 1 ||
+			l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+		}
+	}
+
+	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
+		t.Fatalf("expected MySQL listener on port 3306, found %v", l)
+	}
+
+	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
+		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
+	}
+
+	l = findListenerByPort(listeners, 8888)
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expectd %d filter chains, found %d", 2, len(l.FilterChains))
+	} else {
+		if !isHTTPFilterChain(l.FilterChains[1]) {
+			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
+		}
+
+		if !isTCPFilterChain(l.FilterChains[0]) {
+			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+		}
+	}
+
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+	if len(l.ListenerFilters) != 1 ||
+		l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
+		t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
 	}
 }
 
@@ -455,7 +839,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
 
-	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -509,7 +893,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 
 	defer func() { _ = os.Unsetenv(features.UseRemoteAddress.Name) }()
 
-	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 
 	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
@@ -569,7 +953,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(p, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -787,7 +1171,7 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
+func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config,
 	virtualService *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
@@ -802,6 +1186,7 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 		return nil
 	}
 
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -809,7 +1194,7 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config,
 	}
 	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -825,6 +1210,8 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 			Endpoint: buildEndpoint(s),
 		}
 	}
+
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -913,6 +1300,26 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 			&model.Port{
 				Name:     "default",
 				Port:     8080,
+				Protocol: protocol,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+}
+
+func buildServiceWithPort(hostname string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
+	return &model.Service{
+		CreationTime: creationTime,
+		Hostname:     host.Name(hostname),
+		Address:      wildcardIP,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     port,
 				Protocol: protocol,
 			},
 		},
