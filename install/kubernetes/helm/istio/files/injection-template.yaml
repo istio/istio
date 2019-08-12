@@ -182,6 +182,8 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: metadata.namespace
+  - name: SDS_ENABLED
+    value: {{ $.Values.global.sds.enabled }}
   - name: ISTIO_META_INTERCEPTION_MODE
     value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
   - name: ISTIO_META_INCLUDE_INBOUND_PORTS
