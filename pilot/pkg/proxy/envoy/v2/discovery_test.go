@@ -26,6 +26,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pilot/pkg/features"
