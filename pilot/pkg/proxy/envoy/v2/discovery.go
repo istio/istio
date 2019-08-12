@@ -332,11 +332,6 @@ func (s *DiscoveryServer) ClearCache() {
 	s.clearCache()
 }
 
-// Start the actual push. Called from a timer.
-func (s *DiscoveryServer) doPush(req *model.PushRequest) {
-	s.Push(req)
-}
-
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (s *DiscoveryServer) clearCache() {
@@ -356,9 +351,7 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, func(req *model.PushRequest) {
-		go s.doPush(req)
-	})
+	debounce(s.pushChannel, stopCh, s.Push)
 }
 
 // The debounce helper function is implemented to enable mocking
@@ -380,7 +373,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 
 			if !features.EnableEDSDebounce.Get() && !r.Full {
 				// trigger push now, just for EDS
-				fn(r)
+				go fn(r)
 				continue
 			}
 
@@ -405,7 +398,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 					pushCounter, debouncedEvents,
 					quietTime, eventDelay, req)
 
-				fn(req)
+				go fn(req)
 				req = nil
 				debouncedEvents = 0
 				continue
