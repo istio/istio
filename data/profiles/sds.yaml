@@ -7,13 +7,17 @@ spec:
     components:
       nodeAgent:
         common:
+          enabled: true
+          k8s:
+            env:
+            - name: CA_PROVIDER
+              value: ""
+            - name: CA_ADDR
+              value: ""
+            - name: Plugins
+              value: ""
           values:
             image: node-agent-k8s
-            env:
-              CA_PROVIDER: "Citadel"
-              CA_ADDR: "istio-citadel:8060"
-              VALID_TOKEN: true
-              Plugins: ""
 
   values:
     global:

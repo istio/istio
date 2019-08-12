@@ -56,6 +56,8 @@ type Translator struct {
 	KubernetesMapping map[string]*Translation
 	// ToFeature maps a component to its parent feature.
 	ToFeature map[name.ComponentName]name.FeatureName
+	// FeatureMaps is a set of mappings for each Istio feature.
+	FeatureMaps map[name.FeatureName]*FeatureMap
 	// GlobalNamespaces maps feature namespaces to Helm global namespace definitions.
 	GlobalNamespaces map[name.ComponentName]string
 	// ComponentMaps is a set of mappings for each Istio component.
@@ -63,6 +65,14 @@ type Translator struct {
 
 	// featureToComponents maps feature names to their component names.
 	featureToComponents map[name.FeatureName][]name.ComponentName
+}
+
+// FeatureMaps is a set of mappings for an Istio feature.
+type FeatureMap struct {
+	// AlwaysEnabled controls whether a feature can be turned off through IstioControlPlaneSpec.
+	AlwaysEnabled bool
+	// Components contains list of components that belongs to the current feature.
+	Components []name.ComponentName
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -180,6 +190,43 @@ var (
 				name.PrometheusComponentName: "prometheusNamespace",
 				name.CitadelComponentName:    "securityNamespace",
 			},
+			FeatureMaps: map[name.FeatureName]*FeatureMap{
+				name.IstioBaseFeatureName: {
+					AlwaysEnabled: true,
+					Components:    []name.ComponentName{name.IstioBaseComponentName},
+				},
+				name.TrafficManagementFeatureName: {
+					Components: []name.ComponentName{name.PilotComponentName},
+				},
+				name.PolicyFeatureName: {
+					Components: []name.ComponentName{name.PolicyComponentName},
+				},
+				name.TelemetryFeatureName: {
+					Components: []name.ComponentName{
+						name.TelemetryComponentName,
+						name.PrometheusComponentName,
+						name.PrometheusOperatorComponentName,
+						name.GrafanaComponentName,
+						name.KialiComponentName,
+						name.TracingComponentName,
+					},
+				},
+				name.SecurityFeatureName: {
+					Components: []name.ComponentName{name.CitadelComponentName, name.CertManagerComponentName, name.NodeAgentComponentName},
+				},
+				name.ConfigManagementFeatureName: {
+					Components: []name.ComponentName{name.GalleyComponentName},
+				},
+				name.AutoInjectionFeatureName: {
+					Components: []name.ComponentName{name.SidecarInjectorComponentName},
+				},
+				name.GatewayFeatureName: {
+					Components: []name.ComponentName{name.IngressComponentName, name.EgressComponentName},
+				},
+				name.ThirdPartyFeatureName: {
+					Components: []name.ComponentName{name.CNIComponentName},
+				},
+			},
 			ComponentMaps: map[name.ComponentName]*ComponentMaps{
 				name.IstioBaseComponentName: {
 					ToHelmValuesTreeRoot: "global",
@@ -192,7 +239,6 @@ var (
 					HelmSubdir:           "istio-control/istio-discovery",
 					ToHelmValuesTreeRoot: "pilot",
 				},
-
 				name.GalleyComponentName: {
 					ResourceName:         "istio-galley",
 					ContainerName:        "galley",
@@ -495,9 +541,21 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp
 	return nil
 }
 
+// IsFeatureEnabled reports whether the feature with name ft is enabled, according to the translations in t,
+// and the contents of icp.
+func (t *Translator) IsFeatureEnabled(ft name.FeatureName, icp *v1alpha2.IstioControlPlaneSpec) (bool, error) {
+	if t.FeatureMaps[ft].AlwaysEnabled {
+		return true, nil
+	}
+	return name.IsFeatureEnabledInSpec(ft, icp)
+}
+
 // IsComponentEnabled reports whether the component with name cn is enabled, according to the translations in t,
 // and the contents of ocp.
 func (t *Translator) IsComponentEnabled(cn name.ComponentName, icp *v1alpha2.IstioControlPlaneSpec) (bool, error) {
+	if t.ComponentMaps[cn] == nil {
+		return false, nil
+	}
 	if t.ComponentMaps[cn].AlwaysEnabled {
 		return true, nil
 	}
