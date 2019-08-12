@@ -864,23 +864,23 @@ func TestSidecarScope(t *testing.T) {
 		},
 		{
 			testName: "ns1: http://bookinfo.com:9999 reachable",
-			// Assume bookinfo.com is resolved to 192.168.9.250
-			reqURL:      "http://192.168.9.250.nip.io:9999/a",
+			// Assume bookinfo.com is resolved to 192.0.2.1
+			reqURL:      "http://192.0.2.1:9999/a",
 			host:        "bookinfo.com:9999",
 			expectedHdr: regexp.MustCompile("(?i) scope=public"),
 			reachable:   true,
 		},
 		{
 			testName: "ns1: http://private.com:9999 not reachable",
-			// Assume private.com is resolved to 192.168.9.250
-			reqURL:    "http://192.168.9.250.nip.io:9999/a",
+			// Assume private.com is resolved to 192.0.2.2
+			reqURL:    "http://192.0.2.2:9999/a",
 			host:      "private.com:9999",
 			reachable: false,
 		},
 		{
 			testName: "ns2: service.tcp.com:8888 reachable",
-			// Assume tcp.com is resolved to 192.168.9.251 which is defined in service-entry-tcp-scope-public.yaml
-			reqURL:    "http://192.168.9.251:8888/a",
+			// Assume tcp.com is resolved to 192.0.2.255 which is defined in service-entry-tcp-scope-public.yaml
+			reqURL:    "http://192.0.2.255:8888/a",
 			host:      "tcp.com",
 			reachable: true,
 		},
