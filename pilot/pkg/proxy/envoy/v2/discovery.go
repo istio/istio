@@ -351,7 +351,10 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, s.Push)
+	// Note: it is for test to not pass s.Push directly.
+	debounce(s.pushChannel, stopCh, func(req *model.PushRequest) {
+		go s.Push(req)
+	})
 }
 
 // The debounce helper function is implemented to enable mocking
@@ -373,7 +376,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 
 			if !features.EnableEDSDebounce.Get() && !r.Full {
 				// trigger push now, just for EDS
-				go fn(r)
+				fn(r)
 				continue
 			}
 
@@ -398,7 +401,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 					pushCounter, debouncedEvents,
 					quietTime, eventDelay, req)
 
-				go fn(req)
+				fn(req)
 				req = nil
 				debouncedEvents = 0
 				continue
