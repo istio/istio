@@ -54,7 +54,7 @@ type ImageBuilder struct {
 // NewImageBuilder creates a new ImageBuilder instance.
 func NewImageBuilder() *ImageBuilder {
 	return &ImageBuilder{
-		entries: make(map[string]entry),
+		entries:   make(map[string]entry),
 		buildArgs: make(map[string]*string),
 	}
 }
@@ -62,8 +62,8 @@ func NewImageBuilder() *ImageBuilder {
 // Copy this builder.
 func (b *ImageBuilder) Copy() *ImageBuilder {
 	return &ImageBuilder{
-		tags:    append([]string{}, b.tags...),
-		entries: copyEntries(b.entries),
+		tags:      append([]string{}, b.tags...),
+		entries:   copyEntries(b.entries),
 		buildArgs: copyBuildArgs(b.buildArgs),
 	}
 }
