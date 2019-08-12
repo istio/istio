@@ -319,32 +319,32 @@ docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
 
 docker.base:
-	docker build --no-cache -t docker.io/sdake/base:${VERSION} -f docker/Dockerfile.xenial_debug docker/
+	docker build --no-cache -t docker.io/istio/base:${VERSION} -f docker/Dockerfile.xenial_debug docker/
 
 # Base image for 'debug' containers.
 # You can run it first to use local changes (or guarantee it is built from scratch)
 docker.basedebug:
-	docker build -t docker.io/sdake/base_debug:${VERSION} -f docker/Dockerfile.xenial_debug docker/
+	docker build -t docker.io/istio/base_debug:${VERSION} -f docker/Dockerfile.xenial_debug docker/
 
 # Run this target to generate images based on Bionic Ubuntu
 # This must be run as a first step, before the 'docker' step.
 docker.basedebug_bionic:
-	docker build -t docker.io/sdake/base_debug_bionic:$(VERSION) -f docker/Dockerfile.bionic_debug docker/
-	docker tag docker.io/sdake/base_debug_bionic:$(VERSION) docker.io/sdake/base_debug:$(VERSION)
+	docker build -t docker.io/istio/base_debug_bionic:$(VERSION) -f docker/Dockerfile.bionic_debug docker/
+	docker tag docker.io/istio/base_debug_bionic:$(VERSION) docker.io/istio/base_debug:$(VERSION)
 
 # Run this target to generate images based on Debian Slim
 # This must be run as a first step, before the 'docker' step.
 docker.basedebug_deb:
-	docker build -t docker.io/sdake/base_debug_deb:$(VERSION) -f docker/Dockerfile.deb_debug docker/
-	docker tag docker.io/sdake/base_debug_deb:$(VERSION) docker.io/sdake/base_debug;$(VERSION)
+	docker build -t docker.io/istio/base_debug_deb:$(VERSION) -f docker/Dockerfile.deb_debug docker/
+	docker tag docker.io/istio/base_debug_deb:$(VERSION) docker.io/istio/base_debug;$(VERSION)
 
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug
-	docker push docker.io/sdake/base_debug:$(VERSION)
+	docker push docker.io/istio/base_debug:$(VERSION)
 
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.base: docker.base
-	docker push docker.io/sdake/base:$(VERSION)
+	docker push docker.io/istio/base:$(VERSION)
 
 # Build a dev environment Docker image.
 DEV_IMAGE_NAME = istio/dev:$(USER)

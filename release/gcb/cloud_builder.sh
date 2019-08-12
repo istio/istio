@@ -48,7 +48,7 @@ export ISTIO_VERSION="${CB_VERSION}"
 export VERSION="${CB_VERSION}"
 
 # build docker tar images
-REL_DOCKER_HUB=docker.io/sdake
+REL_DOCKER_HUB=docker.io/istio
 
 make_istio "${OUTPUT_PATH}" "${CB_ISTIOCTL_DOCKER_HUB}" "${REL_DOCKER_HUB}" "${CB_VERSION}" "${CB_BRANCH}"
 cp "/workspace/manifest.txt" "${OUTPUT_PATH}"
