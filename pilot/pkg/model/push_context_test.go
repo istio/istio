@@ -45,10 +45,34 @@ func TestMergeUpdateRequest(t *testing.T) {
 			PushRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
 		},
 		{
-			"incremental merge",
+			"incremental target namespace merge",
 			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}},
 			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}},
 			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
+		},
+		{
+			"incremental eds merge",
+			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+		},
+		{
+			"skip eds merge: left full",
+			&PushRequest{Full: true},
+			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			PushRequest{Full: true},
+		},
+		{
+			"skip eds merge: right full",
+			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: true},
+			PushRequest{Full: true, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+		},
+		{
+			"incremental merge",
+			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
 		},
 	}
 

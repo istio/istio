@@ -16,10 +16,9 @@ package model
 
 import (
 	"encoding/json"
+	networking "istio.io/api/networking/v1alpha3"
 	"sort"
 	"sync"
-
-	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/monitoring"
@@ -184,8 +183,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		// If push scoping is not enabled, we donot care about target namespaces
 		return first
 	}
-
-	first.TargetNamespaces = map[string]struct{}{}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
