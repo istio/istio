@@ -302,7 +302,7 @@ var (
 
 			opts := make(map[string]interface{})
 			if sdsEnabled {
-				opts["sds_uds_path"] = sdsUdsPathVar.Get()
+				opts["sds_uds_path"] = "unix:" + sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
 
@@ -476,6 +476,7 @@ func detectSds(udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
 	}
+
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
