@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sds_citadel_test
+package sdsegress
 
 import (
 	"testing"
@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -30,14 +31,14 @@ var (
 	inst istio.Instance
 	g    galley.Instance
 	p    pilot.Instance
+	prom prometheus.Instance
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
-	// with the certificates issued by the SDS Citadel CA flow.
 	framework.
-		NewSuite("sds_citadel_flow_test", m).
+		NewSuite("sds_egress_workload_mtls_istio_mutual_test", m).
 		Label(label.CustomSetup).
+		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
@@ -46,6 +47,9 @@ func TestMain(m *testing.M) {
 			if p, err = pilot.New(ctx, pilot.Config{
 				Galley: g,
 			}); err != nil {
+				return err
+			}
+			if prom, err = prometheus.New(ctx); err != nil {
 				return err
 			}
 			return nil
@@ -58,8 +62,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
-	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth.yaml
 	cfg.ValuesFile = "values-istio-sds-auth.yaml"
-	cfg.Values["global.mtls.enabled"] = "true"
+	cfg.Values["gateways.istio-egressgateway.enabled"] = "true"
 }
