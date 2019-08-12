@@ -190,7 +190,7 @@ pushd "${TEMP_DIR}"
   cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
 
   git clone -b "${CB_BRANCH}" https://github.com/istio/operator.git
-  operator/release/create_release_charts.sh -v "${VER_STRING}" -o "${COMMON_FILES_DIR}/install/kubernetes/operator"
+  operator/release/create_release_charts.sh -v "${CB_BRANCH}" -o "${COMMON_FILES_DIR}/install/kubernetes/operator"
 popd
 # Changing dir such that tar and zip files are
 # created with right hiereachy
