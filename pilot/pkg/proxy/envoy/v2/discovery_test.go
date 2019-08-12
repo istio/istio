@@ -246,11 +246,6 @@ func TestDebounce(t *testing.T) {
 				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
 				// At this point a push should be triggered, from DebounceMax
-
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(DebounceAfter / 2)
 			},
 			expectedFull:    1,
 			expectedPartial: 0,

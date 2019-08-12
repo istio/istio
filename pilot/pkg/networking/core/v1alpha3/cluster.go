@@ -1128,6 +1128,9 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
+		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
+			cluster.RespectDnsTtl = true
+		}
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {
