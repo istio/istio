@@ -151,8 +151,6 @@ github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 h1:/VMZdsbv0B1
 github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
 github.com/emicklei/go-restful v2.9.3+incompatible h1:2OwhVdhtzYUp5P5wuGsVDPagKSRd9JK72sJCHVCXh5g=
 github.com/emicklei/go-restful v2.9.3+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
-github.com/envoyproxy/go-control-plane v0.8.4 h1:moNlmfa71yZkzDxAb4Fz5qwaW1giZmTtwn6P/gYIK6E=
-github.com/envoyproxy/go-control-plane v0.8.4/go.mod h1:XB9+ce7x+IrsjgIVnRnql0O61gj/np0/bGDfhJI3sCU=
 github.com/envoyproxy/go-control-plane v0.8.5 h1:YoOj1XYqT+pSFtVUYbmGYUmDZVdobz1EZ3Yiu0WOfFI=
 github.com/envoyproxy/go-control-plane v0.8.5/go.mod h1:XB9+ce7x+IrsjgIVnRnql0O61gj/np0/bGDfhJI3sCU=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109 h1:FNgqGzbOm637YKRbYGKb9cqGo8i50++w/LWvMau7jrw=
@@ -511,6 +509,8 @@ github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 h1:nn5Wsu0esKSJiIVhscUt
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 h1:nZdAthMCwjEnQNMZDxhEVWPWAxeBMvHRka6A8oFPk78=
 github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317/go.mod h1:Ad7IjTpvzZO8Fl0vh9AzQ+j/jYZfyp2diGwI8m5q+ns=
+github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749/go.mod h1:ZY1cvUeJuFPAdZ/B6v7RHavJWZn2YPVFQ1OSXhCGOkg=
+github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd/go.mod h1:TrYk7fJVaAttu97ZZKrO9UbRa8izdowaMIZcxYMbVaw=
 github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43 h1:JRmIUcy6IKEDUV0SHg7393Fh8DomnKRfz6qDto43hx8=
 github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43/go.mod h1:muYA2clvwCdj7nzAJ5vJIXYpJsUumhAl4Uu1wUNpWzA=
 github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 h1:WsShHmu12ZztYPfh9b+I+VjYD1o8iOHhB67WZCMEEE8=
@@ -742,8 +742,8 @@ istio.io/api v0.0.0-20190808183217-0e77ec002365 h1:5k7vp472JbTIyQlYNz/RsdOxLb2Lc
 istio.io/api v0.0.0-20190808183217-0e77ec002365/go.mod h1:42cBjnu/rTJcCaKi8nLdIvq0n71RcLrkgZ9IQSvDdSQ=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P+Wr2dOdPriJu09cU8wGMG+/M=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
-istio.io/operator v0.0.0-20190807205437-8903204e8d38 h1:t3Kx6ues3cP8gTaAGeys+SnCGwtG3+PA845xtomKibc=
-istio.io/operator v0.0.0-20190807205437-8903204e8d38/go.mod h1:aux39HeG8IMoP6alzE8YtrrP4DlgNb2qgiF684Bm7aw=
+istio.io/operator v0.0.0-20190809164250-eab4c2437592 h1:fWIWlEJeL48r+XR3PWm0exP7y7vgkvCIKXptf6zIvIc=
+istio.io/operator v0.0.0-20190809164250-eab4c2437592/go.mod h1:WudeDwe5Tdj+6dSLiK8gDQJr07vJgyNM2DVRGOWbn8M=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
 istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5 h1:HcASpvj/fuuABkYH9YbsTGEOT75YHyWvvFnTe229zXs=
 istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
