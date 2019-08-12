@@ -55,6 +55,7 @@ type ImageBuilder struct {
 func NewImageBuilder() *ImageBuilder {
 	return &ImageBuilder{
 		entries: make(map[string]entry),
+		buildArgs: make(map[string]*string),
 	}
 }
 
@@ -63,6 +64,7 @@ func (b *ImageBuilder) Copy() *ImageBuilder {
 	return &ImageBuilder{
 		tags:    append([]string{}, b.tags...),
 		entries: copyEntries(b.entries),
+		buildArgs: copyBuildArgs(b.buildArgs),
 	}
 }
 
@@ -212,6 +214,14 @@ func writeTarEntry(w *tar.Writer, name string, fileMode os.FileMode, content []b
 
 func copyEntries(in map[string]entry) map[string]entry {
 	out := make(map[string]entry)
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func copyBuildArgs(in map[string]*string) map[string]*string {
+	out := make(map[string]*string)
 	for k, v := range in {
 		out[k] = v
 	}

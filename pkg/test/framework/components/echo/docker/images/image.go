@@ -248,11 +248,14 @@ func initBuilders() error {
 		return err
 	}
 
+	ver := "1.3-dev"
 	noSidecarBuilder = b.Copy().
 		Tag(noSidecarImageName+":test").
+		BuildArg("ISTIO_VERSION", &ver).
 		AddFile("Dockerfile", istioPath(noSidecarDockerFile))
 	sidecarBuilder = b.Copy().
 		Tag(sidecarImageName+":test").
+		BuildArg("ISTIO_VERSION", &ver).
 		AddFile("echo-start.sh", istioPath(sidecarStartScript)).
 		AddFile("Dockerfile", istioPath(sidecarDockerFile))
 
