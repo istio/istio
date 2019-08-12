@@ -85,7 +85,8 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	util.AllowRuleSync(t)
 
 	// Warm up
-	url := fmt.Sprintf("http://%s/productpage", ing.HTTPAddress().String())
+	addr := ing.HTTPAddress()
+	url := fmt.Sprintf("http://%s/productpage", addr.String())
 	res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
 	if res.RetCodes[200] < 1 {
 		t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
@@ -185,7 +186,8 @@ func TestTcpMetric(t *testing.T) {
 
 			util.AllowRuleSync(t)
 
-			url := fmt.Sprintf("http://%s/productpage", ing.HTTPAddress().String())
+			addr := ing.HTTPAddress()
+			url := fmt.Sprintf("http://%s/productpage", addr.String())
 			res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
 			if res.RetCodes[200] < 1 {
 				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)

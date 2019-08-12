@@ -97,7 +97,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		return net.TCPAddr{IP: []byte(ip), Port: int(nodePort)}, true, nil
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -111,7 +111,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: []byte(ip), Port: 80}, true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 80}, true, nil
 }
 
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
@@ -154,7 +154,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		return net.TCPAddr{IP: []byte(ip), Port: int(nodePort)}, true, nil
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	svc, err := env.Accessor.GetService(ns, serviceName)
@@ -167,7 +167,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: []byte(ip), Port: 443}, true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 443}, true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
