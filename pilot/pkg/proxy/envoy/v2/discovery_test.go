@@ -27,6 +27,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -172,7 +174,7 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	DebounceAfter = time.Millisecond * 25
+	DebounceAfter = time.Millisecond * 50
 	DebounceMax = DebounceAfter * 2
 	if err := os.Setenv(features.EnableEDSDebounce.Name, "false"); err != nil {
 		t.Fatal(err)
@@ -245,7 +247,12 @@ func TestDebounce(t *testing.T) {
 				time.Sleep(DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
-				// At this point a push should be triggered, from DebounceMax
+				// At this point a push should be triggered, from DebounceMax. Send a few more requests
+				// to ensure that the push actually happens
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
 			},
 			expectedFull:    1,
 			expectedPartial: 0,
@@ -285,9 +292,14 @@ func TestDebounce(t *testing.T) {
 
 			close(stopCh)
 			wg.Wait()
-
-			if partialPushes != tt.expectedPartial || fullPushes != tt.expectedFull {
-				t.Fatalf("Got %v full and %v partial, expected %v full and %v partial", fullPushes, partialPushes, tt.expectedFull, tt.expectedPartial)
+			err := retry.UntilSuccess(func() error {
+				if partialPushes != tt.expectedPartial || fullPushes != tt.expectedFull {
+					return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", fullPushes, partialPushes, tt.expectedFull, tt.expectedPartial)
+				}
+				return nil
+			}, retry.Timeout(DebounceAfter*8), retry.Delay(DebounceAfter/2))
+			if err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
