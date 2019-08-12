@@ -231,5 +231,6 @@ var (
 		"\"-\"",
 		"inbound",
 		"outbound",
+		"context.proxy_version",
     }
 )
