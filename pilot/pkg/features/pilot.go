@@ -173,7 +173,9 @@ var (
 	EnableProtocolSniffing = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING",
 		false,
-		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unknown."+
+			"The listener will detect http vs tcp automatically. Protocol sniffing won't work on ports which are "+
+			"used by MySQL and MongoDB. Protocol sniffing are not supported for ports using HTTP2 and gRPC.",
 	)
 
 	ScopePushes = env.RegisterBoolVar(
