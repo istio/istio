@@ -45,10 +45,10 @@ type entry struct {
 
 // ImageBuilder is a utility for creating Docker images.
 type ImageBuilder struct {
-	entries map[string]entry
-	tags    []string
 	buildArgs map[string]*string
 	err       error
+	entries   map[string]entry
+	tags      []string
 }
 
 // NewImageBuilder creates a new ImageBuilder instance.
