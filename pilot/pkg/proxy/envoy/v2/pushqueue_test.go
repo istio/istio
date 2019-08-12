@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -45,7 +44,6 @@ func ExpectTimeout(t *testing.T, p *PushQueue) {
 	done := make(chan struct{})
 	go func() {
 		p.Dequeue()
-		log.Errorf("howardjohn: got timed out request")
 		done <- struct{}{}
 	}()
 	select {
