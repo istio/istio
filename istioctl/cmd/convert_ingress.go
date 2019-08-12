@@ -29,7 +29,8 @@ import (
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/validation"
+
 	"istio.io/pkg/log"
 )
 
@@ -157,7 +158,7 @@ func validateConfigs(configs []model.Config) error {
 	var errs error
 	for _, cfg := range configs {
 		if cfg.Type == model.VirtualService.Type {
-			if err := config.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
+			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}
 		}

@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/validation"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -281,7 +281,7 @@ func TestServiceResolution(t *testing.T) {
 			case networking.ServiceEntry_DNS:
 				g.Expect(len(actual.Addresses)).To(Equal(0))
 				for _, host := range actual.Hosts {
-					g.Expect(config.ValidateFQDN(host)).To(BeNil())
+					g.Expect(validation.ValidateFQDN(host)).To(BeNil())
 
 				}
 			case networking.ServiceEntry_STATIC:
