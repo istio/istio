@@ -244,8 +244,8 @@ func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interfac
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
-// 1. If CustomPackagePath is unset, log and error and return the empty string.
-// 2. If the feature and component namespaces are unset, return CustomPackagePath.
+// 1. If DefaultNamespace is unset, log and error and return the empty string.
+// 2. If the feature and component namespaces are unset, return DefaultNamespace.
 // 3. If the feature namespace is set but component name is unset, return the feature namespace.
 // 4. Otherwise return the component namespace.
 // Namespace assumes that controlPlaneSpec has been validated.
