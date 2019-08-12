@@ -185,65 +185,65 @@ func TestDebounce(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		test            func(updateCh chan *model.UpdateRequest)
+		test            func(updateCh chan *model.PushRequest)
 		expectedFull    int32
 		expectedPartial int32
 	}{
 		{
 			name: "Should not debounce partial pushes",
-			test: func(updateCh chan *model.UpdateRequest) {
-				updateCh <- &model.UpdateRequest{Full: false}
-				updateCh <- &model.UpdateRequest{Full: false}
-				updateCh <- &model.UpdateRequest{Full: false}
-				updateCh <- &model.UpdateRequest{Full: false}
-				updateCh <- &model.UpdateRequest{Full: false}
+			test: func(updateCh chan *model.PushRequest) {
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
 			},
 			expectedFull:    0,
 			expectedPartial: 5,
 		},
 		{
 			name: "Should debounce full pushes",
-			test: func(updateCh chan *model.UpdateRequest) {
-				updateCh <- &model.UpdateRequest{Full: true}
+			test: func(updateCh chan *model.PushRequest) {
+				updateCh <- &model.PushRequest{Full: true}
 			},
 			expectedFull:    0,
 			expectedPartial: 0,
 		},
 		{
 			name: "Should send full updates in batches",
-			test: func(updateCh chan *model.UpdateRequest) {
-				updateCh <- &model.UpdateRequest{Full: true}
-				updateCh <- &model.UpdateRequest{Full: true}
+			test: func(updateCh chan *model.PushRequest) {
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter * 3 / 2)
-				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 			},
 			expectedFull:    1,
 			expectedPartial: 0,
 		},
 		{
 			name: "Should send full updates in batches, partial updates immediately",
-			test: func(updateCh chan *model.UpdateRequest) {
-				updateCh <- &model.UpdateRequest{Full: true}
-				updateCh <- &model.UpdateRequest{Full: true}
-				updateCh <- &model.UpdateRequest{Full: false}
-				updateCh <- &model.UpdateRequest{Full: false}
+			test: func(updateCh chan *model.PushRequest) {
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
 				time.Sleep(DebounceAfter * 2)
-				updateCh <- &model.UpdateRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
 			},
 			expectedFull:    1,
 			expectedPartial: 3,
 		},
 		{
 			name: "Should force a push after DebounceMax",
-			test: func(updateCh chan *model.UpdateRequest) {
+			test: func(updateCh chan *model.PushRequest) {
 				// Send many requests within debounce window
-				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
-				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
-				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
-				updateCh <- &model.UpdateRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
 				time.Sleep(DebounceAfter / 2)
 				// At this point a push should be triggered, from DebounceMax
 			},
@@ -255,14 +255,14 @@ func TestDebounce(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			stopCh := make(chan struct{})
-			updateCh := make(chan *model.UpdateRequest)
+			updateCh := make(chan *model.PushRequest)
 
 			var partialPushes int32
 			var fullPushes int32
 
 			wg := sync.WaitGroup{}
 
-			fakePush := func(req *model.UpdateRequest) {
+			fakePush := func(req *model.PushRequest) {
 				wg.Add(1)
 				go func() {
 					if req.Full {

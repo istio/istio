@@ -210,7 +210,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 			Locality: asdc2Locality,
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify server sends the endpoint. This check for a single endpoint with the given
@@ -262,9 +262,11 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	// Test initial state
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, map[string]struct{}{
-		"overlapping.cluster.local": {},
-	})
+	server.EnvoyXdsServer.Push(&model.PushRequest{
+		Full: true,
+		EdsUpdates: map[string]struct{}{
+			"overlapping.cluster.local": {},
+		}})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -509,7 +511,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
-			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.UpdateRequest{Full: true}, updates)
+			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.PushRequest{Full: true, EdsUpdates: updates})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}
@@ -576,7 +578,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Labels: map[string]string{"socket": "unix"},
 	})
 
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
@@ -613,7 +615,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 func addOverlappingEndpoints(server *bootstrap.Server) {
@@ -643,7 +645,7 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 			},
 		},
 	})
-	server.EnvoyXdsServer.Push(&model.UpdateRequest{Full: true}, nil)
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
 // Verify the endpoint debug interface is installed and returns some string.

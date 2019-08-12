@@ -140,11 +140,12 @@ type XDSUpdater interface {
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
-	ConfigUpdate(req UpdateRequest)
+	ConfigUpdate(req *PushRequest)
 }
 
-// UpdateRequest defines a request to update proxies
-type UpdateRequest struct {
+// PushRequest defines a request to push to proxies
+// It is used between ConfigUpdate and pushQueue
+type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
@@ -154,35 +155,49 @@ type UpdateRequest struct {
 	// If this is empty, then proxies in all namespaces will get an update
 	// If this is present, then only proxies that import this namespace will get an update
 	TargetNamespaces map[string]struct{}
+
+	// EdsUpdates keeps track of all service updated since last full push.
+	// Key is the hostname (serviceName).
+	// This is used by incremental eds.
+	EdsUpdates map[string]struct{}
 }
 
 // Merge two update requests together
-func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
+func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if first == nil {
-		return *other
+		return other
 	}
 	if other == nil {
-		return *first
+		return first
 	}
 
-	merged := UpdateRequest{}
-	merged.Full = first.Full || other.Full
-	merged.TargetNamespaces = map[string]struct{}{}
+	first.Full = first.Full || other.Full
+	// Only merge EdsUpdates when incremental eds push needed.
+	if !first.Full {
+		// Merge the updates
+		for update := range other.EdsUpdates {
+			first.EdsUpdates[update] = struct{}{}
+		}
+	} else {
+		first.EdsUpdates = nil
+	}
+
+	if !features.ScopePushes.Get() {
+		// If push scoping is not enabled, we donot care about target namespaces
+		return first
+	}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		return merged
+		return first
 	}
 
 	// Merge the updates
-	for update := range first.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
-	}
 	for update := range other.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
+		first.TargetNamespaces[update] = struct{}{}
 	}
 
-	return merged
+	return first
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.

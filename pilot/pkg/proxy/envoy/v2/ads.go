@@ -607,16 +607,15 @@ func adsClientCount() int {
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.UpdateRequest{Full: true}, nil)
+	s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.PushRequest{Full: true})
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	req *model.UpdateRequest, edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext, req *model.PushRequest) {
 	if !req.Full {
-		s.edsIncremental(version, push, edsUpdates, req)
+		s.edsIncremental(version, push, req)
 		return
 	}
 
@@ -646,11 +645,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(push, req, nil)
+	req.EdsUpdates = nil
+	s.startPush(push, req)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.UpdateRequest, edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.PushRequest) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -669,12 +669,12 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, req *model.UpdateRe
 	startTime := time.Now()
 	for _, p := range pending {
 		if proxyNeedsPush(p, req) {
-			s.pushQueue.Enqueue(p, &PushEvent{edsUpdates, push, startTime, req.Full})
+			s.pushQueue.Enqueue(p, &PushEvent{req.EdsUpdates, push, startTime, req.Full})
 		}
 	}
 }
 
-func proxyNeedsPush(con *XdsConnection, req *model.UpdateRequest) bool {
+func proxyNeedsPush(con *XdsConnection, req *model.PushRequest) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
