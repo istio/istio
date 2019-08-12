@@ -73,7 +73,9 @@ const (
 	AutoOverTCP
 	// Incoming AUTO existing AUTO
 	AutoOverAuto
+)
 
+const (
 	// HTTP inspector listener filter
 	envoyListenerHTTPInspector = "envoy.listener.http_inspector"
 
@@ -1287,7 +1289,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// if there was a HTTP listener on well known port, cannot add a tcp listener
 	// with the inspector as inspector breaks all server-first protocols.
 	if currentListenerEntry != nil &&
-		!checkWellKnownPorts(pluginParams.Port.Protocol, currentListenerEntry.protocol, conflictType) {
+		!isConflictWithWellKnownPort(pluginParams.Port.Protocol, currentListenerEntry.protocol, conflictType) {
 		log.Warnf("conflict happens on a well known port %d, incoming protocol %v, existing protocol %v, conflict type %v",
 			pluginParams.Port.Port, pluginParams.Port.Protocol, currentListenerEntry.protocol, conflictType)
 		return
@@ -2113,9 +2115,9 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 	return filterChain
 }
 
-// checkWellKnownPorts checks conflicts between incoming protocol and existing protocol.
+// isConflictWithWellKnownPort checks conflicts between incoming protocol and existing protocol.
 // Mongo and MySQL are not allowed to co-exist with other protocols in one port.
-func checkWellKnownPorts(incoming, existing protocol.Instance, conflict int) bool {
+func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict int) bool {
 	if conflict == NoConflict {
 		return true
 	}

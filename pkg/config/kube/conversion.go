@@ -63,29 +63,28 @@ var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.Instance {
-	out := protocol.TCP
-	switch proto {
-	case coreV1.ProtocolUDP:
-		out = protocol.UDP
-	default:
-		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
-			out = protocol.GRPCWeb
-			break
-		}
-		i := strings.IndexByte(name, '-')
-		if i >= 0 {
-			name = name[:i]
-		}
-		p := protocol.Parse(name)
-		if p != protocol.UDP {
-			out = p
-		}
+	if proto == coreV1.ProtocolUDP {
+		return protocol.UDP
 	}
 
-	// Make TCP as default protocol for well know ports if protocol is not specified.
-	if _, has := wellKnownPorts[port]; has && out == protocol.Unsupported {
-		return protocol.TCP
+	// Check if the port name prefix is "grpc-web". Need to do this before the general
+	// prefix check below, since it contains a hyphen.
+	if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
+		return protocol.GRPCWeb
 	}
 
-	return out
+	// Parse the port name to find the prefix, if any.
+	i := strings.IndexByte(name, '-')
+	if i >= 0 {
+		name = name[:i]
+	}
+
+	p := protocol.Parse(name)
+	if p == protocol.Unsupported {
+		// Make TCP as default protocol for well know ports if protocol is not specified.
+		if _, has := wellKnownPorts[port]; has {
+			return protocol.TCP
+		}
+	}
+	return p
 }
