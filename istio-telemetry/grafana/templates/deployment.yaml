@@ -73,6 +73,17 @@ spec:
 {{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
+          {{- range $key, $value := $.Values.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+          {{- end }}
+          {{- range $key, $secret := $.Values.envSecrets }}
+          - name: {{ $key }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ $secret }}
+                key: {{ $key | quote }}
+          {{- end }}
           resources:
 {{- if .Values.grafana.resources }}
 {{ toYaml .Values.grafana.resources | indent 12 }}

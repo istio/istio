@@ -14,6 +14,8 @@ template: |
     - "/usr/local/bin/istio-iptables.sh"
     - "-p"
     - 15001
+    - "-z"
+    - "15006"
     - "-u"
     - 1337
     - "-m"
@@ -35,13 +37,12 @@ template: |
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
+  {{- if .Values.global.proxy_init.resources }}
     resources:
-      requests:
-        cpu: 10m
-        memory: 10Mi
-      limits:
-        cpu: 100m
-        memory: 50Mi
+      {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
+  {{- else }}
+    resources: {}
+  {{- end }}
     securityContext:
       runAsUser: 0
       runAsNonRoot: false
@@ -131,7 +132,11 @@ template: |
   {{- end }}
   {{- if .Values.global.proxy.envoyMetricsService.enabled }}
     - --envoyMetricsServiceAddress
-    - "{{ .ProxyConfig.EnvoyMetricsServiceAddress }}"
+    - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
+  {{- end }}
+  {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
+    - --envoyAccessLogServiceAddress
+    - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
   {{- end }}
     - --proxyAdminPort
     - "{{ .ProxyConfig.ProxyAdminPort }}"
@@ -146,6 +151,8 @@ template: |
     - --controlPlaneAuthPolicy
     - NONE
     {{- end }}
+    - --dnsRefreshRate
+    - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
@@ -189,6 +196,8 @@ template: |
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
+    - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+      value: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (applicationPorts .Spec.Containers) }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -261,10 +270,8 @@ template: |
     - mountPath: /var/run/sds
       name: sds-uds-path
       readOnly: true
-    {{- if .Values.global.sds.useTrustworthyJwt }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
-    {{- end }}
     {{- if .Values.global.sds.customTokenDirectory }}
     - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
       name: custom-sds-token
@@ -299,12 +306,6 @@ template: |
   - name: sds-uds-path
     hostPath:
       path: /var/run/sds
-  {{- if .Values.global.sds.customTokenDirectory }}
-  - name: custom-sds-token
-    secret:
-      secretName: sdstokensecret
-  {{- end }}
-  {{- if .Values.global.sds.useTrustworthyJwt }}
   - name: istio-token
     projected:
       sources:
@@ -312,6 +313,10 @@ template: |
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.trustDomain }}
+  {{- if .Values.global.sds.customTokenDirectory }}
+  - name: custom-sds-token
+    secret:
+      secretName: sdstokensecret
   {{- end }}
   {{- else }}
   - name: istio-certs

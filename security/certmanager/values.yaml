@@ -7,6 +7,7 @@ certmanager:
   enabled: false
   replicaCount: 1
   hub: quay.io/jetstack
+  image: cert-manager-controller
   tag: v0.6.2
   resources: {}
   nodeSelector: {}
@@ -18,7 +19,7 @@ certmanager:
   # There are currently two types of anti-affinity:
   #    "requiredDuringSchedulingIgnoredDuringExecution"
   #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote “hard” vs. “soft” requirements, you can define your values
+  # which denote "hard" vs. "soft" requirements, you can define your values
   # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
   # correspondingly.
   # For example:
@@ -29,6 +30,6 @@ certmanager:
   #   topologyKey: "kubernetes.io/hostname"
   # This pod anti-affinity rule says that the pod requires not to be scheduled
   # onto a node if that node is already running a pod with label having key
-  # “security” and value “S1”.
+  # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []

@@ -64,6 +64,9 @@ spec:
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
+          env:
+          - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
+            value: "{{ .Values.security.enableNamespacesByDefault }}"
           livenessProbe:
             httpGet:
               path: /version

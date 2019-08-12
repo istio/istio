@@ -70,6 +70,12 @@ spec:
           image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          resources:
+{{- if $gateway.sds.resources }}
+{{ toYaml $gateway.sds.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           env:
           - name: "ENABLE_WORKLOAD_SDS"
             value: "false"
@@ -137,6 +143,14 @@ spec:
         {{- if $gateway.envoyMetricsService }}
           - --envoyMetricsServiceAddress
           - {{ $gateway.envoyMetricsService.host }}:{{ $gateway.envoyMetricsService.port }}
+        {{- end }}
+        {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogServiceAddress
+          - {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+        {{- end }}
+        {{- if $gateway.applicationPorts }}
+          - --applicationPorts
+          - "{{ $gateway.applicationPorts }}"
         {{- end }}
           - --proxyAdminPort
           - "15000"
@@ -235,8 +249,6 @@ spec:
           - name: sdsudspath
             mountPath: /var/run/sds
             readOnly: true
-          {{- end }}
-          {{- if .Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
           {{- end }}
@@ -264,7 +276,6 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
-      {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -272,7 +283,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
-      {{- end }}
       {{- end }}
       - name: istio-certs
         secret:

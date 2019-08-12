@@ -75,10 +75,10 @@ global:
         memory: 128Mi
       limits:
         cpu: 2000m
-        memory: 128Mi
+        memory: 1024Mi
 
     # Controls number of Proxy worker threads.
-    # If set to 0 (default), then start worker thread for each CPU thread/core.
+    # If set to 0, then start worker thread for each CPU thread/core.
     concurrency: 2
 
     # Configures the access log for each sidecar.
@@ -93,6 +93,11 @@ global:
 
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
+
+    envoyAccessLogService:
+      enabled: false
+      host: # example: accesslog-service.istio-system
+      port: # example: 15000
 
     # Log level for proxy, applies to gateways and sidecars.
     # Expected values are: trace|debug|info|warning|error|critical|off
@@ -171,12 +176,20 @@ global:
       host: # example: metrics-service.istio-system
       port: # example: 15000
 
-    # Specify which tracer to use. One of: lightstep, zipkin, datadog
+    # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+    # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
@@ -234,7 +247,7 @@ global:
   # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
   # Must be set for any clustser configured with private docker registry.
-  imagePullSecrets:
+  imagePullSecrets: []
     # - private-registry-key
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
@@ -270,7 +283,7 @@ global:
   # NOTE: If using templates, follow the pattern in the commented example below.
   #podDNSSearchNamespaces:
   #- global
-  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
+  #- "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
@@ -354,8 +367,6 @@ global:
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
     enabled: false
     udsPath: ""
-    useTrustworthyJwt: false
-    useNormalJwt: false
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
@@ -366,8 +377,9 @@ global:
   # The second network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
-  # cluster. The public IP for the gateway will be determined from that remote service (not
-  # supported yet).
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
   #
   # meshNetworks:
   #   network1:
@@ -380,7 +392,7 @@ global:
   #     endpoints:
   #     - fromRegistry: reg1
   #     gateways:
-  #     - registryServiceName: istio-ingressgateway
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   #       port: 443
   #
   meshNetworks: {}
@@ -391,6 +403,7 @@ global:
   # Please set either failover or distribute configuration but not both.
   #
   # localityLbSetting:
+  #   enabled: true
   #   distribute:
   #   - from: "us-central1/*"
   #     to:
@@ -398,12 +411,14 @@ global:
   #       "us-central2/*": 20
   #
   # localityLbSetting:
+  #   enabled: true
   #   failover:
   #   - from: us-east
   #     to: eu-west
   #   - from: us-west
   #     to: us-east
-  localityLbSetting: {}
+  localityLbSetting:
+    enabled: true
 
   # Specifies whether helm test is enabled or not.
   # This field is set to false by default, so 'helm template ...'

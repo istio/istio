@@ -23,7 +23,8 @@ data:
 
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    #
+
+    enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -84,19 +85,6 @@ data:
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: {{ .Values.global.sds.udsPath }}
 
-    # This flag is used by secret discovery service(SDS).
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
-    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
-    enableSdsTokenMount: {{ .Values.global.sds.useTrustworthyJwt }}
-
-    # This flag is used by secret discovery service(SDS).
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
-    # and pass to sds server, which will be used to request key/cert eventually.
-    # this flag is ignored if enableSdsTokenMount is set.
-    # This isn't supported for non-k8s case.
-    sdsUseK8sSaJwt: {{ .Values.global.sds.useNormalJwt }}
     {{- else }}
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
@@ -128,8 +116,10 @@ data:
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
+    {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | indent 6 }}
+    {{- end }}
 
     defaultConfig:
       #
@@ -178,6 +168,14 @@ data:
         {{- else }}
           address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
         {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+      tracing:
+        datadog:
+          # Address of the Datadog Agent
+          address: {{ .Values.global.tracer.datadog.address }}
+      {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
+      tracing:
+        stackdriver: {}
       {{- end }}
 
     {{- if .Values.global.controlPlaneSecurityEnabled }}
@@ -195,5 +193,18 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
+
+    {{- if .Values.global.proxy.envoyMetricsService.enabled }}
+       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
+      envoyMetricsService:
+        address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+    {{- end}}
+
+
+    {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
+      # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
+      envoyAccessLogService:
+        address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+    {{- end}}
 ---
 {{- end }}
