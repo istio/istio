@@ -21,7 +21,18 @@
 # It does not upload to a registry.
 docker: build-linux test-bins-linux docker.all
 
-DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+# The CI system changes VERSION from the top level makefile per build. As a result,
+# when running in CI, we always want docker.base to be generated and tagged. If the
+# base image is not regenerated and tagged per release, the tag used is undefined and
+# the Istio build is not reproducible.
+#
+# DO NOT ALTER this block without understanding how it works. Please consult #test-and-release.
+ifeq (${CI},"prow")
+DOCKER_BASE:=docker.base
+endif
+
+# Add new docker targets to the end of the DOCKER_TARGETS list.
+DOCKER_TARGETS:=$(DOCKER_BASE) docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
