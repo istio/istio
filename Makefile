@@ -530,17 +530,17 @@ localTestEnvCleanup: test-bins
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test -p 1 ${T} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: istioctl-test
 istioctl-test: istioctl
-	go test -p 1 ${T} ./istioctl/...
+	go test ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -614,16 +614,16 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+	RACE_TEST=true go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest: istioctl
-	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
+	RACE_TEST=true go test ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
