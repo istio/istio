@@ -30,10 +30,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/validation"
 	testConfig "istio.io/istio/pkg/test/config"
 )
 
@@ -222,7 +222,7 @@ type ProtoSchema struct {
 
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
-	Validate config.ValidationFunc
+	Validate validation.ValidateFunc
 
 	// MCP collection for this configuration resource schema
 	Collection string
@@ -335,7 +335,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
-		Validate:    config.ValidateVirtualService,
+		Validate:    validation.ValidateVirtualService,
 		Collection:  metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
 	}
 
@@ -346,7 +346,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
-		Validate:    config.ValidateGateway,
+		Validate:    validation.ValidateGateway,
 		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
 	}
 
@@ -357,7 +357,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
-		Validate:    config.ValidateServiceEntry,
+		Validate:    validation.ValidateServiceEntry,
 		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
 	}
 
@@ -368,7 +368,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
-		Validate:    config.ValidateDestinationRule,
+		Validate:    validation.ValidateDestinationRule,
 		Collection:  metadata.IstioNetworkingV1alpha3Destinationrules.Collection.String(),
 	}
 
@@ -379,7 +379,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
-		Validate:    config.ValidateEnvoyFilter,
+		Validate:    validation.ValidateEnvoyFilter,
 		Collection:  metadata.IstioNetworkingV1alpha3Envoyfilters.Collection.String(),
 	}
 
@@ -390,7 +390,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Sidecar",
-		Validate:    config.ValidateSidecar,
+		Validate:    validation.ValidateSidecar,
 		Collection:  metadata.IstioNetworkingV1alpha3Sidecars.Collection.String(),
 	}
 
@@ -401,7 +401,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
-		Validate:    config.ValidateHTTPAPISpec,
+		Validate:    validation.ValidateHTTPAPISpec,
 		Collection:  metadata.IstioConfigV1alpha2Httpapispecs.Collection.String(),
 	}
 
@@ -412,7 +412,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-		Validate:    config.ValidateHTTPAPISpecBinding,
+		Validate:    validation.ValidateHTTPAPISpecBinding,
 		Collection:  metadata.IstioConfigV1alpha2Httpapispecbindings.Collection.String(),
 	}
 
@@ -423,7 +423,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
-		Validate:    config.ValidateQuotaSpec,
+		Validate:    validation.ValidateQuotaSpec,
 		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecs.Collection.String(),
 	}
 
@@ -434,7 +434,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
-		Validate:    config.ValidateQuotaSpecBinding,
+		Validate:    validation.ValidateQuotaSpecBinding,
 		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecbindings.Collection.String(),
 	}
 
@@ -446,7 +446,7 @@ var (
 		Group:            "authentication",
 		Version:          "v1alpha1",
 		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         config.ValidateAuthenticationPolicy,
+		Validate:         validation.ValidateAuthenticationPolicy,
 		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
@@ -459,7 +459,7 @@ var (
 		Group:            "authentication",
 		Version:          "v1alpha1",
 		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         config.ValidateAuthenticationPolicy,
+		Validate:         validation.ValidateAuthenticationPolicy,
 		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
@@ -470,7 +470,7 @@ var (
 		Group:       "rbac",
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
-		Validate:    config.ValidateServiceRole,
+		Validate:    validation.ValidateServiceRole,
 		Collection:  metadata.IstioRbacV1alpha1Serviceroles.Collection.String(),
 	}
 
@@ -482,7 +482,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
-		Validate:      config.ValidateServiceRoleBinding,
+		Validate:      validation.ValidateServiceRoleBinding,
 		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
 	}
 
@@ -495,7 +495,7 @@ var (
 		Group:       "rbac",
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.RbacConfig",
-		Validate:    config.ValidateRbacConfig,
+		Validate:    validation.ValidateRbacConfig,
 		Collection:  metadata.IstioRbacV1alpha1Rbacconfigs.Collection.String(),
 	}
 
@@ -507,7 +507,7 @@ var (
 		Group:         "rbac",
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      config.ValidateClusterRbacConfig,
+		Validate:      validation.ValidateClusterRbacConfig,
 		Collection:    metadata.IstioRbacV1alpha1Clusterrbacconfigs.Collection.String(),
 	}
 

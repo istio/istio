@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package validation
 
 import (
 	"errors"
@@ -94,8 +94,8 @@ var supportedMethods = map[string]bool{
 	http.MethodTrace:   true,
 }
 
-// ValidationFunc defines a validation func for an API proto.
-type ValidationFunc func(name, namespace string, config proto.Message) error
+// ValidateFunc defines a validation func for an API proto.
+type ValidateFunc func(name, namespace string, config proto.Message) error
 
 // ValidatePort checks that the network port is in range
 func ValidatePort(port int) error {
