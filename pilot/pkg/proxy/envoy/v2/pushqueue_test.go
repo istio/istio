@@ -20,6 +20,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -102,11 +104,23 @@ func TestProxyQueue(t *testing.T) {
 		ExpectTimeout(t, p)
 	})
 
-	t.Run("add and remove", func(t *testing.T) {
+	t.Run("add and remove and markdone", func(t *testing.T) {
+		p := NewPushQueue()
+		p.Enqueue(proxies[0], &PushEvent{})
+		ExpectDequeue(t, p, proxies[0])
+		p.MarkDone(proxies[0])
+		p.Enqueue(proxies[0], &PushEvent{})
+		ExpectDequeue(t, p, proxies[0])
+		ExpectTimeout(t, p)
+	})
+
+	t.Run("add and remove and add and markdone", func(t *testing.T) {
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &PushEvent{})
 		ExpectDequeue(t, p, proxies[0])
 		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &PushEvent{})
+		p.MarkDone(proxies[0])
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
 	})
@@ -213,6 +227,7 @@ func TestProxyQueue(t *testing.T) {
 					delete(expected, key(con, eds))
 					mu.Unlock()
 				}
+				p.MarkDone(con)
 				if len(expected) == 0 {
 					done <- struct{}{}
 				}
@@ -227,4 +242,97 @@ func TestProxyQueue(t *testing.T) {
 			t.Fatalf("failed to get all updates, still pending: %v", len(expected))
 		}
 	})
+}
+
+func TestPushEventMerge(t *testing.T) {
+	push0 := &model.PushContext{}
+	// trivially different push contexts just for testing
+	push1 := &model.PushContext{ProxyStatus: make(map[string]map[string]model.ProxyPushStatus)}
+
+	var t0 time.Time
+	t1 := t0.Add(time.Minute)
+
+	cases := []struct {
+		name   string
+		left   *PushEvent
+		right  *PushEvent
+		merged *PushEvent
+	}{
+		{
+			"left nil",
+			nil,
+			&PushEvent{push: push0, start: t1},
+			&PushEvent{push: push0, start: t1},
+		},
+		{
+			"right nil",
+			&PushEvent{push: push0, start: t1},
+			nil,
+			&PushEvent{push: push0, start: t1},
+		},
+		{
+			// Expect to keep left's start, right's push, and merge eds and full.
+			"full merge",
+			&PushEvent{
+				edsUpdatedServices: map[string]struct{}{
+					"ns1": {},
+				},
+				push:  push0,
+				start: t0,
+				full:  false,
+			},
+			&PushEvent{
+				edsUpdatedServices: map[string]struct{}{
+					"ns2": {},
+				},
+				push:  push1,
+				start: t1,
+				full:  true,
+			},
+			&PushEvent{
+				edsUpdatedServices: nil, // full push ignores this field
+				push:               push1,
+				start:              t0,
+				full:               true,
+			},
+		},
+		{
+			// Expect to keep left's start, right's push, and merge eds and full.
+			"incremental merge",
+			&PushEvent{
+				edsUpdatedServices: map[string]struct{}{
+					"ns1": {},
+				},
+				push:  push0,
+				start: t0,
+				full:  false,
+			},
+			&PushEvent{
+				edsUpdatedServices: map[string]struct{}{
+					"ns2": {},
+				},
+				push:  push1,
+				start: t1,
+				full:  false,
+			},
+			&PushEvent{
+				edsUpdatedServices: map[string]struct{}{
+					"ns1": {},
+					"ns2": {},
+				},
+				push:  push1,
+				start: t0,
+				full:  false,
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.left.Merge(tt.right)
+			if !reflect.DeepEqual(tt.merged, got) {
+				t.Fatalf("expected %v, got %v", tt.merged, got)
+			}
+		})
+	}
 }
