@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
@@ -40,16 +41,13 @@ type Environment struct {
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
 
-	// Mixer subject alternate name for mutual TLS
-	MixerSAN []string
-
-	// PushContext holds informations during push generation. It is reset on config change, at the beginning
+	Mutex sync.RWMutex
+	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	// Deprecated - a local config for ads will be used instead
 	PushContext *PushContext
 
 	// MeshNetworks (loaded from a config map) provides information about the

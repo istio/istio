@@ -103,17 +103,12 @@ type DiscoveryServer struct {
 	mutex sync.RWMutex
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
-	// incremental updates. This is keyed by service and namespace
-	EndpointShardsByService map[string]map[string]*EndpointShards
+	// incremental updates. This is keyed by hostname
+	EndpointShardsByService map[string]*EndpointShards
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
 	WorkloadsByID map[string]*Workload
-
-	pushChannel chan *model.PushRequest
-
-	// mutex used for config update scheduling (former cache update mutex)
-	updateMutex sync.RWMutex
 
 	// mutex used for protecting proxyUpdates
 	proxyUpdatesMutex sync.RWMutex
@@ -121,6 +116,8 @@ type DiscoveryServer struct {
 	// the key is the proxy ip address
 	proxyUpdates map[string]struct{}
 
+	// pushChannel is used after ConfigUpdate and before debounce
+	pushChannel chan *model.PushRequest
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 }
@@ -164,7 +161,7 @@ func NewDiscoveryServer(
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
 		KubeController:          kubeController,
-		EndpointShardsByService: map[string]map[string]*EndpointShards{},
+		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
@@ -293,14 +290,11 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		return
 	}
 
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	s.updateMutex.Unlock()
+	s.setGlobalPushContext(push)
 
 	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
 	versionNum.Inc()
-	initContextTime := time.Since(t0)
-	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	adsLog.Debugf("InitContext %v for push took %s", versionLocal, time.Since(t0))
 
 	versionMutex.Lock()
 	version = versionLocal
@@ -321,9 +315,16 @@ func versionInfo() string {
 
 // Returns the global push context.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
+	s.Env.Mutex.RLock()
+	defer s.Env.Mutex.RUnlock()
 	return s.Env.PushContext
+}
+
+// Set the global push context.
+func (s *DiscoveryServer) setGlobalPushContext(push *model.PushContext) {
+	s.Env.Mutex.Lock()
+	defer s.Env.Mutex.Unlock()
+	s.Env.PushContext = push
 }
 
 // ClearCache is wrapper for clearCache method, used when new controller gets

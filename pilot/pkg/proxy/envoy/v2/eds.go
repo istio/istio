@@ -238,7 +238,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	s.mutex.RLock()
 	// The service was never updated - do the full update
-	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	se, f := s.EndpointShardsByService[string(hostname)]
 	s.mutex.RUnlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
@@ -499,7 +499,7 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string,
 
 // edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
 // and requests a full/eds push.
-func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
+func (s *DiscoveryServer) edsUpdate(shard, hostname, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
@@ -512,13 +512,13 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	// To prevent memory leak.
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
 	if len(istioEndpoints) == 0 {
-		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, shard)
-			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
-			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		if s.EndpointShardsByService[hostname] != nil {
+			s.EndpointShardsByService[hostname].mutex.Lock()
+			delete(s.EndpointShardsByService[hostname].Shards, shard)
+			svcShards := len(s.EndpointShardsByService[hostname].Shards)
+			s.EndpointShardsByService[hostname].mutex.Unlock()
 			if svcShards == 0 {
-				delete(s.EndpointShardsByService[serviceName], namespace)
+				delete(s.EndpointShardsByService, hostname)
 			}
 		}
 		return
@@ -526,10 +526,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
-	if _, f := s.EndpointShardsByService[serviceName]; !f {
-		s.EndpointShardsByService[serviceName] = map[string]*EndpointShards{}
-	}
-	ep, f := s.EndpointShardsByService[serviceName][namespace]
+	ep, f := s.EndpointShardsByService[hostname]
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
@@ -538,9 +535,9 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
 		}
-		s.EndpointShardsByService[serviceName][namespace] = ep
+		s.EndpointShardsByService[hostname] = ep
 		if !internal {
-			adsLog.Infof("Full push, new service %s", serviceName)
+			adsLog.Infof("Full push, new service %s", hostname)
 			requireFull = true
 		}
 	}
@@ -559,7 +556,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 			if !f && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
-				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
+				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, hostname)
 				requireFull = true
 				break
 			}
@@ -575,7 +572,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	if !internal {
 		var edsUpdates map[string]struct{}
 		if !requireFull {
-			edsUpdates = map[string]struct{}{serviceName: {}}
+			edsUpdates = map[string]struct{}{hostname: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
 			Full:             requireFull,
@@ -680,7 +677,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	// The service was never updated - do the full update
 	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	se, f := s.EndpointShardsByService[string(hostname)]
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
