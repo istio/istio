@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/annotation"
 
+	"istio.io/istio-bak/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -74,7 +75,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port))
+		mPort := convertPort(port)
+		if mPort.Protocol == protocol.TCP && resolution == model.Passthrough {
+			log.Warnf("Couldn't find an IP address for TCP port %d of service %s in namespace %s", mPort.Port, svc.Name, svc.Namespace)
+			continue
+		}
+		ports = append(ports, mPort)
 	}
 
 	var exportTo map[visibility.Instance]bool

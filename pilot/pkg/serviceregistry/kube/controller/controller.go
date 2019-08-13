@@ -722,6 +722,9 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		}
 
 		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
+		if len(svcConv.Ports) == 0 {
+			return nil
+		}
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
