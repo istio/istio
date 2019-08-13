@@ -426,10 +426,6 @@ func (s *DiscoveryServer) checkProxyNeedsFullPush(node *model.Proxy) bool {
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue, checkProxyNeedsFullPush func(node *model.Proxy) bool) {
-	// Signals that a push is done by reading from the semaphore, allowing another send on it.
-	doneFunc := func() {
-		<-semaphore
-	}
 	for {
 		select {
 		case <-stopCh:
@@ -441,6 +437,12 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			// Get the next proxy to push. This will block if there are no updates required.
 			client, info := queue.Dequeue()
+
+			// Signals that a push is done by reading from the semaphore, allowing another send on it.
+			doneFunc := func() {
+				queue.MarkDone(client)
+				<-semaphore
+			}
 
 			proxiesQueueTime.Record(time.Since(info.start).Seconds())
 
