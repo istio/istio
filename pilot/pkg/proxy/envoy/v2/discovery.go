@@ -232,7 +232,7 @@ func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
-			s.AdsPushAll(versionInfo(), s.globalPushContext(), &model.PushRequest{Full: true})
+			s.AdsPushAll(versionInfo(), &model.PushRequest{Full: true, Push: s.globalPushContext()})
 		case <-stopCh:
 			return
 		}
@@ -269,7 +269,8 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
-		go s.AdsPushAll(versionInfo(), s.globalPushContext(), req)
+		req.Push = s.globalPushContext()
+		go s.AdsPushAll(versionInfo(), req)
 		return
 	}
 	// Reset the status during the push.
@@ -306,7 +307,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	version = versionLocal
 	versionMutex.Unlock()
 
-	go s.AdsPushAll(versionLocal, push, req)
+	req.Push = push
+	go s.AdsPushAll(versionLocal, req)
 }
 
 func nonce() string {
@@ -399,7 +401,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
 					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req)
+					quietTime, eventDelay, req.Full)
 
 				fn(req)
 				req = nil
@@ -444,11 +446,11 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				<-semaphore
 			}
 
-			proxiesQueueTime.Record(time.Since(info.start).Seconds())
+			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
 
 			go func() {
-				edsUpdates := info.edsUpdatedServices
-				proxyFull := info.full || checkProxyNeedsFullPush(client.modelNode)
+				edsUpdates := info.EdsUpdates
+				proxyFull := info.Full || checkProxyNeedsFullPush(client.modelNode)
 
 				if proxyFull {
 					// Setting this to nil will trigger a full push
@@ -457,10 +459,11 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 				select {
 				case client.pushChannel <- &XdsEvent{
-					push:               info.push,
+					push:               info.Push,
 					edsUpdatedServices: edsUpdates,
 					done:               doneFunc,
-					start:              info.start,
+					start:              info.Start,
+					targetNamespaces:   info.TargetNamespaces,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed
