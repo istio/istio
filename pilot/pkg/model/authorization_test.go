@@ -21,21 +21,23 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestAddConfig(t *testing.T) {
 	roleCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRole{
 			Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
 		},
 	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -44,7 +46,7 @@ func TestAddConfig(t *testing.T) {
 
 	invalidateBindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: ""},
@@ -123,12 +125,12 @@ func TestAddConfig(t *testing.T) {
 func TestRolesForNamespace(t *testing.T) {
 	roleCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRole{},
 	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -203,7 +205,7 @@ func TestRolesForNamespace(t *testing.T) {
 func TestRoleToBindingsForNamespace(t *testing.T) {
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -310,12 +312,12 @@ func TestNewAuthzPolicies(t *testing.T) {
 }
 
 func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioConfigStore {
-	store := memory.Make(model.IstioConfigTypes)
+	store := memory.Make(schemas.Istio)
 
 	if clusterRbacConfig != nil {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ClusterRbacConfig.Type,
+				Type:      schemas.ClusterRbacConfig.Type,
 				Name:      "default",
 				Namespace: "default",
 			},
@@ -326,7 +328,7 @@ func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioCon
 	if rbacConfig != nil {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.RbacConfig.Type,
+				Type:      schemas.RbacConfig.Type,
 				Name:      "default",
 				Namespace: "default",
 			},

@@ -23,14 +23,15 @@ import (
 	"regexp"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
+	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -81,7 +82,7 @@ func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfi
 		log.Fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
-	vc.PilotDescriptor = model.IstioConfigTypes
+	vc.PilotDescriptor = schemas.Istio
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {

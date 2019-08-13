@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -190,7 +191,7 @@ func NewDiscoveryServer(
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
-		for _, descriptor := range model.IstioConfigTypes {
+		for _, descriptor := range schemas.Istio {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
 	}

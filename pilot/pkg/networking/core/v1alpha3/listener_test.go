@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
@@ -318,8 +319,8 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			p := &fakePlugin{}
 			virtualService := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      model.VirtualService.Type,
-					Version:   model.VirtualService.Version,
+					Type:      schemas.VirtualService.Type,
+					Version:   schemas.VirtualService.Version,
 					Name:      "test_vs",
 					Namespace: "default",
 				},
