@@ -1850,7 +1850,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	if util.IsIstioVersionGE13(opts.proxy) {
 		listener.ListenerFiltersTimeout = util.GogoDurationToDuration(opts.env.Mesh.ProtocolDetectionTimeout)
-		listener.ContinueOnListenerFiltersTimeout = true
+		if listener.ListenerFiltersTimeout != nil {
+			listener.ContinueOnListenerFiltersTimeout = true
+		}
 	}
 
 	return listener
