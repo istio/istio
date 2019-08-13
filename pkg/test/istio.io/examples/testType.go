@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type testStep interface {
@@ -31,19 +32,28 @@ type testStep interface {
 type fileTestType struct {
 	path      string
 	namespace string
+	delete    bool
 }
 
-func newStepFile(namespace string, path string) testStep {
+func newStepFile(namespace string, path string, delete bool) testStep {
 	return fileTestType{
 		path:      path,
 		namespace: namespace,
+		delete:    delete,
 	}
 }
 
 func (test fileTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	t.Logf(fmt.Sprintf("Executing %s\n", test.path))
-	if err := env.Apply(test.namespace, test.path); err != nil {
-		return "", err
+	if test.delete {
+		scopes.CI.Infof(fmt.Sprintf("Deleting %s\n", test.path))
+		if err := env.Delete(test.namespace, test.path); err != nil {
+			return "", err
+		}
+	} else {
+		scopes.CI.Infof(fmt.Sprintf("Applying %s\n", test.path))
+		if err := env.Apply(test.namespace, test.path); err != nil {
+			return "", err
+		}
 	}
 
 	return "", nil
@@ -64,7 +74,7 @@ type functionTestType struct {
 }
 
 func (test functionTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	t.Logf(fmt.Sprintf("Executing function\n"))
+	scopes.CI.Infof(fmt.Sprintf("Executing function\n"))
 	test.testFunction(t)
 	return "", nil
 }
@@ -88,7 +98,7 @@ type scriptTestType struct {
 }
 
 func (test scriptTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	t.Logf(fmt.Sprintf("Executing %s\n", test.script))
+	scopes.CI.Infof(fmt.Sprintf("Executing %s\n", test.script))
 	cmd := exec.Command(test.script)
 
 	output, err := cmd.CombinedOutput()
