@@ -297,7 +297,7 @@ func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address.String(), err)
 		return CallResponse{}, err
 	}
 	contents := string(ba)
