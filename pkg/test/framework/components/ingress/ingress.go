@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -55,8 +56,8 @@ type CallOptions struct {
 	// Cert is inline base64 encoded certificate for test client.
 	Cert string
 
-	// Address is the ingress gateway address to call to.
-	Address string
+	// Address is the ingress gateway IP and port to call to.
+	Address net.TCPAddr
 
 	// CallType specifies what type of call to make (PlainText, TLS, mTLS).
 	CallType CallType
@@ -70,7 +71,7 @@ func (o *CallOptions) sanitize() error {
 	if !strings.HasPrefix(o.Path, "/") {
 		o.Path = "/" + o.Path
 	}
-	if o.Address == "" {
+	if len(o.Address.IP) == 0 {
 		return fmt.Errorf("address is not set")
 	}
 	return nil
@@ -82,10 +83,10 @@ type Instance interface {
 
 	// HTTPAddress returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
-	HTTPAddress() string
-	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
-	HTTPSAddress() string
+	HTTPAddress() net.TCPAddr
+	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the
+	// NodePort address, when running under Minikube).
+	HTTPSAddress() net.TCPAddr
 
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)
