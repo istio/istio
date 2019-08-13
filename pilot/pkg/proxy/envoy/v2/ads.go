@@ -687,7 +687,7 @@ func proxyNeedsPush(con *XdsConnection, req *model.PushRequest) bool {
 
 	// Otherwise, only apply if the egress listener will import the config present in the update
 	for ns := range req.TargetNamespaces {
-		if con.modelNode.SidecarScope.DependsOnNamespace(ns) {
+		if con.modelNode.GetSidecarScope().DependsOnNamespace(ns) {
 			return true
 		}
 	}
