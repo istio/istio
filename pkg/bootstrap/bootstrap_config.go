@@ -28,6 +28,8 @@ import (
 	"text/template"
 	"time"
 
+	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 
@@ -35,12 +37,16 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/spiffe"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/bootstrap/auth"
+	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/spiffe"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -61,6 +67,8 @@ const (
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
 	envoyStatsMatcherInclusionRegexpOption = "inclusionRegexps"
+
+	envoyAccessLogServiceName = "envoy_accesslog_service"
 )
 
 var (
@@ -512,11 +520,14 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	}
 
 	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
-		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogService.Address)
+		h, p, err = GetHostPort("envoy accesslog service address", config.EnvoyAccessLogService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_accesslog_service", opts)
+		StoreHostPort(h, p, "envoy_accesslog_service_address", opts)
+		storeTLSContext(envoyAccessLogServiceName, config.EnvoyAccessLogService.TlsSettings, meta,
+			"envoy_accesslog_service_tls", opts)
+		storeKeepalive(config.EnvoyAccessLogService.TcpKeepalive, "envoy_accesslog_service_tcp_keepalive", opts)
 	}
 
 	fout, err := os.Create(fname)
@@ -553,4 +564,135 @@ func isIPv6Proxy(ipAddrs []string) bool {
 		}
 	}
 	return true
+}
+
+func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[string]interface{}, field string, opts map[string]interface{}) {
+	if tls == nil {
+		return
+	}
+
+	caCertificates := tls.CaCertificates
+	if caCertificates == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		caCertificates = constants.DefaultCertChain
+	}
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *auth.DataSource
+	if len(caCertificates) != 0 {
+		trustedCa = &auth.DataSource{
+			Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, caCertificates),
+		}
+	}
+	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+
+	var tlsContext *auth.UpstreamTLSContext
+	switch tls.Mode {
+	case networking.TLSSettings_DISABLE:
+		tlsContext = nil
+	case networking.TLSSettings_SIMPLE:
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{
+				ValidationContext: certValidationContext,
+			},
+			Sni: tls.Sni,
+		}
+		tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+		clientCertificate := tls.ClientCertificate
+		if tls.ClientCertificate == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			clientCertificate = constants.DefaultRootCert
+		}
+		privateKey := tls.PrivateKey
+		if tls.PrivateKey == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			privateKey = constants.DefaultKey
+		}
+		if clientCertificate == "" || privateKey == "" {
+			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", name)
+			return
+		}
+
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{},
+			Sni:              tls.Sni,
+		}
+
+		tlsContext.CommonTLSContext.ValidationContext = certValidationContext
+		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
+			{
+				CertificateChain: &auth.DataSource{
+					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, clientCertificate),
+				},
+				PrivateKey: &auth.DataSource{
+					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, privateKey),
+				},
+			},
+		}
+		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			tlsContext.Sni = name
+		}
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
+		} else {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+		}
+	}
+	if tlsContext != nil {
+		tlsContextStr := convertToJSON(tlsContext)
+		if tlsContextStr == "" {
+			return
+		}
+		opts[field] = tlsContextStr
+	}
+}
+
+func convertToJSON(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		log.Error(err.Error())
+		return ""
+	}
+	return string(b)
+}
+
+func getOrDefaultFromMap(stringMap map[string]interface{}, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return fmt.Sprintf("%v", valFromMap)
+	}
+	return defaultVal
+}
+
+func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive, field string, opts map[string]interface{}) {
+	if tcpKeepalive == nil {
+		return
+	}
+	upstreamConnectionOptions := &apiv2.UpstreamConnectionOptions{
+		TcpKeepalive: &core.TcpKeepalive{},
+	}
+
+	if tcpKeepalive.Probes > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: tcpKeepalive.Probes}
+	}
+
+	if tcpKeepalive.Time != nil && tcpKeepalive.Time.Seconds > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
+	}
+
+	if tcpKeepalive.Interval != nil && tcpKeepalive.Interval.Seconds > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
+	}
+	upstreamConnectionOptionsStr := convertToJSON(upstreamConnectionOptions)
+	if upstreamConnectionOptionsStr == "" {
+		return
+	}
+	opts[field] = upstreamConnectionOptionsStr
 }
