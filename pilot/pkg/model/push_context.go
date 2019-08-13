@@ -80,8 +80,8 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
-	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+	// ServiceByHostname has all services, indexed by hostname.
+	ServiceByHostname map[host.Name]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -368,9 +368,9 @@ func NewPushContext() *PushContext {
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewaysByNamespace:     map[string][]Config{},
 
-		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
-		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:               map[host.Name]map[int][]string{},
+		ServiceByHostname: map[host.Name]*Service{},
+		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:   map[host.Name]map[int][]string{},
 	}
 }
 
@@ -689,10 +689,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		}
-		if _, f := ps.ServiceByHostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceByHostnameAndNamespace[s.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceByHostname[s.Hostname] = s
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -920,7 +917,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
+	for _, nsMap := range ps.ServiceByHostname {
 		for ns := range nsMap {
 			if len(ps.sidecarsByNamespace[ns]) == 0 {
 				// use the contents from the root namespace or the default if there is no root namespace

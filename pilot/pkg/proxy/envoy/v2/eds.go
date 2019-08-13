@@ -193,11 +193,8 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
 // is undefined, as we do not have enough information to make a smart decision
-func legacyServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*model.Service) *model.Service {
-	for _, service := range serviceByHostname[hostname] {
-		return service
-	}
-	return nil
+func legacyServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]*model.Service) *model.Service {
+	return serviceByHostname[hostname]
 }
 
 // updateClusterInc computes an envoy cluster assignment from the service shards.
@@ -223,7 +220,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	subsetLabels := push.SubsetToLabels(nil, subsetName, hostname)
 
 	push.Mutex.Lock()
-	svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	svc := legacyServiceForHostname(hostname, push.ServiceByHostname)
 	push.Mutex.Unlock()
 	if svc == nil {
 		return s.updateCluster(push, clusterName, edsCluster)
@@ -341,7 +338,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		subsetLabels := push.SubsetToLabels(nil, subsetName, hostname)
-		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+		svc := legacyServiceForHostname(hostname, push.ServiceByHostname)
 		var instances []*model.ServiceInstance
 		if svc == nil {
 			adsLog.Warnf("service lookup for hostname %v failed", hostname)
@@ -665,7 +662,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
-	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostname)
 	push.Mutex.Unlock()
 	if svc == nil {
 		// Shouldn't happen here - but just in case fallback

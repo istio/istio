@@ -268,10 +268,8 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-			host.Name("svc.ns3"): {
-				"ns3": &svc,
-			},
+		ServiceByHostname: map[host.Name]*model.Service{
+			host.Name("svc.ns3"): &svc,
 		},
 	}
 	clientParams = plugin.InputParams{
