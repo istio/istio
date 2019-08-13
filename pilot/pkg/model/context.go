@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
@@ -67,6 +68,8 @@ type Environment struct {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
+	mu sync.RWMutex
+
 	// ClusterID specifies the cluster where the proxy resides.
 	// TODO: clarify if this is needed in the new 'network' model, likely needs to
 	// be renamed to 'network'
@@ -246,13 +249,20 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	node.mu.Lock()
+	defer node.mu.Unlock()
 	if node.Type == SidecarProxy {
 		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
+}
 
+func (node *Proxy) GetSidecarScope() *SidecarScope {
+	node.mu.RLock()
+	defer node.mu.RUnlock()
+	return node.SidecarScope
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {
