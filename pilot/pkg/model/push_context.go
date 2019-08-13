@@ -917,12 +917,11 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	for _, nsMap := range ps.ServiceByHostname {
-		for ns := range nsMap {
-			if len(ps.sidecarsByNamespace[ns]) == 0 {
-				// use the contents from the root namespace or the default if there is no root namespace
-				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
-			}
+	for _, svc := range ps.ServiceByHostname {
+		ns := svc.Attributes.Namespace
+		if len(ps.sidecarsByNamespace[ns]) == 0 {
+			// use the contents from the root namespace or the default if there is no root namespace
+			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
 		}
 	}
 
