@@ -37,13 +37,14 @@ func TestEventConsistency(t *testing.T) {
 	controller.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, event model.Event) {
 
 		lock.Lock()
-		defer lock.Unlock()
+		tc := testConfig
+		lock.Unlock()
 
 		if event != testEvent {
 			t.Errorf("desired %v, but %v", testEvent, event)
 		}
-		if !mock.Compare(testConfig, config) {
-			t.Errorf("desired %v, but %v", testConfig, config)
+		if !mock.Compare(tc, config) {
+			t.Errorf("desired %v, but %v", tc, config)
 		}
 		done <- true
 	})
