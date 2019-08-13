@@ -55,6 +55,10 @@ var (
 	// nolint: golint
 	TAG Variable = "TAG"
 
+	// BITNAMIHUB is the Docker registry to be used for the bitnami images.
+	// nolint: golint
+	BITNAMIHUB Variable = "BITNAMIHUB"
+
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: golint
 	PULL_POLICY Variable = "PULL_POLICY"
