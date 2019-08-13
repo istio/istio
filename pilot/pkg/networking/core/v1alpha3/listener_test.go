@@ -387,8 +387,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-			var env model.Environment
-			env = buildListenerEnv(services)
+			env := buildListenerEnv(services)
 			serviceDiscovery := new(fakes.ServiceDiscovery)
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)

@@ -825,38 +825,37 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					// Hack for Kubernetes stateful sets/headless services
+					// Minor optimization for Kubernetes stateful sets/headless services
 					// Instead of generating a single 0.0.0.0:Port listener, generate N listeners
 					// (where N <= 5 at most) one for each podIP.
 					if bind == "" && service.Resolution == model.Passthrough &&
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
 						instances, err := env.InstancesByPort(service, servicePort.Port, nil)
-						if err != nil {
-							// we can't do anything. Fallback to the usual 0.0.0.0:Port listener
-							goto standardListenerLogic
-						}
-						if len(instances) > 5 || len(instances) == 0 {
-							// this service has too many pods or no pod. No point in optimizing the usage.
-							goto standardListenerLogic
-						}
-						for _, instance := range instances {
-							listenerOpts := buildListenerOpts{
-								env:            env,
-								proxy:          node,
-								proxyInstances: node.ServiceInstances,
-								proxyLabels:    proxyLabels,
-								port:           servicePort.Port,
-								bind:           instance.Endpoint.Address,
-								bindToPort:     bindToPort,
-							}
+						if err != nil || len(instances) == 0 || len(instances) > 5 {
+							// we can't do anything. Fallback to the usual way of constructing listeners
+							// for headless services that use 0.0.0.0:Port listener
 							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 								virtualServices, actualWildcard)
+						} else {
+							for _, instance := range instances {
+								listenerOpts := buildListenerOpts{
+									env:            env,
+									proxy:          node,
+									proxyInstances: node.ServiceInstances,
+									proxyLabels:    proxyLabels,
+									port:           servicePort.Port,
+									bind:           instance.Endpoint.Address,
+									bindToPort:     bindToPort,
+								}
+								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+									virtualServices, actualWildcard)
+							}
 						}
-						continue //servicePort
+					} else {
+						// Standard logic for headless and non headless services
+						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+							virtualServices, actualWildcard)
 					}
-				standardListenerLogic:
-					configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-						virtualServices, actualWildcard)
 				}
 			}
 		}
