@@ -28,7 +28,6 @@ import (
 
 	"istio.io/api/annotation"
 
-	"istio.io/istio-bak/pkg/log"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/log"
 )
 
 const (
