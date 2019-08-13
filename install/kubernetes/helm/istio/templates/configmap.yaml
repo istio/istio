@@ -106,7 +106,7 @@ data:
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: {{ .Values.global.protocolDetectionTimeout }}
+    protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
     
     # DNS refresh rate for Envoy clusters of type STRICT_DNS
     dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
