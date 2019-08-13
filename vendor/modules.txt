@@ -773,7 +773,7 @@ istio.io/api/mixer/v1
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/operator v0.0.0-20190809164250-eab4c2437592
+# istio.io/operator v0.0.0-20190813061052-3b21fa19e418
 istio.io/operator/cmd/mesh
 istio.io/operator/pkg/apis/istio/v1alpha2
 istio.io/operator/pkg/component/component

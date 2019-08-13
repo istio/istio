@@ -35,7 +35,7 @@ type Options struct {
 	// InstallSpec is the installation spec for the control plane.
 	InstallSpec *v1alpha2.IstioControlPlaneSpec
 	// Translator is the translator for this feature.
-	Traslator *translate.Translator
+	Translator *translate.Translator
 }
 
 // CommonFeatureFields are fields common to all features.
@@ -46,6 +46,31 @@ type CommonFeatureFields struct {
 	components []component.IstioComponent
 }
 
+func NewFeature(ft name.FeatureName, opts *Options) IstioFeature {
+	var feature IstioFeature
+	switch ft {
+	case name.IstioBaseFeatureName:
+		feature = NewBaseFeature(opts)
+	case name.TrafficManagementFeatureName:
+		feature = NewTrafficManagementFeature(opts)
+	case name.PolicyFeatureName:
+		feature = NewPolicyFeature(opts)
+	case name.TelemetryFeatureName:
+		feature = NewTelemetryFeature(opts)
+	case name.SecurityFeatureName:
+		feature = NewSecurityFeature(opts)
+	case name.ConfigManagementFeatureName:
+		feature = NewConfigManagementFeature(opts)
+	case name.AutoInjectionFeatureName:
+		feature = NewAutoInjectionFeature(opts)
+	case name.GatewayFeatureName:
+		feature = NewGatewayFeature(opts)
+	case name.ThirdPartyFeatureName:
+		feature = NewThirdPartyFeature(opts)
+	}
+	return feature
+}
+
 // BaseFeature is the base feature, containing essential Istio base items.
 type BaseFeature struct {
 	// CommonFeatureFields is the struct shared among all features.
@@ -54,13 +79,7 @@ type BaseFeature struct {
 
 // NewBaseFeature creates a new BaseFeature and returns a pointer to it.
 func NewBaseFeature(opts *Options) *BaseFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewCRDComponent(newComponentOptions(cff, name.IstioBaseFeatureName)),
-	}
-
+	cff := buildCommonFeatureFields(opts, name.IstioBaseFeatureName)
 	return &BaseFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -84,13 +103,7 @@ type TrafficManagementFeature struct {
 
 // NewTrafficManagementFeature creates a new TrafficManagementFeature and returns a pointer to it.
 func NewTrafficManagementFeature(opts *Options) *TrafficManagementFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewPilotComponent(newComponentOptions(cff, name.TrafficManagementFeatureName)),
-	}
-
+	cff := buildCommonFeatureFields(opts, name.TrafficManagementFeatureName)
 	return &TrafficManagementFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -113,14 +126,7 @@ type SecurityFeature struct {
 
 // NewSecurityFeature creates a new SecurityFeature and returns a pointer to it.
 func NewSecurityFeature(opts *Options) *SecurityFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewCitadelComponent(newComponentOptions(cff, name.SecurityFeatureName)),
-		component.NewCertManagerComponent(newComponentOptions(cff, name.SecurityFeatureName)),
-		component.NewNodeAgentComponent(newComponentOptions(cff, name.SecurityFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.SecurityFeatureName)
 	return &SecurityFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -143,12 +149,7 @@ type PolicyFeature struct {
 
 // NewPolicyFeature creates a new PolicyFeature and returns a pointer to it.
 func NewPolicyFeature(opts *Options) *PolicyFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewPolicyComponent(newComponentOptions(cff, name.PolicyFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.PolicyFeatureName)
 	return &PolicyFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -176,12 +177,7 @@ func (f *TelemetryFeature) Run() error {
 
 // NewTelemetryFeature creates a new TelemetryFeature and returns a pointer to it.
 func NewTelemetryFeature(opts *Options) *TelemetryFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewTelemetryComponent(newComponentOptions(cff, name.TelemetryFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.TelemetryFeatureName)
 	return &TelemetryFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -199,12 +195,7 @@ type ConfigManagementFeature struct {
 
 // NewConfigManagementFeature creates a new ConfigManagementFeature and returns a pointer to it.
 func NewConfigManagementFeature(opts *Options) *ConfigManagementFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewGalleyComponent(newComponentOptions(cff, name.ConfigManagementFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.ConfigManagementFeatureName)
 	return &ConfigManagementFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -227,12 +218,7 @@ type AutoInjectionFeature struct {
 
 // NewAutoInjectionFeature creates a new AutoInjectionFeature and returns a pointer to it.
 func NewAutoInjectionFeature(opts *Options) *AutoInjectionFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewSidecarInjectorComponent(newComponentOptions(cff, name.AutoInjectionFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.AutoInjectionFeatureName)
 	return &AutoInjectionFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -255,13 +241,7 @@ type GatewayFeature struct {
 
 // NewGatewayFeature creates a new GatewayFeature and returns a pointer to it.
 func NewGatewayFeature(opts *Options) *GatewayFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewIngressComponent(newComponentOptions(cff, name.GatewayFeatureName)),
-		component.NewEgressComponent(newComponentOptions(cff, name.GatewayFeatureName)),
-	}
+	cff := buildCommonFeatureFields(opts, name.GatewayFeatureName)
 	return &GatewayFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -285,18 +265,7 @@ type ThirdPartyFeature struct {
 
 // NewThirdPartyFeature creates a new ThirdPartyFeature and returns a pointer to it.
 func NewThirdPartyFeature(opts *Options) *ThirdPartyFeature {
-	cff := &CommonFeatureFields{
-		Options: *opts,
-	}
-	cff.components = []component.IstioComponent{
-		component.NewPrometheusComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-		component.NewPrometheusOperatorComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-		component.NewGrafanaComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-		component.NewKialiComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-		component.NewCNIComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-		component.NewTracingComponent(newComponentOptions(cff, name.ThirdPartyFeatureName)),
-	}
-
+	cff := buildCommonFeatureFields(opts, name.ThirdPartyFeatureName)
 	return &ThirdPartyFeature{
 		CommonFeatureFields: *cff,
 	}
@@ -317,7 +286,7 @@ func newComponentOptions(cff *CommonFeatureFields, featureName name.FeatureName)
 	return &component.Options{
 		InstallSpec: cff.InstallSpec,
 		FeatureName: featureName,
-		Translator:  cff.Traslator,
+		Translator:  cff.Translator,
 	}
 }
 
@@ -343,4 +312,22 @@ func renderComponents(cs []component.IstioComponent) (manifests name.ManifestMap
 		return nil, errsOut
 	}
 	return
+}
+
+// buildCommonFeatureFields is an internal function to build the Common Feature Fields for specified feature.
+func buildCommonFeatureFields(opts *Options, ftname name.FeatureName) *CommonFeatureFields {
+	cff := &CommonFeatureFields{
+		Options: *opts,
+	}
+	if opts == nil || opts.Translator == nil || opts.Translator.FeatureMaps == nil {
+		return cff
+	}
+	ftMap := opts.Translator.FeatureMaps[ftname]
+	for _, cn := range ftMap.Components {
+		enabled, err := opts.Translator.IsComponentEnabled(cn, opts.InstallSpec)
+		if err == nil && enabled {
+			cff.components = append(cff.components, component.NewComponent(cn, newComponentOptions(cff, ftname)))
+		}
+	}
+	return cff
 }
