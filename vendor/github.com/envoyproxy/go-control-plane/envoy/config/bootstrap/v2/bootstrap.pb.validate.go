@@ -827,6 +827,12 @@ func (m *RuntimeLayer) Validate() error {
 			}
 		}
 
+	default:
+		return RuntimeLayerValidationError{
+			field:  "LayerSpecifier",
+			reason: "value is required",
+		}
+
 	}
 
 	return nil

@@ -346,6 +346,22 @@ other services.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-protocol_detection_timeout">
+<td><code>protocolDetectionTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Automatic protocol detection uses a set of heuristics to
+determine whether the connection is using TLS or not (on the
+server side), as well as the application protocol being used
+(e.g., http vs tcp). These heuristics rely on the client sending
+the first bits of data. For server first protocols like MySQL,
+MongoDB, etc., Envoy will timeout on the protocol detection after
+the specified period, defaulting to non mTLS plain TCP
+traffic. Set this field to tweak the period that Envoy will wait
+for the client to send the first bits of data. (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-tcp_keepalive">
 <td><code>tcpKeepalive</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
