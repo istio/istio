@@ -244,6 +244,14 @@ data:
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
       envoyAccessLogService:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+    {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
+        tlsSettings:  
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | indent 10 }}
+    {{- end}}
+    {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
+        tcpKeepalive:
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | indent 10 }}
+    {{- end}}
     {{- end}}
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}

@@ -157,7 +157,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata map[string]strin
 	}
 }
 
-// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
 func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
 	ret := &auth.CommonTlsContext_ValidationContext{
 		ValidationContext: &auth.CertificateValidationContext{

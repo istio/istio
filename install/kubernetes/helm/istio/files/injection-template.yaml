@@ -135,8 +135,8 @@ containers:
   - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-  - --envoyAccessLogServiceAddress
-  - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
+  - --envoyAccessLogService
+  - '{{ structToJSON .ProxyConfig.EnvoyAccessLogService }}'
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"

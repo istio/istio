@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -62,34 +63,34 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                   string
-	controlPlaneBootstrap        bool
-	binaryPath                   string
-	serviceCluster               string
-	drainDuration                time.Duration
-	parentShutdownDuration       time.Duration
-	discoveryAddress             string
-	zipkinAddress                string
-	lightstepAddress             string
-	lightstepAccessToken         string
-	lightstepSecure              bool
-	lightstepCacertPath          string
-	datadogAgentAddress          string
-	connectTimeout               time.Duration
-	statsdUDPAddress             string
-	envoyMetricsServiceAddress   string
-	envoyAccessLogServiceAddress string
-	proxyAdminPort               uint16
-	controlPlaneAuthPolicy       string
-	customConfigFile             string
-	proxyLogLevel                string
-	proxyComponentLogLevel       string
-	dnsRefreshRate               string
-	concurrency                  int
-	templateFile                 string
-	disableInternalTelemetry     bool
-	tlsCertsToWatch              []string
-	loggingOptions               = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	datadogAgentAddress        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	envoyAccessLogService      string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	proxyComponentLogLevel     string
+	dnsRefreshRate             string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	tlsCertsToWatch            []string
+	loggingOptions             = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -195,7 +196,11 @@ var (
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
-			proxyConfig.EnvoyAccessLogService = &meshconfig.RemoteService{Address: envoyAccessLogServiceAddress}
+			if envoyAccessLogService != "" {
+				if rs := fromJSON(envoyAccessLogService); rs != nil {
+					proxyConfig.EnvoyAccessLogService = rs
+				}
+			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -532,6 +537,18 @@ func timeDuration(dur *types.Duration) time.Duration {
 	return out
 }
 
+func fromJSON(j string) *meshconfig.RemoteService {
+	var m meshconfig.RemoteService
+	err := json.Unmarshal([]byte(j), &m)
+	if err != nil {
+		log.Warnf("Unable to unmarshal %s", j)
+		return nil
+	}
+
+	log.Infof("%v", m)
+	return &m
+}
+
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
@@ -590,8 +607,8 @@ func init() {
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsService.Address,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogService.Address,
-		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogService, "envoyAccessLogService", "",
+		"Settings of an Envoy gRPC Access Log Service API implementation")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",

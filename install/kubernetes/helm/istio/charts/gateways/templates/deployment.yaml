@@ -146,8 +146,10 @@ spec:
           - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
         {{- end }}
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogServiceAddress
-          - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
+          - --envoyAccessLogService
+          {{- with  $.Values.global.proxy.envoyAccessLogService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
         {{- end }}
           - --proxyAdminPort
           - "15000"
