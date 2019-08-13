@@ -20,7 +20,7 @@ package vfsgen
 
 import (
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -32,16 +32,8 @@ func ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 	defer f.Close()
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	b := make([]byte, fi.Size())
 
-	if _, err := f.Read(b); err != nil && err != io.EOF {
-		return nil, err
-	}
-	return b, nil
+	return ioutil.ReadAll(f)
 }
 
 // Stat returns a FileInfo object for the given path.
