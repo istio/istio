@@ -180,40 +180,51 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
-	// First should keep its owner start time
+	merged := &PushRequest{
+		// Keep the first (older) start time
+		Start: first.Start,
 
-	// If either is full, this must be a full push
-	first.Full = first.Full || other.Full
+		// If either is full we need a full push
+		Full: first.Full || other.Full,
 
-	// The other push context is presumed to be later and more up to date
-	first.Push = other.Push
+		// The other push context is presumed to be later and more up to date
+		Push: other.Push,
+	}
 
 	// Only merge EdsUpdates when incremental eds push needed.
-	if !first.Full {
+	if !merged.Full {
+		merged.EdsUpdates = make(map[string]struct{})
 		// Merge the updates
+		for update := range first.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
 		for update := range other.EdsUpdates {
-			first.EdsUpdates[update] = struct{}{}
+			merged.EdsUpdates[update] = struct{}{}
 		}
 	} else {
-		first.EdsUpdates = nil
+		merged.EdsUpdates = nil
 	}
 
 	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we donot care about target namespaces
-		return first
+		// If push scoping is not enabled, we do not care about target namespaces
+		return merged
 	}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		return first
+		return merged
 	}
 
-	// Merge the updates
+	// Merge the target namespaces
+	merged.TargetNamespaces = make(map[string]struct{})
+	for update := range first.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
 	for update := range other.TargetNamespaces {
-		first.TargetNamespaces[update] = struct{}{}
+		merged.TargetNamespaces[update] = struct{}{}
 	}
 
-	return first
+	return merged
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.

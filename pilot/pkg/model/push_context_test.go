@@ -68,12 +68,6 @@ func TestMergeUpdateRequest(t *testing.T) {
 			},
 		},
 		{
-			"incremental target namespace merge",
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}},
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}},
-			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
-		},
-		{
 			"incremental eds merge",
 			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
 			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
