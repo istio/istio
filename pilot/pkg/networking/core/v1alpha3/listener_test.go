@@ -654,9 +654,6 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 	}
 
 	l := findListenerByPort(listeners, 8080)
-	if !l.ContinueOnListenerFiltersTimeout || *l.ListenerFiltersTimeout != 10*time.Millisecond {
-		t.Fatalf("expected timeout %d ms, found %d ms", 10, *l.ListenerFiltersTimeout/1e6)
-	}
 	if len(l.FilterChains) != 4 {
 		t.Fatalf("expectd %d filter chains, found %d", 4, len(l.FilterChains))
 	} else {

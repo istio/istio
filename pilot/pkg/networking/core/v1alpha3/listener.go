@@ -570,7 +570,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	// call plugins
-	l := buildListener(node, listenerOpts)
+	l := buildListener(listenerOpts)
 	l.TrafficDirection = core.TrafficDirection_INBOUND
 
 	mutable := &plugin.MutableObjects{
@@ -917,7 +917,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		bindToPort:      true,
 		skipUserFilters: true,
 	}
-	l := buildListener(node, opts)
+	l := buildListener(opts)
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
@@ -1272,7 +1272,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
-	l := buildListener(node, listenerOpts)
+	l := buildListener(listenerOpts)
 	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
@@ -1349,7 +1349,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
-		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 
 	case TCPOverHTTP:
@@ -1358,7 +1357,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
-		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1389,7 +1387,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
-		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 
 	case AutoOverAuto:
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
@@ -1560,7 +1557,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				// No user filters for the management unless we introduce new listener matches
 				skipUserFilters: true,
 			}
-			l := buildListener(node, listenerOpts)
+			l := buildListener(listenerOpts)
 			l.TrafficDirection = core.TrafficDirection_INBOUND
 			mutable := &plugin.MutableObjects{
 				Listener:     l,
@@ -1760,7 +1757,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
-func buildListener(node *model.Proxy, opts buildListenerOpts) *xdsapi.Listener {
+func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
@@ -1851,8 +1848,8 @@ func buildListener(node *model.Proxy, opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsIstioVersionGE13(node) && (opts.needHTTPInspector || needTLSInspector) {
-		listener.ListenerFiltersTimeout = &features.ProtocolDetectionTimeout
+	if util.IsIstioVersionGE13(opts.proxy) {
+		listener.ListenerFiltersTimeout = util.GogoDurationToDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 		listener.ContinueOnListenerFiltersTimeout = true
 	}
 
@@ -2151,13 +2148,4 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	}
 
 	return true
-}
-
-func setListenerFiltersTimeoutIfNotSet(node *model.Proxy, listener *xdsapi.Listener) {
-	if !util.IsIstioVersionGE13(node) || listener.ContinueOnListenerFiltersTimeout {
-		return
-	}
-
-	listener.ContinueOnListenerFiltersTimeout = true
-	listener.ListenerFiltersTimeout = &features.ProtocolDetectionTimeout
 }

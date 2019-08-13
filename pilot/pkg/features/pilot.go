@@ -41,12 +41,6 @@ var (
 			"Default is 100, not recommended for production use.",
 	).Get()
 
-	ProtocolDetectionTimeout = env.RegisterDurationVar(
-		"PILOT_PROTOCOL_DETECTION_TIMEOUT",
-		10*time.Millisecond,
-		"Timeout for detecting protocol. Pilot will fallback to default filter chain when times out.",
-	).Get()
-
 	PushThrottle = env.RegisterIntVar(
 		"PILOT_PUSH_THROTTLE",
 		100,
