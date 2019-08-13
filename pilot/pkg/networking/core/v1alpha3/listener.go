@@ -1349,6 +1349,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 
 	case TCPOverHTTP:
@@ -1357,6 +1358,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1387,6 +1389,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.protocol = protocol.Unsupported
 		currentListenerEntry.listener.ListenerFilters =
 			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		setListenerFiltersTimeoutIfNotSet(node, currentListenerEntry.listener)
 
 	case AutoOverAuto:
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
@@ -2148,4 +2151,13 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	}
 
 	return true
+}
+
+func setListenerFiltersTimeoutIfNotSet(node *model.Proxy, listener *xdsapi.Listener) {
+	if !util.IsIstioVersionGE13(node) || listener.ContinueOnListenerFiltersTimeout {
+		return
+	}
+
+	listener.ContinueOnListenerFiltersTimeout = true
+	listener.ListenerFiltersTimeout = &features.ProtocolDetectionTimeout
 }
