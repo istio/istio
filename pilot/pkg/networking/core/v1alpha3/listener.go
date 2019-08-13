@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -651,19 +652,10 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
-// TODO(github.com/istio/pilot/issues/237)
-//
-// Sharing tcp_proxy and http_connection_manager filters on the same port for
-// different destination services doesn't work with Envoy (yet). When the
-// tcp_proxy filter's route matching fails for the http service the connection
-// is closed without falling back to the http_connection_manager.
-//
-// Temporary workaround is to add a listener for each service IP that requires
-// TCP routing
 //
 // Connections to the ports of non-load balanced services are directed to
-// the connection's original destination. This avoids costly queries of instance
-// IPs and ports, but requires that ports of non-load balanced service be unique.
+// the connection's original destination if the service has more than 5 endpoints. This avoids
+// generating too many listeners, but requires that ports of such services be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
@@ -811,12 +803,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
-					// check if this node is capable of starting a listener on this service port
-					// if bindToPort is true. Else Envoy will crash
-					if !validatePort(node, servicePort.Port, bindToPort) {
-						continue
-					}
-
 					listenerOpts := buildListenerOpts{
 						env:            env,
 						proxy:          node,
@@ -839,6 +825,36 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
+					// Hack for Kubernetes stateful sets/headless services
+					// Instead of generating a single 0.0.0.0:Port listener, generate N listeners
+					// (where N <= 5 at most) one for each podIP.
+					if bind == "" && service.Resolution == model.Passthrough &&
+						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+						instances, err := env.InstancesByPort(service, servicePort.Port, nil)
+						if err != nil {
+							// we can't do anything. Fallback to the usual 0.0.0.0:Port listener
+							goto standardListenerLogic
+						}
+						if len(instances) > 5 || len(instances) == 0 {
+							// this service has too many pods or no pod. No point in optimizing the usage.
+							goto standardListenerLogic
+						}
+						for _, instance := range instances {
+							listenerOpts := buildListenerOpts{
+								env:            env,
+								proxy:          node,
+								proxyInstances: node.ServiceInstances,
+								proxyLabels:    proxyLabels,
+								port:           servicePort.Port,
+								bind:           instance.Endpoint.Address,
+								bindToPort:     bindToPort,
+							}
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+						}
+						continue //servicePort
+					}
+				standardListenerLogic:
 					configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 						virtualServices, actualWildcard)
 				}
@@ -937,22 +953,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		return nil
 	}
 	return l
-}
-
-// validatePort checks if the sidecar proxy is capable of listening on a
-// given port in a particular bind mode for a given UID. Sidecars not running
-// as root wont be able to listen on ports <1024 when using bindToPort = true
-func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
-	if !bindToPort {
-		return true // all good, iptables doesn't care
-	}
-
-	if i > 1024 {
-		return true
-	}
-
-	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
-	return proxyProcessUID == "0"
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, listenerMapKey *string,
