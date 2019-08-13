@@ -561,7 +561,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(env); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
 	if registryOnly {
@@ -577,7 +577,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 
-	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
+	route := configgen.buildSidecarOutboundHTTPRouteConfig(env, &proxy, env.PushContext, proxyInstances, routeName)
 	if route == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}

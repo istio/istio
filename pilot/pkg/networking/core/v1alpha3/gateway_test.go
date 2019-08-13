@@ -630,7 +630,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			route := configgen.buildGatewayHTTPRouteConfig(env, &proxy, env.PushContext, proxyInstances, tt.routeName)
 			if route == nil {
 				t.Error("got an empty route configuration")
 			}
@@ -646,7 +646,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 
 }
 
-func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
+func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) *pilot_model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 
 	configStore := &fakes.IstioConfigStore{}
@@ -668,5 +668,5 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 	if err := env.PushContext.InitContext(&env); err != nil {
 		t.Fatalf("failed to init push context: %v", err)
 	}
-	return env
+	return &env
 }

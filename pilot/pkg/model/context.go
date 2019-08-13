@@ -41,9 +41,10 @@ type Environment struct {
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
 
+	// Mutex is used to protect PushContext
 	Mutex sync.RWMutex
 	// PushContext holds information during push generation. It is reset on config change, at the beginning
-	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
+	// of the full Push. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
