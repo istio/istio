@@ -178,7 +178,7 @@ var (
 
 	ScopePushes = env.RegisterBoolVar(
 		"PILOT_SCOPE_PUSHES",
-		true,
+		false,
 		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
 			"a config or endpoint update will impact.",
 	)
