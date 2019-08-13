@@ -32,7 +32,6 @@ import (
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	admissionreg "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
 
 // Read CA certificate and check whether it is a valid certificate.
@@ -85,17 +84,6 @@ func rebuildMutatingWebhookConfigHelper(
 			webhookConfigFile, err)
 	}
 
-	// fill in missing defaults to minimize desired vs. actual diffs later.
-	for i := 0; i < len(webhookConfig.Webhooks); i++ {
-		if webhookConfig.Webhooks[i].FailurePolicy == nil {
-			failurePolicy := v1beta1.Fail
-			webhookConfig.Webhooks[i].FailurePolicy = &failurePolicy
-		}
-		if webhookConfig.Webhooks[i].NamespaceSelector == nil {
-			webhookConfig.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{}
-		}
-	}
-
 	// the webhook name is fixed at startup time
 	webhookConfig.Name = webhookConfigName
 
@@ -107,31 +95,32 @@ func rebuildMutatingWebhookConfigHelper(
 	return &webhookConfig, nil
 }
 
-// Create the specified mutatingwebhookconfiguration resource or, if the resource
-// already exists, update it's contents with the desired state.
-func createOrUpdateMutatingWebhookConfigHelper(
-	client admissionreg.MutatingWebhookConfigurationInterface,
-	webhookConfig *v1beta1.MutatingWebhookConfiguration,
-) (bool, error) {
+// Create or update the mutatingwebhookconfiguration based on the config from rebuildMutatingWebhookConfig().
+func createOrUpdateMutatingWebhookConfig(wc *WebhookController) error {
+	if wc == nil {
+		return fmt.Errorf("webhook controller is nil")
+	}
+	if wc.mutatingWebhookConfig == nil {
+		return fmt.Errorf("mutatingwebhookconfiguration is nil")
+	}
+	client := wc.admission.MutatingWebhookConfigurations()
+	webhookConfig := wc.mutatingWebhookConfig
+
 	current, err := client.Get(webhookConfig.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Debugf("get webhook config %v returns an err: %v", webhookConfig.Name, err)
-		// If the mutatingwebhookconfiguration does not exist yet, create the config.
+		// If the webhookconfiguration does not exist yet, create the config.
 		if kerrors.IsNotFound(err) {
-			// Create the mutatingwebhookconfiguration
-			if _, createErr := client.Create(webhookConfig); createErr != nil {
-				return false, createErr
-			}
-			return true, nil
+			log.Debugf("get webhookConfig %v: NotFound", webhookConfig.Name)
+			// Create the webhookconfiguration
+			_, createErr := client.Create(webhookConfig)
+			return createErr
 		}
+		log.Errorf("get webhookConfig %v err: %v", webhookConfig.Name, err)
 		// There is an error when getting the webhookconfiguration and the error is
-		// not that the webhookconfiguration does not exist. In this case, simply
-		// return and skip the update.
-		return false, err
+		// not that the webhookconfiguration not found. In this case, still try the update.
 	}
-	// Otherwise, when getting the webhookconfiguration returns nil, update the configuration
-	// only if the webhooks in the current is different from those configured. Only copy the relevant fields
-	// that we want reconciled and ignore everything else, e.g. labels, selectors.
+	// Update the configuration only if the webhooks in the current is different from those configured.
+	// Only copy the relevant fields that we want reconciled and ignore everything else, e.g. labels, selectors.
 	updated := current.DeepCopyObject().(*v1beta1.MutatingWebhookConfiguration)
 	updated.Webhooks = webhookConfig.Webhooks
 
@@ -141,16 +130,56 @@ func createOrUpdateMutatingWebhookConfigHelper(
 		if err != nil {
 			log.Errorf("update webhookconfiguration returns err: %v", err)
 		}
-		return true, err
+		return err
 	}
-	return false, nil
+	return nil
+}
+
+// Create or update the validatingwebhookconfiguration based on the config from rebuildValidatingWebhookConfig().
+func createOrUpdateValidatingWebhookConfig(wc *WebhookController) error {
+	if wc == nil {
+		return fmt.Errorf("webhook controller is nil")
+	}
+	if wc.validatingWebhookConfig == nil {
+		return fmt.Errorf("validatingwebhookconfiguration is nil")
+	}
+	client := wc.admission.ValidatingWebhookConfigurations()
+	webhookConfig := wc.validatingWebhookConfig
+
+	current, err := client.Get(webhookConfig.Name, metav1.GetOptions{})
+	if err != nil {
+		// If the webhookconfiguration does not exist yet, create the config.
+		if kerrors.IsNotFound(err) {
+			log.Debugf("get webhookConfig %v: NotFound", webhookConfig.Name)
+			// Create the webhookconfiguration
+			_, createErr := client.Create(webhookConfig)
+			return createErr
+		}
+		log.Errorf("get webhookConfig %v err: %v", webhookConfig.Name, err)
+		// There is an error when getting the webhookconfiguration and the error is
+		// not that the webhookconfiguration not found. In this case, still try the update.
+	}
+	// Update the configuration only if the webhooks in the current is different from those configured.
+	// Only copy the relevant fields that we want reconciled and ignore everything else, e.g. labels, selectors.
+	updated := current.DeepCopyObject().(*v1beta1.ValidatingWebhookConfiguration)
+	updated.Webhooks = webhookConfig.Webhooks
+
+	if !reflect.DeepEqual(updated, current) {
+		// Update webhookconfiguration to based on current and the webhook configured.
+		_, err := client.Update(updated)
+		if err != nil {
+			log.Errorf("update webhookconfiguration returns err: %v", err)
+		}
+		return err
+	}
+	return nil
 }
 
 // Reload CA cert from file and return whether CA cert is changed
-func reloadCaCert(wc *WebhookController) (bool, error) {
+func reloadCACert(wc *WebhookController) (bool, error) {
 	certChanged := false
-	wc.mutex.Lock()
-	defer wc.mutex.Unlock()
+	wc.certMutex.Lock()
+	defer wc.certMutex.Unlock()
 	caCert, err := readCACert(wc.k8sCaCertFile)
 	if err != nil {
 		return certChanged, err

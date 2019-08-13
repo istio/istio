@@ -24,46 +24,67 @@ import (
 func TestNewWebhookController(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
+	validatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio           float32
-		minGracePeriod             time.Duration
-		k8sCaCertFile              string
-		namespace                  string
-		mutatingWebhookConfigFiles []string
-		mutatingWebhookConfigNames []string
-		shouldFail                 bool
+		deleteWebhookConfigOnExit     bool
+		gracePeriodRatio              float32
+		minGracePeriod                time.Duration
+		k8sCaCertFile                 string
+		namespace                     string
+		mutatingWebhookConfigFiles    []string
+		mutatingWebhookConfigNames    []string
+		mutatingWebhookServiceNames   []string
+		mutatingWebhookServicePorts   []int
+		validatingWebhookConfigFiles  []string
+		validatingWebhookConfigNames  []string
+		validatingWebhookServiceNames []string
+		validatingWebhookServicePorts []int
+		shouldFail                    bool
 	}{
 		"invalid grade period ratio": {
-			gracePeriodRatio:           1.5,
-			k8sCaCertFile:              "./test-data/example-invalid-ca-cert.pem",
-			mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
-			shouldFail:                 true,
+			gracePeriodRatio:             1.5,
+			k8sCaCertFile:                "./test-data/example-invalid-ca-cert.pem",
+			mutatingWebhookConfigFiles:   mutatingWebhookConfigFiles,
+			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
+			shouldFail:                   true,
 		},
 		"invalid CA cert path": {
-			gracePeriodRatio:           0.6,
-			k8sCaCertFile:              "./invalid-path/invalid-file",
-			mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
-			shouldFail:                 true,
+			gracePeriodRatio:             0.6,
+			k8sCaCertFile:                "./invalid-path/invalid-file",
+			mutatingWebhookConfigFiles:   mutatingWebhookConfigFiles,
+			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
+			shouldFail:                   true,
 		},
 		"valid CA cert path": {
-			gracePeriodRatio:           0.6,
-			k8sCaCertFile:              "./test-data/example-ca-cert.pem",
-			mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
-			shouldFail:                 false,
+			gracePeriodRatio:             0.6,
+			k8sCaCertFile:                "./test-data/example-ca-cert.pem",
+			mutatingWebhookConfigFiles:   mutatingWebhookConfigFiles,
+			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
+			shouldFail:                   false,
 		},
 		"invalid mutating webhook config file": {
-			gracePeriodRatio:           0.6,
-			k8sCaCertFile:              "./test-data/example-ca-cert.pem",
-			mutatingWebhookConfigFiles: []string{"./invalid-path/invalid-file"},
-			shouldFail:                 true,
+			gracePeriodRatio:             0.6,
+			k8sCaCertFile:                "./test-data/example-ca-cert.pem",
+			mutatingWebhookConfigFiles:   []string{"./invalid-path/invalid-file"},
+			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
+			shouldFail:                   true,
+		},
+		"invalid validatating webhook config file": {
+			gracePeriodRatio:             0.6,
+			k8sCaCertFile:                "./test-data/example-ca-cert.pem",
+			mutatingWebhookConfigFiles:   mutatingWebhookConfigFiles,
+			validatingWebhookConfigFiles: []string{"./invalid-path/invalid-file"},
+			shouldFail:                   true,
 		},
 	}
 
 	for _, tc := range testCases {
-		_, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+		_, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames)
+			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
+			tc.mutatingWebhookServiceNames, tc.mutatingWebhookServicePorts, tc.validatingWebhookConfigFiles,
+			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed at NewWebhookController()")

@@ -15,17 +15,13 @@
 package chiron
 
 import (
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"k8s.io/api/admissionregistration/v1beta1"
-
-	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -39,6 +35,13 @@ import (
 
 	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/pkg/log"
+)
+
+type WebhookType int
+
+const (
+	MutatingWebhook WebhookType = iota
+	ValidatingWebhook
 )
 
 /* #nosec: disable gas linter */
@@ -60,65 +63,61 @@ const (
 	recommendedMaxGracePeriodRatio = 0.8
 )
 
-var (
-	// TODO (lei-tang): the secret names, service names, ports may be moved to CLI.
-
-	// WebhookServiceNames is service names of the webhooks.
-	WebhookServiceNames = []string{
-		"istio-sidecar-injector",
-		"istio-galley",
-	}
-
-	// WebhookServicePorts is service ports of the webhooks. Each item corresponds to an item
-	// at the same index in WebhookServiceNames.
-	WebhookServicePorts = []int{
-		443,
-		443,
-	}
-)
-
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
 type WebhookController struct {
-	core       corev1.CoreV1Interface
-	admission  admissionv1.AdmissionregistrationV1beta1Interface
-	certClient certclient.CertificatesV1beta1Interface
-
-	minGracePeriod time.Duration
-	// Length of the grace period for the certificate rotation.
-	gracePeriodRatio float32
-
-	// Controller and store for secret objects.
-	scrtController cache.Controller
-	scrtStore      cache.Store
-
-	// The file path to the k8s CA certificate
-	k8sCaCertFile string
-
-	// The namespace of the webhook certificates
-	namespace string
-
 	// The file paths of MutatingWebhookConfiguration
 	mutatingWebhookConfigFiles []string
 	// The names of MutatingWebhookConfiguration
 	mutatingWebhookConfigNames []string
-	// The configuration of mutating webhook
-	mutatingWebhookConfig *v1beta1.MutatingWebhookConfiguration
-
-	// Watcher for the config files
-	ConfigWatcher *fsnotify.Watcher
+	// The names of the services of mutating webhooks
+	mutatingWebhookServiceNames []string
+	// The ports of the services of mutating webhooks
+	mutatingWebhookServicePorts []int
+	// The file paths of ValidatingWebhookConfiguration
+	validatingWebhookConfigFiles []string
+	// The names of ValidatingWebhookConfiguration
+	validatingWebhookConfigNames []string
+	// The names of the services of validating webhooks
+	validatingWebhookServiceNames []string
+	// The ports of the services of validating webhooks
+	validatingWebhookServicePorts []int
 
 	// Current CA certificate
-	CACert []byte
-
-	mutex sync.RWMutex
+	CACert     []byte
+	core       corev1.CoreV1Interface
+	admission  admissionv1.AdmissionregistrationV1beta1Interface
+	certClient certclient.CertificatesV1beta1Interface
+	// Controller and store for secret objects.
+	scrtController cache.Controller
+	scrtStore      cache.Store
+	// The file path to the k8s CA certificate
+	k8sCaCertFile string
+	// The namespace of the webhook certificates
+	namespace      string
+	minGracePeriod time.Duration
+	// The configuration of mutating webhook
+	mutatingWebhookConfig *v1beta1.MutatingWebhookConfiguration
+	// The configuration of validating webhook
+	validatingWebhookConfig *v1beta1.ValidatingWebhookConfiguration
+	// Watcher for the k8s CA cert file
+	K8sCaCertWatcher *fsnotify.Watcher
+	// Watcher for the mutatingwebhook config file
+	MutatingWebhookFileWatcher *fsnotify.Watcher
+	// Watcher for the validatingwebhook config file
+	ValidatingWebhookFileWatcher *fsnotify.Watcher
+	certMutex                    sync.RWMutex
+	// Length of the grace period for the certificate rotation.
+	gracePeriodRatio                  float32
+	deleteWebhookConfigurationsOnExit bool
 }
 
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
-func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
+func NewWebhookController(deleteWebhookConfigurationsOnExit bool, gracePeriodRatio float32, minGracePeriod time.Duration,
 	core corev1.CoreV1Interface, admission admissionv1.AdmissionregistrationV1beta1Interface,
 	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile, nameSpace string,
-	mutatingWebhookConfigFiles, mutatingWebhookConfigNames []string) (*WebhookController, error) {
-
+	mutatingWebhookConfigFiles, mutatingWebhookConfigNames, mutatingWebhookServiceNames []string,
+	mutatingWebhookServicePorts []int, validatingWebhookConfigFiles, validatingWebhookConfigNames,
+	validatingWebhookServiceNames []string, validatingWebhookServicePorts []int) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -128,19 +127,26 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	}
 
 	c := &WebhookController{
-		core:                       core,
-		admission:                  admission,
-		certClient:                 certClient,
-		gracePeriodRatio:           gracePeriodRatio,
-		minGracePeriod:             minGracePeriod,
-		k8sCaCertFile:              k8sCaCertFile,
-		namespace:                  nameSpace,
-		mutatingWebhookConfigFiles: mutatingWebhookConfigFiles,
-		mutatingWebhookConfigNames: mutatingWebhookConfigNames,
+		deleteWebhookConfigurationsOnExit: deleteWebhookConfigurationsOnExit,
+		gracePeriodRatio:                  gracePeriodRatio,
+		minGracePeriod:                    minGracePeriod,
+		k8sCaCertFile:                     k8sCaCertFile,
+		core:                              core,
+		admission:                         admission,
+		certClient:                        certClient,
+		namespace:                         nameSpace,
+		mutatingWebhookConfigFiles:        mutatingWebhookConfigFiles,
+		mutatingWebhookConfigNames:        mutatingWebhookConfigNames,
+		mutatingWebhookServiceNames:       mutatingWebhookServiceNames,
+		mutatingWebhookServicePorts:       mutatingWebhookServicePorts,
+		validatingWebhookConfigFiles:      validatingWebhookConfigFiles,
+		validatingWebhookConfigNames:      validatingWebhookConfigNames,
+		validatingWebhookServiceNames:     validatingWebhookServiceNames,
+		validatingWebhookServicePorts:     validatingWebhookServicePorts,
 	}
 
 	// read CA cert at the beginning of launching the controller and when the CA cert changes.
-	_, err := reloadCaCert(c)
+	_, err := reloadCACert(c)
 	if err != nil {
 		return nil, err
 	}
@@ -167,25 +173,25 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 			UpdateFunc: c.scrtUpdated,
 		})
 
-	// Create a watcher for the CA certificate such that when
-	// the CA certificate changes, the webhook certificates are regenerated and
-	// the CA bundles in webhook configurations get updated.
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
+	watchers := []**fsnotify.Watcher{&c.K8sCaCertWatcher, &c.MutatingWebhookFileWatcher, &c.ValidatingWebhookFileWatcher}
+	// Create a watcher such that when the file changes, the event is detected.
+	// Each watcher corresponds to a file.
 	// Watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
-	// The files watched include the CA certificate file and the muatingwebhookconfiguration file,
-	// which is a ConfigMap file mount.
-	// In the prototype, only the first mutatingwebhookconfiguration is watched.
-	for _, file := range []string{k8sCaCertFile, mutatingWebhookConfigFiles[0]} {
-		watchDir, _ := filepath.Split(file)
-		if err := watcher.Watch(watchDir); err != nil {
-			return nil, fmt.Errorf("could not watch %v: %v", file, err)
+	// The files watched include the CA certificate file and the webhookconfiguration files,
+	// which are ConfigMap file mounts.
+	// In the prototype, only the first webhookconfiguration is watched.
+	files := []string{k8sCaCertFile, mutatingWebhookConfigFiles[0], validatingWebhookConfigFiles[0]}
+	for i := range watchers {
+		*watchers[i], err = fsnotify.NewWatcher()
+		if err != nil {
+			return nil, err
+		}
+		watchDir, _ := filepath.Split(files[i])
+		if err := (*watchers[i]).Watch(watchDir); err != nil {
+			return nil, fmt.Errorf("could not watch %v: %v", files[i], err)
 		}
 	}
-	c.ConfigWatcher = watcher
 
 	return c, nil
 }
@@ -193,18 +199,38 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 // Run starts the WebhookController until stopCh is notified.
 func (wc *WebhookController) Run(stopCh chan struct{}) {
 	// Create secrets containing certificates for webhooks
-	for _, svcName := range WebhookServiceNames {
+	for _, svcName := range wc.mutatingWebhookServiceNames {
+		wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
+	}
+	for _, svcName := range wc.validatingWebhookServiceNames {
 		wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
 	}
 
-	host := fmt.Sprintf("%s.%s", WebhookServiceNames[0], wc.namespace)
-	port := WebhookServicePorts[0]
-	// In the prototype, Chiron only patches one webhook.
-	// TODO (lei-tang): extend the prototype to manage all webhooks.
-	go wc.checkAndCreateMutatingWebhook(host, port, stopCh)
+	// Currently, Chiron only patches one mutating webhook and one validating webhook.
+	var mutatingWebhookChangedCh chan struct{}
+	// Delete the existing webhookconfiguration, if any.
+	err := wc.deleteMutatingWebhookConfig(wc.mutatingWebhookConfigNames[0])
+	if err != nil {
+		log.Infof("deleting mutating webhook config %v returns: %v",
+			wc.mutatingWebhookConfigNames[0], err)
+	}
+	hostMutate := fmt.Sprintf("%s.%s", wc.mutatingWebhookServiceNames[0], wc.namespace)
+	go wc.checkAndCreateMutatingWebhook(hostMutate, wc.mutatingWebhookServicePorts[0], stopCh)
+	// Only the first mutatingWebhookConfigNames is supported
+	mutatingWebhookChangedCh = wc.monitorMutatingWebhookConfig(wc.mutatingWebhookConfigNames[0], stopCh)
 
-	// Monitor the changes on mutatingwebhookconfiguration
-	mutatingWebhookChangedCh := wc.monitorMutatingWebhookConfig(wc.mutatingWebhookConfigNames[0], stopCh)
+	var validatingWebhookChangedCh chan struct{}
+	// Delete the existing webhookconfiguration, if any.
+	err = wc.deleteValidatingWebhookConfig(wc.validatingWebhookConfigNames[0])
+	if err != nil {
+		log.Infof("deleting validatingwebhook config %v returns: %v",
+			wc.validatingWebhookConfigNames[0], err)
+	}
+
+	hostValidate := fmt.Sprintf("%s.%s", wc.validatingWebhookServiceNames[0], wc.namespace)
+	go wc.checkAndCreateValidatingWebhook(hostValidate, wc.validatingWebhookServicePorts[0], stopCh)
+	// Only the first validatingWebhookConfigNames is supported
+	validatingWebhookChangedCh = wc.monitorValidatingWebhookConfig(wc.validatingWebhookConfigNames[0], stopCh)
 
 	// Manage the secrets of webhooks
 	go wc.scrtController.Run(stopCh)
@@ -213,8 +239,8 @@ func (wc *WebhookController) Run(stopCh chan struct{}) {
 	// it throws error if the secret cache is not synchronized, but the secret exists in the system
 	cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
 
-	// Watch for the CA certificate and mutatingwebhookconfiguration updates
-	go wc.watchConfigChanges(mutatingWebhookChangedCh, stopCh)
+	// Watch for the CA certificate and webhookconfiguration updates
+	go wc.watchConfigChanges(mutatingWebhookChangedCh, validatingWebhookChangedCh, stopCh)
 }
 
 func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) {
@@ -231,38 +257,20 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 	// TODO (lei-tang): add the implementation of this function.
 }
 
-func (wc *WebhookController) watchConfigChanges(mutatingWebhookChangedCh, stopCh chan struct{}) {
+func (wc *WebhookController) watchConfigChanges(mutatingWebhookChangedCh, validatingWebhookChangedCh,
+	stopCh chan struct{}) {
 	// TODO (lei-tang): add the implementation of this function.
 }
 
-func (wc *WebhookController) getCACert() ([]byte, error) {
-	wc.mutex.Lock()
-	cp := append([]byte(nil), wc.CACert...)
-	wc.mutex.Unlock()
-
-	block, _ := pem.Decode(cp)
-	if block == nil {
-		return nil, fmt.Errorf("invalid PEM encoded CA certificate")
-	}
-	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
-		return nil, fmt.Errorf("invalid ca certificate (%v), parsing error: %v", string(cp), err)
-	}
-	return cp, nil
+// Delete the mutatingwebhookconfiguration.
+func (wc *WebhookController) deleteMutatingWebhookConfig(configName string) error {
+	// TODO (lei-tang): add the implementation of this function.
+	return nil
 }
 
-// Create or update the mutatingwebhookconfiguration based on the config from rebuildMutatingWebhookConfig().
-func (wc *WebhookController) createOrUpdateMutatingWebhookConfig() error {
-	if wc.mutatingWebhookConfig == nil {
-		return fmt.Errorf("mutatingwebhookconfiguration is nil")
-	}
-
-	client := wc.admission.MutatingWebhookConfigurations()
-	updated, err := createOrUpdateMutatingWebhookConfigHelper(client, wc.mutatingWebhookConfig)
-	if err != nil {
-		return err
-	} else if updated {
-		log.Infof("%v mutatingwebhookconfiguration updated", wc.mutatingWebhookConfig.Name)
-	}
+// Delete the validatingwebhookconfiguration.
+func (wc *WebhookController) deleteValidatingWebhookConfig(configName string) error {
+	// TODO (lei-tang): add the implementation of this function.
 	return nil
 }
 
@@ -282,12 +290,11 @@ func (wc *WebhookController) checkAndCreateMutatingWebhook(host string, port int
 			time.Sleep(2 * time.Second)
 		}
 	}
-	// The webhook in the prototype is a mutating webhook.
-	// TODO (lei-tang): extend the demo webhook to all webhooks.
-	// Try to create the initial webhook configuration (if it doesn't already exist).
+
+	// Try to create the initial webhook configuration.
 	err := wc.rebuildMutatingWebhookConfig()
 	if err == nil {
-		createErr := wc.createOrUpdateMutatingWebhookConfig()
+		createErr := createOrUpdateMutatingWebhookConfig(wc)
 		if createErr != nil {
 			log.Errorf("error when creating or updating muatingwebhookconfiguration: %v", createErr)
 			return
@@ -297,71 +304,58 @@ func (wc *WebhookController) checkAndCreateMutatingWebhook(host string, port int
 	}
 }
 
-// Run an informer that watches the changes of mutatingwebhookconfiguration.
-func (wc *WebhookController) monitorMutatingWebhookConfig(mutatingWebhookConfigName string, stopC <-chan struct{}) chan struct{} {
-	webhookChangedCh := make(chan struct{}, 1000)
+func (wc *WebhookController) checkAndCreateValidatingWebhook(host string, port int, stopCh chan struct{}) {
+	// Check the webhook service status. Only configure webhook if the webhook service is available.
+	for {
+		if isTCPReachable(host, port) {
+			log.Info("the webhook service is reachable")
+			break
+		}
+		select {
+		case <-stopCh:
+			log.Debugf("webhook controlller is stopped")
+			return
+		default:
+			log.Debugf("the webhook service is unreachable, check again later ...")
+			time.Sleep(2 * time.Second)
+		}
+	}
 
-	watchlist := cache.NewListWatchFromClient(
-		wc.admission.RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", mutatingWebhookConfigName)))
-
-	_, controller := cache.NewInformer(
-		watchlist,
-		&v1beta1.MutatingWebhookConfiguration{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(_ interface{}) {
-				webhookChangedCh <- struct{}{}
-			},
-			UpdateFunc: func(prev, curr interface{}) {
-				prevObj := prev.(*v1beta1.MutatingWebhookConfiguration)
-				currObj := curr.(*v1beta1.MutatingWebhookConfiguration)
-				if prevObj.ResourceVersion != currObj.ResourceVersion {
-					webhookChangedCh <- struct{}{}
-				}
-			},
-			DeleteFunc: func(_ interface{}) {
-				webhookChangedCh <- struct{}{}
-			},
-		},
-	)
-	go controller.Run(stopC)
-	return webhookChangedCh
+	// Try to create the initial webhook configuration.
+	err := wc.rebuildValidatingWebhookConfig()
+	if err == nil {
+		createErr := createOrUpdateValidatingWebhookConfig(wc)
+		if createErr != nil {
+			log.Errorf("error when creating or updating validatingwebhookconfiguration: %v", createErr)
+			return
+		}
+	} else {
+		log.Errorf("error when rebuilding validatingwebhookconfiguration: %v", err)
+	}
 }
 
-// Rebuild the mutatingwebhookconfiguratio and save for subsequent calls to createOrUpdateWebhookConfig.
+// Run an informer that watches the changes of mutatingwebhookconfiguration.
+func (wc *WebhookController) monitorMutatingWebhookConfig(webhookConfigName string, stopC <-chan struct{}) chan struct{} {
+	// TODO (lei-tang): add the implementation of this function.
+	return nil
+}
+
+// Run an informer that watches the changes of validatingwebhookconfiguration.
+func (wc *WebhookController) monitorValidatingWebhookConfig(webhookConfigName string, stopC <-chan struct{}) chan struct{} {
+	// TODO (lei-tang): add the implementation of this function.
+	return nil
+}
+
+// Rebuild the mutatingwebhookconfiguration and save it for subsequent calls to createOrUpdateWebhookConfig.
 func (wc *WebhookController) rebuildMutatingWebhookConfig() error {
-	caCert, err := wc.getCACert()
-	if err != nil {
-		return err
-	}
-	// In the prototype, only one mutating webhook is rebuilt
-	webhookConfig, err := rebuildMutatingWebhookConfigHelper(
-		caCert,
-		wc.mutatingWebhookConfigFiles[0],
-		wc.mutatingWebhookConfigNames[0],
-	)
-	if err != nil {
-		log.Errorf("failed to build mutatingwebhookconfiguration: %v", err)
-		return err
-	}
-	wc.mutatingWebhookConfig = webhookConfig
+	// TODO (lei-tang): add the implementation of this function.
+	return nil
+}
 
-	// print the mutatingwebhookconfiguration as YAML
-	var configYAML string
-	b, err := yaml.Marshal(wc.mutatingWebhookConfig)
-
-	if err == nil {
-		configYAML = string(b)
-		log.Debugf("%v mutatingwebhookconfiguration is rebuilt: \n%v",
-			wc.mutatingWebhookConfig.Name, configYAML)
-		return nil
-	}
-	log.Errorf("error to marshal mutatingwebhookconfiguration %v: %v",
-		wc.mutatingWebhookConfig.Name, err)
-	return err
+// Rebuild the validatingwebhookconfiguration and save it for subsequent calls to createOrUpdateWebhookConfig.
+func (wc *WebhookController) rebuildValidatingWebhookConfig() error {
+	// TODO (lei-tang): add the implementation of this function.
+	return nil
 }
 
 // Return the webhook secret name based on the service name
