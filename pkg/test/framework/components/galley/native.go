@@ -303,7 +303,10 @@ func (c *nativeComponent) restart() error {
 	time.Sleep(time.Second)
 
 	c.client = &client{
-		address: fmt.Sprintf("tcp://%s", s.Address().String()),
+		address:  fmt.Sprintf("tcp://%s", s.Address().String()),
+		caPath:   cfg.CAPath,
+		keyPath:  cfg.KeyPath,
+		certPath: cfg.CertPath,
 	}
 
 	if err := c.client.waitForStartup(); err != nil {

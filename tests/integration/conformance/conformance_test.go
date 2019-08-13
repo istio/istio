@@ -51,6 +51,7 @@ func TestConformance(t *testing.T) {
 			ctx.Fatalf("error loading test cases: %v", err)
 		}
 
+		// TODO how to get the input
 		gal := galley.NewOrFail(ctx, ctx, galley.Config{})
 		p := pilot.NewOrFail(ctx, ctx, pilot.Config{Galley: gal})
 

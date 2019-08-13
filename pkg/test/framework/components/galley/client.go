@@ -16,10 +16,15 @@ package galley
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/sink"
@@ -29,7 +34,10 @@ import (
 )
 
 type client struct {
-	address string
+	address  string
+	certPath string
+	keyPath  string
+	caPath   string
 }
 
 func (c *client) waitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
@@ -96,16 +104,54 @@ func (c *client) waitForStartup() (err error) {
 	return
 }
 
-func (c *client) dialGrpc() (*grpc.ClientConn, error) {
+func (c *client) getDialOption() (grpc.DialOption, error) {
+	if c.caPath == "" ||
+		c.certPath == "" ||
+		c.keyPath == "" {
+		return grpc.WithInsecure(), nil
+	}
 
+	certificate, err := tls.LoadX509KeyPair(
+		c.certPath,
+		c.keyPath,
+	)
+
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(c.caPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read ca cert: %s", err)
+	}
+
+	ok := certPool.AppendCertsFromPEM(ca)
+	if !ok {
+		return nil, fmt.Errorf("failed to append client certs")
+	}
+
+	transportCreds := credentials.NewTLS(&tls.Config{
+		ServerName:   "127.0.0.1",
+		Certificates: []tls.Certificate{certificate},
+		RootCAs:      certPool,
+		// required because the galley cert has no IP san for 127.0.0.1
+		InsecureSkipVerify: true,
+	})
+
+	return grpc.WithTransportCredentials(transportCreds), nil
+}
+
+func (c *client) dialGrpc() (*grpc.ClientConn, error) {
 	addr := c.address
 	if strings.HasPrefix(c.address, "tcp://") {
 		addr = c.address[6:]
 	}
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	if err != nil {
+	dialOption, err := c.getDialOption()
 
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(addr, dialOption)
+	if err != nil {
 		return nil, err
 	}
 	scopes.Framework.Debug("connected to Galley pod through port forwarder")

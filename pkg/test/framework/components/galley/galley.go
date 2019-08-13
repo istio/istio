@@ -67,6 +67,15 @@ type Config struct {
 
 	// MeshConfig to use for this instance.
 	MeshConfig string
+
+	// CertPath path to the client certificate used to communicate with galley
+	CertPath string
+
+	// CertPath path to the client key used to communicate with galley
+	KeyPath string
+
+	// CertPath path to the ca used to communicate with galley
+	CAPath string
 }
 
 // New returns a new instance of echo.

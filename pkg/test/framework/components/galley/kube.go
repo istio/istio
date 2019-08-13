@@ -88,8 +88,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
+	// TODO if mtls -> automactically fetch cert, ca and key from Kubernetes ?
 	n.client = &client{
-		address: fmt.Sprintf("tcp://%s", n.forwarder.Address()),
+		address:  fmt.Sprintf("tcp://%s", n.forwarder.Address()),
+		caPath:   cfg.CAPath,
+		keyPath:  cfg.KeyPath,
+		certPath: cfg.CertPath,
 	}
 
 	if err = n.client.waitForStartup(); err != nil {
