@@ -1603,6 +1603,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				// No user filters for the management unless we introduce new listener matches
 				skipUserFilters: true,
 				proxy:           node,
+				env:             env,
 			}
 			l := buildListener(listenerOpts)
 			l.TrafficDirection = core.TrafficDirection_INBOUND
