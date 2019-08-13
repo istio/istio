@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -144,7 +145,7 @@ type XDSUpdater interface {
 }
 
 // PushRequest defines a request to push to proxies
-// It is used between ConfigUpdate and pushQueue
+// It is used to send updates to the config update debouncer and pass to the PushQueue.
 type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
@@ -160,6 +161,14 @@ type PushRequest struct {
 	// Key is the hostname (serviceName).
 	// This is used by incremental eds.
 	EdsUpdates map[string]struct{}
+
+	// Push stores the push context to use for the update. This may initially be nil, as we will
+	// debounce changes before a PushContext is eventually created.
+	Push *PushContext
+
+	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
+	// Note that this does not include time spent debouncing.
+	Start time.Time
 }
 
 // Merge two update requests together
@@ -171,33 +180,51 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
-	first.Full = first.Full || other.Full
+	merged := &PushRequest{
+		// Keep the first (older) start time
+		Start: first.Start,
+
+		// If either is full we need a full push
+		Full: first.Full || other.Full,
+
+		// The other push context is presumed to be later and more up to date
+		Push: other.Push,
+	}
+
 	// Only merge EdsUpdates when incremental eds push needed.
-	if !first.Full {
+	if !merged.Full {
+		merged.EdsUpdates = make(map[string]struct{})
 		// Merge the updates
+		for update := range first.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
 		for update := range other.EdsUpdates {
-			first.EdsUpdates[update] = struct{}{}
+			merged.EdsUpdates[update] = struct{}{}
 		}
 	} else {
-		first.EdsUpdates = nil
+		merged.EdsUpdates = nil
 	}
 
 	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we donot care about target namespaces
-		return first
+		// If push scoping is not enabled, we do not care about target namespaces
+		return merged
 	}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		return first
+		return merged
 	}
 
-	// Merge the updates
+	// Merge the target namespaces
+	merged.TargetNamespaces = make(map[string]struct{})
+	for update := range first.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
 	for update := range other.TargetNamespaces {
-		first.TargetNamespaces[update] = struct{}{}
+		merged.TargetNamespaces[update] = struct{}{}
 	}
 
-	return first
+	return merged
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
