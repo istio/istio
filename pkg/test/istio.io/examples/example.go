@@ -127,8 +127,7 @@ func (example *Example) Run() {
 				output, err := step.Run(kubeEnv, example.t)
 				example.t.Log(output)
 				if err != nil {
-					scopes.CI.Error(output)
-					example.t.Fatal(output)
+					example.t.Fatal(err)
 				}
 			}
 		})
