@@ -511,7 +511,11 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			updates := map[string]struct{}{
 				edsIncSvc: {},
 			}
-			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, &model.PushRequest{Full: true, EdsUpdates: updates})
+			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
+				Full:       true,
+				EdsUpdates: updates,
+				Push:       server.EnvoyXdsServer.Env.PushContext,
+			})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
 		}

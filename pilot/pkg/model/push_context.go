@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -144,7 +145,7 @@ type XDSUpdater interface {
 }
 
 // PushRequest defines a request to push to proxies
-// It is used between ConfigUpdate and pushQueue
+// It is used to send updates to the config update debouncer and pass to the PushQueue.
 type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
@@ -160,6 +161,14 @@ type PushRequest struct {
 	// Key is the hostname (serviceName).
 	// This is used by incremental eds.
 	EdsUpdates map[string]struct{}
+
+	// Push stores the push context to use for the update. This may initially be nil, as we will
+	// debounce changes before a PushContext is eventually created.
+	Push *PushContext
+
+	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
+	// Note that this does not include time spent debouncing.
+	Start time.Time
 }
 
 // Merge two update requests together
@@ -171,7 +180,14 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
+	// First should keep its owner start time
+
+	// If either is full, this must be a full push
 	first.Full = first.Full || other.Full
+
+	// The other push context is presumed to be later and more up to date
+	first.Push = other.Push
+
 	// Only merge EdsUpdates when incremental eds push needed.
 	if !first.Full {
 		// Merge the updates
