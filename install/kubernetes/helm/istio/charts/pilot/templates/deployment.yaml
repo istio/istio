@@ -114,6 +114,10 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING
             value: "{{ .Values.enableProtocolSniffing }}"
 {{- end }}
+{{ - if .Values.protocolDetectionTimeout }}
+          - name: PILOT_PROTOCOL_DETECTION_TIMEOUT
+            value: "{{ .Values.protocolDetectionTimeout }}"
+{{ -end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
