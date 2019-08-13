@@ -46,7 +46,7 @@ require (
 	github.com/duosecurity/duo_api_golang v0.0.0-20190308151101-6c680f768e74 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/emicklei/go-restful v2.9.3+incompatible
-	github.com/envoyproxy/go-control-plane v0.8.5
+	github.com/envoyproxy/go-control-plane v0.8.6
 	github.com/evanphx/json-patch v4.2.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
