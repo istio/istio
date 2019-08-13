@@ -1894,7 +1894,7 @@ func buildListener(node *model.Proxy, opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsProtocolSniffingEnabledForNode(node) {
+	if util.IsIstioVersionGE13(node) && (opts.needHTTPInspector || needTLSInspector) {
 		listener.ListenerFiltersTimeout = &features.ProtocolDetectionTimeout
 		listener.ContinueOnListenerFiltersTimeout = true
 	}
