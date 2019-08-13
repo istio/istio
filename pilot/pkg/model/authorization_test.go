@@ -41,15 +41,6 @@ func TestAddConfig(t *testing.T) {
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 		},
 	}
-	authzCfg := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type: model.AuthorizationPolicy.Type, Name: "test-authz-1", Namespace: model.NamespaceAll},
-		Spec: &rbacproto.AuthorizationPolicy{
-			WorkloadSelector: &rbacproto.WorkloadSelector{
-				Labels: map[string]string{"app": "test"},
-			},
-		},
-	}
 
 	invalidateBindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -92,24 +83,6 @@ func TestAddConfig(t *testing.T) {
 						Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 						RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 					}},
-				},
-			},
-		},
-		{
-			name:          "test add config for AuthorizationPolicy",
-			config:        []model.Config{authzCfg, roleCfg},
-			authzPolicies: &model.AuthorizationPolicies{},
-			expectedAuthorizationConfigV2: &model.AuthorizationConfigV2{
-				AuthzPolicies: []*model.AuthorizationPolicyConfig{
-					{
-						Name: "test-authz-1", Policy: &rbacproto.AuthorizationPolicy{
-							WorkloadSelector: &rbacproto.WorkloadSelector{
-								Labels: map[string]string{"app": "test"},
-							},
-						}},
-				},
-				NameToServiceRoles: map[string]*rbacproto.ServiceRole{
-					"test-role-1": {Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}}},
 				},
 			},
 		},
@@ -300,58 +273,6 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 			actual := c.authzPolicies.RoleToBindingsForNamespace(c.ns)
 			if !reflect.DeepEqual(c.expectedRolesServiceRoleBinding, actual) {
 				t.Errorf("Got different ServiceRoleBinding, Excepted:\n%v\n, Got: \n%v\n", c.expectedRolesServiceRoleBinding, actual)
-			}
-		})
-	}
-}
-
-func TestRoleForNameAndNamespace(t *testing.T) {
-	cases := []struct {
-		name                                string
-		authzPolicies                       *model.AuthorizationPolicies
-		ns                                  string
-		roleName                            string
-		expectedTestRoleForNameAndNamespace *rbacproto.ServiceRole
-	}{
-		{
-			name:                                "authzPolicies is nil",
-			authzPolicies:                       nil,
-			ns:                                  model.NamespaceAll,
-			roleName:                            "",
-			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{},
-		},
-		{
-			name: "authzPolicies has one ServiceRole",
-			authzPolicies: &model.AuthorizationPolicies{
-				NamespaceToAuthorizationConfigV2: map[string]*model.AuthorizationConfigV2{
-					"default": {
-						AuthzPolicies: []*model.AuthorizationPolicyConfig{
-							{
-								Name:   "Authz-Policy-1",
-								Policy: &rbacproto.AuthorizationPolicy{},
-							},
-						},
-						NameToServiceRoles: map[string]*rbacproto.ServiceRole{
-							"test-svc-1": {
-								Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
-							},
-						},
-					},
-				},
-			},
-			ns:       "default",
-			roleName: "test-svc-1",
-			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{
-				Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			actual := c.authzPolicies.RoleForNameAndNamespace(c.roleName, c.ns)
-			if !reflect.DeepEqual(c.expectedTestRoleForNameAndNamespace, actual) {
-				t.Errorf("Got different ServiceRole, Got: \n%v\n, Excepted:\n%v\n", actual, c.expectedTestRoleForNameAndNamespace)
 			}
 		})
 	}

@@ -543,10 +543,6 @@ $ ls /foo/galley-test-4ef25d910d2746f9b38/
   ...
 ```
 
-In CircleCI, these files can be found in the artifacts section on the test job page:
-
-![CircleCI Artifacts Tab Screenshot](https://circleci.com/docs/assets/img/docs/artifacts.png)
-
 ### Enabling CI Mode
 
 When executing in the CI systems, the makefiles use the ```--istio.test.ci``` flag. This flag causes a few changes in

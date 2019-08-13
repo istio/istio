@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
 )
@@ -54,16 +55,22 @@ func New(t *testing.T, name string) Example {
 	}
 }
 
-// AddScript adds a directive to run a script
-func (example *Example) AddScript(namespace string, script string, output outputType) {
+// RunScript adds a directive to run a script
+func (example *Example) RunScript(script string, output outputType) {
 	//fullPath := getFullPath(istioPath + script)
 	example.steps = append(example.steps, newStepScript("./"+script, output))
 }
 
-// AddFile adds an existing file
-func (example *Example) AddFile(namespace string, path string) {
+// Apply applies an existing file
+func (example *Example) Apply(namespace string, path string) {
 	fullPath := getFullPath(istioPath + path)
-	example.steps = append(example.steps, newStepFile(namespace, fullPath))
+	example.steps = append(example.steps, newStepFile(namespace, fullPath, false))
+}
+
+// Delete deletes an existing file
+func (example *Example) Delete(namespace string, path string) {
+	fullPath := getFullPath(istioPath + path)
+	example.steps = append(example.steps, newStepFile(namespace, fullPath, true))
 }
 
 // todo: get last script run output
@@ -99,7 +106,7 @@ func (example *Example) Run() {
 	//f, err := os.Create(
 	//os.StdOut =
 
-	example.t.Log(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
+	scopes.CI.Infof(fmt.Sprintf("Executing test %s (%d steps)", example.name, len(example.steps)))
 
 	//create directory if it doesn't exist
 	if _, err := os.Stat(example.name); os.IsNotExist(err) {
@@ -120,7 +127,7 @@ func (example *Example) Run() {
 				output, err := step.Run(kubeEnv, example.t)
 				example.t.Log(output)
 				if err != nil {
-					example.t.Log(output)
+					scopes.CI.Error(output)
 					example.t.Fatal(output)
 				}
 			}

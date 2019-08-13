@@ -20,6 +20,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -76,8 +78,8 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("simple add and remove", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushEvent{})
-		p.Enqueue(proxies[1], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		p.Enqueue(proxies[1], &model.PushRequest{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectDequeue(t, p, proxies[1])
@@ -85,7 +87,7 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("remove too many", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
@@ -93,20 +95,32 @@ func TestProxyQueue(t *testing.T) {
 
 	t.Run("add multiple times", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushEvent{})
-		p.Enqueue(proxies[1], &PushEvent{})
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		p.Enqueue(proxies[1], &model.PushRequest{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
 
 		ExpectDequeue(t, p, proxies[0])
 		ExpectDequeue(t, p, proxies[1])
 		ExpectTimeout(t, p)
 	})
 
-	t.Run("add and remove", func(t *testing.T) {
+	t.Run("add and remove and markdone", func(t *testing.T) {
 		p := NewPushQueue()
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
 		ExpectDequeue(t, p, proxies[0])
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.MarkDone(proxies[0])
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		ExpectDequeue(t, p, proxies[0])
+		ExpectTimeout(t, p)
+	})
+
+	t.Run("add and remove and add and markdone", func(t *testing.T) {
+		p := NewPushQueue()
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		ExpectDequeue(t, p, proxies[0])
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
+		p.MarkDone(proxies[0])
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
 	})
@@ -120,34 +134,34 @@ func TestProxyQueue(t *testing.T) {
 			wg.Done()
 		}()
 		time.Sleep(time.Millisecond * 50)
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
 		wg.Wait()
 	})
 
-	t.Run("should merge PushEvent", func(t *testing.T) {
+	t.Run("should merge model.PushRequest", func(t *testing.T) {
 		p := NewPushQueue()
 		firstTime := time.Now()
-		p.Enqueue(proxies[0], &PushEvent{
-			full:               false,
-			edsUpdatedServices: map[string]struct{}{"foo": {}},
-			start:              firstTime,
+		p.Enqueue(proxies[0], &model.PushRequest{
+			Full:       false,
+			EdsUpdates: map[string]struct{}{"foo": {}},
+			Start:      firstTime,
 		})
 
-		p.Enqueue(proxies[0], &PushEvent{
-			full:               false,
-			edsUpdatedServices: map[string]struct{}{"bar": {}},
-			start:              firstTime.Add(time.Second),
+		p.Enqueue(proxies[0], &model.PushRequest{
+			Full:       false,
+			EdsUpdates: map[string]struct{}{"bar": {}},
+			Start:      firstTime.Add(time.Second),
 		})
 		_, info := p.Dequeue()
 
-		if info.start != firstTime {
-			t.Errorf("Expected start time to be %v, got %v", firstTime, info.start)
+		if info.Start != firstTime {
+			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
 		}
 		expectedEds := map[string]struct{}{"foo": {}, "bar": {}}
-		if !reflect.DeepEqual(info.edsUpdatedServices, expectedEds) {
-			t.Errorf("Expected edsUpdatedServices to be %v, got %v", expectedEds, info.edsUpdatedServices)
+		if !reflect.DeepEqual(info.EdsUpdates, expectedEds) {
+			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, info.EdsUpdates)
 		}
-		if info.full != false {
+		if info.Full != false {
 			t.Errorf("Expected full to be false, got true")
 		}
 	})
@@ -162,7 +176,7 @@ func TestProxyQueue(t *testing.T) {
 			wg.Done()
 		}()
 		time.Sleep(time.Millisecond * 50)
-		p.Enqueue(proxies[0], &PushEvent{})
+		p.Enqueue(proxies[0], &model.PushRequest{})
 		go func() {
 			respChannel <- getWithTimeout(p)
 			wg.Done()
@@ -196,7 +210,7 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			for eds := 0; eds < 100; eds++ {
 				for _, pr := range proxies {
-					p.Enqueue(pr, &PushEvent{edsUpdatedServices: map[string]struct{}{
+					p.Enqueue(pr, &model.PushRequest{EdsUpdates: map[string]struct{}{
 						fmt.Sprintf("%d", eds): {},
 					}})
 				}
@@ -208,11 +222,12 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			for {
 				con, info := p.Dequeue()
-				for eds := range info.edsUpdatedServices {
+				for eds := range info.EdsUpdates {
 					mu.Lock()
 					delete(expected, key(con, eds))
 					mu.Unlock()
 				}
+				p.MarkDone(con)
 				if len(expected) == 0 {
 					done <- struct{}{}
 				}

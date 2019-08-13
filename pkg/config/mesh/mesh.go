@@ -30,29 +30,30 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:                 constants.ConfigPathDir,
-		BinaryPath:                 constants.BinaryPathFilename,
-		ServiceCluster:             constants.ServiceClusterName,
-		DrainDuration:              types.DurationProto(45 * time.Second),
-		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
-		DiscoveryAddress:           constants.DiscoveryPlainAddress,
-		ConnectTimeout:             types.DurationProto(1 * time.Second),
-		StatsdUdpAddress:           "",
-		EnvoyMetricsServiceAddress: "",
-		ProxyAdminPort:             15000,
-		ControlPlaneAuthPolicy:     meshconfig.AuthenticationPolicy_NONE,
-		CustomConfigFile:           "",
-		Concurrency:                0,
-		StatNameLength:             189,
-		Tracing:                    nil,
+		ConfigPath:             constants.ConfigPathDir,
+		BinaryPath:             constants.BinaryPathFilename,
+		ServiceCluster:         constants.ServiceClusterName,
+		DrainDuration:          types.DurationProto(45 * time.Second),
+		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		DiscoveryAddress:       constants.DiscoveryPlainAddress,
+		ConnectTimeout:         types.DurationProto(1 * time.Second),
+		StatsdUdpAddress:       "",
+		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
+		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
+		ProxyAdminPort:         15000,
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
+		CustomConfigFile:       "",
+		Concurrency:            0,
+		StatNameLength:         189,
+		Tracing:                nil,
 	}
 }
 
@@ -110,7 +111,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		}
 	}
 
-	if err := config.ValidateMeshConfig(&out); err != nil {
+	if err := validation.ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
 

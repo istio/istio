@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -140,11 +141,12 @@ type XDSUpdater interface {
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
-	ConfigUpdate(req UpdateRequest)
+	ConfigUpdate(req *PushRequest)
 }
 
-// UpdateRequest defines a request to update proxies
-type UpdateRequest struct {
+// PushRequest defines a request to push to proxies
+// It is used to send updates to the config update debouncer and pass to the PushQueue.
+type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
@@ -154,27 +156,67 @@ type UpdateRequest struct {
 	// If this is empty, then proxies in all namespaces will get an update
 	// If this is present, then only proxies that import this namespace will get an update
 	TargetNamespaces map[string]struct{}
+
+	// EdsUpdates keeps track of all service updated since last full push.
+	// Key is the hostname (serviceName).
+	// This is used by incremental eds.
+	EdsUpdates map[string]struct{}
+
+	// Push stores the push context to use for the update. This may initially be nil, as we will
+	// debounce changes before a PushContext is eventually created.
+	Push *PushContext
+
+	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
+	// Note that this does not include time spent debouncing.
+	Start time.Time
 }
 
 // Merge two update requests together
-func (first *UpdateRequest) Merge(other *UpdateRequest) UpdateRequest {
+func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if first == nil {
-		return *other
+		return other
 	}
 	if other == nil {
-		return *first
+		return first
 	}
 
-	merged := UpdateRequest{}
-	merged.Full = first.Full || other.Full
-	merged.TargetNamespaces = map[string]struct{}{}
+	merged := &PushRequest{
+		// Keep the first (older) start time
+		Start: first.Start,
+
+		// If either is full we need a full push
+		Full: first.Full || other.Full,
+
+		// The other push context is presumed to be later and more up to date
+		Push: other.Push,
+	}
+
+	// Only merge EdsUpdates when incremental eds push needed.
+	if !merged.Full {
+		merged.EdsUpdates = make(map[string]struct{})
+		// Merge the updates
+		for update := range first.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
+		for update := range other.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
+	} else {
+		merged.EdsUpdates = nil
+	}
+
+	if !features.ScopePushes.Get() {
+		// If push scoping is not enabled, we do not care about target namespaces
+		return merged
+	}
 
 	// If either does not specify only namespaces, this means update all namespaces
 	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
 		return merged
 	}
 
-	// Merge the updates
+	// Merge the target namespaces
+	merged.TargetNamespaces = make(map[string]struct{})
 	for update := range first.TargetNamespaces {
 		merged.TargetNamespaces[update] = struct{}{}
 	}

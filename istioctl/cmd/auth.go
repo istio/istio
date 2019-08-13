@@ -19,24 +19,21 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"github.com/spf13/cobra"
-	k8s "k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
 	printAll       bool
 	configDumpFile string
 	policyFiles    []string
-	serviceFiles   []string
 
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
@@ -92,39 +89,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		},
 	}
 
-	upgradeCmd = &cobra.Command{
-		Hidden: true,
-		Use:    "upgrade",
-		Short:  "Upgrade Istio Authorization Policy from version v1 to v2",
-		Long: `Upgrade converts Istio authorization policy from version v1 to v2. It requires access to Kubernetes
-service definition in order to translate the service name specified in the ServiceRole to the corresponding
-workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
-Kubernetes cluster or from a yaml file specified from command line.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
-  istioctl experimental auth upgrade -f istio-authz-v1-policy-1.yaml,istio-authz-v1-policy-2.yaml
-
-  # Upgrade the Istio authorization policy with service definition from 2 yaml files specified in the command line:
-  istioctl experimental auth upgrade -f istio-authz-v1-policy.yaml --service svc-a.yaml,svc-b.yaml`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(policyFiles, serviceFiles)
-			if err != nil {
-				return err
-			}
-			err = upgrader.UpgradeCRDs()
-			if err != nil {
-				return err
-			}
-			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
-			if err != nil {
-				return fmt.Errorf("failed writing config with error %v", err)
-			}
-			return nil
-		},
-	}
+	// TODO(phillip): Add the upgrade command for the new authorization v1beta1 policy.
 
 	validatorCmd = &cobra.Command{
 		Use:   "validate <policy-file1,policy-file2,...>",
@@ -203,29 +168,6 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newUpgrader(v1PolicyFiles []string, serviceFiles []string) (*auth.Upgrader, error) {
-	if len(v1PolicyFiles) == 0 {
-		return nil, fmt.Errorf("no input file provided")
-	}
-
-	var k8sClient *k8s.Clientset
-	var err error
-	if len(serviceFiles) == 0 {
-		k8sClient, err = kube.CreateClientset("", "")
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
-		}
-	}
-
-	upgrader := &auth.Upgrader{
-		K8sClient:                          k8sClient,
-		ServiceFiles:                       serviceFiles,
-		NamespaceToServiceToWorkloadLabels: map[string]auth.ServiceToWorkloadLabels{},
-		V1PolicyFiles:                      v1PolicyFiles,
-	}
-	return upgrader, nil
-}
-
 func newValidator(policyFiles []string) (*auth.Validator, error) {
 	if len(policyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
@@ -245,7 +187,6 @@ func Auth() *cobra.Command {
 		Short: "Inspect and interact with authentication and authorization policies in the mesh",
 		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
   check - check the TLS/JWT/RBAC settings based on the Envoy config
-  upgrade - upgrade the authorization policy from version v1 to v2
 	validate - check for potential incorrect usage in authorization policy files.
 `,
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
@@ -253,7 +194,6 @@ func Auth() *cobra.Command {
 	}
 
 	cmd.AddCommand(checkCmd)
-	cmd.AddCommand(upgradeCmd)
 	cmd.AddCommand(validatorCmd)
 	return cmd
 }
@@ -263,10 +203,6 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Check the TLS/JWT/RBAC setting from the config dump file")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
-		"Authorization policy file")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
-		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
 	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"Authorization policy file")
 }

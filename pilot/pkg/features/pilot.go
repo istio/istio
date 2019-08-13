@@ -170,6 +170,12 @@ var (
 			"and will be removed in the near future.",
 	)
 
+	EnableProtocolSniffing = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING",
+		false,
+		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	)
+
 	ScopePushes = env.RegisterBoolVar(
 		"PILOT_SCOPE_PUSHES",
 		true,
@@ -182,6 +188,13 @@ var (
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
+	)
+
+	RespectDNSTTL = env.RegisterBoolVar(
+		"PILOT_RESPECT_DNS_TTL",
+		true,
+		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
+			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
 )
 

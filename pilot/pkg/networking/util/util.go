@@ -268,12 +268,22 @@ func IsIstioVersionGE12(node *model.Proxy) bool {
 
 // IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
 func IsIstioVersionGE13(node *model.Proxy) bool {
-	return node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 	return !features.DisableXDSMarshalingToAny
+}
+
+// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
+func IsProtocolSniffingEnabledForNode(node *model.Proxy) bool {
+	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
+}
+
+func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForNode(node) && port.Protocol.IsUnsupported()
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

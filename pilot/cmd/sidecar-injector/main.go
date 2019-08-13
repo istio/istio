@@ -60,6 +60,7 @@ var (
 		kubeconfigFile      string
 		webhookConfigName   string
 		webhookName         string
+		monitoringPort      int
 	}{
 		loggingOptions: log.DefaultOptions(),
 	}
@@ -86,6 +87,7 @@ var (
 				Port:                flags.port,
 				HealthCheckInterval: flags.healthCheckInterval,
 				HealthCheckFile:     flags.healthCheckFile,
+				MonitoringPort:      flags.monitoringPort,
 			}
 			wh, err := inject.NewWebhook(parameters)
 			if err != nil {
@@ -214,6 +216,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.caCertFile, "caCertFile", "/etc/istio/certs/root-cert.pem",
 		"File containing the x509 Certificate for HTTPS.")
 	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 443, "Webhook port")
+	rootCmd.PersistentFlags().IntVar(&flags.monitoringPort, "monitoringPort", 15014, "Webhook monitoring port")
 
 	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
 		"Configure how frequently the health check file specified by --healthCheckFile should be updated")

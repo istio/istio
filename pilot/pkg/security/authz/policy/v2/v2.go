@@ -15,27 +15,14 @@
 package v2
 
 import (
-	"fmt"
-	"strings"
-
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
-)
-
-const (
-	// rootNamespacePrefix is the prefix of the root namespace. This is used to refer to ServiceRoles
-	// that are defined in the root namespace.
-	// For more details, check out root_namespace field at https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto
-	rootNamespacePrefix = "/"
 )
 
 var (
@@ -79,60 +66,10 @@ func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	if authzPolicies.NamespaceToAuthorizationConfigV2 == nil {
 		return &http_config.RBAC{Rules: rbac}
 	}
-	var authzConfigV2, present = authzPolicies.NamespaceToAuthorizationConfigV2[namespace]
+	var _, present = authzPolicies.NamespaceToAuthorizationConfigV2[namespace]
 	if !present {
 		return &http_config.RBAC{Rules: rbac}
 	}
-	for _, authzPolicy := range authzConfigV2.AuthzPolicies {
-		workloadLabels := labels.Collection{serviceMetadata.Labels}
-		policySelector := authzPolicy.Policy.WorkloadSelector.GetLabels()
-		if !(workloadLabels.IsSupersetOf(policySelector)) {
-			// Skip if the workload labels is not a superset of the policy selector (i.e. the workload
-			// is not selected by the policy).
-			continue
-		}
-
-		for i, binding := range authzPolicy.Policy.Allow {
-			// TODO: optimize for multiple bindings referring to the same role.
-			roleName, role := roleForBinding(binding, namespace, authzPolicies)
-			bindings := []*istio_rbac.ServiceRoleBinding{binding}
-			if p := b.generatePolicy(role, bindings, forTCPFilter); p != nil {
-				rbacLog.Debugf("generated policy for role: %s", roleName)
-				policyName := fmt.Sprintf("authz-[%s]-allow[%d]", authzPolicy.Name, i)
-				rbac.Policies[policyName] = p
-			}
-		}
-	}
+	// TODO(yangminzhu): Implement the new authorization v1beta1 policy.
 	return &http_config.RBAC{Rules: rbac}
-}
-
-// TODO: refactor this into model.AuthorizationPolicies.
-func roleForBinding(binding *istio_rbac.ServiceRoleBinding, namespace string, ap *model.AuthorizationPolicies) (string, *istio_rbac.ServiceRole) {
-	var role *istio_rbac.ServiceRole
-	var name string
-	if binding.RoleRef != nil {
-		role = ap.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
-		name = binding.RoleRef.Name
-	} else if binding.Role != "" {
-		if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
-			globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
-			role = ap.RoleForNameAndNamespace(globalRoleName, mesh.DefaultMeshConfig().RootNamespace)
-		} else {
-			role = ap.RoleForNameAndNamespace(binding.Role, namespace)
-		}
-		name = binding.Role
-	} else if len(binding.Actions) > 0 {
-		role = &istio_rbac.ServiceRole{Rules: binding.Actions}
-		name = "%s-inline-role"
-	}
-	return name, role
-}
-
-func (b *v2Generator) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
-	if role == nil || len(bindings) == 0 {
-		return nil
-	}
-
-	m := authz_model.NewModel(role, bindings)
-	return m.Generate(b.serviceMetadata, forTCPFilter)
 }

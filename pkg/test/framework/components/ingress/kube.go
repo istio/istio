@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/test"
@@ -95,7 +97,7 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		return fmt.Sprintf("http://%s:%d", ip, nodePort), true, nil
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -109,15 +111,50 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return fmt.Sprintf("http://%s", ip), true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 80}, true, nil
 }
 
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
 func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
-		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
-		// https://github.com/istio/istio/issues/14180
-		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
+		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Querying ingress, pods:\n%+v\n", pods)
+		if len(pods) == 0 {
+			return nil, false, fmt.Errorf("no ingress pod found")
+		}
+
+		scopes.Framework.Debugf("Found pod: \n%+v\n", pods[0])
+		ip := pods[0].Status.HostIP
+		if ip == "" {
+			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
+		}
+
+		svc, err := env.Accessor.GetService(ns, serviceName)
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Found service for the gateway:\n%+v\n", svc)
+		if len(svc.Spec.Ports) == 0 {
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 443 {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	svc, err := env.Accessor.GetService(ns, serviceName)
@@ -130,7 +167,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return ip, true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 443}, true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
@@ -147,25 +184,25 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 // HTTPAddress returns HTTP address of ingress gateway.
-func (c *kubeComponent) HTTPAddress() string {
+func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return getHTTPAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
-		return ""
+		return net.TCPAddr{}
 	}
-	return address.(string)
+	return address.(net.TCPAddr)
 }
 
-// HTTPSAddress returns HTTPS address of ingress gateway.
-func (c *kubeComponent) HTTPSAddress() string {
+// HTTPSAddress returns HTTPS IP address and port number of ingress gateway.
+func (c *kubeComponent) HTTPSAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return getHTTPSAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
-		return ""
+		return net.TCPAddr{}
 	}
-	return address.(string)
+	return address.(net.TCPAddr)
 }
 
 // createClient creates a client which sends HTTP requests or HTTPS requests, depending on
@@ -196,8 +233,8 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
-				if addr == options.Host+":443" {
-					addr = options.Address + ":443"
+				if s := strings.Split(addr, ":"); s[0] == options.Host {
+					addr = options.Address.String()
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
 				if err != nil {
@@ -217,9 +254,9 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 
 // createRequest returns a request for client to send, or nil and error if request is failed to generate.
 func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error) {
-	url := options.Address + options.Path
+	url := "http://" + options.Address.String() + options.Path
 	if options.CallType != PlainText {
-		url = "https://" + options.Host + ":443" + options.Path
+		url = "https://" + options.Host + ":" + strconv.Itoa(options.Address.Port) + options.Path
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -260,7 +297,7 @@ func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address.String(), err)
 		return CallResponse{}, err
 	}
 	contents := string(ba)

@@ -25,7 +25,7 @@ import (
 // authentication policy. Each version of authentication policy will implement this interface.
 type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) to enforce the underlying authentication policy.
-	InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain
+	InboundFilterChain(sdsUdsPath string, meta map[string]string) []plugin.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.

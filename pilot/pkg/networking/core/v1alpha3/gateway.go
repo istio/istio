@@ -83,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(p)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
@@ -113,6 +113,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		l := buildListener(opts)
+		l.TrafficDirection = core.TrafficDirection_OUTBOUND
+
 		mutable := &plugin.MutableObjects{
 			Listener: l,
 			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
@@ -300,6 +302,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 				},
 			},
 		}}
+		if util.IsIstioVersionGE13(node) {
+			// add a name to the route
+			virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
+		}
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {

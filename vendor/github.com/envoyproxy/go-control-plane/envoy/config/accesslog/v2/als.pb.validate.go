@@ -48,12 +48,17 @@ func (m *HttpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpGrpcAccessLogConfigValidationError{
-				field:  "CommonConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCommonConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HttpGrpcAccessLogConfigValidationError{
+					field:  "CommonConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -132,12 +137,17 @@ func (m *TcpGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetCommonConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpGrpcAccessLogConfigValidationError{
-				field:  "CommonConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetCommonConfig()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TcpGrpcAccessLogConfigValidationError{
+					field:  "CommonConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -223,12 +233,53 @@ func (m *CommonGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
+	{
+		tmp := m.GetGrpcService()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonGrpcAccessLogConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	if d := m.GetBufferFlushInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
 			return CommonGrpcAccessLogConfigValidationError{
-				field:  "GrpcService",
-				reason: "embedded message failed validation",
+				field:  "BufferFlushInterval",
+				reason: "value is not a valid duration",
 				cause:  err,
+			}
+		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return CommonGrpcAccessLogConfigValidationError{
+				field:  "BufferFlushInterval",
+				reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
+	{
+		tmp := m.GetBufferSizeBytes()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonGrpcAccessLogConfigValidationError{
+					field:  "BufferSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
