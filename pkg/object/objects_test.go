@@ -743,9 +743,6 @@ metadata:
     istio: citadel
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      istio: citadel
   template:
     metadata:
       labels:
@@ -754,15 +751,25 @@ spec:
       containers:
       - name: citadel
         image: docker.io/istio/citadel:1.1.8
-        args:
-        - "--append-dns-names=true"
-        - "--grpc-port=8060"
-        - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
-        - "--monitoring-port=15014"
-        - "--self-signed-ca=true"
----
+`
+
+	testDeploymentYaml2 := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+  labels:
+    istio: citadel
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: citadel
+    spec:
+      containers:
+      - name: citadel
+        image: docker.io/istio/citadel:1.2.2
 `
 
 	testPodYaml1 := `apiVersion: v1
@@ -776,20 +783,6 @@ spec:
   containers:
   - name: galley
     image: docker.io/istio/galley:1.1.8
-    command:
-    - "/usr/local/bin/galley"
-    - server
-    - "--meshConfigFile=/etc/mesh-config/mesh"
-    - "--livenessProbeInterval=1s"
-    - "--livenessProbePath=/healthliveness"
-    - "--readinessProbePath=/healthready"
-    - "--readinessProbeInterval=1s"
-    - "--deployment-namespace=istio-system"
-    - "--insecure=true"
-    - "--validation-webhook-config-file"
-    - "/etc/config/validatingwebhookconfiguration.yaml"
-    - "--monitoringPort=15014"
-    - "--log_output_level=default:info"
     ports:
     - containerPort: 443
       protocol: TCP
@@ -797,7 +790,6 @@ spec:
       protocol: TCP
     - containerPort: 9901
       protocol: TCP
----
 `
 
 	testServiceYaml1 := `apiVersion: v1
@@ -808,60 +800,18 @@ metadata:
   name: istio-pilot
   namespace: istio-system
 spec:
-  clusterIP: 10.102.230.31
+  type: ClusterIP
   ports:
   - name: grpc-xds
     port: 15010
     protocol: TCP
     targetPort: 15010
-  - name: https-xds
-    port: 15011
-    protocol: TCP
-    targetPort: 15011
-  - name: http-legacy-discovery
-    port: 8080
-    protocol: TCP
-    targetPort: 8080
   - name: http-monitoring
     port: 15014
     protocol: TCP
     targetPort: 15014
   selector:
     istio: pilot
-  sessionAffinity: None
-  type: ClusterIP
----
-`
-
-	testDeploymentYaml2 := `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    istio: citadel
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: citadel
-  template:
-    metadata:
-      labels:
-        istio: citadel
-    spec:
-      containers:
-      - name: citadel
-        image: docker.io/istio/citadel:1.2.2
-        args:
-        - "--append-dns-names=true"
-        - "--grpc-port=8060"
-        - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
-        - "--monitoring-port=15014"
-        - "--self-signed-ca=true"
----
 `
 
 	manifestDiffTests := []struct {
@@ -872,14 +822,14 @@ spec:
 	}{
 		{
 			"ManifestDiffWithIdenticalResource",
-			testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator,
 			testDeploymentYaml1,
 			"",
 		},
 		{
 			"ManifestDiffWithIdenticalMultipleResources",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testPodYaml1 + testServiceYaml1 + testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testPodYaml1 + YAMLSeparator + testServiceYaml1 + YAMLSeparator + testDeploymentYaml1,
 			"",
 		},
 		{
@@ -890,20 +840,20 @@ spec:
 		},
 		{
 			"ManifestDiffWithDifferentMultipleResources",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testDeploymentYaml2 + testPodYaml1 + testServiceYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testDeploymentYaml2 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
 			"Object Deployment:istio-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffMissingResourcesInA",
-			testPodYaml1 + testDeploymentYaml1,
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
+			testPodYaml1 + YAMLSeparator + testDeploymentYaml1 + YAMLSeparator,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
 			"Object Service:istio-system:istio-pilot is missing in A",
 		},
 		{
 			"ManifestDiffMissingResourcesInB",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testServiceYaml1 + testPodYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testServiceYaml1 + YAMLSeparator + testPodYaml1,
 			"Object Deployment:istio-system:istio-citadel is missing in B",
 		},
 	}
@@ -942,82 +892,6 @@ spec:
       containers:
       - name: citadel
         image: docker.io/istio/citadel:1.1.8
-        args:
-        - "--append-dns-names=true"
-        - "--grpc-port=8060"
-        - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
-        - "--monitoring-port=15014"
-        - "--self-signed-ca=true"
----
-`
-
-	testPodYaml1 := `apiVersion: v1
-kind: Pod
-metadata:
-  name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
-  labels:
-    istio: galley
-spec:
-  containers:
-  - name: galley
-    image: docker.io/istio/galley:1.1.8
-    command:
-    - "/usr/local/bin/galley"
-    - server
-    - "--meshConfigFile=/etc/mesh-config/mesh"
-    - "--livenessProbeInterval=1s"
-    - "--livenessProbePath=/healthliveness"
-    - "--readinessProbePath=/healthready"
-    - "--readinessProbeInterval=1s"
-    - "--deployment-namespace=istio-system"
-    - "--insecure=true"
-    - "--validation-webhook-config-file"
-    - "/etc/config/validatingwebhookconfiguration.yaml"
-    - "--monitoringPort=15014"
-    - "--log_output_level=default:info"
-    ports:
-    - containerPort: 443
-      protocol: TCP
-    - containerPort: 15014
-      protocol: TCP
-    - containerPort: 9901
-      protocol: TCP
----
-`
-
-	testServiceYaml1 := `apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: pilot
-  name: istio-pilot
-  namespace: istio-system
-spec:
-  clusterIP: 10.102.230.31
-  ports:
-  - name: grpc-xds
-    port: 15010
-    protocol: TCP
-    targetPort: 15010
-  - name: https-xds
-    port: 15011
-    protocol: TCP
-    targetPort: 15011
-  - name: http-legacy-discovery
-    port: 8080
-    protocol: TCP
-    targetPort: 8080
-  - name: http-monitoring
-    port: 15014
-    protocol: TCP
-    targetPort: 15014
-  selector:
-    istio: pilot
-  sessionAffinity: None
-  type: ClusterIP
 ---
 `
 
@@ -1041,14 +915,50 @@ spec:
       containers:
       - name: citadel
         image: docker.io/istio/citadel:1.2.2
-        args:
-        - "--append-dns-names=true"
-        - "--grpc-port=8060"
-        - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
-        - "--monitoring-port=15014"
-        - "--self-signed-ca=true"
+---
+`
+
+	testPodYaml1 := `apiVersion: v1
+kind: Pod
+metadata:
+  name: istio-galley-75bcd59768-hpt5t
+  namespace: istio-system
+  labels:
+    istio: galley
+spec:
+  containers:
+  - name: galley
+    image: docker.io/istio/galley:1.1.8
+    ports:
+    - containerPort: 443
+      protocol: TCP
+    - containerPort: 15014
+      protocol: TCP
+    - containerPort: 9901
+      protocol: TCP
+---
+`
+
+	testServiceYaml1 := `apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+  name: istio-pilot
+  namespace: istio-system
+spec:
+  type: ClusterIP
+  ports:
+  - name: grpc-xds
+    port: 15010
+    protocol: TCP
+    targetPort: 15010
+  - name: http-monitoring
+    port: 15014
+    protocol: TCP
+    targetPort: 15014
+  selector:
+    istio: pilot
 ---
 `
 
@@ -1062,7 +972,7 @@ spec:
 	}{
 		{
 			"ManifestDiffWithSelectAndIgnoreForIdenticalResource",
-			testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator,
 			testDeploymentYaml1,
 			"::",
 			"",
@@ -1070,15 +980,15 @@ spec:
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourcesIgnoreSingle",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testDeploymentYaml1 + YAMLSeparator,
 			"Deployment:*:istio-citadel",
 			"Service:*:",
 			"",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourcesIgnoreMultiple",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
 			testDeploymentYaml1,
 			"Deployment:*:istio-citadel",
 			"Pod::*,Service:istio-system:*",
@@ -1086,16 +996,16 @@ spec:
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourcesSelectSingle",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testServiceYaml1 + testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testServiceYaml1 + YAMLSeparator + testDeploymentYaml1,
 			"Deployment::istio-citadel",
 			"Pod:*:*",
 			"",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourcesSelectSingle",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testServiceYaml1 + testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testServiceYaml1 + YAMLSeparator + testDeploymentYaml1,
 			"Deployment::istio-citadel,Service:istio-system:istio-pilot,Pod:*:*",
 			"Pod:*:*",
 			"",
@@ -1103,31 +1013,31 @@ spec:
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourceForDefault",
 			testDeploymentYaml1,
-			testDeploymentYaml2,
+			testDeploymentYaml2 + YAMLSeparator,
 			"::",
 			"",
 			"Object Deployment:istio-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForDifferentResourceForSingleSelectAndIgnore",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testDeploymentYaml2 + testPodYaml1 + testServiceYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testDeploymentYaml2 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
 			"Deployment:*:*",
 			"Pod:*:*",
 			"Object Deployment:istio-system:istio-citadel has diffs",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForMissingResourcesInA",
-			testPodYaml1 + testDeploymentYaml1,
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
+			testPodYaml1 + YAMLSeparator + testDeploymentYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
 			"Pod:istio-system:Citadel,Service:istio-system:",
 			"Pod:*:*",
 			"Object Service:istio-system:istio-pilot is missing in A",
 		},
 		{
 			"ManifestDiffWithSelectAndIgnoreForMissingResourcesInB",
-			testDeploymentYaml1 + testPodYaml1 + testServiceYaml1,
-			testServiceYaml1 + testPodYaml1,
+			testDeploymentYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator + testServiceYaml1,
+			testServiceYaml1 + YAMLSeparator + testPodYaml1 + YAMLSeparator,
 			"*:istio-system:*",
 			"Pod::",
 			"Object Deployment:istio-system:istio-citadel is missing in B",
