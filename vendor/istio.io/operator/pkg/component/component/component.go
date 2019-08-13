@@ -67,6 +67,45 @@ type CommonComponentFields struct {
 	renderer helm.TemplateRenderer
 }
 
+func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
+	var component IstioComponent
+	switch cn {
+	case name.IstioBaseComponentName:
+		component = NewCRDComponent(opts)
+	case name.PilotComponentName:
+		component = NewPilotComponent(opts)
+	case name.GalleyComponentName:
+		component = NewGalleyComponent(opts)
+	case name.SidecarInjectorComponentName:
+		component = NewSidecarInjectorComponent(opts)
+	case name.PolicyComponentName:
+		component = NewPolicyComponent(opts)
+	case name.TelemetryComponentName:
+		component = NewTelemetryComponent(opts)
+	case name.CitadelComponentName:
+		component = NewCitadelComponent(opts)
+	case name.CertManagerComponentName:
+		component = NewCertManagerComponent(opts)
+	case name.NodeAgentComponentName:
+		component = NewNodeAgentComponent(opts)
+	case name.IngressComponentName:
+		component = NewIngressComponent(opts)
+	case name.EgressComponentName:
+		component = NewEgressComponent(opts)
+	case name.PrometheusComponentName:
+		component = NewPrometheusComponent(opts)
+	case name.PrometheusOperatorComponentName:
+		component = NewPrometheusOperatorComponent(opts)
+	case name.KialiComponentName:
+		component = NewKialiComponent(opts)
+	case name.CNIComponentName:
+		component = NewCNIComponent(opts)
+	case name.TracingComponentName:
+		component = NewTracingComponent(opts)
+	}
+	return component
+}
+
 // CRDComponent is the pilot component.
 type CRDComponent struct {
 	*CommonComponentFields
