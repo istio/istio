@@ -17,9 +17,17 @@ package model
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
+	push0 := &PushContext{}
+	// trivially different push contexts just for testing
+	push1 := &PushContext{ProxyStatus: make(map[string]map[string]ProxyPushStatus)}
+
+	var t0 time.Time
+	t1 := t0.Add(time.Minute)
+
 	cases := []struct {
 		name   string
 		left   *PushRequest
@@ -40,9 +48,24 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"simple merge",
-			&PushRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}}},
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}},
-			PushRequest{Full: true, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}},
+			&PushRequest{
+				Full:             true,
+				Push:             push0,
+				Start:            t0,
+				TargetNamespaces: map[string]struct{}{"ns1": {}},
+			},
+			&PushRequest{
+				Full:             false,
+				Push:             push1,
+				Start:            t1,
+				TargetNamespaces: map[string]struct{}{"ns2": {}},
+			},
+			PushRequest{
+				Full:             true,
+				Push:             push1,
+				Start:            t0,
+				TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}},
+			},
 		},
 		{
 			"incremental target namespace merge",
