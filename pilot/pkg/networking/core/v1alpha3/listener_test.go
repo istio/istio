@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -352,6 +353,76 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			// There should not be multiple filter chains with same CIDR match
 			if !reflect.DeepEqual(chains, tt.expectedChains) {
 				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
+			}
+		})
+	}
+}
+
+func TestOutboundListenerForHeadlessServices(t *testing.T) {
+	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
+
+	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
+
+	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
+	svc.Attributes.ServiceRegistry = string(serviceregistry.KubernetesRegistry)
+	svc.Resolution = model.Passthrough
+	services := []*model.Service{svc}
+
+	p := &fakePlugin{}
+	tests := []struct {
+		name                      string
+		instances                 []*model.ServiceInstance
+		numListenersOnServicePort int
+	}{
+		{
+			name: "less than 5 instances",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(services[0], "10.10.10.10"),
+				buildServiceInstance(services[0], "11.11.11.11"),
+				buildServiceInstance(services[0], "12.11.11.11"),
+			},
+			numListenersOnServicePort: 3,
+		},
+		{
+			name: "more than 5 instances",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(services[0], "10.10.10.10"),
+				buildServiceInstance(services[0], "11.11.11.11"),
+				buildServiceInstance(services[0], "12.11.11.11"),
+				buildServiceInstance(services[0], "13.11.11.11"),
+				buildServiceInstance(services[0], "14.11.11.11"),
+				buildServiceInstance(services[0], "15.11.11.11"),
+			},
+			numListenersOnServicePort: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+			env := buildListenerEnv(services)
+			serviceDiscovery := new(fakes.ServiceDiscovery)
+			serviceDiscovery.ServicesReturns(services, nil)
+			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
+			env.ServiceDiscovery = serviceDiscovery
+			if err := env.PushContext.InitContext(&env); err != nil {
+				t.Errorf("Failed to initialize push context: %v", err)
+			}
+
+			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+			proxy.ServiceInstances = proxyInstances
+
+			listeners := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+			listenersToCheck := make([]*xdsapi.Listener, 0)
+			for _, l := range listeners {
+				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
+					listenersToCheck = append(listenersToCheck, l)
+				}
+			}
+
+			if len(listenersToCheck) != tt.numListenersOnServicePort {
+				t.Errorf("Expected %d listeners on service port 9999, got %d", tt.numListenersOnServicePort, len(listenersToCheck))
 			}
 		})
 	}
@@ -1367,6 +1438,15 @@ func buildEndpoint(service *model.Service) model.NetworkEndpoint {
 	return model.NetworkEndpoint{
 		ServicePort: service.Ports[0],
 		Port:        8080,
+	}
+}
+
+func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: instanceIP,
+		},
+		Service: service,
 	}
 }
 
