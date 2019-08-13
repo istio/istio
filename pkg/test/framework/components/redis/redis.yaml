@@ -145,7 +145,7 @@ spec:
       serviceAccountName: "default"
       containers:
       - name: redis-release
-        image: "{{ BitnamiHub }}/redis:4.0.1"
+        image: "{{ BitnamiHub }}/redis:4.0.12"
         imagePullPolicy: "{{.ImagePullPolicy}}"
         command:
           - /run.sh
