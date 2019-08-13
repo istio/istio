@@ -124,8 +124,6 @@ containers:
 {{- end}}
   - --dnsRefreshRate
   - {{ .Values.global.proxy.dnsRefreshRate }}
-  - --protocolDetectionTimeout
-  - {{ .Values.global.proxy.protocolDetectionTimeout }}
   - --connectTimeout
   - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
 {{- if .Values.global.proxy.envoyStatsd.enabled }}
