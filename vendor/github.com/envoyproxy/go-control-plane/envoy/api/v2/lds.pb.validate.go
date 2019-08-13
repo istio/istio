@@ -185,6 +185,8 @@ func (m *Listener) Validate() error {
 		}
 	}
 
+	// no validation rules for ContinueOnListenerFiltersTimeout
+
 	{
 		tmp := m.GetTransparent()
 
