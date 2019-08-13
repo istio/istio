@@ -14,8 +14,6 @@ sidecar: true
 traceSampling: 1.0
 # if protocol sniffing is enabled. Default to false.
 enableProtocolSniffing: false
-# timeout for protocol detection. Pilot will use default filter chain when times out
-protocolDetectionTimeout: 10ms
 # Resources for a small pilot install
 resources:
   requests:
