@@ -15,6 +15,7 @@
 package util
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -41,4 +42,10 @@ func (t Tree) String() string {
 // IsFilePath reports whether the given URL is a local file path.
 func IsFilePath(path string) bool {
 	return strings.Contains(path, "/") || strings.Contains(path, ".")
+}
+
+// IsHTTPURL checks whether the given URL is a HTTP URL, empty path or relative URLs would be rejected.
+func IsHTTPURL(path string) bool {
+	u, err := url.Parse(path)
+	return err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https")
 }

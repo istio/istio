@@ -70,36 +70,29 @@ func (s *Server) moveFiles(origin string) ([]string, error) {
 func TestFetch(t *testing.T) {
 
 	tests := []struct {
-		name           string
-		chartsFileName string
-		shaFileName    string
-		expectFile     string
-		verify         bool
-		verifyFail     bool
+		name                    string
+		installationPackageName string
+		verify                  bool
+		verifyFail              bool
 	}{
 		{
-			name:           "Charts download only",
-			chartsFileName: InstallationChartsFileName,
-			expectFile:     "./istio-installer.tar.gz",
-			verify:         false,
+			name:                    "Charts download only",
+			installationPackageName: "istio-installer-1.3.0.tar.gz",
+			verify:                  false,
 		},
 		{
-			name:           "Charts download and verify",
-			chartsFileName: InstallationChartsFileName,
-			shaFileName:    InstallationShaFileName,
-			expectFile:     "./istio-installer.tar.gz",
-			verify:         true,
+			name:                    "Charts download and verify",
+			installationPackageName: "istio-installer-1.3.0.tar.gz",
+			verify:                  true,
 		},
 		{
-			name:           "Charts download but verification fail",
-			chartsFileName: InstallationChartsFileName,
-			shaFileName:    InstallationShaFileName,
-			expectFile:     "./istio-installer.tar.gz",
-			verify:         true,
-			verifyFail:     true,
+			name:                    "Charts download but verification fail",
+			installationPackageName: "istio-installer-1.3.0.tar.gz",
+			verify:                  true,
+			verifyFail:              true,
 		},
 	}
-	tmp, err := ioutil.TempDir("", ChartsTempFilePrefix)
+	tmp, err := ioutil.TempDir("", InstallationDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,19 +104,16 @@ func TestFetch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
-	fq := &URLFetcher{
-		destDir:    tmp + "/testout",
-		downloader: NewFileDownloader(),
-	}
-
 	for _, test := range tests {
 		outdir := filepath.Join(server.root, "testout")
 		os.RemoveAll(outdir)
 		os.Mkdir(outdir, 0755)
-		fq.url = server.URL() + "/" + test.chartsFileName
+		fq, err := NewURLFetcher(server.URL()+"/"+test.installationPackageName, tmp+"/testout")
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		if test.verify {
-			fq.verifyURL = server.URL() + "/" + test.shaFileName
 			fq.verify = test.verify
 			savedShaF, err := fq.fetchSha()
 			if err != nil {
@@ -153,7 +143,7 @@ func TestFetch(t *testing.T) {
 				return
 			}
 		}
-		ef := filepath.Join(fq.destDir, test.chartsFileName)
+		ef := filepath.Join(fq.destDir, test.installationPackageName)
 		if _, err := os.Stat(ef); err != nil {
 			t.Error(err)
 			return
