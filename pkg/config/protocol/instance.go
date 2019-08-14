@@ -47,8 +47,6 @@ const (
 	TLS Instance = "TLS"
 	// Thrift declares that the port carries Thrift traffic.
 	Thrift Instance = "Thrift"
-	// TLS declares that the port carries TLS traffic.
-	TLS Instance = "TLS"
 	// UDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	UDP Instance = "UDP"
