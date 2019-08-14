@@ -907,7 +907,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 	// Original destination service discovery must be used with the original destination load balancer.
 	if cluster.GetClusterDiscoveryType().Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}) {
-		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
+		cluster.LbPolicy = apiv2.Cluster_CLUSTER_PROVIDED
 		return
 	}
 
@@ -925,7 +925,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 		cluster.LbPolicy = apiv2.Cluster_ROUND_ROBIN
 	case networking.LoadBalancerSettings_PASSTHROUGH:
-		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
+		cluster.LbPolicy = apiv2.Cluster_CLUSTER_PROVIDED
 		cluster.ClusterDiscoveryType = &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}
 	}
 
@@ -1097,7 +1097,7 @@ func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
-		LbPolicy:             apiv2.Cluster_ORIGINAL_DST_LB,
+		LbPolicy:             apiv2.Cluster_CLUSTER_PROVIDED,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{
 		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
