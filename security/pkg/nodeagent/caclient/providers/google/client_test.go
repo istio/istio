@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -47,8 +48,9 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCe
 }
 
 func TestGoogleCAClient(t *testing.T) {
+	os.Setenv("GKE_CLUSTER_URL", "https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1")
 	defer func() {
-
+		os.Unsetenv("GKE_CLUSTER_URL")
 	}()
 
 	testCases := map[string]struct {

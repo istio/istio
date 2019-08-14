@@ -89,8 +89,9 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	}
 
 	out, _ := metadata.FromOutgoingContext(ctx)
+	// preventing races by modification.
 	out = out.Copy()
-	out["Authorization"] = []string{token}
+	out["authorization"] = []string{token}
 
 	zone := parseZone(gkeClusterURL)
 	if zone != "" {
@@ -124,8 +125,8 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 }
 
 func parseZone(clusterURL string) string {
-	// input: https://container.googleapis.com/v1/projects/quanlinpilot1/locations/us-central1-c/clusters/mpibetacluster2
-	// output: quanlinpilot1 us-central1-c
+	// input: https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1
+	// output: us-central1-c
 	var rgx = regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)
 	rs := rgx.FindStringSubmatch(clusterURL)
 	if len(rs) < 3 {
