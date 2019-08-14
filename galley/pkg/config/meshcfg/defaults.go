@@ -25,17 +25,19 @@ import (
 // Default mesh configuration
 func Default() *v1alpha1.MeshConfig {
 	return &v1alpha1.MeshConfig{
-		MixerCheckServer:      "",
-		MixerReportServer:     "",
-		DisablePolicyChecks:   false,
-		PolicyCheckFailOpen:   false,
-		ProxyListenPort:       15001,
-		ConnectTimeout:        types.DurationProto(1 * time.Second),
-		IngressClass:          "istio",
-		IngressControllerMode: v1alpha1.MeshConfig_STRICT,
-		EnableTracing:         true,
-		AccessLogFile:         "/dev/stdout",
-		SdsUdsPath:            "",
-		OutboundTrafficPolicy: &v1alpha1.MeshConfig_OutboundTrafficPolicy{Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		MixerCheckServer:         "",
+		MixerReportServer:        "",
+		DisablePolicyChecks:      false,
+		PolicyCheckFailOpen:      false,
+		ProxyListenPort:          15001,
+		ConnectTimeout:           types.DurationProto(1 * time.Second),
+		IngressClass:             "istio",
+		IngressControllerMode:    v1alpha1.MeshConfig_STRICT,
+		EnableTracing:            true,
+		AccessLogFile:            "/dev/stdout",
+		SdsUdsPath:               "",
+		OutboundTrafficPolicy:    &v1alpha1.MeshConfig_OutboundTrafficPolicy{Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		DnsRefreshRate:           types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
+		ProtocolDetectionTimeout: types.DurationProto(10 * time.Millisecond),
 	}
 }
