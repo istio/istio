@@ -1,27 +1,4 @@
 ---
-# Source: mixer-telemetry/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-telemetry
-  namespace: istio-system
-  labels:
-    app: istio-telemetry
-    release: istio-system-istio
-    istio: mixer
-    istio-mixer-type: telemetry
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: istio-telemetry
-      release: istio-system-istio
-      istio: mixer
-      istio-mixer-type: telemetry
----
-
----
 # Source: mixer-telemetry/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -508,8 +485,8 @@ spec:
             cpu: 4800m
             memory: 4G
           requests:
-            cpu: 1000m
-            memory: 1G
+            cpu: 50m
+            memory: 100Mi
           
         volumeMounts:
         - name: istio-certs
@@ -564,10 +541,10 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 10m
+            memory: 40Mi
           
         volumeMounts:
         - name: telemetry-envoy-config
@@ -603,6 +580,10 @@ spec:
         name: cpu
         targetAverageUtilization: 80
 ---
+
+---
+# Source: mixer-telemetry/templates/poddisruptionbudget.yaml
+
 
 ---
 # Source: mixer-telemetry/templates/stackdriver.yaml
@@ -749,6 +730,8 @@ spec:
       valueType: BOOL
     quota.cache_hit:
       valueType: BOOL
+    context.proxy_version:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -814,6 +797,147 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: stdio
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+    release: istio-system-istio
+spec:
+  compiledAdapter: stdio
+  params:
+    outputAsJson: false
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: accesslog
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+    release: istio-system-istio
+spec:
+  compiledTemplate: logentry
+  params:
+    severity: '"Info"'
+    timestamp: request.time
+    variables:
+      sourceIp: source.ip | ip("0.0.0.0")
+      sourceApp: source.labels["app"] | ""
+      sourcePrincipal: source.principal | ""
+      sourceName: source.name | ""
+      sourceWorkload: source.workload.name | ""
+      sourceNamespace: source.namespace | ""
+      sourceOwner: source.owner | ""
+      destinationApp: destination.labels["app"] | ""
+      destinationIp: destination.ip | ip("0.0.0.0")
+      destinationServiceHost: destination.service.host | ""
+      destinationWorkload: destination.workload.name | ""
+      destinationName: destination.name | ""
+      destinationNamespace: destination.namespace | ""
+      destinationOwner: destination.owner | ""
+      destinationPrincipal: destination.principal | ""
+      apiClaims: request.auth.raw_claims | ""
+      apiKey: request.api_key | request.headers["x-api-key"] | ""
+      protocol: request.scheme | context.protocol | "http"
+      method: request.method | ""
+      url: request.path | ""
+      responseCode: response.code | 0
+      responseFlags: context.proxy_error_code | ""
+      responseSize: response.size | 0
+      permissiveResponseCode: rbac.permissive.response_code | "none"
+      permissiveResponsePolicyID: rbac.permissive.effective_policy_id | "none"
+      requestSize: request.size | 0
+      requestId: request.headers["x-request-id"] | ""
+      clientTraceId: request.headers["x-client-trace-id"] | ""
+      latency: response.duration | "0ms"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      requestedServerName: connection.requested_server_name | ""
+      userAgent: request.useragent | ""
+      responseTimestamp: response.time
+      receivedBytes: request.total_size | 0
+      sentBytes: response.total_size | 0
+      referer: request.referer | ""
+      httpAuthority: request.headers[":authority"] | request.host | ""
+      xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      grpcStatus: response.grpc_status | ""
+      grpcMessage: response.grpc_message | ""
+    monitored_resource_type: '"global"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpaccesslog
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+    release: istio-system-istio
+spec:
+  compiledTemplate: logentry
+  params:
+    severity: '"Info"'
+    timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
+    variables:
+      connectionEvent: connection.event | ""
+      sourceIp: source.ip | ip("0.0.0.0")
+      sourceApp: source.labels["app"] | ""
+      sourcePrincipal: source.principal | ""
+      sourceName: source.name | ""
+      sourceWorkload: source.workload.name | ""
+      sourceNamespace: source.namespace | ""
+      sourceOwner: source.owner | ""
+      destinationApp: destination.labels["app"] | ""
+      destinationIp: destination.ip | ip("0.0.0.0")
+      destinationServiceHost: destination.service.host | ""
+      destinationWorkload: destination.workload.name | ""
+      destinationName: destination.name | ""
+      destinationNamespace: destination.namespace | ""
+      destinationOwner: destination.owner | ""
+      destinationPrincipal: destination.principal | ""
+      protocol: context.protocol | "tcp"
+      connectionDuration: connection.duration | "0ms"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      requestedServerName: connection.requested_server_name | ""
+      receivedBytes: connection.received.bytes | 0
+      sentBytes: connection.sent.bytes | 0
+      totalReceivedBytes: connection.received.bytes_total | 0
+      totalSentBytes: connection.sent.bytes_total | 0
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      responseFlags: context.proxy_error_code | ""
+    monitored_resource_type: '"global"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stdio
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+    release: istio-system-istio
+spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
+  actions:
+  - handler: stdio
+    instances:
+    - accesslog
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stdiotcp
+  namespace: istio-system
+  labels:
+    app: istio-telemetry
+    release: istio-system-istio
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: stdio
+    instances:
+    - tcpaccesslog
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance

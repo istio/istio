@@ -8,11 +8,8 @@ spec:
       containers:
         - name: istio-proxy
           resources:
-            limits:
-              cpu: 10m
-              memory: 100Mi
             requests:
-              cpu: 10m
+              cpu: 100m
               memory: 100Mi
 
 ---
@@ -27,9 +24,6 @@ spec:
       containers:
         - name: discovery
           resources:
-            limits:
-              cpu: 10m
-              memory: 100Mi
             requests:
-              cpu: 10m
-              memory: 100Mi
+              cpu: 200m
+              memory: 500Mi

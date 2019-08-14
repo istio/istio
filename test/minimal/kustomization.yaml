@@ -10,5 +10,5 @@ bases:
 patchesStrategicMerge:
   - allocation.yaml
 
-commonLabels:
-  release: istio-minimal
+#commonLabels:
+#  release: istio-minimal

@@ -29,19 +29,22 @@ run-build-minimal:
 	bin/iop istio-system istio-discovery ${BASE}/istio-control/istio-discovery  -t \
 	  --set global.controlPlaneSecurityEnabled=false \
 	  --set pilot.useMCP=false \
+	  --set pilot.ingress.ingressControllerMode=STRICT \
 	  --set pilot.plugins="health" > kustomize/minimal/gen-discovery.yaml
 
 # Generate config for ingress matching minimal profie. Runs in istio-system.
 run-build-ingress:
 	bin/iop istio-system istio-ingress ${BASE}/gateways/istio-ingress  -t \
 	  --set global.istioNamespace=istio-system \
+	  --set global.k8sIngress.enabled=true \
 	  --set global.controlPlaneSecurityEnabled=false \
       > kustomize/istio-ingress/gen-istio-ingress.yaml
 
 	# Required since we can't yet kustomize the CLI ( need to switch to viper and env first )
 	bin/iop istio-micro istio-ingress ${BASE}/gateways/istio-ingress  -t \
 	  --set global.istioNamespace=istio-micro \
-	  --set global.controlPlaneSecurityEnabled=false \
+	  --set global.k8sIngress.enabled=true \
+      --set global.controlPlaneSecurityEnabled=false \
       > test/knative/gen-istio-ingress.yaml
 
 run-build-citadel:
@@ -72,13 +75,13 @@ DEMO_OPTS="-f test/demo/values.yaml"
 # Demo updates the demo profile. After testing it can be checked in - allowing reviewers to see any changes.
 # For backward compat, demo profile uses istio-system.
 run-build-demo: dep
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t ${DEMO_OPTS} > test/demo/gen-istio.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config -t ${DEMO_OPTS} >> test/demo/gen-istio.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t ${DEMO_OPTS} >> test/demo/gen-istio.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t ${DEMO_OPTS} > test/demo/gen-citadel.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config -t ${DEMO_OPTS} > test/demo/gen-galley.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t ${DEMO_OPTS} > test/demo/gen-pilot.yaml
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-autoinject -t ${DEMO_OPTS} \
-	  --set sidecarInjectorWebhook.enableNamespacesByDefault=${ENABLE_NAMESPACES_BY_DEFAULT} >> test/demo/gen-istio.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t ${DEMO_OPTS} >> test/demo/gen-istio.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t ${DEMO_OPTS} >> test/demo/gen-istio.yaml
+	  --set sidecarInjectorWebhook.enableNamespacesByDefault=${ENABLE_NAMESPACES_BY_DEFAULT} > test/demo/gen-inject-allns.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t ${DEMO_OPTS} > test/demo/gen-ingress.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t ${DEMO_OPTS} > test/demo/gen-telemetry.yaml
 
 	# Extras present only in demo profile
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-egress -t ${DEMO_OPTS} > test/demo/gen-egress.yaml

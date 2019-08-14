@@ -97,6 +97,10 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
   template:
     metadata:
       labels:

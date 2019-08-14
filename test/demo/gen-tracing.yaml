@@ -112,7 +112,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: "docker.io/jaegertracing/all-in-one:1.12"
+          image: "docker.io/jaegertracing/all-on-one:1.12"
           imagePullPolicy: Always
           ports:
             - containerPort: 9411
@@ -156,7 +156,8 @@ spec:
             mountPath: /badger
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
       affinity:      
         nodeAffinity:

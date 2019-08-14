@@ -240,6 +240,8 @@ data:
       requests:
         cpu: 500m
         memory: 2048Mi
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     tolerations: []
@@ -373,12 +375,12 @@ metadata:
     istio: pilot
   annotations:
     checksum/config-volume-envoy:  6102a6f3c16f84f15a04b0e7b94a08bcecf3d911a68012168c314ce425677124
-    checksum/config-volume:  a4b627cec344e8380ebab6a7cbd60fbc59c86e704a44554ab169ac5165096297
+    checksum/config-volume:  1949ca6ec1a3fe5ae986ad31dad60e0374917ffc785b321d1c0197679e7b994c
 spec:
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: 100%
+      maxUnavailable: 25%
   selector:
     matchLabels:
       app: pilot

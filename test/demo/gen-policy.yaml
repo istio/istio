@@ -92,8 +92,8 @@ spec:
   replicas: 1
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: 100%
+      maxUnavailable: 25%
   selector:
     matchLabels:
       app: istio-policy
@@ -176,6 +176,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+            memory: 100Mi
           
         volumeMounts:
         - name: istio-certs
@@ -230,7 +231,7 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 40Mi

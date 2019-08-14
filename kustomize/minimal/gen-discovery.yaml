@@ -82,11 +82,11 @@ data:
               trusted_ca:
                 filename: /etc/certs/root-cert.pem
               verify_subject_alt_name:
-              - spiffe://cluster.local/ns/istio-control/sa/istio-galley-service-account
+              - spiffe://cluster.local/ns/istio-system/sa/istio-galley-service-account
 
         hosts:
           - socket_address:
-              address: istio-galley.istio-control
+              address: istio-galley.istio-system
               port_value: 15019
 
 
@@ -224,7 +224,7 @@ data:
     image: pilot
     ingress:
       ingressClass: istio
-      ingressControllerMode: "OFF"
+      ingressControllerMode: STRICT
       ingressService: istio-ingressgateway
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
@@ -240,6 +240,8 @@ data:
       requests:
         cpu: 500m
         memory: 2048Mi
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     tolerations: []
@@ -258,15 +260,15 @@ data:
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
-    mixerReportServer: istio-telemetry.istio-telemetry.svc.cluster.local:9091
-    mixerCheckServer: istio-policy.istio-policy.svc.cluster.local:9091
+    mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:9091
+    mixerCheckServer: istio-policy.istio-system.svc.cluster.local:9091
 
     disablePolicyChecks: true
 
 
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
-    ingressControllerMode: "OFF"
+    ingressControllerMode: "STRICT"
     ingressClass: "istio"
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
@@ -322,7 +324,7 @@ data:
       tracing:
         zipkin:
           # Address of the Zipkin collector
-          address: zipkin.istio-telemetry:9411
+          address: zipkin.istio-system:9411
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
@@ -442,13 +444,13 @@ metadata:
     release: istio-system-istio-discovery
     istio: pilot
   annotations:
-    checksum/config-volume-envoy:  f8738cc7654e333743071d7c7054e1eb093c87b4f2157e9a8cf2fb2e66569c8c
-    checksum/config-volume:  ba9737ada4e391755ca381dd190792600445dd9bec6622c9cf2cac7a49b0aae5
+    checksum/config-volume-envoy:  ce051e0f3f422f8fad7318cba46a4e5bc0973ca751be5652c5bdc0397f5fca89
+    checksum/config-volume:  424eaa4bca75c36e6d8bf5811ea37a0c30c8dd02766833b76957e87fcb00123e
 spec:
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: 100%
+      maxUnavailable: 25%
   selector:
     matchLabels:
       istio: pilot

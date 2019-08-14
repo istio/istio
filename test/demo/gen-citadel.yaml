@@ -1,33 +1,12 @@
 ---
-# Source: citadel/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: citadel
-    istio: citadel
-    release: istio-system-istio-system-security
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: citadel
-      istio: citadel
-
----
 # Source: citadel/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-citadel-service-account
   namespace: istio-system
-
   labels:
-    release: istio-system-istio-system-security
-
+    release: istio-system-istio
 
 ---
 # Source: citadel/templates/clusterrole.yaml
@@ -38,7 +17,7 @@ metadata:
   name: istio-citadel-istio-system
   labels:
     app: citadel
-    release: istio-system-istio-system-security
+    release: istio-system-istio
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -64,7 +43,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-citadel-istio-system
   labels:
-    release: istio-system-istio-system-security
+    release: istio-system-istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -86,7 +65,7 @@ metadata:
   labels:
     app: citadel
     istio: citadel
-    release: istio-system-istio-system-security
+    release: istio-system-istio
 
 spec:
   ports:
@@ -110,7 +89,7 @@ metadata:
   labels:
     app: citadel
     istio: citadel
-    release: istio-system-istio-system-security
+    release: istio-system-istio
 
 spec:
   selector:
@@ -138,9 +117,12 @@ spec:
             - --append-dns-names=true
             - --grpc-port=8060
             - --citadel-storage-namespace=istio-system
-            - --custom-dns-names=$(CITADEL_DNS)
+            - --custom-dns-names=istio-galley-service-account.istio-config:istio-galley.istio-config.svc,istio-galley-service-account.istio-control:istio-galley.istio-control.svc,istio-galley-service-account.istio-control-master:istio-galley.istio-control-master.svc,istio-galley-service-account.istio-master:istio-galley.istio-master.svc,istio-galley-service-account.istio-pilot11:istio-galley.istio-pilot11.svc,istio-pilot-service-account.istio-control:istio-pilot-service-account.istio-control,istio-pilot-service-account.istio-pilot11:istio-pilot-service-account.istio-system,istio-sidecar-injector-service-account.istio-control:istio-sidecar-injector.istio-control.svc,istio-sidecar-injector-service-account.istio-control-master:istio-sidecar-injector.istio-control-master.svc,istio-sidecar-injector-service-account.istio-master:istio-sidecar-injector.istio-master.svc,istio-sidecar-injector-service-account.istio-pilot11:istio-sidecar-injector.istio-pilot11.svc,istio-sidecar-injector-service-account.istio-remote:istio-sidecar-injector.istio-remote.svc,
             - --self-signed-ca=true
             - --trust-domain=cluster.local
+          env:
+          - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
+            value: "true"
           livenessProbe:
             httpGet:
               path: /version
@@ -149,7 +131,8 @@ spec:
             periodSeconds: 5
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
       affinity:      
         nodeAffinity:
@@ -184,4 +167,8 @@ spec:
                 operator: In
                 values:
                 - s390x      
+
+---
+# Source: citadel/templates/poddisruptionbudget.yaml
+
 
