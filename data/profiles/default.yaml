@@ -79,10 +79,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 1024Mi
+                memory: 128Mi
               limits:
                 cpu: 2000m
-                memory: 2048Mi
+                memory: 1024Mi
             concurrency: 2
             accessLogEncoding: TEXT
             logLevel: warning
@@ -224,10 +224,6 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 128M
-              limits:
-                cpu: 100m
-                memory: 1024M
           values:
             rollingMaxSurge: 100%
             rollingMaxUnavailable: 25%
@@ -256,9 +252,6 @@ spec:
         common:
           enabled: true
           k8s:
-            env:
-            - name: ISTIO_META_ROUTER_MODE
-              value: "sni-dnat"
             hpaSpec:
               maxReplicas: 5
               minReplicas: 1
@@ -292,6 +285,11 @@ spec:
               suffix: global
             # Domain name for telemetry addons
             telemetry_domain_name: ""
+            env:
+              # A gateway with this mode ensures that pilot generates an additional
+              # set of clusters for internal services but without Istio mTLS, to
+              # enable cross cluster routing.
+              ISTIO_META_ROUTER_MODE: "sni-dnat"
             ports:
             ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
             # Note that AWS ELB will by default perform health checks on the first port
@@ -377,9 +375,6 @@ spec:
           enabled: false
           k8s:
             replicaCount: 1
-            env:
-            - name: ISTIO_META_ROUTER_MODE
-              value: "sni-dnat"
             hpaSpec:
               maxReplicas: 5
               minReplicas: 1
@@ -408,6 +403,19 @@ spec:
               enabled: true
             drainDuration: 45s
             connectTimeout: 10s
+            env:
+              # Set this to "external" if and only if you want the egress gateway to
+              # act as a transparent SNI gateway that routes mTLS/TLS traffic to
+              # external services defined using service entries, where the service
+              # entry has resolution set to DNS, has one or more endpoints with
+              # network field set to "external". By default its set to "" so that
+              # the egress gateway sees the same set of endpoints as the sidecars
+              # preserving backward compatibility
+              # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+              # A gateway with this mode ensures that pilot generates an additional
+              # set of clusters for internal services but without Istio mTLS, to
+              # enable cross cluster routing.
+              ISTIO_META_ROUTER_MODE: "sni-dnat"
             ports:
             - port: 80
               name: http2

@@ -25,7 +25,6 @@ spec:
             autoscaleEnabled: false
   policy:
     components:
-      namespace: istio-policy
       policy:
         common:
           k8s:
@@ -42,7 +41,6 @@ spec:
 
   telemetry:
     components:
-      namespace: istio-telemetry
       telemetry:
         common:
           k8s:
@@ -67,7 +65,6 @@ spec:
 
   trafficManagement:
     components:
-      namespace: istio-control
       pilot:
         common:
           k8s:
