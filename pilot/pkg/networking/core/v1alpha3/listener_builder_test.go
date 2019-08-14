@@ -15,14 +15,15 @@
 package v1alpha3
 
 import (
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"strings"
 	"testing"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -240,7 +241,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawIpv4PassthroughCluster := false
 	sawIpv6PassthroughCluster := false
 	for _, fc := range l.FilterChains {
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.TCPProxy && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
+		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.TCPProxy &&
+			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
