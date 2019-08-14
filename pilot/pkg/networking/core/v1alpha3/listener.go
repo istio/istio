@@ -1602,6 +1602,8 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				}},
 				// No user filters for the management unless we introduce new listener matches
 				skipUserFilters: true,
+				proxy:           node,
+				env:             env,
 			}
 			l := buildListener(listenerOpts)
 			l.TrafficDirection = core.TrafficDirection_INBOUND
@@ -1883,7 +1885,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			BindToPort: proto.BoolFalse,
 		}
 	}
-	return &xdsapi.Listener{
+
+	listener := &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
 		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
@@ -1892,6 +1895,15 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,
 	}
+
+	if util.IsIstioVersionGE13(opts.proxy) {
+		listener.ListenerFiltersTimeout = util.GogoDurationToDuration(opts.env.Mesh.ProtocolDetectionTimeout)
+		if listener.ListenerFiltersTimeout != nil {
+			listener.ContinueOnListenerFiltersTimeout = true
+		}
+	}
+
+	return listener
 }
 
 // appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
