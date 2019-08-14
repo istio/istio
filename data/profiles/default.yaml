@@ -82,7 +82,7 @@ spec:
                 memory: 1024Mi
               limits:
                 cpu: 2000m
-                memory: 128Mi
+                memory: 2048Mi
             concurrency: 2
             accessLogEncoding: TEXT
             logLevel: warning
