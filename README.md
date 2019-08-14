@@ -78,7 +78,7 @@ This will create a binary called `mesh` in ${GOPATH}/bin. Ensure this is in your
 The `mesh` command supports the following flags:
 
 - `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
-- `dry-run`: console output only, nothing applied to cluster or written to files (**default is true until the tool is robust enough**).
+- `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
 
 ### Quick tour of CLI commands 
@@ -104,7 +104,6 @@ levels representing a child dependency, use the following command:
 mesh manifest generate -o istio_manifests
 ```
 
-(Note that the default dry-run setting only writes the intended actions to log.)
 Use depth first search to traverse the created directory hierarchy when applying your YAML files. This is needed for
 correct sequencing of dependencies. Child manifest directories must wait for their parent directory to be fully applied,
 but not their sibling manifest directories.
@@ -117,9 +116,6 @@ dependencies to have the needed CRDs available:
 ```bash
 mesh manifest apply
 ```
-
-The default `dry-run=true` displays the manifest only. Set `dry-run=false` to apply the Istio configuration to Kubernetes.
-`--dry-run=false` to actually apply the generated configuration to the cluster.
 
 #### Review the values of a configuration profile
 
