@@ -20,7 +20,7 @@ set -u
 set -x
 set -e
 
-if [[ "$#" -ne 2 ]]; then
+if [[ "$#" -ne 1 ]]; then
     echo "Usage: run_update_charts.sh <sha or branch>"
 fi
 
