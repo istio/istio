@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
@@ -146,7 +146,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 	}
 
 	// Verify podCache
-	wantLabels := map[string]config.Labels{
+	wantLabels := map[string]labels.Instance{
 		"128.0.0.1": {"app": "test-app"},
 		"128.0.0.2": {"app": "prod-app-1"},
 		"128.0.0.3": {"app": "prod-app-2"},

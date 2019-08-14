@@ -6,11 +6,14 @@ package istio_v1_auth
 import (
 	context "context"
 	fmt "fmt"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -43,7 +46,7 @@ func (m *CheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_CheckRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +89,7 @@ func (m *CheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_CheckResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -258,6 +261,14 @@ type WorkloadServiceServer interface {
 	Check(context.Context, *CheckRequest) (*CheckResponse, error)
 }
 
+// UnimplementedWorkloadServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedWorkloadServiceServer struct {
+}
+
+func (*UnimplementedWorkloadServiceServer) Check(ctx context.Context, req *CheckRequest) (*CheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+}
+
 func RegisterWorkloadServiceServer(s *grpc.Server, srv WorkloadServiceServer) {
 	s.RegisterService(&_WorkloadService_serviceDesc, srv)
 }
@@ -296,7 +307,7 @@ var _WorkloadService_serviceDesc = grpc.ServiceDesc{
 func (m *CheckRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -304,23 +315,29 @@ func (m *CheckRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
 		i = encodeVarintWorkloadService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CheckResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -328,31 +345,40 @@ func (m *CheckResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Status != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintWorkloadService(dAtA, i, uint64(m.Status.Size()))
-		n1, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWorkloadService(dAtA, i, uint64(size))
 		}
-		i += n1
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintWorkloadService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovWorkloadService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *CheckRequest) Size() (n int) {
 	if m == nil {
@@ -381,14 +407,7 @@ func (m *CheckResponse) Size() (n int) {
 }
 
 func sovWorkloadService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozWorkloadService(x uint64) (n int) {
 	return sovWorkloadService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

@@ -23,10 +23,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func newAuthzPolicyWithRbacConfig(mode istio_rbac.RbacConfig_Mode, include *istio_rbac.RbacConfig_Target,
@@ -54,7 +56,7 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 				Name:      name,
 				Namespace: namespace,
 			},
-			Hostname: config.Hostname(hostname),
+			Hostname: host.Name(hostname),
 		},
 		Labels: labels,
 	}
@@ -63,7 +65,7 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 func simpleGlobalPermissiveMode() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ClusterRbacConfig.Type,
+			Type:      schemas.ClusterRbacConfig.Type,
 			Name:      "default",
 			Namespace: "default",
 		},

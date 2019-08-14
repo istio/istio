@@ -73,9 +73,9 @@ func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kuber
 // from passed cluster's config struct
 func createInterface(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
-	rest, err := clientConfig.ClientConfig()
+	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-	return kubernetes.NewForConfig(rest)
+	return kubernetes.NewForConfig(restConfig)
 }

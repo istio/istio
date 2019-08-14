@@ -29,7 +29,7 @@ import (
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
 // Currently this test can only pass on Prow with a real GKE cluster, and fail
-// on CircleCI with a Minikube. For more details, see https://github.com/istio/istio/issues/12754.
+// on Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).

@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/istio/security/pkg/cmd"
+	pkgcmd "istio.io/istio/pkg/cmd"
 	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
@@ -74,7 +74,7 @@ func init() {
 		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
-	cmd.InitializeFlags(rootCmd)
+	pkgcmd.AddFlags(rootCmd)
 }
 
 func main() {

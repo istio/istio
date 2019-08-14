@@ -20,6 +20,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -158,7 +159,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +244,7 @@ func (x Params_Level) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -251,83 +252,92 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.LogStream != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.LogStream))
+	if m.MaxRotatedFiles != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxRotatedFiles))
+		i--
+		dAtA[i] = 0x48
 	}
-	if len(m.SeverityLevels) > 0 {
-		for k, _ := range m.SeverityLevels {
-			dAtA[i] = 0x12
-			i++
-			v := m.SeverityLevels[k]
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + 1 + sovConfig(uint64(v))
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(v))
-		}
+	if m.MaxDaysBeforeRotation != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxDaysBeforeRotation))
+		i--
+		dAtA[i] = 0x40
 	}
-	if m.MetricLevel != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MetricLevel))
+	if m.MaxMegabytesBeforeRotation != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MaxMegabytesBeforeRotation))
+		i--
+		dAtA[i] = 0x38
+	}
+	if len(m.OutputPath) > 0 {
+		i -= len(m.OutputPath)
+		copy(dAtA[i:], m.OutputPath)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.OutputPath)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.OutputLevel != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.OutputLevel))
+		i--
+		dAtA[i] = 0x28
 	}
 	if m.OutputAsJson {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.OutputAsJson {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.OutputLevel != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.OutputLevel))
+	if m.MetricLevel != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.MetricLevel))
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.OutputPath) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.OutputPath)))
-		i += copy(dAtA[i:], m.OutputPath)
+	if len(m.SeverityLevels) > 0 {
+		for k := range m.SeverityLevels {
+			v := m.SeverityLevels[k]
+			baseI := i
+			i = encodeVarintConfig(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	if m.MaxMegabytesBeforeRotation != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxMegabytesBeforeRotation))
+	if m.LogStream != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.LogStream))
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.MaxDaysBeforeRotation != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxDaysBeforeRotation))
-	}
-	if m.MaxRotatedFiles != 0 {
-		dAtA[i] = 0x48
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.MaxRotatedFiles))
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -372,14 +382,7 @@ func (m *Params) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

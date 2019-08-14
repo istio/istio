@@ -20,10 +20,12 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -31,9 +33,9 @@ const (
 	externalTagName = "external"
 )
 
-func convertLabels(labels []string) config.Labels {
-	out := make(config.Labels, len(labels))
-	for _, tag := range labels {
+func convertLabels(labelsStr []string) labels.Instance {
+	out := make(labels.Instance, len(labelsStr))
+	for _, tag := range labelsStr {
 		vals := strings.Split(tag, "|")
 		// Labels not of form "key|value" are ignored to avoid possible collisions
 		if len(vals) > 1 {
@@ -106,7 +108,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 }
 
 func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
-	labels := convertLabels(instance.ServiceTags)
+	svcLabels := convertLabels(instance.ServiceTags)
 	port := convertPort(instance.ServicePort, instance.ServiceMeta[protocolTagName])
 
 	addr := instance.ServiceAddress
@@ -141,19 +143,19 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 				Namespace: model.IstioDefaultConfigNamespace,
 			},
 		},
-		Labels: labels,
+		Labels: svcLabels,
 	}
 }
 
 // serviceHostname produces FQDN for a consul service
-func serviceHostname(name string) config.Hostname {
+func serviceHostname(name string) host.Name {
 	// TODO include datacenter in Hostname?
 	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
-	return config.Hostname(fmt.Sprintf("%s.service.consul", name))
+	return host.Name(fmt.Sprintf("%s.service.consul", name))
 }
 
 // parseHostname extracts service name from the service hostname
-func parseHostname(hostname config.Hostname) (name string, err error) {
+func parseHostname(hostname host.Name) (name string, err error) {
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)

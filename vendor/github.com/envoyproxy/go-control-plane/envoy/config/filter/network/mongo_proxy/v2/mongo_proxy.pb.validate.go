@@ -49,12 +49,17 @@ func (m *MongoProxy) Validate() error {
 
 	// no validation rules for AccessLog
 
-	if v, ok := interface{}(m.GetDelay()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return MongoProxyValidationError{
-				field:  "Delay",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetDelay()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return MongoProxyValidationError{
+					field:  "Delay",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

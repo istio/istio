@@ -72,9 +72,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -365,11 +366,11 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
+	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
-	return cfg, mesh, nil
+	return cfg, meshConfig, nil
 }
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
@@ -379,11 +380,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		s.mesh = args.MeshConfig
 		return nil
 	}
-	var mesh *meshconfig.MeshConfig
+	var meshConfig *meshconfig.MeshConfig
 	var err error
 
 	if args.Mesh.ConfigFile != "" {
-		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
@@ -391,29 +392,29 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		// Watch the config file for changes and reload if it got modified
 		s.addFileWatcher(args.Mesh.ConfigFile, func() {
 			// Reload the config file
-			mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 			if err != nil {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
-			if !reflect.DeepEqual(mesh, s.mesh) {
-				log.Infof("mesh configuration updated to: %s", spew.Sdump(mesh))
-				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
+			if !reflect.DeepEqual(meshConfig, s.mesh) {
+				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+				if !reflect.DeepEqual(meshConfig.ConfigSources, s.mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.mesh = mesh
+				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
-					s.EnvoyXdsServer.Env.Mesh = mesh
-					s.EnvoyXdsServer.ConfigUpdate(true)
+					s.EnvoyXdsServer.Env.Mesh = meshConfig
+					s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 				}
 			}
 		})
 	}
 
-	if mesh == nil {
+	if meshConfig == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
+		if _, meshConfig, err = GetMeshConfig(s.kubeClient, controller2.IstioNamespace, controller2.IstioConfigMap); err != nil {
 			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
 				err, controller2.IstioConfigMap, controller2.IstioNamespace)
 			return err
@@ -421,16 +422,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 		// Allow some overrides for testing purposes.
 		if args.Mesh.MixerAddress != "" {
-			mesh.MixerCheckServer = args.Mesh.MixerAddress
-			mesh.MixerReportServer = args.Mesh.MixerAddress
+			meshConfig.MixerCheckServer = args.Mesh.MixerAddress
+			meshConfig.MixerReportServer = args.Mesh.MixerAddress
 		}
 	}
 
-	log.Infof("mesh configuration %s", spew.Sdump(mesh))
+	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
-	s.mesh = mesh
+	s.mesh = meshConfig
 	return nil
 }
 
@@ -476,7 +477,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 			}
 		}
 	})
@@ -516,15 +517,15 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
-	for i, t := range model.IstioConfigTypes {
+	collections := make([]sink.CollectionOptions, len(schemas.Istio))
+	for i, t := range schemas.Istio {
 		collections[i] = sink.CollectionOptions{Name: t.Collection, Incremental: false}
 	}
 
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 		},
 	}
 
@@ -533,7 +534,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
+	reporter := monitoring.NewStatsContext("pilot")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
@@ -547,7 +548,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.Make(model.IstioConfigTypes)
+				store := memory.Make(schemas.Istio)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, configController)
@@ -700,7 +701,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
-		store := memory.Make(model.IstioConfigTypes)
+		store := memory.Make(schemas.Istio)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args.Config.FileDir, configController)
@@ -757,7 +758,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := controller.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -772,7 +773,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, model.IstioConfigTypes)
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, schemas.Istio)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -865,11 +866,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
+		map[host.Name]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
 	discovery2 := srmemory.NewDiscovery(
-		map[config.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
+		map[host.Name]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{

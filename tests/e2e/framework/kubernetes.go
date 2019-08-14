@@ -1045,7 +1045,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
-		setValue = setValue + " --set global.hub=" + *pilotHub + " --set global.tag=" + *pilotTag
+		setValue += " --set-string global.hub=" + *pilotHub + " --set-string global.tag=" + *pilotTag
 	}
 
 	if !*clusterWide {
@@ -1265,7 +1265,7 @@ func (k *KubeInfo) deployCNI() error {
 	log.Info("Deploy Istio CNI components")
 	// Some environments will require additional options to be set or changed
 	// (e.g. GKE environments need the bin directory to be changed from the default
-	setValue := " --set hub=" + *cniHub + " --set tag=" + *cniTag
+	setValue := " --set-string hub=" + *cniHub + " --set-string tag=" + *cniTag
 	setValue += " --set excludeNamespaces={} --set pullPolicy=IfNotPresent --set logLevel=debug"
 	if extraHelmValues := os.Getenv("EXTRA_HELM_SETTINGS"); extraHelmValues != "" {
 		setValue += extraHelmValues

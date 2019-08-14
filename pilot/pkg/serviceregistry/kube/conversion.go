@@ -29,10 +29,11 @@ import (
 	"istio.io/api/annotation"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -48,7 +49,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: kube.ConvertProtocol(port.Name, port.Protocol),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
 	}
 }
 
@@ -76,7 +77,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[config.Visibility]bool
+	var exportTo map[visibility.Instance]bool
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
@@ -88,9 +89,9 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			}
 		}
 		if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
-			exportTo = make(map[config.Visibility]bool)
+			exportTo = make(map[visibility.Instance]bool)
 			for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
-				exportTo[config.Visibility(e)] = true
+				exportTo[visibility.Instance(e)] = true
 			}
 		}
 	}
@@ -152,8 +153,8 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 }
 
 // ServiceHostname produces FQDN for a k8s service
-func ServiceHostname(name, namespace, domainSuffix string) config.Hostname {
-	return config.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+func ServiceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

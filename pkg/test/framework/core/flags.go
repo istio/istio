@@ -62,5 +62,5 @@ func init() {
 		"Enable CI Mode. Additional logging and state dumping will be enabled.")
 
 	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
-		"Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
+		"Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
 }

@@ -6,70 +6,6 @@
   },
   "components": {
     "schemas": {
-      "istio.rbac.v1alpha1.WorkloadSelector": {
-        "description": "This is forked from the networking/v1alpha3/sidecar.proto to avoid a direct dependency from the rbac API on networking API. TODO: Move the WorkloadSelector to a common place to be shared by other packages. WorkloadSelector specifies the criteria used to determine if the Gateway or Sidecar resource can be applied to a proxy. The matching criteria includes the metadata associated with a proxy, workload instance info such as labels attached to the pod/VM, or any other info that the proxy provides to Istio during the initial handshake. If multiple conditions are specified, all conditions need to match in order for the workload instance to be selected. Currently, only label based selection mechanism is supported.",
-        "type": "object",
-        "required": [
-          "labels"
-        ],
-        "properties": {
-          "labels": {
-            "description": "One or more labels that indicate a specific set of pods/VMs on which this sidecar configuration should be applied. The scope of label search is restricted to the configuration namespace in which the the resource is present.",
-            "type": "object",
-            "additionalProperties": {
-              "type": "string",
-              "format": "string"
-            }
-          }
-        }
-      },
-      "istio.rbac.v1alpha1.AuthorizationPolicy": {
-        "description": "AuthorizationPolicy to enforce access control on a selected workload instance.",
-        "type": "object",
-        "properties": {
-          "workloadSelector": {
-            "$ref": "#/components/schemas/istio.rbac.v1alpha1.WorkloadSelector"
-          },
-          "allow": {
-            "description": "A list of bindings that specify the subjects and permissions to the selected workload instance.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/istio.rbac.v1alpha1.ServiceRoleBinding"
-            }
-          }
-        }
-      },
-      "istio.rbac.v1alpha1.ServiceRoleBinding": {
-        "description": "ServiceRoleBinding assigns a ServiceRole to a list of subjects.",
-        "type": "object",
-        "properties": {
-          "subjects": {
-            "description": "Required. List of subjects that are assigned the ServiceRole object.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/istio.rbac.v1alpha1.Subject"
-            }
-          },
-          "roleRef": {
-            "$ref": "#/components/schemas/istio.rbac.v1alpha1.RoleRef"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/istio.rbac.v1alpha1.EnforcementMode"
-          },
-          "actions": {
-            "description": "Inline role definition. An inline role is a role that is defined inside an authorization policy, instead of explicitly defined in a ServiceRole object. Inline roles can be used for the role definitions that are not intended to be reused in other bindings, while explicit roles are reusable. Both inline roles (defined in \"actions\" field) and explicit roles (defined in ServiceRole) are supported. Users should use only one of them in a single binding. For example, the following “product-frontend” AuthorizationPolicy allows “frontend” service to view “product” service on “/info” path. ```yaml apiVersion: \"rbac.istio.io/v1alpha1\" kind: AuthorizationPolicy metadata: name: product-frontend namespace: ns1 spec: selector: labels: app: product allow: - subjects: - names: [\"cluster.local/ns/default/sa/frontend\"] actions: - paths: [\"/info\"] methods: [\"GET\"] Required. The set of access rules (permissions) that the role has.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/istio.rbac.v1alpha1.AccessRule"
-            }
-          },
-          "role": {
-            "description": "A `role` inside a ServiceRoleBinding refers to the ServiceRole that this ServiceRoleBinding binds to. A ServiceRoleBinding can bind to a ServiceRole in the same namespace or the root namespace. A ServiceRole in the root namespace represents a mesh global ServiceRole. The value of `role` is the name of the ServiceRole, and it can start with or without a forward slash (\"/\"). When a `role` starts with \"/\", e.g. \"/service-viewer\", it means that this ServiceRoleBinding refers to the ServiceRole in the configurable Istio root namespace. When a `role` starts without \"/\", this ServiceRoleBinding refers to the ServiceRole in the same namespace as the AuthorizationPolicy's, which contains said ServiceRoleBinding.",
-            "type": "string",
-            "format": "string"
-          }
-        }
-      },
       "istio.rbac.v1alpha1.ServiceRole": {
         "description": "ServiceRole specification contains a list of access rules (permissions).",
         "type": "object",
@@ -194,6 +130,37 @@
           "PERMISSIVE"
         ],
         "default": "ENFORCED"
+      },
+      "istio.rbac.v1alpha1.ServiceRoleBinding": {
+        "description": "ServiceRoleBinding assigns a ServiceRole to a list of subjects.",
+        "type": "object",
+        "properties": {
+          "subjects": {
+            "description": "Required. List of subjects that are assigned the ServiceRole object.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.rbac.v1alpha1.Subject"
+            }
+          },
+          "roleRef": {
+            "$ref": "#/components/schemas/istio.rbac.v1alpha1.RoleRef"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/istio.rbac.v1alpha1.EnforcementMode"
+          },
+          "actions": {
+            "description": "Inline role definition. An inline role is a role that is defined inside an authorization policy, instead of explicitly defined in a ServiceRole object. Inline roles can be used for the role definitions that are not intended to be reused in other bindings, while explicit roles are reusable. Both inline roles (defined in \"actions\" field) and explicit roles (defined in ServiceRole) are supported. Users should use only one of them in a single binding. For example, the following “product-frontend” AuthorizationPolicy allows “frontend” service to view “product” service on “/info” path. ```yaml apiVersion: \"rbac.istio.io/v1alpha1\" kind: AuthorizationPolicy metadata: name: product-frontend namespace: ns1 spec: selector: labels: app: product allow: - subjects: - names: [\"cluster.local/ns/default/sa/frontend\"] actions: - paths: [\"/info\"] methods: [\"GET\"] Required. The set of access rules (permissions) that the role has.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.rbac.v1alpha1.AccessRule"
+            }
+          },
+          "role": {
+            "description": "A `role` inside a ServiceRoleBinding refers to the ServiceRole that this ServiceRoleBinding binds to. A ServiceRoleBinding can bind to a ServiceRole in the same namespace or the root namespace. A ServiceRole in the root namespace represents a mesh global ServiceRole. The value of `role` is the name of the ServiceRole, and it can start with or without a forward slash (\"/\"). When a `role` starts with \"/\", e.g. \"/service-viewer\", it means that this ServiceRoleBinding refers to the ServiceRole in the configurable Istio root namespace. When a `role` starts without \"/\", this ServiceRoleBinding refers to the ServiceRole in the same namespace as the AuthorizationPolicy's, which contains said ServiceRoleBinding.",
+            "type": "string",
+            "format": "string"
+          }
+        }
       },
       "istio.rbac.v1alpha1.Subject": {
         "description": "Subject defines an identity. The identity is either a user or identified by a set of `properties`. The supported keys in `properties` are listed in \"constraint and properties\" page.",
@@ -347,13 +314,6 @@
             "items": {
               "type": "string",
               "format": "string"
-            }
-          },
-          "workloadSelectors": {
-            "description": "A list of workload instances.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/istio.rbac.v1alpha1.WorkloadSelector"
             }
           }
         }

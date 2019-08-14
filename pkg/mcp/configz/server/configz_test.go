@@ -88,8 +88,8 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	}
 
 	exists = false
-	for _, snapshot := range m["Snapshots"].([]interface{}) {
-		if snapshot.(map[string]interface{})["Collection"].(string) == testK8sCollection {
+	for _, ss := range m["Snapshots"].([]interface{}) {
+		if ss.(map[string]interface{})["Collection"].(string) == testK8sCollection {
 			exists = true
 			break
 		}

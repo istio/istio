@@ -7,12 +7,12 @@ import (
 	bytes "bytes"
 	fmt "fmt"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
 )
 

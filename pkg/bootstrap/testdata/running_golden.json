@@ -16,7 +16,7 @@
       "ISTIO_VERSION":"release-3.1",
       "POD_NAME":"svc-0-0-0-6944fb884d-4pgx8",
       "ISTIO_META_SDS": "1",
-      "ISTIO_META_TRUSTJWT": "0",
+      "ISTIO_META_TRUSTJWT": "1",
       "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",

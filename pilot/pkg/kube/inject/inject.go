@@ -218,7 +218,6 @@ type Params struct {
 	DebugMode                    bool                   `json:"debugMode"`
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
-	EnableSdsTokenMount          bool                   `json:"enableSdsTokenMount"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
 }
 
@@ -250,7 +249,6 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),
 		"global.proxy.readinessFailureThreshold":     strconv.Itoa(int(p.ReadinessFailureThreshold)),
 		"global.sds.enabled":                         strconv.FormatBool(p.SDSEnabled),
-		"global.sds.useTrustworthyJwt":               strconv.FormatBool(p.EnableSdsTokenMount),
 		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
 		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
 		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
@@ -540,6 +538,13 @@ func flippedContains(needle, haystack string) bool {
 func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
+
+	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
+	if spec.DNSPolicy != corev1.DNSClusterFirst {
+		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
+			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
+	}
+
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, "", err
@@ -572,6 +577,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"toJSON":              toJSON,
 		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
+		"structToJSON":        structToJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
@@ -775,6 +781,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 			metadata.Name)
 		return out, nil
 	}
+
 	//skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
@@ -813,7 +820,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	if meshconfig.EnableSdsTokenMount && meshconfig.SdsUdsPath != "" {
+	if meshconfig.SdsUdsPath != "" {
 		var grp = int64(1337)
 		podSpec.SecurityContext = &corev1.PodSecurityContext{
 			FSGroup: &grp,
@@ -865,6 +872,20 @@ func includeInboundPorts(containers []corev1.Container) string {
 
 func kubevirtInterfaces(s string) string {
 	return s
+}
+
+func structToJSON(v interface{}) string {
+	if v == nil {
+		return "{}"
+	}
+
+	ba, err := json.Marshal(v)
+	if err != nil {
+		log.Warnf("Unable to marshal %v", v)
+		return "{}"
+	}
+
+	return string(ba)
 }
 
 func toJSON(m map[string]string) string {

@@ -19,6 +19,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 	time "time"
@@ -129,7 +130,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +168,7 @@ func (m *Params_MetricInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_Params_MetricInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -213,7 +214,7 @@ func (m *Params_LogInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_Params_LogInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -284,7 +285,7 @@ var fileDescriptor_ffe020fae3853bd8 = []byte{
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -292,100 +293,103 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.AppopticsAccessToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.AppopticsAccessToken)))
-		i += copy(dAtA[i:], m.AppopticsAccessToken)
-	}
-	if m.AppopticsBatchSize != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.AppopticsBatchSize))
-	}
-	if len(m.PapertrailUrl) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.PapertrailUrl)))
-		i += copy(dAtA[i:], m.PapertrailUrl)
-	}
-	if m.PapertrailLocalRetentionDuration != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Logs) > 0 {
+		for k := range m.Logs {
+			v := m.Logs[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
 		}
-		i += n1
 	}
 	if len(m.Metrics) > 0 {
-		for k, _ := range m.Metrics {
-			dAtA[i] = 0x2a
-			i++
+		for k := range m.Metrics {
 			v := m.Metrics[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
 				}
-				i += n2
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
 		}
 	}
-	if len(m.Logs) > 0 {
-		for k, _ := range m.Logs {
-			dAtA[i] = 0x32
-			i++
-			v := m.Logs[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n3, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n3
-			}
+	if m.PapertrailLocalRetentionDuration != nil {
+		n3, err3 := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration):])
+		if err3 != nil {
+			return 0, err3
 		}
+		i -= n3
+		i = encodeVarintConfig(dAtA, i, uint64(n3))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.PapertrailUrl) > 0 {
+		i -= len(m.PapertrailUrl)
+		copy(dAtA[i:], m.PapertrailUrl)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PapertrailUrl)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.AppopticsBatchSize != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.AppopticsBatchSize))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.AppopticsAccessToken) > 0 {
+		i -= len(m.AppopticsAccessToken)
+		copy(dAtA[i:], m.AppopticsAccessToken)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AppopticsAccessToken)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -393,32 +397,31 @@ func (m *Params_MetricInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.LabelNames) > 0 {
-		for _, s := range m.LabelNames {
+		for iNdEx := len(m.LabelNames) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.LabelNames[iNdEx])
+			copy(dAtA[i:], m.LabelNames[iNdEx])
+			i = encodeVarintConfig(dAtA, i, uint64(len(m.LabelNames[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_LogInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -426,27 +429,35 @@ func (m *Params_LogInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_LogInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.PayloadTemplate) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.PayloadTemplate)
+		copy(dAtA[i:], m.PayloadTemplate)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.PayloadTemplate)))
-		i += copy(dAtA[i:], m.PayloadTemplate)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -527,14 +538,7 @@ func (m *Params_LogInfo) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

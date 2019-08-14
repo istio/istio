@@ -8,8 +8,11 @@ import (
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -48,7 +51,7 @@ func (m *IstioCertificateRequest) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_IstioCertificateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +111,7 @@ func (m *IstioCertificateResponse) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_IstioCertificateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -293,6 +296,14 @@ type IstioCertificateServiceServer interface {
 	CreateCertificate(context.Context, *IstioCertificateRequest) (*IstioCertificateResponse, error)
 }
 
+// UnimplementedIstioCertificateServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedIstioCertificateServiceServer struct {
+}
+
+func (*UnimplementedIstioCertificateServiceServer) CreateCertificate(ctx context.Context, req *IstioCertificateRequest) (*IstioCertificateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateCertificate not implemented")
+}
+
 func RegisterIstioCertificateServiceServer(s *grpc.Server, srv IstioCertificateServiceServer) {
 	s.RegisterService(&_IstioCertificateService_serviceDesc, srv)
 }
@@ -331,7 +342,7 @@ var _IstioCertificateService_serviceDesc = grpc.ServiceDesc{
 func (m *IstioCertificateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -339,34 +350,41 @@ func (m *IstioCertificateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IstioCertificateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IstioCertificateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Csr) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintIstioca(dAtA, i, uint64(len(m.Csr)))
-		i += copy(dAtA[i:], m.Csr)
+	if m.ValidityDuration != 0 {
+		i = encodeVarintIstioca(dAtA, i, uint64(m.ValidityDuration))
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.SubjectId) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.SubjectId)
+		copy(dAtA[i:], m.SubjectId)
 		i = encodeVarintIstioca(dAtA, i, uint64(len(m.SubjectId)))
-		i += copy(dAtA[i:], m.SubjectId)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.ValidityDuration != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintIstioca(dAtA, i, uint64(m.ValidityDuration))
+	if len(m.Csr) > 0 {
+		i -= len(m.Csr)
+		copy(dAtA[i:], m.Csr)
+		i = encodeVarintIstioca(dAtA, i, uint64(len(m.Csr)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *IstioCertificateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -374,36 +392,37 @@ func (m *IstioCertificateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IstioCertificateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IstioCertificateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.CertChain) > 0 {
-		for _, s := range m.CertChain {
+		for iNdEx := len(m.CertChain) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.CertChain[iNdEx])
+			copy(dAtA[i:], m.CertChain[iNdEx])
+			i = encodeVarintIstioca(dAtA, i, uint64(len(m.CertChain[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintIstioca(dAtA []byte, offset int, v uint64) int {
+	offset -= sovIstioca(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *IstioCertificateRequest) Size() (n int) {
 	if m == nil {
@@ -441,14 +460,7 @@ func (m *IstioCertificateResponse) Size() (n int) {
 }
 
 func sovIstioca(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozIstioca(x uint64) (n int) {
 	return sovIstioca(uint64((x << 1) ^ uint64((int64(x) >> 63))))

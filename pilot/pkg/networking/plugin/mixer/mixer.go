@@ -34,10 +34,12 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+
 	"istio.io/pkg/log"
 )
 
@@ -87,12 +89,24 @@ func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
 }
 
+// proxyVersionToString converts IstioVersion to a semver format string.
+func proxyVersionToString(v *model.IstioVersion) string {
+	major := strconv.Itoa(v.Major)
+	minor := strconv.Itoa(v.Minor)
+	patch := strconv.Itoa(v.Patch)
+	return strings.Join([]string{major, minor, patch}, ".")
+}
+
 func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 	attrs := attributes{
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
+	}
+	if in.Node.IstioVersion != nil {
+		vs := proxyVersionToString(in.Node.IstioVersion)
+		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 	return attrs
 }
@@ -138,6 +152,18 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		}
 		return nil
+	case plugin.ListenerProtocolAuto:
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
+		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
@@ -154,6 +180,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("inbound"),
+	}
+	if in.Node.IstioVersion != nil {
+		vs := proxyVersionToString(in.Node.IstioVersion)
+		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -187,6 +217,19 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
+		return nil
+	case plugin.ListenerProtocolAuto:
+		httpFilter := buildInboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		tcpFilter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+
 		return nil
 	}
 
@@ -247,11 +290,11 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 		return
 	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
-		host := routeConfiguration.VirtualHosts[i]
-		for j := 0; j < len(host.Routes); j++ {
-			host.Routes[j] = modifyOutboundRouteConfig(in.Push, in, host.Name, host.Routes[j])
+		virtualHost := routeConfiguration.VirtualHosts[i]
+		for j := 0; j < len(virtualHost.Routes); j++ {
+			virtualHost.Routes[j] = modifyOutboundRouteConfig(in.Push, in, virtualHost.Name, virtualHost.Routes[j])
 		}
-		routeConfiguration.VirtualHosts[i] = host
+		routeConfiguration.VirtualHosts[i] = virtualHost
 	}
 }
 
@@ -265,17 +308,17 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
 		for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
-			host := routeConfiguration.VirtualHosts[i]
-			for j := 0; j < len(host.Routes); j++ {
-				r := host.Routes[j]
+			virtualHost := routeConfiguration.VirtualHosts[i]
+			for j := 0; j < len(virtualHost.Routes); j++ {
+				r := virtualHost.Routes[j]
 				if isXDSMarshalingToAnyEnabled {
 					r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				} else {
 					r.PerFilterConfig = addServiceConfig(r.PerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				}
-				host.Routes[j] = r
+				virtualHost.Routes[j] = r
 			}
-			routeConfiguration.VirtualHosts[i] = host
+			routeConfiguration.VirtualHosts[i] = virtualHost
 		}
 
 	case plugin.ListenerProtocolTCP:
@@ -295,9 +338,9 @@ func buildUpstreamName(address string) string {
 		return ""
 	}
 
-	host, port, _ := net.SplitHostPort(address)
+	hostname, port, _ := net.SplitHostPort(address)
 	v, _ := strconv.Atoi(port)
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", config.Hostname(host), v)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(hostname), v)
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
@@ -482,7 +525,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	// hence adding the attributes for the mixer filter
 	case *route.Route_DirectResponse:
 		if virtualHostname == util.BlackHoleRouteName {
-			hostname := config.Hostname(util.BlackHoleCluster)
+			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
 		}
@@ -626,7 +669,7 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.Se
 	return filterConfigs
 }
 
-func addVirtualDestinationServiceAttributes(attrs attributes, destinationHostname config.Hostname) attributes {
+func addVirtualDestinationServiceAttributes(attrs attributes, destinationHostname host.Name) attributes {
 	if destinationHostname == "" {
 		return attrs
 	}

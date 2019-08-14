@@ -43,7 +43,7 @@ func NewOpenCensusRegistry() *OpenCensusRegistry {
 	}
 	view.RegisterExporter(r)
 
-	time.Sleep(2 * time.Millisecond) // allow export to happen
+	time.Sleep(10 * time.Millisecond) // allow export to happen
 
 	return r
 }

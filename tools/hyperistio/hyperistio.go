@@ -167,7 +167,7 @@ func startPilot() error {
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: env.IstioSrc + "/.circleci/config",
+			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.

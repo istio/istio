@@ -31,6 +31,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/pkg/log"
@@ -161,7 +163,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
-	// The config dump must have all configs with order specified in
+	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
@@ -172,6 +174,8 @@ type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
+
+	targetNamespaces map[string]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -526,6 +530,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
+		if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
+			return nil
+		}
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
@@ -556,6 +564,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	con.modelNode.SetSidecarScope(pushEv.push)
+
+	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
+	if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		return nil
+	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
@@ -605,22 +619,21 @@ func adsClientCount() int {
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
+	s.AdsPushAll(versionInfo(), &model.PushRequest{Full: true, Push: s.globalPushContext()})
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]struct{}) {
-	if !full {
-		s.edsIncremental(version, push, edsUpdates)
+func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
+	if !req.Full {
+		s.edsIncremental(version, req.Push, req)
 		return
 	}
 
 	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-		version, len(push.Services(nil)), adsClientCount())
-	monServices.Record(float64(len(push.Services(nil))))
+		version, len(req.Push.Services(nil)), adsClientCount())
+	monServices.Record(float64(len(req.Push.Services(nil))))
 
 	t0 := time.Now()
 
@@ -638,17 +651,18 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(req.Push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 			totalXDSInternalErrors.Increment()
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
-	s.startPush(push, true, nil)
+	req.EdsUpdates = nil
+	s.startPush(req)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdates map[string]struct{}) {
+func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -664,10 +678,31 @@ func (s *DiscoveryServer) startPush(push *model.PushContext, full bool, edsUpdat
 	if currentlyPending != 0 {
 		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
 	}
-	startTime := time.Now()
+	req.Start = time.Now()
 	for _, p := range pending {
-		s.pushQueue.Enqueue(p, &PushInformation{edsUpdates, push, startTime, full})
+		s.pushQueue.Enqueue(p, req)
 	}
+}
+
+func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bool {
+	if !features.ScopePushes.Get() {
+		// If push scoping is not enabled, we push for all proxies
+		return true
+	}
+
+	// If no only namespaces specified, this request applies to all proxies
+	if len(targetNamespaces) == 0 {
+		return true
+	}
+
+	// Otherwise, only apply if the egress listener will import the config present in the update
+	for ns := range targetNamespaces {
+		if con.modelNode.SidecarScope.DependsOnNamespace(ns) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

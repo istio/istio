@@ -4,20 +4,13 @@ ARG BASE_DISTRIBUTION=default
 # The following section is used as base image if BASE_DISTRIBUTION=default
 # hadolint ignore=DL3006
 FROM istionightly/base_debug as default
-COPY galley /usr/local/bin/
-
-# 1001 is chosen as the UID to be added to the istio group as this is the UID that galley in the docker container runs as.
-RUN addgroup --system --gid 1001 istio && \
-    adduser --system --uid 1001 --gid 1001 istio && \
-    chmod -R 760 /usr/local/bin/galley
-USER istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static:nonroot as distroless
-COPY galley /usr/local/bin/
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
-
+COPY galley /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/galley"]

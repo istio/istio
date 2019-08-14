@@ -88,7 +88,7 @@ export ENABLE_COREDUMP ?= false
 export ENABLE_ISTIO_CNI ?= false
 
 # NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
+# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -134,6 +134,7 @@ export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+export ARTIFACTS ?= $(ISTIO_OUT)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -492,7 +493,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ARTIFACTS)/junit_unit-tests.xml
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
@@ -500,14 +501,11 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-# This is passed to mixer and other tests to limit how many builds are used.
-# In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?=
 
 TEST_APP_BINS:=server client
 $(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
@@ -532,17 +530,17 @@ localTestEnvCleanup: test-bins
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test -p 1 ${T} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: istioctl-test
 istioctl-test: istioctl
-	go test -p 1 ${T} ./istioctl/...
+	go test ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -573,6 +571,9 @@ selected-pkg-test:
 
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
+
+coverage-diff:
+	./bin/codecov_diff.sh
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -613,16 +614,16 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+	RACE_TEST=true go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest: istioctl
-	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
+	RACE_TEST=true go test ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
@@ -652,15 +653,14 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: artifacts gcs.push.istioctl-all artifacts installgen
+.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
-
 push: docker.push installgen
+
+gcs.push: push gcs.push.istioctl-all gcs.push.deb
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
@@ -687,8 +687,8 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
 
@@ -703,9 +703,9 @@ istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HEL
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -740,9 +740,9 @@ $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -791,8 +791,6 @@ ${ISTIO_OUT}/dist/Gopkg.lock:
 dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
 
 dist: dist-bin
-
-include .circleci/Makefile
 
 # deb, rpm, etc packages
 include tools/packaging/packaging.mk

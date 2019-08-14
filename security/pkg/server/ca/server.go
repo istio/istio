@@ -212,7 +212,8 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
-		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
+		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath,
+			trustDomain)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			log.Info("added K8s JWT authenticator")

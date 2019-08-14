@@ -64,7 +64,7 @@ NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integrat
 # Runs tests using the new installer. Istio is deployed before the test and setup and cleanup are disabled.
 # For this to work, the -customsetup selector is used.
 test.integration.new.installer: | $(JUNIT_REPORT)
-	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/crds
+	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/kustomize/cluster
 	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/test/demo
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	$(GO) test -p 1 ${T} ${NEW_INSTALLER_TARGETS} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
@@ -85,9 +85,6 @@ test.integration.%.local: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
-JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)

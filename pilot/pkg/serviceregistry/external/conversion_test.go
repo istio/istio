@@ -24,15 +24,16 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var GlobalTime = time.Now()
 var httpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "httpNone",
 		Namespace:         "httpNone",
 		Domain:            "svc.cluster.local",
@@ -51,7 +52,7 @@ var httpNone = &model.Config{
 
 var tcpNone = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type: model.ServiceEntry.Type,
+		Type: schemas.ServiceEntry.Type,
 
 		Name:              "tcpNone",
 		Namespace:         "tcpNone",
@@ -70,7 +71,7 @@ var tcpNone = &model.Config{
 
 var httpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "httpStatic",
 		Namespace:         "httpStatic",
 		CreationTimestamp: GlobalTime,
@@ -103,7 +104,7 @@ var httpStatic = &model.Config{
 
 var httpDNSnoEndpoints = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
 		CreationTimestamp: GlobalTime,
@@ -121,7 +122,7 @@ var httpDNSnoEndpoints = &model.Config{
 
 var httpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
 		CreationTimestamp: GlobalTime,
@@ -153,7 +154,7 @@ var httpDNS = &model.Config{
 
 var tcpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,
@@ -178,7 +179,7 @@ var tcpDNS = &model.Config{
 
 var tcpStatic = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
 		CreationTimestamp: GlobalTime,
@@ -204,7 +205,7 @@ var tcpStatic = &model.Config{
 
 var httpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -222,7 +223,7 @@ var httpNoneInternal = &model.Config{
 
 var tcpNoneInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
 		CreationTimestamp: GlobalTime,
@@ -240,7 +241,7 @@ var tcpNoneInternal = &model.Config{
 
 var multiAddrInternal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
 		CreationTimestamp: GlobalTime,
@@ -258,7 +259,7 @@ var multiAddrInternal = &model.Config{
 
 var udsLocal = &model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:              model.ServiceEntry.Type,
+		Type:              schemas.ServiceEntry.Type,
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
 		CreationTimestamp: GlobalTime,
@@ -284,7 +285,7 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 	return protocol.Parse(prefix)
 }
 
-func makeService(hostname config.Hostname, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
+func makeService(hostname host.Name, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
 
 	svc := &model.Service{
 		CreationTime: GlobalTime,
@@ -315,7 +316,7 @@ func makeService(hostname config.Hostname, configNamespace, address string, port
 }
 
 func makeInstance(cfg *model.Config, address string, port int,
-	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string) *model.ServiceInstance {
 	family := model.AddressFamilyTCP
 	if port == 0 {
 		family = model.AddressFamilyUnix
@@ -341,7 +342,7 @@ func makeInstance(cfg *model.Config, address string, port int,
 				Protocol: protocol.Parse(svcPort.Protocol),
 			},
 		},
-		Labels: config.Labels(labels),
+		Labels: svcLabels,
 	}
 }
 

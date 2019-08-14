@@ -9,15 +9,18 @@ package v1
 import (
 	context "context"
 	fmt "fmt"
-	rpc "github.com/gogo/googleapis/google/rpc"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	_ "github.com/gogo/protobuf/types"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -149,7 +152,7 @@ func (m *CheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_CheckRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +192,7 @@ func (m *CheckRequest_QuotaParams) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_CheckRequest_QuotaParams.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -229,7 +232,7 @@ func (m *CheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_CheckResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +281,7 @@ func (m *CheckResponse_PreconditionResult) XXX_Marshal(b []byte, deterministic b
 		return xxx_messageInfo_CheckResponse_PreconditionResult.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +328,7 @@ func (m *CheckResponse_QuotaResult) XXX_Marshal(b []byte, deterministic bool) ([
 		return xxx_messageInfo_CheckResponse_QuotaResult.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +370,7 @@ func (m *ReferencedAttributes) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_ReferencedAttributes.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +425,7 @@ func (m *ReferencedAttributes_AttributeMatch) XXX_Marshal(b []byte, deterministi
 		return xxx_messageInfo_ReferencedAttributes_AttributeMatch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -467,7 +470,7 @@ func (m *HeaderOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_HeaderOperation.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -514,7 +517,7 @@ func (m *RouteDirective) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_RouteDirective.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -568,7 +571,7 @@ func (m *ReportRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_ReportRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -604,7 +607,7 @@ func (m *ReportResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_ReportResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -807,6 +810,17 @@ type MixerServer interface {
 	Report(context.Context, *ReportRequest) (*ReportResponse, error)
 }
 
+// UnimplementedMixerServer can be embedded to have forward compatible implementations.
+type UnimplementedMixerServer struct {
+}
+
+func (*UnimplementedMixerServer) Check(ctx context.Context, req *CheckRequest) (*CheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+}
+func (*UnimplementedMixerServer) Report(ctx context.Context, req *ReportRequest) (*ReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Report not implemented")
+}
+
 func RegisterMixerServer(s *grpc.Server, srv MixerServer) {
 	s.RegisterService(&_Mixer_serviceDesc, srv)
 }
@@ -867,7 +881,7 @@ var _Mixer_serviceDesc = grpc.ServiceDesc{
 func (m *CheckRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -875,62 +889,68 @@ func (m *CheckRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(m.Attributes.Size()))
-	n1, err := m.Attributes.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n1
-	if m.GlobalWordCount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.GlobalWordCount))
-	}
-	if len(m.DeduplicationId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(len(m.DeduplicationId)))
-		i += copy(dAtA[i:], m.DeduplicationId)
-	}
 	if len(m.Quotas) > 0 {
-		for k, _ := range m.Quotas {
-			dAtA[i] = 0x22
-			i++
+		for k := range m.Quotas {
 			v := m.Quotas[k]
-			msgSize := 0
-			if (&v) != nil {
-				msgSize = (&v).Size()
-				msgSize += 1 + sovMixer(uint64(msgSize))
+			baseI := i
+			{
+				size, err := (&v).MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
 			}
-			mapSize := 1 + len(k) + sovMixer(uint64(len(k))) + msgSize
-			i = encodeVarintMixer(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
+			i--
 			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64((&v).Size()))
-			n2, err := (&v).MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n2
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintMixer(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintMixer(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x22
 		}
 	}
-	return i, nil
+	if len(m.DeduplicationId) > 0 {
+		i -= len(m.DeduplicationId)
+		copy(dAtA[i:], m.DeduplicationId)
+		i = encodeVarintMixer(dAtA, i, uint64(len(m.DeduplicationId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.GlobalWordCount != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.GlobalWordCount))
+		i--
+		dAtA[i] = 0x10
+	}
+	{
+		size, err := m.Attributes.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMixer(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *CheckRequest_QuotaParams) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -938,32 +958,37 @@ func (m *CheckRequest_QuotaParams) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckRequest_QuotaParams) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckRequest_QuotaParams) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Amount != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.Amount))
-	}
 	if m.BestEffort {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BestEffort {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Amount != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.Amount))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CheckResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -971,51 +996,56 @@ func (m *CheckResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(m.Precondition.Size()))
-	n3, err := m.Precondition.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n3
 	if len(m.Quotas) > 0 {
-		for k, _ := range m.Quotas {
-			dAtA[i] = 0x1a
-			i++
+		for k := range m.Quotas {
 			v := m.Quotas[k]
-			msgSize := 0
-			if (&v) != nil {
-				msgSize = (&v).Size()
-				msgSize += 1 + sovMixer(uint64(msgSize))
+			baseI := i
+			{
+				size, err := (&v).MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
 			}
-			mapSize := 1 + len(k) + sovMixer(uint64(len(k))) + msgSize
-			i = encodeVarintMixer(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
+			i--
 			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64((&v).Size()))
-			n4, err := (&v).MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n4
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintMixer(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintMixer(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	return i, nil
+	{
+		size, err := m.Precondition.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMixer(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	return len(dAtA) - i, nil
 }
 
 func (m *CheckResponse_PreconditionResult) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1023,58 +1053,69 @@ func (m *CheckResponse_PreconditionResult) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckResponse_PreconditionResult) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckResponse_PreconditionResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(m.Status.Size()))
-	n5, err := m.Status.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n5
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n6
-	if m.ValidUseCount != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.ValidUseCount))
+	if m.RouteDirective != nil {
+		{
+			size, err := m.RouteDirective.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMixer(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
 	}
 	if m.ReferencedAttributes != nil {
+		{
+			size, err := m.ReferencedAttributes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintMixer(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.ReferencedAttributes.Size()))
-		n7, err := m.ReferencedAttributes.MarshalTo(dAtA[i:])
+	}
+	if m.ValidUseCount != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.ValidUseCount))
+		i--
+		dAtA[i] = 0x18
+	}
+	n7, err7 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration):])
+	if err7 != nil {
+		return 0, err7
+	}
+	i -= n7
+	i = encodeVarintMixer(dAtA, i, uint64(n7))
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i -= size
+		i = encodeVarintMixer(dAtA, i, uint64(size))
 	}
-	if m.RouteDirective != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.RouteDirective.Size()))
-		n8, err := m.RouteDirective.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	return i, nil
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *CheckResponse_QuotaResult) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1082,46 +1123,55 @@ func (m *CheckResponse_QuotaResult) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CheckResponse_QuotaResult) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CheckResponse_QuotaResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	{
+		size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMixer(dAtA, i, uint64(size))
 	}
-	i += n9
-	if m.GrantedAmount != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.GrantedAmount))
-	}
-	dAtA[i] = 0x2a
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(m.ReferencedAttributes.Size()))
-	n10, err := m.ReferencedAttributes.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n10
+	i--
 	dAtA[i] = 0x32
-	i++
-	i = encodeVarintMixer(dAtA, i, uint64(m.Status.Size()))
-	n11, err := m.Status.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	{
+		size, err := m.ReferencedAttributes.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintMixer(dAtA, i, uint64(size))
 	}
-	i += n11
-	return i, nil
+	i--
+	dAtA[i] = 0x2a
+	if m.GrantedAmount != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.GrantedAmount))
+		i--
+		dAtA[i] = 0x10
+	}
+	n11, err11 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration):])
+	if err11 != nil {
+		return 0, err11
+	}
+	i -= n11
+	i = encodeVarintMixer(dAtA, i, uint64(n11))
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *ReferencedAttributes) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1129,44 +1179,45 @@ func (m *ReferencedAttributes) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ReferencedAttributes) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ReferencedAttributes) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Words) > 0 {
-		for _, s := range m.Words {
-			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
 	if len(m.AttributeMatches) > 0 {
-		for _, msg := range m.AttributeMatches {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.AttributeMatches) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AttributeMatches[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	return i, nil
+	if len(m.Words) > 0 {
+		for iNdEx := len(m.Words) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Words[iNdEx])
+			copy(dAtA[i:], m.Words[iNdEx])
+			i = encodeVarintMixer(dAtA, i, uint64(len(m.Words[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ReferencedAttributes_AttributeMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1174,38 +1225,44 @@ func (m *ReferencedAttributes_AttributeMatch) Marshal() (dAtA []byte, err error)
 }
 
 func (m *ReferencedAttributes_AttributeMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ReferencedAttributes_AttributeMatch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Name != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64((uint32(m.Name)<<1)^uint32((m.Name>>31))))
-	}
-	if m.Condition != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.Condition))
+	if m.MapKey != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64((uint32(m.MapKey)<<1)^uint32((m.MapKey>>31))))
+		i--
+		dAtA[i] = 0x20
 	}
 	if len(m.Regex) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.Regex)
+		copy(dAtA[i:], m.Regex)
 		i = encodeVarintMixer(dAtA, i, uint64(len(m.Regex)))
-		i += copy(dAtA[i:], m.Regex)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.MapKey != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64((uint32(m.MapKey)<<1)^uint32((m.MapKey>>31))))
+	if m.Condition != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.Condition))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Name != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64((uint32(m.Name)<<1)^uint32((m.Name>>31))))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *HeaderOperation) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1213,34 +1270,41 @@ func (m *HeaderOperation) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HeaderOperation) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HeaderOperation) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.Operation != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.Operation))
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.Value) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
 		i = encodeVarintMixer(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.Operation != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.Operation))
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintMixer(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *RouteDirective) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1248,52 +1312,62 @@ func (m *RouteDirective) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RouteDirective) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RouteDirective) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.RequestHeaderOperations) > 0 {
-		for _, msg := range m.RequestHeaderOperations {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.ResponseHeaderOperations) > 0 {
-		for _, msg := range m.ResponseHeaderOperations {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if len(m.DirectResponseBody) > 0 {
+		i -= len(m.DirectResponseBody)
+		copy(dAtA[i:], m.DirectResponseBody)
+		i = encodeVarintMixer(dAtA, i, uint64(len(m.DirectResponseBody)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.DirectResponseCode != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintMixer(dAtA, i, uint64(m.DirectResponseCode))
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.DirectResponseBody) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(len(m.DirectResponseBody)))
-		i += copy(dAtA[i:], m.DirectResponseBody)
+	if len(m.ResponseHeaderOperations) > 0 {
+		for iNdEx := len(m.ResponseHeaderOperations) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ResponseHeaderOperations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	return i, nil
+	if len(m.RequestHeaderOperations) > 0 {
+		for iNdEx := len(m.RequestHeaderOperations) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.RequestHeaderOperations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ReportRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1301,54 +1375,55 @@ func (m *ReportRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ReportRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ReportRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Attributes) > 0 {
-		for _, msg := range m.Attributes {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintMixer(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.DefaultWords) > 0 {
-		for _, s := range m.DefaultWords {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.RepeatedAttributesSemantics != 0 {
+		i = encodeVarintMixer(dAtA, i, uint64(m.RepeatedAttributesSemantics))
+		i--
+		dAtA[i] = 0x20
 	}
 	if m.GlobalWordCount != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintMixer(dAtA, i, uint64(m.GlobalWordCount))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.RepeatedAttributesSemantics != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintMixer(dAtA, i, uint64(m.RepeatedAttributesSemantics))
+	if len(m.DefaultWords) > 0 {
+		for iNdEx := len(m.DefaultWords) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DefaultWords[iNdEx])
+			copy(dAtA[i:], m.DefaultWords[iNdEx])
+			i = encodeVarintMixer(dAtA, i, uint64(len(m.DefaultWords[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	return i, nil
+	if len(m.Attributes) > 0 {
+		for iNdEx := len(m.Attributes) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Attributes[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintMixer(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ReportResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1356,21 +1431,28 @@ func (m *ReportResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ReportResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ReportResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintMixer(dAtA []byte, offset int, v uint64) int {
+	offset -= sovMixer(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *CheckRequest) Size() (n int) {
 	if m == nil {
@@ -1604,14 +1686,7 @@ func (m *ReportResponse) Size() (n int) {
 }
 
 func sovMixer(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozMixer(x uint64) (n int) {
 	return sovMixer(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -1631,7 +1706,7 @@ func (this *CheckRequest) String() string {
 	}
 	mapStringForQuotas += "}"
 	s := strings.Join([]string{`&CheckRequest{`,
-		`Attributes:` + strings.Replace(strings.Replace(this.Attributes.String(), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
+		`Attributes:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Attributes), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
 		`GlobalWordCount:` + fmt.Sprintf("%v", this.GlobalWordCount) + `,`,
 		`DeduplicationId:` + fmt.Sprintf("%v", this.DeduplicationId) + `,`,
 		`Quotas:` + mapStringForQuotas + `,`,
@@ -1665,7 +1740,7 @@ func (this *CheckResponse) String() string {
 	}
 	mapStringForQuotas += "}"
 	s := strings.Join([]string{`&CheckResponse{`,
-		`Precondition:` + strings.Replace(strings.Replace(this.Precondition.String(), "CheckResponse_PreconditionResult", "CheckResponse_PreconditionResult", 1), `&`, ``, 1) + `,`,
+		`Precondition:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Precondition), "CheckResponse_PreconditionResult", "CheckResponse_PreconditionResult", 1), `&`, ``, 1) + `,`,
 		`Quotas:` + mapStringForQuotas + `,`,
 		`}`,
 	}, "")
@@ -1676,11 +1751,11 @@ func (this *CheckResponse_PreconditionResult) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CheckResponse_PreconditionResult{`,
-		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`ValidUseCount:` + fmt.Sprintf("%v", this.ValidUseCount) + `,`,
-		`ReferencedAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ReferencedAttributes), "ReferencedAttributes", "ReferencedAttributes", 1) + `,`,
-		`RouteDirective:` + strings.Replace(fmt.Sprintf("%v", this.RouteDirective), "RouteDirective", "RouteDirective", 1) + `,`,
+		`ReferencedAttributes:` + strings.Replace(this.ReferencedAttributes.String(), "ReferencedAttributes", "ReferencedAttributes", 1) + `,`,
+		`RouteDirective:` + strings.Replace(this.RouteDirective.String(), "RouteDirective", "RouteDirective", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1690,10 +1765,10 @@ func (this *CheckResponse_QuotaResult) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CheckResponse_QuotaResult{`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`GrantedAmount:` + fmt.Sprintf("%v", this.GrantedAmount) + `,`,
 		`ReferencedAttributes:` + strings.Replace(strings.Replace(this.ReferencedAttributes.String(), "ReferencedAttributes", "ReferencedAttributes", 1), `&`, ``, 1) + `,`,
-		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "rpc.Status", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1702,9 +1777,14 @@ func (this *ReferencedAttributes) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForAttributeMatches := "[]ReferencedAttributes_AttributeMatch{"
+	for _, f := range this.AttributeMatches {
+		repeatedStringForAttributeMatches += fmt.Sprintf("%v", f) + ","
+	}
+	repeatedStringForAttributeMatches += "}"
 	s := strings.Join([]string{`&ReferencedAttributes{`,
 		`Words:` + fmt.Sprintf("%v", this.Words) + `,`,
-		`AttributeMatches:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.AttributeMatches), "ReferencedAttributes_AttributeMatch", "ReferencedAttributes_AttributeMatch", 1), `&`, ``, 1) + `,`,
+		`AttributeMatches:` + repeatedStringForAttributeMatches + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1738,9 +1818,19 @@ func (this *RouteDirective) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForRequestHeaderOperations := "[]HeaderOperation{"
+	for _, f := range this.RequestHeaderOperations {
+		repeatedStringForRequestHeaderOperations += strings.Replace(strings.Replace(f.String(), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForRequestHeaderOperations += "}"
+	repeatedStringForResponseHeaderOperations := "[]HeaderOperation{"
+	for _, f := range this.ResponseHeaderOperations {
+		repeatedStringForResponseHeaderOperations += strings.Replace(strings.Replace(f.String(), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForResponseHeaderOperations += "}"
 	s := strings.Join([]string{`&RouteDirective{`,
-		`RequestHeaderOperations:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.RequestHeaderOperations), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + `,`,
-		`ResponseHeaderOperations:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ResponseHeaderOperations), "HeaderOperation", "HeaderOperation", 1), `&`, ``, 1) + `,`,
+		`RequestHeaderOperations:` + repeatedStringForRequestHeaderOperations + `,`,
+		`ResponseHeaderOperations:` + repeatedStringForResponseHeaderOperations + `,`,
 		`DirectResponseCode:` + fmt.Sprintf("%v", this.DirectResponseCode) + `,`,
 		`DirectResponseBody:` + fmt.Sprintf("%v", this.DirectResponseBody) + `,`,
 		`}`,
@@ -1751,8 +1841,13 @@ func (this *ReportRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForAttributes := "[]CompressedAttributes{"
+	for _, f := range this.Attributes {
+		repeatedStringForAttributes += fmt.Sprintf("%v", f) + ","
+	}
+	repeatedStringForAttributes += "}"
 	s := strings.Join([]string{`&ReportRequest{`,
-		`Attributes:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Attributes), "CompressedAttributes", "CompressedAttributes", 1), `&`, ``, 1) + `,`,
+		`Attributes:` + repeatedStringForAttributes + `,`,
 		`DefaultWords:` + fmt.Sprintf("%v", this.DefaultWords) + `,`,
 		`GlobalWordCount:` + fmt.Sprintf("%v", this.GlobalWordCount) + `,`,
 		`RepeatedAttributesSemantics:` + fmt.Sprintf("%v", this.RepeatedAttributesSemantics) + `,`,

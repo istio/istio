@@ -140,12 +140,6 @@ func (i Instance) IsGRPC() bool {
 	}
 }
 
-// IsGRPC is true for GRCP protocols.
-func (i Instance) IsThrift() bool {
-	switch i {
-	case Thrift:
-		return true
-	default:
-		return false
-	}
+func (i Instance) IsUnsupported() bool {
+	return i == Unsupported
 }
