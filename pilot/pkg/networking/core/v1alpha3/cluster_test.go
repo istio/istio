@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type ConfigType int
@@ -239,11 +240,11 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == model.DestinationRule.Type {
+			if typ == schemas.DestinationRule.Type {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:    model.DestinationRule.Type,
-						Version: model.DestinationRule.Version,
+						Type:    schemas.DestinationRule.Type,
+						Version: schemas.DestinationRule.Version,
 						Name:    "acme",
 					},
 						Spec: destRule,

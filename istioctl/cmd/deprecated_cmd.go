@@ -29,12 +29,12 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -42,12 +42,15 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 	kubecfg "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -65,28 +68,28 @@ var (
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		model.Gateway.Type:         10,
-		model.VirtualService.Type:  5,
-		model.DestinationRule.Type: 3,
-		model.ServiceEntry.Type:    1,
+		schemas.Gateway.Type:         10,
+		schemas.VirtualService.Type:  5,
+		schemas.DestinationRule.Type: 3,
+		schemas.ServiceEntry.Type:    1,
 	}
 
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
 	// The user wants reasonable error messages when doing `get all` against a different
 	// server version.
 	mustList = map[string]bool{
-		model.Gateway.Type:              true,
-		model.VirtualService.Type:       true,
-		model.DestinationRule.Type:      true,
-		model.ServiceEntry.Type:         true,
-		model.HTTPAPISpec.Type:          true,
-		model.HTTPAPISpecBinding.Type:   true,
-		model.QuotaSpec.Type:            true,
-		model.QuotaSpecBinding.Type:     true,
-		model.AuthenticationPolicy.Type: true,
-		model.ServiceRole.Type:          true,
-		model.ServiceRoleBinding.Type:   true,
-		model.RbacConfig.Type:           true,
+		schemas.Gateway.Type:              true,
+		schemas.VirtualService.Type:       true,
+		schemas.DestinationRule.Type:      true,
+		schemas.ServiceEntry.Type:         true,
+		schemas.HTTPAPISpec.Type:          true,
+		schemas.HTTPAPISpecBinding.Type:   true,
+		schemas.QuotaSpec.Type:            true,
+		schemas.QuotaSpecBinding.Type:     true,
+		schemas.AuthenticationPolicy.Type: true,
+		schemas.ServiceRole.Type:          true,
+		schemas.ServiceRoleBinding.Type:   true,
+		schemas.RbacConfig.Type:           true,
 	}
 
 	// Headings for short format listing specific to type
@@ -107,7 +110,7 @@ var (
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
-	legacyIstioAPIGroupVersion = schema.GroupVersion{
+	legacyIstioAPIGroupVersion = kubeSchema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
 	}
@@ -306,7 +309,7 @@ istioctl get virtualservice bookinfo
 				return errors.New("a resource cannot be retrieved by name across all namespaces")
 			}
 
-			var typs []model.ProtoSchema
+			var typs []schema.Instance
 			if !getByName && strings.EqualFold(args[0], "all") {
 				typs = configClient.ConfigDescriptor()
 			} else {
@@ -315,7 +318,7 @@ istioctl get virtualservice bookinfo
 					c.Println(c.UsageString())
 					return err
 				}
-				typs = []model.ProtoSchema{typ}
+				typs = []schema.Instance{typ}
 			}
 
 			var ns string
@@ -364,8 +367,8 @@ istioctl get virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
-		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
+		ValidArgs:  configTypeResourceNames(schemas.Istio),
+		ArgAliases: configTypePluralResourceNames(schemas.Istio),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -464,8 +467,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
-		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
+		ValidArgs:  configTypeResourceNames(schemas.Istio),
+		ArgAliases: configTypePluralResourceNames(schemas.Istio),
 	}
 
 	contextCmd = &cobra.Command{
@@ -535,17 +538,17 @@ istioctl context-create --api-server http://127.0.0.1:8080
 )
 
 // The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
-func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
+func protoSchema(configClient model.ConfigStore, typ string) (schema.Instance, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
 			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
-			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+			return schema.Instance{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
 		}
 	}
-	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
+	return schema.Instance{}, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
@@ -710,12 +713,12 @@ func printShortGateway(config model.Config, w io.Writer) {
 func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
 	descriptor := configClient.ConfigDescriptor()
 	for _, config := range configList {
-		schema, exists := descriptor.GetByType(config.Type)
+		s, exists := descriptor.GetByType(config.Type)
 		if !exists {
 			log.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
 			continue
 		}
-		obj, err := crd.ConvertConfig(schema, config)
+		obj, err := crd.ConvertConfig(s, config)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", config.Name, err)
 			continue
@@ -731,7 +734,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
+	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -823,7 +826,7 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 	return client, resources, nil
 }
 
-func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
+func configTypeResourceNames(configTypes schema.Set) []string {
 	resourceNames := make([]string, len(configTypes))
 	for _, typ := range configTypes {
 		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
@@ -831,7 +834,7 @@ func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
 	return resourceNames
 }
 
-func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string {
+func configTypePluralResourceNames(configTypes schema.Set) []string {
 	resourceNames := make([]string, len(configTypes))
 	for _, typ := range configTypes {
 		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))

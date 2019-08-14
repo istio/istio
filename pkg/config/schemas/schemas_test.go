@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model_test
+package schemas_test
 
 import (
 	"fmt"
@@ -21,35 +21,45 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gogo/protobuf/proto"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
-	networking "istio.io/api/networking/v1alpha3"
+	meshAPI "istio.io/api/mesh/v1alpha1"
+	mixerAPI "istio.io/api/mixer/v1"
+	mixerClientAPI "istio.io/api/mixer/v1/config/client"
+	networkingAPI "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/test/config"
 	"istio.io/istio/pkg/util/protomarshal"
+)
+
+const (
+	// Config name for testing
+	someName = "foo"
+	// Config namespace for testing.
+	someNamespace = "bar"
 )
 
 func TestApplyJSON(t *testing.T) {
 	cases := []struct {
 		in      string
-		want    *meshconfig.MeshConfig
+		want    *meshAPI.MeshConfig
 		wantErr bool
 	}{
 		{
 			in:   `{"enableTracing": true}`,
-			want: &meshconfig.MeshConfig{EnableTracing: true},
+			want: &meshAPI.MeshConfig{EnableTracing: true},
 		},
 		{
 			in:   `{"enableTracing": true, "unknownField": "unknownValue"}`,
-			want: &meshconfig.MeshConfig{EnableTracing: true},
+			want: &meshAPI.MeshConfig{EnableTracing: true},
 		},
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v]", i), func(tt *testing.T) {
-			var got meshconfig.MeshConfig
+			var got meshAPI.MeshConfig
 			err := protomarshal.ApplyJSON(c.in, &got)
 			if err != nil {
 				if !c.wantErr {
@@ -67,42 +77,42 @@ func TestApplyJSON(t *testing.T) {
 	}
 }
 
-func TestGogoProtoSchemaConversions(t *testing.T) {
-	msg := &mccpb.HTTPAPISpec{
-		Attributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
+func TestGogoInstanceConversions(t *testing.T) {
+	msg := &mixerClientAPI.HTTPAPISpec{
+		Attributes: &mixerAPI.Attributes{
+			Attributes: map[string]*mixerAPI.Attributes_AttributeValue{
 				"api.service": {
-					Value: &mpb.Attributes_AttributeValue_StringValue{
+					Value: &mixerAPI.Attributes_AttributeValue_StringValue{
 						StringValue: "my-service",
 					},
 				},
 				"api.version": {
-					Value: &mpb.Attributes_AttributeValue_StringValue{
+					Value: &mixerAPI.Attributes_AttributeValue_StringValue{
 						StringValue: "1.0.0",
 					},
 				},
 			},
 		},
-		Patterns: []*mccpb.HTTPAPISpecPattern{
+		Patterns: []*mixerClientAPI.HTTPAPISpecPattern{
 			{
-				Attributes: &mpb.Attributes{
-					Attributes: map[string]*mpb.Attributes_AttributeValue{
+				Attributes: &mixerAPI.Attributes{
+					Attributes: map[string]*mixerAPI.Attributes_AttributeValue{
 						"api.operation": {
-							Value: &mpb.Attributes_AttributeValue_StringValue{
+							Value: &mixerAPI.Attributes_AttributeValue_StringValue{
 								StringValue: "createPet",
 							},
 						},
 					},
 				},
 				HttpMethod: "POST",
-				Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+				Pattern: &mixerClientAPI.HTTPAPISpecPattern_UriTemplate{
 					UriTemplate: "/pet/{id}",
 				},
 			},
 		},
-		ApiKeys: []*mccpb.APIKey{
+		ApiKeys: []*mixerClientAPI.APIKey{
 			{
-				Key: &mccpb.APIKey_Query{
+				Key: &mixerClientAPI.APIKey_Query{
 					Query: "api_key",
 				},
 			},
@@ -261,17 +271,17 @@ patterns:
 	}
 }
 
-func TestProtoSchemaConversions(t *testing.T) {
+func TestInstanceConversions(t *testing.T) {
 	destinationRuleSchema := &schema.Instance{MessageName: schemas.DestinationRule.MessageName}
 
-	msg := &networking.DestinationRule{
+	msg := &networkingAPI.DestinationRule{
 		Host: "something.svc.local",
-		TrafficPolicy: &networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{},
+		TrafficPolicy: &networkingAPI.TrafficPolicy{
+			LoadBalancer: &networkingAPI.LoadBalancerSettings{
+				LbPolicy: &networkingAPI.LoadBalancerSettings_Simple{},
 			},
 		},
-		Subsets: []*networking.Subset{
+		Subsets: []*networkingAPI.Subset{
 			{
 				Name: "foo",
 				Labels: map[string]string{
@@ -393,5 +403,129 @@ trafficPolicy:
 	}
 	if _, err = destinationRuleSchema.FromJSON(":"); err == nil {
 		t.Errorf("should produce an error")
+	}
+}
+
+func TestSetValidate(t *testing.T) {
+	badLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength+1)
+	goodLabel := strings.Repeat("a", labels.DNS1123LabelMaxLength-1)
+
+	cases := []struct {
+		name       string
+		descriptor schema.Set
+		wantErr    bool
+	}{{
+		name:       "Valid ConfigDescriptor (IstioConfig)",
+		descriptor: schemas.Istio,
+		wantErr:    false,
+	}, {
+		name: "Invalid DNS11234Label in ConfigDescriptor",
+		descriptor: schema.Set{schema.Instance{
+			Type:        badLabel,
+			MessageName: "istio.networking.v1alpha3.Gateway",
+		}},
+		wantErr: true,
+	}, {
+		name: "Bad MessageName in ProtoMessage",
+		descriptor: schema.Set{schema.Instance{
+			Type:        goodLabel,
+			MessageName: "nonexistent",
+		}},
+		wantErr: true,
+	}, {
+		name: "Missing key function",
+		descriptor: schema.Set{schema.Instance{
+			Type:        "service-entry",
+			MessageName: "istio.networking.v1alpha3.ServiceEtrny",
+		}},
+		wantErr: true,
+	}, {
+		name:       "Duplicate type and message",
+		descriptor: schema.Set{schemas.DestinationRule, schemas.DestinationRule},
+		wantErr:    true,
+	}}
+
+	for _, c := range cases {
+		if err := c.descriptor.Validate(); (err != nil) != c.wantErr {
+			t.Errorf("%v failed: got %v but wantErr=%v", c.name, err, c.wantErr)
+		}
+	}
+}
+
+// ValidateConfig ensures that the config object is well-defined
+// TODO: also check name and namespace
+func setValidateConfig(descriptor schema.Set, typ string, obj interface{}) error {
+	if obj == nil {
+		return fmt.Errorf("invalid nil configuration object")
+	}
+
+	t, ok := descriptor.GetByType(typ)
+	if !ok {
+		return fmt.Errorf("undeclared type: %q", typ)
+	}
+
+	v, ok := obj.(proto.Message)
+	if !ok {
+		return fmt.Errorf("cannot cast to a proto message")
+	}
+
+	if proto.MessageName(v) != t.MessageName {
+		return fmt.Errorf("mismatched message type %q and type %q",
+			proto.MessageName(v), t.MessageName)
+	}
+	return t.Validate(someName, someNamespace, v)
+}
+
+func TestSetValidateConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		typ     string
+		config  interface{}
+		wantErr bool
+	}{
+		{
+			name:    "bad configuration object",
+			typ:     "policy",
+			config:  nil,
+			wantErr: true,
+		},
+		{
+			name:    "undeclared kind",
+			typ:     "special-type",
+			config:  nil,
+			wantErr: true,
+		},
+		{
+			name:    "non-proto object configuration",
+			typ:     "policy",
+			config:  "non-proto objection configuration",
+			wantErr: true,
+		},
+		{
+			name:    "message type and kind mismatch",
+			typ:     "policy",
+			config:  schemas.ServiceEntry,
+			wantErr: true,
+		},
+		{
+			name:    "Schema validation1",
+			typ:     "service-entry",
+			config:  schemas.ServiceEntry,
+			wantErr: true,
+		},
+		{
+			name:    "Successful validation",
+			typ:     schemas.MockConfig.Type,
+			config:  &config.MockConfig{Key: "test"},
+			wantErr: false,
+		},
+	}
+
+	types := append(schemas.Istio, schemas.MockConfig)
+
+	for _, c := range cases {
+		if err := setValidateConfig(types, c.typ, c.config); (err != nil) != c.wantErr {
+			t.Errorf("%v failed: got error=%v but wantErr=%v", c.name, err, c.wantErr)
+		}
 	}
 }
