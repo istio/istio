@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: fortio
+  namespace: simple-micro
+  annotations:
+    kubernetes.io/ingress.class: istio
+spec:
+  rules:
+    - host: fortio-ingress.example.com
+      http:
+        paths:
+            - path: /.*
+              backend:
+                serviceName: echosrv
+                servicePort: 8080
+

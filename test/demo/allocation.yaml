@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-ingressgateway
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -19,6 +20,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-egressgateway
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -34,6 +36,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -48,6 +51,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -64,6 +68,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-telemetry
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -84,6 +89,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-policy
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -104,6 +110,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -119,6 +126,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -133,6 +141,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-galley
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -153,6 +162,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -175,6 +185,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kiali
+  namespace: istio-system
 spec:
   template:
     spec:
@@ -189,6 +200,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-tracing
+  namespace: istio-system
 spec:
   template:
     spec:

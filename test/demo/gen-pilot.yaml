@@ -1,25 +1,4 @@
 ---
-# Source: istio-discovery/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio-system-istio
-    istio: pilot
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: pilot
-      release: istio-system-istio
-      istio: pilot
----
-
----
 # Source: istio-discovery/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -211,7 +190,7 @@ data:
 
   values.yaml: |-
     appNamespaces: []
-    autoscaleEnabled: true
+    autoscaleEnabled: false
     autoscaleMax: 5
     autoscaleMin: 1
     configMap: true
@@ -237,14 +216,14 @@ data:
     replicaCount: 1
     resources:
       requests:
-        cpu: 500m
-        memory: 2048Mi
+        cpu: 10m
+        memory: 100Mi
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     tolerations: []
-    traceSampling: 1
+    traceSampling: 100
     useMCP: true
     
 
@@ -253,8 +232,9 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
-    #
+    accessLogFile: "/dev/stdout"
+
+    enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
@@ -290,9 +270,8 @@ data:
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
-
     localityLbSetting:
-      {}
+      enabled: true
       
 
     defaultConfig:
@@ -446,8 +425,9 @@ metadata:
     istio: pilot
   annotations:
     checksum/config-volume-envoy:  9726bd6803a3694896aebf780e59da64a778683d1fa5460467e3ed4188143ba8
-    checksum/config-volume:  f1d65c1dc42649a87e02687fcd4452d43f6955a25ba8ba7e96b2a06508670eea
+    checksum/config-volume:  f55f0648496785933730755842a0a5aedeea53925fa15339ce737b04feabeb2d
 spec:
+  replicas: 1
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -509,15 +489,13 @@ spec:
           - name: GODEBUG
             value: "gctrace=1"
           - name: PILOT_TRACE_SAMPLING
-            value: "1"
-          - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
-            value: "1"
+            value: "100"
           - name: CONFIG_NAMESPACE
             value: istio-config
           resources:
             requests:
-              cpu: 500m
-              memory: 2048Mi
+              cpu: 10m
+              memory: 100Mi
             
           volumeMounts:
           - name: config-volume
@@ -556,10 +534,10 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 128Mi
+              memory: 1024Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 10m
+              memory: 40Mi
             
           volumeMounts:
           - name: istio-certs
@@ -653,25 +631,8 @@ spec:
 ---
 # Source: istio-discovery/templates/autoscale.yaml
 
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio-system-istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
+
 ---
+# Source: istio-discovery/templates/poddisruptionbudget.yaml
+
 

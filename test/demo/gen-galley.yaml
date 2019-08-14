@@ -1,25 +1,4 @@
 ---
-# Source: istio-config/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-galley
-  namespace: istio-system
-  labels:
-    app: galley
-    release: istio-system-istio
-    istio: galley
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: galley
-      release: istio-system-istio
-      istio: galley
----
-
----
 # Source: istio-config/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -478,10 +457,10 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 128Mi
+              memory: 1024Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 10m
+              memory: 40Mi
             
 
           volumeMounts:
@@ -541,6 +520,10 @@ spec:
                 values:
                 - s390x      
 ---
+
+---
+# Source: istio-config/templates/poddisruptionbudget.yaml
+
 
 ---
 # Source: istio-config/templates/validatingwebhookconfiguration.yaml.tpl
