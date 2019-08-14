@@ -52,7 +52,7 @@ spec:
   profile: sds
 ```
 
-See [Select a profile](#select-a-profile) for more information.
+See [Select a specific configuration_profile](#select-a-specific-configuration-profile) for more information.
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
@@ -190,8 +190,8 @@ The compiled in charts and profiles are used by default, but you can specify a f
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  profile: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
-  installPackagePath: file:///usr/home/bob/go/src/github.com/ostromart/istio-installer/data/charts/
+  profile: /usr/home/bob/go/src/github.com/ostromart/istio-installer/data/profiles/default.yaml
+  installPackagePath: /usr/home/bob/go/src/github.com/ostromart/istio-installer/data/charts/
 ```
 
 You can mix and match these approaches. For example, you can use a compiled-in configuration profile with charts in your
