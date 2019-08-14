@@ -114,7 +114,7 @@
           "refId": "B"
         },
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-control\",container_name=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -219,7 +219,7 @@
           "refId": "B"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-control\",container_name=\"istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -323,28 +323,28 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(sum(container_memory_usage_bytes{pod_name=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-telemetry / 1k rps",
           "refId": "A"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{pod_name=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{pod_name=~\"istio-ingressgateway-.*\",container_name!=\"POD\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-ingressgateway-.*\",container_name!=\"POD\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio-ingressgateway",
           "refId": "B"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{namespace!=\"istio-control\",container_name=\"istio-proxy\"}) / count(container_memory_usage_bytes{namespace!=\"istio-control\",container_name=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio proxy",
           "refId": "C"
         },
         {
-          "expr": "(sum(container_memory_usage_bytes{pod_name=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-policy / 1k rps",
@@ -442,7 +442,7 @@
           "refId": "B"
         },
         {
-          "expr": "sum(irate(istio_response_bytes_sum{source_workload_namespace!=\"istio-control\", reporter=\"source\"}[1m])) + sum(irate(istio_response_bytes_sum{destination_workload_namespace!=\"istio-control\", reporter=\"destination\"}[1m])) + sum(irate(istio_request_bytes_sum{source_workload_namespace!=\"istio-control\", reporter=\"source\"}[1m])) + sum(irate(istio_request_bytes_sum{destination_workload_namespace!=\"istio-control\", reporter=\"destination\"}[1m]))",
+          "expr": "sum(irate(istio_response_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_response_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m])) + sum(irate(istio_request_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_request_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -644,7 +644,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=\"istio-proxy\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -818,7 +818,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_fs_usage_bytes{container_name=\"istio-proxy\"})",
+          "expr": "sum(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
@@ -976,7 +976,7 @@
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -985,7 +985,7 @@
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1187,7 +1187,7 @@
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
@@ -1274,7 +1274,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"istio-pilot\"}",
+          "expr": "go_goroutines{job=\"pilot\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Number of Goroutines",
@@ -1423,7 +1423,7 @@
           "step": 2
         },
         {
-          "expr": "go_memstats_stack_inuse_bytes{job=~\"istio-telemetry|istio-policy\"}",
+          "expr": "go_memstats_stack_inuse_bytes{job=~\"istio-policy|istio-telemetry\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Stack in-use",
@@ -1431,7 +1431,7 @@
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1440,7 +1440,7 @@
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1545,7 +1545,7 @@
           "step": 2
         },
         {
-          "expr": "irate(process_cpu_seconds_total{job=~\"istio-telemetry|istio-policy\"}[1m])",
+          "expr": "irate(process_cpu_seconds_total{job=~\"istio-policy|istio-telemetry\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -1632,17 +1632,17 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=~\"istio-telemetry|istio-policy\"}",
+          "expr": "process_open_fds{job=~\"istio-policy|istio-telemetry\"}",
           "format": "time_series",
           "hide": true,
           "instant": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "Open FDs (mixer)",
+          "legendFormat": "Open FDs (pilot)",
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
