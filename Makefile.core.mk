@@ -26,8 +26,8 @@ fmt:
 	@goimports -w -local "istio.io" $(shell find . -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' )
 
 # make target dependencies
-gen: data/
-	go generate ./...
+vfsgen: data/
+	go run ./cmd/vfsgen/vfsgen.go
 
 ########################
 # protoc_gen_gogo*
@@ -119,7 +119,8 @@ gen_patch_iscp:
 gen_patch_values:
 	diff -u pkg/apis/istio/v1alpha2/values/values_types.pb.go.orig pkg/apis/istio/v1alpha2/values/values_types.pb.go > pkg/apis/istio/v1alpha2/values/fix_values_structs.patch || true
 
-mesh:
+
+mesh: vfsgen
 	go build -o ${GOBIN}/mesh ./cmd/mesh.go
 
 include Makefile.common.mk

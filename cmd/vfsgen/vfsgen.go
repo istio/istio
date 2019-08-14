@@ -11,18 +11,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:generate vfsgen -i ../data -v Assets -p vfsgen -o ../pkg/vfsgen/vfsgen.gen.go
+
+// +build ignore
+
 package main
 
 import (
+	"log"
+	"net/http"
 	"os"
+	"path/filepath"
 
-	"istio.io/operator/cmd/mesh"
+	"github.com/shurcooL/vfsgen"
 )
 
 func main() {
-	rootCmd := mesh.GetRootCmd(os.Args[1:])
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+	var cwd, _ = os.Getwd()
+	templates := http.Dir(filepath.Join(cwd, "data"))
+	if err := vfsgen.Generate(templates, vfsgen.Options{
+		Filename:    "pkg/vfsgen/vfsgen_data.go",
+		PackageName: "vfsgen",
+		//		BuildTags:    "deploy_build",
+		VariableName: "Assets",
+	}); err != nil {
+		log.Fatalln("vfsgen failed to generate code: ", err)
 	}
 }
