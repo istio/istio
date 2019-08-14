@@ -39,14 +39,14 @@ function die() {
 
 while getopts o:v:d: arg ; do
   case "${arg}" in
-    o) OUTPUT_ROOT_DIR="${OPTARG}";;
+    o) OUTPUT_DIR="${OPTARG}";;
     v) INSTALLER_VERSION="${OPTARG}";;
     d) TEMP_DIR="${OPTARG}";;
     *) usage;;
   esac
 done
 
-[[ -z "${OUTPUT_ROOT_DIR}" ]] && usage
+[[ -z "${OUTPUT_DIR}" ]] && usage
 
 set -x
 
@@ -65,7 +65,6 @@ OPERATOR_VERSION=$(get_version)
 TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio.${OPERATOR_VERSION}.XXXXXXXX)"}
 
 INSTALLER_VERSION=${INSTALLER_VERSION:-"${OPERATOR_VERSION}"}
-OUTPUT_DIR="${OUTPUT_ROOT_DIR}/install/kubernetes/operator"
 
 mkdir -p "${OUTPUT_DIR}"
 
