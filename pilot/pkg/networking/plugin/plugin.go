@@ -38,6 +38,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolThrift is a thrift listener.
+	ListenerProtocolThrift
 	// ListenerProtocolAuto enables auto protocol detection
 	ListenerProtocolAuto
 
