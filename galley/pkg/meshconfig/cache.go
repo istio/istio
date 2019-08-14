@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
+
 	"istio.io/istio/pkg/config/mesh"
 
 	"github.com/gogo/protobuf/jsonpb"
