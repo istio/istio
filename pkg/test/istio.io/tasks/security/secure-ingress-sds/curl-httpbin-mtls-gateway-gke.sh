@@ -10,8 +10,8 @@ echo "curl -v -HHost:httpbin.example.com \
 https://httpbin.example.com:${SECURE_INGRESS_PORT}/status/418"
 
 curl -v -HHost:httpbin.example.com \
---resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--resolve httpbin.example.com:"$SECURE_INGRESS_PORT":"$INGRESS_HOST" \
 --cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
 --cert httpbin.example.com/4_client/certs/httpbin.example.com.cert.pem \
 --key httpbin.example.com/4_client/private/httpbin.example.com.key.pem \
-https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+https://httpbin.example.com:"$SECURE_INGRESS_PORT"/status/418

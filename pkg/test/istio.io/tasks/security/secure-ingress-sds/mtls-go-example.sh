@@ -17,10 +17,10 @@ if [[ ! -d "mtls-go-example" ]]; then
     sed -i 's/openssl ca /openssl ca -batch /g' mtls-go-example/generate.sh
 fi
 
-pushd mtls-go-example
+pushd mtls-go-example || exit
 
-./generate.sh ${cn} password
+./generate.sh "${cn}" password
 
-mkdir ../${folderName} && mv 1_root 2_intermediate 3_application 4_client ../${folderName}
+mkdir ../"${folderName}" && mv 1_root 2_intermediate 3_application 4_client ../"${folderName}"
 
-popd
+popd || exit

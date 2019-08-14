@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 		NewSuite("secure-ingress-sds", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		RequireEnvironment(environment.Kube).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
