@@ -3,7 +3,6 @@ kind: IstioControlPlane
 spec:
   trafficManagement:
     components:
-      namespace: istio-control
       pilot:
         common:
           values:

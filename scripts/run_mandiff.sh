@@ -51,6 +51,9 @@ NAMESPACES_MAP["istio-policy"]="istio-system"
 NAMESPACES_MAP["security/citadel"]="istio-system"
 NAMESPACES_MAP["security/nodeagent"]="istio-system"
 
+# define the ingored resource list for manifest comparison
+MANDIFF_IGNORE_RESOURCE_LIST="ConfigMap::istio,ConfigMap::istio-sidecar-injector"
+
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
 set -u
@@ -107,7 +110,7 @@ function mesh_mandiff_with_profile() {
     helm_manifest ${ISTIO_SYSTEM_NS} ${ISTIO_RELEASE} ${CHARTS_DIR} ${profile}
     mesh_manifest ${profile}
 
-    mesh manifest diff --directory "${OUT}/helm-template/istio-${profile}" "${OUT}/mesh-manifest/istio-${profile}"
+    mesh manifest diff --ignore "${MANDIFF_IGNORE_RESOURCE_LIST}" --directory "${OUT}/helm-template/istio-${profile}" "${OUT}/mesh-manifest/istio-${profile}"
 }
 
 mesh_mandiff_with_profile "${ISTIO_DEFAULT_PROFILE}" > "${OUT}/mandiff-default-profile.diff" || echo "default profile has diffs"
