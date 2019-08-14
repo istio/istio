@@ -59,7 +59,7 @@ spec:
 {{- else }}
           - --insecure=true
 {{- end }}
-{{- if $.Values.global.enableServiceDiscovery }}
+{{- if .Values.enableServiceDiscovery }}
           - --enableServiceDiscovery=true
 {{- end }}
 {{- if not $.Values.global.useMCP }}
