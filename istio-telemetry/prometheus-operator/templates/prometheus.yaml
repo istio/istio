@@ -7,7 +7,7 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 spec:
-  image: "{{ .Values.prometheus.hub }}/prometheus:{{ .Values.prometheus.tag }}"
+  image: "{{ .Values.prometheus.hub }}/{{ .Values.prometheus.image | default "prometheus" }}:{{ .Values.prometheus.tag }}"
   version: {{ .Values.prometheus.tag }}
   retention: {{ .Values.prometheus.retention }}
   scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
