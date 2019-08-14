@@ -42,6 +42,9 @@ const (
 	// TCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
+	// TLS declares that the port carries TLS traffic.
+	// TLS traffic is assumed to contain SNI as part of the handshake.
+	TLS Instance = "TLS"
 	// Thrift declares that the port carries Thrift traffic.
 	Thrift Instance = "Thrift"
 	// TLS declares that the port carries TLS traffic.
