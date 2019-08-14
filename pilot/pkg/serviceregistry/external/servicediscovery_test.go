@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -42,7 +43,7 @@ type channelTerminal struct {
 }
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
-	store := memory.Make(model.IstioConfigTypes)
+	store := memory.Make(schemas.Istio)
 	configController := memory.NewController(store)
 
 	stop := make(chan struct{})
@@ -189,7 +190,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              model.DestinationRule.Type,
+			Type:              schemas.DestinationRule.Type,
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",

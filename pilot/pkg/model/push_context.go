@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -750,7 +751,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	virtualServices, err := env.List(VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -900,7 +901,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(schemas.Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -961,7 +962,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(DestinationRule.Type, NamespaceAll)
+	configs, err := env.List(schemas.DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1069,7 +1070,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(EnvoyFilter.Type, NamespaceAll)
+	envoyFilterConfigs, err := env.List(schemas.EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1116,7 +1117,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(Gateway.Type, NamespaceAll)
+	gatewayConfigs, err := env.List(schemas.Gateway.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
