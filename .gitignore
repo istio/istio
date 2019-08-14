@@ -28,4 +28,4 @@ build/_output/
 mesh-cli.log
 #mandiff output
 out/
-
+data/charts/

@@ -30,10 +30,10 @@ prometheus:
 # Common settings.
 global:
   istioNamespace: istio-system
-  configNamespace: istio-control
+  configNamespace: istio-system
   # Telemetry namespace, including tracing.
-  telemetryNamespace: istio-telemetry
-  policyNamespace: istio-policy
+  telemetryNamespace: istio-system
+  policyNamespace: istio-system
 
   proxy:
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument

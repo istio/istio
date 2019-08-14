@@ -9,7 +9,6 @@ spec:
   trafficManagement:
     enabled: true
     components:
-      namespace: istio-control
       pilot:
         common:
           k8s:
@@ -27,8 +26,6 @@ spec:
               - name: GODEBUG
                 value: gctrace=1
               - name: PILOT_TRACE_SAMPLING
-                value: "1"
-              - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
                 value: "1"
               - name: CONFIG_NAMESPACE
                 value: istio-config
@@ -58,6 +55,8 @@ spec:
 
           values:
             image: pilot
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             traceSampling: 1.0
             configNamespace: istio-config
             keepaliveMaxServerConnectionAge: 30m
@@ -80,7 +79,7 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 128Mi
+                memory: 1024Mi
               limits:
                 cpu: 2000m
                 memory: 128Mi
@@ -103,7 +102,6 @@ spec:
   policy:
     enabled: true
     components:
-      namespace: istio-policy
       policy:
         common:
           k8s:
@@ -125,6 +123,8 @@ spec:
                 value: "gctrace=1"
           values:
             image: mixer
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             adapters:
               kubernetesenv:
                 enabled: true
@@ -133,7 +133,6 @@ spec:
   telemetry:
     enabled: true
     components:
-      namespace: istio-telemetry
       telemetry:
         common:
           k8s:
@@ -164,23 +163,30 @@ spec:
                 memory: 4G
           values:
             image: mixer
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             sessionAffinityEnabled: false
             loadshedding:
               mode: enforce
               latencyThreshold: 100ms
+            reportBatchMaxEntries: 100
+            reportBatchMaxTime: 1s
+            useMCP: true
+
 
   # Security feature
   security:
     enabled: true
     components:
-      namespace: istio-system
-
       citadel:
         common:
           values:
             image: citadel
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             selfSigned: true # indicate if self-signed CA is used.
             trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
+            enableNamespacesByDefault: true
             dnsCerts:
               istio-pilot-service-account.istio-system: istio-pilot.istio-system
 
@@ -191,6 +197,7 @@ spec:
             replicaCount: 1
             hub: quay.io/jetstack
             tag: v0.6.2
+            image: cert-manager-controller
 
       nodeAgent:
         common:
@@ -210,7 +217,6 @@ spec:
   configManagement:
     enabled: true
     components:
-      namespace: istio-control
       galley:
         common:
           k8s:
@@ -218,16 +224,24 @@ spec:
             resources:
               requests:
                 cpu: 100m
+                memory: 128M
+              limits:
+                cpu: 100m
+                memory: 1024M
+          values:
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
 
   # Auto injection feature
   autoInjection:
     enabled: true
     components:
-      namespace: istio-control
       injector:
         common:
           values:
             replicaCount: 1
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             image: sidecar_injector
             enableNamespacesByDefault: false
             rewriteAppHTTPProbe: false
@@ -238,7 +252,6 @@ spec:
   gateways:
     enabled: true
     components:
-      namespace: istio-control
       ingressGateway:
         common:
           enabled: true
@@ -258,8 +271,18 @@ spec:
                 resource:
                   name: cpu
                   targetAverageUtilization: 80
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 2000m
+                memory: 1024Mi
           values:
             autoscaleEnabled: true
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
+            applicationPorts: ""
             # Debug level for envoy. Can be set to 'debug'
             debug: info
             domain: ""
@@ -371,6 +394,8 @@ spec:
                     targetAverageUtilization: 80
           values:
             autoscaleEnabled: true
+            rollingMaxSurge: 100%
+            rollingMaxUnavailable: 25%
             # Enable cross-cluster access using SNI matching.
             # Make sure you set suffix if deploying multiple egress gateways.
             zvpn:
@@ -407,17 +432,32 @@ spec:
     clusterResources: true
 
     global:
-      # TODO: derive from operator API
-      prometheusNamespace: istio-telemetry
       logging:
         level: "default:info"
       k8sIngress:
         enabled: false
         gatewayName: ingressgateway
         enableHttps: false
+      proxy:
+        envoyAccessLogService:
+          enabled: false
+          host: # example: accesslog-service.istio-system
+          port: # example: 15000
+        envoyMetricsService:
+          enabled: false
+          host: # example: metrics-service.istio-system
+          port: # example: 15000
       proxy_init:
         image: proxy_init
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
       imagePullPolicy: Always
+      imagePullSecrets: []
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
@@ -438,14 +478,14 @@ spec:
       useMCP: true
       outboundTrafficPolicy:
         mode: ALLOW_ANY
+      localityLbSetting:
+        enabled: true
       # TODO: remove requirement to set these to nil values. This is an issue with helm charts.
       meshExpansion: {}
       multiCluster: {}
       sds:
         enabled: false
         udsPath: ""
-        useTrustworthyJwt: false
-        useNormalJwt: false
       tracer:
         lightstep:
           address: ""
@@ -469,6 +509,13 @@ spec:
           enabled: true
         stackdriver:
           enabled: false
+          auth:
+            appCredentials: false
+            apiKey: ""
+            serviceAccountPath: ""
+          tracer:
+            enabled: false
+            sampleProbability: 1
         useAdapterCRDs: false
 
     prometheus:
@@ -540,6 +587,8 @@ spec:
       tolerations: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      env: {}
+      envSecrets: {}
 
     tracing:
       enabled: false

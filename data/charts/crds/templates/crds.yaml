@@ -1,9 +1,0 @@
-{{ .Files.Get "files/crd-10.yaml" }}
-{{ .Files.Get "files/crd-11.yaml" }}
-{{ .Files.Get "files/crd-12.yaml" }}
-{{- if .Values.certmanager }}
-{{- if .Values.certmanager.enabled }}
-{{ .Files.Get "files/crd-certmanager-10.yaml" }}
-{{ .Files.Get "files/crd-certmanager-11.yaml" }}
-{{- end }}
-{{- end }}

@@ -41,13 +41,13 @@ PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery i
 # declare map with profile as key and charts as values
 declare -A NAMESPACES_MAP
 NAMESPACES_MAP["crds"]="istio-system"
-NAMESPACES_MAP["istio-control/istio-discovery"]="istio-control"
-NAMESPACES_MAP["istio-control/istio-config"]="istio-control"
-NAMESPACES_MAP["istio-control/istio-autoinject"]="istio-control"
-NAMESPACES_MAP["gateways/istio-ingress"]="istio-control"
-NAMESPACES_MAP["gateways/istio-egress"]="istio-control"
-NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-telemetry"
-NAMESPACES_MAP["istio-policy"]="istio-policy"
+NAMESPACES_MAP["istio-control/istio-discovery"]="istio-system"
+NAMESPACES_MAP["istio-control/istio-config"]="istio-system"
+NAMESPACES_MAP["istio-control/istio-autoinject"]="istio-system"
+NAMESPACES_MAP["gateways/istio-ingress"]="istio-system"
+NAMESPACES_MAP["gateways/istio-egress"]="istio-system"
+NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-system"
+NAMESPACES_MAP["istio-policy"]="istio-system"
 NAMESPACES_MAP["security/citadel"]="istio-system"
 NAMESPACES_MAP["security/nodeagent"]="istio-system"
 

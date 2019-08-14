@@ -4,7 +4,7 @@ override GOBIN := $(GOPATH)/bin
 endif
 
 # make targets
-.PHONY: lint test_with_coverage mandiff build fmt vfsgen
+.PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts
 
 lint:
 	@scripts/check_license.sh
@@ -25,8 +25,11 @@ build: mesh
 fmt:
 	@goimports -w -local "istio.io" $(shell find . -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' )
 
+update-charts: installer.sha
+	@scripts/run_update_charts.sh `cat installer.sha`
+
 # make target dependencies
-vfsgen: data/
+vfsgen: data/ update-charts
 	go run ./cmd/vfsgen/vfsgen.go
 
 ########################
