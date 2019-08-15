@@ -20,51 +20,15 @@ import (
 	"net"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/validation"
 )
 
 // UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 // ServiceEntry.Endpoint.Address message.
 const UnixAddressPrefix = "unix://"
-
-// Validate checks that each name conforms to the spec and has a ProtoMessage
-func (descriptor ConfigDescriptor) Validate() error {
-	var errs error
-	descriptorTypes := make(map[string]bool)
-	messages := make(map[string]bool)
-	clusterMessages := make(map[string]bool)
-
-	for _, v := range descriptor {
-		if !config.IsDNS1123Label(v.Type) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q", v.Type))
-		}
-		if !config.IsDNS1123Label(v.Plural) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
-		}
-		if proto.MessageType(v.MessageName) == nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
-		}
-		if _, exists := descriptorTypes[v.Type]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
-		}
-		descriptorTypes[v.Type] = true
-		if v.ClusterScoped {
-			if _, exists := clusterMessages[v.MessageName]; exists {
-				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
-			}
-			clusterMessages[v.MessageName] = true
-		} else {
-			if _, exists := messages[v.MessageName]; exists {
-				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
-			}
-			messages[v.MessageName] = true
-		}
-	}
-	return errs
-}
 
 // Validate ensures that the service object is well-defined
 func (s *Service) Validate() error {
@@ -74,7 +38,7 @@ func (s *Service) Validate() error {
 	}
 	parts := strings.Split(string(s.Hostname), ".")
 	for _, part := range parts {
-		if !config.IsDNS1123Label(part) {
+		if !labels.IsDNS1123Label(part) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))
 		}
 	}
@@ -91,10 +55,10 @@ func (s *Service) Validate() error {
 				errs = multierror.Append(errs,
 					fmt.Errorf("empty port names are not allowed for services with multiple ports"))
 			}
-		} else if !config.IsDNS1123Label(port.Name) {
+		} else if !labels.IsDNS1123Label(port.Name) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
 		}
-		if err := config.ValidatePort(port.Port); err != nil {
+		if err := validation.ValidatePort(port.Port); err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("invalid service port value %d for %q: %v", port.Port, port.Name, err))
 		}
@@ -115,7 +79,7 @@ func (instance *ServiceInstance) Validate() error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := config.ValidatePort(instance.Endpoint.Port); err != nil {
+	if err := validation.ValidatePort(instance.Endpoint.Port); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -148,12 +112,12 @@ func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
 	case AddressFamilyTCP:
 		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address
 		if ipAddr == nil {
-			if err := config.ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
+			if err := validation.ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
 				return errors.New("invalid address " + n.Address)
 			}
 		}
 	case AddressFamilyUnix:
-		return config.ValidateUnixAddress(n.Address)
+		return validation.ValidateUnixAddress(n.Address)
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -548,7 +549,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service",
 			Namespace: "default",
 		},
@@ -556,7 +557,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service-copy",
 			Namespace: "default",
 		},
@@ -564,7 +565,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service-wildcard",
 			Namespace: "default",
 		},

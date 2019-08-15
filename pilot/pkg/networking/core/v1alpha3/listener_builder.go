@@ -377,9 +377,9 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 
 		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
-			matchingIP = util.InboundPassthroughBindIpv4
+			matchingIP = "0.0.0.0/0"
 		} else if clusterName == util.InboundPassthroughClusterIpv6 {
-			matchingIP = util.InboundPassthroughBindIpv6
+			matchingIP = "::0/0"
 		}
 
 		filterChainMatch := listener.FilterChainMatch{

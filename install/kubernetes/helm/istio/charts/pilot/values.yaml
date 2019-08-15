@@ -12,6 +12,8 @@ rollingMaxUnavailable: 25%
 image: pilot
 sidecar: true
 traceSampling: 1.0
+# if protocol sniffing is enabled. Default to false.
+enableProtocolSniffing: false
 # Resources for a small pilot install
 resources:
   requests:

@@ -30,61 +30,46 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 	proxy *model.Proxy, push *model.PushContext,
 	routeConfiguration *xdsapi.RouteConfiguration) *xdsapi.RouteConfiguration {
 
-	virtualHostsRemoved := false
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	for _, efw := range envoyFilterWrappers {
-		// only merge is applicable for route configuration. Validation checks for the same.
+		// only merge is applicable for route configuration.
 		for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
+			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+				continue
+			}
+
 			if commonConditionMatch(proxy, patchContext, cp) &&
 				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 				proto.Merge(routeConfiguration, cp.Value)
 			}
 		}
 
-		// First process remove operations, then the merge and finally the add.
-		// If add is done before remove, then remove could end up deleting a vhost that
-		// was added by the user.
-		for _, cp := range efw.Patches[networking.EnvoyFilter_VIRTUAL_HOST] {
-			if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
-				cp.Operation != networking.EnvoyFilter_Patch_MERGE {
-				continue
-			}
+		doVirtualHostListOperation(proxy, patchContext, efw.Patches, routeConfiguration)
+	}
+	return routeConfiguration
+}
 
-			if !commonConditionMatch(proxy, patchContext, cp) ||
-				!routeConfigurationMatch(patchContext, routeConfiguration, cp) {
-				continue
-			}
+func doVirtualHostListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+	routeConfiguration *xdsapi.RouteConfiguration) {
 
-			// iterate through all virtual hosts in a route and remove/merge ones that match
-			for i := range routeConfiguration.VirtualHosts {
-				if routeConfiguration.VirtualHosts[i].Name == "" {
-					// removed by another envoy filter
-					continue
-				}
-				if virtualHostMatch(routeConfiguration.VirtualHosts[i], cp) {
-					if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-						// set name to empty. We remove virtual hosts with empty names later in this function
-						routeConfiguration.VirtualHosts[i].Name = ""
-						virtualHostsRemoved = true
-					} else {
-						proto.Merge(routeConfiguration.VirtualHosts[i], cp.Value)
-					}
-				}
-			}
+	virtualHostsRemoved := false
+	// first do removes/merges
+	for _, vhost := range routeConfiguration.VirtualHosts {
+		doVirtualHostOperation(proxy, patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved)
+	}
+
+	// now for the adds
+	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
+		if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+			continue
 		}
-
-		// Add virtual host if the operation is add, and patch context matches
-		for _, cp := range efw.Patches[networking.EnvoyFilter_VIRTUAL_HOST] {
-			if cp.Operation != networking.EnvoyFilter_Patch_ADD {
-				continue
-			}
-
-			if commonConditionMatch(proxy, patchContext, cp) &&
-				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
-				routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
-			}
+		if commonConditionMatch(proxy, patchContext, cp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, cp) {
+			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 		}
 	}
+
 	if virtualHostsRemoved {
 		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
@@ -95,7 +80,82 @@ func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchCon
 		}
 		routeConfiguration.VirtualHosts = trimmedVirtualHosts
 	}
-	return routeConfiguration
+}
+
+func doVirtualHostOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
+
+	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
+		if commonConditionMatch(proxy, patchContext, cp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
+			virtualHostMatch(virtualHost, cp) {
+
+			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+				virtualHost.Name = ""
+				*virtualHostRemoved = true
+				// nothing more to do.
+				return
+			} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
+				proto.Merge(virtualHost, cp.Value)
+			}
+		}
+	}
+	doHTTPRouteListOperation(proxy, patchContext, patches, routeConfiguration, virtualHost)
+}
+
+func doHTTPRouteListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost) {
+
+	routesRemoved := false
+	// Apply the route level removes/merges if any.
+	for index := range virtualHost.Routes {
+		doHTTPRouteOperation(proxy, patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved)
+	}
+
+	// now for the adds
+	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
+		if cp.Operation != networking.EnvoyFilter_Patch_ADD {
+			continue
+		}
+		if commonConditionMatch(proxy, patchContext, cp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
+			virtualHostMatch(virtualHost, cp) {
+			virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
+		}
+	}
+
+	if routesRemoved {
+		trimmedRoutes := make([]*route.Route, 0, len(virtualHost.Routes))
+		for i := range virtualHost.Routes {
+			if virtualHost.Routes[i] == nil {
+				continue
+			}
+			trimmedRoutes = append(trimmedRoutes, virtualHost.Routes[i])
+		}
+		virtualHost.Routes = trimmedRoutes
+	}
+}
+
+func doHTTPRouteOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
+	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
+		if commonConditionMatch(proxy, patchContext, cp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
+			virtualHostMatch(virtualHost, cp) &&
+			routeMatch(virtualHost.Routes[routeIndex], cp) {
+
+			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+				virtualHost.Routes[routeIndex] = nil
+				*routesRemoved = true
+				return
+			} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
+				proto.Merge(virtualHost.Routes[routeIndex], cp.Value)
+			}
+		}
+	}
 }
 
 func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *xdsapi.RouteConfiguration,
@@ -164,5 +224,47 @@ func virtualHostMatch(vh *route.VirtualHost, cp *model.EnvoyFilterConfigPatchWra
 		return false
 	}
 	// check if virtual host names match
-	return match.Name == vh.Name
+	return match.Name == "" || match.Name == vh.Name
+}
+
+func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	cMatch := cp.Match.GetRouteConfiguration()
+	if cMatch == nil {
+		return true
+	}
+
+	vMatch := cMatch.Vhost
+	if vMatch == nil {
+		// match any virtual host in the named httpRoute configuration
+		return true
+	}
+
+	match := vMatch.Route
+	if match == nil {
+		// match any httpRoute in the virtual host
+		return true
+	}
+
+	if httpRoute == nil {
+		// we have a specific match for particular httpRoute but
+		// we dont have a httpRoute to match.
+		return false
+	}
+
+	// check if httpRoute names match
+	if match.Name != "" && match.Name != httpRoute.Name {
+		return false
+	}
+
+	if match.Action != networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ANY {
+		switch httpRoute.Action.(type) {
+		case *route.Route_Route:
+			return match.Action == networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ROUTE
+		case *route.Route_Redirect:
+			return match.Action == networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_REDIRECT
+		case *route.Route_DirectResponse:
+			return match.Action == networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_DIRECT_RESPONSE
+		}
+	}
+	return true
 }

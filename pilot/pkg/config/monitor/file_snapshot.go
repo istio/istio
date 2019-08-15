@@ -22,6 +22,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
+
 	"istio.io/pkg/log"
 )
 
@@ -40,8 +43,8 @@ type FileSnapshot struct {
 }
 
 // NewFileSnapshot returns a snapshotter.
-// If no types are provided in the descriptor, all IstioConfigTypes will be allowed.
-func NewFileSnapshot(root string, descriptor model.ConfigDescriptor) *FileSnapshot {
+// If no types are provided in the descriptor, all Istio types will be allowed.
+func NewFileSnapshot(root string, descriptor schema.Set) *FileSnapshot {
 	snapshot := &FileSnapshot{
 		root:             root,
 		configTypeFilter: make(map[string]bool),
@@ -49,12 +52,12 @@ func NewFileSnapshot(root string, descriptor model.ConfigDescriptor) *FileSnapsh
 
 	types := descriptor.Types()
 	if len(types) == 0 {
-		types = model.IstioConfigTypes.Types()
+		types = schemas.Istio.Types()
 	}
 
 	for _, k := range types {
-		if schema, ok := model.IstioConfigTypes.GetByType(k); ok {
-			snapshot.configTypeFilter[schema.Type] = true
+		if s, ok := schemas.Istio.GetByType(k); ok {
+			snapshot.configTypeFilter[s.Type] = true
 		}
 	}
 

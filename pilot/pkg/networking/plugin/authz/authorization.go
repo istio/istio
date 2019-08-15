@@ -117,6 +117,25 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 			}
 		}
+	case plugin.ListenerProtocolAuto:
+		rbacLog.Debugf("building filter for AUTO listener protocol")
+		httpFilter := builder.BuildHTTPFilter()
+		tcpFilter := builder.BuildTCPFilter()
+
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolTCP:
+				if tcpFilter != nil {
+					rbacLog.Infof("added TCP filter to filter chain %d", cnum)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
+			case plugin.ListenerProtocolHTTP:
+				if httpFilter != nil {
+					rbacLog.Infof("added HTTP filter to filter chain %d", cnum)
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				}
+			}
+		}
 	}
 }
 

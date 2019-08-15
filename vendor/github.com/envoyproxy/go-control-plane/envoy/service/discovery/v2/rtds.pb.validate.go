@@ -111,12 +111,17 @@ func (m *Runtime) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetLayer()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RuntimeValidationError{
-				field:  "Layer",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetLayer()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RuntimeValidationError{
+					field:  "Layer",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

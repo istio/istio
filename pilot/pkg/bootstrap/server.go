@@ -75,6 +75,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -405,7 +406,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
 					s.EnvoyXdsServer.Env.Mesh = meshConfig
-					s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
+					s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 				}
 			}
 		})
@@ -476,7 +477,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			}
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
+				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 			}
 		}
 	})
@@ -516,15 +517,15 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
-	for i, t := range model.IstioConfigTypes {
+	collections := make([]sink.CollectionOptions, len(schemas.Istio))
+	for i, t := range schemas.Istio {
 		collections[i] = sink.CollectionOptions{Name: t.Collection, Incremental: false}
 	}
 
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(model.UpdateRequest{Full: true})
+			s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 		},
 	}
 
@@ -547,7 +548,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.Make(model.IstioConfigTypes)
+				store := memory.Make(schemas.Istio)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, configController)
@@ -700,7 +701,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
-		store := memory.Make(model.IstioConfigTypes)
+		store := memory.Make(schemas.Istio)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args.Config.FileDir, configController)
@@ -757,7 +758,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := controller.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -772,7 +773,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, model.IstioConfigTypes)
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, schemas.Istio)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.

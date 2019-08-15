@@ -145,6 +145,18 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		}
 		return nil
+	case plugin.ListenerProtocolAuto:
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
+		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
@@ -165,6 +177,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	if in.Node.IstioVersion != nil {
 		vs := proxyVersionToString(in.Node.IstioVersion)
 		attrs["context.proxy_version"] = attrStringValue(vs)
+	}
+
+	if meshID, found := in.Node.Metadata[model.NodeMetadataMeshID]; found {
+		attrs["destination.mesh.id"] = attrStringValue(meshID)
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -192,6 +208,19 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
+		return nil
+	case plugin.ListenerProtocolAuto:
+		httpFilter := buildInboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		tcpFilter := buildInboundTCPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case plugin.ListenerProtocolHTTP:
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			case plugin.ListenerProtocolTCP:
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+
 		return nil
 	}
 

@@ -65,11 +65,19 @@ func (c *ConfigWriter) Prime(b []byte) error {
 }
 
 func retrieveEndpointAddress(host *adminapi.HostStatus) string {
-	return host.Address.GetSocketAddress().Address
+	addr := host.Address.GetSocketAddress()
+	if addr != nil {
+		return addr.Address
+	}
+	return "unix://" + host.Address.GetPipe().Path
 }
 
 func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
-	return l.Address.GetSocketAddress().GetPortValue()
+	addr := l.Address.GetSocketAddress()
+	if addr != nil {
+		return addr.GetPortValue()
+	}
+	return 0
 }
 
 func retrieveEndpointStatus(l *adminapi.HostStatus) core.HealthStatus {
@@ -125,7 +133,12 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	clusterEndpoint = retrieveSortedEndpointClusterSlice(clusterEndpoint)
 	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tOUTLIER CHECK\tCLUSTER")
 	for _, ce := range clusterEndpoint {
-		endpoint := ce.address + ":" + strconv.Itoa(ce.port)
+		var endpoint string
+		if ce.port != 0 {
+			endpoint = ce.address + ":" + strconv.Itoa(ce.port)
+		} else {
+			endpoint = ce.address
+		}
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", endpoint, core.HealthStatus_name[int32(ce.status)], printFailedOutlierCheck(ce.failedOutlierCheck), ce.cluster)
 	}
 

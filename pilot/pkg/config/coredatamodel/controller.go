@@ -23,9 +23,12 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
@@ -49,7 +52,7 @@ type Controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
 	configStore             map[string]map[string]map[string]*model.Config
-	descriptorsByCollection map[string]model.ProtoSchema
+	descriptorsByCollection map[string]schema.Instance
 	options                 Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
 
@@ -59,9 +62,9 @@ type Controller struct {
 
 // NewController provides a new CoreDataModel controller
 func NewController(options Options) CoreDataModel {
-	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
+	descriptorsByMessageName := make(map[string]schema.Instance, len(schemas.Istio))
 	synced := make(map[string]bool)
-	for _, descriptor := range model.IstioConfigTypes {
+	for _, descriptor := range schemas.Istio {
 		// don't register duplicate descriptors for the same collection
 		if _, ok := descriptorsByMessageName[descriptor.Collection]; !ok {
 			descriptorsByMessageName[descriptor.Collection] = descriptor
@@ -80,8 +83,8 @@ func NewController(options Options) CoreDataModel {
 
 // ConfigDescriptor returns all the ConfigDescriptors that this
 // controller is responsible for
-func (c *Controller) ConfigDescriptor() model.ConfigDescriptor {
-	return model.IstioConfigTypes
+func (c *Controller) ConfigDescriptor() schema.Set {
+	return schemas.Istio
 }
 
 // List returns all the config that is stored by type and namespace
@@ -123,7 +126,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
 	}
 
-	schema, valid := c.ConfigDescriptor().GetByType(descriptor.Type)
+	s, valid := c.ConfigDescriptor().GetByType(descriptor.Type)
 	if !valid {
 		return fmt.Errorf("descriptor type not supported %s", descriptor.Type)
 	}
@@ -163,7 +166,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 			Spec: obj.Body,
 		}
 
-		if err := schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
+		if err := s.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
 			// Do not return an error, instead discard the resources so that Pilot can process the rest.
 			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 			continue
@@ -186,7 +189,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
 
-	if descriptor.Type == model.ServiceEntry.Type {
+	if descriptor.Type == schemas.ServiceEntry.Type {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else {
 		c.options.ClearDiscoveryServerCache()
@@ -249,7 +252,7 @@ func (c *Controller) Delete(typ, name, namespace string) error {
 
 func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
+	if handlers, ok := c.eventHandlers[schemas.ServiceEntry.Type]; ok {
 		dispatch = func(model model.Config, event model.Event) {
 			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
 			for _, handler := range handlers {

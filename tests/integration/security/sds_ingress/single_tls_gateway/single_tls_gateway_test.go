@@ -15,15 +15,13 @@
 package singletlsgateway
 
 import (
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-
-	"testing"
 )
 
 var (
@@ -42,12 +40,6 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-			//  environment https://github.com/istio/istio/issues/14180.
-			if ctx.Environment().(*kube.Environment).Settings().Minikube {
-				t.Skip("https://github.com/istio/istio/issues/14180")
-			}
-
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialA)
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)

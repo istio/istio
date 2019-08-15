@@ -124,14 +124,44 @@ function setup_kind_cluster() {
 
   trap cleanup_kind_cluster EXIT
 
+  # Different Kubernetes versions need different patches
+  K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
+  if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
+    # Kubernetes 1.12
+    CONFIG=./prow/config/trustworthy-jwt-12.yaml
+  elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
+    # Kubernetes 1.13, 1.14
+    CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
+  else
+    # Kubernetes 1.15
+    CONFIG=./prow/config/trustworthy-jwt.yaml
+  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --config ./prow/config/trustworthy-jwt.yaml --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}"); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
 
   KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
+}
+
+function cni_run_daemon_kind() {
+  echo 'Run the CNI daemon set'
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+
+  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
+  chartdir=$(mktemp -d)
+  helm init --client-only
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
+  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
+    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
+
+  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
 }
 
 function cni_run_daemon() {

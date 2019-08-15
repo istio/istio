@@ -21,15 +21,18 @@ import (
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestController(t *testing.T) {
-	configDescriptor := model.ConfigDescriptor{
-		model.ServiceEntry,
+	configDescriptor := schema.Set{
+		schemas.ServiceEntry,
 	}
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
@@ -53,7 +56,7 @@ func TestController(t *testing.T) {
 
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              model.ServiceEntry.Type,
+			Type:              schemas.ServiceEntry.Type,
 			Name:              "fake",
 			Namespace:         "fake-ns",
 			CreationTimestamp: time.Now(),

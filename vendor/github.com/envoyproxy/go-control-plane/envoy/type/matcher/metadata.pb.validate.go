@@ -58,12 +58,17 @@ func (m *MetadataMatcher) Validate() error {
 	for idx, item := range m.GetPath() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return MetadataMatcherValidationError{
-					field:  fmt.Sprintf("Path[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return MetadataMatcherValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -77,12 +82,17 @@ func (m *MetadataMatcher) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return MetadataMatcherValidationError{
-				field:  "Value",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetValue()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return MetadataMatcherValidationError{
+					field:  "Value",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

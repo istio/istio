@@ -27,7 +27,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -200,7 +201,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSON, err := model.HTTPAPISpec.FromJSON(wantJSON)
+	gotFromJSON, err := schemas.HTTPAPISpec.FromJSON(wantJSON)
 	if err != nil {
 		t.Errorf("FromJSON failed: %v", err)
 	}
@@ -220,7 +221,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromYAML, err := model.HTTPAPISpec.FromYAML(wantYAML)
+	gotFromYAML, err := schemas.HTTPAPISpec.FromYAML(wantYAML)
 	if err != nil {
 		t.Errorf("FromYAML failed: %v", err)
 	}
@@ -228,7 +229,7 @@ patterns:
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
 	}
 
-	if _, err = model.HTTPAPISpec.FromYAML(":"); err == nil {
+	if _, err = schemas.HTTPAPISpec.FromYAML(":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 
@@ -244,7 +245,7 @@ patterns:
 		t.Error("should produce an error")
 	}
 
-	gotFromJSONMap, err := model.HTTPAPISpec.FromJSONMap(wantJSONMap)
+	gotFromJSONMap, err := schemas.HTTPAPISpec.FromJSONMap(wantJSONMap)
 	if err != nil {
 		t.Errorf("FromJSONMap failed: %v", err)
 	}
@@ -252,16 +253,16 @@ patterns:
 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
 	}
 
-	if _, err = model.HTTPAPISpec.FromJSONMap(1); err == nil {
+	if _, err = schemas.HTTPAPISpec.FromJSONMap(1); err == nil {
 		t.Error("should produce an error")
 	}
-	if _, err = model.HTTPAPISpec.FromJSON(":"); err == nil {
+	if _, err = schemas.HTTPAPISpec.FromJSON(":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 }
 
 func TestProtoSchemaConversions(t *testing.T) {
-	destinationRuleSchema := &model.ProtoSchema{MessageName: model.DestinationRule.MessageName}
+	destinationRuleSchema := &schema.Instance{MessageName: schemas.DestinationRule.MessageName}
 
 	msg := &networking.DestinationRule{
 		Host: "something.svc.local",
@@ -318,9 +319,9 @@ trafficPolicy:
 		},
 	}
 
-	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
+	badSchema := &schema.Instance{MessageName: "bad-name"}
 	if _, err := badSchema.FromYAML(wantYAML); err == nil {
-		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
+		t.Errorf("FromYAML should have failed using Schema with bad MessageName")
 	}
 
 	gotJSON, err := protomarshal.ToJSON(msg)

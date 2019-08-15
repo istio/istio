@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -112,9 +113,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 
 	gatewayConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.Gateway.Type,
-			Group:     model.Gateway.Group,
-			Version:   model.Gateway.Version,
+			Type:      schemas.Gateway.Type,
+			Group:     schemas.Gateway.Group,
+			Version:   schemas.Gateway.Version,
 			Name:      ingress.Name + "-" + constants.IstioIngressGatewayName,
 			Namespace: ingressNamespace,
 			Domain:    domainSuffix,
@@ -174,9 +175,9 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualServiceConfig := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.VirtualService.Type,
-				Group:     model.VirtualService.Group,
-				Version:   model.VirtualService.Version,
+				Type:      schemas.VirtualService.Type,
+				Group:     schemas.VirtualService.Group,
+				Version:   schemas.VirtualService.Version,
 				Name:      namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace: ingress.Namespace,
 				Domain:    domainSuffix,

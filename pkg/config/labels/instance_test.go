@@ -62,6 +62,16 @@ func TestInstanceValidate(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:  "good tag - DNS prefix",
+			tags:  labels.Instance{"k8s.io/key": "value"},
+			valid: true,
+		},
+		{
+			name:  "good tag - subdomain DNS prefix",
+			tags:  labels.Instance{"app.kubernetes.io/name": "value"},
+			valid: true,
+		},
+		{
 			name: "bad tag - empty key",
 			tags: labels.Instance{"": "value"},
 		},
@@ -76,6 +86,10 @@ func TestInstanceValidate(t *testing.T) {
 		{
 			name: "bad tag key 3",
 			tags: labels.Instance{"key$": "value"},
+		},
+		{
+			name: "bad tag key - invalid DNS prefix",
+			tags: labels.Instance{"istio./key": "value"},
 		},
 		{
 			name: "bad tag value 1",

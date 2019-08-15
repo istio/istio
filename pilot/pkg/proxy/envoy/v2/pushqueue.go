@@ -16,68 +16,62 @@ package v2
 
 import (
 	"sync"
-	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type PushEvent struct {
-	// If not empty, it is used to indicate the event is caused by a change in the clusters.
-	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]struct{}
-
-	push *model.PushContext
-
-	// start represents the time a push was started.
-	start time.Time
-
-	full bool
-}
-
 type PushQueue struct {
-	mu          *sync.RWMutex
-	cond        *sync.Cond
-	eventsMap   map[*XdsConnection]*PushEvent
+	mu   *sync.RWMutex
+	cond *sync.Cond
+
+	// eventsMap stores all connections in the queue. If the same connection is enqueued again, the
+	// PushEvents will be merged.
+	eventsMap map[*XdsConnection]*model.PushRequest
+
+	// connections maintains ordering of the queue
 	connections []*XdsConnection
+
+	// inProgress stores all connections that have been Dequeue(), but not MarkDone().
+	// The value stored will be initially be nil, but may be populated if the connection is Enqueue().
+	// If model.PushRequest is not nil, it will be Enqueued again once MarkDone has been called.
+	inProgress map[*XdsConnection]*model.PushRequest
 }
 
 func NewPushQueue() *PushQueue {
 	mu := &sync.RWMutex{}
 	return &PushQueue{
-		mu:        mu,
-		eventsMap: make(map[*XdsConnection]*PushEvent),
-		cond:      sync.NewCond(mu),
+		mu:         mu,
+		eventsMap:  make(map[*XdsConnection]*model.PushRequest),
+		inProgress: make(map[*XdsConnection]*model.PushRequest),
+		cond:       sync.NewCond(mu),
 	}
 }
 
 // Add will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
 // edsUpdatedServices will be added together, and full will be set if either were full
-func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *PushEvent) {
+func (p *PushQueue) Enqueue(proxy *XdsConnection, pushInfo *model.PushRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	event, exists := p.eventsMap[proxy]
-	if !exists {
-		p.eventsMap[proxy] = pushInfo
-		p.connections = append(p.connections, proxy)
-	} else {
-		event.push = pushInfo.push
-		event.full = event.full || pushInfo.full
-
-		edsUpdates := map[string]struct{}{}
-		for endpoint := range pushInfo.edsUpdatedServices {
-			edsUpdates[endpoint] = struct{}{}
-		}
-		for endpoint := range event.edsUpdatedServices {
-			edsUpdates[endpoint] = struct{}{}
-		}
-		event.edsUpdatedServices = edsUpdates
+	// If its already in progress, merge the info and return
+	if event, f := p.inProgress[proxy]; f {
+		p.inProgress[proxy] = event.Merge(pushInfo)
+		return
 	}
+
+	if event, f := p.eventsMap[proxy]; f {
+		p.eventsMap[proxy] = event.Merge(pushInfo)
+		return
+	}
+
+	p.eventsMap[proxy] = pushInfo
+	p.connections = append(p.connections, proxy)
+	// Signal waiters on Dequeue that a new item is available
 	p.cond.Signal()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
-func (p *PushQueue) Dequeue() (*XdsConnection, *PushEvent) {
+func (p *PushQueue) Dequeue() (*XdsConnection, *model.PushRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -88,9 +82,28 @@ func (p *PushQueue) Dequeue() (*XdsConnection, *PushEvent) {
 
 	head := p.connections[0]
 	p.connections = p.connections[1:]
+
 	info := p.eventsMap[head]
 	delete(p.eventsMap, head)
+
+	// Mark the connection as in progress
+	p.inProgress[head] = nil
+
 	return head, info
+}
+
+func (p *PushQueue) MarkDone(con *XdsConnection) {
+	p.mu.Lock()
+
+	info := p.inProgress[con]
+	delete(p.inProgress, con)
+	p.mu.Unlock()
+
+	// If the info is present, that means Enqueue was called while connection was not yet marked done.
+	// This means we need to add it back to the queue
+	if info != nil {
+		p.Enqueue(con, info)
+	}
 }
 
 // Get number of pending proxies

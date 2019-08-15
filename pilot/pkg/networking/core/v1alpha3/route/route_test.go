@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -49,11 +50,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "someID",
-		DNSDomain:   "foo.com",
-		Metadata:    map[string]string{"ISTIO_VERSION": "1.3"},
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{"1.1.1.1"},
+		ID:           "someID",
+		DNSDomain:    "foo.com",
+		Metadata:     map[string]string{"ISTIO_VERSION": "1.3"},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -78,8 +80,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: &networking.DestinationRule{
@@ -122,8 +124,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    model.VirtualService.Type,
-				Version: model.VirtualService.Version,
+				Type:    schemas.VirtualService.Type,
+				Version: schemas.VirtualService.Version,
 				Name:    "acme",
 			},
 			Spec: virtualServiceWithSubset,
@@ -138,8 +140,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: &networking.DestinationRule{
@@ -167,8 +169,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		virtualService := model.Config{ConfigMeta: model.ConfigMeta{Type: model.VirtualService.Type,
-			Version: model.VirtualService.Version,
+		virtualService := model.Config{ConfigMeta: model.ConfigMeta{Type: schemas.VirtualService.Type,
+			Version: schemas.VirtualService.Version,
 			Name:    "acme",
 		},
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
@@ -185,8 +187,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			{
 
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: portLevelDestinationRuleWithSubsetPolicy,
@@ -212,8 +214,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    model.VirtualService.Type,
-				Version: model.VirtualService.Version,
+				Type:    schemas.VirtualService.Type,
+				Version: schemas.VirtualService.Version,
 				Name:    "acme",
 			},
 			Spec: virtualServiceWithSubset,
@@ -221,8 +223,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		cnfg := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
+				Type:    schemas.DestinationRule.Type,
+				Version: schemas.DestinationRule.Version,
 				Name:    "acme",
 			},
 		}
@@ -268,8 +270,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: portLevelDestinationRule,
@@ -314,8 +316,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: networkingDestinationRule,
@@ -334,8 +336,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
+					Type:    schemas.DestinationRule.Type,
+					Version: schemas.DestinationRule.Version,
 					Name:    "acme",
 				},
 				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
@@ -414,8 +416,8 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 
 var virtualServicePlain = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    model.VirtualService.Type,
-		Version: model.VirtualService.Version,
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
 		Name:    "acme",
 	},
 	Spec: &networking.VirtualService{
@@ -443,8 +445,8 @@ var virtualServicePlain = model.Config{
 
 var virtualServiceWithRedirect = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    model.VirtualService.Type,
-		Version: model.VirtualService.Version,
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
 		Name:    "acme",
 	},
 	Spec: &networking.VirtualService{
