@@ -693,6 +693,21 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 	return services
 }
 
+// GetMTLSReady returns true if a service is ready to configure Istio mTLS
+func (ps *PushContext) GetMTLSReady(hostname host.Name) bool {
+	nsMap, exists := ps.ServiceByHostnameAndNamespace[hostname]
+	if !exists {
+		return false
+	}
+	retval := true
+	for _, s := range nsMap {
+		if s != nil && !s.MTLSReady {
+			retval = false
+		}
+	}
+	return retval
+}
+
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {

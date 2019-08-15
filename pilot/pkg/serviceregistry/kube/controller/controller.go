@@ -34,6 +34,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -456,13 +457,14 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			}
 
 			pod := c.pods.getPodByIP(ea.IP)
-			az, sa, uid := "", "", ""
+			az, sa, uid, mtlsReady := "", "", "", false
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
 				if mixerEnabled {
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
+				mtlsReady = kube.PodMTLSReady(pod)
 			}
 
 			// identify the port by name. K8S EndpointPort uses the service port name
@@ -481,6 +483,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
+						MTLSReady:      mtlsReady,
 					})
 				}
 			}
@@ -636,10 +639,11 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	podLabels, _ := c.pods.labelsByIP(ip)
 	pod := c.pods.getPodByIP(ip)
-	az, sa := "", ""
+	az, sa, mtlsReady := "", "", false
 	if pod != nil {
 		az = c.GetPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
+		mtlsReady = kube.PodMTLSReady(pod)
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -652,6 +656,7 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
+		MTLSReady:      mtlsReady,
 	}
 }
 
@@ -782,6 +787,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	mixerEnabled := c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != ""
 
 	endpoints := make([]*model.IstioEndpoint, 0)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	updateMTLSReadyStatus := false
+
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
@@ -796,10 +807,19 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 
 				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				mtlsReady := false
+				if kube.PodMTLSReady(pod) {
+					mtlsReady = true
+				}
 
 				uid := ""
 				if mixerEnabled {
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				}
+
+				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints
+				if svc != nil && svc.MTLSReady != mtlsReady {
+					updateMTLSReadyStatus = true
 				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
@@ -815,10 +835,15 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        c.GetPodLocality(pod),
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						MTLSReady:       mtlsReady,
 					})
 				}
 			}
 		}
+	}
+
+	if features.UseAutoPilotMTLS.Get() && updateMTLSReadyStatus {
+		c.updateSvcMtlsReady(svc)
 	}
 
 	// TODO: Endpoints include the service labels, maybe we can use them ?
@@ -834,6 +859,47 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
+}
+
+// called when the overall mTLS ready status of endpoints have changed for a service and the cached Service object must be updated
+func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
+	// TODO gihanson does the mTLS ready state impact external name services?
+	c.RLock()
+	instances := c.externalNameSvcInstanceMap[svc.Hostname]
+	c.RUnlock()
+	if instances != nil {
+		return
+	}
+
+	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	if err != nil {
+		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return
+	}
+	if !exists {
+		return
+	}
+
+	svcMTLSReady := true
+	ep := item.(*v1.Endpoints)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			pod := c.pods.getPodByIP(ea.IP)
+			mtlsReady := false
+			if pod != nil {
+				mtlsReady = kube.PodMTLSReady(pod)
+			}
+			if !mtlsReady {
+				svcMTLSReady = false
+			}
+		}
+	}
+
+	svc.MTLSReady = svcMTLSReady
+	c.Lock()
+	c.servicesMap[svc.Hostname] = svc
+	c.Unlock()
+
 }
 
 // namedRangerEntry for holding network's CIDR and name

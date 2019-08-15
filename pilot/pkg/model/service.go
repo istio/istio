@@ -88,6 +88,10 @@ type Service struct {
 	// Attributes contains additional attributes associated with the service
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
+
+	// MTLSReady service is injected with istio sidecar and ready to configure Istio mTLS
+	// true only if all instances of service are mTLS ready, otherwise false
+	MTLSReady bool
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -256,6 +260,7 @@ type ServiceInstance struct {
 	Service        *Service        `json:"service,omitempty"`
 	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	MTLSReady      bool            `json:"mtlsReady,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -340,6 +345,8 @@ type IstioEndpoint struct {
 	// Attributes contains additional attributes associated with the service
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
+	// MTLSReady endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	MTLSReady bool
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

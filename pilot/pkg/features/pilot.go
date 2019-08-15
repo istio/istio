@@ -183,6 +183,12 @@ var (
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	)
+
+	UseAutoPilotMTLS = env.RegisterBoolVar(
+		"USE_AUTOPILOT_MTLS",
+		false,
+		"if enabled, pods with the label mtlsReady=true will be configured with mTLS by default",
+	)
 )
 
 var (

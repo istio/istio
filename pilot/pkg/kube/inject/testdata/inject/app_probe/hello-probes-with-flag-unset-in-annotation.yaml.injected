@@ -14,6 +14,7 @@ spec:
   template:
     metadata:
       annotations:
+        authentication.istio.io/mtlsReady: "true"
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
         sidecar.istio.io/status: '{"version":"48223a2bdf0874fbf126b9de064f387c42898c5f6d6bfdc41457caef22593b82","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'

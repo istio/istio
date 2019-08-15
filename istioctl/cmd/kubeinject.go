@@ -149,6 +149,7 @@ func validateFlags() error {
 
 var (
 	emitTemplate bool
+	mtlsReady    bool
 
 	inFilename          string
 	outFilename         string
@@ -305,7 +306,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
+			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, mtlsReady, reader, writer)
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;
@@ -336,6 +337,9 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
+
+	injectCmd.PersistentFlags().BoolVar(&mtlsReady, "mtlsReady", false,
+		"Annotate the service to communicate within the mesh using Istio mTLS by default")
 
 	return injectCmd
 }

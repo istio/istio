@@ -149,6 +149,9 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts map[string]bool
+
+	// MTLSReady is true if all endpoints in the shard are ready to configure Istio mTLS, otherwise false
+	MTLSReady bool
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to

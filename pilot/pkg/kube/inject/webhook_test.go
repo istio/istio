@@ -1386,7 +1386,14 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-		  "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+          "authentication.istio.io/mtlsReady":"true"
+      }
+   },
+   {
+      "op":"add",
+      "path":"/metadata/annotations",
+      "value":{
+          "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
    }
 ]`)
@@ -1480,7 +1487,7 @@ func TestRunAndServe(t *testing.T) {
 			}
 
 			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got %v \n want %v", gotPatch, wantPatch)
+				t.Fatalf("got bad patch: \n got %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}

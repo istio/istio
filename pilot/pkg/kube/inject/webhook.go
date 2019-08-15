@@ -581,6 +581,9 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+	if pod.Annotations[annotation.AuthenticationMtlsReady.Name] == "" {
+		annotations[annotation.AuthenticationMtlsReady.Name] = "true"
+	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
