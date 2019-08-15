@@ -26,7 +26,7 @@ type Http struct {
 	//
 	// **NOTE:** All service configuration rules follow "last one wins" order.
 	Rules []*HttpRule `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
-	// When set to true, URL path parmeters will be fully URI-decoded except in
+	// When set to true, URL path parameters will be fully URI-decoded except in
 	// cases of single segment matches in reserved expansion, where "%2F" will be
 	// left encoded.
 	//
@@ -42,7 +42,7 @@ func (m *Http) Reset()         { *m = Http{} }
 func (m *Http) String() string { return proto.CompactTextString(m) }
 func (*Http) ProtoMessage()    {}
 func (*Http) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_6617e93ffeeff0ad, []int{0}
+	return fileDescriptor_http_5af6bbacbb935ee3, []int{0}
 }
 func (m *Http) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Http.Unmarshal(m, b)
@@ -245,18 +245,15 @@ func (m *Http) GetFullyDecodeReservedExpansion() bool {
 // 1. Leaf request fields (recursive expansion nested messages in the request
 //    message) are classified into three categories:
 //    - Fields referred by the path template. They are passed via the URL path.
-//    - Fields referred by the [HttpRule.body][google.api.HttpRule.body]. They
-//    are passed via the HTTP
+//    - Fields referred by the [HttpRule.body][google.api.HttpRule.body]. They are passed via the HTTP
 //      request body.
 //    - All other fields are passed via the URL query parameters, and the
 //      parameter name is the field path in the request message. A repeated
 //      field can be represented as multiple query parameters under the same
 //      name.
-//  2. If [HttpRule.body][google.api.HttpRule.body] is "*", there is no URL
-//  query parameter, all fields
+//  2. If [HttpRule.body][google.api.HttpRule.body] is "*", there is no URL query parameter, all fields
 //     are passed via URL path and HTTP request body.
-//  3. If [HttpRule.body][google.api.HttpRule.body] is omitted, there is no HTTP
-//  request body, all
+//  3. If [HttpRule.body][google.api.HttpRule.body] is omitted, there is no HTTP request body, all
 //     fields are passed via URL path and URL query parameters.
 //
 // ### Path template syntax
@@ -351,8 +348,7 @@ func (m *Http) GetFullyDecodeReservedExpansion() bool {
 type HttpRule struct {
 	// Selects a method to which this rule applies.
 	//
-	// Refer to [selector][google.api.DocumentationRule.selector] for syntax
-	// details.
+	// Refer to [selector][google.api.DocumentationRule.selector] for syntax details.
 	Selector string `protobuf:"bytes,1,opt,name=selector,proto3" json:"selector,omitempty"`
 	// Determines the URL pattern is matched by this rules. This pattern can be
 	// used with any of the {get|put|post|delete|patch} methods. A custom method
@@ -393,7 +389,7 @@ func (m *HttpRule) Reset()         { *m = HttpRule{} }
 func (m *HttpRule) String() string { return proto.CompactTextString(m) }
 func (*HttpRule) ProtoMessage()    {}
 func (*HttpRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_6617e93ffeeff0ad, []int{1}
+	return fileDescriptor_http_5af6bbacbb935ee3, []int{1}
 }
 func (m *HttpRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpRule.Unmarshal(m, b)
@@ -675,7 +671,7 @@ func (m *CustomHttpPattern) Reset()         { *m = CustomHttpPattern{} }
 func (m *CustomHttpPattern) String() string { return proto.CompactTextString(m) }
 func (*CustomHttpPattern) ProtoMessage()    {}
 func (*CustomHttpPattern) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_6617e93ffeeff0ad, []int{2}
+	return fileDescriptor_http_5af6bbacbb935ee3, []int{2}
 }
 func (m *CustomHttpPattern) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CustomHttpPattern.Unmarshal(m, b)
@@ -715,9 +711,9 @@ func init() {
 	proto.RegisterType((*CustomHttpPattern)(nil), "google.api.CustomHttpPattern")
 }
 
-func init() { proto.RegisterFile("google/api/http.proto", fileDescriptor_http_6617e93ffeeff0ad) }
+func init() { proto.RegisterFile("google/api/http.proto", fileDescriptor_http_5af6bbacbb935ee3) }
 
-var fileDescriptor_http_6617e93ffeeff0ad = []byte{
+var fileDescriptor_http_5af6bbacbb935ee3 = []byte{
 	// 419 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0xc1, 0x8e, 0xd3, 0x30,
 	0x10, 0x86, 0x49, 0x9b, 0x76, 0xdb, 0xe9, 0x82, 0x84, 0x59, 0x90, 0x85, 0x40, 0x54, 0xe5, 0x52,
