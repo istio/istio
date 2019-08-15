@@ -89,6 +89,9 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	for valKey, outVal := range ts.APIMapping {
 		t.APIMapping[outVal.outPath] = &Translation{valKey, nil}
 	}
+	// Override for special mapping
+	t.APIMapping["global.controlPlaneSecurityEnabled"] = &Translation{"Security.ControlPlaneMtls", nil}
+	t.APIMapping["global.mtls.enabled"] = &Translation{"Security.DataPlaneMtlsStrict", nil}
 
 	for cn, cm := range ts.ComponentMaps {
 		if cn != name.IstioBaseComponentName {
@@ -169,7 +172,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values *v1alpha2.Values) (c
 	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec)
 
 	if err != nil {
-		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml: %s", err, outputVal)
+		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml:\n %s", err, outputVal)
 	}
 
 	return cpSpec, nil

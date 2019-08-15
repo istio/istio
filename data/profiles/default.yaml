@@ -11,6 +11,7 @@ spec:
     components:
       pilot:
         common:
+          enabled: true
           k8s:
             env:
               - name: POD_NAME
@@ -104,6 +105,7 @@ spec:
     components:
       policy:
         common:
+          enabled: true
           k8s:
             replicaCount: 1
             hpaSpec:
@@ -135,6 +137,7 @@ spec:
     components:
       telemetry:
         common:
+          enabled: true
           k8s:
             env:
             - name: GODEBUG
@@ -193,8 +196,9 @@ spec:
       certManager:
         common:
           enabled: false
-          values:
+          k8s:
             replicaCount: 1
+          values:
             hub: quay.io/jetstack
             tag: v0.6.2
             image: cert-manager-controller
@@ -219,6 +223,7 @@ spec:
     components:
       galley:
         common:
+          enabled: true
           k8s:
             replicaCount: 1
             resources:
@@ -234,8 +239,10 @@ spec:
     components:
       injector:
         common:
-          values:
+          enabled: true
+          k8s:
             replicaCount: 1
+          values:
             rollingMaxSurge: 100%
             rollingMaxUnavailable: 25%
             image: sidecar_injector
