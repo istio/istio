@@ -43,7 +43,6 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA)
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
-
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
@@ -52,7 +51,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 30*time.Second)
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 60*time.Second)
 			if err != nil {
 				t.Errorf("total active listener stats does not match: %v", err)
 			}
