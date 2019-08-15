@@ -275,7 +275,6 @@ static_resources:
 )
 
 func TestPilotPlugin(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/16184")
 	s := env.NewTestSetup(env.PilotPluginTLSTest, t)
 	s.EnvoyTemplate = envoyConf
 	grpcServer := grpc.NewServer()
