@@ -619,8 +619,21 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		return
 	}
 
-	fmt.Fprintf(writer, "Pilot reports that pod enforces %s and clients speak %s\n",
-		debug.ServerProtocol, debug.ClientProtocol)
+	mTLSType := map[string]string{
+		"HTTP":        "HTTP",
+		"mTLS":        "STRICT",
+		"HTTP/mTLS":   "PERMISSIVE",
+		"TLS":         "SIMPLE",
+		"custom mTLS": "custom mTLS",
+		"UNKNOWN":     "Unknown",
+	}
+	tlsType, ok := mTLSType[debug.ServerProtocol]
+	if !ok {
+		tlsType = debug.ServerProtocol
+	}
+
+	fmt.Fprintf(writer, "Pilot reports that pod is %s (enforces %s) and clients speak %s\n",
+		tlsType, debug.ServerProtocol, debug.ClientProtocol)
 }
 
 func isMeshed(pod *v1.Pod) bool {
