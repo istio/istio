@@ -33,9 +33,10 @@ EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
 RUN chmod 775 /opt/microservices && \
-    touch /opt/microservices/microservice.log && \
-    chmod 664 /opt/microservices/microservice.log
+    chown daemon:daemon /tmp/microservice.log
+
+USER 1
 
 # hadolint ignore=DL3025
-CMD tail -f /opt/microservices/microservice.log & \
+CMD tail -f /tmp/microservice.log & \
     python productpage.py 9080

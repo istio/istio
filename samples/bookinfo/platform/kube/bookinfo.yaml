@@ -261,4 +261,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
 ---
