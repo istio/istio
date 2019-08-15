@@ -387,8 +387,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		sidecarScopeId := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
-			// determine the bindToPort setting for listeners
+			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
 			bindToPort := false
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
@@ -409,14 +410,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Name:     ingressListener.Port.Name,
 			}
 
-			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
-			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
-			// Sidecar doesn't include all the info needed to configure a port.
 			instance := configgen.findServiceInstanceForIngressListener(node.ServiceInstances, ingressListener)
 
 			if instance == nil {
-				// We didn't find a matching service instance. Skip this ingress listener
-				continue
+				// We didn't find a matching instance. Create a dummy one because we need the right
+				// params to generate the right cluster name. CDS would have setup the cluster as
+				// as inbound|portNumber|portName|SidecarScopeId
+				instance = &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{},
+					Service: &model.Service{
+						Hostname: host.Name(sidecarScopeId),
+						Attributes: model.ServiceAttributes{
+							Name: sidecarScope.Config.Name,
+							// This will ensure that the right AuthN policies are selected
+							Namespace: sidecarScope.Config.Namespace,
+						},
+					},
+				}
 			}
 
 			bind := ingressListener.Bind
@@ -441,14 +451,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bindToPort:     bindToPort,
 			}
 
-			// Update the values here so that the plugins use the right ports
-			// uds values
-			// TODO: all plugins need to be updated to account for the fact that
-			// the port may be 0 but bind may have a UDS value
-			// Inboundroute will be different for
+			instance.Endpoint.Family = model.AddressFamilyTCP
 			instance.Endpoint.Address = bind
 			instance.Endpoint.ServicePort = listenPort
-			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
 			instance.Endpoint.Port = listenPort.Port
 
 			// Validation ensures that the protocol specified in Sidecar.ingress
@@ -857,12 +862,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
-					// check if this node is capable of starting a listener on this service port
-					// if bindToPort is true. Else Envoy will crash
-					if !validatePort(node, servicePort.Port, bindToPort) {
-						continue
-					}
-
 					listenerOpts := buildListenerOpts{
 						env:            env,
 						proxy:          node,
