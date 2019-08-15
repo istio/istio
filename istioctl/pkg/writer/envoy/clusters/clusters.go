@@ -68,18 +68,16 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	addr := host.Address.GetSocketAddress()
 	if addr != nil {
 		return addr.Address
-	} else {
-		return "unix://" + host.Address.GetPipe().Path
 	}
+	return "unix://" + host.Address.GetPipe().Path
 }
 
 func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
 	addr := l.Address.GetSocketAddress()
 	if addr != nil {
 		return addr.GetPortValue()
-	} else {
-		return 0
 	}
+	return 0
 }
 
 func retrieveEndpointStatus(l *adminapi.HostStatus) core.HealthStatus {
