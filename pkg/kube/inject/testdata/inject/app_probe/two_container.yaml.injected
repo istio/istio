@@ -89,6 +89,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
