@@ -843,6 +843,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 func getPortsForContainer(container corev1.Container) []string {
 	parts := make([]string, 0)
 	for _, p := range container.Ports {
+		if p.Protocol == corev1.ProtocolUDP || p.Protocol == corev1.ProtocolSCTP {
+			continue
+		}
 		parts = append(parts, strconv.Itoa(int(p.ContainerPort)))
 	}
 	return parts
