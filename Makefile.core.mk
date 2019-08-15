@@ -30,13 +30,12 @@ update-charts: installer.sha
 
 # make target dependencies
 vfsgen: data/ update-charts
-	go run ./cmd/vfsgen/vfsgen.go
+	go generate ./...
 
 ########################
 # protoc_gen_gogo*
 ########################
 
-#gofast_plugin_prefix := --gofast_out=plugins=grpc,
 gogofast_plugin_prefix := --gogofast_out=plugins=grpc,
 
 comma := ,

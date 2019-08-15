@@ -341,3 +341,12 @@ the spec.
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md)
+
+## Building
+
+If you're trying to do a local build that bypasses the build container, you'll need to do the following for things
+to work correctly:
+
+```
+go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
+```
