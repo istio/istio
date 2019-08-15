@@ -55,7 +55,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 }
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
-	addr, external := constants.UnspecifiedIP, ""
+	addr := constants.UnspecifiedIP
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
 	}
@@ -64,13 +64,8 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 	meshExternal := false
 
 	if svc.Spec.Type == coreV1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
-		external = svc.Spec.ExternalName
 		resolution = model.DNSLB
 		meshExternal = true
-	}
-
-	if addr == constants.UnspecifiedIP && external == "" { // headless services should not be load balanced
-		resolution = model.Passthrough
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
