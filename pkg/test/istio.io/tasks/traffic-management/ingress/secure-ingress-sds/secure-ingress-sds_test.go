@@ -63,8 +63,7 @@ func setupConfig(cfg *istio.Config) {
 	}
 	// Enable SDS key/certificate provisioning for ingress gateway.
 	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
+	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
 }
 
 // https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/
