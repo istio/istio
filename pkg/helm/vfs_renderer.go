@@ -23,7 +23,7 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/chart"
 
 	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/vfsgen"
+	"istio.io/operator/pkg/vfs"
 
 	"istio.io/pkg/log"
 )
@@ -32,8 +32,8 @@ const (
 	// DefaultProfileFilename is the name of the default profile yaml file.
 	DefaultProfileFilename = "default.yaml"
 
-	chartsRoot   = "/charts"
-	profilesRoot = "/profiles"
+	chartsRoot   = "charts"
+	profilesRoot = "profiles"
 )
 
 var (
@@ -42,7 +42,7 @@ var (
 )
 
 func init() {
-	profilePaths, err := vfsgen.ReadDir(profilesRoot)
+	profilePaths, err := vfs.ReadDir(profilesRoot)
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +95,7 @@ func (h *VFSRenderer) RenderManifest(values string) (string, error) {
 func LoadValuesVFS(profileName string) (string, error) {
 	path := filepath.Join(profilesRoot, BuiltinProfileToFilename(profileName))
 	log.Infof("Loading values from compiled in VFS at path %s", path)
-	b, err := vfsgen.ReadFile(path)
+	b, err := vfs.ReadFile(path)
 	return string(b), err
 }
 
@@ -109,13 +109,13 @@ func isBuiltinProfileName(name string) bool {
 // loadChart implements the TemplateRenderer interface.
 func (h *VFSRenderer) loadChart() error {
 	prefix := filepath.Join(chartsRoot, h.helmChartDirPath)
-	fnames, err := vfsgen.GetFilesRecursive(prefix)
+	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
 		return err
 	}
 	var bfs []*chartutil.BufferedFile
 	for _, fname := range fnames {
-		b, err := vfsgen.ReadFile(fname)
+		b, err := vfs.ReadFile(fname)
 		if err != nil {
 			return err
 		}
