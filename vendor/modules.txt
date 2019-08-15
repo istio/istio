@@ -756,7 +756,7 @@ gopkg.in/square/go-jose.v2/jwt
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190813012407-93fc23ae4a32
+# istio.io/api v0.0.0-20190813194754-2745b7cd4150
 istio.io/api/mesh/v1alpha1
 istio.io/api/mcp/v1alpha1
 istio.io/api/authentication/v1alpha1
@@ -764,11 +764,13 @@ istio.io/api/mixer/v1/config/client
 istio.io/api/networking/v1alpha3
 istio.io/api/policy/v1beta1
 istio.io/api/rbac/v1alpha1
+istio.io/api/security/v1beta1
 istio.io/api/annotation
 istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
+istio.io/api/type/v1beta1
 # istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api

@@ -26,6 +26,9 @@ import (
 	// Register protos in "istio.io/api/rbac/v1alpha1"
 	_ "istio.io/api/rbac/v1alpha1"
 
+	// Register protos in "istio.io/api/security/v1beta1"
+	_ "istio.io/api/security/v1beta1"
+
 	// Register protos in "k8s.io/api/core/v1"
 	_ "k8s.io/api/core/v1"
 
@@ -201,6 +204,9 @@ var (
 
 	// istio/rbac/v1alpha1/serviceroles metadata
 	IstioRbacV1alpha1Serviceroles resource.Info
+
+	// istio/security/v1beta1/authorizationpolicies metadata
+	IstioSecurityV1beta1Authorizationpolicies resource.Info
 
 	// k8s/core/v1/endpoints metadata
 	K8sCoreV1Endpoints resource.Info
@@ -386,6 +392,9 @@ func init() {
 	IstioRbacV1alpha1Serviceroles = b.Register(
 		"istio/rbac/v1alpha1/serviceroles",
 		"type.googleapis.com/istio.rbac.v1alpha1.ServiceRole")
+	IstioSecurityV1beta1Authorizationpolicies = b.Register(
+		"istio/security/v1beta1/authorizationpolicies",
+		"type.googleapis.com/istio.security.v1beta1.AuthorizationPolicy")
 	K8sCoreV1Endpoints = b.Register(
 		"k8s/core/v1/endpoints",
 		"type.googleapis.com/k8s.io.api.core.v1.Endpoints")
