@@ -39,8 +39,8 @@ func TestBuildRedisFilter(t *testing.T) {
 		if !redisProxy.LatencyInMicros {
 			t.Errorf("redis proxy latency stat is not configured for microseconds")
 		}
-		if redisProxy.PrefixRoutes.CatchAllCluster != "redis-cluster" {
-			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllCluster)
+		if redisProxy.PrefixRoutes.CatchAllRoute.Cluster != "redis-cluster" {
+			t.Errorf("redis proxy's PrefixRoutes.CatchAllCluster is %s", redisProxy.PrefixRoutes.CatchAllRoute.Cluster)
 		}
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
