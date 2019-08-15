@@ -27,7 +27,8 @@ import (
 	"text/template"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // ConfigData is data struct to feed to types.go template.
@@ -37,13 +38,13 @@ type ConfigData struct {
 }
 
 // MakeConfigData prepare data for code generation for the given schema.
-func MakeConfigData(schema model.ProtoSchema) ConfigData {
+func MakeConfigData(schema schema.Instance) ConfigData {
 	out := ConfigData{
 		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
 		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
 	}
-	if len(schema.SchemaObjectName) > 0 {
-		out.IstioKind = schema.SchemaObjectName
+	if len(schema.VariableName) > 0 {
+		out.IstioKind = schema.VariableName
 	}
 	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
 	return out
@@ -56,12 +57,12 @@ func main() {
 
 	tmpl := template.Must(template.ParseFiles(*templateFile))
 
-	// Prepare to generate types for mock schema and all schema listed in model.IstioConfigTypes
+	// Prepare to generate types for mock schema and all Istio schemas
 	typeList := []ConfigData{
-		MakeConfigData(model.MockConfig),
+		MakeConfigData(schemas.MockConfig),
 	}
-	for _, schema := range model.IstioConfigTypes {
-		typeList = append(typeList, MakeConfigData(schema))
+	for _, s := range schemas.Istio {
+		typeList = append(typeList, MakeConfigData(s))
 	}
 	var buffer bytes.Buffer
 	if err := tmpl.Execute(&buffer, typeList); err != nil {
