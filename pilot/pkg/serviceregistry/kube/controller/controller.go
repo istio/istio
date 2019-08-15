@@ -494,29 +494,30 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 
-	// There is only one IP for kube registry
-	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
-
-	pod := c.pods.getPodByIP(proxyIP)
-	if pod != nil {
-		// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
-		// which can happen when multi clusters using same pod cidr.
-		// As we have proxy Network meta, compare it with the network which endpoint belongs to,
-		// if they are not same, ignore the pod, because the pod is in another cluster.
-		if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
-			return out, nil
-		}
-
-		proxyNamespace = pod.Namespace
-		// 1. find proxy service by label selector, if not any, there may exist headless service
-		// failover to 2
-		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-		if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
-			for _, svc := range services {
-				out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
+	if len(proxy.IPAddresses) > 0 {
+		// There is only one IP for kube registry
+		proxyIP := proxy.IPAddresses[0]
+		pod := c.pods.getPodByIP(proxyIP)
+		if pod != nil {
+			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
+			// which can happen when multi clusters using same pod cidr.
+			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
+			// if they are not same, ignore the pod, because the pod is in another cluster.
+			if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
+				return out, nil
 			}
-			return out, nil
+
+			proxyNamespace = pod.Namespace
+			// 1. find proxy service by label selector, if not any, there may exist headless service
+			// failover to 2
+			svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
+				for _, svc := range services {
+					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
+				}
+				return out, nil
+			}
 		}
 	}
 
