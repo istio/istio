@@ -41,8 +41,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type myGogoValue struct {
@@ -158,8 +159,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 					matchingSubsets := []string{}
 					nonmatchingSubsets := []string{}
 					drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
+					var dr *model.Config
 					if err == nil && drName != "" && drNamespace != "" {
-						dr := configClient.Get(model.DestinationRule.Type, drName, drNamespace)
+						dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
 						if dr != nil {
 							if len(svc.Spec.Ports) > 1 {
 								// If there is more than one port, prefix each DR by the port it applies to
@@ -178,13 +180,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 					vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 					if err == nil && vsName != "" && vsNamespace != "" {
-						vs := configClient.Get(model.VirtualService.Type, vsName, vsNamespace)
+						vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
 						if vs != nil {
 							if len(svc.Spec.Ports) > 1 {
 								// If there is more than one port, prefix each DR by the port it applies to
 								fmt.Fprintf(writer, "%d ", port.Port)
 							}
-							printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets)
+							printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 						}
 					}
 				}
@@ -345,7 +347,7 @@ func printDestinationRule(writer io.Writer, destRule model.Config, podLabels k8s
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *model.Config) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -361,8 +363,13 @@ func httpRouteMatchSvc(virtualSvc model.Config, route *v1alpha3.HTTPRoute, svc v
 					continue
 				}
 				if !contains(matchingSubsets, dest.Destination.Subset) {
-					// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
-					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to UNKNOWN subset %s", dest.Destination.Subset))
+					if dr == nil {
+						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
+						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
+					} else {
+						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
+						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to UNKNOWN subset %s; check DestinationRule %s", dest.Destination.Subset, name(*dr)))
+					}
 					continue
 				}
 			}
@@ -774,7 +781,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{
-		FQDN: config.Hostname(svcHost),
+		FQDN: host.Name(svcHost),
 		Port: int(port),
 		// Although we want inbound traffic, ask for outbound traffic, as the DR is
 		// not associated with the inbound traffic.
@@ -803,7 +810,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string) {
+func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *model.Config) {
 	fmt.Fprintf(writer, "VirtualService: %s\n", name(virtualSvc))
 
 	vsSpec, ok := virtualSvc.Spec.(*v1alpha3.VirtualService)
@@ -819,7 +826,7 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 	facts := 0
 	mismatchNotes := []string{}
 	for _, httpRoute := range vsSpec.Http {
-		routeMatch, newfacts := httpRouteMatchSvc(virtualSvc, httpRoute, svc, matchingSubsets, nonmatchingSubsets)
+		routeMatch, newfacts := httpRouteMatchSvc(virtualSvc, httpRoute, svc, matchingSubsets, nonmatchingSubsets, dr)
 		if routeMatch {
 			matches++
 			for _, newfact := range newfacts {
