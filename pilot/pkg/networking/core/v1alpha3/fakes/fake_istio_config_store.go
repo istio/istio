@@ -116,17 +116,6 @@ type IstioConfigStore struct {
 	envoyFilterReturnsOnCall map[int]struct {
 		result1 *model.Config
 	}
-	HTTPAPISpecByDestinationStub        func(instance *model.ServiceInstance) []model.Config
-	hTTPAPISpecByDestinationMutex       sync.RWMutex
-	hTTPAPISpecByDestinationArgsForCall []struct {
-		instance *model.ServiceInstance
-	}
-	hTTPAPISpecByDestinationReturns struct {
-		result1 []model.Config
-	}
-	hTTPAPISpecByDestinationReturnsOnCall map[int]struct {
-		result1 []model.Config
-	}
 	QuotaSpecByDestinationStub        func(instance *model.ServiceInstance) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
@@ -622,54 +611,6 @@ func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Con
 	}
 	fake.envoyFilterReturnsOnCall[i] = struct {
 		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) HTTPAPISpecByDestination(instance *model.ServiceInstance) []model.Config {
-	fake.hTTPAPISpecByDestinationMutex.Lock()
-	ret, specificReturn := fake.hTTPAPISpecByDestinationReturnsOnCall[len(fake.hTTPAPISpecByDestinationArgsForCall)]
-	fake.hTTPAPISpecByDestinationArgsForCall = append(fake.hTTPAPISpecByDestinationArgsForCall, struct {
-		instance *model.ServiceInstance
-	}{instance})
-	fake.recordInvocation("HTTPAPISpecByDestination", []interface{}{instance})
-	fake.hTTPAPISpecByDestinationMutex.Unlock()
-	if fake.HTTPAPISpecByDestinationStub != nil {
-		return fake.HTTPAPISpecByDestinationStub(instance)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.hTTPAPISpecByDestinationReturns.result1
-}
-
-func (fake *IstioConfigStore) HTTPAPISpecByDestinationCallCount() int {
-	fake.hTTPAPISpecByDestinationMutex.RLock()
-	defer fake.hTTPAPISpecByDestinationMutex.RUnlock()
-	return len(fake.hTTPAPISpecByDestinationArgsForCall)
-}
-
-func (fake *IstioConfigStore) HTTPAPISpecByDestinationArgsForCall(i int) *model.ServiceInstance {
-	fake.hTTPAPISpecByDestinationMutex.RLock()
-	defer fake.hTTPAPISpecByDestinationMutex.RUnlock()
-	return fake.hTTPAPISpecByDestinationArgsForCall[i].instance
-}
-
-func (fake *IstioConfigStore) HTTPAPISpecByDestinationReturns(result1 []model.Config) {
-	fake.HTTPAPISpecByDestinationStub = nil
-	fake.hTTPAPISpecByDestinationReturns = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) HTTPAPISpecByDestinationReturnsOnCall(i int, result1 []model.Config) {
-	fake.HTTPAPISpecByDestinationStub = nil
-	if fake.hTTPAPISpecByDestinationReturnsOnCall == nil {
-		fake.hTTPAPISpecByDestinationReturnsOnCall = make(map[int]struct {
-			result1 []model.Config
-		})
-	}
-	fake.hTTPAPISpecByDestinationReturnsOnCall[i] = struct {
-		result1 []model.Config
 	}{result1}
 }
 
