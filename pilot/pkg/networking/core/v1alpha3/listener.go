@@ -410,6 +410,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Name:     ingressListener.Port.Name,
 			}
 
+			bind := ingressListener.Bind
+			if len(bind) == 0 {
+				// Pick the proxy's IP or 127.0.0.1
+				bind = getSidecarInboundBindIP(node)
+			}
+
 			instance := configgen.findServiceInstanceForIngressListener(node.ServiceInstances, ingressListener)
 
 			if instance == nil {
@@ -427,18 +433,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 						},
 					},
 				}
-			}
-
-			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to instance unicast IP - this is an inbound port.
-			// if no global unicast IP is available, then default to wildcard IP - 0.0.0.0 or ::
-			if len(bind) == 0 && bindToPort {
-				bind = getSidecarInboundBindIP(node)
-			} else if len(bind) == 0 {
-				// auto infer the IP from the proxyInstances
-				// We assume all endpoints in the proxy instances have the same IP
-				// as they should all be pointing to the same network endpoint
-				bind = instance.Endpoint.Address
 			}
 
 			listenerOpts := buildListenerOpts{
@@ -2040,10 +2034,10 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
-// It looks for an unicast address, if none found, then the default wildcard address is used.
-// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
+// It looks for an unicast address, if none found, then the default loopback address is used.
+// This will make the inbound listener bind to instance_ip:port instead of 127.0.0.1:port where applicable.
 func getSidecarInboundBindIP(node *model.Proxy) string {
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
+	_, defaultInboundIP := getActualWildcardAndLocalHost(node)
 	for _, ipAddr := range node.IPAddresses {
 		ip := net.ParseIP(ipAddr)
 		// Return the IP if its a global unicast address.
