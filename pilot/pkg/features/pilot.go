@@ -115,6 +115,15 @@ var (
 		return time.Second * time.Duration(terminationDrainDurationVar.Get())
 	}
 
+	InboundCaptureAll = env.RegisterStringVar(
+		"ISTIO_META_INCLUDE_INBOUND_PORTS",
+		"*",
+		"The captured ports for inbound traffic. '*' for capture all.",
+	)
+	IsInboundCaptureAll = func() bool {
+		return InboundCaptureAll.Get() == "*"
+	}
+
 	EnableFallthroughRoute = env.RegisterBoolVar(
 		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
 		true,

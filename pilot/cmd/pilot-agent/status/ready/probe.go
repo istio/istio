@@ -16,6 +16,7 @@ package ready
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -28,11 +29,12 @@ import (
 
 // Probe for readiness.
 type Probe struct {
-	LocalHostAddr       string
-	AdminPort           uint16
-	receivedFirstUpdate bool
-	ApplicationPorts    []uint16
-	NodeType            model.NodeType
+	LocalHostAddr                 string
+	AdminPort                     uint16
+	receivedFirstUpdate           bool
+	ApplicationPorts              []uint16
+	NodeType                      model.NodeType
+	ProbeByVirtualInboundListener bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -49,6 +51,33 @@ func (p *Probe) Check() error {
 	}
 
 	return p.checkServerInfo()
+}
+
+func (p *Probe) checkInbound() error {
+	/*
+		if !p.ProbeByVirtualInboundListener || p.NodeType != model.SidecarProxy{
+			return p.checkInboundConfigured()
+		}
+	*/
+	if p.NodeType != model.SidecarProxy {
+		return p.checkInboundVirtualListener()
+	} else {
+		return p.checkInboundConfigured()
+	}
+}
+
+func (p *Probe) checkInboundVirtualListener() error {
+	// Warning: this is not reliable at envoy start up.
+	// TODO(silentdai): switch to /configdump
+	listeningPorts, _, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort, p.NodeType)
+	if err != nil {
+		return err
+	}
+	// TODO(silentdai): support user defined inbound port
+	if _, ok := listeningPorts[v1alpha3.ProxyInboundListenPort]; ok {
+		return nil
+	}
+	return multierror.Append(fmt.Errorf("fail to find virtual inbound port 15006"))
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.

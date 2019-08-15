@@ -382,12 +382,13 @@ var (
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:      localHostAddr,
-					AdminPort:          proxyAdminPort,
-					StatusPort:         statusPort,
-					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: prober,
-					NodeType:           role.Type,
+					LocalHostAddr:             localHostAddr,
+					AdminPort:                 proxyAdminPort,
+					StatusPort:                statusPort,
+					ApplicationPorts:          parsedPorts,
+					KubeAppHTTPProbers:        prober,
+					NodeType:                  role.Type,
+					UseVirtualInboundListener: features.IsInboundCaptureAll(),
 				})
 				if err != nil {
 					return err
