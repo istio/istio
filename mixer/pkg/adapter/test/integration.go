@@ -31,6 +31,7 @@ import (
 
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
@@ -404,7 +405,11 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 func errToStatus(err error) spb.Status {
 	var statusResp spb.Status
 	if s, ok := status.FromError(err); ok {
-		statusResp = *s.Proto()
+		if s == nil {
+			statusResp = spb.Status{Code: int32(codes.OK)}
+		} else {
+			statusResp = *s.Proto()
+		}
 	}
 	return statusResp
 }
