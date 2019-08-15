@@ -636,7 +636,6 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap := make(map[uint32]struct{})
-	udsMap := make(map[string]struct{})
 	for _, i := range rule.Ingress {
 		if i.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
@@ -678,7 +677,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap = make(map[uint32]struct{})
-	udsMap = make(map[string]struct{})
+	udsMap := make(map[string]struct{})
 	catchAllEgressListenerFound := false
 	for index, i := range rule.Egress {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.

@@ -978,22 +978,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 	return l
 }
 
-// validatePort checks if the sidecar proxy is capable of listening on a
-// given port in a particular bind mode for a given UID. Sidecars not running
-// as root wont be able to listen on ports <1024 when using bindToPort = true
-func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
-	if !bindToPort {
-		return true // all good, iptables doesn't care
-	}
-
-	if i > 1024 {
-		return true
-	}
-
-	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
-	return proxyProcessUID == "0"
-}
-
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
