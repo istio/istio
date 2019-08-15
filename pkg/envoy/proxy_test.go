@@ -71,7 +71,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--concurrency", "8",
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("envoyArgs() => got %v, want %v", got, want)
+		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
 	}
 }
 
