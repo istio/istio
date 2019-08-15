@@ -37,7 +37,9 @@ func TestMixer_Report_Direct(t *testing.T) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 			be := policybackend.NewOrFail(t, ctx)
 
-			ns := namespace.NewOrFail(t, ctx, "mixreport", false)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "mixreport",
+			})
 
 			g.ApplyConfigOrFail(t,
 				ns,

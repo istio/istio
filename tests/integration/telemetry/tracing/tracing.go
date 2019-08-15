@@ -60,7 +60,10 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	bookinfoNsInst, err = namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNsInst, err = namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		return
 	}

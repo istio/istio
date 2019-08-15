@@ -89,7 +89,10 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	ns := namespace.NewOrFail(t, ctx, "conv", true)
+	ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "conv",
+		Inject: true,
+	})
 
 	expected, err := fset.LoadExpectedResources(ns.Name())
 	if err != nil {

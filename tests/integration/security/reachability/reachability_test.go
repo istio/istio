@@ -45,7 +45,10 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			ns := namespace.NewOrFail(ctx, ctx, "reachability", true)
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "reachability",
+				Inject: true,
+			})
 
 			var a, b, headless, naked echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
