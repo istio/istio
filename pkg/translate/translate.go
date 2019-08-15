@@ -367,7 +367,9 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		pe, _ = util.RemoveBrackets(pe)
 		oo, ok := om[pe]
 		if !ok {
-			return "", fmt.Errorf("resource Kind:name %s doesn't exist in the output manifest:\n%s", pe, yml)
+			// skip to overlay the K8s settings if the corresponding resource doesn't exist.
+			log.Infof("resource Kind:name %s doesn't exist in the output manifest, skip overlay.", pe)
+			continue
 		}
 
 		baseYAML, err := oo.YAML()

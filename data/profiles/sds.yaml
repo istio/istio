@@ -11,11 +11,11 @@ spec:
           k8s:
             env:
             - name: CA_PROVIDER
-              value: ""
+              value: "Citadel"
             - name: CA_ADDR
-              value: ""
-            - name: Plugins
-              value: ""
+              value: "istio-citadel:8060"
+            - name: VALID_TOKEN
+              value: "true"
           values:
             image: node-agent-k8s
 

@@ -68,22 +68,37 @@ spec:
       pilot:
         common:
           k8s:
+            env:
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.name
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+              - name: GODEBUG
+                value: gctrace=1
+              - name: PILOT_TRACE_SAMPLING
+                value: "100"
+              - name: CONFIG_NAMESPACE
+                value: istio-config
             resources:
               requests:
                 cpu: 10m
                 memory: 100Mi
           values:
-            traceSampling: 100
             autoscaleEnabled: false
       proxy:
         common:
-          k8s:
+          values:
+            accessLogFile: /dev/stdout
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
-          values:
-            accessLogFile: /dev/stdout
 
   values:
     global:
