@@ -137,7 +137,7 @@ const (
 )
 
 var (
-	applicationProtocols = []string{"h2", "http/1.1", "http/1.0"}
+	applicationProtocols = []string{"http/1.1", "http/1.0"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &google_protobuf.Struct{
