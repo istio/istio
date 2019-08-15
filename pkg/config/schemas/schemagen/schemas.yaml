@@ -139,3 +139,11 @@ schemas:
     collection:    "istio/rbac/v1alpha1/clusterrbacconfigs"
     clusterScoped: true
     description:   "describes the cluster level RBAC config."
+
+  - type:          "authorization-policy"
+    plural:        "authorizationpolicies"
+    group:         "security"
+    version:       "v1beta1"
+    messageName:   "istio.security.v1beta1.AuthorizationPolicy"
+    collection:    "istio/security/v1beta1/authorizationpolicies"
+    description:   "describes the authorization policy."

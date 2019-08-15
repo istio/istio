@@ -228,6 +228,9 @@ type IstioConfigStore interface {
 
 	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
 	ClusterRbacConfig() *Config
+
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
 }
 
 const (
@@ -672,6 +675,16 @@ func (store *istioConfigStore) RbacConfig() *Config {
 		}
 	}
 	return nil
+}
+
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(schemas.AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 // SortQuotaSpec sorts a slice in a stable manner.

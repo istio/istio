@@ -36,6 +36,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -1456,6 +1457,24 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	}
 
 	return errs
+}
+
+// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
+func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*authz.AuthorizationPolicy)
+	if !ok {
+		return fmt.Errorf("cannot cast to AuthorizationPolicy")
+	}
+
+	// TODO(yangminzhu): Add more validation.
+	for _, rule := range in.GetRules() {
+		for _, condition := range rule.GetWhen() {
+			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
+				return fmt.Errorf("condition has empty key or values")
+			}
+		}
+	}
+	return nil
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
