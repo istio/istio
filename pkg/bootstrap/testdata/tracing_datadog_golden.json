@@ -7,7 +7,7 @@
       
       
     },
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","alpha.istio.io/metadata":{}}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
   },
   "stats_config": {
     "use_all_default_tags": false,

@@ -634,6 +634,7 @@ func TestNodeMetadata(t *testing.T) {
 
 	wantMap := map[string]interface{}{
 		"istio":                            "sidecar",
+		model.NodeMetadataExchangeKeys:     metadataExchangeKeys,
 		model.NodeMetadataLabels:           labels,
 		model.NodeMetadataPlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
 		"l1":                               "v1",

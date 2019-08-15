@@ -600,11 +600,10 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 	if len(pod.GenerateName) > 0 {
 		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-		// podPrefix := pod.GenerateName
 		var controllerRef metav1.OwnerReference
 		controllerFound := false
 		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller == true {
+			if *ref.Controller {
 				controllerRef = ref
 				controllerFound = true
 				break
