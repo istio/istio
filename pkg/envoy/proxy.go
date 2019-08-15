@@ -26,10 +26,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/bootstrap"
 )
 
 const (
@@ -52,7 +52,7 @@ type envoy struct {
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
-	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, opts map[string]interface{}) proxy.Proxy {
+	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, opts map[string]interface{}) Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
@@ -118,7 +118,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if len(e.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
-	} else if _, ok := config.(proxy.DrainConfig); ok {
+	} else if _, ok := config.(DrainConfig); ok {
 		fname = drainFile
 	} else {
 		out, err := bootstrap.WriteBootstrap(
