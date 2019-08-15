@@ -32,21 +32,19 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
-
 	"golang.org/x/oauth2/google"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/auth"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -75,6 +73,20 @@ var (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
+
+	metadataExchangeKeys = strings.Join(
+		[]string{
+			model.NodeMetadataInstanceName,
+			model.NodeMetadataNamespace,
+			model.NodeMetadataInstanceIPs,
+			model.NodeMetadataLabels,
+			model.NodeMetadataOwner,
+			model.NodeMetadataPlatformMetadata,
+			model.NodeMetadataWorkloadName,
+			model.NodeMetadataCanonicalTelemetryService,
+			model.NodeMetadataMeshID,
+			model.NodeMetadataServiceAccount,
+		}, ",")
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -262,35 +274,29 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 		switch name {
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
-			meta[model.NodeMetadataLabels] = m
-			if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
-				meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+			if len(m) > 0 {
+				meta[model.NodeMetadataLabels] = m
+				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
+					meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+				}
 			}
 		case "POD_NAME":
 			meta[model.NodeMetadataInstanceName] = val
 		case "POD_NAMESPACE":
 			meta[model.NodeMetadataNamespace] = val
-		case "ISTIO_META_WORKLOAD_API_VERSION":
-			meta[model.NodeMetadataWorkloadAPIVersion] = val
-		case "ISTIO_META_WORKLOAD_KIND":
-			meta[model.NodeMetadataWorkloadKind] = val
+		case "ISTIO_META_OWNER":
+			meta[model.NodeMetadataOwner] = val
 		case "ISTIO_META_WORKLOAD_NAME":
 			meta[model.NodeMetadataWorkloadName] = val
+		case "SERVICE_ACCOUNT":
+			meta[model.NodeMetadataServiceAccount] = val
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta[model.NodeMetadataPlatformMetadata] = plat.Metadata()
 	}
+	meta[model.NodeMetadataExchangeKeys] = metadataExchangeKeys
 }
-
-// func ownerHeuristic(name string) string {
-// 	if len(name) == 0 {
-// 		return ""
-// 	}
-// 	// TODO: generateName field in sidecar injector to trim
-// 	// Otherwise, look for (10 digits of uint32)<dash>(5 chararacters) and trim
-// 	// Otherwise, just use as is
-// }
 
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
