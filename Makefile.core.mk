@@ -3,6 +3,8 @@ ifeq ($(BUILD_WITH_CONTAINER),0)
 override GOBIN := $(GOPATH)/bin
 endif
 
+pwd := $(shell pwd)
+
 # make targets
 .PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts
 
@@ -69,6 +71,15 @@ api_path := pkg/apis/istio/v1alpha2
 api_protos := $(shell find $(api_path) -type f -name '*.proto' | sort)
 api_pb_gos := $(api_protos:.proto=.pb.go)
 
+########################
+# protoc_gen_docs
+########################
+
+gen_doc_iscp: get_dep_proto
+	protoc -I/tmp/src -I$(pwd) -I/usr/include/protobuf --docs_out=warnings=true,emit_yaml=true,mode=html_page:$(pwd) pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
+
+gen_doc_values: get_dep_proto
+	protoc -I/tmp/src -I$(pwd) -I/usr/include/protobuf --docs_out=warnings=true,emit_yaml=true,mode=html_page:$(pwd) pkg/apis/istio/v1alpha2/values/values_types.proto
 
 default: mesh
 
@@ -83,44 +94,18 @@ clean-proto:
 
 # is all of this needed or is this cruft?
 
-# get imported protos to $GOPATH
 get_dep_proto:
-	GO111MODULE=off go get k8s.io/api/core/v1 k8s.io/api/autoscaling/v2beta1 k8s.io/apimachinery/pkg/apis/meta/v1/ github.com/gogo/protobuf/...
+	GO111MODULE=off GOPATH=/tmp go get k8s.io/api/core/v1 k8s.io/api/autoscaling/v2beta1 k8s.io/apimachinery/pkg/apis/meta/v1/
 
-proto_iscp:
-	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/ --proto_path=pkg/apis/istio/v1alpha2/ --gofast_out=pkg/apis/istio/v1alpha2/ pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
+proto_iscp: get_dep_proto
+	protoc -I=/tmp/src -I$(pwd) -I=/usr/include/protobuf --gogofast_out=$(pwd) pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
 	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go
 	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
 
-proto_iscp_orig:
-	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/ --proto_path=pkg/apis/istio/v1alpha2/ --gofast_out=pkg/apis/istio/v1alpha2/ pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
-	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go
-	cp pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig
-
-proto_values:
-	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/values --proto_path=pkg/apis/istio/v1alpha2/values --go_out=pkg/apis/istio/v1alpha2/values pkg/apis/istio/v1alpha2/values/values_types.proto
+proto_values: get_dep_proto
+	protoc -I=/tmp/src -I$(pwd) -I=/usr/include/protobuf --go_out=$(pwd) pkg/apis/istio/v1alpha2/values/values_types.proto
 	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/values/values_types.pb.go
 	patch pkg/apis/istio/v1alpha2/values/values_types.pb.go < pkg/apis/istio/v1alpha2/values/fix_values_structs.patch
-
-proto_values_orig:
-	protoc -I=${GOPATH}/src -I./pkg/apis/istio/v1alpha2/values --proto_path=pkg/apis/istio/v1alpha2/values --go_out=pkg/apis/istio/v1alpha2/values pkg/apis/istio/v1alpha2/values/values_types.proto
-	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/values/values_types.pb.go
-	cp pkg/apis/istio/v1alpha2/values/values_types.pb.go pkg/apis/istio/v1alpha2/values/values_types.pb.go.orig
-
-proto_iscporig_setup: get_dep_proto proto_iscp_orig
-
-proto_iscp_setup: get_dep_proto proto_iscp
-
-proto_values_setup: get_dep_proto proto_values
-
-proto_valuesorig_setup: get_dep_proto proto_values_orig
-
-gen_patch_iscp:
-	diff -u pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go > pkg/apis/istio/v1alpha2/fixup_go_structs.patch || true
-
-gen_patch_values:
-	diff -u pkg/apis/istio/v1alpha2/values/values_types.pb.go.orig pkg/apis/istio/v1alpha2/values/values_types.pb.go > pkg/apis/istio/v1alpha2/values/fix_values_structs.patch || true
-
 
 mesh: vfsgen
 	go build -o ${GOBIN}/mesh ./cmd/mesh.go
