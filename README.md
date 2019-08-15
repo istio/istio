@@ -8,7 +8,7 @@ The Istio operator CLI is now suitable for developers to evaluate and experiment
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
 creating a [bug or feature request](https://github.com/istio/operator/blob/master/BUGS-AND-FEATURE-REQUESTS.md),
 or just coming to the weekly [Environments Working Group](https://github.com/istio/community/blob/master/WORKING-GROUPS.md)
-meeting to share your ideas. 
+meeting to share your ideas.
 
 This document is an overview of how the operator works from a user perspective. For more details about the design and
 architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -81,7 +81,7 @@ The `mesh` command supports the following flags:
 - `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
 
-### Quick tour of CLI commands 
+### Quick tour of CLI commands
 
 #### Basic default manifest
 
@@ -122,8 +122,8 @@ mesh manifest apply
 The following commands show the values of a configuration profile:
 
 ```bash
-# show available profiles 
-mesh profile list 
+# show available profiles
+mesh profile list
 
 # show the values in demo profile
 mesh profile dump demo
@@ -348,5 +348,5 @@ If you're trying to do a local build that bypasses the build container, you'll n
 to work correctly:
 
 ```
-go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
+GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
 ```
