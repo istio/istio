@@ -15,7 +15,9 @@
 package prometheus
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
@@ -69,6 +71,7 @@ spec:
 func TestReport(t *testing.T) {
 	info, pServer := GetInfoWithAddr(":0")
 	defer pServer.Close()
+
 	adapter_integration.RunTest(
 		t,
 		func() adapter.Info {
@@ -86,7 +89,8 @@ func TestReport(t *testing.T) {
 
 			GetState: func(ctx interface{}) (interface{}, error) {
 				mfChan := make(chan *dto.MetricFamily, 1)
-				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, pServer.Port()), mfChan, "", "", true)
+				transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, pServer.Port()), mfChan, transport)
 				result := []prom2json.Family{}
 				for mf := range mfChan {
 					result = append(result, *prom2json.NewFamily(mf))

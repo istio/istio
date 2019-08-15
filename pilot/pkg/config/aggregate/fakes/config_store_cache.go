@@ -5,17 +5,18 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 type ConfigStoreCache struct {
-	ConfigDescriptorStub        func() model.ConfigDescriptor
+	ConfigDescriptorStub        func() schema.Set
 	configDescriptorMutex       sync.RWMutex
 	configDescriptorArgsForCall []struct{}
 	configDescriptorReturns     struct {
-		result1 model.ConfigDescriptor
+		result1 schema.Set
 	}
 	configDescriptorReturnsOnCall map[int]struct {
-		result1 model.ConfigDescriptor
+		result1 schema.Set
 	}
 	GetStub        func(typ, name, namespace string) *model.Config
 	getMutex       sync.RWMutex
@@ -107,7 +108,7 @@ type ConfigStoreCache struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ConfigStoreCache) ConfigDescriptor() model.ConfigDescriptor {
+func (fake *ConfigStoreCache) ConfigDescriptor() schema.Set {
 	fake.configDescriptorMutex.Lock()
 	ret, specificReturn := fake.configDescriptorReturnsOnCall[len(fake.configDescriptorArgsForCall)]
 	fake.configDescriptorArgsForCall = append(fake.configDescriptorArgsForCall, struct{}{})
@@ -128,22 +129,22 @@ func (fake *ConfigStoreCache) ConfigDescriptorCallCount() int {
 	return len(fake.configDescriptorArgsForCall)
 }
 
-func (fake *ConfigStoreCache) ConfigDescriptorReturns(result1 model.ConfigDescriptor) {
+func (fake *ConfigStoreCache) ConfigDescriptorReturns(result1 schema.Set) {
 	fake.ConfigDescriptorStub = nil
 	fake.configDescriptorReturns = struct {
-		result1 model.ConfigDescriptor
+		result1 schema.Set
 	}{result1}
 }
 
-func (fake *ConfigStoreCache) ConfigDescriptorReturnsOnCall(i int, result1 model.ConfigDescriptor) {
+func (fake *ConfigStoreCache) ConfigDescriptorReturnsOnCall(i int, result1 schema.Set) {
 	fake.ConfigDescriptorStub = nil
 	if fake.configDescriptorReturnsOnCall == nil {
 		fake.configDescriptorReturnsOnCall = make(map[int]struct {
-			result1 model.ConfigDescriptor
+			result1 schema.Set
 		})
 	}
 	fake.configDescriptorReturnsOnCall[i] = struct {
-		result1 model.ConfigDescriptor
+		result1 schema.Set
 	}{result1}
 }
 

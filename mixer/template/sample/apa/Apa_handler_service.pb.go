@@ -15,10 +15,13 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	_ "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -62,7 +65,7 @@ func (m *HandleMyApaRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_HandleMyApaRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +110,7 @@ func (m *OutputMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_OutputMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +159,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +197,7 @@ func (m *Resource1Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Resource1Msg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +235,7 @@ func (m *Resource2Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Resource2Msg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +278,7 @@ func (m *Resource3Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Resource3Msg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +316,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -350,7 +353,7 @@ func (m *Resource1Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_Resource1Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +390,7 @@ func (m *Resource2Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_Resource2Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -423,7 +426,7 @@ func (m *Resource3Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_Resource3Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +478,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -513,7 +516,7 @@ func (m *Resource1InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_Resource1InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -551,7 +554,7 @@ func (m *Resource2InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_Resource2InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -594,7 +597,7 @@ func (m *Resource3InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_Resource3InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -768,6 +771,14 @@ type HandleMyApaServiceServer interface {
 	HandleMyApa(context.Context, *HandleMyApaRequest) (*OutputMsg, error)
 }
 
+// UnimplementedHandleMyApaServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleMyApaServiceServer struct {
+}
+
+func (*UnimplementedHandleMyApaServiceServer) HandleMyApa(ctx context.Context, req *HandleMyApaRequest) (*OutputMsg, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleMyApa not implemented")
+}
+
 func RegisterHandleMyApaServiceServer(s *grpc.Server, srv HandleMyApaServiceServer) {
 	s.RegisterService(&_HandleMyApaService_serviceDesc, srv)
 }
@@ -806,7 +817,7 @@ var _HandleMyApaService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleMyApaRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -814,43 +825,53 @@ func (m *HandleMyApaRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleMyApaRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleMyApaRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Instance != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err := m.Instance.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.AdapterConfig != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
+	if m.Instance != nil {
+		{
+			size, err := m.Instance.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -858,101 +879,117 @@ func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OutputMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if len(m.OutStrMap) > 0 {
+		for k := range m.OutStrMap {
+			v := m.OutStrMap[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if m.OutIp != nil {
+		{
+			size, err := m.OutIp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.Email != nil {
+		{
+			size, err := m.Email.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Duration != nil {
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.TimeStamp != nil {
+		{
+			size, err := m.TimeStamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if m.TimeStamp != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n3, err := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n4, err := m.Duration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.Email != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
-		n5, err := m.Email.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if m.OutIp != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OutIp.Size()))
-		n6, err := m.OutIp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	if len(m.OutStrMap) > 0 {
-		for k, _ := range m.OutStrMap {
-			dAtA[i] = 0x62
-			i++
-			v := m.OutStrMap[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -960,142 +997,156 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
+	}
+	if m.Email != nil {
+		{
+			size, err := m.Email.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.OptionalIP != nil {
+		{
+			size, err := m.OptionalIP.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Res3Map) > 0 {
+		for k := range m.Res3Map {
+			v := m.Res3Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x42
+		}
+	}
+	if m.Duration != nil {
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.TimeStamp != nil {
+		{
+			size, err := m.TimeStamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k := range m.DimensionsFixedInt64ValueDType {
+			v := m.DimensionsFixedInt64ValueDType[k]
+			baseI := i
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.DimensionsFixedInt64ValueDType) > 0 {
-		for k, _ := range m.DimensionsFixedInt64ValueDType {
-			dAtA[i] = 0x2a
-			i++
-			v := m.DimensionsFixedInt64ValueDType[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
-		}
-	}
-	if m.TimeStamp != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n7, err := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n8, err := m.Duration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x42
-			i++
-			v := m.Res3Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n9, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n9
-			}
-		}
-	}
-	if m.OptionalIP != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OptionalIP.Size()))
-		n10, err := m.OptionalIP.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n10
-	}
-	if m.Email != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
-		n11, err := m.Email.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n11
-	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource1Msg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1103,43 +1154,53 @@ func (m *Resource1Msg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource1Msg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource1Msg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if m.SelfRefRes1 != nil {
+		{
+			size, err := m.SelfRefRes1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.ResRef2 != nil {
+		{
+			size, err := m.ResRef2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n12, err := m.ResRef2.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n12
 	}
-	if m.SelfRefRes1 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n13, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n13
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource2Msg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1147,61 +1208,67 @@ func (m *Resource2Msg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource2Msg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource2Msg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if len(m.Res3Map) > 0 {
+		for k := range m.Res3Map {
+			v := m.Res3Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
 	if m.Res3 != nil {
+		{
+			size, err := m.Res3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n14, err := m.Res3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n14
 	}
-	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Res3Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n15, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n15
-			}
-		}
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource3Msg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1209,80 +1276,91 @@ func (m *Resource3Msg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource3Msg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource3Msg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if m.Duration != nil {
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.TimeStamp != nil {
+		{
+			size, err := m.TimeStamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k := range m.DimensionsFixedInt64ValueDType {
+			v := m.DimensionsFixedInt64ValueDType[k]
+			baseI := i
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.DimensionsFixedInt64ValueDType) > 0 {
-		for k, _ := range m.DimensionsFixedInt64ValueDType {
-			dAtA[i] = 0x2a
-			i++
-			v := m.DimensionsFixedInt64ValueDType[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
-		}
-	}
-	if m.TimeStamp != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
-		n16, err := m.TimeStamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n16
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n17, err := m.Duration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n17
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1290,45 +1368,48 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x42
-			i++
+		for k := range m.Res3Map {
 			v := m.Res3Map[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n18, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
 				}
-				i += n18
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x42
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource1Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1336,37 +1417,46 @@ func (m *Resource1Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource1Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource1Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.ResRef2 != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n19, err := m.ResRef2.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n19
-	}
 	if m.SelfRefRes1 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n20, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.SelfRefRes1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
 		}
-		i += n20
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if m.ResRef2 != nil {
+		{
+			size, err := m.ResRef2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource2Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1374,55 +1464,60 @@ func (m *Resource2Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource2Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource2Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Res3 != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n21, err := m.Res3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n21
-	}
 	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x1a
-			i++
+		for k := range m.Res3Map {
 			v := m.Res3Map[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n22, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
 				}
-				i += n22
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	return i, nil
+	if m.Res3 != nil {
+		{
+			size, err := m.Res3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource3Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1430,17 +1525,22 @@ func (m *Resource3Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource3Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource3Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1448,135 +1548,150 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Int64Primitive) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
-		i += copy(dAtA[i:], m.Int64Primitive)
-	}
-	if len(m.BoolPrimitive) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
-		i += copy(dAtA[i:], m.BoolPrimitive)
-	}
-	if len(m.DoublePrimitive) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
-		i += copy(dAtA[i:], m.DoublePrimitive)
-	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.DimensionsFixedInt64ValueDType) > 0 {
-		for k, _ := range m.DimensionsFixedInt64ValueDType {
-			dAtA[i] = 0x2a
-			i++
-			v := m.DimensionsFixedInt64ValueDType[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+	if len(m.AttributeBindings) > 0 {
+		for k := range m.AttributeBindings {
+			v := m.AttributeBindings[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.TimeStamp) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.TimeStamp)))
-		i += copy(dAtA[i:], m.TimeStamp)
-	}
-	if len(m.Duration) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Duration)))
-		i += copy(dAtA[i:], m.Duration)
-	}
-	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x42
-			i++
-			v := m.Res3Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n23, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n23
-			}
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0x93
+			i--
+			dAtA[i] = 0xe4
+			i--
+			dAtA[i] = 0xd3
+			i--
+			dAtA[i] = 0x82
 		}
-	}
-	if len(m.OptionalIP) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.OptionalIP)))
-		i += copy(dAtA[i:], m.OptionalIP)
 	}
 	if len(m.Email) > 0 {
-		dAtA[i] = 0x52
-		i++
+		i -= len(m.Email)
+		copy(dAtA[i:], m.Email)
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Email)))
-		i += copy(dAtA[i:], m.Email)
+		i--
+		dAtA[i] = 0x52
 	}
-	if len(m.AttributeBindings) > 0 {
-		for k, _ := range m.AttributeBindings {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0xd3
-			i++
-			dAtA[i] = 0xe4
-			i++
-			dAtA[i] = 0x93
-			i++
-			dAtA[i] = 0x2
-			i++
-			v := m.AttributeBindings[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.OptionalIP) > 0 {
+		i -= len(m.OptionalIP)
+		copy(dAtA[i:], m.OptionalIP)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.OptionalIP)))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Res3Map) > 0 {
+		for k := range m.Res3Map {
+			v := m.Res3Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x42
 		}
 	}
-	return i, nil
+	if len(m.Duration) > 0 {
+		i -= len(m.Duration)
+		copy(dAtA[i:], m.Duration)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Duration)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.TimeStamp) > 0 {
+		i -= len(m.TimeStamp)
+		copy(dAtA[i:], m.TimeStamp)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.TimeStamp)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k := range m.DimensionsFixedInt64ValueDType {
+			v := m.DimensionsFixedInt64ValueDType[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.DoublePrimitive) > 0 {
+		i -= len(m.DoublePrimitive)
+		copy(dAtA[i:], m.DoublePrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BoolPrimitive) > 0 {
+		i -= len(m.BoolPrimitive)
+		copy(dAtA[i:], m.BoolPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Int64Primitive) > 0 {
+		i -= len(m.Int64Primitive)
+		copy(dAtA[i:], m.Int64Primitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource1InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1584,43 +1699,53 @@ func (m *Resource1InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource1InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if m.SelfRefRes1 != nil {
+		{
+			size, err := m.SelfRefRes1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.ResRef2 != nil {
+		{
+			size, err := m.ResRef2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n24, err := m.ResRef2.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n24
 	}
-	if m.SelfRefRes1 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n25, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n25
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource2InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1628,61 +1753,67 @@ func (m *Resource2InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource2InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if len(m.Res3Map) > 0 {
+		for k := range m.Res3Map {
+			v := m.Res3Map[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
 	if m.Res3 != nil {
+		{
+			size, err := m.Res3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n26, err := m.Res3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n26
 	}
-	if len(m.Res3Map) > 0 {
-		for k, _ := range m.Res3Map {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Res3Map[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n27, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n27
-			}
-		}
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Resource3InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1690,74 +1821,89 @@ func (m *Resource3InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Resource3InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Resource3InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Int64Primitive) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
-		i += copy(dAtA[i:], m.Int64Primitive)
-	}
-	if len(m.BoolPrimitive) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
-		i += copy(dAtA[i:], m.BoolPrimitive)
-	}
-	if len(m.DoublePrimitive) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
-		i += copy(dAtA[i:], m.DoublePrimitive)
-	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.DimensionsFixedInt64ValueDType) > 0 {
-		for k, _ := range m.DimensionsFixedInt64ValueDType {
-			dAtA[i] = 0x2a
-			i++
-			v := m.DimensionsFixedInt64ValueDType[k]
-			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
+	if len(m.Duration) > 0 {
+		i -= len(m.Duration)
+		copy(dAtA[i:], m.Duration)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Duration)))
+		i--
+		dAtA[i] = 0x3a
 	}
 	if len(m.TimeStamp) > 0 {
-		dAtA[i] = 0x32
-		i++
+		i -= len(m.TimeStamp)
+		copy(dAtA[i:], m.TimeStamp)
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.TimeStamp)))
-		i += copy(dAtA[i:], m.TimeStamp)
+		i--
+		dAtA[i] = 0x32
 	}
-	if len(m.Duration) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Duration)))
-		i += copy(dAtA[i:], m.Duration)
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k := range m.DimensionsFixedInt64ValueDType {
+			v := m.DimensionsFixedInt64ValueDType[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
 	}
-	return i, nil
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.DoublePrimitive) > 0 {
+		i -= len(m.DoublePrimitive)
+		copy(dAtA[i:], m.DoublePrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BoolPrimitive) > 0 {
+		i -= len(m.BoolPrimitive)
+		copy(dAtA[i:], m.BoolPrimitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Int64Primitive) > 0 {
+		i -= len(m.Int64Primitive)
+		copy(dAtA[i:], m.Int64Primitive)
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintApaHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovApaHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleMyApaRequest) Size() (n int) {
 	if m == nil {
@@ -2215,14 +2361,7 @@ func (m *Resource3InstanceParam) Size() (n int) {
 }
 
 func sovApaHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozApaHandlerService(x uint64) (n int) {
 	return sovApaHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -2232,7 +2371,7 @@ func (this *HandleMyApaRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&HandleMyApaRequest{`,
-		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`Instance:` + strings.Replace(this.Instance.String(), "InstanceMsg", "InstanceMsg", 1) + `,`,
 		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "types.Any", 1) + `,`,
 		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
 		`}`,
@@ -2313,8 +2452,8 @@ func (this *Resource1Msg) String() string {
 	}
 	s := strings.Join([]string{`&Resource1Msg{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Msg", "Resource2Msg", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Msg", "Resource1Msg", 1) + `,`,
+		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2Msg", "Resource2Msg", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1Msg", "Resource1Msg", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2335,7 +2474,7 @@ func (this *Resource2Msg) String() string {
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2Msg{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Msg", "Resource3Msg", 1) + `,`,
+		`Res3:` + strings.Replace(this.Res3.String(), "Resource3Msg", "Resource3Msg", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")
@@ -2392,8 +2531,8 @@ func (this *Resource1Type) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Resource1Type{`,
-		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Type", "Resource2Type", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Type", "Resource1Type", 1) + `,`,
+		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2Type", "Resource2Type", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1Type", "Resource1Type", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2413,7 +2552,7 @@ func (this *Resource2Type) String() string {
 	}
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2Type{`,
-		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Type", "Resource3Type", 1) + `,`,
+		`Res3:` + strings.Replace(this.Res3.String(), "Resource3Type", "Resource3Type", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")
@@ -2484,8 +2623,8 @@ func (this *Resource1InstanceParam) String() string {
 	}
 	s := strings.Join([]string{`&Resource1InstanceParam{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2InstanceParam", "Resource2InstanceParam", 1) + `,`,
-		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1InstanceParam", "Resource1InstanceParam", 1) + `,`,
+		`ResRef2:` + strings.Replace(this.ResRef2.String(), "Resource2InstanceParam", "Resource2InstanceParam", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(this.SelfRefRes1.String(), "Resource1InstanceParam", "Resource1InstanceParam", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2506,7 +2645,7 @@ func (this *Resource2InstanceParam) String() string {
 	mapStringForRes3Map += "}"
 	s := strings.Join([]string{`&Resource2InstanceParam{`,
 		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
-		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3InstanceParam", "Resource3InstanceParam", 1) + `,`,
+		`Res3:` + strings.Replace(this.Res3.String(), "Resource3InstanceParam", "Resource3InstanceParam", 1) + `,`,
 		`Res3Map:` + mapStringForRes3Map + `,`,
 		`}`,
 	}, "")

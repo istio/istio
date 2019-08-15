@@ -114,9 +114,9 @@ func init() {
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
 		"Max message size received by MCP's grpc client")
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", bootstrap.DefaultMCPInitialWindowSize,
-		"Max message size received by MCP's grpc client")
+		"Initial window size for MCP's gRPC connection")
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", bootstrap.DefaultMCPInitialConnWindowSize,
-		"Max message size received by MCP's grpc client")
+		"Initial connection window size for MCP's gRPC connection")
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", false,

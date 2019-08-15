@@ -21,39 +21,32 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestAddConfig(t *testing.T) {
 	roleCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRole{
 			Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
 		},
 	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 		},
 	}
-	authzCfg := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type: model.AuthorizationPolicy.Type, Name: "test-authz-1", Namespace: model.NamespaceAll},
-		Spec: &rbacproto.AuthorizationPolicy{
-			WorkloadSelector: &rbacproto.WorkloadSelector{
-				Labels: map[string]string{"app": "test"},
-			},
-		},
-	}
 
 	invalidateBindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: ""},
@@ -96,24 +89,6 @@ func TestAddConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "test add config for AuthorizationPolicy",
-			config:        []model.Config{authzCfg, roleCfg},
-			authzPolicies: &model.AuthorizationPolicies{},
-			expectedAuthorizationConfigV2: &model.AuthorizationConfigV2{
-				AuthzPolicies: []*model.AuthorizationPolicyConfig{
-					{
-						Name: "test-authz-1", Policy: &rbacproto.AuthorizationPolicy{
-							WorkloadSelector: &rbacproto.WorkloadSelector{
-								Labels: map[string]string{"app": "test"},
-							},
-						}},
-				},
-				NameToServiceRoles: map[string]*rbacproto.ServiceRole{
-					"test-role-1": {Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}}},
-				},
-			},
-		},
-		{
 			name:          "test add config for both ServiceRoleBinding and ServiceRole",
 			config:        []model.Config{roleCfg, bindingCfg},
 			authzPolicies: &model.AuthorizationPolicies{},
@@ -150,12 +125,12 @@ func TestAddConfig(t *testing.T) {
 func TestRolesForNamespace(t *testing.T) {
 	roleCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRole.Type, Name: "test-role-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRole{},
 	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -230,7 +205,7 @@ func TestRolesForNamespace(t *testing.T) {
 func TestRoleToBindingsForNamespace(t *testing.T) {
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
+			Type: schemas.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: model.NamespaceAll},
 		Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
@@ -305,58 +280,6 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 	}
 }
 
-func TestRoleForNameAndNamespace(t *testing.T) {
-	cases := []struct {
-		name                                string
-		authzPolicies                       *model.AuthorizationPolicies
-		ns                                  string
-		roleName                            string
-		expectedTestRoleForNameAndNamespace *rbacproto.ServiceRole
-	}{
-		{
-			name:                                "authzPolicies is nil",
-			authzPolicies:                       nil,
-			ns:                                  model.NamespaceAll,
-			roleName:                            "",
-			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{},
-		},
-		{
-			name: "authzPolicies has one ServiceRole",
-			authzPolicies: &model.AuthorizationPolicies{
-				NamespaceToAuthorizationConfigV2: map[string]*model.AuthorizationConfigV2{
-					"default": {
-						AuthzPolicies: []*model.AuthorizationPolicyConfig{
-							{
-								Name:   "Authz-Policy-1",
-								Policy: &rbacproto.AuthorizationPolicy{},
-							},
-						},
-						NameToServiceRoles: map[string]*rbacproto.ServiceRole{
-							"test-svc-1": {
-								Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
-							},
-						},
-					},
-				},
-			},
-			ns:       "default",
-			roleName: "test-svc-1",
-			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{
-				Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			actual := c.authzPolicies.RoleForNameAndNamespace(c.roleName, c.ns)
-			if !reflect.DeepEqual(c.expectedTestRoleForNameAndNamespace, actual) {
-				t.Errorf("Got different ServiceRole, Got: \n%v\n, Excepted:\n%v\n", actual, c.expectedTestRoleForNameAndNamespace)
-			}
-		})
-	}
-}
-
 func TestNewAuthzPolicies(t *testing.T) {
 	clusterRbacConfig := &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	rbacConfig := &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_OFF}
@@ -389,12 +312,12 @@ func TestNewAuthzPolicies(t *testing.T) {
 }
 
 func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioConfigStore {
-	store := memory.Make(model.IstioConfigTypes)
+	store := memory.Make(schemas.Istio)
 
 	if clusterRbacConfig != nil {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ClusterRbacConfig.Type,
+				Type:      schemas.ClusterRbacConfig.Type,
 				Name:      "default",
 				Namespace: "default",
 			},
@@ -405,7 +328,7 @@ func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioCon
 	if rbacConfig != nil {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.RbacConfig.Type,
+				Type:      schemas.RbacConfig.Type,
 				Name:      "default",
 				Namespace: "default",
 			},

@@ -74,6 +74,17 @@ message MeshConfig {
   // Connection timeout used by Envoy. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 6;
 
+  // Automatic protocol detection uses a set of heuristics to
+  // determine whether the connection is using TLS or not (on the
+  // server side), as well as the application protocol being used
+  // (e.g., http vs tcp). These heuristics rely on the client sending
+  // the first bits of data. For server first protocols like MySQL,
+  // MongoDB, etc., Envoy will timeout on the protocol detection after
+  // the specified period, defaulting to non mTLS plain TCP
+  // traffic. Set this field to tweak the period that Envoy will wait
+  // for the client to send the first bits of data. (MUST BE >=1ms)
+  google.protobuf.Duration protocol_detection_timeout = 42;
+
   // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
   istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
 
@@ -307,7 +318,7 @@ message MeshConfig {
   H2UpgradePolicy h2_upgrade_policy = 41;
 
   // $hide_from_docs
-  // Next available field number: 42
+  // Next available field number: 43
 }
 
 // ConfigSource describes information about a configuration store inside a

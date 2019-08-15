@@ -20,7 +20,8 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -31,7 +32,7 @@ var (
 )
 
 // NewDiscovery builds a memory ServiceDiscovery
-func NewDiscovery(services map[config.Hostname]*model.Service, versions int) *ServiceDiscovery {
+func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceDiscovery {
 	return &ServiceDiscovery{
 		services: services,
 		versions: versions,
@@ -39,7 +40,7 @@ func NewDiscovery(services map[config.Hostname]*model.Service, versions int) *Se
 }
 
 // MakeService creates a memory service
-func MakeService(hostname config.Hostname, address string) *model.Service {
+func MakeService(hostname host.Name, address string) *model.Service {
 	return &model.Service{
 		CreationTime: time.Now(),
 		Hostname:     hostname,
@@ -75,7 +76,7 @@ func MakeService(hostname config.Hostname, address string) *model.Service {
 }
 
 // MakeExternalHTTPService creates memory external service
-func MakeExternalHTTPService(hostname config.Hostname, isMeshExternal bool, address string) *model.Service {
+func MakeExternalHTTPService(hostname host.Name, isMeshExternal bool, address string) *model.Service {
 	return &model.Service{
 		CreationTime: time.Now(),
 		Hostname:     hostname,
@@ -90,7 +91,7 @@ func MakeExternalHTTPService(hostname config.Hostname, isMeshExternal bool, addr
 }
 
 // MakeExternalHTTPSService creates memory external service
-func MakeExternalHTTPSService(hostname config.Hostname, isMeshExternal bool, address string) *model.Service {
+func MakeExternalHTTPSService(hostname host.Name, isMeshExternal bool, address string) *model.Service {
 	return &model.Service{
 		CreationTime: time.Now(),
 		Hostname:     hostname,
@@ -142,7 +143,7 @@ func MakeIP(service *model.Service, version int) string {
 
 // ServiceDiscovery is a memory discovery interface
 type ServiceDiscovery struct {
-	services                      map[config.Hostname]*model.Service
+	services                      map[host.Name]*model.Service
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
@@ -160,7 +161,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 }
 
 // AddService will add to the registry the provided service
-func (sd *ServiceDiscovery) AddService(name config.Hostname, svc *model.Service) {
+func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	sd.services[name] = svc
 }
 
@@ -177,7 +178,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
 	if sd.GetServiceError != nil {
 		return nil, sd.GetServiceError
 	}
@@ -187,7 +188,7 @@ func (sd *ServiceDiscovery) GetService(hostname config.Hostname) (*model.Service
 
 // InstancesByPort implements discovery interface
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
@@ -233,7 +234,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}

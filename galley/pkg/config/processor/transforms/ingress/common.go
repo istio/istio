@@ -15,9 +15,8 @@
 package ingress
 
 import (
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 )
@@ -59,7 +58,7 @@ var (
 func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Entry) bool {
 	class, exists := "", false
 	if r.Metadata.Annotations != nil {
-		class, exists = r.Metadata.Annotations[annotations.IngressClass.Name]
+		class, exists = r.Metadata.Annotations[annotation.IoKubernetesIngressClass.Name]
 	}
 
 	switch m.IngressControllerMode {

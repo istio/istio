@@ -262,26 +262,26 @@ helm/install:
 	${HELM} install \
 	  install/kubernetes/helm/istio-init \
 	  --name istio-system-init --namespace istio-system \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 	sleep 10
 	${HELM} install \
 	  install/kubernetes/helm/istio \
 	  --name istio-system --namespace istio-system \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 
 # Upgrade istio. Options must be set:
 #  "make helm/upgrade HELM_ARGS="--values myoverride.yaml"
 helm/upgrade:
 	${HELM} upgrade \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS} \
 	  istio-system install/kubernetes/helm/istio
 

@@ -21,9 +21,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
@@ -205,7 +206,7 @@ func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName 
 
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
-		svc, _ := env.GetService(config.Hostname(gwSvcName))
+		svc, _ := env.GetService(host.Name(gwSvcName))
 		if svc != nil {
 			return svc.Attributes.ClusterExternalAddresses[registryName]
 		}

@@ -56,7 +56,8 @@ spec:
   hosts:
   - reviews.prod.svc.cluster.local
   http:
-  - match:
+  - name: &quot;reviews-v2-routes&quot;
+    match:
     - uri:
         prefix: &quot;/wpcatalog&quot;
     - uri:
@@ -67,7 +68,8 @@ spec:
     - destination:
         host: reviews.prod.svc.cluster.local
         subset: v2
-  - route:
+  - name: &quot;reviews-v1-route&quot;
+    route:
     - destination:
         host: reviews.prod.svc.cluster.local
         subset: v1
@@ -593,6 +595,16 @@ spec:
 </tr>
 </thead>
 <tbody>
+<tr id="HTTPMatchRequest-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name assigned to a match. The match&rsquo;s name will be
+concatenated with the parent route&rsquo;s name and will be logged in
+the access logs for requests matching this route.</p>
+
+</td>
+</tr>
 <tr id="HTTPMatchRequest-uri">
 <td><code>uri</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
@@ -692,27 +704,6 @@ e.g. <em>x-request-id</em>.</p>
 <p>Specifies the ports on the host that is being addressed. Many services
 only expose a single port or label ports with the protocols they support,
 in these cases it is not required to explicitly select the port.</p>
-
-</td>
-</tr>
-<tr id="HTTPMatchRequest-source_labels">
-<td><code>sourceLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>One or more labels that constrain the applicability of a rule to
-workloads with the given labels. If the VirtualService has a list of
-gateways specified at the top, it should include the reserved gateway
-<code>mesh</code> in order for this field to be applicable.</p>
-
-</td>
-</tr>
-<tr id="HTTPMatchRequest-gateways">
-<td><code>gateways</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Names of gateways where the rule should be applied to. Gateway names
-at the top of the VirtualService (if any) are overridden. The gateway match is
-independent of sourceLabels.</p>
 
 </td>
 </tr>
@@ -950,6 +941,17 @@ gRPC traffic. See VirtualService for usage examples.</p>
 </tr>
 </thead>
 <tbody>
+<tr id="HTTPRoute-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name assigned to the route for debugging purposes. The
+route&rsquo;s name will be concatenated with the match&rsquo;s name and will
+be logged in the access logs for requests matching this
+route/match.</p>
+
+</td>
+</tr>
 <tr id="HTTPRoute-match">
 <td><code>match</code></td>
 <td><code><a href="#HTTPMatchRequest">HTTPMatchRequest[]</a></code></td>
@@ -1038,51 +1040,6 @@ destination.</p>
 <p>Cross-Origin Resource Sharing policy (CORS). Refer to
 <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a>
 for further details about cross origin resource sharing.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute-append_headers" class="deprecated ">
-<td><code>appendHeaders</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Use of <code>append_headers</code> is deprecated. Use the <code>headers</code>
-field instead.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute-remove_response_headers" class="deprecated ">
-<td><code>removeResponseHeaders</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
-field instead.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute-append_response_headers" class="deprecated ">
-<td><code>appendResponseHeaders</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
-field instead.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute-remove_request_headers" class="deprecated ">
-<td><code>removeRequestHeaders</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
-field instead.</p>
-
-</td>
-</tr>
-<tr id="HTTPRoute-append_request_headers" class="deprecated ">
-<td><code>appendRequestHeaders</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
-field instead.</p>
 
 </td>
 </tr>

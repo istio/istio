@@ -13,6 +13,7 @@ import (
 	io "io"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -93,7 +94,7 @@ func (m *Empty) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Empty.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +208,7 @@ func (m *Simple) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Simple.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -794,7 +795,7 @@ func (m *Other) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Other.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -874,7 +875,7 @@ func (m *OtherInnerMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_OtherInnerMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -931,7 +932,7 @@ func (m *Outer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Outer.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -977,7 +978,7 @@ func (m *Outer_Inner) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_Outer_Inner.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2311,7 +2312,7 @@ func valueToGoStringTypes(v interface{}, typ string) string {
 func (m *Empty) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2319,17 +2320,22 @@ func (m *Empty) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Empty) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Empty) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Simple) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2337,1167 +2343,1178 @@ func (m *Simple) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Simple) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
-	}
-	if m.Dbl != 0 {
-		dAtA[i] = 0x11
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
-		i += 8
-	}
-	if m.B {
-		dAtA[i] = 0x20
-		i++
-		if m.B {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.Oth != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Oth.Size()))
-		n1, err := m.Oth.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if len(m.Byts) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Byts)))
-		i += copy(dAtA[i:], m.Byts)
-	}
-	if m.Enm != 0 {
-		dAtA[i] = 0x68
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Enm))
-	}
-	if len(m.MapStrStr) > 0 {
-		for k, _ := range m.MapStrStr {
-			dAtA[i] = 0x92
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.MapStrStr[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + len(v) + sovTypes(uint64(len(v)))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.MapStrMsg) > 0 {
-		for k, _ := range m.MapStrMsg {
-			dAtA[i] = 0x9a
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.MapStrMsg[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n2
-			}
-		}
-	}
-	if len(m.MapI32Msg) > 0 {
-		for k, _ := range m.MapI32Msg {
-			dAtA[i] = 0xa2
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.MapI32Msg[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + sovTypes(uint64(k)) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(k))
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n3, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n3
-			}
-		}
-	}
-	if len(m.MapStrEnum) > 0 {
-		for k, _ := range m.MapStrEnum {
-			dAtA[i] = 0xaa
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.MapStrEnum[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sovTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.RDbl) > 0 {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RDbl)*8))
-		for _, num := range m.RDbl {
-			f4 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f4))
-			i += 8
-		}
-	}
-	if len(m.RDblUnpacked) > 0 {
-		for _, num := range m.RDblUnpacked {
-			dAtA[i] = 0xc1
-			i++
-			dAtA[i] = 0x1
-			i++
-			f5 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f5))
-			i += 8
-		}
-	}
-	if len(m.ROth) > 0 {
-		for _, msg := range m.ROth {
-			dAtA[i] = 0xd2
-			i++
-			dAtA[i] = 0x1
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.REnm) > 0 {
-		dAtA7 := make([]byte, len(m.REnm)*10)
-		var j6 int
-		for _, num := range m.REnm {
-			for num >= 1<<7 {
-				dAtA7[j6] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j6++
-			}
-			dAtA7[j6] = uint8(num)
-			j6++
-		}
-		dAtA[i] = 0xe2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j6))
-		i += copy(dAtA[i:], dAtA7[:j6])
-	}
-	if m.Flt != 0 {
-		dAtA[i] = 0xed
-		i++
-		dAtA[i] = 0x1
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
-		i += 4
-	}
-	if len(m.RFlt) > 0 {
-		dAtA[i] = 0xf2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RFlt)*4))
-		for _, num := range m.RFlt {
-			f8 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f8))
-			i += 4
-		}
-	}
-	if len(m.RFltUnpacked) > 0 {
-		for _, num := range m.RFltUnpacked {
-			dAtA[i] = 0xfd
-			i++
-			dAtA[i] = 0x1
-			i++
-			f9 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f9))
-			i += 4
-		}
-	}
-	if m.I64 != 0 {
-		dAtA[i] = 0x80
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
-	}
-	if len(m.RI64) > 0 {
-		dAtA11 := make([]byte, len(m.RI64)*10)
-		var j10 int
-		for _, num1 := range m.RI64 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA11[j10] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j10++
-			}
-			dAtA11[j10] = uint8(num)
-			j10++
-		}
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j10))
-		i += copy(dAtA[i:], dAtA11[:j10])
-	}
-	if len(m.RI64Unpacked) > 0 {
-		for _, num := range m.RI64Unpacked {
-			dAtA[i] = 0x90
-			i++
-			dAtA[i] = 0x2
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(num))
-		}
-	}
-	if m.I32 != 0 {
-		dAtA[i] = 0x98
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.I32))
-	}
-	if len(m.RI32) > 0 {
-		dAtA13 := make([]byte, len(m.RI32)*10)
-		var j12 int
-		for _, num1 := range m.RI32 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA13[j12] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j12++
-			}
-			dAtA13[j12] = uint8(num)
-			j12++
-		}
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j12))
-		i += copy(dAtA[i:], dAtA13[:j12])
-	}
-	if len(m.RI32Unpacked) > 0 {
-		for _, num := range m.RI32Unpacked {
-			dAtA[i] = 0xa8
-			i++
-			dAtA[i] = 0x2
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(num))
-		}
-	}
-	if m.Ui64 != 0 {
-		dAtA[i] = 0xb0
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Ui64))
-	}
-	if len(m.RUi64) > 0 {
-		dAtA15 := make([]byte, len(m.RUi64)*10)
-		var j14 int
-		for _, num := range m.RUi64 {
-			for num >= 1<<7 {
-				dAtA15[j14] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j14++
-			}
-			dAtA15[j14] = uint8(num)
-			j14++
-		}
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j14))
-		i += copy(dAtA[i:], dAtA15[:j14])
-	}
-	if len(m.RUi64Unpacked) > 0 {
-		for _, num := range m.RUi64Unpacked {
-			dAtA[i] = 0xc0
-			i++
-			dAtA[i] = 0x2
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(num))
-		}
-	}
-	if m.Ui32 != 0 {
-		dAtA[i] = 0xc8
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Ui32))
-	}
-	if len(m.RUi32) > 0 {
-		dAtA17 := make([]byte, len(m.RUi32)*10)
-		var j16 int
-		for _, num := range m.RUi32 {
-			for num >= 1<<7 {
-				dAtA17[j16] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j16++
-			}
-			dAtA17[j16] = uint8(num)
-			j16++
-		}
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j16))
-		i += copy(dAtA[i:], dAtA17[:j16])
-	}
-	if len(m.RUi32Unpacked) > 0 {
-		for _, num := range m.RUi32Unpacked {
-			dAtA[i] = 0xd8
-			i++
-			dAtA[i] = 0x2
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(num))
-		}
-	}
-	if m.F64 != 0 {
-		dAtA[i] = 0xe1
-		i++
-		dAtA[i] = 0x2
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
-		i += 8
-	}
-	if len(m.RF64) > 0 {
-		dAtA[i] = 0xea
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF64)*8))
-		for _, num := range m.RF64 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.RF64Unpacked) > 0 {
-		for _, num := range m.RF64Unpacked {
-			dAtA[i] = 0xf1
-			i++
-			dAtA[i] = 0x2
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if m.Sf64 != 0 {
-		dAtA[i] = 0xf9
-		i++
-		dAtA[i] = 0x2
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Sf64))
-		i += 8
-	}
-	if len(m.RSf64) > 0 {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf64)*8))
-		for _, num := range m.RSf64 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.RSf64Unpacked) > 0 {
-		for _, num := range m.RSf64Unpacked {
-			dAtA[i] = 0x89
-			i++
-			dAtA[i] = 0x3
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if m.F32 != 0 {
-		dAtA[i] = 0x95
-		i++
-		dAtA[i] = 0x3
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
-		i += 4
-	}
-	if len(m.RF32) > 0 {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF32)*4))
-		for _, num := range m.RF32 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.RF32Unpacked) > 0 {
-		for _, num := range m.RF32Unpacked {
-			dAtA[i] = 0xa5
-			i++
-			dAtA[i] = 0x3
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if m.Sf32 != 0 {
-		dAtA[i] = 0xad
-		i++
-		dAtA[i] = 0x3
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Sf32))
-		i += 4
-	}
-	if len(m.RSf32) > 0 {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf32)*4))
-		for _, num := range m.RSf32 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.RSf32Unpacked) > 0 {
-		for _, num := range m.RSf32Unpacked {
-			dAtA[i] = 0xbd
-			i++
-			dAtA[i] = 0x3
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.RB) > 0 {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.RB)))
-		for _, b := range m.RB {
-			if b {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-		}
-	}
-	if len(m.RBUnpacked) > 0 {
-		for _, b := range m.RBUnpacked {
+	if len(m.REnmUnpacked) > 0 {
+		for iNdEx := len(m.REnmUnpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTypes(dAtA, i, uint64(m.REnmUnpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x11
+			i--
 			dAtA[i] = 0xc8
-			i++
-			dAtA[i] = 0x3
-			i++
-			if b {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-		}
-	}
-	if len(m.RStr) > 0 {
-		for _, s := range m.RStr {
-			dAtA[i] = 0xd2
-			i++
-			dAtA[i] = 0x3
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if m.Si32 != 0 {
-		dAtA[i] = 0xd8
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64((uint32(m.Si32)<<1)^uint32((m.Si32>>31))))
-	}
-	if len(m.RSi32) > 0 {
-		dAtA18 := make([]byte, len(m.RSi32)*5)
-		var j19 int
-		for _, num := range m.RSi32 {
-			x20 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x20 >= 1<<7 {
-				dAtA18[j19] = uint8(uint64(x20)&0x7f | 0x80)
-				j19++
-				x20 >>= 7
-			}
-			dAtA18[j19] = uint8(x20)
-			j19++
-		}
-		dAtA[i] = 0xe2
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j19))
-		i += copy(dAtA[i:], dAtA18[:j19])
-	}
-	if len(m.RSi32Unpacked) > 0 {
-		for _, num := range m.RSi32Unpacked {
-			dAtA[i] = 0xe8
-			i++
-			dAtA[i] = 0x3
-			i++
-			x21 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x21 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x21)&0x7f | 0x80)
-				x21 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x21)
-			i++
-		}
-	}
-	if m.Si64 != 0 {
-		dAtA[i] = 0xf0
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Si64)<<1)^uint64((m.Si64>>63))))
-	}
-	if len(m.RSi64) > 0 {
-		var j22 int
-		dAtA24 := make([]byte, len(m.RSi64)*10)
-		for _, num := range m.RSi64 {
-			x23 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x23 >= 1<<7 {
-				dAtA24[j22] = uint8(uint64(x23)&0x7f | 0x80)
-				j22++
-				x23 >>= 7
-			}
-			dAtA24[j22] = uint8(x23)
-			j22++
-		}
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x3
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(j22))
-		i += copy(dAtA[i:], dAtA24[:j22])
-	}
-	if len(m.RSi64Unpacked) > 0 {
-		for _, num := range m.RSi64Unpacked {
-			dAtA[i] = 0x80
-			i++
-			dAtA[i] = 0x4
-			i++
-			x25 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x25 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x25)&0x7f | 0x80)
-				x25 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x25)
-			i++
-		}
-	}
-	if m.IstioValue != nil {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.IstioValue.Size()))
-		n26, err := m.IstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n26
-	}
-	if len(m.MapStrIstioValue) > 0 {
-		for k, _ := range m.MapStrIstioValue {
-			dAtA[i] = 0x92
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n27, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n27
-			}
-		}
-	}
-	if m.IpaddressIstioValue != nil {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.IpaddressIstioValue.Size()))
-		n28, err := m.IpaddressIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n28
-	}
-	if len(m.MapStrIpaddressIstioValue) > 0 {
-		for k, _ := range m.MapStrIpaddressIstioValue {
-			dAtA[i] = 0xa2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrIpaddressIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n29, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n29
-			}
-		}
-	}
-	if m.DurationIstioValue != nil {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.DurationIstioValue.Size()))
-		n30, err := m.DurationIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n30
-	}
-	if len(m.MapStrDurationIstioValue) > 0 {
-		for k, _ := range m.MapStrDurationIstioValue {
-			dAtA[i] = 0xb2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrDurationIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n31, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n31
-			}
-		}
-	}
-	if m.TimestampIstioValue != nil {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.TimestampIstioValue.Size()))
-		n32, err := m.TimestampIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n32
-	}
-	if len(m.MapStrTimestampIstioValue) > 0 {
-		for k, _ := range m.MapStrTimestampIstioValue {
-			dAtA[i] = 0xc2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrTimestampIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n33, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n33
-			}
-		}
-	}
-	if m.DnsnameIstioValue != nil {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.DnsnameIstioValue.Size()))
-		n34, err := m.DnsnameIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n34
-	}
-	if len(m.MapStrDnsnameIstioValue) > 0 {
-		for k, _ := range m.MapStrDnsnameIstioValue {
-			dAtA[i] = 0xd2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrDnsnameIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n35, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n35
-			}
-		}
-	}
-	if m.EmailaddressIstioValue != nil {
-		dAtA[i] = 0xda
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.EmailaddressIstioValue.Size()))
-		n36, err := m.EmailaddressIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n36
-	}
-	if len(m.MapStrEmailaddressIstioValue) > 0 {
-		for k, _ := range m.MapStrEmailaddressIstioValue {
-			dAtA[i] = 0xe2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrEmailaddressIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n37, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n37
-			}
-		}
-	}
-	if m.UriIstioValue != nil {
-		dAtA[i] = 0xea
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.UriIstioValue.Size()))
-		n38, err := m.UriIstioValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n38
-	}
-	if len(m.MapStrUriIstioValue) > 0 {
-		for k, _ := range m.MapStrUriIstioValue {
-			dAtA[i] = 0xf2
-			i++
-			dAtA[i] = 0x4
-			i++
-			v := m.MapStrUriIstioValue[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTypes(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + msgSize
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTypes(dAtA, i, uint64(v.Size()))
-				n39, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n39
-			}
-		}
-	}
-	if m.GoogleProtobufDuration != nil {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x4
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.GoogleProtobufDuration.Size()))
-		n40, err := m.GoogleProtobufDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n40
-	}
-	if m.GoogleProtobufTimestamp != nil {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x5
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.GoogleProtobufTimestamp.Size()))
-		n41, err := m.GoogleProtobufTimestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n41
-	}
-	if len(m.MapInt64Double) > 0 {
-		for k, _ := range m.MapInt64Double {
-			dAtA[i] = 0xda
-			i++
-			dAtA[i] = 0x7
-			i++
-			v := m.MapInt64Double[k]
-			mapSize := 1 + sovTypes(uint64(k)) + 1 + 8
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(k))
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
-			i += 8
-		}
-	}
-	if len(m.MapFixed32Enum) > 0 {
-		for k, _ := range m.MapFixed32Enum {
-			dAtA[i] = 0xe2
-			i++
-			dAtA[i] = 0x7
-			i++
-			v := m.MapFixed32Enum[k]
-			mapSize := 1 + 4 + 1 + sovTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xd
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
-			i += 4
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.MapStrFloat) > 0 {
-		for k, _ := range m.MapStrFloat {
-			dAtA[i] = 0xea
-			i++
-			dAtA[i] = 0x7
-			i++
-			v := m.MapStrFloat[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + 4
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
-			i += 4
-		}
-	}
-	if len(m.MapStrUint64) > 0 {
-		for k, _ := range m.MapStrUint64 {
-			dAtA[i] = 0xf2
-			i++
-			dAtA[i] = 0x7
-			i++
-			v := m.MapStrUint64[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sovTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.MapStrSfixed32) > 0 {
-		for k, _ := range m.MapStrSfixed32 {
-			dAtA[i] = 0xfa
-			i++
-			dAtA[i] = 0x7
-			i++
-			v := m.MapStrSfixed32[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + 4
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
-			i += 4
-		}
-	}
-	if len(m.MapStrSfixed64) > 0 {
-		for k, _ := range m.MapStrSfixed64 {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0x8
-			i++
-			v := m.MapStrSfixed64[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + 8
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
-		}
-	}
-	if len(m.MapStrSint32) > 0 {
-		for k, _ := range m.MapStrSint32 {
-			dAtA[i] = 0x8a
-			i++
-			dAtA[i] = 0x8
-			i++
-			v := m.MapStrSint32[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sozTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
-		}
-	}
-	if len(m.MapStrSint64) > 0 {
-		for k, _ := range m.MapStrSint64 {
-			dAtA[i] = 0x92
-			i++
-			dAtA[i] = 0x8
-			i++
-			v := m.MapStrSint64[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sozTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
-		}
-	}
-	if len(m.MapStrUint32) > 0 {
-		for k, _ := range m.MapStrUint32 {
-			dAtA[i] = 0xa2
-			i++
-			dAtA[i] = 0x8
-			i++
-			v := m.MapStrUint32[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sovTypes(uint64(v))
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.MapStrFixed64) > 0 {
-		for k, _ := range m.MapStrFixed64 {
-			dAtA[i] = 0xaa
-			i++
-			dAtA[i] = 0x8
-			i++
-			v := m.MapStrFixed64[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + 8
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
 		}
 	}
 	if len(m.MapStrBool) > 0 {
-		for k, _ := range m.MapStrBool {
-			dAtA[i] = 0xb2
-			i++
-			dAtA[i] = 0x8
-			i++
+		for k := range m.MapStrBool {
 			v := m.MapStrBool[k]
-			mapSize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + 1
-			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
+			i--
 			if v {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0xb2
 		}
 	}
-	if len(m.REnmUnpacked) > 0 {
-		for _, num := range m.REnmUnpacked {
-			dAtA[i] = 0xc8
-			i++
+	if len(m.MapStrFixed64) > 0 {
+		for k := range m.MapStrFixed64 {
+			v := m.MapStrFixed64[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
 			dAtA[i] = 0x11
-			i++
-			i = encodeVarintTypes(dAtA, i, uint64(num))
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0xaa
 		}
 	}
-	return i, nil
+	if len(m.MapStrUint32) > 0 {
+		for k := range m.MapStrUint32 {
+			v := m.MapStrUint32[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0xa2
+		}
+	}
+	if len(m.MapStrSint64) > 0 {
+		for k := range m.MapStrSint64 {
+			v := m.MapStrSint64[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0x92
+		}
+	}
+	if len(m.MapStrSint32) > 0 {
+		for k := range m.MapStrSint32 {
+			v := m.MapStrSint32[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0x8a
+		}
+	}
+	if len(m.MapStrSfixed64) > 0 {
+		for k := range m.MapStrSfixed64 {
+			v := m.MapStrSfixed64[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
+			dAtA[i] = 0x11
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x8
+			i--
+			dAtA[i] = 0x82
+		}
+	}
+	if len(m.MapStrSfixed32) > 0 {
+		for k := range m.MapStrSfixed32 {
+			v := m.MapStrSfixed32[k]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			i--
+			dAtA[i] = 0x15
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7
+			i--
+			dAtA[i] = 0xfa
+		}
+	}
+	if len(m.MapStrUint64) > 0 {
+		for k := range m.MapStrUint64 {
+			v := m.MapStrUint64[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7
+			i--
+			dAtA[i] = 0xf2
+		}
+	}
+	if len(m.MapStrFloat) > 0 {
+		for k := range m.MapStrFloat {
+			v := m.MapStrFloat[k]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
+			i--
+			dAtA[i] = 0x15
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7
+			i--
+			dAtA[i] = 0xea
+		}
+	}
+	if len(m.MapFixed32Enum) > 0 {
+		for k := range m.MapFixed32Enum {
+			v := m.MapFixed32Enum[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
+			i--
+			dAtA[i] = 0xd
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7
+			i--
+			dAtA[i] = 0xe2
+		}
+	}
+	if len(m.MapInt64Double) > 0 {
+		for k := range m.MapInt64Double {
+			v := m.MapInt64Double[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			i--
+			dAtA[i] = 0x11
+			i = encodeVarintTypes(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7
+			i--
+			dAtA[i] = 0xda
+		}
+	}
+	if m.GoogleProtobufTimestamp != nil {
+		{
+			size, err := m.GoogleProtobufTimestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.GoogleProtobufDuration != nil {
+		{
+			size, err := m.GoogleProtobufDuration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xfa
+	}
+	if len(m.MapStrUriIstioValue) > 0 {
+		for k := range m.MapStrUriIstioValue {
+			v := m.MapStrUriIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xf2
+		}
+	}
+	if m.UriIstioValue != nil {
+		{
+			size, err := m.UriIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xea
+	}
+	if len(m.MapStrEmailaddressIstioValue) > 0 {
+		for k := range m.MapStrEmailaddressIstioValue {
+			v := m.MapStrEmailaddressIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xe2
+		}
+	}
+	if m.EmailaddressIstioValue != nil {
+		{
+			size, err := m.EmailaddressIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xda
+	}
+	if len(m.MapStrDnsnameIstioValue) > 0 {
+		for k := range m.MapStrDnsnameIstioValue {
+			v := m.MapStrDnsnameIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xd2
+		}
+	}
+	if m.DnsnameIstioValue != nil {
+		{
+			size, err := m.DnsnameIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xca
+	}
+	if len(m.MapStrTimestampIstioValue) > 0 {
+		for k := range m.MapStrTimestampIstioValue {
+			v := m.MapStrTimestampIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xc2
+		}
+	}
+	if m.TimestampIstioValue != nil {
+		{
+			size, err := m.TimestampIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xba
+	}
+	if len(m.MapStrDurationIstioValue) > 0 {
+		for k := range m.MapStrDurationIstioValue {
+			v := m.MapStrDurationIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xb2
+		}
+	}
+	if m.DurationIstioValue != nil {
+		{
+			size, err := m.DurationIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0xaa
+	}
+	if len(m.MapStrIpaddressIstioValue) > 0 {
+		for k := range m.MapStrIpaddressIstioValue {
+			v := m.MapStrIpaddressIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xa2
+		}
+	}
+	if m.IpaddressIstioValue != nil {
+		{
+			size, err := m.IpaddressIstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0x9a
+	}
+	if len(m.MapStrIstioValue) > 0 {
+		for k := range m.MapStrIstioValue {
+			v := m.MapStrIstioValue[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0x92
+		}
+	}
+	if m.IstioValue != nil {
+		{
+			size, err := m.IstioValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4
+		i--
+		dAtA[i] = 0x8a
+	}
+	if len(m.RSi64Unpacked) > 0 {
+		for iNdEx := len(m.RSi64Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			x17 := (uint64(m.RSi64Unpacked[iNdEx]) << 1) ^ uint64((m.RSi64Unpacked[iNdEx] >> 63))
+			i = encodeVarintTypes(dAtA, i, uint64(x17))
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0x80
+		}
+	}
+	if len(m.RSi64) > 0 {
+		var j18 int
+		dAtA20 := make([]byte, len(m.RSi64)*10)
+		for _, num := range m.RSi64 {
+			x19 := (uint64(num) << 1) ^ uint64((num >> 63))
+			for x19 >= 1<<7 {
+				dAtA20[j18] = uint8(uint64(x19)&0x7f | 0x80)
+				j18++
+				x19 >>= 7
+			}
+			dAtA20[j18] = uint8(x19)
+			j18++
+		}
+		i -= j18
+		copy(dAtA[i:], dAtA20[:j18])
+		i = encodeVarintTypes(dAtA, i, uint64(j18))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xfa
+	}
+	if m.Si64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Si64)<<1)^uint64((m.Si64>>63))))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xf0
+	}
+	if len(m.RSi32Unpacked) > 0 {
+		for iNdEx := len(m.RSi32Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			x21 := (uint32(m.RSi32Unpacked[iNdEx]) << 1) ^ uint32((m.RSi32Unpacked[iNdEx] >> 31))
+			i = encodeVarintTypes(dAtA, i, uint64(x21))
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xe8
+		}
+	}
+	if len(m.RSi32) > 0 {
+		dAtA22 := make([]byte, len(m.RSi32)*5)
+		var j23 int
+		for _, num := range m.RSi32 {
+			x24 := (uint32(num) << 1) ^ uint32((num >> 31))
+			for x24 >= 1<<7 {
+				dAtA22[j23] = uint8(uint64(x24)&0x7f | 0x80)
+				j23++
+				x24 >>= 7
+			}
+			dAtA22[j23] = uint8(x24)
+			j23++
+		}
+		i -= j23
+		copy(dAtA[i:], dAtA22[:j23])
+		i = encodeVarintTypes(dAtA, i, uint64(j23))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xe2
+	}
+	if m.Si32 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64((uint32(m.Si32)<<1)^uint32((m.Si32>>31))))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xd8
+	}
+	if len(m.RStr) > 0 {
+		for iNdEx := len(m.RStr) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.RStr[iNdEx])
+			copy(dAtA[i:], m.RStr[iNdEx])
+			i = encodeVarintTypes(dAtA, i, uint64(len(m.RStr[iNdEx])))
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xd2
+		}
+	}
+	if len(m.RBUnpacked) > 0 {
+		for iNdEx := len(m.RBUnpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.RBUnpacked[iNdEx] {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xc8
+		}
+	}
+	if len(m.RB) > 0 {
+		for iNdEx := len(m.RB) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.RB[iNdEx] {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RB)))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xc2
+	}
+	if len(m.RSf32Unpacked) > 0 {
+		for iNdEx := len(m.RSf32Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.RSf32Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xbd
+		}
+	}
+	if len(m.RSf32) > 0 {
+		for iNdEx := len(m.RSf32) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.RSf32[iNdEx]))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf32)*4))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xb2
+	}
+	if m.Sf32 != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Sf32))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0xad
+	}
+	if len(m.RF32Unpacked) > 0 {
+		for iNdEx := len(m.RF32Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.RF32Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xa5
+		}
+	}
+	if len(m.RF32) > 0 {
+		for iNdEx := len(m.RF32) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.RF32[iNdEx]))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF32)*4))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.F32 != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x95
+	}
+	if len(m.RSf64Unpacked) > 0 {
+		for iNdEx := len(m.RSf64Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.RSf64Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0x89
+		}
+	}
+	if len(m.RSf64) > 0 {
+		for iNdEx := len(m.RSf64) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.RSf64[iNdEx]))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf64)*8))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.Sf64 != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Sf64))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xf9
+	}
+	if len(m.RF64Unpacked) > 0 {
+		for iNdEx := len(m.RF64Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.RF64Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0xf1
+		}
+	}
+	if len(m.RF64) > 0 {
+		for iNdEx := len(m.RF64) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.RF64[iNdEx]))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF64)*8))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xea
+	}
+	if m.F64 != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xe1
+	}
+	if len(m.RUi32Unpacked) > 0 {
+		for iNdEx := len(m.RUi32Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTypes(dAtA, i, uint64(m.RUi32Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0xd8
+		}
+	}
+	if len(m.RUi32) > 0 {
+		dAtA26 := make([]byte, len(m.RUi32)*10)
+		var j25 int
+		for _, num := range m.RUi32 {
+			for num >= 1<<7 {
+				dAtA26[j25] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j25++
+			}
+			dAtA26[j25] = uint8(num)
+			j25++
+		}
+		i -= j25
+		copy(dAtA[i:], dAtA26[:j25])
+		i = encodeVarintTypes(dAtA, i, uint64(j25))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xd2
+	}
+	if m.Ui32 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Ui32))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xc8
+	}
+	if len(m.RUi64Unpacked) > 0 {
+		for iNdEx := len(m.RUi64Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTypes(dAtA, i, uint64(m.RUi64Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0xc0
+		}
+	}
+	if len(m.RUi64) > 0 {
+		dAtA28 := make([]byte, len(m.RUi64)*10)
+		var j27 int
+		for _, num := range m.RUi64 {
+			for num >= 1<<7 {
+				dAtA28[j27] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j27++
+			}
+			dAtA28[j27] = uint8(num)
+			j27++
+		}
+		i -= j27
+		copy(dAtA[i:], dAtA28[:j27])
+		i = encodeVarintTypes(dAtA, i, uint64(j27))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xba
+	}
+	if m.Ui64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Ui64))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xb0
+	}
+	if len(m.RI32Unpacked) > 0 {
+		for iNdEx := len(m.RI32Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTypes(dAtA, i, uint64(m.RI32Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0xa8
+		}
+	}
+	if len(m.RI32) > 0 {
+		dAtA30 := make([]byte, len(m.RI32)*10)
+		var j29 int
+		for _, num1 := range m.RI32 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA30[j29] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j29++
+			}
+			dAtA30[j29] = uint8(num)
+			j29++
+		}
+		i -= j29
+		copy(dAtA[i:], dAtA30[:j29])
+		i = encodeVarintTypes(dAtA, i, uint64(j29))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.I32 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.I32))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x98
+	}
+	if len(m.RI64Unpacked) > 0 {
+		for iNdEx := len(m.RI64Unpacked) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTypes(dAtA, i, uint64(m.RI64Unpacked[iNdEx]))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0x90
+		}
+	}
+	if len(m.RI64) > 0 {
+		dAtA32 := make([]byte, len(m.RI64)*10)
+		var j31 int
+		for _, num1 := range m.RI64 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA32[j31] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j31++
+			}
+			dAtA32[j31] = uint8(num)
+			j31++
+		}
+		i -= j31
+		copy(dAtA[i:], dAtA32[:j31])
+		i = encodeVarintTypes(dAtA, i, uint64(j31))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.I64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x80
+	}
+	if len(m.RFltUnpacked) > 0 {
+		for iNdEx := len(m.RFltUnpacked) - 1; iNdEx >= 0; iNdEx-- {
+			f33 := math.Float32bits(float32(m.RFltUnpacked[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f33))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xfd
+		}
+	}
+	if len(m.RFlt) > 0 {
+		for iNdEx := len(m.RFlt) - 1; iNdEx >= 0; iNdEx-- {
+			f34 := math.Float32bits(float32(m.RFlt[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f34))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RFlt)*4))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf2
+	}
+	if m.Flt != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xed
+	}
+	if len(m.REnm) > 0 {
+		dAtA36 := make([]byte, len(m.REnm)*10)
+		var j35 int
+		for _, num := range m.REnm {
+			for num >= 1<<7 {
+				dAtA36[j35] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j35++
+			}
+			dAtA36[j35] = uint8(num)
+			j35++
+		}
+		i -= j35
+		copy(dAtA[i:], dAtA36[:j35])
+		i = encodeVarintTypes(dAtA, i, uint64(j35))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe2
+	}
+	if len(m.ROth) > 0 {
+		for iNdEx := len(m.ROth) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ROth[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTypes(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xd2
+		}
+	}
+	if len(m.RDblUnpacked) > 0 {
+		for iNdEx := len(m.RDblUnpacked) - 1; iNdEx >= 0; iNdEx-- {
+			f37 := math.Float64bits(float64(m.RDblUnpacked[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f37))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xc1
+		}
+	}
+	if len(m.RDbl) > 0 {
+		for iNdEx := len(m.RDbl) - 1; iNdEx >= 0; iNdEx-- {
+			f38 := math.Float64bits(float64(m.RDbl[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f38))
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.RDbl)*8))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
+	}
+	if len(m.MapStrEnum) > 0 {
+		for k := range m.MapStrEnum {
+			v := m.MapStrEnum[k]
+			baseI := i
+			i = encodeVarintTypes(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xaa
+		}
+	}
+	if len(m.MapI32Msg) > 0 {
+		for k := range m.MapI32Msg {
+			v := m.MapI32Msg[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i = encodeVarintTypes(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xa2
+		}
+	}
+	if len(m.MapStrMsg) > 0 {
+		for k := range m.MapStrMsg {
+			v := m.MapStrMsg[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x9a
+		}
+	}
+	if len(m.MapStrStr) > 0 {
+		for k := range m.MapStrStr {
+			v := m.MapStrStr[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTypes(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x92
+		}
+	}
+	if m.Enm != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Enm))
+		i--
+		dAtA[i] = 0x68
+	}
+	if len(m.Byts) > 0 {
+		i -= len(m.Byts)
+		copy(dAtA[i:], m.Byts)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Byts)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.Oth != nil {
+		{
+			size, err := m.Oth.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.B {
+		i--
+		if m.B {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Dbl != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		i--
+		dAtA[i] = 0x11
+	}
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Other) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3505,59 +3522,67 @@ func (m *Other) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Other) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Other) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if m.Inmsg != nil {
+		{
+			size, err := m.Inmsg.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.Dbl != 0 {
-		dAtA[i] = 0x11
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
-		i += 8
-	}
-	if m.I64 != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+	if m.Inenum != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Inenum))
+		i--
+		dAtA[i] = 0x28
 	}
 	if m.B {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.B {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.Inenum != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Inenum))
+	if m.I64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.Inmsg != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.Inmsg.Size()))
-		n42, err := m.Inmsg.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n42
+	if m.Dbl != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		i--
+		dAtA[i] = 0x11
 	}
-	return i, nil
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *OtherInnerMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3565,34 +3590,40 @@ func (m *OtherInnerMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OtherInnerMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OtherInnerMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
+	if m.I64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.Dbl != 0 {
-		dAtA[i] = 0x11
-		i++
+		i -= 8
 		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
-		i += 8
+		i--
+		dAtA[i] = 0x11
 	}
-	if m.I64 != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Outer) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3600,27 +3631,34 @@ func (m *Outer) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Outer) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Outer) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.In != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.In.Size()))
-		n43, err := m.In.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.In.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
 		}
-		i += n43
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Outer_Inner) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3628,48 +3666,56 @@ func (m *Outer_Inner) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Outer_Inner) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Outer_Inner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Str) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
-		i += copy(dAtA[i:], m.Str)
-	}
-	if m.Dbl != 0 {
-		dAtA[i] = 0x11
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
-		i += 8
-	}
-	if m.I64 != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
-	}
 	if m.B {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.B {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if m.I64 != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Dbl != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		i--
+		dAtA[i] = 0x11
+	}
+	if len(m.Str) > 0 {
+		i -= len(m.Str)
+		copy(dAtA[i:], m.Str)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTypes(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTypes(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Empty) Size() (n int) {
 	if m == nil {
@@ -4222,14 +4268,7 @@ func (m *Outer_Inner) Size() (n int) {
 }
 
 func sovTypes(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTypes(x uint64) (n int) {
 	return sovTypes(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -4247,6 +4286,11 @@ func (this *Simple) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForROth := "[]*Other{"
+	for _, f := range this.ROth {
+		repeatedStringForROth += strings.Replace(fmt.Sprintf("%v", f), "Other", "Other", 1) + ","
+	}
+	repeatedStringForROth += "}"
 	keysForMapStrStr := make([]string, 0, len(this.MapStrStr))
 	for k, _ := range this.MapStrStr {
 		keysForMapStrStr = append(keysForMapStrStr, k)
@@ -4480,7 +4524,7 @@ func (this *Simple) String() string {
 		`MapStrEnum:` + mapStringForMapStrEnum + `,`,
 		`RDbl:` + fmt.Sprintf("%v", this.RDbl) + `,`,
 		`RDblUnpacked:` + fmt.Sprintf("%v", this.RDblUnpacked) + `,`,
-		`ROth:` + strings.Replace(fmt.Sprintf("%v", this.ROth), "Other", "Other", 1) + `,`,
+		`ROth:` + repeatedStringForROth + `,`,
 		`REnm:` + fmt.Sprintf("%v", this.REnm) + `,`,
 		`Flt:` + fmt.Sprintf("%v", this.Flt) + `,`,
 		`RFlt:` + fmt.Sprintf("%v", this.RFlt) + `,`,

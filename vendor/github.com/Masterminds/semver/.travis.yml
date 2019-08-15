@@ -1,9 +1,11 @@
 language: go
 
 go:
-  - 1.6
-  - 1.7
-  - 1.8
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
+  - 1.9.x
+  - 1.10.x
   - tip
 
 # Setting sudo access to false will let Travis CI use containers rather than
@@ -13,8 +15,8 @@ go:
 sudo: false
 
 script:
-  - GO15VENDOREXPERIMENT=1 make setup
-  - GO15VENDOREXPERIMENT=1 make test
+  - make setup
+  - make test
 
 notifications:
   webhooks:

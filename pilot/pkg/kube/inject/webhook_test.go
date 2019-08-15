@@ -35,8 +35,9 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 
 	"k8s.io/api/admission/v1beta1"
@@ -821,7 +822,7 @@ func TestHelmInject(t *testing.T) {
 }
 
 func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
-	mesh := config.DefaultMeshConfig()
+	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
@@ -836,7 +837,7 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 			Template: sidecarTemplate,
 		},
 		sidecarTemplateVersion: "unit-test-fake-version",
-		meshConfig:             &mesh,
+		meshConfig:             &m,
 		valuesConfig:           getValuesWithHelm(nil, t),
 	}, cleanup
 }
@@ -960,7 +961,7 @@ func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string
 	paramsVals := params.intoHelmValues()
 	for path, value := range paramsVals {
 		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
-		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
+		if err := strvals.ParseInto(setStr, valMap); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1276,12 +1277,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 	valuesBytes := []byte(getValues(&Params{}, t))
 	var (
-		configFile = filepath.Join(dir, "config-file.yaml")
-		valuesFile = filepath.Join(dir, "values-file.yaml")
-		meshFile   = filepath.Join(dir, "mesh-file.yaml")
-		certFile   = filepath.Join(dir, "cert-file.yaml")
-		keyFile    = filepath.Join(dir, "key-file.yaml")
-		port       = 0
+		configFile     = filepath.Join(dir, "config-file.yaml")
+		valuesFile     = filepath.Join(dir, "values-file.yaml")
+		meshFile       = filepath.Join(dir, "mesh-file.yaml")
+		certFile       = filepath.Join(dir, "cert-file.yaml")
+		keyFile        = filepath.Join(dir, "key-file.yaml")
+		port           = 0
+		monitoringPort = 0
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
@@ -1295,12 +1297,12 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	// mesh
-	mesh := config.DefaultMeshConfig()
-	m := jsonpb.Marshaler{
+	m := mesh.DefaultMeshConfig()
+	marshaller := jsonpb.Marshaler{
 		Indent: "  ",
 	}
 	var meshBytes bytes.Buffer
-	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
+	if err := marshaller.Marshal(&meshBytes, &m); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
@@ -1321,12 +1323,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	wh, err := NewWebhook(WebhookParameters{
-		ConfigFile: configFile,
-		ValuesFile: valuesFile,
-		MeshFile:   meshFile,
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		Port:       port,
+		ConfigFile:     configFile,
+		ValuesFile:     valuesFile,
+		MeshFile:       meshFile,
+		CertFile:       certFile,
+		KeyFile:        keyFile,
+		Port:           port,
+		MonitoringPort: monitoringPort,
 	})
 	if err != nil {
 		cleanup()
@@ -1483,6 +1486,8 @@ func TestRunAndServe(t *testing.T) {
 			}
 		})
 	}
+	// Now Validate that metrics are created.
+	testSideCarInjectorMetrics(t, wh)
 }
 
 func TestReloadCert(t *testing.T) {
@@ -1520,8 +1525,41 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
+func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
+	srv := httptest.NewServer(wh.mon.exporter)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("failed to get /metrics: %v", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read body: %v", err)
+	}
+	resp.Body.Close()
+
+	output := string(body)
+
+	if !strings.Contains(output, "sidecar_injection_requests_total") {
+		t.Fatalf("metric sidecar_injection_requests_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_success_total") {
+		t.Fatalf("metric sidecar_injection_success_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_skip_total") {
+		t.Fatalf("metric sidecar_injection_skip_total not found")
+	}
+
+	if !strings.Contains(output, "sidecar_injection_failure_total") {
+		t.Fatalf("incorrect value for metric sidecar_injection_failure_total")
+	}
+}
+
 func BenchmarkInjectServe(b *testing.B) {
-	mesh := config.DefaultMeshConfig()
+	mesh := mesh.DefaultMeshConfig()
 	params := &Params{
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),

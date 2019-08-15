@@ -23,13 +23,15 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -293,6 +295,146 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
+		{ // Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
+			// key/cert and root cert
+			name: "credential name verify spki key and cert tls MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode:                  networking.Server_TLSOptions_MUTUAL,
+					CredentialName:        "ingress-sds-resource-name",
+					VerifyCertificateSpki: []string{"abcdef"},
+				},
+			},
+			enableSds: true,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "ingress-sds-resource-name",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: features.InitialFetchTimeout,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri:  model.IngressGatewaySdsUdsPath,
+														StatPrefix: model.SDSStatPrefix,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								VerifyCertificateSpki: []string{"abcdef"},
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ingress-sds-resource-name-cacert",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: features.InitialFetchTimeout,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  model.IngressGatewaySdsUdsPath,
+															StatPrefix: model.SDSStatPrefix,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
+		{ // Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
+			// key/cert and root cert
+			name: "credential name verify hash key and cert tls MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode:                  networking.Server_TLSOptions_MUTUAL,
+					CredentialName:        "ingress-sds-resource-name",
+					VerifyCertificateHash: []string{"fedcba"},
+				},
+			},
+			enableSds: true,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "ingress-sds-resource-name",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: features.InitialFetchTimeout,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri:  model.IngressGatewaySdsUdsPath,
+														StatPrefix: model.SDSStatPrefix,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								VerifyCertificateHash: []string{"fedcba"},
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ingress-sds-resource-name-cacert",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: features.InitialFetchTimeout,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  model.IngressGatewaySdsUdsPath,
+															StatPrefix: model.SDSStatPrefix,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
 		{
 			name: "no credential name key and cert tls PASSTHROUGH",
 			server: &networking.Server{
@@ -407,7 +549,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service",
 			Namespace: "default",
 		},
@@ -415,7 +557,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceCopy := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service-copy",
 			Namespace: "default",
 		},
@@ -423,7 +565,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	virtualServiceWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
-			Type:      pilot_model.VirtualService.Type,
+			Type:      schemas.VirtualService.Type,
 			Name:      "virtual-service-wildcard",
 			Namespace: "default",
 		},
@@ -516,12 +658,12 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		}
 		return nil, nil
 	}
-	mesh := config.DefaultMeshConfig()
+	m := mesh.DefaultMeshConfig()
 	env := pilot_model.Environment{
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Mesh:             &m,
 		MixerSAN:         []string{},
 	}
 

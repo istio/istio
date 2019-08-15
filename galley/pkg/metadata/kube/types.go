@@ -820,21 +820,6 @@ func init() {
 	versions = append(versions, "v1alpha1")
 
 	b.Add(schema.ResourceSpec{
-		Kind:      "AuthorizationPolicy",
-		ListKind:  "AuthorizationPolicyList",
-		Singular:  "authorizationpolicy",
-		Plural:    "authorizationpolicies",
-		Versions:  versions,
-		Group:     "rbac.istio.io",
-		Target:    metadata.Types.Get("istio/rbac/v1alpha1/authorizationpolicies"),
-		Converter: converter.Get("identity"),
-	})
-
-	versions = make([]string, 0)
-
-	versions = append(versions, "v1alpha1")
-
-	b.Add(schema.ResourceSpec{
 		Kind:      "ClusterRbacConfig",
 		ListKind:  "ClusterRbacConfigList",
 		Singular:  "clusterrbacconfig",

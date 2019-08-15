@@ -86,41 +86,6 @@ package istio.rbac.v1alpha1;
 
 option go_package="istio.io/api/rbac/v1alpha1";
 
-// $hide_from_docs
-// This is forked from the networking/v1alpha3/sidecar.proto to avoid a direct
-// dependency from the rbac API on networking API.
-// TODO: Move the WorkloadSelector to a common place to be shared by other packages.
-// WorkloadSelector specifies the criteria used to determine if the Gateway
-// or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload instance info such as
-// labels attached to the pod/VM, or any other info that the proxy provides
-// to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload instance to be
-// selected. Currently, only label based selection mechanism is supported.
-message WorkloadSelector {
-  // One or more labels that indicate a specific set of pods/VMs on which
-  // this sidecar configuration should be applied. The scope of label
-  // search is restricted to the configuration namespace in which the the
-  // resource is present.
-  map<string, string> labels = 1;
-}
-
-// $hide_from_docs
-// AuthorizationPolicy to enforce access control on a selected workload instance.
-message AuthorizationPolicy {
-  // $hide_from_docs
-  // Optional. One or more labels that indicate a specific set of pods/VMs
-  // on which this authorization policy should be applied. Leave this empty to
-  // select all pods/VMs.
-  // The scope of label search is platform dependent. On Kubernetes, for example,
-  // the scope includes pods running in the same namespace as the authorization policy itself.
-  WorkloadSelector workload_selector = 1;
-
-  // $hide_from_docs
-  // A list of bindings that specify the subjects and permissions to the selected workload instance.
-  repeated ServiceRoleBinding allow = 2;
-}
-
 // ServiceRole specification contains a list of access rules (permissions).
 message ServiceRole {
   // Required. The set of access rules (permissions) that the role has.
@@ -379,10 +344,6 @@ message RbacConfig {
   message Target {
     // A list of services.
     repeated string services = 1;
-
-    // $hide_from_docs
-    // A list of workload instances.
-    repeated WorkloadSelector workload_selectors = 3;
 
     // A list of namespaces.
     repeated string namespaces = 2;

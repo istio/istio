@@ -190,9 +190,6 @@ var (
 	// istio/policy/v1beta1/rules metadata
 	IstioPolicyV1beta1Rules resource.Info
 
-	// istio/rbac/v1alpha1/authorizationpolicies metadata
-	IstioRbacV1alpha1Authorizationpolicies resource.Info
-
 	// istio/rbac/v1alpha1/clusterrbacconfigs metadata
 	IstioRbacV1alpha1Clusterrbacconfigs resource.Info
 
@@ -377,9 +374,6 @@ func init() {
 	IstioPolicyV1beta1Rules = b.Register(
 		"istio/policy/v1beta1/rules",
 		"type.googleapis.com/istio.policy.v1beta1.Rule")
-	IstioRbacV1alpha1Authorizationpolicies = b.Register(
-		"istio/rbac/v1alpha1/authorizationpolicies",
-		"type.googleapis.com/istio.rbac.v1alpha1.AuthorizationPolicy")
 	IstioRbacV1alpha1Clusterrbacconfigs = b.Register(
 		"istio/rbac/v1alpha1/clusterrbacconfigs",
 		"type.googleapis.com/istio.rbac.v1alpha1.RbacConfig")

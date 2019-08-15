@@ -31,12 +31,14 @@ import (
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 const envoyConf = `
@@ -103,6 +105,7 @@ const (
   "context.protocol": "tcp",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
+  "context.proxy_version": "1.1.1",
   "context.time": "*",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
@@ -121,6 +124,7 @@ const (
   "context.protocol": "tcp",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns1",
+  "context.proxy_version": "1.1.1",
   "context.time": "*",
   "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
   "destination.port": "*",
@@ -182,11 +186,11 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	return nil, nil
 }
-func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
+func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
@@ -215,8 +219,8 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
-			config.Hostname("svc.ns3"): {
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
@@ -251,8 +255,9 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		ListenerProtocol: plugin.ListenerProtocolTCP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod1.ns1",
-			Type: node,
+			ID:           "pod1.ns1",
+			Type:         node,
+			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -261,8 +266,9 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		ListenerProtocol: plugin.ListenerProtocolTCP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod2.ns2",
-			Type: node,
+			ID:           "pod2.ns2",
+			Type:         node,
+			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
 		},
 		Service: &svc,
 		Push:    &pushContext,

@@ -5,7 +5,10 @@ GOFILES_NOVENDOR = $(shell go list ./... | grep -v /vendor/)
 all: vet fmt docs test
 
 docs:
-	./scripts/fixup.sh
+	./scripts/docs.sh generate
+
+checkdocs:
+	./scripts/docs.sh check
 
 fmt:
 	go fmt $(GOFILES_NOVENDOR)

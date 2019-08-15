@@ -25,12 +25,14 @@ import (
 	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	metadata2 "istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/validation"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,7 +172,7 @@ func TestServiceResolution(t *testing.T) {
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
-					ClusterIP: config.UnspecifiedIP,
+					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
 			resolution: networking.ServiceEntry_NONE,
@@ -208,7 +210,7 @@ func TestServiceResolution(t *testing.T) {
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
-					ClusterIP: config.UnspecifiedIP,
+					ClusterIP: constants.UnspecifiedIP,
 				},
 			},
 			resolution: networking.ServiceEntry_STATIC,
@@ -279,7 +281,7 @@ func TestServiceResolution(t *testing.T) {
 			case networking.ServiceEntry_DNS:
 				g.Expect(len(actual.Addresses)).To(Equal(0))
 				for _, host := range actual.Hosts {
-					g.Expect(config.ValidateFQDN(host)).To(BeNil())
+					g.Expect(validation.ValidateFQDN(host)).To(BeNil())
 
 				}
 			case networking.ServiceEntry_STATIC:
@@ -376,11 +378,11 @@ func TestServicePorts(t *testing.T) {
 		proto coreV1.Protocol
 		out   protocol.Instance
 	}{
-		{"", coreV1.ProtocolTCP, protocol.TCP},
+		{"", coreV1.ProtocolTCP, protocol.Unsupported},
 		{"http", coreV1.ProtocolTCP, protocol.HTTP},
 		{"http-test", coreV1.ProtocolTCP, protocol.HTTP},
 		{"http", coreV1.ProtocolUDP, protocol.UDP},
-		{"httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{"httptest", coreV1.ProtocolTCP, protocol.Unsupported},
 		{"https", coreV1.ProtocolTCP, protocol.HTTPS},
 		{"https-test", coreV1.ProtocolTCP, protocol.HTTPS},
 		{"http2", coreV1.ProtocolTCP, protocol.HTTP2},
@@ -485,7 +487,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
-				Addresses:  []string{config.UnspecifiedIP},
+				Addresses:  []string{constants.UnspecifiedIP},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports:      []*networking.Port{},

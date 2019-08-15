@@ -191,7 +191,7 @@ func (b *backend) Init(kinds []string) error {
 		return err
 	}
 
-	b.mcpReporter = monitoring.NewStatsContext("mixer/mcp/sink")
+	b.mcpReporter = monitoring.NewStatsContext("mixer")
 	options := &sink.Options{
 		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
 		Updater:           b,

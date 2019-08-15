@@ -127,4 +127,12 @@ type Sidecar interface {
 	// has been accepted.
 	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
 	WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
+
+	// Clusters for the Envoy instance
+	Clusters() (*envoyAdmin.Clusters, error)
+	ClustersOrFail(t test.Failer) *envoyAdmin.Clusters
+
+	// Listeners for the Envoy instance
+	Listeners() (*envoyAdmin.Listeners, error)
+	ListenersOrFail(t test.Failer) *envoyAdmin.Listeners
 }

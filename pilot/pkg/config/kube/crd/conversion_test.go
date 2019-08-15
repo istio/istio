@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -44,15 +45,15 @@ func TestCamelKebab(t *testing.T) {
 }
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(model.VirtualService, model.Config{}); err == nil {
+	if _, err := ConvertConfig(schemas.VirtualService, model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
-	if _, err := ConvertObject(model.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(schemas.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            model.VirtualService.Type,
+			Type:            schemas.VirtualService.Type,
 			Group:           "networking.istio.io",
 			Version:         "v1alpha3",
 			Name:            "test",
@@ -65,11 +66,11 @@ func TestConvert(t *testing.T) {
 		Spec: mock.ExampleVirtualService,
 	}
 
-	obj, err := ConvertConfig(model.VirtualService, config)
+	obj, err := ConvertConfig(schemas.VirtualService, config)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
-	got, err := ConvertObject(model.VirtualService, obj, "cluster")
+	got, err := ConvertObject(schemas.VirtualService, obj, "cluster")
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}

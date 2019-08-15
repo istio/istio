@@ -17,14 +17,19 @@ package v2
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/test/util/retry"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -85,7 +90,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
-			queue.Enqueue(proxy, &PushInformation{})
+			queue.Enqueue(proxy, &model.PushRequest{})
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
@@ -131,7 +136,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
 
 	for _, proxy := range proxies {
-		queue.Enqueue(proxy, &PushInformation{})
+		queue.Enqueue(proxy, &model.PushRequest{})
 	}
 
 	if !wgDoneOrTimeout(wg, time.Second) {
@@ -163,4 +168,134 @@ func (h *fakeStream) Recv() (*xdsapi.DiscoveryRequest, error) {
 
 func (h *fakeStream) Context() context.Context {
 	return context.Background()
+}
+
+func TestDebounce(t *testing.T) {
+	// This test tests the timeout and debouncing of config updates
+	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
+	// For now, this seems to work well
+	DebounceAfter = time.Millisecond * 50
+	DebounceMax = DebounceAfter * 2
+	if err := os.Setenv(features.EnableEDSDebounce.Name, "false"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Unsetenv(features.EnableEDSDebounce.Name); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tests := []struct {
+		name string
+		test func(updateCh chan *model.PushRequest, expect func(partial, full int32))
+	}{
+		{
+			name: "Should not debounce partial pushes",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{Full: false}
+				expect(1, 0)
+				updateCh <- &model.PushRequest{Full: false}
+				expect(2, 0)
+				updateCh <- &model.PushRequest{Full: false}
+				expect(3, 0)
+				updateCh <- &model.PushRequest{Full: false}
+				expect(4, 0)
+				updateCh <- &model.PushRequest{Full: false}
+				expect(5, 0)
+			},
+		},
+		{
+			name: "Should debounce full pushes",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{Full: true}
+				expect(0, 0)
+			},
+		},
+		{
+			name: "Should send full updates in batches",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
+				expect(0, 1)
+			},
+		},
+		{
+			name: "Should send full updates in batches, partial updates immediately",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false}
+				expect(2, 1)
+				updateCh <- &model.PushRequest{Full: false}
+				expect(3, 1)
+			},
+		},
+		{
+			name: "Should force a push after DebounceMax",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				// Send many requests within debounce window
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter / 2)
+				expect(0, 1)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			stopCh := make(chan struct{})
+			updateCh := make(chan *model.PushRequest)
+
+			var partialPushes int32
+			var fullPushes int32
+
+			wg := sync.WaitGroup{}
+
+			fakePush := func(req *model.PushRequest) {
+				wg.Add(1)
+				go func() {
+					if req.Full {
+						atomic.AddInt32(&fullPushes, 1)
+					} else {
+						atomic.AddInt32(&partialPushes, 1)
+					}
+					wg.Done()
+				}()
+			}
+
+			wg.Add(1)
+			go func() {
+				debounce(updateCh, stopCh, fakePush)
+				wg.Done()
+			}()
+
+			expect := func(expectedPartial, expectedFull int32) {
+				t.Helper()
+				err := retry.UntilSuccess(func() error {
+					partial := atomic.LoadInt32(&partialPushes)
+					full := atomic.LoadInt32(&fullPushes)
+					if partial != expectedPartial || full != expectedFull {
+						return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+					}
+					return nil
+				}, retry.Timeout(DebounceAfter*8), retry.Delay(DebounceAfter/2))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Send updates
+			tt.test(updateCh, expect)
+
+			close(stopCh)
+			wg.Wait()
+		})
+	}
 }
