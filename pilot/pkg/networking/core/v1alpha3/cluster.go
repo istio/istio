@@ -503,10 +503,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			return clusters
 		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		sidecarScopeId := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
+		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
-			// as inbound|portNumber|portName|Hostname[or]SidecarScopeId
+			// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
 				Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -543,11 +543,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			if instance == nil {
 				// We didn't find a matching instance. Create a dummy one because we need the right
 				// params to generate the right cluster name. LDS would have setup the cluster as
-				// as inbound|portNumber|portName|SidecarScopeId
+				// as inbound|portNumber|portName|SidecarScopeID
 				instance = &model.ServiceInstance{
 					Endpoint: model.NetworkEndpoint{},
 					Service: &model.Service{
-						Hostname: host.Name(sidecarScopeId),
+						Hostname: host.Name(sidecarScopeID),
 						Attributes: model.ServiceAttributes{
 							Name:      sidecarScope.Config.Name,
 							Namespace: sidecarScope.Config.Namespace,
