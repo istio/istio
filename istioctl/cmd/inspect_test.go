@@ -143,7 +143,7 @@ func TestInspect(t *testing.T) {
 Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
-Pilot reports that pod enforces HTTP/mTLS and clients speak HTTP
+Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
 `,
 		},
 	}
