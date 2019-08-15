@@ -37,7 +37,10 @@ func TestCheck_Allow(t *testing.T) {
 			})
 			be := policybackend.NewOrFail(t, ctx)
 
-			ns := namespace.NewOrFail(t, ctx, "testcheck-allow", false)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "testcheck-allow",
+				Inject: true,
+			})
 
 			gal.ApplyConfigOrFail(
 				t,
@@ -80,7 +83,9 @@ func TestCheck_Deny(t *testing.T) {
 			})
 			be := policybackend.NewOrFail(t, ctx)
 
-			ns := namespace.NewOrFail(t, ctx, "testcheck-deny", false)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "testcheck-deny",
+			})
 
 			gal.ApplyConfigOrFail(
 				t,

@@ -107,8 +107,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-			appsNamespace := namespace.NewOrFail(t, ctx, "app", true)
-			serviceNamespace := namespace.NewOrFail(t, ctx, "service", true)
+			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "app",
+				Inject: true,
+			})
+			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "service",
+				Inject: true,
+			})
 
 			var client, dest echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
