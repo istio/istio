@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -1007,77 +1006,6 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 
 	if !reflect.DeepEqual(*expectedConfig, *cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
-	ns := "ns1"
-	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			schemas.HTTPAPISpec.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &mccpb.HTTPAPISpec{
-						Attributes: &mpb.Attributes{
-							Attributes: map[string]*mpb.Attributes_AttributeValue{
-								"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
-							},
-						},
-						Patterns: []*mccpb.HTTPAPISpecPattern{
-							{
-								Attributes: &mpb.Attributes{
-									Attributes: map[string]*mpb.Attributes_AttributeValue{
-										"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
-									},
-								},
-								HttpMethod: "POST",
-								Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
-									UriTemplate: "/pet/{id}",
-								},
-							},
-						},
-						ApiKeys: []*mccpb.APIKey{{Key: &mccpb.APIKey_Query{Query: "api_key"}}},
-					},
-				},
-			},
-			schemas.HTTPAPISpecBinding.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Namespace: ns,
-						Domain:    "cluster.local",
-					},
-					Spec: &mccpb.HTTPAPISpecBinding{
-						Services: []*mccpb.IstioService{
-							{
-								Name:      "foo",
-								Namespace: ns,
-							},
-						},
-						ApiSpecs: []*mccpb.HTTPAPISpecReference{
-							{
-								Name: "request-count",
-							},
-							{
-								Name: "does-not-exist",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name("foo." + ns + ".svc.cluster.local"),
-		},
-	})
-
-	if len(cfgs) != 1 {
-		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
 }
 
