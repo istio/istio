@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -44,48 +43,65 @@ type Cluster struct {
 	Protocol  string
 	Service   string
 	Status    string
-	Locality  string
 }
 
 type Pod struct {
-	PodName            string
-	Address            string
-	Locality           string
+	PodName  string
+	Address  string
+	Locality string
 }
 
 func list() *cobra.Command {
 	registerCmd := &cobra.Command{
-		Use:   "list <resource-type>",
-		Short: "List resources watched by Istio",
+		Use:   "list <resource-type>...",
+		Short: "List resources watched by Istio when running in Kubernetes.",
+		Example: `
+# Retrieve Kubernetes clusters in view of the current Istio control plane:
+istioctl experimental list clusters
+
+# Retrieve services discovered by Istio control plane
+istioctl experimental list services -n foo
+
+# Retrieve endpoints for a service discovered by Istio
+istioctl experimental list endpoints bar -n foo
+
+# Retrieve pods for a service discovered by Istio
+istioctl experimental list pods bar -n foo
+
+# Retrieve all pods for in a namespace discovered by Istio
+istioctl experimental list pods -n foo
+`,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			resource := args[0]
 			log.Infof("istioctl list args: %v...", args)
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			svc := handleSvcName(args)
 			if resource == "clusters" {
 				ListClusters()
 			} else if resource == "pods" {
-				ListInjectedPods(ns)
+				ListInjectedPods(svc, ns)
 			} else if resource == "services" {
 				ListServices(ns)
 			} else if resource == "endpoints" {
-				svc := args[1]
 				ListEndpoints(svc, ns)
-			} else if resource == "routes" {
 			}
 			return nil
 		},
 	}
+	loggingOptions.SetOutputLevel(log.DefaultScopeName, log.ErrorLevel)
 	return registerCmd
 }
 
-func ListRoutingRules(svc string, ns string) error {
-
-	return nil
+func handleSvcName(args []string) string {
+	if len(args) > 1 {
+		return args[1]
+	}
+	return ""
 }
 
-func ListInjectedPods(ns string) (err error) {
-	log.Infof("namespace: %v", ns)
+func ListInjectedPods(svc string, ns string) (err error) {
+	log.Infof("namespace: %v; service: %v", ns, svc)
 
 	var pilots map[string][]byte
 	if pilots, err = getEndpointInfo(); err != nil {
@@ -108,11 +124,12 @@ func ListInjectedPods(ns string) (err error) {
 				if endpoint.Service == nil {
 					continue
 				}
-				if endpoint.Service.Attributes.Namespace == ns {
+				if ns == endpoint.Service.Attributes.Namespace &&
+						(svc == "" || svc == endpoint.Service.Attributes.Name) {
 					pod := Pod{
-						PodName:           strings.TrimPrefix(endpoint.Endpoint.UID, "kubernetes://"),
-						Address:           endpoint.Service.Address,
-						Locality:          endpoint.Endpoint.Locality,
+						PodName:  strings.TrimPrefix(endpoint.Endpoint.UID, "kubernetes://"),
+						Address:  endpoint.Service.Address,
+						Locality: endpoint.Endpoint.Locality,
 					}
 					podList = append(podList, pod)
 				}
@@ -161,7 +178,7 @@ func ListServices(ns string) (err error) {
 
 	// Output
 	writer := getWriter()
-	fmt.Fprintln(writer, "SERVICE\tVIP\tPORT NAME\t")
+	fmt.Fprintln(writer, "SERVICE\tVIP\tPORT-NAME(s)\t")
 
 	for _, svc := range svcList {
 		var vipList []string
@@ -207,7 +224,7 @@ func ListEndpoints(svc string, ns string) (err error) {
 
 	// Output
 	writer := getWriter()
-	fmt.Fprintln(writer, "NAME\tSERVICE ADDR\tENDPOINT ADDR\tPORT\tLOCALITY\tLB WEIGHT\t")
+	fmt.Fprintln(writer, "NAME\tSERVICE-ADDR\tENDPOINT-ADDR\tPORT\tLOCALITY\tLB-WEIGHT\t")
 
 	for _, svcEp := range svcEndpoints {
 		for _, ep := range svcEp.Endpoint {
@@ -234,7 +251,6 @@ func ListClusters() (err error) {
 		return fmt.Errorf("failed to retrieve services from pilot /debug/endpointz")
 	}
 	var kubeApiEndpoints []PilotEndpoint
-	var kubeHttpEndpoints []PilotEndpoint
 	for pilotPod, pilot := range pilots {
 		log.Infof("Pilot Pod: %v", pilotPod)
 		var endpointz []PilotEndpoint
@@ -243,13 +259,9 @@ func ListClusters() (err error) {
 		}
 
 		for _, ep := range endpointz {
-			// In GKE, the apiserver is kubernetes.default.svc.cluster.local:https
+			// The apiserver is kubernetes.default.xxx.xxx.xxx:https
 			if strings.HasPrefix(ep.Service, "kubernetes.default.") {
 				kubeApiEndpoints = append(kubeApiEndpoints, ep)
-			}
-			// In GKE, the http-backend is kubernetes.default.svc.cluster.local:https
-			if strings.HasPrefix(ep.Service, "default-http-backend.kube-system") {
-				kubeHttpEndpoints = append(kubeHttpEndpoints, ep)
 			}
 		}
 	}
@@ -261,8 +273,8 @@ func ListClusters() (err error) {
 	log.Infof("Current K8s Http Server: %v\n", kubeConfig.Host)
 
 	var clusterList []Cluster
-	for indexEp, kubeEndpoints := range kubeApiEndpoints {
-		for i, ep := range kubeEndpoints.Endpoint {
+	for _, kubeEndpoints := range kubeApiEndpoints {
+		for _, ep := range kubeEndpoints.Endpoint {
 			if ep.Service == nil {
 				continue
 			}
@@ -276,22 +288,20 @@ func ListClusters() (err error) {
 				Protocol:  fmt.Sprintf("%v", ep.Endpoint.ServicePort.Protocol),
 				Service:   kubeEndpoints.Service,
 				Status:    status,
-				Locality:  kubeHttpEndpoints[indexEp].Endpoint[i].GetLocality(),
 			}
 			clusterList = append(clusterList, c)
 		}
 	}
 
 	writer := getWriter()
-	fmt.Fprintln(writer, "CLUSTER\tAPI SERVER\tPORT\tPROTOCOL\tLOCALITY\t")
+	fmt.Fprintln(writer, "CLUSTER\tAPI-SERVER\tPORT\tPROTOCOL\t")
 
 	for _, cluster := range clusterList {
-		fmt.Fprintf(writer, "%v\t%v\t%v\t%v\t%v\t\n",
+		fmt.Fprintf(writer, "%v\t%v\t%v\t%v\t\n",
 			cluster.Status,
 			cluster.ApiServer,
 			cluster.Port,
 			cluster.Protocol,
-			cluster.Locality,
 		)
 	}
 	writer.Flush()
@@ -301,15 +311,6 @@ func ListClusters() (err error) {
 func getWriter() *tabwriter.Writer {
 	w := tabwriter.NewWriter(os.Stdout, 5, 1, 3, ' ', 0)
 	return w
-}
-
-func getMeshInfo(ns string) (*version.MeshInfo, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubeClient.GetIstioVersions(ns)
 }
 
 func getServiceInfo() (map[string][]byte, error) {

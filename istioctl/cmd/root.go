@@ -93,7 +93,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
-	rootCmd.AddCommand(list())
 
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
@@ -111,7 +110,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(dashboard())
 	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd)
-
+	experimentalCmd.AddCommand(list())
 	experimentalCmd.AddCommand(mesh.ManifestCmd())
 	experimentalCmd.AddCommand(mesh.ProfileCmd())
 
