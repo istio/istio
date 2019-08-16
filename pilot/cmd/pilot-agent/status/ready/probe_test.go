@@ -20,14 +20,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	envoyapicore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-
-	"istio.io/istio/pilot/pkg/model"
-
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyapicore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 var (
@@ -37,7 +36,7 @@ var (
 	listeners      = admin.Listeners{
 		ListenerStatuses: []*admin.ListenerStatus{
 			{
-				Name: "VirtualInbound",
+				Name: networking.VirtualInboundListenerName,
 				LocalAddress: &envoyapicore.Address{
 					Address: &envoyapicore.Address_SocketAddress{
 						SocketAddress: &envoyapicore.SocketAddress{

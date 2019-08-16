@@ -17,15 +17,11 @@ package ready
 import (
 	"fmt"
 
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-
-	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pilot/pkg/model"
-
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
+	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 // Probe for readiness.
@@ -65,15 +61,11 @@ func (p *Probe) checkInbound() error {
 func (p *Probe) checkInboundVirtualListener() error {
 	// Warning: this is not reliable at envoy start up.
 	// TODO(silentdai): switch to /configdump
-	listeningPorts, _, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort, p.NodeType)
+	err := util.HasListenerName(p.LocalHostAddr, p.AdminPort, networking.VirtualInboundListenerName)
 	if err != nil {
 		return err
 	}
-	// TODO(silentdai): support user defined inbound port
-	if _, ok := listeningPorts[v1alpha3.ProxyInboundListenPort]; ok {
-		return nil
-	}
-	return multierror.Append(fmt.Errorf("fail to find virtual inbound port 15006"))
+	return nil
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
