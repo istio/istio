@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	envoyapicore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+
 	"istio.io/istio/pilot/pkg/model"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -188,7 +189,7 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 
 	funcMap := createDefaultFuncMap(goodStats, liveServerInfo)
 
-	funcMap["/listeners"] = func(rw http.ResponseWriter, req *http.Request) {
+	funcMap["/listeners"] = func(rw http.ResponseWriter, _ *http.Request) {
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		listenerBytes, _ := jsonm.MarshalToString(&listeners)
 
@@ -196,7 +197,7 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 		rw.Write([]byte(listenerBytes))
 	}
 
-	server := createHttpServer(funcMap)
+	server := createHTTPServer(funcMap)
 	defer server.Close()
 	probe := Probe{AdminPort: 1234, receivedFirstUpdate: true, NodeType: model.SidecarProxy, ProbeByVirtualInboundListener: true}
 
@@ -205,14 +206,14 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 }
 
-func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[string]func(rw http.ResponseWriter, req *http.Request) {
-	return map[string]func(rw http.ResponseWriter, req *http.Request){
+func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[string]func(rw http.ResponseWriter, _ *http.Request) {
+	return map[string]func(rw http.ResponseWriter, _ *http.Request){
 
-		"/stats": func(rw http.ResponseWriter, req *http.Request) {
+		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
 			// Send response to be tested
 			rw.Write([]byte(statsToReturn))
 		},
-		"/server_info": func(rw http.ResponseWriter, req *http.Request) {
+		"/server_info": func(rw http.ResponseWriter, _ *http.Request) {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
 			infoJSON, _ := jsonm.MarshalToString(serverInfo)
 
@@ -222,10 +223,10 @@ func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[st
 	}
 }
 func createAndStartServer(statsToReturn string, serverInfo proto.Message) *httptest.Server {
-	return createHttpServer(createDefaultFuncMap(statsToReturn, serverInfo))
+	return createHTTPServer(createDefaultFuncMap(statsToReturn, serverInfo))
 }
 
-func createHttpServer(handlers map[string]func(rw http.ResponseWriter, req *http.Request)) *httptest.Server {
+func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
 	mux := http.NewServeMux()
 	for k, v := range handlers {
 		mux.HandleFunc(k, http.HandlerFunc(v))

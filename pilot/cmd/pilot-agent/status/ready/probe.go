@@ -16,6 +16,7 @@ package ready
 
 import (
 	"fmt"
+
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 
 	"github.com/hashicorp/go-multierror"
@@ -29,11 +30,11 @@ import (
 
 // Probe for readiness.
 type Probe struct {
+	ApplicationPorts              []uint16
 	LocalHostAddr                 string
+	NodeType                      model.NodeType
 	AdminPort                     uint16
 	receivedFirstUpdate           bool
-	ApplicationPorts              []uint16
-	NodeType                      model.NodeType
 	ProbeByVirtualInboundListener bool
 }
 
@@ -56,9 +57,9 @@ func (p *Probe) Check() error {
 func (p *Probe) checkInbound() error {
 	if !p.ProbeByVirtualInboundListener || p.NodeType != model.SidecarProxy {
 		return p.checkInboundConfigured()
-	} else {
-		return p.checkInboundConfigured()
 	}
+	return p.checkInboundVirtualListener()
+
 }
 
 func (p *Probe) checkInboundVirtualListener() error {
