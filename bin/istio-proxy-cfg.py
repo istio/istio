@@ -292,7 +292,7 @@ def main(args):
     pods = searchpod(pod_info(), args.podname)
 
     if not pods:
-        logging.error("Cound not find pod %s" % args.podname)
+        logging.error("Could not find pod %s" % args.podname)
         return -1
 
     if len(pods) > 1:
