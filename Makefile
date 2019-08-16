@@ -19,6 +19,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# allow optional per-repo overrides
+-include Makefile.overrides.mk
+
 RUN =
 
 # Set the environment variable BUILD_WITH_CONTAINER to use a container
@@ -27,7 +30,7 @@ RUN =
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-08-07
+IMG = gcr.io/istio-testing/build-tools:2019-08-16
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
@@ -62,6 +65,7 @@ RUN = docker run -t --sig-proxy=true -u $(UID) --rm \
 	-e GOBIN="$(GOBIN)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	-v $(readlink /etc/localtime):/etc/localtime:ro \
+	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
 	--mount type=volume,source=istio-go-cache,destination="/gocache" \
@@ -71,7 +75,7 @@ else
 export GOBIN ?= ./out/bin
 endif
 
-MAKE = $(RUN) make -e -f Makefile.core.mk
+MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 %:
 	@$(MAKE) $@
