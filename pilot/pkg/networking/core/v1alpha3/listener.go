@@ -412,7 +412,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 			bind := ingressListener.Bind
 			if len(bind) == 0 {
-				// Pick the proxy's IP or 127.0.0.1
+				// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
 				bind = getSidecarInboundBindIP(node)
 			}
 
@@ -445,10 +445,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bindToPort:     bindToPort,
 			}
 
-			instance.Endpoint.Family = model.AddressFamilyTCP
-			instance.Endpoint.Address = bind
+			// we don't need to set other fields of the endpoint here as
+			// the consumers of this service instance (listener/filter chain constructors)
+			// are simply looking for the service port and the service associated with the instance.
 			instance.Endpoint.ServicePort = listenPort
-			instance.Endpoint.Port = listenPort.Port
 
 			// Validation ensures that the protocol specified in Sidecar.ingress
 			// is always a valid known protocol
@@ -541,7 +541,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		log.Debugf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
 			listenerMapKey)
 	} else {
-		log.Debugf("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
@@ -2018,10 +2017,10 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
-// It looks for an unicast address, if none found, then the default loopback address is used.
-// This will make the inbound listener bind to instance_ip:port instead of 127.0.0.1:port where applicable.
+// It looks for an unicast address, if none found, then the default wildcard address is used.
+// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
 func getSidecarInboundBindIP(node *model.Proxy) string {
-	_, defaultInboundIP := getActualWildcardAndLocalHost(node)
+	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
 	for _, ipAddr := range node.IPAddresses {
 		ip := net.ParseIP(ipAddr)
 		// Return the IP if its a global unicast address.
