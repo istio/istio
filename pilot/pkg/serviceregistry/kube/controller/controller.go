@@ -788,19 +788,26 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-					if c.Env != nil {
-						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					// For service without selector, maybe there are no related pods
+					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+						if c.Env != nil {
+							c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+						}
+						// TODO: keep them in a list, and check when pod events happen !
+						continue
 					}
-					// TODO: keep them in a list, and check when pod events happen !
-					continue
 				}
 
-				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
-
-				uid := ""
-				if mixerEnabled {
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				var labels map[string]string
+				locality, sa, uid := "", "", ""
+				if pod != nil {
+					locality = c.GetPodLocality(pod)
+					sa = kube.SecureNamingSAN(pod)
+					if mixerEnabled {
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					}
+					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
@@ -810,11 +817,11 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          podLabels,
+						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  kube.SecureNamingSAN(pod),
+						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),
-						Locality:        c.GetPodLocality(pod),
+						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}
