@@ -30,6 +30,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 )
@@ -3786,6 +3788,106 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateAuthorization(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "good",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "v1",
+					},
+				},
+				Rules: []*authz.Rule{
+					{
+						From: []*authz.Rule_From{
+							{
+								Source: &authz.Source{
+									Principals: []string{"sa1"},
+								},
+							},
+							{
+								Source: &authz.Source{
+									Principals: []string{"sa2"},
+								},
+							},
+						},
+						To: []*authz.Rule_To{
+							{
+								Operation: &authz.Operation{
+									Methods: []string{"GET"},
+								},
+							},
+							{
+								Operation: &authz.Operation{
+									Methods: []string{"POST"},
+								},
+							},
+						},
+						When: []*authz.Condition{
+							{
+								Key:    "key1",
+								Values: []string{"v1", "v2"},
+							},
+							{
+								Key:    "key2",
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "key missing",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "v1",
+					},
+				},
+				Rules: []*authz.Rule{
+					{
+						From: []*authz.Rule_From{
+							{
+								Source: &authz.Source{
+									Principals: []string{"sa1"},
+								},
+							},
+						},
+						To: []*authz.Rule_To{
+							{
+								Operation: &authz.Operation{
+									Methods: []string{"GET"},
+								},
+							},
+						},
+						When: []*authz.Condition{
+							{
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
 }

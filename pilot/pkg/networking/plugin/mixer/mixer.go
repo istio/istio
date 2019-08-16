@@ -538,12 +538,6 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	}
 
 	if configStore != nil {
-		apiSpecs := configStore.HTTPAPISpecByDestination(instance)
-		model.SortHTTPAPISpec(apiSpecs)
-		for _, apiSpec := range apiSpecs {
-			out.HttpApiSpec = append(out.HttpApiSpec, apiSpec.Spec.(*mccpb.HTTPAPISpec))
-		}
-
 		quotaSpecs := configStore.QuotaSpecByDestination(instance)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {

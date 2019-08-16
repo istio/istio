@@ -27,6 +27,9 @@ import (
 	// Register protos in "istio.io/api/rbac/v1alpha1"
 	_ "istio.io/api/rbac/v1alpha1"
 
+	// Register protos in "istio.io/api/security/v1beta1"
+	_ "istio.io/api/security/v1beta1"
+
 	// Register protos in "k8s.io/api/core/v1"
 	_ "k8s.io/api/core/v1"
 

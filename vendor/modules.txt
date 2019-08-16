@@ -1,4 +1,4 @@
-# cloud.google.com/go v0.37.4
+# cloud.google.com/go v0.38.0
 cloud.google.com/go/compute/metadata
 cloud.google.com/go/logging
 cloud.google.com/go/logging/logadmin
@@ -291,7 +291,7 @@ github.com/google/gofuzz
 github.com/google/uuid
 # github.com/googleapis/gax-go v2.0.0+incompatible
 github.com/googleapis/gax-go
-# github.com/googleapis/gax-go/v2 v2.0.4
+# github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2
 # github.com/googleapis/gnostic v0.2.0
 github.com/googleapis/gnostic/OpenAPIv2
@@ -612,7 +612,7 @@ golang.org/x/net/proxy
 golang.org/x/net/html
 golang.org/x/net/internal/socks
 golang.org/x/net/html/atom
-# golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a
+# golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 golang.org/x/oauth2/google
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
@@ -648,9 +648,10 @@ golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/tag
 # golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20190328211700-ab21143f2384
+# golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/imports
+golang.org/x/tools/internal/imports
 golang.org/x/tools/go/packages
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/module
@@ -659,7 +660,7 @@ golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/internal/semver
 golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/go/internal/gcimporter
-# google.golang.org/api v0.4.0
+# google.golang.org/api v0.8.0
 google.golang.org/api/option
 google.golang.org/api/transport
 google.golang.org/api/internal
@@ -687,7 +688,7 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/socket
-# google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
+# google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/api/metric
 google.golang.org/genproto/googleapis/api/annotations
@@ -704,7 +705,7 @@ google.golang.org/genproto/googleapis/appengine/logging/v1
 google.golang.org/genproto/googleapis/cloud/audit
 google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/grpc v1.21.0
+# google.golang.org/grpc v1.23.0
 google.golang.org/grpc
 google.golang.org/grpc/credentials
 google.golang.org/grpc/credentials/oauth
@@ -733,6 +734,7 @@ google.golang.org/grpc/naming
 google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/passthrough
+google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/tap
 google.golang.org/grpc/credentials/internal
 google.golang.org/grpc/encoding/gzip
@@ -740,7 +742,17 @@ google.golang.org/grpc/balancer/base
 google.golang.org/grpc/reflection
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
+google.golang.org/grpc/balancer/grpclb
+google.golang.org/grpc/credentials/google
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
+google.golang.org/grpc/balancer/grpclb/grpc_lb_v1
+google.golang.org/grpc/credentials/alts
+google.golang.org/grpc/credentials/alts/internal
+google.golang.org/grpc/credentials/alts/internal/handshaker
+google.golang.org/grpc/credentials/alts/internal/handshaker/service
+google.golang.org/grpc/credentials/alts/internal/proto/grpc_gcp
+google.golang.org/grpc/credentials/alts/internal/authinfo
+google.golang.org/grpc/credentials/alts/internal/conn
 # gopkg.in/d4l3k/messagediff.v1 v1.2.1
 gopkg.in/d4l3k/messagediff.v1
 # gopkg.in/inf.v0 v0.9.1
@@ -756,7 +768,7 @@ gopkg.in/square/go-jose.v2/jwt
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190813012407-93fc23ae4a32
+# istio.io/api v0.0.0-20190813194754-2745b7cd4150
 istio.io/api/mesh/v1alpha1
 istio.io/api/mcp/v1alpha1
 istio.io/api/authentication/v1alpha1
@@ -764,11 +776,13 @@ istio.io/api/mixer/v1/config/client
 istio.io/api/networking/v1alpha3
 istio.io/api/policy/v1beta1
 istio.io/api/rbac/v1alpha1
+istio.io/api/security/v1beta1
 istio.io/api/annotation
 istio.io/api/envoy/config/filter/http/authn/v2alpha1
 istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1
 istio.io/api/mixer/adapter/model/v1beta1
 istio.io/api/mixer/v1
+istio.io/api/type/v1beta1
 # istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api
