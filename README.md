@@ -63,7 +63,16 @@ for details.
 
 The quick start describes how to install and use the operator `mesh` CLI command.
 
-### Installation
+### Building
+
+If you're trying to do a local build that bypasses the build container, you'll need to
+to execute the following step one time.
+
+```
+GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
+```
+
+To build the operator, simply:
 
 ```bash
 git clone https://github.com/istio/operator.git
@@ -341,12 +350,3 @@ the spec.
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md)
-
-## Building
-
-If you're trying to do a local build that bypasses the build container, you'll need to do the following for things
-to work correctly:
-
-```
-GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
-```
