@@ -68,7 +68,10 @@ func TestPrioritized(t *testing.T) {
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-cds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-prioritized-cds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -102,7 +105,10 @@ func TestPrioritized(t *testing.T) {
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
 
-					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-eds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-prioritized-eds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).

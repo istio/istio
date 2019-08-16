@@ -19,7 +19,9 @@ import (
 	"strings"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type Validator struct {
@@ -102,11 +104,11 @@ func (v *Validator) getRoleAndBindingLists() error {
 	if err != nil {
 		return err
 	}
-	for _, role := range configsFromFiles[model.ServiceRole.Type] {
+	for _, role := range configsFromFiles[schemas.ServiceRole.Type] {
 		roleKey := getRoleKey(role.Namespace, role.Name)
 		v.RoleKeyToServiceRole[roleKey] = role
 	}
-	v.serviceRoleBindings = configsFromFiles[model.ServiceRoleBinding.Type]
+	v.serviceRoleBindings = configsFromFiles[schemas.ServiceRoleBinding.Type]
 	if len(v.serviceRoleBindings) == 0 && len(v.RoleKeyToServiceRole) == 0 {
 		v.Report.WriteString(ValidButNoRBACFound)
 		return nil

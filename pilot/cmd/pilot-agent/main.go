@@ -43,12 +43,13 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -237,7 +238,7 @@ var (
 			setSpiffeTrustDomain(role.DNSDomain)
 
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
+			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, role.PilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// resolve statsd address
@@ -326,7 +327,7 @@ var (
 						opts["wildcard"] = "::"
 						opts["dns_lookup_family"] = "AUTO"
 					}
-					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, role.MixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
 					if len(mixerSAN) > 1 {
 						opts["MixerSubjectAltName"] = mixerSAN[0]
@@ -397,7 +398,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
+			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -454,9 +455,9 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 
 		if overrideIdentity == "" {
-			san = append(san, envoy.GetSAN(ns, defaultSA))
+			san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
 		} else {
-			san = append(san, envoy.GetSAN("", overrideIdentity))
+			san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
 		}
 	}
 	return san

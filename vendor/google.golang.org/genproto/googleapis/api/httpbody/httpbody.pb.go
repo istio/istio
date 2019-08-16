@@ -75,7 +75,7 @@ func (m *HttpBody) Reset()         { *m = HttpBody{} }
 func (m *HttpBody) String() string { return proto.CompactTextString(m) }
 func (*HttpBody) ProtoMessage()    {}
 func (*HttpBody) Descriptor() ([]byte, []int) {
-	return fileDescriptor_httpbody_45db50668f1dc1dc, []int{0}
+	return fileDescriptor_httpbody_4b22a683a4267e55, []int{0}
 }
 func (m *HttpBody) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpBody.Unmarshal(m, b)
@@ -120,9 +120,9 @@ func init() {
 	proto.RegisterType((*HttpBody)(nil), "google.api.HttpBody")
 }
 
-func init() { proto.RegisterFile("google/api/httpbody.proto", fileDescriptor_httpbody_45db50668f1dc1dc) }
+func init() { proto.RegisterFile("google/api/httpbody.proto", fileDescriptor_httpbody_4b22a683a4267e55) }
 
-var fileDescriptor_httpbody_45db50668f1dc1dc = []byte{
+var fileDescriptor_httpbody_4b22a683a4267e55 = []byte{
 	// 229 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x8f, 0x31, 0x4f, 0xc3, 0x30,
 	0x10, 0x85, 0xe5, 0xb6, 0x42, 0x70, 0x2d, 0x0c, 0x16, 0x43, 0x60, 0x0a, 0x4c, 0x99, 0x6c, 0x09,

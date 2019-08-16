@@ -179,6 +179,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 
+	if meshID, found := in.Node.Metadata[model.NodeMetadataMeshID]; found {
+		attrs["destination.mesh.id"] = attrStringValue(meshID)
+	}
+
 	switch address := mutable.Listener.Address.Address.(type) {
 	case *core.Address_SocketAddress:
 		if address != nil && address.SocketAddress != nil {
@@ -534,12 +538,6 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	}
 
 	if configStore != nil {
-		apiSpecs := configStore.HTTPAPISpecByDestination(instance)
-		model.SortHTTPAPISpec(apiSpecs)
-		for _, apiSpec := range apiSpecs {
-			out.HttpApiSpec = append(out.HttpApiSpec, apiSpec.Spec.(*mccpb.HTTPAPISpec))
-		}
-
 		quotaSpecs := configStore.QuotaSpecByDestination(instance)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {

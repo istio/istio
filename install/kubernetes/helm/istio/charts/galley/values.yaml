@@ -29,3 +29,6 @@ tolerations: []
 # "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
+
+# Enable service discovery processing in Galley
+enableServiceDiscovery: false

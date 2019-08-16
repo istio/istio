@@ -25,6 +25,7 @@
 package logging
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,6 +36,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/internal/version"
@@ -661,7 +663,7 @@ func fromHTTPRequest(r *HTTPRequest) *logtypepb.HttpRequest {
 	u.Fragment = ""
 	pb := &logtypepb.HttpRequest{
 		RequestMethod:                  r.Request.Method,
-		RequestUrl:                     u.String(),
+		RequestUrl:                     fixUTF8(u.String()),
 		RequestSize:                    r.RequestSize,
 		Status:                         int32(r.Status),
 		ResponseSize:                   r.ResponseSize,
@@ -676,6 +678,27 @@ func fromHTTPRequest(r *HTTPRequest) *logtypepb.HttpRequest {
 		pb.Latency = ptypes.DurationProto(r.Latency)
 	}
 	return pb
+}
+
+// fixUTF8 is a helper that fixes an invalid UTF-8 string by replacing
+// invalid UTF-8 runes with the Unicode replacement character (U+FFFD).
+// See Issue https://github.com/googleapis/google-cloud-go/issues/1383.
+func fixUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+
+	// Otherwise time to build the sequence.
+	buf := new(bytes.Buffer)
+	buf.Grow(len(s))
+	for _, r := range s {
+		if utf8.ValidRune(r) {
+			buf.WriteRune(r)
+		} else {
+			buf.WriteRune('\uFFFD')
+		}
+	}
+	return buf.String()
 }
 
 // toProtoStruct converts v, which must marshal into a JSON object,

@@ -88,7 +88,7 @@ docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
 	fi
 	$(DOCKER_RULE)
 
-docker.sidecar_injector: pilot/docker/Dockerfile.sidecar_injector
+docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 	$(DOCKER_RULE)
 

@@ -9,7 +9,7 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 require (
-	cloud.google.com/go v0.37.4
+	cloud.google.com/go v0.38.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
@@ -70,7 +70,7 @@ require (
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.0+incompatible
-	github.com/googleapis/gax-go/v2 v2.0.4
+	github.com/googleapis/gax-go/v2 v2.0.5
 	github.com/gorilla/mux v1.7.2
 	github.com/gorilla/websocket v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
@@ -141,12 +141,12 @@ require (
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
-	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	golang.org/x/tools v0.0.0-20190328211700-ab21143f2384
-	google.golang.org/api v0.4.0
-	google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
-	google.golang.org/grpc v1.21.0
+	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+	google.golang.org/api v0.8.0
+	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
+	google.golang.org/grpc v1.23.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
@@ -155,7 +155,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20190813012407-93fc23ae4a32
+	istio.io/api v0.0.0-20190813194754-2745b7cd4150
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
 	istio.io/operator v0.0.0-20190813061052-3b21fa19e418
 	istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5

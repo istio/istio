@@ -205,6 +205,17 @@ global:
     # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
     dnsRefreshRate: 300s
 
+    # Automatic protocol detection uses a set of heuristics to
+    # determine whether the connection is using TLS or not (on the
+    # server side), as well as the application protocol being used
+    # (e.g., http vs tcp). These heuristics rely on the client sending
+    # the first bits of data. For server first protocols like MySQL,
+    # MongoDB, etc., Envoy will timeout on the protocol detection after
+    # the specified period, defaulting to non mTLS plain TCP
+    # traffic. Set this field to tweak the period that Envoy will wait
+    # for the client to send the first bits of data. (MUST BE >=1ms)
+    protocolDetectionTimeout: 10ms
+
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
 
@@ -431,6 +442,29 @@ global:
   #   kubernetes: cluster.local
   #   else:  default dns domain
   trustDomain: ""
+
+  # Mesh ID means Mesh Identifier. It should be unique within the scope where
+  # meshes will interact with each other, but it is not required to be
+  # globally/universally unique. For example, if any of the following are true,
+  # then two meshes must have different Mesh IDs:
+  # - Meshes will have their telemetry aggregated in one place
+  # - Meshes will be federated together
+  # - Policy will be written referencing one mesh from the other
+  #
+  # If an administrator expects that any of these conditions may become true in
+  # the future, they should ensure their meshes have different Mesh IDs
+  # assigned.
+  #
+  # Within a multicluster mesh, each cluster must be (manually or auto)
+  # configured to have the same Mesh ID value. If an existing cluster 'joins' a
+  # multicluster mesh, it will need to be migrated to the new mesh ID. Details
+  # of migration TBD, and it may be a disruptive operation to change the Mesh
+  # ID post-install.
+  #
+  # If the mesh admin does not specify a value, Istio will use the value of the
+  # mesh's Trust Domain. The best practice is to select a proper Trust Domain
+  # value.
+  meshID: ""
 
   # Set the default behavior of the sidecar for handling outbound traffic from the application:
   # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no

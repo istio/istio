@@ -355,7 +355,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
+	if len(out.IPAddresses) == 0 {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
@@ -507,6 +507,9 @@ const (
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+
+	// NodeMetadataMeshID specifies the mesh ID environment variable.
+	NodeMetadataMeshID = "MESH_ID"
 
 	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
 	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"

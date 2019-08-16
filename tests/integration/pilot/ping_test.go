@@ -42,7 +42,10 @@ func TestReachability(t *testing.T) {
 }
 
 func doTest(t *testing.T, ctx framework.TestContext) {
-	ns := namespace.NewOrFail(t, ctx, "inboundsplit", true)
+	ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "inboundsplit",
+		Inject: true,
+	})
 
 	ports := []echo.Port{
 		{
