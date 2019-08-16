@@ -499,9 +499,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
-		if len(instances) == 0 {
-			return clusters
-		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
 		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
