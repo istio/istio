@@ -532,6 +532,35 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataCanonicalTelemetryService specifies the service name to use for all node telemetry.
+	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"
+
+	// NodeMetadataLabels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	NodeMetadataLabels = "LABELS"
+
+	// NodeMetadataWorkloadName specifies the name of the workload represented by this node.
+	NodeMetadataWorkloadName = "WORKLOAD_NAME"
+
+	// NodeMetadataOwner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	NodeMetadataOwner = "OWNER"
+
+	// NodeMetadataServiceAccount specifies the service account which is running the workload.
+	NodeMetadataServiceAccount = "SERVICE_ACCOUNT"
+
+	// NodeMetadataPlatformMetadata contains any platform specific metadata
+	NodeMetadataPlatformMetadata = "PLATFORM_METADATA"
+
+	// NodeMetadataInstanceName is the short name for the workload instance (ex: pod name)
+	NodeMetadataInstanceName = "NAME" // replaces POD_NAME
+
+	// NodeMetadataNamespace is the namespace in which the workload instance is running.
+	NodeMetadataNamespace = "NAMESPACE" // replaces CONFIG_NAMESPACE
+
+	// NodeMetadataExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	// The list is comma-separated.
+	NodeMetadataExchangeKeys = "EXCHANGE_KEYS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

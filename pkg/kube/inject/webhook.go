@@ -588,7 +588,48 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	// try to capture more useful namespace/name info for deployments, etc.
+	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
+	deployMeta := pod.ObjectMeta.DeepCopy()
+	deployMeta.Namespace = req.Namespace
+
+	typeMetadata := &metav1.TypeMeta{
+		Kind:       "Pod",
+		APIVersion: "v1",
+	}
+
+	if len(pod.GenerateName) > 0 {
+		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
+		var controllerRef metav1.OwnerReference
+		controllerFound := false
+		for _, ref := range pod.GetOwnerReferences() {
+			if *ref.Controller {
+				controllerRef = ref
+				controllerFound = true
+				break
+			}
+		}
+		if controllerFound {
+			typeMetadata.APIVersion = controllerRef.APIVersion
+			typeMetadata.Kind = controllerRef.Kind
+
+			// heuristic for deployment detection
+			if typeMetadata.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
+				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
+				deployMeta.Name = name
+				typeMetadata.Kind = "Deployment"
+			} else {
+				deployMeta.Name = controllerRef.Name
+			}
+		}
+	}
+
+	if deployMeta.Name == "" {
+		// if we haven't been able to extract a deployment name, then just give it the pod name
+		deployMeta.Name = pod.Name
+	}
+
+	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
