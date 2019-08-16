@@ -4351,7 +4351,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind", &networking.Sidecar{
+		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -4366,7 +4366,20 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind 2", &networking.Sidecar{
+		{"UDS bind in inbound", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Bind:            "unix:///@foo/bar/com",
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+		}, false},
+		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
