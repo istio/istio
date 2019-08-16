@@ -224,9 +224,9 @@ spec:
                 apiVersion: v1
                 fieldPath: status.hostIP
           - name: SERVICE_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.serviceAccountName
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
