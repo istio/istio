@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -28,6 +29,9 @@ import (
 )
 
 func TestCheck_Allow(t *testing.T) {
+	if len(os.Getenv("RACE_TEST")) > 0 {
+		t.Skip("https://github.com/istio/istio/issues/15444")
+	}
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -74,6 +78,9 @@ func TestCheck_Allow(t *testing.T) {
 }
 
 func TestCheck_Deny(t *testing.T) {
+	if len(os.Getenv("RACE_TEST")) > 0 {
+		t.Skip("https://github.com/istio/istio/issues/15444")
+	}
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
