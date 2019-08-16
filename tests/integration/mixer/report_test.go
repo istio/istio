@@ -16,9 +16,10 @@ package mixer
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -30,11 +31,9 @@ import (
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	if len(os.Getenv("RACE_TEST")) > 0 {
-		t.Skip("https://github.com/istio/istio/issues/15444")
-	}
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			g := galley.NewOrFail(t, ctx, galley.Config{})
