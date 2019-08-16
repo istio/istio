@@ -38,6 +38,14 @@ metadata:
   name: sidecar
   namespace:  {{.AppNamespace}}
 spec:
+{{- if .IngressListener }}
+  ingress:
+    - port:
+        number: 9080
+        protocol: HTTP
+        name: custom-http
+      defaultEndpoint: unix:///var/run/someuds.sock
+{{- end }}
   egress:
     - hosts:
 {{ range $i, $ns := .ImportedNamespaces }}
@@ -188,6 +196,7 @@ type Config struct {
 	ExcludedNamespace  string
 	AppNamespace       string
 	Resolution         string
+	IngressListener    bool
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {

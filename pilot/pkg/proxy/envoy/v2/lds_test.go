@@ -416,7 +416,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		return
 	}
 
-	// Expect 3 HTTP listeners for 8081, 9080 and one virtualInbound
+	// Expect 3 HTTP listeners for outbound 8081, inbound 9080 and one virtualInbound which has the same inbound 9080
+	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
+	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
 	if len(adsResponse.GetHTTPListeners()) != 3 {
 		t.Fatalf("Expected 3 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 	}
@@ -433,6 +435,15 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		}
 	} else {
 		t.Fatal("Expected listener for 0.0.0.0_8081")
+	}
+
+	// Also check that the other two listeners are 98.1.1.1_9080, and virtualInbound
+	if l := adsResponse.GetHTTPListeners()["98.1.1.1_9080"]; l == nil {
+		t.Fatal("Expected listener for 98.1.1.1_9080")
+	}
+
+	if l := adsResponse.GetHTTPListeners()["virtualInbound"]; l == nil {
+		t.Fatal("Expected listener virtualInbound")
 	}
 
 	// Expect only one eds cluster for http1.ns1.svc.cluster.local
