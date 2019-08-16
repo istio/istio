@@ -46,7 +46,7 @@ func (p *Probe) Check() error {
 
 	// Envoy has received some configuration, make sure that configuration has been received for
 	// all inbound ports.
-	if err := p.checkInboundConfigured(); err != nil {
+	if err := p.checkInbound(); err != nil {
 		return err
 	}
 
@@ -54,13 +54,8 @@ func (p *Probe) Check() error {
 }
 
 func (p *Probe) checkInbound() error {
-	/*
-		if !p.ProbeByVirtualInboundListener || p.NodeType != model.SidecarProxy{
-			return p.checkInboundConfigured()
-		}
-	*/
-	if p.NodeType != model.SidecarProxy {
-		return p.checkInboundVirtualListener()
+	if !p.ProbeByVirtualInboundListener || p.NodeType != model.SidecarProxy {
+		return p.checkInboundConfigured()
 	} else {
 		return p.checkInboundConfigured()
 	}
