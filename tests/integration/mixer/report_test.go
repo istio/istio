@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
@@ -31,6 +33,7 @@ import (
 func TestMixer_Report_Direct(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			g := galley.NewOrFail(t, ctx, galley.Config{})
