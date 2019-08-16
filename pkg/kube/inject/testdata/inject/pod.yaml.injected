@@ -61,6 +61,10 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.podIP
+    - name: SERVICE_ACCOUNT
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.serviceAccountName
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -73,6 +77,10 @@ spec:
       value: REDIRECT
     - name: ISTIO_META_INCLUDE_INBOUND_PORTS
       value: "80"
+    - name: ISTIO_META_WORKLOAD_NAME
+      value: hellopod
+    - name: ISTIO_META_OWNER
+      value: kubernetes://api/v1/namespaces/default/pod/hellopod
     image: docker.io/istio/proxyv2:unittest
     imagePullPolicy: IfNotPresent
     name: istio-proxy

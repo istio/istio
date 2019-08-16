@@ -69,6 +69,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
             - name: ISTIO_META_POD_NAME
               valueFrom:
                 fieldRef:
@@ -80,6 +84,10 @@ spec:
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
             - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+            - name: ISTIO_META_WORKLOAD_NAME
+              value: hellocron
+            - name: ISTIO_META_OWNER
+              value: kubernetes://api/batch/v2alpha1/namespaces/default/cronjob/hellocron
             image: docker.io/istio/proxyv2:unittest
             imagePullPolicy: IfNotPresent
             name: istio-proxy
