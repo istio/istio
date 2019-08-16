@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
