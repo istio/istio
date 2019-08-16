@@ -29,5 +29,5 @@
 /tests/integration/qualification/                                @costinm @nmittler @ozevren
 /tests/integration/security/                                     @costinm @nmittler @ozevren @diemtvu @incfly @myidpt @quanjielin @wattli @yangminzhu @JimmyCYJ
 /tests/integration/security/rbac/                                @costinm @nmittler @ozevren @diemtvu @incfly @myidpt @quanjielin @wattli @yangminzhu @JimmyCYJ @yangminzhu @liminw
-/tests/istio.io/                                                 @nmittler @ozevren @rlenglet @brian-avery @JimmyCYJ @yangminzhu
+/tests/istio.io/                                                 @rlenglet @brian-avery @JimmyCYJ @yangminzhu
 /tools/                                                          @sdake @mandarjog @nmittler
