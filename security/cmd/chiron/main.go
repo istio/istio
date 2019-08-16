@@ -140,6 +140,7 @@ func init() {
 	flags.DurationVar(&opts.certMinGracePeriod, "cert-min-grace-period",
 		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
+	// TODO (lei-tang): configuration files may also be loaded from CRDs.
 	flags.StringVar(&opts.webhookConfigFiles, "webhook-config-files",
 		"/etc/galley-webhook-config/validatingwebhookconfiguration.yaml,/etc/sidecarinjector-webhook-config/mutatingwebhookconfiguration.yaml",
 		"The file paths of the webhookconfigurations, separated by comma. "+
