@@ -154,6 +154,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 .PHONY: test.integration.race.native
 test.integration.race.native: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	RACE_TEST=true $(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
+	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
