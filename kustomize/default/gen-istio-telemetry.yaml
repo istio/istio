@@ -564,10 +564,10 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 0m
+            memory: 1Mi
           
         volumeMounts:
         - name: telemetry-envoy-config
@@ -749,6 +749,8 @@ spec:
       valueType: BOOL
     quota.cache_hit:
       valueType: BOOL
+    context.proxy_version:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"

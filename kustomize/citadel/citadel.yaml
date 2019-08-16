@@ -24,10 +24,8 @@ kind: ServiceAccount
 metadata:
   name: istio-citadel-service-account
   namespace: istio-system
-
   labels:
     release: istio-system-istio-system-security
-
 
 ---
 # Source: citadel/templates/clusterrole.yaml
@@ -47,7 +45,7 @@ rules:
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 - apiGroups: [""]
-  resources: ["serviceaccounts", "services"]
+  resources: ["serviceaccounts", "services", "namespaces"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]
@@ -141,6 +139,9 @@ spec:
             - --custom-dns-names=$(CITADEL_DNS)
             - --self-signed-ca=true
             - --trust-domain=cluster.local
+          env:
+          - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
+            value: "true"
           livenessProbe:
             httpGet:
               path: /version
@@ -149,7 +150,8 @@ spec:
             periodSeconds: 5
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
       affinity:      
         nodeAffinity:

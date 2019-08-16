@@ -30,7 +30,7 @@ tracing:
 
   jaeger:
     hub: docker.io/jaegertracing
-    image: all-on-one
+    image: all-in-one
     tag: 1.12
     memory:
       max_traces: 50000

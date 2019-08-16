@@ -478,10 +478,10 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 128Mi
+              memory: 1024Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 0m
+              memory: 1Mi
             
 
           volumeMounts:

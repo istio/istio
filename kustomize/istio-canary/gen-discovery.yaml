@@ -254,8 +254,9 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
-    #
+    accessLogFile: "/dev/stdout"
+
+    enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
@@ -289,9 +290,8 @@ data:
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
-
     localityLbSetting:
-      {}
+      enabled: true
       
 
     defaultConfig:
@@ -375,7 +375,7 @@ metadata:
     istio: pilot
   annotations:
     checksum/config-volume-envoy:  6102a6f3c16f84f15a04b0e7b94a08bcecf3d911a68012168c314ce425677124
-    checksum/config-volume:  1949ca6ec1a3fe5ae986ad31dad60e0374917ffc785b321d1c0197679e7b994c
+    checksum/config-volume:  b8dc2bbc5ea7db38b725758302403fd98803e170a12cac9d956997fa5100a127
 spec:
   strategy:
     rollingUpdate:
@@ -440,8 +440,6 @@ spec:
             value: "gctrace=1"
           - name: PILOT_TRACE_SAMPLING
             value: "1"
-          - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
-            value: "1"
           - name: CONFIG_NAMESPACE
             value: istio-config
           resources:
@@ -486,10 +484,10 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 128Mi
+              memory: 1024Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 0m
+              memory: 1Mi
             
           volumeMounts:
           - name: istio-certs

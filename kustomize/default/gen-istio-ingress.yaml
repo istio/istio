@@ -171,7 +171,7 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 256Mi
+              memory: 1024Mi
             requests:
               cpu: 100m
               memory: 128Mi
@@ -301,7 +301,7 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -312,7 +312,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: ingressgateway
+    name: istio-ingressgateway
   metrics:
     - type: Resource
       resource:
