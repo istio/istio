@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/k8s/controller"
 
@@ -76,7 +75,7 @@ func TestNamespaceTargeting(t *testing.T) {
 		for name, tc := range testCases {
 			ctx.NewSubTest(name).
 				Run(func(ctx framework.TestContext) {
-					runNamespaceTargetingTest(t, env, ctx, tc.citadelLabels, tc.targeted)
+					runNamespaceTargetingTest(env, ctx, tc.citadelLabels, tc.targeted)
 				})
 		}
 	})
@@ -84,16 +83,15 @@ func TestNamespaceTargeting(t *testing.T) {
 
 // creates namespace with the supplied labels, checks if ServiceAccount secrets are generated,
 // and compares to whether secrets should have been generated
-func runNamespaceTargetingTest(
-	t *testing.T, env *kube.Environment, ctx resource.Context, citadelLabels map[string]string, targeted bool) {
-	t.Helper()
+func runNamespaceTargetingTest(env *kube.Environment, ctx framework.TestContext, citadelLabels map[string]string, targeted bool) {
+	ctx.Helper()
 
 	nsConfig := namespace.Config{
 		Prefix: testNsPrefix,
 		Labels: citadelLabels,
 	}
 
-	ns := namespace.NewOrFail(t, ctx, nsConfig)
+	ns := namespace.NewOrFail(ctx, ctx, nsConfig)
 
 	// create service account in newly generated namespace
 	serviceAccount := &v1.ServiceAccount{
@@ -109,7 +107,7 @@ func runNamespaceTargetingTest(
 
 	secretGenerated := err == nil
 	if targeted != secretGenerated {
-		t.Errorf("expected secret generation for secret %s: %t, but got: %t",
+		ctx.Fatalf("expected secret generation for secret %s: %t, but got: %t",
 			secretName, targeted, secretGenerated)
 	}
 }
