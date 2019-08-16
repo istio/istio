@@ -79,7 +79,7 @@ func (x LaunchStage) String() string {
 	return proto.EnumName(LaunchStage_name, int32(x))
 }
 func (LaunchStage) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_launch_stage_a5005a4ee2700165, []int{0}
+	return fileDescriptor_launch_stage_46ed64e66aa6329c, []int{0}
 }
 
 func init() {
@@ -87,10 +87,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("google/api/launch_stage.proto", fileDescriptor_launch_stage_a5005a4ee2700165)
+	proto.RegisterFile("google/api/launch_stage.proto", fileDescriptor_launch_stage_46ed64e66aa6329c)
 }
 
-var fileDescriptor_launch_stage_a5005a4ee2700165 = []byte{
+var fileDescriptor_launch_stage_46ed64e66aa6329c = []byte{
 	// 225 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x8f, 0xc1, 0x4a, 0xc3, 0x40,
 	0x14, 0x45, 0x6d, 0x4c, 0x8b, 0x3e, 0xa5, 0x3c, 0x66, 0xe5, 0x42, 0x7f, 0x40, 0x30, 0x59, 0xb8,
