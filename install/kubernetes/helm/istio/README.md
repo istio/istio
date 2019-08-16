@@ -8,7 +8,7 @@ The documentation here is for developers only, please follow the installation in
 
 ## Introduction
 
-This chart bootstraps all Istio [components](https://istio.io/docs/concepts/what-is-istio/overview.html) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+This chart bootstraps all Istio [components](https://istio.io/docs/concepts/what-is-istio/) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
 ## Chart Details
 
@@ -136,5 +136,5 @@ To uninstall/delete the `istio` release but continue to track the release:
 
 To uninstall/delete the `istio` release completely and make its name free for later use:
     ```
-    $ helm delete istio --purge
+    $ helm delete --purge istio
     ```

@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -29,10 +30,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
@@ -78,13 +80,15 @@ const (
 	//     and contain all CRDs used by Istio during runtime
 	zeroCRDInstallFile        = "crd-10.yaml"
 	oneCRDInstallFile         = "crd-11.yaml"
-	twoCRDInstallFile         = "crd-12.yaml"
+	fourCRDInstallFile        = "crd-14.yaml"
 	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
 
+	kubernetesReadinessTimeout        = time.Second * 180
+	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
@@ -96,6 +100,8 @@ var (
 	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
 	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
 	pilotTag           = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	appHub             = flag.String("app_hub", os.Getenv("HUB"), "Test application hub")
+	appTag             = flag.String("app_tag", os.Getenv("TAG"), "Test application tag")
 	proxyHub           = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
 	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
@@ -370,11 +376,15 @@ func (k *KubeInfo) IstioEgressGatewayService() string {
 	return istioEgressGatewayServiceName
 }
 
-// Setup set up Kubernetes prerequest for tests
+// Setup Kubernetes pre-requisites for tests
 func (k *KubeInfo) Setup() error {
 	log.Infoa("Setting up kubeInfo setupSkip=", *skipSetup)
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
+		return err
+	}
+
+	if err = k.waitForKubernetes(); err != nil {
 		return err
 	}
 
@@ -423,6 +433,16 @@ func (k *KubeInfo) PilotHub() string {
 // PilotTag exposes the Docker tag used for the pilot image.
 func (k *KubeInfo) PilotTag() string {
 	return *pilotTag
+}
+
+// AppHub exposes the Docker hub used for the test application image.
+func (k *KubeInfo) AppHub() string {
+	return *appHub
+}
+
+// AppTag exposes the Docker tag used for the test application image.
+func (k *KubeInfo) AppTag() string {
+	return *appTag
 }
 
 // ProxyHub exposes the Docker hub used for the proxy image.
@@ -630,6 +650,33 @@ func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 		}
 	}
 	return newMap
+}
+
+// CheckJobSucceeded checks whether the job succeeded.
+func (k *KubeInfo) CheckJobSucceeded(cluster, jobName string) error {
+	retry := util.Retrier{
+		BaseDelay: 1 * time.Second,
+		MaxDelay:  1 * time.Second,
+		Retries:   15,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		ret, err := util.IsJobSucceeded(k.Namespace, jobName, k.Clusters[cluster])
+		if err != nil {
+			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
+			return err
+		}
+		if !ret {
+			return fmt.Errorf("job %s not succeeded", jobName)
+		}
+		return nil
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetRoutes gets routes from the pod or returns error
@@ -898,6 +945,17 @@ spec:
 `
 )
 
+// Wait for Kubernetes to become active within kubernetesReadinessTimeout period
+// This operation only retreives the pods in the kube-system namespace
+// (TODO) sdake: This may be insufficient for a complete readiness check of Kubernetes
+func (k *KubeInfo) waitForKubernetes() error {
+	log.Info("Waiting for Kubernetes to become responsive")
+	return retry.UntilSuccess(func() error {
+		_, err := k.KubeAccessor.GetPods("kube-system")
+		return err
+	}, retry.Delay(kubernetesReadinessInterval), retry.Timeout(kubernetesReadinessTimeout))
+}
+
 func (k *KubeInfo) waitForValdiationWebhook() error {
 
 	add := fmt.Sprintf(`cat << EOF | kubectl --kubeconfig=%s apply -f -
@@ -943,7 +1001,7 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 func (k *KubeInfo) deployIstioWithHelm() error {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile, certManagerCRDInstallFile}
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, fourCRDInstallFile, certManagerCRDInstallFile}
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {
@@ -966,10 +1024,12 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
 
-	if *useMCP {
-		setValue += " --set galley.enabled=true --set global.useMCP=true"
+	if *useMCP && *useGalleyConfigValidator {
+		setValue += " --set galley.enabled=true --set global.useMCP=true --set global.configValidation=true"
+	} else if *useMCP {
+		setValue += " --set galley.enabled=true --set global.useMCP=true --set global.configValidation=false"
 	} else if *useGalleyConfigValidator {
-		setValue += " --set galley.enabled=true --set global.useMCP=false"
+		setValue += " --set galley.enabled=true --set global.useMCP=false --set global.configValidation=true"
 	} else {
 		setValue += " --set galley.enabled=false --set global.useMCP=false"
 	}
@@ -985,7 +1045,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
-		setValue = setValue + " --set global.hub=" + *pilotHub + " --set global.tag=" + *pilotTag
+		setValue += " --set-string global.hub=" + *pilotHub + " --set-string global.tag=" + *pilotTag
 	}
 
 	if !*clusterWide {
@@ -1205,7 +1265,7 @@ func (k *KubeInfo) deployCNI() error {
 	log.Info("Deploy Istio CNI components")
 	// Some environments will require additional options to be set or changed
 	// (e.g. GKE environments need the bin directory to be changed from the default
-	setValue := " --set hub=" + *cniHub + " --set tag=" + *cniTag
+	setValue := " --set-string hub=" + *cniHub + " --set-string tag=" + *cniTag
 	setValue += " --set excludeNamespaces={} --set pullPolicy=IfNotPresent --set logLevel=debug"
 	if extraHelmValues := os.Getenv("EXTRA_HELM_SETTINGS"); extraHelmValues != "" {
 		setValue += extraHelmValues

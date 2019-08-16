@@ -21,13 +21,14 @@ import (
 	"net"
 	"testing"
 
-	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
@@ -38,6 +39,10 @@ type serverHarness struct {
 
 func (h *serverHarness) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (mcp.ResourceSource_EstablishResourceStreamServer, error) { // nolint: lll
 	return h, h.openError()
+}
+
+func (*serverHarness) SendHeader(metadata.MD) error {
+	return nil
 }
 
 // avoid ambiguity between grpc.ServerStream and test.sourceTestHarness
@@ -115,11 +120,11 @@ func TestServerSource(t *testing.T) {
 	}
 
 	// ProcessStream error
+	wantError := errors.New("unknown")
+	h.setRecvError(wantError)
 	go func() {
 		errc <- s.EstablishResourceStream(h)
 	}()
-	wantError := errors.New("unknown")
-	h.setRecvError(wantError)
 	err = <-errc
 	if err != wantError {
 		t.Fatalf("Stream exited with error: got %v want %v", err, wantError)

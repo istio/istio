@@ -173,7 +173,7 @@ func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: istioSrc + "/.circleci/config",
+			KubeConfig: istioSrc + "/tests/util/kubeconfig",
 		},
 		Service: bootstrap.ServiceArgs{
 			Registries: []string{

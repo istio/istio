@@ -46,6 +46,12 @@ type Instance interface {
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
 
+	// SetMeshConfig applies the given mesh config.
+	SetMeshConfig(meshCfg string) error
+
+	// SetMeshConfigOrFail calls SetMeshConfig and fails tests if an error is returned.
+	SetMeshConfigOrFail(t test.Failer, meshCfg string)
+
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
 	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
 

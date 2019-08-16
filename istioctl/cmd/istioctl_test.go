@@ -23,9 +23,12 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
@@ -52,9 +55,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo-gateway",
 				Namespace: "default",
-				Type:      model.Gateway.Type,
-				Group:     model.Gateway.Group,
-				Version:   model.Gateway.Version,
+				Type:      schemas.Gateway.Type,
+				Group:     schemas.Gateway.Group,
+				Version:   schemas.Gateway.Version,
 			},
 			Spec: &networking.Gateway{
 				Selector: map[string]string{"istio": "ingressgateway"},
@@ -77,9 +80,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
-				Type:      model.VirtualService.Type,
-				Group:     model.VirtualService.Group,
-				Version:   model.VirtualService.Version,
+				Type:      schemas.VirtualService.Type,
+				Group:     schemas.VirtualService.Group,
+				Version:   schemas.VirtualService.Version,
 			},
 			Spec: &networking.VirtualService{
 				Hosts:    []string{"*"},
@@ -129,9 +132,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "googleapis",
 				Namespace: "default",
-				Type:      model.DestinationRule.Type,
-				Group:     model.DestinationRule.Group,
-				Version:   model.DestinationRule.Version,
+				Type:      schemas.DestinationRule.Type,
+				Group:     schemas.DestinationRule.Group,
+				Version:   schemas.DestinationRule.Version,
 			},
 			Spec: &networking.DestinationRule{
 				Host: "*.googleapis.com",
@@ -149,9 +152,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "googleapis",
 				Namespace: "default",
-				Type:      model.ServiceEntry.Type,
-				Group:     model.ServiceEntry.Group,
-				Version:   model.ServiceEntry.Version,
+				Type:      schemas.ServiceEntry.Type,
+				Group:     schemas.ServiceEntry.Group,
+				Version:   schemas.ServiceEntry.Version,
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"*.googleapis.com"},
@@ -314,7 +317,7 @@ func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
 	return cs.store.Delete(typ, name, namespace)
 }
 
-func (cs sortedConfigStore) ConfigDescriptor() model.ConfigDescriptor {
+func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
 	return cs.store.ConfigDescriptor()
 }
 
@@ -376,37 +379,5 @@ func verifyOutput(t *testing.T, c testCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
-	}
-}
-
-func TestKubeInject(t *testing.T) {
-	cases := []testCase{
-		{ // case 0
-			configs:        []model.Config{},
-			args:           strings.Split("kube-inject", " "),
-			expectedOutput: "Error: filename not specified (see --filename or -f)\n",
-			wantException:  true,
-		},
-		{ // case 1
-			configs:        []model.Config{},
-			args:           strings.Split("kube-inject -f missing.yaml", " "),
-			expectedOutput: "Error: open missing.yaml: no such file or directory\n",
-			wantException:  true,
-		},
-		{ // case 2
-			configs: []model.Config{},
-			args: strings.Split(
-				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
-					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
-					" --valuesFile testdata/inject-values.yaml",
-				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.injected",
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
 	}
 }

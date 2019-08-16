@@ -99,7 +99,7 @@ func (m *consulMonitor) updateServiceRecord() {
 		// regardless of the input, thus passing in meaningless
 		// input should make functionalities work
 		//TODO
-		obj := []*api.CatalogService{}
+		var obj []*api.CatalogService
 		var event model.Event
 		for _, f := range m.serviceHandlers {
 			go func(handler ServiceHandler) {

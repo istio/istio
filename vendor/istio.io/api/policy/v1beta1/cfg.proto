@@ -119,7 +119,7 @@ message Rule {
   //
   // * an empty match evaluates to `true`
   // * `true`, a boolean literal; a rule with this match will always be executed
-  // * `match(destination.service.host, "ratings.*)` selects any request targeting a service whose
+  // * `match(destination.service.host, "ratings.*")` selects any request targeting a service whose
   // name starts with "ratings"
   // * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
   string match = 1;
@@ -531,7 +531,7 @@ message Mutual {
   string ca_certificates = 3;
 
   // Used to configure mixer mutual TLS client to supply server name for SNI.
-  // It is not used to verify the hostname of the peer certificate, since 
+  // It is not used to verify the hostname of the peer certificate, since
   // Istio verifies whitelisted SAN fields in mutual TLS.
   string server_name = 4;
 }

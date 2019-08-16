@@ -16,37 +16,19 @@
 
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
-    if [[ "${CI:-}" == 'bootstrap' ]]; then
-      # TODO: Remove after update to pod-utils
-
-      # Make sure we are in the right directory
-      # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-      # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-      if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-        mv "${GOPATH}/src/github.com/${REPO_OWNER:-istio}" "${GOPATH}/src/istio.io"
-        export ROOT=${GOPATH}/src/istio.io/istio
-        cd "${GOPATH}/src/istio.io/istio" || return
-      fi
-
-      # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
-
-    elif [[ "${CI:-}" == 'prow' ]]; then
-      # Set artifact dir based on checkout
-      export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${ARTIFACTS}}"
-    fi
-
     if [ -z "${PULL_PULL_SHA:-}" ]; then
       export GIT_SHA="${PULL_BASE_SHA}"
     else
       export GIT_SHA="${PULL_PULL_SHA}"
     fi
-
   else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
+    export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   fi
+  GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  export GIT_BRANCH
   gcloud auth configure-docker -q
 }
 
@@ -121,23 +103,65 @@ function check_kind() {
   fi
 }
 
+function cleanup_kind_cluster() {
+    kind export logs --name istio-testing "${ARTIFACTS}/kind"
+    if [[ -z "${SKIP_CLEANUP:-}" ]]; then
+      echo "Cleaning up kind cluster"
+      kind delete cluster --name=istio-testing
+    fi
+}
+
 function setup_kind_cluster() {
+  IMAGE="${1}"
   # Installing KinD
   check_kind
 
   # Delete any previous e2e KinD cluster
-  echo "Deleting previous KinD cluster with name=e2e-suite"
-  if ! (kind delete cluster --name=e2e-suite) > /dev/null; then
-  	echo "No Found existing kind cluster with name e2e-suite. Continue..."
+  echo "Deleting previous KinD cluster with name=istio-testing"
+  if ! (kind delete cluster --name=istio-testing) > /dev/null; then
+    echo "No existing kind cluster with name istio-testing. Continue..."
+  fi
+
+  trap cleanup_kind_cluster EXIT
+
+  # Different Kubernetes versions need different patches
+  K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
+  if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
+    # Kubernetes 1.12
+    CONFIG=./prow/config/trustworthy-jwt-12.yaml
+  elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
+    # Kubernetes 1.13, 1.14
+    CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
+  else
+    # Kubernetes 1.15
+    CONFIG=./prow/config/trustworthy-jwt.yaml
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite); then
-    echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
+  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}"); then
+    echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
-  KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+
+  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
+}
+
+function cni_run_daemon_kind() {
+  echo 'Run the CNI daemon set'
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+
+  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
+  chartdir=$(mktemp -d)
+  helm init --client-only
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
+  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
+    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
+
+  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
 }
 
 function cni_run_daemon() {
@@ -152,7 +176,7 @@ function cni_run_daemon() {
   helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
   helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
  
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
 
   kubectl apply -f istio-cni_install.yaml
 

@@ -48,11 +48,19 @@ type MockOpenIDDiscoveryServer struct {
 	URL    string
 	server *http.Server
 
-	// How many times openIDCfg is called, use this number to verfiy cache takes effect.
+	// How many times openIDCfg is called, use this number to verify cache takes effect.
 	OpenIDHitNum uint64
 
-	// How many times jwtPubKey is called, use this number to verfiy cache takes effect.
+	// How many times jwtPubKey is called, use this number to verify cache takes effect.
 	PubKeyHitNum uint64
+
+	// The mock server will return an error for the first number of hits for public key, this is used
+	// to simulate network errors and test the retry logic in jwks resolver for public key fetch.
+	ReturnErrorForFirstNumHits uint64
+
+	// The mock server will start to return an error after the first number of hits for public key,
+	// this is used to simulate network errors and test the refresh logic in jwks resolver.
+	ReturnErrorAfterFirstNumHits uint64
 }
 
 // StartNewServer creates a mock openID discovery server and starts it
@@ -60,7 +68,11 @@ func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
-	server := &MockOpenIDDiscoveryServer{}
+	server := &MockOpenIDDiscoveryServer{
+		// 0 means the mock server always return the success result.
+		ReturnErrorForFirstNumHits:   0,
+		ReturnErrorAfterFirstNumHits: 0,
+	}
 
 	return server, server.Start()
 }
@@ -134,8 +146,19 @@ func (ms *MockOpenIDDiscoveryServer) openIDCfg(w http.ResponseWriter, req *http.
 
 func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.Request) {
 	atomic.AddUint64(&ms.PubKeyHitNum, 1)
+	if ms.ReturnErrorAfterFirstNumHits != 0 && atomic.LoadUint64(&ms.PubKeyHitNum) > ms.ReturnErrorAfterFirstNumHits {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "Mock server configured to return error after %d hits", ms.ReturnErrorAfterFirstNumHits)
+		return
+	}
 
-	if atomic.LoadUint64(&ms.PubKeyHitNum) == 1 {
+	if atomic.LoadUint64(&ms.PubKeyHitNum) <= ms.ReturnErrorForFirstNumHits {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "Mock server configured to return error until %d retries", ms.ReturnErrorForFirstNumHits)
+		return
+	}
+
+	if atomic.LoadUint64(&ms.PubKeyHitNum) == ms.ReturnErrorForFirstNumHits+1 {
 		fmt.Fprintf(w, "%v", JwtPubKey1)
 		return
 	}

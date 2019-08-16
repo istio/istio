@@ -35,6 +35,10 @@ const (
 	bearerTokenPrefix = "Bearer "
 )
 
+var (
+	citadelClientLog = log.RegisterScope("citadelClientLog", "citadel client debugging", 0)
+)
+
 type citadelClient struct {
 	caEndpoint    string
 	enableTLS     bool
@@ -61,9 +65,11 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInter
 		opts = grpc.WithInsecure()
 	}
 
+	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
+	//  need a way to reconnect.
 	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
-		log.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
@@ -84,12 +90,12 @@ func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
-		log.Errorf("Failed to create certificate: %v", err)
+		citadelClientLog.Errorf("Failed to create certificate: %v", err)
 		return nil, err
 	}
 
 	if len(resp.CertChain) <= 1 {
-		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
+		citadelClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
 		return nil, errors.New("invalid response cert chain")
 	}
 

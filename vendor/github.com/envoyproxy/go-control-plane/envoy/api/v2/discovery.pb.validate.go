@@ -150,7 +150,7 @@ func (m *DiscoveryResponse) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return DiscoveryResponseValidationError{
@@ -363,7 +363,7 @@ func (m *DeltaDiscoveryResponse) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return DeltaDiscoveryResponseValidationError{
@@ -376,6 +376,8 @@ func (m *DeltaDiscoveryResponse) Validate() error {
 		}
 
 	}
+
+	// no validation rules for TypeUrl
 
 	// no validation rules for Nonce
 

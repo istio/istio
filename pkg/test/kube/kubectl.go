@@ -92,6 +92,17 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 	return nil
 }
 
+func (c *kubectl) scale(namespace, deployment string, replicas int) error {
+	command := fmt.Sprintf("kubectl scale %s %s --replicas %d deployment/%s", c.configArg(), namespaceArg(namespace), replicas, deployment)
+	scopes.CI.Infof("Scaling deployment: %s", command)
+	s, err := shell.Execute(true, command)
+	if err != nil {
+		scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
+		return fmt.Errorf("%v: %s", err, s)
+	}
+	return nil
+}
+
 // deleteContents deletes the given config contents using kubectl.
 func (c *kubectl) deleteContents(namespace, contents string) error {
 	files, err := c.contentsToFileList(contents, "accessor_deletec")
@@ -125,9 +136,9 @@ func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 }
 
 // logs calls the logs command for the specified pod, with -c, if container is specified.
-func (c *kubectl) logs(namespace string, pod string, container string) (string, error) {
-	cmd := fmt.Sprintf("kubectl logs %s %s %s %s",
-		c.configArg(), namespaceArg(namespace), pod, containerArg(container))
+func (c *kubectl) logs(namespace string, pod string, container string, previousLog bool) (string, error) {
+	cmd := fmt.Sprintf("kubectl logs %s %s %s %s %s",
+		c.configArg(), namespaceArg(namespace), pod, containerArg(container), previousLogArg(previousLog))
 
 	s, err := shell.Execute(true, cmd)
 
@@ -276,6 +287,13 @@ func namespaceArg(namespace string) string {
 func containerArg(container string) string {
 	if container != "" {
 		return fmt.Sprintf("-c %s", container)
+	}
+	return ""
+}
+
+func previousLogArg(previous bool) string {
+	if previous {
+		return fmt.Sprintf("-p")
 	}
 	return ""
 }

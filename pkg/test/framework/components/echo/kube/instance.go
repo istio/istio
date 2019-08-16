@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -37,7 +38,7 @@ import (
 const (
 	tcpHealthPort         = 3333
 	httpReadinessPort     = 8080
-	defaultDomain         = "svc.cluster.local"
+	defaultDomain         = "cluster.local"
 	noSidecarWaitDuration = 10 * time.Second
 )
 
@@ -57,6 +58,7 @@ type instance struct {
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
 	// Fill in defaults for any missing values.
+	common.AddPortIfMissing(&cfg, protocol.GRPC)
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
 		return nil, err
 	}
@@ -76,7 +78,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	c.id = ctx.TrackResource(c)
 
 	// Save the GRPC port.
-	grpcPort := common.GetGRPCPort(&cfg)
+	grpcPort := common.GetPortForProtocol(&cfg, protocol.GRPC)
 	if grpcPort == nil {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
@@ -130,9 +132,9 @@ func getContainerPorts(ports []echo.Port) model.PortList {
 		containerPorts = append(containerPorts, cport)
 
 		switch p.Protocol {
-		case model.ProtocolGRPC:
+		case protocol.GRPC:
 			continue
-		case model.ProtocolHTTP:
+		case protocol.HTTP:
 			if p.InstancePort == httpReadinessPort {
 				readyPort = cport
 			}
@@ -147,14 +149,14 @@ func getContainerPorts(ports []echo.Port) model.PortList {
 	if readyPort == nil {
 		containerPorts = append(containerPorts, &model.Port{
 			Name:     "http-readiness-port",
-			Protocol: model.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 			Port:     httpReadinessPort,
 		})
 	}
 	if healthPort == nil {
 		containerPorts = append(containerPorts, &model.Port{
 			Name:     "tcp-health-port",
-			Protocol: model.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 			Port:     tcpHealthPort,
 		})
 	}

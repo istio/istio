@@ -50,7 +50,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 	}
 	clusterDumpAny := w.Configs[1]
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err := proto.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err := proto.UnmarshalAny(clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

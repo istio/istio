@@ -31,12 +31,15 @@ var (
 	baselineFile   = flag.String("baseline_file", "", "Code coverage baseline file")
 	thresholdFiles = flag.String("threshold_files", "", "File containing package to threshold mappings, as overrides")
 	skipDeleted    = flag.Bool("skip_deleted", true, "Whehter deleted files should be skipped")
+
+	// report line format (e.g., <option value="file0">istio.io/istio/galley/cmd/shared/shared.go (0.0%)</option>)
+	reportRegexp = regexp.MustCompile(` *<option value="(.*)">(.*) \((.*)%\)</option>`)
+	// threshold line format
+	thresholdRegxep = regexp.MustCompile(`(.*)=(.*)`)
 )
 
 func parseReportLine(line string) (string, float64, error) {
-	// <option value="file0">istio.io/istio/galley/cmd/shared/shared.go (0.0%)</option>
-	reg := regexp.MustCompile(` *<option value="(.*)">(.*) \((.*)%\)</option>`)
-	if m := reg.FindStringSubmatch(line); len(m) != 0 {
+	if m := reportRegexp.FindStringSubmatch(line); len(m) != 0 {
 		cov, err := strconv.ParseFloat(m[3], 64)
 		if err != nil {
 			return "", 0, err
@@ -59,10 +62,24 @@ func parseReport(filename string) (map[string]float64, error) {
 		}
 	}()
 
+	inFileList := false
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 4096*8), bufio.MaxScanTokenSize*8)
 	for scanner.Scan() {
-		if pkg, cov, err := parseReportLine(scanner.Text()); err == nil {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		} else if line == "<select id=\"files\">" { // report file list starts
+			inFileList = true
+			continue
+		} else if inFileList && line == "</select>" { // end of file list, bail
+			break
+		}
+		if !inFileList { // ignore
+			continue
+		}
+
+		if pkg, cov, err := parseReportLine(line); err == nil {
 			coverage[pkg] = cov
 		}
 	}
@@ -85,15 +102,13 @@ func parseThreshold(thresholdFiles string) (map[string]float64, error) {
 		}()
 
 		scanner := bufio.NewScanner(f)
-		reg := regexp.MustCompile(`(.*)=(.*)`)
 
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-			if strings.HasPrefix(line, "#") {
-				// Skip comments
+			if strings.HasPrefix(line, "#") { // Skip comments
 				continue
 			}
-			m := reg.FindStringSubmatch(line)
+			m := thresholdRegxep.FindStringSubmatch(line)
 			if len(m) == 3 {
 				threshold, err := strconv.ParseFloat(strings.TrimSpace(m[2]), 64)
 				if err != nil {
@@ -101,8 +116,7 @@ func parseThreshold(thresholdFiles string) (map[string]float64, error) {
 						m[1], m[2], err)
 				}
 				thresholds[strings.TrimSpace(m[1])] = threshold
-			} else if len(line) > 0 {
-				// The line is the package being ignored.
+			} else if len(line) > 0 { // The line is the package being ignored.
 				thresholds[strings.TrimSpace(line)] = 100
 			}
 			if scanner.Err() != nil {

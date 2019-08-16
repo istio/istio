@@ -18,9 +18,10 @@ package status
 import (
 	"net/http"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/policy/v1beta1"
 )

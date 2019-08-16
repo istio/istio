@@ -1,0 +1,40 @@
+---
+title: Workload Selector
+description: Definition of a workload selector.
+location: https://istio.io/docs/reference/config/type/v1beta1/workload-selector.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+hide_from_docs
+number_of_entries: 1
+---
+<h2 id="WorkloadSelector">WorkloadSelector</h2>
+<section>
+<p>WorkloadSelector specifies the criteria used to determine if a policy can be applied
+to a proxy. The matching criteria includes the metadata associated with a proxy,
+workload instance info such as labels attached to the pod/VM, or any other info
+that the proxy provides to Istio during the initial handshake. If multiple conditions are
+specified, all conditions need to match in order for the workload instance to be
+selected. Currently, only label based selection mechanism is supported.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="WorkloadSelector-match_labels">
+<td><code>matchLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
+on which a policy should be applied. The scope of label search is restricted to
+the configuration namespace in which the resource is present.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

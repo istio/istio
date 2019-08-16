@@ -49,7 +49,7 @@ func (m *RouteConfiguration) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return RouteConfigurationValidationError{
@@ -213,10 +213,17 @@ func (m *Vhds) Validate() error {
 		return nil
 	}
 
+	if m.GetConfigSource() == nil {
+		return VhdsValidationError{
+			field:  "ConfigSource",
+			reason: "value is required",
+		}
+	}
+
 	{
 		tmp := m.GetConfigSource()
 
-		if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 			if err := v.Validate(); err != nil {
 				return VhdsValidationError{

@@ -15,17 +15,19 @@
 package main
 
 import (
+	"istio.io/pkg/env"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/config/constants"
 )
 
 var (
-	tlsServerCertChain = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerCertChain, model.DefaultCertChain, "").Get()
-	tlsServerKey       = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerKey, model.DefaultKey, "").Get()
-	tlsServerRootCert  = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerRootCert, model.DefaultRootCert, "").Get()
+	tlsServerCertChain = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerCertChain, constants.DefaultCertChain, "").Get()
+	tlsServerKey       = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerKey, constants.DefaultKey, "").Get()
+	tlsServerRootCert  = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerRootCert, constants.DefaultRootCert, "").Get()
 
-	tlsClientCertChain = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientCertChain, model.DefaultCertChain, "").Get()
-	tlsClientKey       = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientKey, model.DefaultKey, "").Get()
-	tlsClientRootCert  = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientRootCert, model.DefaultRootCert, "").Get()
+	tlsClientCertChain = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientCertChain, constants.DefaultCertChain, "").Get()
+	tlsClientKey       = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientKey, constants.DefaultKey, "").Get()
+	tlsClientRootCert  = env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSClientRootCert, constants.DefaultRootCert, "").Get()
 )

@@ -54,7 +54,7 @@ func (m *ClusterLoadAssignment) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return ClusterLoadAssignmentValidationError{

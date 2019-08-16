@@ -554,7 +554,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"failed to run quota script: Error",
 			},
 		},
@@ -593,7 +593,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
 		},
@@ -640,12 +640,12 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		}
 
 		if len(env.GetLogs()) != len(c.errMsg) {
-			t.Errorf("%v: Invalid number of error messages. Exptected: %v Got %v",
+			t.Errorf("%v: Invalid number of error messages. Expected: %v Got %v",
 				id, len(c.errMsg), len(env.GetLogs()))
 		} else {
 			for idx, msg := range c.errMsg {
 				if msg != env.GetLogs()[idx] {
-					t.Errorf("%v: Unexpected error message. Exptected: %v Got %v",
+					t.Errorf("%v: Unexpected error message. Expected: %v Got %v",
 						id, msg, env.GetLogs()[idx])
 				}
 			}

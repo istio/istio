@@ -220,6 +220,18 @@ func (m *HTTPFault) Validate() error {
 		}
 	}
 
+	// no validation rules for DelayPercentRuntime
+
+	// no validation rules for AbortPercentRuntime
+
+	// no validation rules for DelayDurationRuntime
+
+	// no validation rules for AbortHttpStatusRuntime
+
+	// no validation rules for MaxActiveFaultsRuntime
+
+	// no validation rules for ResponseRateLimitPercentRuntime
+
 	return nil
 }
 

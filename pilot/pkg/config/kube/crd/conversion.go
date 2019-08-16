@@ -25,13 +25,18 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
 // internal configuration model.
-func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error) {
+func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(object.GetSpec())
 	if err != nil {
 		return nil, err
@@ -57,7 +62,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 
 // ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
 // internal configuration model.
-func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+func ConvertObjectFromUnstructured(schema schema.Instance, un *unstructured.Unstructured, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(un.Object["spec"])
 	if err != nil {
 		return nil, err
@@ -81,22 +86,22 @@ func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Un
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, error) {
-	spec, err := model.ToJSONMap(config.Spec)
+func ConvertConfig(schema schema.Instance, cfg model.Config) (IstioObject, error) {
+	spec, err := protomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}
-	namespace := config.Namespace
+	namespace := cfg.Namespace
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
-	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
-		Name:            config.Name,
+		Name:            cfg.Name,
 		Namespace:       namespace,
-		ResourceVersion: config.ResourceVersion,
-		Labels:          config.Labels,
-		Annotations:     config.Annotations,
+		ResourceVersion: cfg.ResourceVersion,
+		Labels:          cfg.Labels,
+		Annotations:     cfg.Annotations,
 	})
 	out.SetSpec(spec)
 
@@ -110,8 +115,8 @@ func ResourceName(s string) string {
 }
 
 // ResourceGroup generates the k8s API group for each schema.
-func ResourceGroup(schema *model.ProtoSchema) string {
-	return schema.Group + model.IstioAPIGroupDomain
+func ResourceGroup(schema *schema.Instance) string {
+	return schema.Group + constants.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type
@@ -180,25 +185,25 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKebabCase(obj.Kind))
+		s, exists := schemas.Istio.GetByType(CamelCaseToKebabCase(obj.Kind))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
 			continue
 		}
 
-		config, err := ConvertObject(schema, &obj, "")
+		cfg, err := ConvertObject(s, &obj, "")
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
 		if withValidate {
-			if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+			if err := s.Validate(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}
 
-		varr = append(varr, *config)
+		varr = append(varr, *cfg)
 	}
 
 	return varr, others, nil

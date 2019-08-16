@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -134,8 +134,8 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 		AppYamlTemplate: util.GetResourcePath(appYamlTmpl),
 		KubeInject:      injectProxy,
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"perServiceAuth":  strconv.FormatBool(perServiceAuth),
 			"deployment":      deploymentName,

@@ -24,8 +24,9 @@ import (
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/validate"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/operator/cmd/mesh"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 )
@@ -70,7 +71,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
+	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
 		"Istio system namespace")
 
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
@@ -107,7 +108,11 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(Auth())
 	experimentalCmd.AddCommand(convertIngress())
 	experimentalCmd.AddCommand(dashboard())
+	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd)
+
+	experimentalCmd.AddCommand(mesh.ManifestCmd())
+	experimentalCmd.AddCommand(mesh.ProfileCmd())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -122,7 +127,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
 
-	rootCmd.AddCommand(validate.NewValidateCommand())
+	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
 	return rootCmd
 }

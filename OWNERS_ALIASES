@@ -1,9 +1,0 @@
-aliases:
-  wg-testing:
-    - utka # prow
-    - icygalz # prow
-  wg-testing-leads:
-    - utka # prow
-    - icygalz # prow
-    - linsun # wg lead
-    - duderino # wg lead

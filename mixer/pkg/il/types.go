@@ -14,12 +14,6 @@
 
 package il
 
-import (
-	"fmt"
-
-	"istio.io/pkg/attribute"
-)
-
 // Type represents a core type in the il system.
 type Type uint32
 
@@ -78,24 +72,4 @@ func (t Type) String() string {
 func GetType(name string) (Type, bool) {
 	t, f := typesByName[name]
 	return t, f
-}
-
-// StringMap defines interface over map[string]string
-// This is used for reference counting.
-type StringMap interface {
-	Get(key string) (value string, found bool)
-}
-
-var _ StringMap = attribute.StringMap{}
-
-// MapGet abstracts over map[string]string and refcounted stringMap
-// refcounted stringmaps are used by the protobag.
-// standard maps are used by attribute producing adapters.
-func MapGet(tVal interface{}, tStr string) (ret string, found bool) {
-	switch v := tVal.(type) {
-	case StringMap:
-		return v.Get(tStr)
-	default:
-		panic(fmt.Sprintf("Unknown map type %T", v))
-	}
 }

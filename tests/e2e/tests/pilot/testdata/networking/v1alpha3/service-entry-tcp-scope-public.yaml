@@ -6,7 +6,8 @@ spec:
   hosts:
   - "service.tcp.com"
   addresses:
-  - "127.255.255.11"
+  # 192.0.2.0/24 is assigned as TEST-NET-1, documentation and examples. Guarantee no collision.
+  - "192.0.2.255"
   ports:
   - number: 8888
     name: tcp

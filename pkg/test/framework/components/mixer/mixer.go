@@ -17,7 +17,7 @@ package mixer
 import (
 	"net"
 
-	"github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pkg/test"

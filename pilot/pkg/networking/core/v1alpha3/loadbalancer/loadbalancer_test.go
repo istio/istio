@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package loadbalancer
 
 import (
@@ -12,8 +26,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -49,7 +66,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
 				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
-				weights := []int{}
+				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
 				}
@@ -152,7 +169,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -178,11 +195,11 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -210,7 +227,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -241,11 +258,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -266,7 +283,7 @@ func buildFakeCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -327,7 +344,7 @@ func buildSmallCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -359,7 +376,7 @@ func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",

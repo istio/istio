@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/server"
 	"istio.io/pkg/log"
 )
@@ -50,7 +51,7 @@ var (
 			for i, p := range httpPorts {
 				ports[portIndex] = &model.Port{
 					Name:     "http-" + strconv.Itoa(i),
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 					Port:     p,
 				}
 				portIndex++
@@ -58,7 +59,7 @@ var (
 			for i, p := range grpcPorts {
 				ports[portIndex] = &model.Port{
 					Name:     "grpc-" + strconv.Itoa(i),
-					Protocol: model.ProtocolGRPC,
+					Protocol: protocol.GRPC,
 					Port:     p,
 				}
 				portIndex++

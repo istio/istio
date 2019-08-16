@@ -16,6 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/gogo/protobuf/types"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 )
 
 // ensure the imports are used
@@ -31,6 +33,8 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = types.DynamicAny{}
+
+	_ = core.TrafficDirection(0)
 )
 
 // Validate checks the field values on Listener with the rules defined in the
@@ -42,10 +46,17 @@ func (m *Listener) Validate() error {
 
 	// no validation rules for Name
 
+	if m.GetAddress() == nil {
+		return ListenerValidationError{
+			field:  "Address",
+			reason: "value is required",
+		}
+	}
+
 	{
 		tmp := m.GetAddress()
 
-		if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 			if err := v.Validate(); err != nil {
 				return ListenerValidationError{
@@ -57,20 +68,13 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if len(m.GetFilterChains()) < 1 {
-		return ListenerValidationError{
-			field:  "FilterChains",
-			reason: "value must contain at least 1 item(s)",
-		}
-	}
-
 	for idx, item := range m.GetFilterChains() {
 		_, _ = idx, item
 
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return ListenerValidationError{
@@ -152,7 +156,7 @@ func (m *Listener) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return ListenerValidationError{
@@ -180,6 +184,8 @@ func (m *Listener) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for ContinueOnListenerFiltersTimeout
 
 	{
 		tmp := m.GetTransparent()
@@ -245,6 +251,8 @@ func (m *Listener) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for TrafficDirection
 
 	return nil
 }

@@ -19,11 +19,12 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -41,14 +42,6 @@ var (
 
 	clusterName, status string
 )
-
-func handleNamespace() string {
-	ns := namespace
-	if ns == v1.NamespaceAll {
-		ns = defaultNamespace
-	}
-	return ns
-}
 
 func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
@@ -116,13 +109,13 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"clusters", "c"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
 			}
 			filter := configdump.ClusterFilter{
-				FQDN:      model.Hostname(fqdn),
+				FQDN:      host.Name(fqdn),
 				Port:      port,
 				Subset:    subset,
 				Direction: model.TrafficDirection(direction),
@@ -159,7 +152,7 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"listeners", "l"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -201,7 +194,7 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"routes", "r"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -243,7 +236,7 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"endpoints", "ep"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
@@ -282,7 +275,7 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"b"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := inferPodInfo(args[0], handleNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
 			if err != nil {
 				return err
