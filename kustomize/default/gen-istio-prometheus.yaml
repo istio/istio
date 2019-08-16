@@ -395,7 +395,8 @@ spec:
               port: 9090
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
           volumeMounts:
           - name: config-volume
