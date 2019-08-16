@@ -465,6 +465,7 @@ func (c *ProjectsPatchTracesCall) Header() http.Header {
 
 func (c *ProjectsPatchTracesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/1.11.0 gdcl/20190802")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -615,6 +616,7 @@ func (c *ProjectsTracesGetCall) Header() http.Header {
 
 func (c *ProjectsTracesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/1.11.0 gdcl/20190802")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -881,6 +883,7 @@ func (c *ProjectsTracesListCall) Header() http.Header {
 
 func (c *ProjectsTracesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/1.11.0 gdcl/20190802")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
