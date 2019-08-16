@@ -59,17 +59,6 @@ func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		rbacLog.Errorf("ignored global permissive mode: not implemented for v2 policy.")
 	}
 
-	serviceMetadata := b.serviceMetadata
-	authzPolicies := b.authzPolicies
-
-	namespace := serviceMetadata.GetNamespace()
-	if authzPolicies.NamespaceToAuthorizationConfigV2 == nil {
-		return &http_config.RBAC{Rules: rbac}
-	}
-	var _, present = authzPolicies.NamespaceToAuthorizationConfigV2[namespace]
-	if !present {
-		return &http_config.RBAC{Rules: rbac}
-	}
 	// TODO(yangminzhu): Implement the new authorization v1beta1 policy.
 	return &http_config.RBAC{Rules: rbac}
 }

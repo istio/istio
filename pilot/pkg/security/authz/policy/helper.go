@@ -86,7 +86,7 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 		}
 	}
 
-	authzPolicies, err := model.NewAuthzPolicies(&model.Environment{
+	authzPolicies, err := model.NewAuthorizationPolicies(&model.Environment{
 		IstioConfigStore: store,
 	})
 	if err != nil {
