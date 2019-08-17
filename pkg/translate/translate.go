@@ -34,6 +34,10 @@ import (
 )
 
 const (
+	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
+	K8sDeploymentResourceType = "Deployment"
+	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
+	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -77,6 +81,8 @@ type FeatureMap struct {
 
 // ComponentMaps is a set of mappings for an Istio component.
 type ComponentMaps struct {
+	// ResourceType maps a ComponentName to the type of the rendered k8s resource.
+	ResourceType string
 	// ResourceName maps a ComponentName to the name of the rendered k8s resource.
 	ResourceName string
 	// ContainerName maps a ComponentName to the name of the container in a Deployment.
@@ -125,11 +131,11 @@ var (
 			},
 			KubernetesMapping: map[string]*Translation{
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Env": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.HpaSpec": {
@@ -137,11 +143,11 @@ var (
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ImagePullPolicy": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.NodeSelector": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodDisruptionBudget": {
@@ -149,23 +155,23 @@ var (
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodAnnotations": {
-					"[Deployment:{{.ResourceName}}].spec.template.metadata.annotations",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PriorityClassName": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.priorityClassName.",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName.",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReadinessProbe": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount": {
-					"[Deployment:{{.ResourceName}}].spec.replicas",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.replicas",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
 					nil,
 				},
 			},
@@ -234,60 +240,70 @@ var (
 					AlwaysEnabled:        true,
 				},
 				name.PilotComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-pilot",
 					ContainerName:        "discovery",
 					HelmSubdir:           "istio-control/istio-discovery",
 					ToHelmValuesTreeRoot: "pilot",
 				},
 				name.GalleyComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-galley",
 					ContainerName:        "galley",
 					HelmSubdir:           "istio-control/istio-config",
 					ToHelmValuesTreeRoot: "galley",
 				},
 				name.SidecarInjectorComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-sidecar-injector",
 					ContainerName:        "sidecar-injector-webhook",
 					HelmSubdir:           "istio-control/istio-autoinject",
 					ToHelmValuesTreeRoot: "sidecarInjectorWebhook",
 				},
 				name.PolicyComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-policy",
 					ContainerName:        "mixer",
 					HelmSubdir:           "istio-policy",
 					ToHelmValuesTreeRoot: "mixer.policy",
 				},
 				name.TelemetryComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-telemetry",
 					ContainerName:        "mixer",
 					HelmSubdir:           "istio-telemetry/mixer-telemetry",
 					ToHelmValuesTreeRoot: "mixer.telemetry",
 				},
 				name.CitadelComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-citadel",
 					ContainerName:        "citadel",
 					HelmSubdir:           "security/citadel",
 					ToHelmValuesTreeRoot: "citadel",
 				},
 				name.NodeAgentComponentName: {
+					ResourceType:         K8sDaemonSetResourceType,
 					ResourceName:         "istio-nodeagent",
 					ContainerName:        "nodeagent",
 					HelmSubdir:           "security/nodeagent",
 					ToHelmValuesTreeRoot: "nodeagent",
 				},
 				name.CertManagerComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "certmanager",
 					ContainerName:        "certmanager",
 					HelmSubdir:           "security/certmanager",
 					ToHelmValuesTreeRoot: "certmanager",
 				},
 				name.IngressComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-ingressgateway",
 					ContainerName:        "istio-proxy",
 					HelmSubdir:           "gateways/istio-ingress",
 					ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
 				},
 				name.EgressComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-egressgateway",
 					ContainerName:        "istio-proxy",
 					HelmSubdir:           "gateways/istio-egress",
@@ -639,9 +655,11 @@ func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureNam
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
 	ts := struct {
+		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
+		ResourceType:  t.ComponentMaps[componentName].ResourceType,
 		ResourceName:  t.ComponentMaps[componentName].ResourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
