@@ -145,15 +145,11 @@ func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator
 	return t, nil
 }
 
-// TranslateFromValueToSpec translates from values struct to IstioControlPlaneSpec.
-func (t *ReverseTranslator) TranslateFromValueToSpec(values *v1alpha2.Values) (controlPlaneSpec *v1alpha2.IstioControlPlaneSpec, err error) {
-	valueYaml, err := yaml.Marshal(values)
-	if err != nil {
-		return nil, fmt.Errorf("error when marshalling value struct %v", err)
-	}
+// TranslateFromValueToSpec translates from values.yaml value to IstioControlPlaneSpec.
+func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlaneSpec *v1alpha2.IstioControlPlaneSpec, err error) {
 
 	var yamlTree = make(map[string]interface{})
-	err = yaml.Unmarshal(valueYaml, &yamlTree)
+	err = yaml.Unmarshal(values, &yamlTree)
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into untype tree %v", err)
 	}
@@ -267,26 +263,70 @@ func translateHPASpec(inPath string, outPath string, value interface{}, valueTre
 	if !asEnabled {
 		return nil
 	}
-	newP := util.PathFromString(inPath)[0]
-	minPath := newP + ".autoscaleMin"
-	asMin, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(minPath))
+
+	newP := util.PathFromString(inPath)
+	// last path element is k8s setting name
+	newPS := newP[:len(newP)-1].String()
+	valMap := map[string]string{
+		".autoscaleMin": ".minReplicas",
+		".autoscaleMax": ".maxReplicas",
+	}
+	for key, newVal := range valMap {
+		valPath := newPS + key
+		asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+		if found && err == nil {
+			if err := setOutputAndClean(valPath, outPath+newVal, asVal, valueTree, cpSpecTree, true); err != nil {
+				return err
+			}
+		}
+	}
+	valPath := newPS + ".cpu.targetAverageUtilization"
+	asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
 	if found && err == nil {
-		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath+".minReplicas"), asMin); err != nil {
+		rs := make([]interface{}, 1)
+		rsVal := `
+- type: Resource
+  resource:
+    name: cpu
+    targetAverageUtilization: %f`
+
+		rsString := fmt.Sprintf(rsVal, asVal)
+		if err = yaml.Unmarshal([]byte(rsString), &rs); err != nil {
+			return err
+		}
+		if err := setOutputAndClean(valPath, outPath+".metrics", rs, valueTree, cpSpecTree, true); err != nil {
 			return err
 		}
 	}
-	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(minPath), util.ToYAMLPath(minPath)); err != nil {
+
+	// There is no direct source from value.yaml for scaleTargetRef value, we need to construct from component name
+	st := make(map[string]interface{})
+	stVal := `
+apiVersion: apps/v1
+kind: Deployment
+name: istio-%s`
+
+	stString := fmt.Sprintf(stVal, newPS)
+	if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
 		return err
 	}
-	maxPath := newP + ".autoscaleMax"
-	asMax, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(maxPath))
-	if found && err == nil {
-		log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath+".maxReplicas"), asMax); err != nil {
-			return err
-		}
+	if err := setOutputAndClean(valPath, outPath+".scaleTargetRef", st, valueTree, cpSpecTree, false); err != nil {
+		return err
 	}
-	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(maxPath), util.ToYAMLPath(maxPath)); err != nil {
+	return nil
+}
+
+// setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
+func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, cpSpecTree map[string]interface{}, clean bool) error {
+	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+
+	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
+		return err
+	}
+	if !clean {
+		return nil
+	}
+	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(valPath), util.ToYAMLPath(valPath)); err != nil {
 		return err
 	}
 	return nil
@@ -392,7 +432,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 	return nil
 }
 
-// translateRemainingPaths translates remaining paths that are not availing in existing mappings.
+// translateRemainingPaths translates remaining paths that are not available in existing mappings.
 func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}, path util.Path) error {
 	for key, val := range valueTree {
@@ -416,8 +456,8 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 				}
 				errs = util.AppendErr(errs, t.translateRemainingPaths(newMap, cpSpecTree, newPath))
 			}
-			if errs != nil {
-				return errs
+			if err := errs.ToError(); err != nil {
+				return err
 			}
 		// remaining leaf need to be put into common.values
 		default:

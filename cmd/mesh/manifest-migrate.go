@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -65,12 +64,15 @@ func valueFileFilter(path string) bool {
 // migrateFromFiles handles migration for local values.yaml files
 func migrateFromFiles(rootArgs *rootArgs, args []string) {
 	checkLogsOrExit(rootArgs)
-
-	logAndPrintf(rootArgs, "translating input values.yaml file at: %s to new API", args[0])
 	value, err := util.ReadFiles(args[0], valueFileFilter)
 	if err != nil {
 		logAndFatalf(rootArgs, err.Error())
 	}
+	if value == "" {
+		logAndPrintf(rootArgs, "no valid value.yaml file specified")
+		return
+	}
+	logAndPrintf(rootArgs, "translating input values.yaml file at: %s to new API", args[0])
 	translateFunc(rootArgs, []byte(value))
 }
 
@@ -81,13 +83,7 @@ func translateFunc(rootArgs *rootArgs, values []byte) {
 		logAndFatalf(rootArgs, "error creating values.yaml translator: %s", err.Error())
 	}
 
-	valueStruct := v1alpha2.Values{}
-	err = yaml.Unmarshal(values, &valueStruct)
-	if err != nil {
-		logAndFatalf(rootArgs, "error unmarshalling values.yaml into value struct : %s", err.Error())
-	}
-
-	isCPSpec, err := ts.TranslateFromValueToSpec(&valueStruct)
+	isCPSpec, err := ts.TranslateFromValueToSpec(values)
 	if err != nil {
 		logAndFatalf(rootArgs, "error translating values.yaml: %s", err.Error())
 	}
