@@ -394,6 +394,13 @@ spec:
                   resource:
                     name: cpu
                     targetAverageUtilization: 80
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 2000m
+                memory: 256Mi
           values:
             autoscaleEnabled: true
             rollingMaxSurge: 100%

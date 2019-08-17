@@ -30965,6 +30965,13 @@ spec:
                   resource:
                     name: cpu
                     targetAverageUtilization: 80
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 2000m
+                memory: 256Mi
           values:
             autoscaleEnabled: true
             rollingMaxSurge: 100%
@@ -31283,12 +31290,15 @@ spec:
     components:
       egressGateway:
         common:
-          enabled: false
+          enabled: true
           k8s:
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
+              limits:
+                cpu: 2000m
+                memory: 256Mi
           values:
             autoscaleEnabled: false
       ingressGateway:
@@ -31422,12 +31432,15 @@ spec:
     components:
       egressGateway:
         common:
-          enabled: false
+          enabled: true
           k8s:
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
+              limits:
+                cpu: 2000m
+                memory: 256Mi
           values:
             autoscaleEnabled: false
       ingressGateway:
@@ -31623,12 +31636,20 @@ spec:
           enabled: true
           k8s:
             env:
-            - name: CA_PROVIDER
-              value: "Citadel"
             - name: CA_ADDR
               value: "istio-citadel:8060"
+            - name: CA_PROVIDER
+              value: "Citadel"
+            - name: Plugins
+              value: ""
             - name: VALID_TOKEN
               value: "true"
+            - name: Trust_Domain
+              value: ""
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           values:
             image: node-agent-k8s
 

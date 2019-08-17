@@ -5,12 +5,15 @@ spec:
     components:
       egressGateway:
         common:
-          enabled: false
+          enabled: true
           k8s:
             resources:
               requests:
                 cpu: 10m
                 memory: 40Mi
+              limits:
+                cpu: 2000m
+                memory: 256Mi
           values:
             autoscaleEnabled: false
       ingressGateway:
