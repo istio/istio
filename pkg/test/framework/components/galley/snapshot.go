@@ -21,10 +21,11 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pmezard/go-difflib/difflib"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/config/resource"
 )
 
 // Ensure that Object can behave as a proto message.
@@ -48,11 +49,26 @@ type SnapshotValidatorFunc func(actuals []*SnapshotObject) error
 // is found in the snapshot.
 func NewSingleObjectSnapshotValidator(ns string, fn func(ns string, actual *SnapshotObject) error) SnapshotValidatorFunc {
 	return func(actuals []*SnapshotObject) error {
-		if len(actuals) != 1 {
+		filteredActuals := getForNamespace(ns, actuals)
+		if len(filteredActuals) != 1 {
 			return fmt.Errorf("expected 1 resource, found %d", len(actuals))
 		}
-		return fn(ns, actuals[0])
+		return fn(ns, filteredActuals[0])
 	}
+}
+
+func getForNamespace(ns string, actuals []*SnapshotObject) (result []*SnapshotObject) {
+	for _, a := range actuals {
+		fullName, err := resource.NewFullName(a.Metadata.Name)
+		if err != nil {
+			continue
+		}
+		namespace, _ := fullName.InterpretAsNamespaceAndName()
+		if ns == namespace {
+			result = append(result, a)
+		}
+	}
+	return result
 }
 
 // NewGoldenSnapshotValidator creates a SnapshotValidatorFunc that tests for equivalence against
