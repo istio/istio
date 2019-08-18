@@ -705,17 +705,55 @@ func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bo
 	return false
 }
 
+// updateProxyServiceInstances determines whether the proxy associated with the given service instance
+// needs to refresh its local inbound listeners, and if so, triggers a push to that proxy.
+func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceInstance) error {
+	instanceIP := instance.Endpoint.Address
+
+	// Check whether there's an existing connection from that IP address
+	adsClientsMutex.RLock()
+	con, ok := s.connectionsByIP[instanceIP]
+	adsClientsMutex.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	proxy := con.modelNode
+	instances, err := s.Env.GetProxyServiceInstances(proxy)
+	if err != nil {
+		adsLog.Errorf("Error getting proxy %s service instances: %v", proxy.ID, err)
+		return err
+	}
+
+	if reflect.DeepEqual(instances, proxy.ServiceInstances) {
+		// no changes detected - nothing to update
+		return nil
+	}
+
+	// Update proxy node's service instances
+	proxy.ServiceInstances = instances
+
+	// Trigger an update to that particular proxy
+	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
+
+	return nil
+}
+
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
 	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
-		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
-			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
+		node := con.modelNode
+
+		if _, ok := adsSidecarIDConnectionsMap[node.ID]; !ok {
+			adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
 		} else {
-			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
+			adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
+
+		s.connectionsByIP[node.IPAddresses[0]] = con
 	}
 }
 
@@ -736,10 +774,14 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 	xdsClients.Record(float64(len(adsClients)))
 	if con.modelNode != nil {
-		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
-		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
-			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
+		node := con.modelNode
+
+		delete(adsSidecarIDConnectionsMap[node.ID], conID)
+		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
+			delete(adsSidecarIDConnectionsMap, node.ID)
 		}
+
+		delete(s.connectionsByIP, node.IPAddresses[0])
 	}
 }
 

@@ -112,6 +112,9 @@ type DiscoveryServer struct {
 	WorkloadsByID map[string]*Workload
 
 	pushChannel chan *model.PushRequest
+	// connectionsByIP keeps track of active XdsConnection structures,
+	// keyed by the IP address of the remote proxy.
+	connectionsByIP map[string]*XdsConnection
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
@@ -167,20 +170,27 @@ func NewDiscoveryServer(
 		KubeController:          kubeController,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
+		connectionsByIP:         map[string]*XdsConnection{},
 		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 	}
 
-	// Flush cached discovery responses whenever services, service
-	// instances, or routing configuration changes.
+	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil
 	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
+
+	// Trigger an individual push whenever a proxy's local service instances change.
+	instanceUpdateHandler := func(instance *model.ServiceInstance, event model.Event) {
+		err := out.updateProxyServiceInstances(instance)
+		if err != nil {
+			adsLog.Errorf("Error updating proxy service instances for instance %s: %v", instance.Endpoint.UID, err)
+		}
+	}
+	if err := ctl.AppendInstanceHandler(instanceUpdateHandler); err != nil {
 		return nil
 	}
 
