@@ -176,17 +176,13 @@ func NewDiscoveryServer(
 		pushQueue:               NewPushQueue(),
 	}
 
-	// Flush cached discovery responses whenever services, service
-	// instances, or routing configuration changes.
+	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil
 	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
-		return nil
-	}
 
+	// Trigger an individual push whenever a proxy's local service instances change.
 	instanceUpdateHandler := func(instance *model.ServiceInstance, event model.Event) {
 		err := out.updateProxyServiceInstances(instance)
 		if err != nil {

@@ -731,14 +731,10 @@ func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceIns
 	}
 
 	// Update proxy node's service instances
-	err = proxy.SetServiceInstances(s.Env)
-	if err != nil {
-		adsLog.Errorf("Error setting proxy %s service instances: %v", proxy.ID, err)
-		return err
-	}
+	proxy.ServiceInstances = instances
 
 	// Trigger an update to that particular proxy
-	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext()})
+	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
 
 	return nil
 }
