@@ -151,7 +151,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 			return "", fmt.Errorf("bad argument %s: expect format key=value", kv)
 		}
 		k := kvv[0]
-		v := kvv[1]
+		v := util.ParseValue(kvv[1])
 		if err := tpath.WriteNode(tree, util.PathFromString(k), v); err != nil {
 			return "", err
 		}
