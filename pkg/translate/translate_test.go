@@ -40,7 +40,7 @@ defaultNamespace: istio-system
 certmanager:
   enabled: false
   namespace: istio-system
-citadel:
+security:
   enabled: false
   namespace: istio-system
 galley:
@@ -93,7 +93,7 @@ defaultNamespace: istio-system
 certmanager:
   enabled: false
   namespace: istio-system
-citadel:
+security:
   enabled: false
   namespace: istio-system
 galley:
@@ -149,7 +149,7 @@ security:
 certmanager:
   enabled: true
   namespace: istio-system
-citadel:
+security:
   enabled: true
   namespace: istio-system
 galley:

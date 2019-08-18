@@ -279,7 +279,7 @@ var (
 					ResourceName:         "istio-citadel",
 					ContainerName:        "citadel",
 					HelmSubdir:           "security/citadel",
-					ToHelmValuesTreeRoot: "citadel",
+					ToHelmValuesTreeRoot: "security",
 				},
 				name.NodeAgentComponentName: {
 					ResourceType:         K8sDaemonSetResourceType,
