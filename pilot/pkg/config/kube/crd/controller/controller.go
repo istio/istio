@@ -31,10 +31,10 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
+	"istio.io/pkg/monitoring"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -51,21 +51,21 @@ type cacheHandler struct {
 }
 
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
-	nameTag  = monitoring.MustCreateTag("name")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
+	nameTag  = monitoring.MustCreateLabel("name")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_cfg_events",
 		"Events from k8s config.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 
 	k8sErrors = monitoring.NewGauge(
 		"pilot_k8s_object_errors",
 		"Errors converting k8s CRDs",
-		nameTag,
+		monitoring.WithLabels(nameTag),
 	)
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
@@ -74,7 +74,7 @@ var (
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents, k8sErrors)
+	monitoring.MustRegister(k8sEvents, k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs

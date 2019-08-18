@@ -22,8 +22,8 @@ import (
 	restful "github.com/emicklei/go-restful"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	"istio.io/pkg/version"
 )
 
@@ -31,31 +31,31 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	methodTag = monitoring.MustCreateTag("method")
-	buildTag  = monitoring.MustCreateTag("build_version")
+	methodTag = monitoring.MustCreateLabel("method")
+	buildTag  = monitoring.MustCreateLabel("build_version")
 
 	callCounter = monitoring.NewSum(
 		"pilot_discovery_calls",
 		"Individual method calls in Pilot",
-		methodTag, buildTag,
+		monitoring.WithLabels(methodTag, buildTag),
 	)
 
 	errorCounter = monitoring.NewSum(
 		"pilot_discovery_errors",
 		"Errors encountered during a given method call within Pilot",
-		methodTag, buildTag,
+		monitoring.WithLabels(methodTag, buildTag),
 	)
 
 	resourceCounter = monitoring.NewDistribution(
 		"pilot_discovery_resources",
 		"Returned resource counts per method by Pilot",
 		[]float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000},
-		methodTag, buildTag,
+		monitoring.WithLabels(methodTag, buildTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(callCounter, errorCounter, resourceCounter)
+	monitoring.MustRegister(callCounter, errorCounter, resourceCounter)
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
