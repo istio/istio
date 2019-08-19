@@ -59,6 +59,14 @@ RUN curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/rele
 RUN curl -Lo /tmp/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 &&\
     chmod +x /tmp/minikube && sudo mv /tmp/minikube /usr/local/bin/
 
+# Install libc++, needed by proxy
+ENV LLVM_VERSION=7
+ENV LLVM_REPO='xenial'
+
+RUN echo "deb http://apt.llvm.org/${LLVM_REPO}/ llvm-toolchain-${LLVM_REPO}-${LLVM_VERSION} main" | sudo tee /etc/apt/sources.list.d/llvm.list
+RUN curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+RUN sudo apt-get update && sudo apt-get -qqy install "libc++-${LLVM_VERSION}-dev" "libc++abi-${LLVM_VERSION}-dev"
+
 # Install helm
 RUN cd /tmp && \
     curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
