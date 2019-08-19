@@ -172,23 +172,13 @@ trafficManagement:
 `,
 		},
 		{
-			desc: "PilotConfig",
-			yamlStr: `
-trafficManagement:
-  components:
-    pilot:
-      sidecar: true
-`,
-		},
-		{
 			desc: "SidecarInjectorConfig",
 			yamlStr: `
 autoInjection:
   components:
     namespace: istio-control
     injector:
-      common:
-        enabled: true
+      enabled: true
 `,
 		},
 		{
@@ -200,39 +190,38 @@ tag: v1.2.3
 trafficManagement:
   components:
     proxy:
-      common:
-        enabled: true
-        namespace: istio-control-system
-        k8s:
-          resources:
-            requests:
-              memory: "64Mi"
-              cpu: "250m"
-            limits:
-              memory: "128Mi"
-              cpu: "500m"
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 11
-            periodSeconds: 22
-            successThreshold: 33
-            failureThreshold: 44
-          hpaSpec:
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: php-apache
-            minReplicas: 1
-            maxReplicas: 10
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          nodeSelector:
-            disktype: ssd
+      enabled: true
+      namespace: istio-control-system
+      k8s:
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 11
+          periodSeconds: 22
+          successThreshold: 33
+          failureThreshold: 44
+        hpaSpec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: php-apache
+          minReplicas: 1
+          maxReplicas: 10
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                targetAverageUtilization: 80
+        nodeSelector:
+          disktype: ssd
 
 `,
 		},

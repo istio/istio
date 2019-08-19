@@ -4,104 +4,71 @@ spec:
   gateways:
     components:
       egressGateway:
-        common:
-          enabled: true
-          k8s:
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
-              limits:
-                cpu: 2000m
-                memory: 256Mi
-          values:
-            autoscaleEnabled: false
+        enabled: false
+        k8s:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 40Mi
       ingressGateway:
-        common:
-          enabled: true
-          k8s:
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
-          values:
-            autoscaleEnabled: false
+        enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 40Mi
   policy:
     components:
       policy:
-        common:
-          k8s:
-            resources:
-              requests:
-                cpu: 10m
-                memory: 100Mi
-          values:
-            autoscaleEnabled: false
-
-  security:
-    controlPlaneMtls: true
-    dataPlaneMtlsStrict: true
+        k8s:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
 
   telemetry:
     components:
       telemetry:
-        common:
-          k8s:
-            resources:
-              requests:
-                cpu: 50m
-                memory: 100Mi
-          values:
-            autoscaleEnabled: false
-            adapters:
-              kubernetesenv:
-                enabled: true
-              prometheus:
-                enabled: true
-                metricsExpiryDuration: 10m
-              stackdriver:
-                enabled: false
-              stdio:
-                enabled: true
-                outputAsJson: false
-              useAdapterCRDs: false
+        k8s:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+
 
   trafficManagement:
     components:
       pilot:
-        common:
-          k8s:
-            env:
-              - name: POD_NAME
-                valueFrom:
-                  fieldRef:
-                    apiVersion: v1
-                    fieldPath: metadata.name
-              - name: POD_NAMESPACE
-                valueFrom:
-                  fieldRef:
-                    apiVersion: v1
-                    fieldPath: metadata.namespace
-              - name: GODEBUG
-                value: gctrace=1
-              - name: PILOT_TRACE_SAMPLING
-                value: "100"
-              - name: CONFIG_NAMESPACE
-                value: istio-config
-            resources:
-              requests:
-                cpu: 10m
-                memory: 100Mi
-          values:
-            autoscaleEnabled: false
+        k8s:
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: GODEBUG
+              value: gctrace=1
+            - name: PILOT_TRACE_SAMPLING
+              value: "100"
+            - name: CONFIG_NAMESPACE
+              value: istio-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
+
       proxy:
-        common:
-          values:
-            accessLogFile: /dev/stdout
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
+        values:
+          accessLogFile: /dev/stdout
+          resources:
+            requests:
+              cpu: 10m
+              memory: 40Mi
 
   values:
     global:
@@ -109,10 +76,39 @@ spec:
       mtls:
         enabled: true
 
+    pilot:
+      autoscaleEnabled: false
+
+    proxy:
+      accessLogFile: /dev/stdout
+      resources:
+        requests:
+          cpu: 10m
+          memory: 40Mi
+
     mixer:
       adapters:
+        useAdapterCRDs: false
+        kubernetesenv:
+          enabled: true
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        stackdriver:
+          enabled: false
         stdio:
           enabled: true
+          outputAsJson: false
+      policy:
+        autoscaleEnabled: false
+      telemetry:
+        autoscaleEnabled: false
+
+    gateway:
+      istio-egressgateway:
+        autoscaleEnabled: false
+      istio-ingressgateway:
+        autoscaleEnabled: false
 
     grafana:
       enabled: true

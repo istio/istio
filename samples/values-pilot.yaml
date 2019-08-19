@@ -1,9 +1,6 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  trafficManagement:
-    components:
-      pilot:
-        common:
-          values:
-            traceSampling: 0.1 # override from 1.0
+  values:
+    pilot:
+      traceSampling: 0.1 # override from 1.0

@@ -1,21 +1,6 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  trafficManagement:
-    components:
-      pilot:
-        common:
-          values:
-            sidecar: false
-
-      proxy:
-        common:
-          values:
-            envoyStatsd:
-              enabled: false
-              host:
-              port:
-
   policy:
     enabled: false
 
@@ -37,6 +22,15 @@ spec:
   values:
     global:
       useMCP: false
+
+    pilot:
+      sidecar: false
+
+    proxy:
+      envoyStatsd:
+        enabled: false
+        host:
+        port:
 
     prometheus:
       enabeld: false

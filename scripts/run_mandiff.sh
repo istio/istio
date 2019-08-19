@@ -19,8 +19,6 @@ WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 OUT=${OUT:-/tmp/istio-mandiff-out}
 CHARTS_DIR="${GOPATH}/src/istio.io/installer"
-rm -Rf "${OUT}/*"
-mkdir -p "${OUT}"
 
 ISTIO_SYSTEM_NS=${ISTIO_SYSTEM_NS:-istio-system}
 ISTIO_RELEASE=${ISTIO_RELEASE:-istio}
@@ -59,6 +57,9 @@ MANDIFF_IGNORE_RESOURCE_LIST="ConfigMap::istio,ConfigMap::istio-sidecar-injector
 set -u
 set -x
 set -e
+
+rm -Rf ${OUT}
+mkdir -p "${OUT}"
 
 cd "${ROOT}"
 

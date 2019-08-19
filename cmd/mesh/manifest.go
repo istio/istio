@@ -111,13 +111,6 @@ func genManifests(inFilename string, setOverlayYAML string) (name.ManifestMap, e
 
 // fetchInstallPackageFromURL downloads installation packages from specified URL.
 func fetchInstallPackageFromURL(mergedICPS *v1alpha2.IstioControlPlaneSpec) error {
-	// for installation path contains version number only
-	if mergedICPS.Version != "" {
-		if mergedICPS.InstallPackagePath != "" {
-			return fmt.Errorf("cannot set both of InstallPackagePath and Version")
-		}
-		mergedICPS.InstallPackagePath = helm.InstallURLFromVersion(mergedICPS.Version)
-	}
 	if util.IsHTTPURL(mergedICPS.InstallPackagePath) {
 		uf, err := helm.NewURLFetcher(mergedICPS.InstallPackagePath, "")
 		if err != nil {
