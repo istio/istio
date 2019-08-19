@@ -191,7 +191,7 @@ var (
 	)
 
 	UseAutoPilotMTLS = env.RegisterBoolVar(
-		"USE_AUTOPILOT_MTLS",
+		"PILOT_USE_AUTOPILOT_MTLS",
 		false,
 		"if enabled, pods with the label mtlsReady=true will be configured with mTLS by default",
 	)
