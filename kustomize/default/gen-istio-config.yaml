@@ -183,6 +183,15 @@ data:
             - CREATE
             - UPDATE
             apiGroups:
+            - security.istio.io
+            apiVersions:
+            - "*"
+            resources:
+            - "*"
+          - operations:
+            - CREATE
+            - UPDATE
+            apiGroups:
             - authentication.istio.io
             apiVersions:
             - "*"
@@ -291,6 +300,9 @@ rules:
   resources: ["*"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["security.istio.io"]
   resources: ["*"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions","apps"]
