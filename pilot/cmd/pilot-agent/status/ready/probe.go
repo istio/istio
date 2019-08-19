@@ -27,12 +27,11 @@ import (
 
 // Probe for readiness.
 type Probe struct {
-	ApplicationPorts              []uint16
-	LocalHostAddr                 string
-	NodeType                      model.NodeType
-	AdminPort                     uint16
-	receivedFirstUpdate           bool
-	ProbeByVirtualInboundListener bool
+	ApplicationPorts    []uint16
+	LocalHostAddr       string
+	NodeType            model.NodeType
+	AdminPort           uint16
+	receivedFirstUpdate bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -52,11 +51,10 @@ func (p *Probe) Check() error {
 }
 
 func (p *Probe) checkInbound() error {
-	if !p.ProbeByVirtualInboundListener || p.NodeType != model.SidecarProxy {
+	if p.NodeType != model.SidecarProxy {
 		return p.checkInboundConfigured()
 	}
 	return p.checkInboundVirtualListener()
-
 }
 
 func (p *Probe) checkInboundVirtualListener() error {

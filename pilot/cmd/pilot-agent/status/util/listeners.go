@@ -21,7 +21,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -85,6 +85,7 @@ func HasListenerName(localHostAddr string, adminPort uint16, name string) error 
 	}
 	return fmt.Errorf("no such listener name %s", name)
 }
+
 func isLocalListener(l string) bool {
 	for _, ipPrefix := range ipPrefixes {
 		// In case of IPv6 address, it always comes in "[]", remove them so HasPrefix would work
