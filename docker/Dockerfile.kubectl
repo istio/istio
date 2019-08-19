@@ -1,10 +1,25 @@
-FROM istionightly/base_debug
-# Image for post install jobs
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+# hadolint ignore=DL3006
+FROM istionightly/base_debug as default
 
 # This container should only contain kubectl.  Hard-coding to use Linux K8s 1.11.1 version.
 ADD https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl /usr/bin/kubectl
 RUN chmod +x /usr/bin/kubectl
 
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
+
+# Image for post install jobs
+
+# This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION}
+
+COPY --from=default /usr/bin/kubectl /usr/bin/kubectl
+
 # Ensure a kubectl compatible with the container OS was used.  This is a safety
 # measure to make sure even if this Dockerfile is changed we don't pick up OSX kubectl.
-RUN /usr/bin/kubectl --help
+RUN [ "/usr/bin/kubectl", "--help" ]
