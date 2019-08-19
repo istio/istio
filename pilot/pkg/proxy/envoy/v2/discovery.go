@@ -119,12 +119,6 @@ type DiscoveryServer struct {
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
 
-	// mutex used for protecting proxyUpdates
-	proxyUpdatesMutex sync.RWMutex
-	// proxies that need full push during the new push epoch
-	// the key is the proxy ip address
-	proxyUpdates map[string]struct{}
-
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 }
@@ -171,7 +165,6 @@ func NewDiscoveryServer(
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		connectionsByIP:         map[string]*XdsConnection{},
-		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
@@ -427,18 +420,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 	}
 }
 
-func (s *DiscoveryServer) checkProxyNeedsFullPush(node *model.Proxy) bool {
-	full := false
-	s.proxyUpdatesMutex.Lock()
-	if _, ok := s.proxyUpdates[node.IPAddresses[0]]; ok {
-		full = true
-		delete(s.proxyUpdates, node.IPAddresses[0])
-	}
-	s.proxyUpdatesMutex.Unlock()
-	return full
-}
-
-func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue, checkProxyNeedsFullPush func(node *model.Proxy) bool) {
+func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
 	for {
 		select {
 		case <-stopCh:
@@ -461,9 +443,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			go func() {
 				edsUpdates := info.EdsUpdates
-				proxyFull := info.Full || checkProxyNeedsFullPush(client.modelNode)
-
-				if proxyFull {
+				if info.Full {
 					// Setting this to nil will trigger a full push
 					edsUpdates = nil
 				}
@@ -487,5 +467,5 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
-	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue, s.checkProxyNeedsFullPush)
+	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
 }
