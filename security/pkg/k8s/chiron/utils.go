@@ -28,11 +28,194 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/pkg/spiffe"
+
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 
+	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// Generate a certificate and key from k8s CA
+// Working flow:
+// 1. Generate a CSR
+// 2. Submit a CSR
+// 3. Approve a CSR
+// 4. Read the signed certificate
+// 5. Clean up the artifacts (e.g., delete CSR)
+func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, svcName string) ([]byte, []byte, []byte, error) {
+	// 1. Generate a CSR
+	// Construct the dns id from service name and name space.
+	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
+	id := fmt.Sprintf("%s.%s.svc", svcName, secretNamespace)
+	id += "," + fmt.Sprintf("%s.%s", svcName, secretNamespace)
+	options := util.CertOptions{
+		Host:       id,
+		RSAKeySize: keySize,
+		IsDualUse:  false,
+		PKCS8Key:   false,
+	}
+	csrPEM, keyPEM, err := util.GenCSR(options)
+	if err != nil {
+		log.Errorf("CSR generation error (%v)", err)
+		return nil, nil, nil, err
+	}
+
+	// 2. Submit a CSR
+	csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), secretNamespace, secretName)
+	k8sCSR := &cert.CertificateSigningRequest{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "certificates.k8s.io/v1beta1",
+			Kind:       "CertificateSigningRequest",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: csrName,
+		},
+		Spec: cert.CertificateSigningRequestSpec{
+			Request: csrPEM,
+			Groups:  []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		},
+	}
+	r, err := wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+	if err != nil {
+		if !kerrors.IsAlreadyExists(err) {
+			log.Debugf("failed to create CSR (%v): %v", csrName, err)
+			return nil, nil, nil, err
+		}
+		//Otherwise, delete the existing CSR and create again
+		log.Debugf("delete an existing CSR: %v", csrName)
+		err = wc.certClient.CertificateSigningRequests().Delete(csrName, nil)
+		if err != nil {
+			log.Errorf("failed to delete CSR (%v): %v", csrName, err)
+			return nil, nil, nil, err
+		}
+		log.Debugf("create CSR (%v) after the existing one was deleted", csrName)
+		r, err = wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+		if err != nil {
+			log.Debugf("failed to create CSR (%v): %v", csrName, err)
+			return nil, nil, nil, err
+		}
+	}
+	log.Debugf("CSR (%v) is created: %v", csrName, r)
+
+	// 3. Approve a CSR
+	log.Debugf("approve CSR (%v) ...", csrName)
+	r.Status.Conditions = append(r.Status.Conditions, cert.CertificateSigningRequestCondition{
+		Type:    cert.CertificateApproved,
+		Reason:  "k8s CSR is approved",
+		Message: "The CSR is approved",
+	})
+	reqApproval, err := wc.certClient.CertificateSigningRequests().UpdateApproval(r)
+	if err != nil {
+		log.Debugf("failed to approve CSR (%v): %v", csrName, err)
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, err
+	}
+	log.Debugf("CSR (%v) is approved: %v", csrName, reqApproval)
+
+	// 4. Read the signed certificate
+	var reqSigned *cert.CertificateSigningRequest
+	for i := 0; i < maxNumCertRead; i++ {
+		time.Sleep(certReadInterval)
+		reqSigned, err = wc.certClient.CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("failed to get the CSR (%v): %v", csrName, err)
+			errCsr := wc.cleanUpCertGen(csrName)
+			if errCsr != nil {
+				log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+			}
+			return nil, nil, nil, err
+		}
+		if reqSigned.Status.Certificate != nil {
+			// Certificate is ready
+			break
+		}
+	}
+	var certPEM []byte
+	if reqSigned.Status.Certificate != nil {
+		log.Debugf("the length of the certificate is %v", len(reqSigned.Status.Certificate))
+		log.Debugf("the certificate for CSR (%v) is: %v", csrName, string(reqSigned.Status.Certificate))
+		certPEM = reqSigned.Status.Certificate
+	} else {
+		log.Errorf("failed to read the certificate for CSR (%v)", csrName)
+		// Output the first CertificateDenied condition, if any, in the status
+		for _, c := range r.Status.Conditions {
+			if c.Type == cert.CertificateDenied {
+				log.Errorf("CertificateDenied, name: %v, uid: %v, cond-type: %v, cond: %s",
+					r.Name, r.UID, c.Type, c.String())
+				break
+			}
+		}
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, fmt.Errorf("failed to read the certificate for CSR (%v)", csrName)
+	}
+	caCert, err := wc.getCACert()
+	if err != nil {
+		log.Errorf("error when getting CA cert (%v)", err)
+		return nil, nil, nil, err
+	}
+	// Verify the certificate chain before returning the certificate
+	roots := x509.NewCertPool()
+	if roots == nil {
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, fmt.Errorf("failed to create cert pool")
+	}
+	if ok := roots.AppendCertsFromPEM(caCert); !ok {
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, fmt.Errorf("failed to append CA certificate")
+	}
+	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
+	if err != nil {
+		log.Errorf("failed to parse the certificate: %v", err)
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, fmt.Errorf("failed to parse the certificate: %v", err)
+	}
+	_, err = certParsed.Verify(x509.VerifyOptions{
+		Roots: roots,
+	})
+	if err != nil {
+		log.Errorf("failed to verify the certificate chain: %v", err)
+		errCsr := wc.cleanUpCertGen(csrName)
+		if errCsr != nil {
+			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+		}
+		return nil, nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
+	}
+	certChain := []byte{}
+	certChain = append(certChain, certPEM...)
+	certChain = append(certChain, caCert...)
+
+	// 5. Clean up the artifacts (e.g., delete CSR)
+	err = wc.cleanUpCertGen(csrName)
+	if err != nil {
+		log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+	}
+	// If there is a failure of cleaning up CSR, the error is returned.
+	return certChain, keyPEM, caCert, err
+}
 
 // Read CA certificate and check whether it is a valid certificate.
 func readCACert(caCertPath string) ([]byte, error) {
@@ -81,6 +264,33 @@ func rebuildMutatingWebhookConfigHelper(
 	var webhookConfig v1beta1.MutatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
+			webhookConfigFile, err)
+	}
+
+	// the webhook name is fixed at startup time
+	webhookConfig.Name = webhookConfigName
+
+	// patch the ca-cert into the user provided configuration
+	for i := range webhookConfig.Webhooks {
+		webhookConfig.Webhooks[i].ClientConfig.CABundle = caCert
+	}
+
+	return &webhookConfig, nil
+}
+
+// Rebuild the desired validatingwebhookconfiguration from the specified CA
+// and webhook config files.
+func rebuildValidatingWebhookConfigHelper(
+	caCert []byte, webhookConfigFile, webhookConfigName string,
+) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	// load and validate configuration
+	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	var webhookConfig v1beta1.ValidatingWebhookConfiguration
+	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
+		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
 			webhookConfigFile, err)
 	}
 
@@ -171,6 +381,95 @@ func createOrUpdateValidatingWebhookConfig(wc *WebhookController) error {
 			log.Errorf("update webhookconfiguration returns err: %v", err)
 		}
 		return err
+	}
+	return nil
+}
+
+// Update the mutatingwebhookconfiguration
+func updateMutatingWebhookConfig(wc *WebhookController) error {
+	// Rebuild the webhook configuration and reconcile with the
+	// existing mutatingwebhookconfiguration.
+	err := wc.rebuildMutatingWebhookConfig()
+	if err == nil {
+		updateErr := createOrUpdateMutatingWebhookConfig(wc)
+		if updateErr != nil {
+			log.Errorf("error when updating mutatingwebhookconfiguration: %v", updateErr)
+			return updateErr
+		}
+	} else {
+		log.Errorf("error when building mutatingwebhookconfiguration: %v", err)
+		return err
+	}
+	return nil
+}
+
+// Update the validatingwebhookconfiguration
+func updateValidatingWebhookConfig(wc *WebhookController) error {
+	// Rebuild the webhook configuration and reconcile with the
+	// existing validatingwebhookconfiguration.
+	err := wc.rebuildValidatingWebhookConfig()
+	if err == nil {
+		updateErr := createOrUpdateValidatingWebhookConfig(wc)
+		if updateErr != nil {
+			log.Errorf("error when updating validatingwebhookconfiguration: %v", updateErr)
+			return updateErr
+		}
+	} else {
+		log.Errorf("error when building validatingwebhookconfiguration: %v", err)
+		return err
+	}
+	return nil
+}
+
+// Update the CA certificate and webhookconfiguration
+func updateCertAndWebhookConfig(wc *WebhookController) error {
+	certChanged, err := reloadCACert(wc)
+	if err != nil || !certChanged {
+		// No certificate change
+		return err
+	}
+	log.Debug("CA cert changed, update webhook certs and webhook configuration")
+	// Update the webhook certificates
+	for _, name := range wc.mutatingWebhookServiceNames {
+		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(name), wc.namespace)
+		if err != nil {
+			log.Errorf("error returns when updating the secret for mutating webhook service (%v) in namespace (%v)",
+				name, wc.namespace)
+		}
+	}
+	for _, name := range wc.validatingWebhookServiceNames {
+		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(name), wc.namespace)
+		if err != nil {
+			log.Errorf("error returns when updating the secret for validating webhook service (%v) in namespace (%v)",
+				name, wc.namespace)
+		}
+	}
+
+	var errMutate, errValidate, errUpdateMutate, errUpdateValidate error
+	// Rebuild the webhook configuration and reconcile with the
+	// existing mutatingwebhookconfiguration.
+	if errMutate = wc.rebuildMutatingWebhookConfig(); errMutate == nil {
+		errUpdateMutate = createOrUpdateMutatingWebhookConfig(wc)
+		if errUpdateMutate != nil {
+			log.Errorf("error when updating mutatingwebhookconfiguration: %v", errUpdateMutate)
+		}
+	}
+	// Rebuild the webhook configuration and reconcile with the
+	// existing mutatingwebhookconfiguration.
+	if errValidate = wc.rebuildValidatingWebhookConfig(); errValidate == nil {
+		errUpdateValidate = createOrUpdateValidatingWebhookConfig(wc)
+		if errUpdateValidate != nil {
+			log.Errorf("error when updating validatingwebhookconfiguration: %v", errUpdateValidate)
+		}
+	}
+
+	if errMutate != nil || errValidate != nil || errUpdateMutate != nil || errUpdateValidate != nil {
+		log.Errorf("err mutate: %v. err validate: %v."+
+			"err update mutate: %v. err update validate: %v", errMutate, errValidate,
+			errUpdateMutate, errUpdateValidate)
+		return fmt.Errorf("err mutate: %v. err validate: %v."+
+			"err update mutate: %v. err update validate: %v", errMutate, errValidate,
+			errUpdateMutate, errUpdateValidate)
 	}
 	return nil
 }

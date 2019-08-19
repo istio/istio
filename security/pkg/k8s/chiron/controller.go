@@ -15,14 +15,18 @@
 package chiron
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,10 +54,14 @@ const (
 	prefixWebhookSecretName = "istio.webhook"
 
 	// The Istio webhook secret annotation type
-	IstioSecretType = "istio.io/webhook-key-and-cert"
+	IstioWebhookSecretType = "istio.io/webhook-key-and-cert"
 
+	// The ID/name for the certificate chain file.
+	CertChainID = "cert-chain.pem"
 	// The ID/name for the private key file.
 	PrivateKeyID = "key.pem"
+	// The ID/name for the CA root certificate file.
+	RootCertID = "root-cert.pem"
 
 	// For debugging, set the resync period to be a shorter period.
 	secretResyncPeriod = 10 * time.Second
@@ -61,6 +69,17 @@ const (
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
+
+	// The size of a private key for a leaf certificate.
+	keySize = 2048
+
+	// The number of retries when requesting to create secret.
+	secretCreationRetry = 3
+
+	// The interval for reading a certificate
+	certReadInterval = 500 * time.Millisecond
+	// The number of tries for reading a certificate
+	maxNumCertRead = 20
 )
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -153,7 +172,7 @@ func NewWebhookController(deleteWebhookConfigurationsOnExit bool, gracePeriodRat
 
 	namespaces := []string{nameSpace}
 
-	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioSecretType}).String()
+	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioWebhookSecretType}).String()
 	scrtLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -200,10 +219,16 @@ func NewWebhookController(deleteWebhookConfigurationsOnExit bool, gracePeriodRat
 func (wc *WebhookController) Run(stopCh chan struct{}) {
 	// Create secrets containing certificates for webhooks
 	for _, svcName := range wc.mutatingWebhookServiceNames {
-		wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
+		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
+		if err != nil {
+			log.Errorf("error when upserting svc (%v) in ns (%v): %v", svcName, wc.namespace, err)
+		}
 	}
 	for _, svcName := range wc.validatingWebhookServiceNames {
-		wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
+		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcname(svcName), wc.namespace)
+		if err != nil {
+			log.Errorf("error when upserting svc (%v) in ns (%v): %v", svcName, wc.namespace, err)
+		}
 	}
 
 	// Currently, Chiron only patches one mutating webhook and one validating webhook.
@@ -243,8 +268,66 @@ func (wc *WebhookController) Run(stopCh chan struct{}) {
 	go wc.watchConfigChanges(mutatingWebhookChangedCh, validatingWebhookChangedCh, stopCh)
 }
 
-func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) {
-	// TODO (lei-tang): add the implementation of this function.
+func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) error {
+	secret := &v1.Secret{
+		Data: map[string][]byte{},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: nil,
+			Name:        secretName,
+			Namespace:   secretNamespace,
+		},
+		Type: IstioWebhookSecretType,
+	}
+
+	existingSecret, err := wc.core.Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
+	if err == nil && existingSecret != nil {
+		log.Debugf("upsertSecret(): the secret (%v) in namespace (%v) exists, return",
+			secretName, secretNamespace)
+		// Do nothing for existing secrets. Rotating expiring certs are handled by the `scrtUpdated` method.
+		return nil
+	}
+
+	svcName, found := wc.getServiceName(secretName)
+	if !found {
+		log.Errorf("failed to find the service name for the secret (%v) to insert", secretName)
+		return fmt.Errorf("failed to find the service name for the secret (%v) to insert", secretName)
+	}
+
+	// Now we know the secret does not exist yet. So we create a new one.
+	chain, key, caCert, err := genKeyCertK8sCA(wc, secretName, secretNamespace, svcName)
+	if err != nil {
+		log.Errorf("failed to generate key and certificate for secret %v in namespace %v (error %v)",
+			secretName, secretNamespace, err)
+		return err
+	}
+	secret.Data = map[string][]byte{
+		CertChainID:  chain,
+		PrivateKeyID: key,
+		RootCertID:   caCert,
+	}
+
+	// We retry several times when create secret to mitigate transient network failures.
+	for i := 0; i < secretCreationRetry; i++ {
+		_, err = wc.core.Secrets(secretNamespace).Create(secret)
+		if err == nil || errors.IsAlreadyExists(err) {
+			if errors.IsAlreadyExists(err) {
+				log.Infof("Istio secret \"%s\" in namespace \"%s\" already exists", secretName, secretNamespace)
+			}
+			break
+		} else {
+			log.Errorf("failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		}
+		time.Sleep(time.Second)
+	}
+
+	if err != nil && !errors.IsAlreadyExists(err) {
+		log.Errorf("failed to create secret \"%s\" in namespace \"%s\" (error: %s), retries %v times",
+			secretName, secretNamespace, err, secretCreationRetry)
+		return err
+	}
+
+	log.Infof("Istio secret \"%s\" in namespace \"%s\" has been created", secretName, secretNamespace)
+	return nil
 }
 
 func (wc *WebhookController) scrtDeleted(obj interface{}) {
@@ -257,9 +340,52 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 	// TODO (lei-tang): add the implementation of this function.
 }
 
+// Clean up the CSR
+func (wc *WebhookController) cleanUpCertGen(csrName string) error {
+	// Delete CSR
+	log.Debugf("delete CSR: %v", csrName)
+	err := wc.certClient.CertificateSigningRequests().Delete(csrName, nil)
+	if err != nil {
+		log.Errorf("failed to delete CSR (%v): %v", csrName, err)
+		return err
+	}
+	return nil
+}
+
 func (wc *WebhookController) watchConfigChanges(mutatingWebhookChangedCh, validatingWebhookChangedCh,
 	stopCh chan struct{}) {
 	// TODO (lei-tang): add the implementation of this function.
+}
+
+// Get the CA cert. K8sCaCertWatcher handles the update of CA cert.
+func (wc *WebhookController) getCACert() ([]byte, error) {
+	wc.certMutex.Lock()
+	cp := append([]byte(nil), wc.CACert...)
+	wc.certMutex.Unlock()
+
+	block, _ := pem.Decode(cp)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM encoded CA certificate")
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return nil, fmt.Errorf("invalid ca certificate (%v), parsing error: %v", string(cp), err)
+	}
+	return cp, nil
+}
+
+// Get the service name for the secret. Return the service name and whether it is found.
+func (wc *WebhookController) getServiceName(secretName string) (string, bool) {
+	for _, name := range wc.mutatingWebhookServiceNames {
+		if wc.getWebhookSecretNameFromSvcname(name) == secretName {
+			return name, true
+		}
+	}
+	for _, name := range wc.validatingWebhookServiceNames {
+		if wc.getWebhookSecretNameFromSvcname(name) == secretName {
+			return name, true
+		}
+	}
+	return "", false
 }
 
 // Delete the mutatingwebhookconfiguration.
@@ -348,14 +474,70 @@ func (wc *WebhookController) monitorValidatingWebhookConfig(webhookConfigName st
 
 // Rebuild the mutatingwebhookconfiguration and save it for subsequent calls to createOrUpdateWebhookConfig.
 func (wc *WebhookController) rebuildMutatingWebhookConfig() error {
-	// TODO (lei-tang): add the implementation of this function.
-	return nil
+	caCert, err := wc.getCACert()
+	if err != nil {
+		return err
+	}
+	// In the prototype, only one mutating webhook is rebuilt
+	// The size of mutatingWebhookConfigFiles and mutatingWebhookConfigNames are checked in main.
+	webhookConfig, err := rebuildMutatingWebhookConfigHelper(
+		caCert,
+		wc.mutatingWebhookConfigFiles[0],
+		wc.mutatingWebhookConfigNames[0],
+	)
+	if err != nil {
+		log.Errorf("failed to build mutatingwebhookconfiguration: %v", err)
+		return err
+	}
+	wc.mutatingWebhookConfig = webhookConfig
+
+	// print the mutatingwebhookconfiguration as YAML
+	var configYAML string
+	b, err := yaml.Marshal(wc.mutatingWebhookConfig)
+
+	if err == nil {
+		configYAML = string(b)
+		log.Debugf("%v mutatingwebhookconfiguration is rebuilt: \n%v",
+			wc.mutatingWebhookConfig.Name, configYAML)
+		return nil
+	}
+	log.Errorf("error to marshal mutatingwebhookconfiguration %v: %v",
+		wc.mutatingWebhookConfig.Name, err)
+	return err
 }
 
 // Rebuild the validatingwebhookconfiguration and save it for subsequent calls to createOrUpdateWebhookConfig.
 func (wc *WebhookController) rebuildValidatingWebhookConfig() error {
-	// TODO (lei-tang): add the implementation of this function.
-	return nil
+	caCert, err := wc.getCACert()
+	if err != nil {
+		return err
+	}
+	// In the prototype, only one validating webhook is rebuilt.
+	// The size of validatingWebhookConfigFiles and validatingWebhookConfigNames are checked in main.
+	webhookConfig, err := rebuildValidatingWebhookConfigHelper(
+		caCert,
+		wc.validatingWebhookConfigFiles[0],
+		wc.validatingWebhookConfigNames[0],
+	)
+	if err != nil {
+		log.Errorf("failed to build validatingwebhookconfiguration: %v", err)
+		return err
+	}
+	wc.validatingWebhookConfig = webhookConfig
+
+	// print the validatingwebhookconfiguration as YAML
+	var configYAML string
+	b, err := yaml.Marshal(wc.validatingWebhookConfig)
+
+	if err == nil {
+		configYAML = string(b)
+		log.Debugf("%v validatingwebhookconfiguration is rebuilt: \n%v",
+			wc.validatingWebhookConfig.Name, configYAML)
+		return nil
+	}
+	log.Errorf("error to marshal validatingwebhookconfiguration %v: %v",
+		wc.validatingWebhookConfig.Name, err)
+	return err
 }
 
 // Return the webhook secret name based on the service name
