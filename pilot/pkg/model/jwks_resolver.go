@@ -28,8 +28,8 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/cache"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -130,7 +130,7 @@ type JwksResolver struct {
 }
 
 func init() {
-	monitoring.MustRegisterViews(networkFetchSuccessCounter, networkFetchFailCounter)
+	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
