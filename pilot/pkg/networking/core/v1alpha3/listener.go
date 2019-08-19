@@ -41,7 +41,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -258,7 +258,7 @@ var (
 )
 
 func init() {
-	monitoring.MustRegisterViews(invalidOutboundListeners)
+	monitoring.MustRegister(invalidOutboundListeners)
 }
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies

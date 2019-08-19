@@ -35,11 +35,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/pkg/log"
 )
@@ -64,19 +64,19 @@ const (
 )
 
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents)
+	monitoring.MustRegister(k8sEvents)
 }
 
 func incrementEvent(kind, event string) {
