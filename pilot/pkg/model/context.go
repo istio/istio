@@ -484,10 +484,6 @@ const (
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
 
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
-	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "SIDECAR_UID"
-
 	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
 	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
 
