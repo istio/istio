@@ -268,7 +268,8 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	// The WorkloadLabels is already parsed from Node metadata["istio.io/metadata"][labels]
+	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
+	// Or updated in DiscoveryServer.WorkloadUpdate.
 	if node.WorkloadLabels != nil {
 		return nil
 	}
@@ -370,8 +371,8 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
 
 	if data, ok := metadata[NodeMetadataLabels]; ok {
-		nodeLabels := make(map[string]string)
-		if err := json.Unmarshal([]byte(data), nodeLabels); err != nil {
+		var nodeLabels map[string]string
+		if err := json.Unmarshal([]byte(data), &nodeLabels); err != nil {
 			return out, fmt.Errorf("invalid %s: %s", NodeMetadataLabels, data)
 		}
 		if len(nodeLabels) > 0 {
