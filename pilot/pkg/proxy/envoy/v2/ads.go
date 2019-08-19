@@ -466,7 +466,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return nil
 			}
 		case <-con.updateChannel:
-			s.doUpdateProxyServiceInstances(con)
+			err := s.doUpdateProxyServiceInstances(con)
+			if err != nil {
+				adsLog.Errorf("Error updating proxy service instances for proxy %s: %v", con.modelNode.IPAddresses[0], err)
+			}
 		}
 	}
 }
