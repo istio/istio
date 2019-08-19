@@ -152,7 +152,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
-		mtlsReady := push.GetMTLSReady(service.Hostname)
 		for _, port := range service.Ports {
 			var mtlsPolicy *authn.Policy
 			if features.UseAutoPilotMTLS.Get() {
@@ -173,7 +172,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, mtlsPolicy, mtlsReady)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, mtlsPolicy, service.MTLSReady)
 
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
@@ -191,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					clusterMode:     DefaultClusterMode,
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
-					mtlsReady:       mtlsReady,
+					mtlsReady:       service.MTLSReady,
 					tlsPolicy:       mtlsPolicy,
 				}
 
@@ -206,7 +205,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, mtlsReady)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, service.MTLSReady)
 					setUpstreamProtocol(subsetCluster, port)
 
 					opts := buildClusterOpts{
@@ -219,7 +218,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						clusterMode:     DefaultClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						mtlsReady:       mtlsReady,
+						mtlsReady:       service.MTLSReady,
 						tlsPolicy:       mtlsPolicy,
 					}
 					applyTrafficPolicy(opts)
@@ -234,7 +233,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						clusterMode:     DefaultClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						mtlsReady:       mtlsReady,
+						mtlsReady:       service.MTLSReady,
 						tlsPolicy:       mtlsPolicy,
 					}
 					applyTrafficPolicy(opts)
@@ -270,7 +269,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
-		mtlsReady := push.GetMTLSReady(service.Hostname)
 		for _, port := range service.Ports {
 			var mtlsPolicy *authn.Policy
 			if features.UseAutoPilotMTLS.Get() {
@@ -288,7 +286,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			discoveryType := convertResolution(service.Resolution)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, mtlsReady)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, service.MTLSReady)
 			clusters = append(clusters, defaultCluster)
 
 			if destRule != nil {
@@ -301,7 +299,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					clusterMode: SniDnatClusterMode,
 					direction:   model.TrafficDirectionOutbound,
 					proxy:       proxy,
-					mtlsReady:   mtlsReady,
+					mtlsReady:   service.MTLSReady,
 					tlsPolicy:   mtlsPolicy,
 				}
 				applyTrafficPolicy(opts)
@@ -313,7 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, mtlsReady)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, mtlsPolicy, service.MTLSReady)
 
 					opts = buildClusterOpts{
 						env:         env,
@@ -323,7 +321,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode: SniDnatClusterMode,
 						direction:   model.TrafficDirectionOutbound,
 						proxy:       proxy,
-						mtlsReady:   mtlsReady,
+						mtlsReady:   service.MTLSReady,
 						tlsPolicy:   mtlsPolicy,
 					}
 					applyTrafficPolicy(opts)
@@ -336,7 +334,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode: SniDnatClusterMode,
 						direction:   model.TrafficDirectionOutbound,
 						proxy:       proxy,
-						mtlsReady:   mtlsReady,
+						mtlsReady:   service.MTLSReady,
 						tlsPolicy:   mtlsPolicy,
 					}
 					applyTrafficPolicy(opts)
