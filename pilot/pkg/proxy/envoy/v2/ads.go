@@ -730,9 +730,6 @@ func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceIns
 		return nil
 	}
 
-	// Update proxy node's service instances
-	proxy.ServiceInstances = instances
-
 	// Trigger an update to that particular proxy
 	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
 
