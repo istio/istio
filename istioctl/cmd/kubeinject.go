@@ -31,9 +31,9 @@ import (
 	"istio.io/pkg/version"
 
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

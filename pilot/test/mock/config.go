@@ -29,6 +29,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -206,6 +208,16 @@ var (
 	// ExampleRbacConfig is an example rbac config
 	ExampleRbacConfig = &rbac.RbacConfig{
 		Mode: rbac.RbacConfig_ON,
+	}
+
+	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
+	ExampleAuthorizationPolicy = &authz.AuthorizationPolicy{
+		Selector: &api.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		},
 	}
 )
 
@@ -436,6 +448,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"ServiceRoleBinding", configName, schemas.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", constants.DefaultRbacConfigName, schemas.RbacConfig, ExampleRbacConfig},
 		{"ClusterRbacConfig", constants.DefaultRbacConfigName, schemas.ClusterRbacConfig, ExampleRbacConfig},
+		{"AuthorizationPolicy", configName, schemas.AuthorizationPolicy, ExampleAuthorizationPolicy},
 	}
 
 	for _, c := range cases {

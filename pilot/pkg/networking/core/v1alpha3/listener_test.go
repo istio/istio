@@ -568,9 +568,20 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 		},
 	}
 	listeners := buildInboundListeners(p, proxy, sidecarConfig)
-	if expected := 0; len(listeners) != expected {
+	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
 	}
+
+	if len(listeners[0].FilterChains) != 4 ||
+		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
+		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[3]) {
+		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -584,11 +595,10 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 
 func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
-	if len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
-		fc.FilterChainMatch.ApplicationProtocols[0] != "h2" ||
-		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
-		fc.FilterChainMatch.ApplicationProtocols[2] != "http/1.0" {
-		t.Fatalf("expected %d application protocols, [h2, http/1.1, http/1.0]", 3)
+	if len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
+		fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.1" ||
+		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.0" {
+		t.Fatalf("expected %d application protocols, [http/1.1, http/1.0]", 3)
 	}
 }
 
@@ -795,8 +805,14 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 		},
 	}
 	listeners := buildInboundListeners(p, proxy, sidecarConfig)
-	if expected := 0; len(listeners) != expected {
+	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+	if !isHTTPListener(listeners[0]) {
+		t.Fatal("expected HTTP listener, found TCP")
+	}
+	for _, l := range listeners {
+		verifyInboundHTTP10(t, isNodeHTTP10(proxy), l)
 	}
 }
 

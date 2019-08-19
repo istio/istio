@@ -112,15 +112,12 @@ type DiscoveryServer struct {
 	WorkloadsByID map[string]*Workload
 
 	pushChannel chan *model.PushRequest
+	// connectionsByIP keeps track of active XdsConnection structures,
+	// keyed by the IP address of the remote proxy.
+	connectionsByIP map[string]*XdsConnection
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
-
-	// mutex used for protecting proxyUpdates
-	proxyUpdatesMutex sync.RWMutex
-	// proxies that need full push during the new push epoch
-	// the key is the proxy ip address
-	proxyUpdates map[string]struct{}
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
@@ -170,20 +167,26 @@ func NewDiscoveryServer(
 		KubeController:          kubeController,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
-		proxyUpdates:            map[string]struct{}{},
+		connectionsByIP:         map[string]*XdsConnection{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 	}
 
-	// Flush cached discovery responses whenever services, service
-	// instances, or routing configuration changes.
+	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil
 	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
+
+	// Trigger an individual push whenever a proxy's local service instances change.
+	instanceUpdateHandler := func(instance *model.ServiceInstance, event model.Event) {
+		err := out.updateProxyServiceInstances(instance)
+		if err != nil {
+			adsLog.Errorf("Error updating proxy service instances for instance %s: %v", instance.Endpoint.UID, err)
+		}
+	}
+	if err := ctl.AppendInstanceHandler(instanceUpdateHandler); err != nil {
 		return nil
 	}
 
@@ -420,18 +423,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 	}
 }
 
-func (s *DiscoveryServer) checkProxyNeedsFullPush(node *model.Proxy) bool {
-	full := false
-	s.proxyUpdatesMutex.Lock()
-	if _, ok := s.proxyUpdates[node.IPAddresses[0]]; ok {
-		full = true
-		delete(s.proxyUpdates, node.IPAddresses[0])
-	}
-	s.proxyUpdatesMutex.Unlock()
-	return full
-}
-
-func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue, checkProxyNeedsFullPush func(node *model.Proxy) bool) {
+func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
 	for {
 		select {
 		case <-stopCh:
@@ -454,9 +446,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			go func() {
 				edsUpdates := info.EdsUpdates
-				proxyFull := info.Full || checkProxyNeedsFullPush(client.modelNode)
-
-				if proxyFull {
+				if info.Full {
 					// Setting this to nil will trigger a full push
 					edsUpdates = nil
 				}
@@ -480,5 +470,5 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
-	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue, s.checkProxyNeedsFullPush)
+	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
 }

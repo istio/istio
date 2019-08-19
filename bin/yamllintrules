@@ -16,6 +16,7 @@ rules:
       /galley/pkg/config/testing/basicmeta/basicmeta.yaml
       /galley/pkg/config/testing/basicmeta/basicmeta2.yaml
       /galley/pkg/config/testing/k8smeta/k8smeta.yaml
+      /pkg/config/schemas/schemagen/schemas.yaml
   commas: disable
   comments: disable
   comments-indentation: disable

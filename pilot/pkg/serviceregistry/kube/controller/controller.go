@@ -36,11 +36,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/pkg/log"
 )
@@ -65,19 +65,19 @@ const (
 )
 
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents)
+	monitoring.MustRegister(k8sEvents)
 }
 
 func incrementEvent(kind, event string) {
@@ -661,6 +661,39 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	}
 }
 
+// getServiceInstanceByEndpoint returns the service instances represented by the given endpoints.
+func (c *Controller) getServiceInstanceByEndpoint(endpoints v1.Endpoints) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+
+	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	if svc != nil {
+		for _, ss := range endpoints.Subsets {
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
+				}
+
+				var addrs []v1.EndpointAddress
+				addrs = append(addrs, ss.Addresses...)
+				addrs = append(addrs, ss.NotReadyAddresses...)
+
+				for _, addr := range addrs {
+					if addr.IP != "" {
+						out = append(out, c.getEndpoints(addr.IP, port.Port, svcPort, svc))
+					}
+				}
+			}
+		}
+	}
+
+	return out
+}
+
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
@@ -777,6 +810,11 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 		c.updateEDS(ep, event)
 
+		instances := c.getServiceInstanceByEndpoint(*ep)
+		for _, instance := range instances {
+			f(instance, event)
+		}
+
 		return nil
 	})
 
@@ -799,23 +837,30 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-					if c.Env != nil {
-						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					// For service without selector, maybe there are no related pods
+					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+						if c.Env != nil {
+							c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+						}
+						// TODO: keep them in a list, and check when pod events happen !
+						continue
 					}
-					// TODO: keep them in a list, and check when pod events happen !
-					continue
 				}
 
-				podLabels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				var labels map[string]string
+				locality, sa, uid := "", "", ""
+				if pod != nil {
+					locality = c.GetPodLocality(pod)
+					sa = kube.SecureNamingSAN(pod)
+					if mixerEnabled {
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					}
+					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				}
 				mtlsReady := false
 				if kube.PodMTLSReady(pod) {
 					mtlsReady = true
-				}
-
-				uid := ""
-				if mixerEnabled {
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 
 				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints
@@ -830,11 +875,11 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          podLabels,
+						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  kube.SecureNamingSAN(pod),
+						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),
-						Locality:        c.GetPodLocality(pod),
+						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 						MTLSReady:       mtlsReady,
 					})

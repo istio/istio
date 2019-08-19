@@ -25,10 +25,11 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -714,6 +715,34 @@ func TestClusterRbacConfig(t *testing.T) {
 	}
 }
 
+func TestAuthorizationPolicies(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(schemas.Istio))
+	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy1", "istio-system", store, t)
+	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy2", "default", store, t)
+	addRbacConfigToStore(schemas.AuthorizationPolicy.Type, "policy3", "istio-system", store, t)
+	tests := []struct {
+		namespace  string
+		expectName map[string]bool
+	}{
+		{namespace: "wrong", expectName: nil},
+		{namespace: "default", expectName: map[string]bool{"policy2": true}},
+		{namespace: "istio-system", expectName: map[string]bool{"policy1": true, "policy3": true}},
+	}
+
+	for _, tt := range tests {
+		cfg := store.AuthorizationPolicies(tt.namespace)
+		if tt.expectName != nil {
+			for _, cfg := range cfg {
+				if !tt.expectName[cfg.Name] {
+					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, cfg)
+				}
+			}
+		} else if len(cfg) != 0 {
+			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", cfg)
+		}
+	}
+}
+
 func addRbacConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
 	var value proto.Message
 	switch configType {
@@ -724,6 +753,12 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 		value = &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "User0"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
+	case schemas.AuthorizationPolicy.Type:
+		value = &authz.AuthorizationPolicy{
+			Selector: &api.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "test"},
+			},
+		}
 	default:
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	}
@@ -1007,77 +1042,6 @@ func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
 
 	if !reflect.DeepEqual(*expectedConfig, *cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
-	ns := "ns1"
-	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			schemas.HTTPAPISpec.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &mccpb.HTTPAPISpec{
-						Attributes: &mpb.Attributes{
-							Attributes: map[string]*mpb.Attributes_AttributeValue{
-								"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
-							},
-						},
-						Patterns: []*mccpb.HTTPAPISpecPattern{
-							{
-								Attributes: &mpb.Attributes{
-									Attributes: map[string]*mpb.Attributes_AttributeValue{
-										"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "my-service"}},
-									},
-								},
-								HttpMethod: "POST",
-								Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
-									UriTemplate: "/pet/{id}",
-								},
-							},
-						},
-						ApiKeys: []*mccpb.APIKey{{Key: &mccpb.APIKey_Query{Query: "api_key"}}},
-					},
-				},
-			},
-			schemas.HTTPAPISpecBinding.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Namespace: ns,
-						Domain:    "cluster.local",
-					},
-					Spec: &mccpb.HTTPAPISpecBinding{
-						Services: []*mccpb.IstioService{
-							{
-								Name:      "foo",
-								Namespace: ns,
-							},
-						},
-						ApiSpecs: []*mccpb.HTTPAPISpecReference{
-							{
-								Name: "request-count",
-							},
-							{
-								Name: "does-not-exist",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name("foo." + ns + ".svc.cluster.local"),
-		},
-	})
-
-	if len(cfgs) != 1 {
-		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)
 	}
 }
 

@@ -23,13 +23,13 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/pkg/monitoring"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -373,9 +373,9 @@ var (
 
 func init() {
 	for _, m := range metrics {
-		monitoring.MustRegisterViews(m)
+		monitoring.MustRegister(m)
 	}
-	monitoring.MustRegisterViews(totalVirtualServices)
+	monitoring.MustRegister(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.

@@ -21,9 +21,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/monitoring"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -49,18 +49,18 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateTag("type")
-	nameTag = monitoring.MustCreateTag("name")
+	typeTag = monitoring.MustCreateLabel("type")
+	nameTag = monitoring.MustCreateLabel("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
 		"Total number of configs that Pilot had to reject or ignore.",
-		typeTag, nameTag,
+		monitoring.WithLabels(typeTag, nameTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(totalRejectedConfigs)
+	monitoring.MustRegister(totalRejectedConfigs)
 }
 
 func recordRejectedConfig(gatewayName string) {

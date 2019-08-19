@@ -90,14 +90,14 @@ func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer) *v1.Secret {
 	return s
 }
 
-func (c *kubeComponent) DeleteSecret() error {
+func (c *kubeComponent) DeleteSecret(name string) error {
 	var immediate int64
-	return c.secret.Delete(secretName, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
+	return c.secret.Delete(name, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func (c *kubeComponent) DeleteSecretOrFail(t test.Failer) {
+func (c *kubeComponent) DeleteSecretOrFail(t test.Failer, name string) {
 	t.Helper()
-	if err := c.DeleteSecret(); err != nil {
+	if err := c.DeleteSecret(name); err != nil {
 		t.Fatal(err)
 	}
 }

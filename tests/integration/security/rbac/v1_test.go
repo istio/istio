@@ -36,7 +36,10 @@ func TestV1_OptionalJWT(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "v1-optional-jwt", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1-optional-jwt",
+				Inject: true,
+			})
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -94,7 +97,10 @@ func TestV1_Group(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			ns := namespace.NewOrFail(t, ctx, "v1-group", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1-group",
+				Inject: true,
+			})
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -176,7 +182,10 @@ func TestV1_GRPC(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "v1-grpc", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1-grpc",
+				Inject: true,
+			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
@@ -241,7 +250,10 @@ func TestV1_Path(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "v1-path", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1-path",
+				Inject: true,
+			})
 			ports := []echo.Port{
 				{
 					Name:        "http",

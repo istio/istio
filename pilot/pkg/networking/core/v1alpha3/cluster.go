@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -525,13 +526,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
-		if len(instances) == 0 {
-			return clusters
-		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
-			// as inbound|portNumber|portName|Hostname
+			// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
 				Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -542,11 +541,13 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
 			endpointAddress := actualLocalHost
+			endpointFamily := model.AddressFamilyTCP
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
+				endpointFamily = model.AddressFamilyUnix
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
@@ -559,19 +560,27 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			}
 
 			// Find the service instance that corresponds to this ingress listener by looking
-			// for a service instance that either matches this ingress port or one that has
-			// a port with same name as this ingress port
+			// for a service instance that either matches this ingress port as this will allow us
+			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 			instance := configgen.findServiceInstanceForIngressListener(instances, ingressListener)
 
 			if instance == nil {
-				// We didn't find a matching instance
-				continue
+				// We didn't find a matching instance. Create a dummy one because we need the right
+				// params to generate the right cluster name. LDS would have setup the cluster as
+				// as inbound|portNumber|portName|SidecarScopeID
+				instance = &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{},
+					Service: &model.Service{
+						Hostname: host.Name(sidecarScopeID),
+						Attributes: model.ServiceAttributes{
+							Name:      sidecarScope.Config.Name,
+							Namespace: sidecarScope.Config.Namespace,
+						},
+					},
+				}
 			}
 
-			// Update the values here so that the plugins use the right ports
-			// uds values
-			// TODO: all plugins need to be updated to account for the fact that
-			// the port may be 0 but bind may have a UDS value
+			instance.Endpoint.Family = endpointFamily
 			instance.Endpoint.Address = endpointAddress
 			instance.Endpoint.ServicePort = listenPort
 			instance.Endpoint.Port = port
@@ -605,23 +614,7 @@ func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(inst
 				Labels:         realInstance.Labels,
 				ServiceAccount: realInstance.ServiceAccount,
 			}
-			return instance
-		}
-	}
-
-	// If the port number does not match, the user might have specified a
-	// UDS socket with port number 0. So search by name
-	for _, realInstance := range instances {
-		for _, iport := range realInstance.Service.Ports {
-			if iport.Name == ingressListener.Port.Name {
-				instance = &model.ServiceInstance{
-					Endpoint:       realInstance.Endpoint,
-					Service:        realInstance.Service,
-					Labels:         realInstance.Labels,
-					ServiceAccount: realInstance.ServiceAccount,
-				}
-				return instance
-			}
+			break
 		}
 	}
 
