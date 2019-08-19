@@ -275,9 +275,8 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 
 	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
-		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		// TODO: node.Metadata also includes all the labels, not sure whether will be removed in future
-		l = labels.Collection{node.Metadata}
+		log.Errorf("failed to get service proxy labels: %v", err)
+		return err
 	}
 
 	node.WorkloadLabels = l
