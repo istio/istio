@@ -509,6 +509,18 @@ func TestInjectRequired(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:        "policy-disabled-annotation-true-ignored-namespace",
+				Namespace:   metav1.NamespaceSystem,
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
 	}
 
 	for _, c := range cases {

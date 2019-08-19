@@ -405,6 +405,10 @@ func validateUInt32(value string) error {
 	return err
 }
 
+// If sidecar.istio.io/inject=true in pod's annotation, always true
+// If pod in ignored namespace but with sidecar.istio.io/inject=true, return true
+// If pod has label in AlwaysInjectSelector but belong ignored namespace, return false
+// Priority: annotation > ignore namespace > inject policy > label selector
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
@@ -414,13 +418,6 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	// additional pod failures.
 	if podSpec.HostNetwork {
 		return false
-	}
-
-	// skip special kubernetes system namespaces
-	for _, namespace := range ignored {
-		if metadata.Namespace == namespace {
-			return false
-		}
 	}
 
 	annos := metadata.GetAnnotations()
@@ -436,6 +433,15 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		inject = true
 	case "":
 		useDefault = true
+	}
+
+	if !inject {
+		// skip special kubernetes system namespaces
+		for _, namespace := range ignored {
+			if metadata.Namespace == namespace {
+				return false
+			}
+		}
 	}
 
 	// If an annotation is not explicitly given, check the LabelSelectors, starting with NeverInject
