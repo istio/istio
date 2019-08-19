@@ -261,7 +261,6 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 	out := make(labels.Collection, 0)
 	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
-	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		wlLabels, err := r.GetProxyWorkloadLabels(proxy)
 		if err != nil {

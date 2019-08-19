@@ -559,13 +559,16 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
-		return err
-	}
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
 		return err
 	}
+
+	// should be after SetServiceInstances, because it depends on con.modelNode.ClusterID.
+	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
+		return err
+	}
+
 	if util.IsLocalityEmpty(con.modelNode.Locality) {
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance

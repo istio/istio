@@ -417,6 +417,7 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyWorkloadLabels returns the labels of the given proxy.
 	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregate
+package aggregate_test
 
 import (
 	"errors"
@@ -22,6 +22,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -44,7 +46,7 @@ func (c *MockController) Run(<-chan struct{}) {}
 var discovery1 *memory.ServiceDiscovery
 var discovery2 *memory.ServiceDiscovery
 
-func buildMockController() *Controller {
+func buildMockController() *aggregate.Controller {
 	discovery1 = memory.NewDiscovery(
 		map[host.Name]*model.Service{
 			memory.HelloService.Hostname:   memory.HelloService,
@@ -57,26 +59,26 @@ func buildMockController() *Controller {
 			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
 		}, 2)
 
-	registry1 := Registry{
+	registry1 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ServiceDiscovery: discovery1,
 		Controller:       &MockController{},
 	}
 
-	registry2 := Registry{
+	registry2 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ServiceDiscovery: discovery2,
 		Controller:       &MockController{},
 	}
 
-	ctls := NewController()
+	ctls := aggregate.NewController()
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
 	return ctls
 }
 
-func buildMockControllerForMultiCluster() *Controller {
+func buildMockControllerForMultiCluster() *aggregate.Controller {
 	discovery1 = memory.NewDiscovery(
 		map[host.Name]*model.Service{
 			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
@@ -88,21 +90,21 @@ func buildMockControllerForMultiCluster() *Controller {
 			memory.WorldService.Hostname: memory.WorldService,
 		}, 2)
 
-	registry1 := Registry{
+	registry1 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
 		Controller:       &MockController{},
 	}
 
-	registry2 := Registry{
+	registry2 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
 		Controller:       &MockController{},
 	}
 
-	ctls := NewController()
+	ctls := aggregate.NewController()
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -468,7 +470,7 @@ func TestManagementPorts(t *testing.T) {
 
 func TestAddRegistry(t *testing.T) {
 
-	registries := []Registry{
+	registries := []aggregate.Registry{
 		{
 			Name:      "registry1",
 			ClusterID: "cluster1",
@@ -478,17 +480,17 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := aggregate.NewController()
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	if l := len(ctrl.registries); l != 2 {
+	if l := len(ctrl.GetRegistries()); l != 2 {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
 	}
 }
 
 func TestDeleteRegistry(t *testing.T) {
-	registries := []Registry{
+	registries := []aggregate.Registry{
 		{
 			Name:      "registry1",
 			ClusterID: "cluster1",
@@ -498,18 +500,18 @@ func TestDeleteRegistry(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := aggregate.NewController()
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
 	ctrl.DeleteRegistry(registries[0].ClusterID)
-	if l := len(ctrl.registries); l != 1 {
+	if l := len(ctrl.GetRegistries()); l != 1 {
 		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
 	}
 }
 
 func TestGetRegistries(t *testing.T) {
-	registries := []Registry{
+	registries := []aggregate.Registry{
 		{
 			Name:      "registry1",
 			ClusterID: "cluster1",
@@ -519,18 +521,71 @@ func TestGetRegistries(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := aggregate.NewController()
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
 	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
+	if len(ctrl.GetRegistries()) != len(result) {
 		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
 	}
 
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
+	for i, registry := range ctrl.GetRegistries() {
+		if !reflect.DeepEqual(result[i], registry) {
 			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
 		}
 	}
+}
+
+func TestGetProxyWorkloadLabels(t *testing.T) {
+	aggregateCtl, cancel := mock.NewFakeAggregateControllerForMultiCluster()
+	defer cancel()
+
+	ip := "192.168.0.10"
+
+	testCases := []struct {
+		name      string
+		proxyIP   string
+		clusterID string
+		expect    labels.Collection
+	}{
+		{
+			name:      "should get labels from its own cluster workload",
+			proxyIP:   ip,
+			clusterID: "cluster1",
+			expect:    labels.Collection{{"app": "cluster1"}},
+		},
+		{
+			name:      "should get labels from its own cluster workload",
+			proxyIP:   ip,
+			clusterID: "cluster2",
+			expect:    labels.Collection{{"app": "cluster2"}},
+		},
+		{
+			name:      "can not get a workload from its cluster",
+			proxyIP:   ip,
+			clusterID: "cluster3",
+			expect:    labels.Collection{},
+		},
+		{
+			name:      "can not get a workload from its cluster",
+			proxyIP:   "not exist ip",
+			clusterID: "cluster1",
+			expect:    labels.Collection{},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			workloadlabels, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{test.proxyIP}, ClusterID: test.clusterID})
+			if err != nil {
+				t.Fatalf("Failed get proxy workloadLabels: %v", err)
+			}
+
+			if !reflect.DeepEqual(workloadlabels, test.expect) {
+				t.Errorf("Expect labels %v != %v", test.expect, workloadlabels)
+			}
+		})
+	}
+
 }

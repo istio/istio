@@ -744,6 +744,10 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 }
 
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+	// the given proxy does not belong to this registry.
+	if proxy.ClusterID != c.ClusterID {
+		return nil, nil
+	}
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
