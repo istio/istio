@@ -84,6 +84,10 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// Sending on this channel triggers a check whether the proxy associated
+	// with the connection needs an xDS update.
+	updateChannel chan struct{}
+
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -189,13 +193,14 @@ type XdsEvent struct {
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:  make(chan *XdsEvent),
-		PeerAddr:     peerAddr,
-		Clusters:     []string{},
-		Connect:      time.Now(),
-		stream:       stream,
-		LDSListeners: []*xdsapi.Listener{},
-		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:   make(chan *XdsEvent),
+		updateChannel: make(chan struct{}),
+		PeerAddr:      peerAddr,
+		Clusters:      []string{},
+		Connect:       time.Now(),
+		stream:        stream,
+		LDSListeners:  []*xdsapi.Listener{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -460,7 +465,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return nil
 			}
-
+		case <-con.updateChannel:
+			s.doUpdateProxyServiceInstances(con)
 		}
 	}
 }
@@ -705,19 +711,24 @@ func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bo
 	return false
 }
 
-// updateProxyServiceInstances determines whether the proxy associated with the given service instance
-// needs to refresh its local inbound listeners, and if so, triggers a push to that proxy.
-func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceInstance) error {
+// updateProxyServiceInstances triggers a check whether the proxy associated with the given service instance
+// needs to refresh its local inbound listeners.
+func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceInstance) {
 	instanceIP := instance.Endpoint.Address
 
 	// Check whether there's an existing connection from that IP address
 	adsClientsMutex.RLock()
 	con, ok := s.connectionsByIP[instanceIP]
 	adsClientsMutex.RUnlock()
-	if !ok {
-		return nil
-	}
 
+	if ok {
+		con.updateChannel <- struct{}{}
+	}
+}
+
+// doUpdateProxyServiceInstances determines whether the proxy associated with the given service instance
+// needs to refresh its local inbound listeners, and if so, triggers a push to that proxy.
+func (s *DiscoveryServer) doUpdateProxyServiceInstances(con *XdsConnection) error {
 	proxy := con.modelNode
 	instances, err := s.Env.GetProxyServiceInstances(proxy)
 	if err != nil {
@@ -729,6 +740,8 @@ func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceIns
 		// no changes detected - nothing to update
 		return nil
 	}
+
+	proxy.ServiceInstances = instances
 
 	// Trigger an update to that particular proxy
 	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})

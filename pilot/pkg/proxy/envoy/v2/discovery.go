@@ -178,10 +178,7 @@ func NewDiscoveryServer(
 
 	// Trigger an individual push whenever a proxy's local service instances change.
 	instanceUpdateHandler := func(instance *model.ServiceInstance, event model.Event) {
-		err := out.updateProxyServiceInstances(instance)
-		if err != nil {
-			adsLog.Errorf("Error updating proxy service instances for instance %s: %v", instance.Endpoint.UID, err)
-		}
+		out.updateProxyServiceInstances(instance)
 	}
 	if err := ctl.AppendInstanceHandler(instanceUpdateHandler); err != nil {
 		return nil
