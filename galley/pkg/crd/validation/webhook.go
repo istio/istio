@@ -38,6 +38,7 @@ import (
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -158,9 +159,9 @@ func (p *WebhookParameters) String() string {
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
 		Port:                                443,
-		CertFile:                            "/etc/certs/cert-chain.pem",
-		KeyFile:                             "/etc/certs/key.pem",
-		CACertFile:                          "/etc/certs/root-cert.pem",
+		CertFile:                            constants.DefaultCertChain,
+		KeyFile:                             constants.DefaultKey,
+		CACertFile:                          constants.DefaultRootCert,
 		DeploymentAndServiceNamespace:       "istio-system",
 		DeploymentName:                      "istio-galley",
 		ServiceName:                         "istio-galley",

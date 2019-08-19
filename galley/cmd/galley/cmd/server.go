@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
@@ -100,11 +101,11 @@ func serverCmd() *cobra.Command {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	serverCmd.PersistentFlags().DurationVar(&serverArgs.ResyncPeriod, "resyncPeriod", serverArgs.ResyncPeriod,
 		"Resync period for rescanning Kubernetes resources")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", constants.DefaultCertChain,
 		"File containing the x509 Certificate for HTTPS.")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.KeyFile, "tlsKeyFile", constants.DefaultKey,
 		"File containing the x509 private key matching --tlsCertFile.")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", "/etc/certs/root-cert.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", constants.DefaultRootCert,
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.Liveness.Path, "livenessProbePath", serverArgs.Liveness.Path,
 		"Path to the file for the Galley liveness probe.")
