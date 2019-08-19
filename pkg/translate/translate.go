@@ -115,7 +115,7 @@ var (
 				"K8SDefaults":      {"global.resources", nil},
 				"DefaultNamespace": {"global.istioNamespace", nil},
 
-				"TrafficManagement.Components.Proxy.Common.Values": {"global.proxy", nil},
+				"TrafficManagement.Components.Proxy.Values": {"global.proxy", nil},
 
 				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
 
@@ -130,47 +130,47 @@ var (
 				"Security.Components.Namespace":      {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Env": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.HpaSpec": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec": {
 					"[HorizontalPodAutoscaler:{{.ResourceName}}].spec",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ImagePullPolicy": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.NodeSelector": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodDisruptionBudget": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {
 					"[PodDisruptionBudget:{{.ResourceName}}].spec",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodAnnotations": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PriorityClassName": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName.",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReadinessProbe": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.replicas",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
 					nil,
 				},

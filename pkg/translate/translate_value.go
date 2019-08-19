@@ -49,20 +49,20 @@ var (
 		version.NewMinorVersion(1, 3): {
 			APIMapping: map[string]*Translation{},
 			KubernetesPatternMapping: map[string]string{
-				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s." +
+				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
 					"Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s." +
+				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
 					"Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.env":                 "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.Env",
-				"{{.ValueComponentName}}.autoscaleEnabled":    "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.HpaSpec",
-				"{{.ValueComponentName}}.imagePullPolicy":     "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ImagePullPolicy",
-				"{{.ValueComponentName}}.nodeSelector":        "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.NodeSelector",
-				"{{.ValueComponentName}}.podDisruptionBudget": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PodDisruptionBudget",
-				"{{.ValueComponentName}}.podAnnotations":      "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PodAnnotations",
-				"{{.ValueComponentName}}.priorityClassName":   "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PriorityClassName",
-				"{{.ValueComponentName}}.readinessProbe":      "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ReadinessProbe",
-				"{{.ValueComponentName}}.replicaCount":        "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ReplicaCount",
-				"{{.ValueComponentName}}.resources":           "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.Resources",
+				"{{.ValueComponentName}}.env":                 "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
+				"{{.ValueComponentName}}.autoscaleEnabled":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
+				"{{.ValueComponentName}}.imagePullPolicy":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
+				"{{.ValueComponentName}}.nodeSelector":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector",
+				"{{.ValueComponentName}}.podDisruptionBudget": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
+				"{{.ValueComponentName}}.podAnnotations":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations",
+				"{{.ValueComponentName}}.priorityClassName":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName",
+				"{{.ValueComponentName}}.readinessProbe":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe",
+				"{{.ValueComponentName}}.replicaCount":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount",
+				"{{.ValueComponentName}}.resources":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources",
 			},
 			KubernetesMapping:     map[string]*Translation{},
 			ValuesToComponentName: map[string]name.ComponentName{},
@@ -74,10 +74,10 @@ var (
 			},
 		},
 	}
-	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.Components.{{.ComponentName}}.Common.enabled}", nil},
+	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.Components.{{.ComponentName}}.enabled}", nil},
 	// Feature enablement mapping. Ex: "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.enabled}", nil},
-	componentEnablementPattern = "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Enabled"
-	componentValuesPattern     = "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Values"
+	componentEnablementPattern = "{{.FeatureName}}.Components.{{.ComponentName}}.Enabled"
+	componentValuesPattern     = "{{.FeatureName}}.Components.{{.ComponentName}}.Values"
 )
 
 // initAPIMapping generate the reverse mapping from original translator apiMapping.
@@ -551,7 +551,7 @@ func renderComponentName(tmpl string, componentName string) (string, error) {
 	return renderTemplate(tmpl, temp{componentName})
 }
 
-// renderCommonComponentValues renders a template of the form "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Values" with
+// renderCommonComponentValues renders a template of the form "{{.FeatureName}}.Components.{{.ComponentName}}.Values" with
 // the supplied parameters.
 func renderCommonComponentValues(tmpl string, componentName string, featureName string) (string, error) {
 	type temp struct {

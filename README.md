@@ -241,15 +241,14 @@ spec:
   trafficManagement:
     components:
       pilot:
-        common:
-          k8s:
-            resources:
-              requests:
-                cpu: 1000m # override from default 500m
-                memory: 4096Mi # ... default 2048Mi
-            hpaSpec:
-              maxReplicas: 10 # ... default 5
-              minReplicas: 2  # ... default 1
+        k8s:
+          resources:
+            requests:
+              cpu: 1000m # override from default 500m
+              memory: 4096Mi # ... default 2048Mi
+          hpaSpec:
+            maxReplicas: 10 # ... default 5
+            minReplicas: 2  # ... default 1
 ```
 
 The K8s settings are defined in detail in the
@@ -292,19 +291,18 @@ spec:
         level: "default:warning" # override from info
 ```
 
-Since from 1.3 Helm charts are split up per component, values overrides should be specified under the appropriate component
+Values overrides can also be specified for a particular component
  ([samples/values-pilot.yaml](samples/values-pilot.yaml)):
 
 ```yaml
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  trafficManagement:
-    components:
-      pilot:
-        common:
-          values:
-            traceSampling: 0.1 # override from 1.0
+  values:
+    mixer:
+      telemetry:
+        loadshedding:
+          latencyThreshold: 200ms  
 ```
 
 ### Advanced K8s resource overlays
@@ -322,24 +320,22 @@ spec:
     enabled: true
     components:
       proxy:
-        common:
-          enabled: false
+        enabled: false
       pilot:
-        common:
-          k8s:
-            overlays:
-            - kind: Deployment
-              name: istio-pilot
-              patches:
-              - path: spec.template.spec.containers.[name:discovery].args.[30m]
-                value: "60m" # OVERRIDDEN
-              - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
-                value: 8090 # OVERRIDDEN
-            - kind: Service
-              name: istio-pilot
-              patches:
-              - path: spec.ports.[name:grpc-xds].port
-                value: 15099 # OVERRIDDEN
+        k8s:
+          overlays:
+          - kind: Deployment
+            name: istio-pilot
+            patches:
+            - path: spec.template.spec.containers.[name:discovery].args.[30m]
+              value: "60m" # OVERRIDDEN
+            - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
+              value: 8090 # OVERRIDDEN
+          - kind: Service
+            name: istio-pilot
+            patches:
+            - path: spec.ports.[name:grpc-xds].port
+              value: 15099 # OVERRIDDEN
 ```
 
 The user-defined overlay uses a path spec that includes the ability to select list items by key. In the example above,
