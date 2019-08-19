@@ -15,16 +15,10 @@
 package model
 
 import (
-	"fmt"
-
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	istiolog "istio.io/pkg/log"
-)
 
-const (
-	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
-	// name will be considered.
-	DefaultRbacConfigName = "default"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -42,17 +36,13 @@ type RolesAndBindings struct {
 
 // AuthorizationPolicyConfig stores the AuthorizationPolicy and its name.
 type AuthorizationPolicyConfig struct {
-	Name   string
-	Policy *rbacproto.AuthorizationPolicy
+	Name string
 }
 
 // AuthorizationConfigV2 stores a list of AuthorizationPolicyConfig and ServiceRole in a given namespace.
 type AuthorizationConfigV2 struct {
 	// A list of AuthorizationPolicyConfig.
 	AuthzPolicies []*AuthorizationPolicyConfig
-
-	// Maps from name to ServiceRole.
-	NameToServiceRoles map[string]*rbacproto.ServiceRole
 }
 
 // AuthorizationPolicies stores all authorization policies (i.e. ServiceRole, ServiceRoleBinding and
@@ -91,14 +81,6 @@ func (policy *AuthorizationPolicies) addServiceRole(role *Config) {
 	if policy.NamespaceToAuthorizationConfigV2 == nil {
 		policy.NamespaceToAuthorizationConfigV2 = map[string]*AuthorizationConfigV2{}
 	}
-	if policy.NamespaceToAuthorizationConfigV2[role.Namespace] == nil {
-		policy.NamespaceToAuthorizationConfigV2[role.Namespace] = &AuthorizationConfigV2{
-			AuthzPolicies:      []*AuthorizationPolicyConfig{},
-			NameToServiceRoles: map[string]*rbacproto.ServiceRole{},
-		}
-	}
-	authzV2 := policy.NamespaceToAuthorizationConfigV2[role.Namespace]
-	authzV2.NameToServiceRoles[role.Name] = role.Spec.(*rbacproto.ServiceRole)
 }
 
 func (policy *AuthorizationPolicies) addServiceRoleBinding(binding *Config) {
@@ -128,30 +110,7 @@ func (policy *AuthorizationPolicies) addServiceRoleBinding(binding *Config) {
 		rolesAndBindings.RoleNameToBindings[name], binding.Spec.(*rbacproto.ServiceRoleBinding))
 }
 
-func (policy *AuthorizationPolicies) addAuthorizationPolicy(authzPolicy *Config) {
-	if authzPolicy == nil || authzPolicy.Spec.(*rbacproto.AuthorizationPolicy) == nil {
-		return
-	}
-
-	// Initialize AuthzPolicies for authz v2.
-	if policy.NamespaceToAuthorizationConfigV2 == nil {
-		policy.NamespaceToAuthorizationConfigV2 = map[string]*AuthorizationConfigV2{}
-	}
-	if policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace] == nil {
-		policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace] = &AuthorizationConfigV2{
-			AuthzPolicies:      []*AuthorizationPolicyConfig{},
-			NameToServiceRoles: map[string]*rbacproto.ServiceRole{},
-		}
-	}
-	authzV2 := policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace]
-	authzV2.AuthzPolicies = append(authzV2.AuthzPolicies, &AuthorizationPolicyConfig{
-		Name:   authzPolicy.Name,
-		Policy: authzPolicy.Spec.(*rbacproto.AuthorizationPolicy),
-	})
-}
-
-// AddConfig adds a config of type ServiceRole, ServiceRoleBinding or AuthorizationPolicy to
-// AuthorizationPolicies.
+// AddConfig adds a config of type ServiceRole, ServiceRoleBinding to AuthorizationPolicies.
 func (policy *AuthorizationPolicies) AddConfig(cfgs ...*Config) {
 	for _, cfg := range cfgs {
 		if cfg == nil {
@@ -162,8 +121,6 @@ func (policy *AuthorizationPolicies) AddConfig(cfgs ...*Config) {
 			policy.addServiceRole(cfg)
 		case *rbacproto.ServiceRoleBinding:
 			policy.addServiceRoleBinding(cfg)
-		case *rbacproto.AuthorizationPolicy:
-			policy.addAuthorizationPolicy(cfg)
 		}
 	}
 }
@@ -196,23 +153,6 @@ func (policy *AuthorizationPolicies) RoleToBindingsForNamespace(ns string) map[s
 	return rolesAndBindings.RoleNameToBindings
 }
 
-// RoleForNameAndNamespace returns a ServiceRole from this namespace, given the ServiceRole name and namespace.
-// This function always return a non nil struct instance.
-func (policy *AuthorizationPolicies) RoleForNameAndNamespace(roleName, ns string) *rbacproto.ServiceRole {
-	if policy == nil || policy.NamespaceToAuthorizationConfigV2 == nil {
-		return &rbacproto.ServiceRole{}
-	}
-	nsToAuthzConfigV2 := policy.NamespaceToAuthorizationConfigV2[ns]
-	if nsToAuthzConfigV2 == nil {
-		return &rbacproto.ServiceRole{}
-	}
-	serviceRole, exist := nsToAuthzConfigV2.NameToServiceRoles[roleName]
-	if !exist {
-		return &rbacproto.ServiceRole{}
-	}
-	return serviceRole
-}
-
 // NewAuthzPolicies returns the AuthorizationPolicies constructed from raw authorization policies by
 // storing policies into different namespaces.
 func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
@@ -231,7 +171,7 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 		IsRbacV2:                         false,
 	}
 
-	roles, err := env.List(ServiceRole.Type, NamespaceAll)
+	roles, err := env.List(schemas.ServiceRole.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
@@ -239,26 +179,12 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 		policy.AddConfig(&role)
 	}
 
-	bindings, err := env.List(ServiceRoleBinding.Type, NamespaceAll)
+	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	for _, binding := range bindings {
 		policy.AddConfig(&binding)
-	}
-
-	v2Policies, err := env.List(AuthorizationPolicy.Type, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
-	if len(v2Policies) > 0 {
-		if len(bindings) > 0 {
-			return nil, fmt.Errorf("had both AuthorizationPolicy and ServiceRoleBinding")
-		}
-		policy.IsRbacV2 = true
-	}
-	for _, v2Policy := range v2Policies {
-		policy.AddConfig(&v2Policy)
 	}
 
 	return policy, nil

@@ -16,6 +16,7 @@ package memory
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 var (
@@ -40,15 +41,16 @@ var (
 
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{HelloInstanceV0},
-		ID:          "v0.default",
-		DNSDomain:   "default.svc.cluster.local",
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{HelloInstanceV0},
+		ID:           "v0.default",
+		DNSDomain:    "default.svc.cluster.local",
+		IstioVersion: model.MaxIstioVersion,
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services
 	MockDiscovery = &ServiceDiscovery{
-		services: map[model.Hostname]*model.Service{
+		services: map[host.Name]*model.Service{
 			HelloService.Hostname:   HelloService,
 			WorldService.Hostname:   WorldService,
 			ExtHTTPService.Hostname: ExtHTTPService,

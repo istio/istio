@@ -86,7 +86,7 @@ func NewPlugin() plugin.Plugin {
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
 func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
-	string /*access token*/, time.Time /*expireTime*/, error) {
+	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
 	aud := constructAudience(trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonStr))
@@ -95,7 +95,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	resp, err := p.hTTPClient.Do(req)
 	if err != nil {
 		stsClientLog.Errorf("Failed to call getfederatedtoken: %v", err)
-		return "", time.Now(), errors.New("failed to exchange token")
+		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
 	}
 	defer resp.Body.Close()
 
@@ -103,10 +103,10 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
 		stsClientLog.Errorf("Failed to unmarshal response data: %v", err)
-		return "", time.Now(), errors.New("failed to exchange token")
+		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
 	}
 
-	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), nil
+	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
 func constructAudience(trustDomain string) string {

@@ -1,4 +1,0 @@
-{% if cluster_flavour == 'ocp' %}
-{{ cmd_path }} adm policy add-scc-to-user privileged -z default -n {{ sample_namespace }}
-{% endif %}
-{{ cmd_path }} apply -n {{ sample_namespace }} -f <({{ istio_dir }}/bin/istioctl kube-inject -f {{ istio_dir }}/samples/bookinfo/platform/kube/bookinfo.yaml)

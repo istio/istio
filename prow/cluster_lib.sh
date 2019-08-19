@@ -67,6 +67,8 @@ function setup_clusterreg () {
     CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 
     SERVICE_ACCOUNT="istio-multi-test"
+    echo "Setup clusterreg."
+    date
 
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
@@ -121,6 +123,8 @@ function setup_cluster() {
   kubectl config use-context "${PILOT_CLUSTER}"
 
   if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
+    echo "Set up firewall rules."
+    date
     ALL_CLUSTER_CIDRS_LINES=$(gcloud container clusters list --format='value(clusterIpv4Cidr)' | sort | uniq)
     ALL_CLUSTER_CIDRS=$(join_lines_by_comma "${ALL_CLUSTER_CIDRS_LINES}")
 

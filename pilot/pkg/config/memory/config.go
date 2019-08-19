@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -29,7 +30,7 @@ var (
 )
 
 // Make creates an in-memory config store from a config descriptor
-func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
+func Make(descriptor schema.Set) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
@@ -41,11 +42,11 @@ func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
 }
 
 type store struct {
-	descriptor model.ConfigDescriptor
+	descriptor schema.Set
 	data       map[string]map[string]*sync.Map
 }
 
-func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
+func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
 }
 
@@ -116,11 +117,11 @@ func (cr *store) Delete(typ, name, namespace string) error {
 
 func (cr *store) Create(config model.Config) (string, error) {
 	typ := config.Type
-	schema, ok := cr.descriptor.GetByType(typ)
+	s, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 	ns, exists := cr.data[typ][config.Namespace]
@@ -148,11 +149,11 @@ func (cr *store) Create(config model.Config) (string, error) {
 
 func (cr *store) Update(config model.Config) (string, error) {
 	typ := config.Type
-	schema, ok := cr.descriptor.GetByType(typ)
+	s, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 

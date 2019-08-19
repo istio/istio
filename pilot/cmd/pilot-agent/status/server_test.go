@@ -19,7 +19,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -113,12 +117,13 @@ func TestAppProbe(t *testing.T) {
 	}
 	go server.Run(context.Background())
 
-	// We wait a bit here to ensure server's statusPort is updated.
-	time.Sleep(time.Second * 3)
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
 
-	server.mutex.RLock()
-	statusPort := server.statusPort
-	server.mutex.RUnlock()
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
@@ -177,12 +182,12 @@ func TestHttpsAppProbe(t *testing.T) {
 	}
 	go server.Run(context.Background())
 
-	// We wait a bit here to ensure server's statusPort is updated.
-	time.Sleep(time.Second * 3)
-
-	server.mutex.RLock()
-	statusPort := server.statusPort
-	server.mutex.RUnlock()
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
@@ -215,5 +220,78 @@ func TestHttpsAppProbe(t *testing.T) {
 		if resp.StatusCode != tc.statusCode {
 			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 		}
+	}
+}
+
+func TestHandleQuit(t *testing.T) {
+	statusPort := 15020
+	s, err := NewServer(Config{StatusPort: uint16(statusPort)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name       string
+		method     string
+		remoteAddr string
+		expected   int
+	}{
+		{
+			name:       "should send a sigterm for valid requests",
+			method:     "POST",
+			remoteAddr: "127.0.0.1",
+			expected:   http.StatusOK,
+		},
+		{
+			name:       "should send a sigterm for valid ipv6 requests",
+			method:     "POST",
+			remoteAddr: "[::1]",
+			expected:   http.StatusOK,
+		},
+		{
+			name:       "should require POST method",
+			method:     "GET",
+			remoteAddr: "127.0.0.1",
+			expected:   http.StatusMethodNotAllowed,
+		},
+		{
+			name:     "should require localhost",
+			method:   "POST",
+			expected: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Need to stop SIGTERM from killing the whole test run
+			termChannel := make(chan os.Signal, 1)
+			signal.Notify(termChannel, syscall.SIGTERM)
+			defer signal.Reset(syscall.SIGTERM)
+
+			req, err := http.NewRequest(tt.method, "/quitquitquit", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr + ":15020"
+			}
+
+			resp := httptest.NewRecorder()
+			s.handleQuit(resp, req)
+			if resp.Code != tt.expected {
+				t.Fatalf("Expected response code %v got %v", tt.expected, resp.Code)
+			}
+
+			if tt.expected == http.StatusOK {
+				select {
+				case <-termChannel:
+				case <-time.After(time.Second):
+					t.Fatalf("Failed to receive expected SIGTERM")
+				}
+			} else if len(termChannel) != 0 {
+				t.Fatalf("A SIGTERM was sent when it should not have been")
+			}
+		})
 	}
 }

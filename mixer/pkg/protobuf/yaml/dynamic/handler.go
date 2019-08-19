@@ -154,7 +154,7 @@ func (h *Handler) connect() (err error) {
 	if err != nil {
 		return err
 	}
-	opts = append(opts, grpc.WithBalancerName(roundrobin.Name))
+	opts = append(opts, grpc.WithBalancerName(roundrobin.Name)) // nolint:staticheck
 	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), opts...); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)

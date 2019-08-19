@@ -24,19 +24,18 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -875,11 +874,11 @@ func (b *metadataBuilder) Build() *mcp.Metadata {
 	for k, v := range b.service.Metadata.Annotations {
 		annos[k] = v
 	}
-	annos[annotations.ServiceVersion] = string(b.service.ID.Version)
+	annos[annotation.AlphaNetworkingServiceVersion.Name] = string(b.service.ID.Version)
 	if b.endpoints != nil {
-		annos[annotations.EndpointsVersion] = string(b.endpoints.ID.Version)
+		annos[annotation.AlphaNetworkingEndpointsVersion.Name] = string(b.endpoints.ID.Version)
 		if len(b.notReadyIPs) > 0 {
-			annos[annotations.NotReadyEndpoints] = notReadyAnnotation(b.notReadyIPs...)
+			annos[annotation.AlphaNetworkingNotReadyEndpoints.Name] = notReadyAnnotation(b.notReadyIPs...)
 		}
 	}
 
@@ -938,15 +937,14 @@ func (b *serviceEntryBuilder) PodLabels(podLabels map[string]string) *serviceEnt
 func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 	entry := &networking.ServiceEntry{
-		Hosts:      []string{host(ns, n)},
-		Addresses:  []string{clusterIP},
-		Resolution: networking.ServiceEntry_STATIC,
-		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Hosts:     []string{host(ns, n)},
+		Addresses: []string{clusterIP},
+		Location:  networking.ServiceEntry_MESH_INTERNAL,
 		Ports: []*networking.Port{
 			{
 				Name:     "http",
 				Number:   80,
-				Protocol: string(model.ProtocolHTTP),
+				Protocol: string(protocol.HTTP),
 			},
 		},
 		SubjectAltNames: expectedSubjectAltNames(ns, b.serviceAccounts),
@@ -962,6 +960,10 @@ func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 			Locality: localityFor(b.region, b.zone),
 			Labels:   b.podLabels,
 		})
+	}
+
+	if len(entry.Endpoints) != 0 {
+		entry.Resolution = networking.ServiceEntry_STATIC
 	}
 
 	return entry

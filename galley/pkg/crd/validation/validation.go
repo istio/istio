@@ -23,14 +23,15 @@ import (
 	"regexp"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
+	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -72,7 +73,7 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(vc *WebhookParameters, kubeConfig string,
+func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
@@ -81,7 +82,7 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 		log.Fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
-	vc.PilotDescriptor = model.IstioConfigTypes
+	vc.PilotDescriptor = schemas.Istio
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {
@@ -93,9 +94,6 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
 		defer validationLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
-
-	// Create the stop channel for all of the servers.
-	stop := make(chan struct{})
 
 	if readinessProbeController != nil {
 		validationReadinessProbe := probe.NewProbe()
@@ -127,7 +125,7 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 					}
 				}
 				select {
-				case <-stop:
+				case <-stopCh:
 					validationReadinessProbe.SetAvailable(errors.New("stopped"))
 					return
 				case <-time.After(httpsHandlerReadinessFreq):
@@ -137,8 +135,10 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 		}()
 	}
 
-	go wh.Run(stop)
-	cmd.WaitSignal(stop)
+	go wh.Run(ready, stopCh)
+	defer wh.Stop()
+
+	cmd.WaitSignal(stopCh)
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in

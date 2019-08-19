@@ -1,0 +1,77 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    name: hello-v1
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: hello
+        tier: backend
+        track: stable
+        version: v1
+    strategy: {}
+    template:
+      metadata:
+        annotations:
+          sidecar.istio.io/inject: "false"
+        creationTimestamp: null
+        labels:
+          app: hello
+          tier: backend
+          track: stable
+          version: v1
+      spec:
+        containers:
+        - image: fake.docker.io/google-samples/hello-go-gke:1.0
+          name: hello
+          ports:
+          - containerPort: 80
+            name: http
+          resources: {}
+        dnsConfig: {}
+        volumes:
+        - name: test
+          secret:
+            optional: true
+            secretName: test
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    name: hello-v2
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: hello
+        tier: backend
+        track: stable
+        version: v2
+    strategy: {}
+    template:
+      metadata:
+        annotations:
+          sidecar.istio.io/inject: "false"
+        creationTimestamp: null
+        labels:
+          app: hello
+          tier: backend
+          track: stable
+          version: v2
+      spec:
+        containers:
+        - image: fake.docker.io/google-samples/hello-go-gke:1.0
+          name: hello
+          ports:
+          - containerPort: 81
+            name: http
+          resources: {}
+  status: {}
+kind: List
+metadata: {}
+---

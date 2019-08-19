@@ -31,7 +31,7 @@ py_proto_library(
 
 go_proto_library(
     name = "go_default_library",
-    importpath = "github.com/lyft/protoc-gen-validate/validate",
+    importpath = "github.com/envoyproxy/protoc-gen-validate/validate",
     proto = ":validate_proto",
     visibility = ["//visibility:public"],
 )

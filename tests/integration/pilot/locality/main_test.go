@@ -26,7 +26,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -144,7 +144,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
 	cfg.Values["pilot.autoscaleEnabled"] = "false"
 	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
 	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
@@ -158,7 +157,7 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 		Ports: []echo.Port{
 			{
 				Name:        "http",
-				Protocol:    model.ProtocolHTTP,
+				Protocol:    protocol.HTTP,
 				ServicePort: 80,
 			},
 		},
@@ -225,8 +224,7 @@ func WaitUntilRoute(c echo.Instance, dest string) error {
 	return nil
 }
 
-func sendTraffic(ctx framework.TestContext, from echo.Instance, host string) {
-	ctx.Helper()
+func sendTraffic(from echo.Instance, host string) error {
 	headers := http.Header{}
 	headers.Add("Host", host)
 	// This is a hack to remain infrastructure agnostic when running these tests
@@ -238,19 +236,20 @@ func sendTraffic(ctx framework.TestContext, from echo.Instance, host string) {
 		Count:    sendCount,
 	})
 	if err != nil {
-		ctx.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
+		return fmt.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
 	}
 	if len(resp) != sendCount {
-		ctx.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
+		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
 	}
 	numFailed := 0
 	for i, r := range resp {
 		if match := bHostnameMatcher.FindString(r.Hostname); len(match) == 0 {
 			numFailed++
-			ctx.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
+			return fmt.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
 		}
 	}
 	if numFailed > 0 {
-		ctx.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
+		return fmt.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
 	}
+	return nil
 }

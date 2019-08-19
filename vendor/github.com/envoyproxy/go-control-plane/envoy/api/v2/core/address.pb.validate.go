@@ -326,10 +326,17 @@ func (m *BindConfig) Validate() error {
 		return nil
 	}
 
+	if m.GetSourceAddress() == nil {
+		return BindConfigValidationError{
+			field:  "SourceAddress",
+			reason: "value is required",
+		}
+	}
+
 	{
 		tmp := m.GetSourceAddress()
 
-		if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 			if err := v.Validate(); err != nil {
 				return BindConfigValidationError{

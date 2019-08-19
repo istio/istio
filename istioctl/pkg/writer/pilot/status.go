@@ -99,8 +99,8 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 		// but it is better than not providing any information.
 		version = status.ProxyVersion + "*"
 	}
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\t%v\n",
-		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot, version)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, routeSynced, status.pilot, version)
 	return nil
 }
 

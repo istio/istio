@@ -23,10 +23,13 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 
 	ingress "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -74,16 +77,16 @@ func IngressToVirtualService(key resource.VersionedKey, meta resource.Metadata, 
 		}
 		virtualService := &v1alpha3.VirtualService{
 			Hosts:    []string{host},
-			Gateways: []string{model.IstioIngressGatewayName},
+			Gateways: []string{constants.IstioIngressGatewayName},
 		}
 
-		httpRoutes := []*v1alpha3.HTTPRoute{}
-		for _, path := range rule.HTTP.Paths {
+		httpRoutes := make([]*v1alpha3.HTTPRoute, 0)
+		for _, httpPath := range rule.HTTP.Paths {
 			httpMatch := &v1alpha3.HTTPMatchRequest{
-				Uri: createStringMatch(path.Path),
+				Uri: createStringMatch(httpPath.Path),
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend, namespace, domainSuffix)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, namespace, domainSuffix)
 			if httpRoute == nil {
 				scope.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", namespace, name, rule.Host)
 				continue
@@ -94,8 +97,8 @@ func IngressToVirtualService(key resource.VersionedKey, meta resource.Metadata, 
 
 		virtualService.Http = httpRoutes
 
-		newName := namePrefix + "-" + name + "-" + model.IstioIngressGatewayName
-		newNamespace := model.IstioIngressNamespace
+		newName := namePrefix + "-" + name + "-" + constants.IstioIngressGatewayName
+		newNamespace := constants.IstioIngressNamespace
 
 		old, f := ingressByHost[host]
 		if f {
@@ -185,7 +188,7 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 	namespace, name := key.FullName.InterpretAsNamespaceAndName()
 
 	gateway := &v1alpha3.Gateway{
-		Selector: model.IstioIngressWorkloadLabels,
+		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	}
 
 	// FIXME this is a temporary hack until all test templates are updated
@@ -199,7 +202,7 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 		gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
 			Port: &v1alpha3.Port{
 				Number:   443,
-				Protocol: string(model.ProtocolHTTPS),
+				Protocol: string(protocol.HTTPS),
 				Name:     fmt.Sprintf("https-443-i-%s-%s", name, namespace),
 			},
 			Hosts: tls.Hosts,
@@ -209,10 +212,10 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 				HttpsRedirect: false,
 				Mode:          v1alpha3.Server_TLSOptions_SIMPLE,
 				// TODO this is no longer valid for the new v2 stuff
-				PrivateKey:        path.Join(model.IngressCertsPath, model.IngressKeyFilename),
-				ServerCertificate: path.Join(model.IngressCertsPath, model.IngressCertFilename),
+				PrivateKey:        path.Join(constants.IngressCertsPath, constants.IngressKeyFilename),
+				ServerCertificate: path.Join(constants.IngressCertsPath, constants.IngressCertFilename),
 				// TODO: make sure this is mounted
-				CaCertificates: path.Join(model.IngressCertsPath, model.RootCertFilename),
+				CaCertificates: path.Join(constants.IngressCertsPath, constants.RootCertFilename),
 			},
 		})
 	}
@@ -220,14 +223,14 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 	gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
 		Port: &v1alpha3.Port{
 			Number:   80,
-			Protocol: string(model.ProtocolHTTP),
+			Protocol: string(protocol.HTTP),
 			Name:     fmt.Sprintf("http-80-i-%s-%s", name, namespace),
 		},
 		Hosts: []string{"*"},
 	})
 
-	newName := name + "-" + model.IstioIngressGatewayName
-	newNamespace := model.IstioIngressNamespace
+	newName := name + "-" + constants.IstioIngressGatewayName
+	newNamespace := constants.IstioIngressNamespace
 
 	gw := resource.Entry{
 		ID: resource.VersionedKey{

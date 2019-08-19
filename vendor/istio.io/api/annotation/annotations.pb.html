@@ -1,0 +1,349 @@
+---
+title: Resource Annotations
+description: Resource annotations used by Istio.
+location: https://istio.io/docs/reference/config/annotations.html
+weight: 29
+---
+<p>
+This page presents the various <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/">resource annotations</a> that
+Istio supports to control its behavior.
+</p>
+
+<table class="annotations">
+	<thead>
+		<tr>
+			<th>Annotation Name</th>
+			<th>Description</th>
+		</tr>
+	</thead>
+	<tbody>
+		
+			
+		
+			
+		
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>kubernetes.io/ingress.class</code></td>
+					<td>Annotation on an Ingress resources denoting the class of controllers responsible for it.</td>
+				</tr>
+			
+		
+			
+		
+			
+		
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>networking.istio.io/exportTo</code></td>
+					<td>Specifies the namespaces to which this service should be exported to. A value of '*' indicates it is reachable within the mesh '.' indicates it is reachable within its namespace.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>policy.istio.io/check</code></td>
+					<td>Determines the policy for behavior when unable to connect to Mixer. If not set, FAIL_CLOSE is set, rejecting requests.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>policy.istio.io/checkBaseRetryWaitTime</code></td>
+					<td>Base time to wait between retries, will be adjusted by backoff and jitter. In duration format. If not set, this will be 80ms.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>policy.istio.io/checkMaxRetryWaitTime</code></td>
+					<td>Maximum time to wait between retries to Mixer. In duration format. If not set, this will be 1000ms.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>policy.istio.io/checkRetries</code></td>
+					<td>The maximum number of retries on transport errors to Mixer. If not set, this will be 0, indicating no retries.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>policy.istio.io/lang</code></td>
+					<td>Selects the attribute expression langauge runtime for Mixer..</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>readiness.status.sidecar.istio.io/applicationPorts</code></td>
+					<td>Specifies the list of ports exposed by the application container. Used by the istio-proxy readiness probe to determine that Envoy is configured and ready to receive traffic.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>readiness.status.sidecar.istio.io/failureThreshold</code></td>
+					<td>Specifies the failure threshold for the istio-proxy readiness probe.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>readiness.status.sidecar.istio.io/initialDelaySeconds</code></td>
+					<td>Specifies the initial delay (in seconds) for the istio-proxy readiness probe.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>readiness.status.sidecar.istio.io/periodSeconds</code></td>
+					<td>Specifies the period (in seconds) for the istio-proxy readiness probe.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/bootstrapOverride</code></td>
+					<td>Specifies an alternative Envoy bootstrap configuration file.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/componentLogLevel</code></td>
+					<td>Specifies the component log level for Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/controlPlaneAuthPolicy</code></td>
+					<td>Specifies the auth policy used by the Istio control plane. If NONE, traffic will not be encrypted. If MUTUAL_TLS, traffic between istio-proxy sidecars will be wrapped into mutual TLS connections.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/discoveryAddress</code></td>
+					<td>Specifies the XDS discovery address to be used by the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/inject</code></td>
+					<td>Specifies whether or not an istio-proxy sidecar should be automatically injected into the workload.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/interceptionMode</code></td>
+					<td>Specifies the mode used to redirect inbound connections to Envoy (REDIRECT or TPROXY).</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/logLevel</code></td>
+					<td>Specifies the log level for Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/proxyCPU</code></td>
+					<td>Specifies the requested CPU setting for the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/proxyImage</code></td>
+					<td>Specifies the Docker image to be used by the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/proxyMemory</code></td>
+					<td>Specifies the requested memory setting for the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/rewriteAppHTTPProbers</code></td>
+					<td>Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/statsInclusionPrefixes</code></td>
+					<td>Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/statsInclusionRegexps</code></td>
+					<td>Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/statsInclusionSuffixes</code></td>
+					<td>Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/status</code></td>
+					<td>Generated by istio-proxy sidecar injection that indicates the status of the operation. Includes a version hash of the executed template, as well as names of injected resources.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/userVolume</code></td>
+					<td>Specifies one or more user volumes (as a JSON array) to be added to the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>sidecar.istio.io/userVolumeMount</code></td>
+					<td>Specifies one or more user volume mounts (as a JSON array) to be added to the istio-proxy sidecar.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>status.sidecar.istio.io/port</code></td>
+					<td>Specifies the HTTP status Port for the istio-proxy sidecar. If zero, the istio-proxy will not provide status.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/excludeInboundPorts</code></td>
+					<td>A comma separated list of inbound ports to be excluded from redirection to Envoy. Only applies when all inbound traffic (i.e. '*') is being redirected.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/excludeOutboundIPRanges</code></td>
+					<td>A comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all outbound traffic (i.e. '*') is being redirected.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/excludeOutboundPorts</code></td>
+					<td>A comma separated list of outbound ports to be excluded from redirection to Envoy.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/includeInboundPorts</code></td>
+					<td>A comma separated list of inbound ports for which traffic is to be redirected to Envoy. The wildcard character '*' can be used to configure redirection for all ports. An empty list will disable all inbound redirection.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/includeOutboundIPRanges</code></td>
+					<td>A comma separated list of IP ranges in CIDR form to redirect to envoy (optional). The wildcard character '*' can be used to redirect all outbound traffic. An empty list will disable all outbound redirection.</td>
+				</tr>
+			
+		
+			
+				
+					<tr>
+				
+					<td><code>traffic.sidecar.istio.io/kubevirtInterfaces</code></td>
+					<td>A comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound.</td>
+				</tr>
+			
+		
+	</tbody>
+</table>

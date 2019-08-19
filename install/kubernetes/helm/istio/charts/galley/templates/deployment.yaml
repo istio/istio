@@ -16,8 +16,8 @@ spec:
       istio: galley
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -59,8 +59,14 @@ spec:
 {{- else }}
           - --insecure=true
 {{- end }}
+{{- if .Values.enableServiceDiscovery }}
+          - --enableServiceDiscovery=true
+{{- end }}
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
+{{- end }}
+{{- if not $.Values.global.configValidation }}
+          - --enable-validation=false
 {{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml

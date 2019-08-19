@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -38,6 +39,9 @@ type scope struct {
 	children []*scope
 
 	closeChan chan struct{}
+
+	// Mutex to lock changes to resources, children, and closers that can be done concurrently
+	mu sync.Mutex
 }
 
 func newScope(id string, p *scope) *scope {
@@ -56,6 +60,8 @@ func newScope(id string, p *scope) *scope {
 
 func (s *scope) add(r resource.Resource, id *resourceID) {
 	scopes.Framework.Debugf("Adding resource for tracking: %v", id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.resources = append(s.resources, r)
 
 	if c, ok := r.(io.Closer); ok {

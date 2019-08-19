@@ -44,8 +44,6 @@ Source7:        istio-auth-node-agent.service
 
 # e.g. el6 has ppc64 arch without gcc-go, so EA tag is required
 ExclusiveArch:  %{?go_arches:%{go_arches}}%{!?go_arches:%{ix86} x86_64 aarch64 %{arm}}
-# If go_compiler is not set to 1, there is no virtual provide. Use golang instead.
-BuildRequires:  golang >= 1.12
 
 %description
 Istio is an open platform that provides a uniform way to connect, manage
@@ -217,7 +215,7 @@ tar zxf %{SOURCE0} -C ISTIO/src/istio.io/istio --strip=1
 
 %build
 cd ISTIO
-export GOPATH=$(pwd):%{gopath}
+export GOPATH=$(pwd)
 
 pushd src/istio.io/istio
 make pilot-discovery pilot-agent istioctl sidecar-injector mixc mixs citadel galley node_agent

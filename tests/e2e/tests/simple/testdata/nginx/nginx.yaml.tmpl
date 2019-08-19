@@ -157,7 +157,7 @@ subjects:
 ---
 
 # Deployment: nginx-default-http-backend
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-default-http-backend
@@ -216,7 +216,7 @@ spec:
 ---
 
 # Deployment: nginx-ingress-controller
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-ingress-controller
@@ -234,6 +234,7 @@ spec:
         prometheus.io/scrape: 'true'
         # Do not redirect inbound traffic to Envoy.
         traffic.sidecar.istio.io/includeInboundPorts: ""
+        traffic.sidecar.istio.io/excludeInboundPorts: "80,443"
         # Exclude outbound traffic to kubernetes master from redirection.
         # This is required in order to support single-namespace Istio configurations.
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{.KubeMasterCIDR}},1.1.1.1/24,2.2.2.2/16,3.3.3.3/20"

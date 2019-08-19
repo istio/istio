@@ -52,12 +52,16 @@ spec:
   selector:
     app: {{.app}}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.deployment}}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: {{.app}}
+      version: {{.version}}
   template:
     metadata:
       labels:
@@ -174,7 +178,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = namespace.New(ctx, "policybackend", false)
+	c.namespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "policybackend",
+	})
 	if err != nil {
 		return nil, err
 	}

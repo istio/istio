@@ -22,8 +22,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -40,9 +40,6 @@ const (
 
 	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
 	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
-
-	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
-	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 	// FileBasedMetadataPlugName is File Based Metadata credentials plugin name.
 	FileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
@@ -106,13 +103,13 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 					},
 				},
 			},
-			InitialFetchTimeout: pilot.InitialFetchTimeout,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool, metadata map[string]string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata map[string]string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -128,27 +125,16 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 	}
 
 	// If metadata[NodeMetadataSdsTokenPath] is non-empty, envoy will fetch tokens from metadata[NodeMetadataSdsTokenPath].
-	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
-	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
-	// request key/cert.
+	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.12 or higher),
+	// pass it to SDS server to request key/cert.
 	if sdsTokenPath, found := metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
 		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
-	} else if useK8sSATrustworthyJwt {
+	} else {
+		// Use the default token path.
 		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
-	} else if useK8sSANormalJwt {
-		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey)
-	} else {
-		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			{
-				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-					GoogleComputeEngine: &types.Empty{},
-				},
-			},
-		}
 	}
 
 	return &auth.SdsSecretConfig{
@@ -166,12 +152,12 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 					},
 				},
 			},
-			InitialFetchTimeout: pilot.InitialFetchTimeout,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
 }
 
-// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
 func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
 	ret := &auth.CommonTlsContext_ValidationContext{
 		ValidationContext: &auth.CertificateValidationContext{

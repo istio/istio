@@ -78,7 +78,10 @@ func TestMain(m *testing.M) {
 }
 
 func testsetup(ctx resource.Context) error {
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNs, err := namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		return err
 	}
@@ -135,10 +138,10 @@ func validateLog(content string) error {
 	if !strings.Contains(content, "\"level\":\"warn\"") {
 		return fmt.Errorf("accesslog doesnt contain warning level. Log %v", content)
 	}
-	if !strings.Contains(content, "\"destination\":\"details\"") || !strings.Contains(content,
-		"\"destination\":\"reviews\"") || !strings.Contains(content, "\"destination\":\"productpage\"") {
-		return fmt.Errorf(
-			"accesslog doesnt contain either details or reviews or productpage destination. Log %v", content)
+	for _, expected := range []string{"details", "reviews", "productpage"} {
+		if !strings.Contains(content, fmt.Sprintf("\"destination\":\"%s\"", expected)) {
+			return fmt.Errorf("accesslog doesnt contain %s destination. Log %v", expected, content)
+		}
 	}
 	if !strings.Contains(content, "\"responseCode\":") {
 		return fmt.Errorf("accesslog doesnt contain response code. Log %v", content)

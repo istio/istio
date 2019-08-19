@@ -1,4 +1,5 @@
+# hadolint ignore=DL3006
 FROM istionightly/base_debug
-ADD sdsclient /
+COPY sdsclient /
 RUN chmod 755 /sdsclient
 ENTRYPOINT ["/sdsclient"]

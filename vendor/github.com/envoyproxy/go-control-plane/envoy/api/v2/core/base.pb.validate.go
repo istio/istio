@@ -711,6 +711,209 @@ var _ interface {
 	ErrorName() string
 } = DataSourceValidationError{}
 
+// Validate checks the field values on RemoteDataSource with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *RemoteDataSource) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetHttpUri() == nil {
+		return RemoteDataSourceValidationError{
+			field:  "HttpUri",
+			reason: "value is required",
+		}
+	}
+
+	{
+		tmp := m.GetHttpUri()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RemoteDataSourceValidationError{
+					field:  "HttpUri",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	if len(m.GetSha256()) < 1 {
+		return RemoteDataSourceValidationError{
+			field:  "Sha256",
+			reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	return nil
+}
+
+// RemoteDataSourceValidationError is the validation error returned by
+// RemoteDataSource.Validate if the designated constraints aren't met.
+type RemoteDataSourceValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RemoteDataSourceValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RemoteDataSourceValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RemoteDataSourceValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RemoteDataSourceValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RemoteDataSourceValidationError) ErrorName() string { return "RemoteDataSourceValidationError" }
+
+// Error satisfies the builtin error interface
+func (e RemoteDataSourceValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRemoteDataSource.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RemoteDataSourceValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RemoteDataSourceValidationError{}
+
+// Validate checks the field values on AsyncDataSource with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *AsyncDataSource) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	switch m.Specifier.(type) {
+
+	case *AsyncDataSource_Local:
+
+		{
+			tmp := m.GetLocal()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AsyncDataSourceValidationError{
+						field:  "Local",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	case *AsyncDataSource_Remote:
+
+		{
+			tmp := m.GetRemote()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AsyncDataSourceValidationError{
+						field:  "Remote",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	default:
+		return AsyncDataSourceValidationError{
+			field:  "Specifier",
+			reason: "value is required",
+		}
+
+	}
+
+	return nil
+}
+
+// AsyncDataSourceValidationError is the validation error returned by
+// AsyncDataSource.Validate if the designated constraints aren't met.
+type AsyncDataSourceValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AsyncDataSourceValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AsyncDataSourceValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AsyncDataSourceValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AsyncDataSourceValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AsyncDataSourceValidationError) ErrorName() string { return "AsyncDataSourceValidationError" }
+
+// Error satisfies the builtin error interface
+func (e AsyncDataSourceValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAsyncDataSource.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AsyncDataSourceValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AsyncDataSourceValidationError{}
+
 // Validate checks the field values on TransportSocket with the rules defined
 // in the proto definition for this message. If any rules are violated, an
 // error is returned.

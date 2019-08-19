@@ -15,81 +15,16 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pilot/pkg/features"
 )
-
-func TestParseJwksURI(t *testing.T) {
-	cases := []struct {
-		in                   string
-		expectedHostname     string
-		expectedPort         *model.Port
-		expectedUseSSL       bool
-		expectedErrorMessage string
-	}{
-		{
-			in:                   "foo.bar.com",
-			expectedErrorMessage: `URI scheme "" is not supported`,
-		},
-		{
-			in:                   "tcp://foo.bar.com:abc",
-			expectedErrorMessage: `URI scheme "tcp" is not supported`,
-		},
-		{
-			in:                   "http://foo.bar.com:abc",
-			expectedErrorMessage: `strconv.Atoi: parsing "abc": invalid syntax`,
-		},
-		{
-			in:               "http://foo.bar.com",
-			expectedHostname: "foo.bar.com",
-			expectedPort:     &model.Port{Name: "http", Port: 80},
-			expectedUseSSL:   false,
-		},
-		{
-			in:               "https://foo.bar.com",
-			expectedHostname: "foo.bar.com",
-			expectedPort:     &model.Port{Name: "https", Port: 443},
-			expectedUseSSL:   true,
-		},
-		{
-			in:               "http://foo.bar.com:1234",
-			expectedHostname: "foo.bar.com",
-			expectedPort:     &model.Port{Name: "http", Port: 1234},
-			expectedUseSSL:   false,
-		},
-		{
-			in:               "https://foo.bar.com:1234/secure/key",
-			expectedHostname: "foo.bar.com",
-			expectedPort:     &model.Port{Name: "https", Port: 1234},
-			expectedUseSSL:   true,
-		},
-	}
-	for _, c := range cases {
-		host, port, useSSL, err := model.ParseJwksURI(c.in)
-		if err != nil {
-			if c.expectedErrorMessage != err.Error() {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
-			}
-		} else {
-			if c.expectedErrorMessage != "" {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got no error", c.in, c.expectedErrorMessage)
-			}
-			if c.expectedHostname != host || !reflect.DeepEqual(c.expectedPort, port) || c.expectedUseSSL != useSSL {
-				t.Errorf("ParseJwksURI(%s): expected (%s, %#v, %v), got (%s, %#v, %v)",
-					c.in, c.expectedHostname, c.expectedPort, c.expectedUseSSL,
-					host, port, useSSL)
-			}
-		}
-	}
-}
 
 func TestConstructSdsSecretConfig(t *testing.T) {
 	trustworthyMetaConfig := &v2alpha.FileBasedMetadataConfig{
@@ -101,22 +36,24 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
-	normalMetaConfig := &v2alpha.FileBasedMetadataConfig{
-		SecretData: &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: K8sSAJwtFileName,
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  "/tmp/sdsuds.sock",
+		StatPrefix: SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
 			},
 		},
-		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
+	gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
+	gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
+
 	cases := []struct {
-		serviceAccount    string
-		sdsUdsPath        string
-		expected          *auth.SdsSecretConfig
-		useTrustworthyJwt bool
-		useNormalJwt      bool
-		metadata          map[string]string
+		serviceAccount string
+		sdsUdsPath     string
+		expected       *auth.SdsSecretConfig
+		metadata       map[string]string
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -124,21 +61,14 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: pilot.InitialFetchTimeout,
+					InitialFetchTimeout: features.InitialFetchTimeout,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
 							GrpcServices: []*core.GrpcService{
 								{
 									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-										GoogleGrpc: &core.GrpcService_GoogleGrpc{
-											TargetUri:          "/tmp/sdsuds.sock",
-											StatPrefix:         SDSStatPrefix,
-											ChannelCredentials: constructLocalChannelCredConfig(),
-											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-												constructGCECallCredConfig(),
-											},
-										},
+										GoogleGrpc: gRPCConfig,
 									},
 								},
 							},
@@ -149,21 +79,11 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			},
 		},
 		{
-			serviceAccount:    "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:        "/tmp/sdsuds.sock",
-			useTrustworthyJwt: true,
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
-			},
-		},
-		{
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			useNormalJwt:   true,
-			expected: &auth.SdsSecretConfig{
-				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey, normalMetaConfig),
 			},
 		},
 		{
@@ -179,8 +99,10 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, c.metadata); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.metadata); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
+			fmt.Println(got)
+			fmt.Println(c.expected)
 		}
 	}
 }
@@ -197,7 +119,7 @@ func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: pilot.InitialFetchTimeout,
+					InitialFetchTimeout: features.InitialFetchTimeout,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
@@ -244,18 +166,10 @@ func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCrede
 	}
 }
 
-func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
-	return &core.GrpcService_GoogleGrpc_CallCredentials{
-		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-			GoogleComputeEngine: &types.Empty{},
-		},
-	}
-}
-
 func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
 	return &core.ConfigSource{
-		InitialFetchTimeout: pilot.InitialFetchTimeout,
+		InitialFetchTimeout: features.InitialFetchTimeout,
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
 				ApiType: core.ApiConfigSource_GRPC,

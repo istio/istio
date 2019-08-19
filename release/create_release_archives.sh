@@ -89,7 +89,12 @@ function create_linux_archive() {
 
   env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-linux.tar.gz" "istio-${VER_STRING}" \
-    || error_exit 'Could not create linux archive'
+    || error_exit 'Could not create istio linux archive'
+
+  env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
+    "${OUTPUT_PATH}/istioctl-${VER_STRING}-linux.tar.gz" "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}"/istioctl-linux \
+    || error_exit 'Could not create istioctl linux archive'
+
   rm "${istioctl_path}"
 }
 
@@ -101,7 +106,12 @@ function create_osx_archive() {
 
   env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
     "${OUTPUT_PATH}/istio-${VER_STRING}-osx.tar.gz" "istio-${VER_STRING}" \
-    || error_exit 'Could not create osx archive'
+    || error_exit 'Could not create istio osx archive'
+
+  env GZIP=-9 "${TAR}" --owner releng --group releng -czf \
+    "${OUTPUT_PATH}/istioctl-${VER_STRING}-osx.tar.gz" "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}"/istioctl-osx \
+    || error_exit 'Could not create istioctl osx archive'
+
   rm "${istioctl_path}"
 }
 
@@ -111,7 +121,11 @@ function create_windows_archive() {
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
 
   zip -r -q "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
-    || error_exit 'Could not create windows archive'
+    || error_exit 'Could not create istio windows archive'
+
+  zip -r -q "${OUTPUT_PATH}/istioctl-${VER_STRING}-win.zip" "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}"/istioctl-win.exe \
+    || error_exit 'Could not create istioctl windows archive'
+
   rm "${istioctl_path}"
 }
 
@@ -142,7 +156,7 @@ popd
 # merge values-istio-demo-common.yaml into values-istio-demo yaml files
 cat "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml"
 cat "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml"
-mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"  
+mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"
 mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml"
 
 for unwanted_manifest in \
@@ -174,6 +188,9 @@ TEMP_DIR=$(mktemp -d)
 pushd "${TEMP_DIR}"
   git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
   cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
+
+  git clone -b "${CB_BRANCH}" https://github.com/istio/operator.git
+  operator/release/create_release_charts.sh -v "${CB_BRANCH}" -o "${COMMON_FILES_DIR}/install/kubernetes/operator"
 popd
 # Changing dir such that tar and zip files are
 # created with right hiereachy

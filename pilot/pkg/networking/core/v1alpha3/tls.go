@@ -20,15 +20,19 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -38,7 +42,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollec
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -48,7 +52,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollec
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -58,7 +62,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -66,12 +70,12 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(host model.Hostname, configs []model.Config) []model.Config {
+func getConfigsForHost(hostname host.Name, configs []model.Config) []model.Config {
 	svcConfigs := make([]model.Config, 0)
 	for index := range configs {
 		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
-			if model.Hostname(vsHost).Matches(host) {
+			if host.Name(vsHost).Matches(hostname) {
 				svcConfigs = append(svcConfigs, configs[index])
 				break
 			}
@@ -86,7 +90,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
+	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
@@ -118,8 +122,8 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	hasTLSMatch := false
 
 	out := make([]*filterChainOpts, 0)
-	for _, config := range configs {
-		virtualService := config.Spec.(*v1alpha3.VirtualService)
+	for _, cfg := range configs {
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
@@ -137,10 +141,10 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 					matchHash := hashRuntimeTLSMatchPredicates(match)
 					if !matchHasBeenHandled[matchHash] {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort, config.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						hasTLSMatch = true
 					}
@@ -191,7 +195,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
+	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
@@ -205,16 +209,16 @@ func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.
 	// This is the terminating condition in the filter chain match list
 	defaultRouteAdded := false
 TcpLoop:
-	for _, config := range configs {
-		virtualService := config.Spec.(*v1alpha3.VirtualService)
+	for _, cfg := range configs {
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tcp := range virtualService.Tcp {
 			destinationCIDRs := []string{destinationCIDR}
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
-					metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
+					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -236,9 +240,9 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -251,7 +255,7 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the
@@ -294,7 +298,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
-	proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+	proxyLabels labels.Collection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []model.Config

@@ -23,6 +23,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
@@ -147,10 +150,10 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred
-func (pc *PodCache) labelsByIP(addr string) (model.Labels, bool) {
+func (pc *PodCache) labelsByIP(addr string) (labels.Instance, bool) {
 	pod := pc.getPodByIP(addr)
 	if pod == nil {
 		return nil, false
 	}
-	return kube.ConvertLabels(pod.ObjectMeta), true
+	return configKube.ConvertLabels(pod.ObjectMeta), true
 }

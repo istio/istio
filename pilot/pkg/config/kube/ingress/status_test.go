@@ -19,16 +19,17 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	meshapi "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -46,7 +47,7 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 	}
 
 	return &extensions.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Annotations: map[string]string{
 				kube.IngressClassAnnotation: annotation,
 			},
@@ -56,60 +57,60 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 
 func makeFakeClient() *fake.Clientset {
 	return fake.NewSimpleClientset(
-		&v1.PodList{Items: []v1.Pod{
+		&coreV1.PodList{Items: []coreV1.Pod{
 			{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name:      "ingressgateway",
 					Namespace: "istio-system",
 					Labels: map[string]string{
 						"app": "ingressgateway",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: coreV1.PodSpec{
 					NodeName: "foo_node",
 				},
-				Status: v1.PodStatus{
-					Phase: v1.PodRunning,
+				Status: coreV1.PodStatus{
+					Phase: coreV1.PodRunning,
 				},
 			},
 		}},
-		&v1.ServiceList{Items: []v1.Service{
+		&coreV1.ServiceList{Items: []coreV1.Service{
 			{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name:      "istio-ingress",
 					Namespace: testNamespace,
 				},
-				Status: v1.ServiceStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{{
+				Status: coreV1.ServiceStatus{
+					LoadBalancer: coreV1.LoadBalancerStatus{
+						Ingress: []coreV1.LoadBalancerIngress{{
 							IP: serviceIP,
 						}},
 					},
 				},
 			},
 			{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name:      "istio-ingress-hostname",
 					Namespace: testNamespace,
 				},
-				Status: v1.ServiceStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{{
+				Status: coreV1.ServiceStatus{
+					LoadBalancer: coreV1.LoadBalancerStatus{
+						Ingress: []coreV1.LoadBalancerIngress{{
 							Hostname: hostname,
 						}},
 					},
 				},
 			},
 		}},
-		&v1.NodeList{Items: []v1.Node{
+		&coreV1.NodeList{Items: []coreV1.Node{
 			{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name: "foo_node",
 				},
-				Status: v1.NodeStatus{
-					Addresses: []v1.NodeAddress{
+				Status: coreV1.NodeStatus{
+					Addresses: []coreV1.NodeAddress{
 						{
-							Type:    v1.NodeExternalIP,
+							Type:    coreV1.NodeExternalIP,
 							Address: nodeIP,
 						},
 					},
@@ -120,14 +121,14 @@ func makeFakeClient() *fake.Clientset {
 }
 
 func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer, error) {
-	mesh := model.DefaultMeshConfig()
-	mesh.IngressService = "istio-ingress"
+	m := mesh.DefaultMeshConfig()
+	m.IngressService = "istio-ingress"
 
 	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
 	// Restore env settings
 	defer setAndRestoreEnv(t, oldEnvs)
 
-	return NewStatusSyncer(&mesh, client, testNamespace, kubecontroller.Options{
+	return NewStatusSyncer(&m, client, testNamespace, kubecontroller.Options{
 		WatchedNamespace: testNamespace,
 		ResyncPeriod:     resync,
 	})
@@ -151,36 +152,36 @@ func setAndRestoreEnv(t *testing.T, inputs map[string]string) map[string]string 
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
 		Annotation string
-		Mode       meshconfig.MeshConfig_IngressControllerMode
+		Mode       meshapi.MeshConfig_IngressControllerMode
 		Ignore     bool
 	}{
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_DEFAULT,
+			Mode:       meshapi.MeshConfig_DEFAULT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "",
 			Ignore:     false,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       meshconfig.MeshConfig_STRICT,
+			Mode:       meshapi.MeshConfig_STRICT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},

@@ -47,7 +47,7 @@ import (
 type (
 
 	// createClientFunc abstracts over the creation of the stackdriver client to enable network-less testing.
-	createClientFunc func(*config.Params) (*monitoring.MetricClient, error)
+	createClientFunc func(*config.Params, adapter.Logger) (*monitoring.MetricClient, error)
 
 	// pushFunc abstracts over client.CreateTimeSeries for testing
 	pushFunc func(ctx xcontext.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error
@@ -122,8 +122,8 @@ func NewBuilder(mg helper.MetadataGenerator) metric.HandlerBuilder {
 	return &builder{createClient: createClient, mg: mg}
 }
 
-func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
-	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
+func createClient(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
+	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg, logger)...)
 }
 
 func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
@@ -173,7 +173,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	quit := make(chan struct{})
 	var err error
 	var client *monitoring.MetricClient
-	if client, err = b.createClient(cfg); err != nil {
+	if client, err = b.createClient(cfg, env.Logger()); err != nil {
 		return nil, err
 	}
 	buffered := &buffered{

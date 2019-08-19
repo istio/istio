@@ -24,12 +24,11 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -104,13 +103,18 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-			appsNamespace := namespace.NewOrFail(t, ctx, "app", true)
-			serviceNamespace := namespace.NewOrFail(t, ctx, "service", true)
+			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "app",
+				Inject: true,
+			})
+			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "service",
+				Inject: true,
+			})
 
 			var client, dest echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -128,11 +132,11 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					Ports: []echo.Port{
 						{
 							Name:     "http",
-							Protocol: model.ProtocolHTTP,
+							Protocol: protocol.HTTP,
 						},
 						{
 							Name:     "https",
-							Protocol: model.ProtocolHTTPS,
+							Protocol: protocol.HTTPS,
 						},
 					},
 				}).BuildOrFail(t)
@@ -162,21 +166,24 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-					resp, err := client.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: tc.portName,
-						Scheme:   scheme.HTTP,
-					})
-					if err != nil && len(expected[tc.portName]) != 0 {
-						t.Fatalf("request failed: %v", err)
-					}
-					codes := make([]string, 0, len(resp))
-					for _, r := range resp {
-						codes = append(codes, r.Code)
-					}
-					if !reflect.DeepEqual(codes, expected[tc.portName]) {
-						t.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
-					}
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := client.Call(echo.CallOptions{
+							Target:   dest,
+							PortName: tc.portName,
+							Scheme:   scheme.HTTP,
+						})
+						if err != nil && len(expected[tc.portName]) != 0 {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, expected[tc.portName]) {
+							return fmt.Errorf("got codes %v, expected %v", codes, expected[tc.portName])
+						}
+						return nil
+					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				})
 			}
 		})
@@ -184,7 +191,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
 // Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.

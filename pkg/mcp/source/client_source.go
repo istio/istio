@@ -19,12 +19,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/status"
 )
 
 var (

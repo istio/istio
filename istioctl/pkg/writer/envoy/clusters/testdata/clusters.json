@@ -348,6 +348,56 @@
           }
         }
       ]
+    },
+    {
+      "name": "inbound_9092",
+      "host_statuses": [
+        {
+          "address": {
+            "pipe": {
+              "path": "/sock/mixer.socket"
+            }
+          },
+          "stats": [
+            {
+              "value": "64",
+              "name": "cx_connect_fail"
+            },
+            {
+              "value": "72",
+              "name": "cx_total"
+            },
+            {
+              "value": "78",
+              "name": "rq_error"
+            },
+            {
+              "value": "300076",
+              "name": "rq_success"
+            },
+            {
+              "name": "rq_timeout"
+            },
+            {
+              "value": "300076",
+              "name": "rq_total"
+            },
+            {
+              "type": "GAUGE",
+              "value": "8",
+              "name": "cx_active"
+            },
+            {
+              "type": "GAUGE",
+              "name": "rq_active"
+            }
+          ],
+          "health_status": {
+            "eds_health_status": "HEALTHY"
+          },
+          "weight": 1
+        }
+      ]
     }
   ]
 }

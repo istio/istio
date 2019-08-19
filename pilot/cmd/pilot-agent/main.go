@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -33,19 +34,27 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy"
+	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/protomarshal"
 )
+
+const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
@@ -55,34 +64,34 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                   string
-	controlPlaneBootstrap        bool
-	binaryPath                   string
-	serviceCluster               string
-	drainDuration                time.Duration
-	parentShutdownDuration       time.Duration
-	discoveryAddress             string
-	zipkinAddress                string
-	lightstepAddress             string
-	lightstepAccessToken         string
-	lightstepSecure              bool
-	lightstepCacertPath          string
-	datadogAgentAddress          string
-	connectTimeout               time.Duration
-	statsdUDPAddress             string
-	envoyMetricsServiceAddress   string
-	envoyAccessLogServiceAddress string
-	proxyAdminPort               uint16
-	controlPlaneAuthPolicy       string
-	customConfigFile             string
-	proxyLogLevel                string
-	proxyComponentLogLevel       string
-	dnsRefreshRate               string
-	concurrency                  int
-	templateFile                 string
-	disableInternalTelemetry     bool
-	tlsCertsToWatch              []string
-	loggingOptions               = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	datadogAgentAddress        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	envoyAccessLogService      string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	proxyComponentLogLevel     string
+	dnsRefreshRate             string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	tlsCertsToWatch            []string
+	loggingOptions             = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -91,6 +100,10 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+
+	sdsUdsWaitTimeout = time.Minute
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -136,9 +149,9 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
-				log.Infof("Obtained private IP %v", ipAddr)
-				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+				log.Infof("Obtained private IP %v", ipAddrs)
+				role.IPAddresses = append(role.IPAddresses, ipAddrs...)
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
@@ -171,7 +184,7 @@ var (
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
-			proxyConfig := model.DefaultProxyConfig()
+			proxyConfig := mesh.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -183,8 +196,12 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
-			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
-			proxyConfig.EnvoyAccessLogServiceAddress = envoyAccessLogServiceAddress
+			proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
+			if envoyAccessLogService != "" {
+				if rs := fromJSON(envoyAccessLogService); rs != nil {
+					proxyConfig.EnvoyAccessLogService = rs
+				}
+			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -212,7 +229,7 @@ var (
 						// only support the default config, or env variable
 						ns = istioNamespaceVar.Get()
 						if ns == "" {
-							ns = model.IstioSystemNamespace
+							ns = constants.IstioSystemNamespace
 						}
 					}
 				}
@@ -221,7 +238,7 @@ var (
 			setSpiffeTrustDomain(role.DNSDomain)
 
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
+			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, role.PilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// resolve statsd address
@@ -267,28 +284,37 @@ var (
 				}
 			}
 
-			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
+			if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 				return err
 			}
 
-			if out, err := model.ToYAML(&proxyConfig); err != nil {
+			if out, err := protomarshal.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
 			}
 
-			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
+			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
+
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			if controlPlaneAuthEnabled && !sdsEnabled {
+				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
-					waitForCerts(cert, 2*time.Minute)
+					waitForFile(cert, 2*time.Minute)
 				}
+			}
+
+			opts := make(map[string]interface{})
+			if sdsEnabled {
+				opts["sds_uds_path"] = sdsUdsPathVar.Get()
+				opts["sds_token_path"] = sdsTokenPath
 			}
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-					opts := make(map[string]string)
 					opts["PodName"] = podNameVar.Get()
 					opts["PodNamespace"] = podNamespaceVar.Get()
 					// Setting default to ipv4 local host, wildcard and dns policy
@@ -301,7 +327,7 @@ var (
 						opts["wildcard"] = "::"
 						opts["dns_lookup_family"] = "AUTO"
 					}
-					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, role.MixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
 					if len(mixerSAN) > 1 {
 						opts["MixerSubjectAltName"] = mixerSAN[0]
@@ -316,6 +342,7 @@ var (
 					if disableInternalTelemetry {
 						opts["DisableReportCalls"] = "true"
 					}
+
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
 						return err
@@ -370,8 +397,8 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
+			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -428,9 +455,9 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 
 		if overrideIdentity == "" {
-			san = append(san, envoy.GetSAN(ns, defaultSA))
+			san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
 		} else {
-			san = append(san, envoy.GetSAN("", overrideIdentity))
+			san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
 		}
 	}
 	return san
@@ -447,6 +474,45 @@ func getDNSDomain(domain string) string {
 		}
 	}
 	return domain
+}
+
+// check if SDS UDS path and token path exist, if both exist, requests key/cert
+// using SDS instead of secret mount.
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
+	if !sdsEnabledVar.Get() {
+		return false, ""
+	}
+
+	if !controlPlaneBootstrap {
+		// workload sidecar
+		// treat sds as disabled if uds path isn't set.
+		if _, err := os.Stat(udspath); err != nil {
+			return false, ""
+		}
+		if _, err := os.Stat(trustworthyJWTPath); err == nil {
+			return true, trustworthyJWTPath
+		}
+
+		return false, ""
+	}
+
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
+		return false, ""
+	}
+
+	// controlplane components like pilot/mixer/galley have sidecar
+	// they start almost same time as sds server; wait since there is a chance
+	// when pilot-agent start, the uds file doesn't exist.
+	if !waitForFile(udspath, sdsUdsWaitTimeout) {
+		return false, ""
+	}
+	if _, err := os.Stat(trustworthyJWTPath); err == nil {
+		return true, trustworthyJWTPath
+	}
+
+	return false, ""
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -470,6 +536,18 @@ func timeDuration(dur *types.Duration) time.Duration {
 		log.Warna(err)
 	}
 	return out
+}
+
+func fromJSON(j string) *meshconfig.RemoteService {
+	var m meshconfig.RemoteService
+	err := json.Unmarshal([]byte(j), &m)
+	if err != nil {
+		log.Warnf("Unable to unmarshal %s", j)
+		return nil
+	}
+
+	log.Infof("%v", m)
+	return &m
 }
 
 func init() {
@@ -496,7 +574,7 @@ func init() {
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
-	values := model.DefaultProxyConfig()
+	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,
@@ -528,10 +606,10 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
-	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsService.Address,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogServiceAddress,
-		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogService, "envoyAccessLogService", "",
+		"Settings of an Envoy gRPC Access Log Service API implementation")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
@@ -571,7 +649,7 @@ func init() {
 	}))
 }
 
-func waitForCerts(fname string, maxWait time.Duration) {
+func waitForFile(fname string, maxWait time.Duration) bool {
 	log.Infof("waiting %v for %s", maxWait, fname)
 
 	logDelay := 1 * time.Second
@@ -581,20 +659,20 @@ func waitForCerts(fname string, maxWait time.Duration) {
 	for {
 		_, err := os.Stat(fname)
 		if err == nil {
-			return
+			return true
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for certificates", err.Error())
-			return
+			log.Errora("error while waiting for file", err.Error())
+			return false
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
-			log.Warna("certificates still not available after", maxWait)
-			break
+			log.Warna("file still not available after", maxWait)
+			return false
 		}
 		if now.After(nextLog) {
-			log.Infof("waiting for certificates")
+			log.Infof("waiting for file")
 			logDelay *= 2
 			nextLog.Add(logDelay)
 		}

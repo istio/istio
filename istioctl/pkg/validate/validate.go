@@ -21,20 +21,23 @@ import (
 	"os"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	yaml "gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"gopkg.in/yaml.v2"
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
+
 	"istio.io/pkg/log"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
@@ -84,7 +87,7 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
+	schema, exists := schemas.Istio.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
 	if exists {
 		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -120,7 +123,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 	var errs error
 	if un.IsList() {
-		un.EachListItem(func(item runtime.Object) error { // nolint: errcheck
+		_ = un.EachListItem(func(item runtime.Object) error { // nolint: errcheck
 			castItem := item.(*unstructured.Unstructured)
 			if castItem.GetKind() == "Service" {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
@@ -253,10 +256,10 @@ func validateFiles(istioNamespace *string, filenames []string, referential bool,
 	}
 	for _, fname := range filenames {
 		if fname == "-" {
-			fmt.Fprintf(writer, "validation succeed\n")
+			_, _ = fmt.Fprintf(writer, "validation succeed\n")
 			break
 		} else {
-			fmt.Fprintf(writer, "%q is valid\n", fname)
+			_, _ = fmt.Fprintf(writer, "%q is valid\n", fname)
 		}
 	}
 
@@ -326,8 +329,8 @@ func servicePortPrefixed(n string) bool {
 	if i >= 0 {
 		n = n[:i]
 	}
-	protocol := model.ParseProtocol(n)
-	return protocol == model.ProtocolUnsupported
+	p := protocol.Parse(n)
+	return p == protocol.Unsupported
 }
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {

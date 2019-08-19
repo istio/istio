@@ -98,8 +98,11 @@ func TestValidation(t *testing.T) {
 					}
 
 					env := ctx.Environment().(*kube.Environment)
-					ns := namespace.NewOrFail(t, ctx, "validation", false)
+					ns := namespace.NewOrFail(t, ctx, namespace.Config{
+						Prefix: "validation",
+					})
 					err = env.ApplyContents(ns.Name(), yml)
+					defer env.DeleteContents(ns.Name(), yml)
 
 					switch {
 					case err != nil && d.isValid():

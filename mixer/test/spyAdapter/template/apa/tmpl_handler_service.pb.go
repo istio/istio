@@ -12,10 +12,13 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	_ "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -59,7 +62,7 @@ func (m *HandleSampleApaRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_HandleSampleApaRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +107,7 @@ func (m *OutputMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_OutputMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +150,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +187,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +233,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -352,6 +355,14 @@ type HandleSampleApaServiceServer interface {
 	HandleSampleApa(context.Context, *HandleSampleApaRequest) (*OutputMsg, error)
 }
 
+// UnimplementedHandleSampleApaServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleSampleApaServiceServer struct {
+}
+
+func (*UnimplementedHandleSampleApaServiceServer) HandleSampleApa(ctx context.Context, req *HandleSampleApaRequest) (*OutputMsg, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleSampleApa not implemented")
+}
+
 func RegisterHandleSampleApaServiceServer(s *grpc.Server, srv HandleSampleApaServiceServer) {
 	s.RegisterService(&_HandleSampleApaService_serviceDesc, srv)
 }
@@ -390,7 +401,7 @@ var _HandleSampleApaService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleSampleApaRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -398,43 +409,53 @@ func (m *HandleSampleApaRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleSampleApaRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleSampleApaRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Instance != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Instance.Size()))
-		n1, err1 := m.Instance.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.AdapterConfig != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n2, err2 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
+	if m.Instance != nil {
+		{
+			size, err := m.Instance.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -442,101 +463,117 @@ func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OutputMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if m.Dns != nil {
+		{
+			size, err := m.Dns.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.Duration != nil {
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.Ip != nil {
+		{
+			size, err := m.Ip.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.StringMap) > 0 {
+		for k := range m.StringMap {
+			v := m.StringMap[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.StringMap) > 0 {
-		for k, _ := range m.StringMap {
-			dAtA[i] = 0x2a
-			i++
-			v := m.StringMap[k]
-			mapSize := 1 + len(k) + sovTmplHandlerService(uint64(len(k))) + 1 + len(v) + sovTmplHandlerService(uint64(len(v)))
-			i = encodeVarintTmplHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if m.Ip != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Ip.Size()))
-		n3, err3 := m.Ip.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Duration.Size()))
-		n4, err4 := m.Duration.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
-	if m.Timestamp != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n5, err5 := m.Timestamp.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
-	}
-	if m.Dns != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Dns.Size()))
-		n6, err6 := m.Dns.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
-		}
-		i += n6
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -544,58 +581,65 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Int64Primitive != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
+	}
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.DoublePrimitive != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i--
+		dAtA[i] = 0x19
 	}
 	if m.BoolPrimitive {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BoolPrimitive {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.DoublePrimitive != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
-		i += 8
+	if m.Int64Primitive != 0 {
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(m.Int64Primitive))
+		i--
+		dAtA[i] = 0x8
 	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -603,17 +647,22 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -621,70 +670,83 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Int64Primitive) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
-		i += copy(dAtA[i:], m.Int64Primitive)
-	}
-	if len(m.BoolPrimitive) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
-		i += copy(dAtA[i:], m.BoolPrimitive)
-	}
-	if len(m.DoublePrimitive) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
-		i += copy(dAtA[i:], m.DoublePrimitive)
-	}
-	if len(m.StringPrimitive) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
-		i += copy(dAtA[i:], m.StringPrimitive)
-	}
 	if len(m.AttributeBindings) > 0 {
-		for k, _ := range m.AttributeBindings {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0xd3
-			i++
-			dAtA[i] = 0xe4
-			i++
-			dAtA[i] = 0x93
-			i++
-			dAtA[i] = 0x2
-			i++
+		for k := range m.AttributeBindings {
 			v := m.AttributeBindings[k]
-			mapSize := 1 + len(k) + sovTmplHandlerService(uint64(len(k))) + 1 + len(v) + sovTmplHandlerService(uint64(len(v)))
-			i = encodeVarintTmplHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTmplHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2
+			i--
+			dAtA[i] = 0x93
+			i--
+			dAtA[i] = 0xe4
+			i--
+			dAtA[i] = 0xd3
+			i--
+			dAtA[i] = 0x82
 		}
 	}
-	return i, nil
+	if len(m.StringPrimitive) > 0 {
+		i -= len(m.StringPrimitive)
+		copy(dAtA[i:], m.StringPrimitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.DoublePrimitive) > 0 {
+		i -= len(m.DoublePrimitive)
+		copy(dAtA[i:], m.DoublePrimitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.DoublePrimitive)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BoolPrimitive) > 0 {
+		i -= len(m.BoolPrimitive)
+		copy(dAtA[i:], m.BoolPrimitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.BoolPrimitive)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Int64Primitive) > 0 {
+		i -= len(m.Int64Primitive)
+		copy(dAtA[i:], m.Int64Primitive)
+		i = encodeVarintTmplHandlerService(dAtA, i, uint64(len(m.Int64Primitive)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTmplHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTmplHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleSampleApaRequest) Size() (n int) {
 	if m == nil {
@@ -822,14 +884,7 @@ func (m *InstanceParam) Size() (n int) {
 }
 
 func sovTmplHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTmplHandlerService(x uint64) (n int) {
 	return sovTmplHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

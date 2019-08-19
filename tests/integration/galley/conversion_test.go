@@ -89,7 +89,10 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	ns := namespace.NewOrFail(t, ctx, "conv", true)
+	ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "conv",
+		Inject: true,
+	})
 
 	expected, err := fset.LoadExpectedResources(ns.Name())
 	if err != nil {
@@ -139,8 +142,8 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 		}
 
 		if err := v.Select("{.Metadata.annotations}").
-			Exists("{.['networking.istio.io/serviceVersion']}").
-			Exists("{.['networking.istio.io/endpointsVersion']}").
+			Exists("{.['networking.alpha.istio.io/serviceVersion']}").
+			Exists("{.['networking.alpha.istio.io/endpointsVersion']}").
 			Check(); err != nil {
 			return err
 		}

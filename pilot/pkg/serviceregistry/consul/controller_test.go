@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var (
@@ -124,29 +126,29 @@ func newServer() *mockServer {
 			data, _ := json.Marshal(&m.Services)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/reviews" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Reviews)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/productpage" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Productpage)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/rating" {
 			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Rating)
 			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else {
 			data, _ := json.Marshal(&[]*api.CatalogService{})
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		}
 	}))
 
@@ -161,9 +163,16 @@ func TestInstances(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -179,8 +188,8 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{
-		model.Labels{filterTagKey: filterTagVal},
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{
+		labels.Instance{filterTagKey: filterTagVal},
 	})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
@@ -201,7 +210,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(hostname, filterPort, model.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, filterPort, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -224,8 +233,14 @@ func TestInstancesBadHostname(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
-	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: "",
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -241,9 +256,16 @@ func TestInstancesError(t *testing.T) {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
+	hostname := serviceHostname("reviews")
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
 	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -317,9 +339,7 @@ func TestGetServiceNoInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	ts.Productpage = []*api.CatalogService{}
-
-	service, err := controller.GetService("productpage.service.consul")
+	service, err := controller.GetService("details.service.consul")
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -450,49 +470,135 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	tests := []struct {
 		name     string
 		ips      []string
-		expected model.LabelsCollection
+		expected labels.Collection
 	}{
 		{
 			name:     "Rating",
 			ips:      []string{"10.78.11.18", "172.19.0.12"},
-			expected: model.LabelsCollection{{"version": "v1"}},
+			expected: labels.Collection{{"version": "v1"}},
 		},
 		{
 			name:     "No proxy ip",
 			ips:      nil,
-			expected: model.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "No match",
 			ips:      []string{"1.2.3.4", "2.3.4.5"},
-			expected: model.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "Only match on Service Address",
 			ips:      []string{"172.19.0.5"},
-			expected: model.LabelsCollection{},
+			expected: labels.Collection{},
 		},
 		{
 			name:     "Match multiple services",
 			ips:      []string{"172.19.0.7", "172.19.0.8"},
-			expected: model.LabelsCollection{{"version": "v2"}, {"version": "v3"}},
+			expected: labels.Collection{{"version": "v2"}, {"version": "v3"}},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			labels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
-
+			wlLabels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
+			sort.Slice(wlLabels, func(i, j int) bool {
+				return wlLabels[i].String() < wlLabels[j].String()
+			})
 			if err != nil {
 				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
 			}
-			if labels == nil {
+			if wlLabels == nil {
 				t.Error("labels should exist")
 			}
 
-			if !reflect.DeepEqual(labels, test.expected) {
-				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", labels, test.expected)
+			if !reflect.DeepEqual(wlLabels, test.expected) {
+				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", wlLabels, test.expected)
 			}
 		})
+	}
+}
+
+func TestGetServiceByCache(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+	_, _ = controller.GetService("productpage.service.consul")
+	ts.Server.Close()
+	service, err := controller.GetService("productpage.service.consul")
+	if err != nil {
+		t.Errorf("client encountered error during GetService(): %v", err)
+	}
+	if service == nil {
+		t.Error("service should exist")
+	}
+
+	if service.Hostname != serviceHostname("productpage") {
+		t.Errorf("GetService() incorrect service returned => %q, want %q",
+			service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestGetInstanceByCacheAfterChanged(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 1*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+	go controller.Run(make(chan struct{}))
+
+	hostname := serviceHostname("reviews")
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
+	if len(instances) != 3 {
+		t.Errorf("Instances() returned wrong # of service instances => %q, want 3", len(instances))
+	}
+	for _, inst := range instances {
+		if inst.Service.Hostname != hostname {
+			t.Errorf("Instances() returned wrong service instance => %v, want %q",
+				inst.Service.Hostname, hostname)
+		}
+	}
+
+	ts.Lock.Lock()
+	ts.Reviews = []*api.CatalogService{
+		{
+			Node:           "istio-node",
+			Address:        "172.19.0.5",
+			ID:             "istio-node-id",
+			ServiceID:      "reviews-id",
+			ServiceName:    "reviews",
+			ServiceTags:    []string{"version|v1"},
+			ServiceAddress: "172.19.0.7",
+			ServicePort:    9081,
+		},
+	}
+	ts.Lock.Unlock()
+
+	time.Sleep(2 * time.Second)
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
+	if len(instances) != 1 {
+		t.Errorf("Instances() returned wrong # of service instances => %q, want 1", len(instances))
+	}
+	for _, inst := range instances {
+		if inst.Service.Hostname != hostname {
+			t.Errorf("Instances() returned wrong service instance => %v, want %q",
+				inst.Service.Hostname, hostname)
+		}
 	}
 }

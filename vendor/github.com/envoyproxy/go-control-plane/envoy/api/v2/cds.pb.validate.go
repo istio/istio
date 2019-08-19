@@ -64,8 +64,8 @@ func (m *Cluster) Validate() error {
 		}
 	}
 
-	if true {
-		dur := m.GetConnectTimeout()
+	if d := m.GetConnectTimeout(); d != nil {
+		dur := *d
 
 		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
 
@@ -263,6 +263,8 @@ func (m *Cluster) Validate() error {
 
 	}
 
+	// no validation rules for RespectDnsTtl
+
 	if _, ok := Cluster_DnsLookupFamily_name[int32(m.GetDnsLookupFamily())]; !ok {
 		return ClusterValidationError{
 			field:  "DnsLookupFamily",
@@ -414,6 +416,26 @@ func (m *Cluster) Validate() error {
 	// no validation rules for CloseConnectionsOnHostHealthFailure
 
 	// no validation rules for DrainConnectionsOnHostRemoval
+
+	for idx, item := range m.GetFilters() {
+		_, _ = idx, item
+
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ClusterValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
 
 	switch m.ClusterDiscoveryType.(type) {
 
@@ -950,6 +972,8 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 
 	// no validation rules for PanicModeAny
 
+	// no validation rules for ListAsAny
+
 	return nil
 }
 
@@ -1292,6 +1316,8 @@ func (m *Cluster_CommonLbConfig) Validate() error {
 		}
 	}
 
+	// no validation rules for IgnoreNewHostsUntilFirstHc
+
 	switch m.LocalityConfigSpecifier.(type) {
 
 	case *Cluster_CommonLbConfig_ZoneAwareLbConfig_:
@@ -1395,6 +1421,13 @@ var _ interface {
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) Validate() error {
 	if m == nil {
 		return nil
+	}
+
+	if _, ok := Cluster_LbSubsetConfig_LbSubsetSelector_LbSubsetSelectorFallbackPolicy_name[int32(m.GetFallbackPolicy())]; !ok {
+		return Cluster_LbSubsetConfig_LbSubsetSelectorValidationError{
+			field:  "FallbackPolicy",
+			reason: "value must be one of the defined enum values",
+		}
 	}
 
 	return nil

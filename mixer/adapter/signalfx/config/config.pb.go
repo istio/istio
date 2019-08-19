@@ -74,6 +74,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -169,7 +170,7 @@ func (m *Params) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Params.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +213,7 @@ func (m *Params_MetricConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_Params_MetricConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -288,7 +289,7 @@ func (x Params_MetricConfig_Type) String() string {
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -296,80 +297,89 @@ func (m *Params) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Metrics) > 0 {
-		for _, msg := range m.Metrics {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.TracingSampleProbability != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TracingSampleProbability))))
+		i--
+		dAtA[i] = 0x41
 	}
-	if len(m.IngestUrl) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngestUrl)))
-		i += copy(dAtA[i:], m.IngestUrl)
-	}
-	if len(m.AccessToken) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessToken)))
-		i += copy(dAtA[i:], m.AccessToken)
-	}
-	dAtA[i] = 0x22
-	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.DatapointInterval)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.DatapointInterval, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
-	}
-	i += n1
-	if m.EnableMetrics {
-		dAtA[i] = 0x28
-		i++
-		if m.EnableMetrics {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+	if m.TracingBufferSize != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.TracingBufferSize))
+		i--
+		dAtA[i] = 0x38
 	}
 	if m.EnableTracing {
-		dAtA[i] = 0x30
-		i++
+		i--
 		if m.EnableTracing {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.TracingBufferSize != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.TracingBufferSize))
+	if m.EnableMetrics {
+		i--
+		if m.EnableMetrics {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.TracingSampleProbability != 0 {
-		dAtA[i] = 0x41
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TracingSampleProbability))))
-		i += 8
+	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.DatapointInterval, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration(m.DatapointInterval):])
+	if err1 != nil {
+		return 0, err1
 	}
-	return i, nil
+	i -= n1
+	i = encodeVarintConfig(dAtA, i, uint64(n1))
+	i--
+	dAtA[i] = 0x22
+	if len(m.AccessToken) > 0 {
+		i -= len(m.AccessToken)
+		copy(dAtA[i:], m.AccessToken)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.AccessToken)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.IngestUrl) > 0 {
+		i -= len(m.IngestUrl)
+		copy(dAtA[i:], m.IngestUrl)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.IngestUrl)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Metrics) > 0 {
+		for iNdEx := len(m.Metrics) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Metrics[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintConfig(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Params_MetricConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -377,32 +387,40 @@ func (m *Params_MetricConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Params_MetricConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Params_MetricConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.Type != 0 {
-		dAtA[i] = 0x20
-		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Type))
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Params) Size() (n int) {
 	if m == nil {
@@ -458,14 +476,7 @@ func (m *Params_MetricConfig) Size() (n int) {
 }
 
 func sovConfig(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))

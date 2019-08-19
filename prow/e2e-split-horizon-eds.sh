@@ -21,4 +21,4 @@ export SETUP_CLUSTERREG="True"
 CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 export CLUSTERREG_DIR
 
-./prow/e2e-suite.sh --timeout 15 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_multicluster_split_horizon "$@"
+./prow/e2e-suite.sh --timeout 15m --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_multicluster_split_horizon "$@"

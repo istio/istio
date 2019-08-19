@@ -116,17 +116,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	// Wait for Galley & the validation webhook to come online before applying Istio configurations.
-	if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
-		err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
-		scopes.CI.Info(err.Error())
-		return nil, err
-	}
+	if !cfg.SkipWaitForValidationWebhook {
 
-	// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-	err = waitForValidationWebhook(env.Accessor)
-	if err != nil {
-		return nil, err
+		// Wait for Galley & the validation webhook to come online before applying Istio configurations.
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+			scopes.CI.Info(err.Error())
+			return nil, err
+		}
+
+		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
+		err = waitForValidationWebhook(env.Accessor)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Then, apply Istio configuration.

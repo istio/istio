@@ -48,6 +48,10 @@ spec:
         {{- end }}
         - name: "Trust_Domain"
           value: "{{ .Values.global.trustDomain }}"
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       volumes:
       - name: sdsudspath
         hostPath:
@@ -62,3 +66,5 @@ spec:
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
       {{- end }}
+  updateStrategy:
+    type: RollingUpdate

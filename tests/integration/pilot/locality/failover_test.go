@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
@@ -75,7 +76,10 @@ func TestFailover(t *testing.T) {
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-cds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-cds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -101,13 +105,20 @@ func TestFailover(t *testing.T) {
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
-					sendTraffic(ctx, a, fakeHostname)
+					if err := retry.UntilSuccess(func() error {
+						return sendTraffic(a, fakeHostname)
+					}); err != nil {
+						ctx.Fatal(err)
+					}
 				})
 
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-eds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -132,7 +143,11 @@ func TestFailover(t *testing.T) {
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
-					sendTraffic(ctx, a, fakeHostname)
+					if err := retry.UntilSuccess(func() error {
+						return sendTraffic(a, fakeHostname)
+					}); err != nil {
+						ctx.Fatal(err)
+					}
 				})
 		})
 }

@@ -123,6 +123,10 @@ message CheckResponse {
     // If `QuotaParams.best_effort` is false, this will be either 0 or >= `QuotaParams.amount`.
     int64 granted_amount = 2;
 
+    // A status code of OK indicates quota was fetched successfully.
+    // Any other code indicates error in fetching quota.
+    google.rpc.Status status = 6 [(gogoproto.nullable) = false];
+
     // The total set of attributes that were used in producing the result
     // along with matching conditions.
     ReferencedAttributes referenced_attributes = 5 [(gogoproto.nullable) = false];

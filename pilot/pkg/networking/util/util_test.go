@@ -17,15 +17,18 @@ package util
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -59,6 +62,26 @@ func TestConvertAddressToCidr(t *testing.T) {
 				AddressPrefix: "1.2.3.4",
 				PrefixLen: &types.UInt32Value{
 					Value: 16,
+				},
+			},
+		},
+		{
+			"ipv6",
+			"2001:db8::",
+			&core.CidrRange{
+				AddressPrefix: "2001:db8::",
+				PrefixLen: &types.UInt32Value{
+					Value: 128,
+				},
+			},
+		},
+		{
+			"ipv6 with prefix",
+			"2001:db8::/64",
+			&core.CidrRange{
+				AddressPrefix: "2001:db8::",
+				PrefixLen: &types.UInt32Value{
+					Value: 64,
 				},
 			},
 		},
@@ -100,76 +123,6 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	}
 	if int(sock.GetPortValue()) != neIP.Port {
 		t.Fatalf("GetAddress() => want port %d, got port %d", neIP.Port, sock.GetPortValue())
-	}
-}
-
-func TestIsProxyVersionGE11(t *testing.T) {
-	tests := []struct {
-		name string
-		node *model.Proxy
-		want bool
-	}{
-		{
-			"the given Proxy version is 1.x",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.0",
-				},
-			},
-			false,
-		},
-		{
-			"the given Proxy version is not 1.x",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "0.8",
-				},
-			},
-			false,
-		},
-		{
-			"the given Proxy version is 1.1",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.1",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 1.1.1",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.1.1",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 2.0",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "2.0",
-				},
-			},
-			true,
-		},
-		{
-			"the given Proxy version is 10.0",
-			&model.Proxy{
-				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "2.0",
-				},
-			},
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := IsProxyVersionGE11(tt.node); got != tt.want {
-				t.Errorf("IsProxyVersionGE11() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 
@@ -477,14 +430,14 @@ func buildFakeCluster() *v2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -496,7 +449,7 @@ func buildFakeCluster() *v2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
+					LbEndpoints: []*endpoint.LbEndpoint{},
 					LoadBalancingWeight: &types.UInt32Value{
 						Value: 1,
 					},
@@ -508,16 +461,16 @@ func buildFakeCluster() *v2.Cluster {
 }
 
 func TestIsHTTPFilterChain(t *testing.T) {
-	httpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	httpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.HTTPConnectionManager,
 			},
 		},
 	}
 
-	tcpFilterChain := listener.FilterChain{
-		Filters: []listener.Filter{
+	tcpFilterChain := &listener.FilterChain{
+		Filters: []*listener.Filter{
 			{
 				Name: xdsutil.TCPProxy,
 			},
@@ -545,7 +498,7 @@ func BenchmarkGetByAddress(b *testing.B) {
 			listener80,
 			listener81,
 			listenerip,
-		}, listenerip.Address)
+		}, *listenerip.Address)
 	}
 }
 
@@ -553,7 +506,7 @@ func TestGetByAddress(t *testing.T) {
 	tests := []struct {
 		name      string
 		listeners []*v2.Listener
-		address   core.Address
+		address   *core.Address
 		expected  *v2.Listener
 	}{
 		{
@@ -584,10 +537,69 @@ func TestGetByAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetByAddress(tt.listeners, tt.address)
+			got := GetByAddress(tt.listeners, *tt.address)
 			if got != tt.expected {
 				t.Errorf("Got %v, expected %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMergeAnyWithStruct(t *testing.T) {
+	inHCM := &http_conn.HttpConnectionManager{
+		CodecType:  http_conn.HTTP1,
+		StatPrefix: "123",
+		HttpFilters: []*http_conn.HttpFilter{
+			{
+				Name: "filter1",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: &types.Any{},
+				},
+			},
+		},
+		ServerName:        "scooby",
+		XffNumTrustedHops: 2,
+	}
+	inAny := MessageToAny(inHCM)
+
+	// listener.go sets this to 0
+	newTimeout := 5 * time.Minute
+	userHCM := &http_conn.HttpConnectionManager{
+		AddUserAgent:      &types.BoolValue{Value: true},
+		IdleTimeout:       &newTimeout,
+		StreamIdleTimeout: &newTimeout,
+		UseRemoteAddress:  &types.BoolValue{Value: true},
+		XffNumTrustedHops: 5,
+		ServerName:        "foobar",
+		HttpFilters: []*http_conn.HttpFilter{
+			{
+				Name: "some filter",
+			},
+		},
+	}
+
+	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
+	expectedHCM.AddUserAgent = userHCM.AddUserAgent
+	expectedHCM.IdleTimeout = userHCM.IdleTimeout
+	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
+	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
+	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
+	expectedHCM.HttpFilters = append(expectedHCM.HttpFilters, userHCM.HttpFilters...)
+	expectedHCM.ServerName = userHCM.ServerName
+
+	pbStruct := MessageToStruct(userHCM)
+
+	outAny, err := MergeAnyWithStruct(inAny, pbStruct)
+	if err != nil {
+		t.Errorf("Failed to merge: %v", err)
+	}
+
+	outHCM := http_conn.HttpConnectionManager{}
+	if err = types.UnmarshalAny(outAny, &outHCM); err != nil {
+		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
+	}
+
+	if !reflect.DeepEqual(expectedHCM, &outHCM) {
+		t.Errorf("Merged HCM does not match the expected output")
 	}
 }

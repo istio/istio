@@ -17,10 +17,13 @@ package ingress
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/test"
@@ -34,6 +37,9 @@ const (
 	serviceName           = "istio-ingressgateway"
 	istioLabel            = "ingressgateway"
 	DefaultRequestTimeout = 1 * time.Minute
+
+	proxyContainerName = "istio-proxy"
+	proxyAdminPort     = 15000
 )
 
 var (
@@ -80,9 +86,18 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
 		}
 
-		port := svc.Spec.Ports[0].NodePort
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 80 {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+		}
 
-		return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -96,15 +111,50 @@ func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, e
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return fmt.Sprintf("http://%s", ip), true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 80}, true, nil
 }
 
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
 func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
-		// TODO(JimmyCYJ): Add support into ingress package to fetch address in Minikube environment
-		// https://github.com/istio/istio/issues/14180
-		return nil, false, fmt.Errorf("fetching HTTPS address in Minikube is not implemented yet")
+		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Querying ingress, pods:\n%+v\n", pods)
+		if len(pods) == 0 {
+			return nil, false, fmt.Errorf("no ingress pod found")
+		}
+
+		scopes.Framework.Debugf("Found pod: \n%+v\n", pods[0])
+		ip := pods[0].Status.HostIP
+		if ip == "" {
+			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
+		}
+
+		svc, err := env.Accessor.GetService(ns, serviceName)
+		if err != nil {
+			return nil, false, err
+		}
+
+		scopes.Framework.Debugf("Found service for the gateway:\n%+v\n", svc)
+		if len(svc.Spec.Ports) == 0 {
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == 443 {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port 80 found in service: %s/%s", ns, "istio-ingressgateway")
+		}
+
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
 	svc, err := env.Accessor.GetService(ns, serviceName)
@@ -117,7 +167,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return ip, true, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: 443}, true, nil
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
@@ -134,25 +184,25 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 // HTTPAddress returns HTTP address of ingress gateway.
-func (c *kubeComponent) HTTPAddress() string {
+func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return getHTTPAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
-		return ""
+		return net.TCPAddr{}
 	}
-	return address.(string)
+	return address.(net.TCPAddr)
 }
 
-// HTTPSAddress returns HTTPS address of ingress gateway.
-func (c *kubeComponent) HTTPSAddress() string {
+// HTTPSAddress returns HTTPS IP address and port number of ingress gateway.
+func (c *kubeComponent) HTTPSAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return getHTTPSAddressInner(c.env, c.namespace)
 	}, retryTimeout, retryDelay)
 	if err != nil {
-		return ""
+		return net.TCPAddr{}
 	}
-	return address.(string)
+	return address.(net.TCPAddr)
 }
 
 // createClient creates a client which sends HTTP requests or HTTPS requests, depending on
@@ -183,8 +233,8 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 		tr := &http.Transport{
 			TLSClientConfig: tlsConfig,
 			DialTLS: func(netw, addr string) (net.Conn, error) {
-				if addr == options.Host+":443" {
-					addr = options.Address + ":443"
+				if s := strings.Split(addr, ":"); s[0] == options.Host {
+					addr = options.Address.String()
 				}
 				tc, err := tls.Dial(netw, addr, tlsConfig)
 				if err != nil {
@@ -204,9 +254,9 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 
 // createRequest returns a request for client to send, or nil and error if request is failed to generate.
 func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error) {
-	url := options.Address + options.Path
+	url := "http://" + options.Address.String() + options.Path
 	if options.CallType != PlainText {
-		url = "https://" + options.Host + ":443" + options.Path
+		url = "https://" + options.Host + ":" + strconv.Itoa(options.Address.Port) + options.Path
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -247,7 +297,7 @@ func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address.String(), err)
 		return CallResponse{}, err
 	}
 	contents := string(ba)
@@ -268,4 +318,50 @@ func (c *kubeComponent) CallOrFail(t test.Failer, options CallOptions) CallRespo
 		t.Fatal(err)
 	}
 	return resp
+}
+
+func (c *kubeComponent) ProxyStats() (map[string]int, error) {
+	var stats map[string]int
+	statsJSON, err := c.adminRequest("stats?format=json")
+	if err != nil {
+		return stats, fmt.Errorf("failed to get response from admin port: %v", err)
+	}
+	return c.unmarshalStats(statsJSON)
+}
+
+// adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
+func (c *kubeComponent) adminRequest(path string) (string, error) {
+	pods, err := c.env.GetPods(c.namespace, "istio=ingressgateway")
+	if err != nil {
+		return "", fmt.Errorf("unable to get ingress gateway stats: %v", err)
+	}
+	podNs, podName := pods[0].Namespace, pods[0].Name
+	// Exec onto the pod and make a curl request to the admin port
+	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
+	return c.env.Accessor.Exec(podNs, podName, proxyContainerName, command)
+}
+
+type statEntry struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+type stats struct {
+	StatList []statEntry `json:"stats"`
+}
+
+// unmarshalStats unmarshals Envoy stats from JSON format into a map, where stats name is
+// key, and stats value is value.
+func (c *kubeComponent) unmarshalStats(statsJSON string) (map[string]int, error) {
+	statsMap := make(map[string]int)
+
+	var statsArray stats
+	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
+		return statsMap, fmt.Errorf("unable to unmarshal stats from json: %v", err)
+	}
+
+	for _, v := range statsArray.StatList {
+		statsMap[v.Name] = v.Value
+	}
+	return statsMap, nil
 }

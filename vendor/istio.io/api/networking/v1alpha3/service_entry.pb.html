@@ -322,12 +322,16 @@ spec:
 <td><code>string[]</code></td>
 <td>
 <p>REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
-name with wildcard prefix (external services only). For HTTP traffic
-the HTTP Host/Authority header will be matched against the hosts field.
-For HTTPs or TLS traffic containing Server Name Indication (SNI), the SNI value
-will be matched against the hosts field. For all other protocols
-the hosts will be ignored, and the port and addresses fields
-will be used if present. Note that when resolution is set to type DNS
+name with wildcard prefix.</p>
+
+<ol>
+<li>The hosts field is used to select matching hosts in VirtualServices and DestinationRules.</li>
+<li>For HTTP traffic the HTTP Host/Authority header will be matched against the hosts field.</li>
+<li>For HTTPs or TLS traffic containing Server Name Indication (SNI), the SNI value
+will be matched against the hosts field.</li>
+</ol>
+
+<p>Note that when resolution is set to type DNS
 and no endpoints are specified, the host field will be used as the DNS name
 of the endpoint to route traffic to.</p>
 
@@ -338,9 +342,10 @@ of the endpoint to route traffic to.</p>
 <td><code>string[]</code></td>
 <td>
 <p>The virtual IP addresses associated with the service. Could be CIDR
-prefix. For HTTP traffic the addresses field will be ignored and
-the destination will be identified based on the HTTP Host/Authority
-header. If one or more IP addresses are specified,
+prefix. For HTTP traffic, generated route configurations will include http route
+domains for both the <code>addresses</code> and <code>hosts</code> field values and the destination will
+be identified based on the HTTP Host/Authority header.
+If one or more IP addresses are specified,
 the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
 field. If the Addresses field is empty, traffic will be identified
@@ -423,7 +428,7 @@ of namespace names.</p>
 <td>
 <p>The list of subject alternate names allowed for workload instances that
 implement this service. This information is used to enforce
-<a href="/docs/concepts/security/#secure-naming">secure-naming</a>.
+<a href="https://istio.io/docs/concepts/security/#secure-naming">secure-naming</a>.
 If specified, the proxy will verify that the server
 certificate&rsquo;s subject alternate name matches one of the specified values.</p>
 

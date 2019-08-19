@@ -8,6 +8,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -42,7 +43,7 @@ func (m *Template) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Template.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +139,7 @@ func valueToGoStringTemplate(v interface{}, typ string) string {
 func (m *Template) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -146,27 +147,35 @@ func (m *Template) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Template) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Template) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Descriptor_) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Descriptor_)
+		copy(dAtA[i:], m.Descriptor_)
 		i = encodeVarintTemplate(dAtA, i, uint64(len(m.Descriptor_)))
-		i += copy(dAtA[i:], m.Descriptor_)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTemplate(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTemplate(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Template) Size() (n int) {
 	if m == nil {
@@ -182,14 +191,7 @@ func (m *Template) Size() (n int) {
 }
 
 func sovTemplate(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTemplate(x uint64) (n int) {
 	return sovTemplate(uint64((x << 1) ^ uint64((int64(x) >> 63))))

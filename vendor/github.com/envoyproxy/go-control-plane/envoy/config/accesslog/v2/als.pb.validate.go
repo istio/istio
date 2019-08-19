@@ -248,6 +248,42 @@ func (m *CommonGrpcAccessLogConfig) Validate() error {
 		}
 	}
 
+	if d := m.GetBufferFlushInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
+			return CommonGrpcAccessLogConfigValidationError{
+				field:  "BufferFlushInterval",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return CommonGrpcAccessLogConfigValidationError{
+				field:  "BufferFlushInterval",
+				reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
+	{
+		tmp := m.GetBufferSizeBytes()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return CommonGrpcAccessLogConfigValidationError{
+					field:  "BufferSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

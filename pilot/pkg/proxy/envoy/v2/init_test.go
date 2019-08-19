@@ -27,19 +27,20 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/googleapis/google/rpc"
 	proto "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pilot/pkg/model"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
+	"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.
@@ -76,20 +77,20 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 	}
 
 	return edsstr, func() {
-		edsstr.CloseSend()
-		conn.Close()
+		_ = edsstr.CloseSend()
+		_ = conn.Close()
 	}, nil
 }
 
 func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
 
-	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename, certDir+model.KeyFilename)
+	clientCert, err := tls.LoadX509KeyPair(certDir+constants.CertChainFilename, certDir+constants.KeyFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading clients certs: %s", err)
 	}
 
-	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
+	serverCABytes, err := ioutil.ReadFile(certDir + constants.RootCertFilename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed loading CA certs: %s", err)
 	}
@@ -122,8 +123,8 @@ func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedRes
 		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 	return edsstr, func() {
-		edsstr.CloseSend()
-		conn.Close()
+		_ = edsstr.CloseSend()
+		_ = conn.Close()
 	}, nil
 }
 

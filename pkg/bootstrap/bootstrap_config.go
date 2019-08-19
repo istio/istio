@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,14 +28,20 @@ import (
 	"text/template"
 	"time"
 
+	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/types"
+	"github.com/pkg/errors"
+	"golang.org/x/oauth2/google"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/annotations"
-
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap/auth"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -54,27 +61,32 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsMatchers give the operator control over Envoy stats collection.
-	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
-	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
-	EnvoyStatsMatcherInclusionRegexps  = "sidecar.istio.io/statsInclusionRegexps"
-
 	// Options are used in the boostrap template.
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
 	envoyStatsMatcherInclusionRegexpOption = "inclusionRegexps"
+
+	envoyAccessLogServiceName = "envoy_accesslog_service"
 )
 
 var (
-	_ = annotations.Register(EnvoyStatsMatcherInclusionPrefixes,
-		"Specifies the comma separated list of prefixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionSuffixes,
-		"Specifies the comma separated list of suffixes of the stats to be emitted by Envoy.")
-	_ = annotations.Register(EnvoyStatsMatcherInclusionRegexps,
-		"Specifies the comma separated list of regexes the stats should match to be emitted by Envoy.")
-
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
+
+	metadataExchangeKeys = strings.Join(
+		[]string{
+			model.NodeMetadataInstanceName,
+			model.NodeMetadataNamespace,
+			model.NodeMetadataInstanceIPs,
+			model.NodeMetadataLabels,
+			model.NodeMetadataOwner,
+			model.NodeMetadataPlatformMetadata,
+			model.NodeMetadataWorkloadName,
+			model.NodeMetadataCanonicalTelemetryService,
+			model.NodeMetadataMeshID,
+			model.NodeMetadataServiceAccount,
+		}, ",")
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -95,12 +107,12 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 }
 
 // setStatsOptions configures stats inclusion list based on annotations.
-func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIPs []string) {
+func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, nodeIPs []string) {
 
 	setStatsOption := func(metaKey string, optKey string, required string) {
 		var inclusionOption []string
 		if inclusionPatterns, ok := meta[metaKey]; ok {
-			inclusionOption = strings.Split(inclusionPatterns, ",")
+			inclusionOption = strings.Split(inclusionPatterns.(string), ",")
 		}
 
 		if len(required) > 0 {
@@ -118,12 +130,11 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, nodeIP
 			opts[optKey] = inclusionOption
 		}
 	}
+	setStatsOption(annotation.SidecarStatsInclusionPrefixes.Name, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(EnvoyStatsMatcherInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+	setStatsOption(annotation.SidecarStatsInclusionSuffixes.Name, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
-	setStatsOption(EnvoyStatsMatcherInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, "")
-
-	setStatsOption(EnvoyStatsMatcherInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
+	setStatsOption(annotation.SidecarStatsInclusionRegexps.Name, envoyStatsMatcherInclusionRegexpOption, "")
 }
 
 func defaultPilotSan() []string {
@@ -213,42 +224,100 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
 }
 
-type setMetaFunc func(m map[string]string, key string, val string)
+type setMetaFunc func(m map[string]interface{}, key string, val string)
 
-func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]string) {
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
-	for _, env := range envs {
-		if strings.HasPrefix(env, prefix) {
-			v := env[metaPrefixLen:]
-			parts := strings.SplitN(v, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			metaKey, metaVal := parts[0], parts[1]
+	for _, e := range envs {
+		if !shouldExtract(e, prefix) {
+			continue
+		}
+		v := e[metaPrefixLen:]
+		if !isEnvVar(v) {
+			continue
+		}
+		metaKey, metaVal := parseEnvVar(v)
+		set(meta, metaKey, metaVal)
+	}
+}
 
-			set(meta, metaKey, metaVal)
+func shouldExtract(envVar, prefix string) bool {
+	if strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") {
+		return false
+	}
+	return strings.HasPrefix(envVar, prefix)
+}
+
+func isEnvVar(str string) bool {
+	return strings.Contains(str, "=")
+}
+
+func parseEnvVar(varStr string) (string, string) {
+	parts := strings.SplitN(varStr, "=", 2)
+	if len(parts) != 2 {
+		return varStr, ""
+	}
+	return parts[0], parts[1]
+}
+
+func jsonStringToMap(jsonStr string) (m map[string]string) {
+	err := json.Unmarshal([]byte(jsonStr), &m)
+	if err != nil {
+		log.Warnf("Env variable with value %q failed json unmarshal: %v", jsonStr, err)
+	}
+	return
+}
+
+func extractAttributesMetadata(envVars []string, plat platform.Environment, meta map[string]interface{}) {
+	for _, varStr := range envVars {
+		name, val := parseEnvVar(varStr)
+		switch name {
+		case "ISTIO_METAJSON_LABELS":
+			m := jsonStringToMap(val)
+			if len(m) > 0 {
+				meta[model.NodeMetadataLabels] = m
+				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
+					meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+				}
+			}
+		case "POD_NAME":
+			meta[model.NodeMetadataInstanceName] = val
+		case "POD_NAMESPACE":
+			meta[model.NodeMetadataNamespace] = val
+		case "ISTIO_META_OWNER":
+			meta[model.NodeMetadataOwner] = val
+		case "ISTIO_META_WORKLOAD_NAME":
+			meta[model.NodeMetadataWorkloadName] = val
+		case "SERVICE_ACCOUNT":
+			meta[model.NodeMetadataServiceAccount] = val
 		}
 	}
+	if plat != nil && len(plat.Metadata()) > 0 {
+		meta[model.NodeMetadataPlatformMetadata] = plat.Metadata()
+	}
+	meta[model.NodeMetadataExchangeKeys] = metadataExchangeKeys
 }
 
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]string {
-	meta := map[string]string{}
+func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
+	meta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, meta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]string, key string, val string) {
+	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
 		}
 	}, meta)
 	meta["istio"] = "sidecar"
+
+	extractAttributesMetadata(envs, plat, meta)
 
 	return meta
 }
@@ -259,6 +328,12 @@ var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
 	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+}
+
+func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -304,13 +379,16 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, platEnv)
 
-	localityOverride := model.GetLocalityOrDefault("", meta)
+	localityOverride := ""
+	if locality, ok := meta[model.LocalityLabel]; ok {
+		localityOverride = model.GetLocalityOrDefault(locality.(string), localityOverride)
+	}
 	l := util.ConvertLocality(localityOverride)
 	if l == nil {
 		// Populate the platform locality if available.
-		l = platform.GetPlatformLocality()
+		l = platEnv.Locality()
 	}
 	if l.Region != "" {
 		opts["region"] = l.Region
@@ -322,10 +400,27 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		opts["sub_zone"] = l.SubZone
 	}
 
+	// Remove duplicate nodeIPs, but preserve the original ordering.
+	ipSet := make(map[string]struct{})
+	newNodeIPs := make([]string, 0, len(nodeIPs))
+	for _, ip := range nodeIPs {
+		if _, ok := ipSet[ip]; !ok {
+			ipSet[ip] = struct{}{}
+			newNodeIPs = append(newNodeIPs, ip)
+		}
+	}
+	nodeIPs = newNodeIPs
+
 	setStatsOptions(opts, meta, nodeIPs)
 
 	// Support multiple network interfaces
-	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
+
+	if opts["sds_uds_path"] != nil && opts["sds_token_path"] != nil {
+		// sds is enabled
+		meta[model.NodeMetadataSdsEnabled] = "1"
+		meta[model.NodeMetadataSdsTrustJwt] = "1"
+	}
 
 	ba, err := json.Marshal(meta)
 	if err != nil {
@@ -393,6 +488,19 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 				return "", err
 			}
 			StoreHostPort(h, p, "datadog", opts)
+		case *meshconfig.Tracing_Stackdriver_:
+			var cred *google.Credentials
+			// in-cluster credentials are fetched by using the GCE metadata server.
+			// You may also specify environment variable GOOGLE_APPLICATION_CREDENTIALS to point a GCP credentials file.
+			if cred, err = google.FindDefaultCredentials(context.Background()); err != nil {
+				return "", errors.Errorf("Unable to process Stackdriver tracer: %v", err)
+			}
+			opts["stackdriver"] = true
+			opts["stackdriverProjectID"] = cred.ProjectID
+			opts["stackdriverDebug"] = tracer.Stackdriver.Debug
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfAnnotations, "stackdriverMaxAnnotations", opts, 200)
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfAttributes, "stackdriverMaxAttributes", opts, 200)
+			setOptsWithDefaults(tracer.Stackdriver.MaxNumberOfMessageEvents, "stackdriverMaxEvents", opts, 200)
 		}
 	}
 
@@ -404,7 +512,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		StoreHostPort(h, p, "statsd", opts)
 	}
 
-	if config.EnvoyMetricsServiceAddress != "" {
+	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
+		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsService.Address)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_metrics_service", opts)
+	} else if config.EnvoyMetricsServiceAddress != "" {
 		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
 		if err != nil {
 			return "", err
@@ -412,12 +526,15 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		StoreHostPort(h, p, "envoy_metrics_service", opts)
 	}
 
-	if config.EnvoyAccessLogServiceAddress != "" {
-		h, p, err = GetHostPort("envoy accesslog service", config.EnvoyAccessLogServiceAddress)
+	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
+		h, p, err = GetHostPort("envoy accesslog service address", config.EnvoyAccessLogService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_accesslog_service", opts)
+		StoreHostPort(h, p, "envoy_accesslog_service_address", opts)
+		storeTLSContext(envoyAccessLogServiceName, config.EnvoyAccessLogService.TlsSettings, meta,
+			"envoy_accesslog_service_tls", opts)
+		storeKeepalive(config.EnvoyAccessLogService.TcpKeepalive, "envoy_accesslog_service_tcp_keepalive", opts)
 	}
 
 	fout, err := os.Create(fname)
@@ -429,6 +546,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
 	return fname, err
+}
+
+func setOptsWithDefaults(src *types.Int64Value, name string, opts map[string]interface{}, defaultVal int64) {
+	val := defaultVal
+	if src != nil {
+		val = src.Value
+	}
+	opts[name] = val
 }
 
 // isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
@@ -446,4 +571,135 @@ func isIPv6Proxy(ipAddrs []string) bool {
 		}
 	}
 	return true
+}
+
+func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[string]interface{}, field string, opts map[string]interface{}) {
+	if tls == nil {
+		return
+	}
+
+	caCertificates := tls.CaCertificates
+	if caCertificates == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		caCertificates = constants.DefaultCertChain
+	}
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *auth.DataSource
+	if len(caCertificates) != 0 {
+		trustedCa = &auth.DataSource{
+			Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, caCertificates),
+		}
+	}
+	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+
+	var tlsContext *auth.UpstreamTLSContext
+	switch tls.Mode {
+	case networking.TLSSettings_DISABLE:
+		tlsContext = nil
+	case networking.TLSSettings_SIMPLE:
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{
+				ValidationContext: certValidationContext,
+			},
+			Sni: tls.Sni,
+		}
+		tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+		clientCertificate := tls.ClientCertificate
+		if tls.ClientCertificate == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			clientCertificate = constants.DefaultRootCert
+		}
+		privateKey := tls.PrivateKey
+		if tls.PrivateKey == "" && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			privateKey = constants.DefaultKey
+		}
+		if clientCertificate == "" || privateKey == "" {
+			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", name)
+			return
+		}
+
+		tlsContext = &auth.UpstreamTLSContext{
+			CommonTLSContext: &auth.CommonTLSContext{},
+			Sni:              tls.Sni,
+		}
+
+		tlsContext.CommonTLSContext.ValidationContext = certValidationContext
+		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
+			{
+				CertificateChain: &auth.DataSource{
+					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, clientCertificate),
+				},
+				PrivateKey: &auth.DataSource{
+					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, privateKey),
+				},
+			},
+		}
+		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			tlsContext.Sni = name
+		}
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
+		} else {
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+		}
+	}
+	if tlsContext != nil {
+		tlsContextStr := convertToJSON(tlsContext)
+		if tlsContextStr == "" {
+			return
+		}
+		opts[field] = tlsContextStr
+	}
+}
+
+func convertToJSON(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		log.Error(err.Error())
+		return ""
+	}
+	return string(b)
+}
+
+func getOrDefaultFromMap(stringMap map[string]interface{}, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return fmt.Sprintf("%v", valFromMap)
+	}
+	return defaultVal
+}
+
+func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive, field string, opts map[string]interface{}) {
+	if tcpKeepalive == nil {
+		return
+	}
+	upstreamConnectionOptions := &apiv2.UpstreamConnectionOptions{
+		TcpKeepalive: &core.TcpKeepalive{},
+	}
+
+	if tcpKeepalive.Probes > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: tcpKeepalive.Probes}
+	}
+
+	if tcpKeepalive.Time != nil && tcpKeepalive.Time.Seconds > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
+	}
+
+	if tcpKeepalive.Interval != nil && tcpKeepalive.Interval.Seconds > 0 {
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
+	}
+	upstreamConnectionOptionsStr := convertToJSON(upstreamConnectionOptions)
+	if upstreamConnectionOptionsStr == "" {
+		return
+	}
+	opts[field] = upstreamConnectionOptionsStr
 }

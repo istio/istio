@@ -21,10 +21,16 @@ import (
 	"sort"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -87,11 +93,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", model.VisibilityPublic, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", model.VisibilityPrivate, wildcardIP, "default", 9999, 80),
-		buildHTTPService("test.com", model.VisibilityPublic, "8.8.8.8", "not-default", 8080),
-		buildHTTPService("test-private.com", model.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
-		buildHTTPService("test-private-2.com", model.VisibilityPrivate, "9.9.9.10", "not-default", 60),
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 	}
 
 	sidecarConfig := &model.Config{
@@ -137,7 +143,98 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-
+	sidecarConfigWithRegistryOnly := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+	}
+	sidecarConfigWithAllowAny := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						// A port that is not in any of the services
+						Number:   9000,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "1.1.1.1",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// Unix domain socket listener
+						Number:   0,
+						Protocol: "HTTP",
+						Name:     "something",
+					},
+					Bind:  "unix://foo/bar/baz",
+					Hosts: []string{"*/bookinfo.com"},
+				},
+				{
+					Port: &networking.Port{
+						// A port that is in one of the services
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "foo",
+					},
+					Hosts: []string{"default/bookinfo.com", "not-default/test.com"},
+				},
+				{
+					// Wildcard egress importing from all namespaces
+					Hosts: []string{"*/*"},
+				},
+			},
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
 	virtualServiceSpec1 := &networking.VirtualService{
 		Hosts:    []string{"test-private-2.com"},
 		Gateways: []string{"mesh"},
@@ -204,8 +301,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService1 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme2-v1",
 			Namespace: "not-default",
 		},
@@ -213,8 +310,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService2 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v2",
 			Namespace: "not-default",
 		},
@@ -222,8 +319,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService3 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v3",
 			Namespace: "not-default",
 		},
@@ -283,6 +380,39 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080":     {"test.com:8080": true, "8.8.8.8:8080": true},
 			},
 		},
+		{
+			name:                  "sidecar config with fallthrough and registry only and allow any mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithRegistryOnly,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"block_all": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+		{
+			name:                  "sidecar config with fallthrough and allow any and registry only mesh config",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     false,
+		},
+
 		{
 			name:                  "wildcard egress importing from all namespaces: 9999",
 			routeName:             "9999",
@@ -435,17 +565,17 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	if err := env.PushContext.InitContext(&env); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
+	if registryOnly {
+		env.Mesh.OutboundTrafficPolicy = &meshapi.MeshConfig_OutboundTrafficPolicy{Mode: meshapi.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
+	}
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "0")
+	_ = os.Setenv(features.EnableFallthroughRoute.Name, "0")
 	if fallthroughRoute {
-		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
-	}
-	if registryOnly {
-		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
+		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
@@ -472,16 +602,16 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
-func buildHTTPService(hostname string, visibility model.Visibility, ip, namespace string, ports ...int) *model.Service {
+func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime: tnow,
-		Hostname:     model.Hostname(hostname),
+		Hostname:     host.Name(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.Passthrough,
 		Attributes: model.ServiceAttributes{
 			Namespace: namespace,
-			ExportTo:  map[model.Visibility]bool{visibility: true},
+			ExportTo:  map[visibility.Instance]bool{v: true},
 		},
 	}
 
@@ -491,7 +621,7 @@ func buildHTTPService(hostname string, visibility model.Visibility, ip, namespac
 		Ports = append(Ports, &model.Port{
 			Name:     fmt.Sprintf("http-%d", p),
 			Port:     p,
-			Protocol: model.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		})
 	}
 

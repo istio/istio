@@ -11,14 +11,14 @@ metadata:
     release: {{ .Release.Name }}
     istio: citadel
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       istio: citadel
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -43,6 +43,9 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+          {{- if .Values.global.sds.enabled }}
+            - --sds-enabled=true
+          {{- end }}
             - --append-dns-names=true
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}
@@ -60,11 +63,17 @@ spec:
           {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
           {{- end }}
+          {{- if .Values.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.workloadCertTtl }}
+          {{- end }}
           {{- if .Values.citadelHealthCheck }}
             - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
             - --liveness-probe-interval=60s # interval for health check file update
             - --probe-check-interval=15s    # interval for health status check
           {{- end }}
+          env:
+            - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
+              value: "{{ .Values.enableNamespacesByDefault }}"
           {{- if .Values.citadelHealthCheck }}
           livenessProbe:
             exec:

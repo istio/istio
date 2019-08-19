@@ -22,8 +22,8 @@ spec:
 {{- end }}
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   selector:
     matchLabels:
       istio: pilot
@@ -110,8 +110,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
-          - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
-            value: "1"
+{{- if .Values.enableProtocolSniffing }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
+            value: "{{ .Values.enableProtocolSniffing }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -185,10 +187,8 @@ spec:
           - name: sds-uds-path
             mountPath: /var/run/sds
             readOnly: true
-          {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
-          {{- end }}
           {{- end }}
 {{- end }}
       volumes:
@@ -196,7 +196,6 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -204,7 +203,6 @@ spec:
               audience: {{ $.Values.global.trustDomain }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: config-volume
         configMap:

@@ -15,6 +15,8 @@
 package helper
 
 import (
+	"os"
+
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
@@ -90,12 +92,17 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 }
 
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.
-func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
+func ToOpts(cfg *config.Params, logger adapter.Logger) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
 		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
 	case *config.Params_ServiceAccountPath:
-		opts = append(opts, gapiopts.WithCredentialsFile(cfg.GetServiceAccountPath()))
+		path := cfg.GetServiceAccountPath()
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			opts = append(opts, gapiopts.WithCredentialsFile(path))
+		} else {
+			logger.Warningf("could not find %v, using Application Default Credentials instead", path)
+		}
 	case *config.Params_AppCredentials:
 		// When using default app credentials the SDK handles everything for us.
 	}
