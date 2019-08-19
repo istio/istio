@@ -42,6 +42,15 @@ webhooks:
         - CREATE
         - UPDATE
         apiGroups:
+        - security.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
         - authentication.istio.io
         apiVersions:
         - "*"
