@@ -415,8 +415,24 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	}
 }
 
+// enableIngressSds: signifies whether this is an SDS enabled ingress controller, with an embedded node agent running
+// alongside the gateway pod (https://istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/)
+// sdsPath: is the path to the mesh-wide workload sds uds path, and it is assumed that if this path is unset, that sds is
+// disabled mesh-wide
+// metadata: map of miscellaneous configuration values sent from the Envoy instance back to Pilot, could include the field
+// USER_SDS which signifies that the proxy is an SDS-enabled ingress gateway
+//
+// Below is a table of potential scenarios for the gateway configuration:
+//
+// TLS mode      | Mesh-wide SDS | Ingress SDS | Resulting Configuration
+// SIMPLE/MUTUAL |    ENABLED    |   ENABLED   | support SDS at ingress gateway to terminate SSL communication outside the mesh
+// ISTIO_MUTUAL  |    ENABLED    |   DISABLED  | support SDS at gateway to terminate workload mTLS, with internal workloads
+// 											   | for egress or with another trusted cluster for ingress)
+// ISTIO_MUTUAL  |    DISABLED   |   DISABLED  | use file-mounted secret paths to terminate workload mTLS from gateway
+//
+// Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, enableSds bool, sdsPath string, metadata map[string]string) *auth.DownstreamTlsContext {
+	server *networking.Server, enableIngressSds bool, sdsPath string, metadata map[string]string) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -428,7 +444,7 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
-	if enableSds && server.Tls.CredentialName != "" {
+	if enableIngressSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
@@ -472,7 +488,7 @@ func buildGatewayListenerTLSContext(
 					authn_model.SDSDefaultResourceName, sdsPath, metadata)}
 		} else {
 			// global SDS disabled, fall back on using mounted certificates
-			caCertificates := model.GetOrDefaultFromMap(nil, model.NodeMetadataTLSClientRootCert, constants.DefaultRootCert)
+			caCertificates := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerRootCert, constants.DefaultRootCert)
 			trustedCa := &core.DataSource{
 				Specifier: &core.DataSource_Filename{
 					Filename: caCertificates,
@@ -485,8 +501,8 @@ func buildGatewayListenerTLSContext(
 				},
 			}
 
-			certChainPath := model.GetOrDefaultFromMap(nil, model.NodeMetadataTLSClientCertChain, constants.DefaultCertChain)
-			privateKeyPath := model.GetOrDefaultFromMap(nil, model.NodeMetadataTLSClientKey, constants.DefaultKey)
+			certChainPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerCertChain, constants.DefaultCertChain)
+			privateKeyPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerKey, constants.DefaultKey)
 			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
