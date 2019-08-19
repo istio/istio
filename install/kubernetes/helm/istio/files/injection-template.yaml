@@ -222,10 +222,10 @@ containers:
   {{- end }}
   {{- if .Values.global.meshID }}
   - name: ISTIO_META_MESH_ID
-    value: "{{ .Value.global.meshID }}"
+    value: "{{ .Values.global.meshID }}"
   {{- else if .Values.global.trustDomain }}
   - name: ISTIO_META_MESH_ID
-    value: "{{ .Value.global.trustDomain }}"
+    value: "{{ .Values.global.trustDomain }}"
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
