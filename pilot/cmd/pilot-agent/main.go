@@ -102,11 +102,6 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
-	InboundCapturePorts  = env.RegisterStringVar(
-		"ISTIO_META_INCLUDE_INBOUND_PORTS",
-		"*",
-		"The captured ports for inbound traffic. '*' for capture all.",
-	)
 
 	sdsUdsWaitTimeout = time.Minute
 
