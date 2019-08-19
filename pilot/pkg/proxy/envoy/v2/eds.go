@@ -458,7 +458,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 				// So no endpoints add/update events after this, we should request
 				// full push immediately to speed up sidecar startup.
 				s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-				return
+				break
 			}
 		}
 		adsClientsMutex.RUnlock()
