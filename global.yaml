@@ -349,6 +349,29 @@ global:
   #   else:  default dns domain
   trustDomain: ""
 
+  # Mesh ID means Mesh Identifier. It should be unique within the scope where
+  # meshes will interact with each other, but it is not required to be
+  # globally/universally unique. For example, if any of the following are true,
+  # then two meshes must have different Mesh IDs:
+  # - Meshes will have their telemetry aggregated in one place
+  # - Meshes will be federated together
+  # - Policy will be written referencing one mesh from the other
+  #
+  # If an administrator expects that any of these conditions may become true in
+  # the future, they should ensure their meshes have different Mesh IDs
+  # assigned.
+  #
+  # Within a multicluster mesh, each cluster must be (manually or auto)
+  # configured to have the same Mesh ID value. If an existing cluster 'joins' a
+  # multicluster mesh, it will need to be migrated to the new mesh ID. Details
+  # of migration TBD, and it may be a disruptive operation to change the Mesh
+  # ID post-install.
+  #
+  # If the mesh admin does not specify a value, Istio will use the value of the
+  # mesh's Trust Domain. The best practice is to select a proper Trust Domain
+  # value.
+  meshID: ""
+
   # Set the default behavior of the sidecar for handling outbound traffic from the application:
   # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
   #   services or ServiceEntries for the destination port
