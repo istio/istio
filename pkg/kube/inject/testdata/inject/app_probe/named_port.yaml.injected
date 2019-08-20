@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"48223a2bdf0874fbf126b9de064f387c42898c5f6d6bfdc41457caef22593b82","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"6999a67a9a62a7db8c693879490aa84d2e51e949282b23f6d1484d023eba954c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
@@ -149,7 +149,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest
