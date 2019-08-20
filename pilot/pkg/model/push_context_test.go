@@ -15,12 +15,12 @@
 package model
 
 import (
-	"istio.io/istio/pkg/config/labels"
 	"reflect"
 	"testing"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
