@@ -176,7 +176,7 @@ func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, e
 	if namespace == "" {
 		namespace = "default"
 	}
-	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
@@ -761,7 +761,7 @@ func WaitForDeploymentsReady(ns string, timeout time.Duration, kubeconfig string
 // CheckDeploymentsReady checks if deployment resources are ready.
 // get podsReady() sometimes gets pods created by the "Job" resource which never reach the "Running" steady state.
 func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
-	CMD := "kubectl -n %s get deployments -ao jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
+	CMD := "kubectl -n %s get deployments -o jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
 		"{@.status.availableReplicas}{\"\\n\"}{end}' --kubeconfig=%s"
 	out, err := Shell(fmt.Sprintf(CMD, ns, kubeconfig))
 
