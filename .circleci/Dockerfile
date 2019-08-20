@@ -49,7 +49,7 @@ RUN     go get -u github.com/golang/dep/cmd/dep
 RUN     go get github.com/jstemmer/go-junit-report
 
 # Install fpm tool
-RUN  sudo apt-get -qqy install ruby ruby-dev rubygems build-essential autoconf libtool autotools-dev && \
+RUN  sudo apt-get -qqy install iptables ruby ruby-dev rubygems build-essential autoconf libtool autotools-dev && \
      sudo gem install --no-ri --no-rdoc fpm
 
 # Include minikube and kubectl in the image
