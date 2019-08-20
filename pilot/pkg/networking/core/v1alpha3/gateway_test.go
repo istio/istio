@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/proto"
@@ -37,11 +38,131 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name      string
-		server    *networking.Server
-		enableSds bool
-		result    *auth.DownstreamTlsContext
+		name                  string
+		server                *networking.Server
+		enableIngressSdsAgent bool
+		sdsPath               string
+		result                *auth.DownstreamTlsContext
 	}{
+		{
+			name: "ingress sdsagent disabled, mesh SDS disabled, tls mode ISTIO_MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				},
+			},
+			enableIngressSdsAgent: false,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificates: []*auth.TlsCertificate{
+						{
+							CertificateChain: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: constants.DefaultCertChain,
+								},
+							},
+							PrivateKey: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: constants.DefaultKey,
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: constants.DefaultRootCert,
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
+		{
+			name: "ingress sdsagent disabled, mesh SDS enabled, tls mode ISTIO_MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				},
+			},
+			enableIngressSdsAgent: false,
+			sdsPath:               "unix:/var/run/sds/uds_path",
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "default",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: features.InitialFetchTimeout,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri:  "unix:/var/run/sds/uds_path",
+														StatPrefix: model.SDSStatPrefix,
+														ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+															CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+																LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+															},
+														},
+														CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
+														CredentialsFactoryName: model.FileBasedMetadataPlugName,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ROOTCA",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: features.InitialFetchTimeout,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  "unix:/var/run/sds/uds_path",
+															StatPrefix: model.SDSStatPrefix,
+															ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+																CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+																	LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+																},
+															},
+															CallCredentials:        model.ConstructgRPCCallCredentials(model.K8sSATrustworthyJwtFileName, model.K8sSAJwtTokenHeaderKey),
+															CredentialsFactoryName: model.FileBasedMetadataPlugName,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
 		{ // No credential name is specified, generate file paths for key/cert.
 			name: "no credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
@@ -50,7 +171,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.Server_TLSOptions_SIMPLE,
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -81,7 +202,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					CredentialName: "ingress-sds-resource-name",
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -123,7 +244,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -169,7 +290,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableSds: false,
+			enableIngressSdsAgent: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -201,7 +322,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -236,7 +357,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -306,7 +427,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					VerifyCertificateSpki: []string{"abcdef"},
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -376,7 +497,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					VerifyCertificateHash: []string{"fedcba"},
 				},
 			},
-			enableSds: true,
+			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -445,13 +566,13 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableSds: true,
-			result:    nil,
+			enableIngressSdsAgent: true,
+			result:                nil,
 		},
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.enableSds)
+		ret := buildGatewayListenerTLSContext(tc.server, tc.enableIngressSdsAgent, tc.sdsPath, nil)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
@@ -504,7 +625,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		cgi := NewConfigGenerator([]plugin.Plugin{})
-		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName)
+		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "")
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
