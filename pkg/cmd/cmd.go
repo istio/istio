@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // WaitSignal awaits for SIGINT or SIGTERM and closes the channel
@@ -37,9 +37,7 @@ func WaitSignal(stop chan struct{}) {
 
 // AddFlags adds all command line flags to the given command.
 func AddFlags(rootCmd *cobra.Command) {
-	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		rootCmd.PersistentFlags().AddGoFlag(gf)
-	})
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
 
 // PrintFlags logs the flags in the flagset

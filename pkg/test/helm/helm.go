@@ -28,7 +28,7 @@ func Init(homeDir string, clientOnly bool) error {
 		clientSuffix = " --client-only"
 	}
 
-	out, err := shell.Execute("helm --home %s init %s", homeDir, clientSuffix)
+	out, err := shell.Execute(true, "helm --home %s init %s", homeDir, clientSuffix)
 	if err != nil {
 		scopes.Framework.Errorf("helm init: %v, out:%q", err, out)
 	} else {
@@ -51,7 +51,7 @@ func Template(homeDir, template, name, namespace string, valuesFile string, valu
 		}
 		p = append(p, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
-	out, err := shell.ExecuteArgs(nil, "helm", p[1:]...)
+	out, err := shell.ExecuteArgs(nil, true, "helm", p[1:]...)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)
 	}

@@ -138,6 +138,8 @@ spec:
       valueType: BOOL
     quota.cache_hit:
       valueType: BOOL
+    context.proxy_version:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -579,6 +581,11 @@ kind: instance
 metadata:
   name: tcpconnectionsopened
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledTemplate: metric
   params:
@@ -607,6 +614,11 @@ kind: instance
 metadata:
   name: tcpconnectionsclosed
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledTemplate: metric
   params:
@@ -879,6 +891,11 @@ kind: rule
 metadata:
   name: promtcpconnectionopen
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "open")
   actions:
@@ -891,6 +908,11 @@ kind: rule
 metadata:
   name: promtcpconnectionclosed
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "close")
   actions:

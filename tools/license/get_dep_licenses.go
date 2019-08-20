@@ -30,6 +30,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -39,12 +40,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-)
-
-const (
-	// maxLevelsToLicense is the maximum levels to go up to the root to find
-	// license in parent directories.
-	maxLevelsToLicense = 8
+	"time"
 )
 
 type licenseType int
@@ -121,20 +117,16 @@ var (
 	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
 	// and are considered ok, so the tool will not complain about these.
 	knownUnknownLicenses = map[string]bool{
-		"github.com/jmespath/go-jmespath":                                         true,
-		"github.com/alicebob/gopher-json":                                         true,
-		"istio.io/istio/vendor/github.com/dchest/siphash":                         true,
-		"istio.io/istio/vendor/github.com/signalfx/com_signalfx_metrics_protobuf": true,
+		// "github.com/jmespath/go-jmespath":                   true,  // Not in manual_append
+		// "github.com/alicebob/gopher-json":                   true,  // Not in manual_append
+		"github.com/dchest/siphash":                         true, // in manual_append
+		"github.com/signalfx/com_signalfx_metrics_protobuf": true, // in manual_append
+		"github.com/bmizerany/assert":                       true, // has license in README.md
+		"github.com/kr/logfmt":                              true, // Readme mentions MIT license
 	}
-	// Ignore package paths that don't start with this.
-	mustStartWith = []string{
-		"istio.io/istio/vendor",
-		"vendor",
-	}
-	// After ignoring anything not in mustStartWith, further exclude anything with prefix below.
-	skipPrefixes = []string{
-		"istio.io/istio/vendor/github.com/gogo",
-		"vendor/golang_org",
+	// Ignored modules
+	ignoredModules = []string{
+		"istio.io/istio",
 	}
 	// root is the root of Go src code.
 	root = filepath.Join(os.Getenv("GOPATH"), "src")
@@ -144,13 +136,15 @@ var (
 	istioRoot = filepath.Join(root, istioSubdir)
 	// istioReleaseBranch is the branch to generate licenses for.
 	istioReleaseBranch = ""
+	// goModCache is the module cache relative to root
+	goModCache = "/pkg/mod/"
 )
 
 // LicenseInfo describes a license.
 type LicenseInfo struct {
 	packageName       string
 	path              string
-	url               string
+	licensePath       string
 	licenseeOutput    string
 	licenseTypeString string
 	licenseText       string
@@ -176,6 +170,18 @@ func (s LicenseInfos) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+type Module struct {
+	Path      string    `json:"Path"`
+	Version   string    `json:"Version"`
+	Replace   *Module   `json:"Replace"`
+	Time      time.Time `json:"Time"`
+	Main      bool      `json:"Main"`
+	Indirect  bool      `json:"Indirect"`
+	Dir       string    `json:"Dir"`
+	GoMod     string    `json:"GoMod"`
+	GoVersion string    `json:"GoVersion"`
+}
+
 func main() {
 	var summary, checkout, matchDetail, check bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
@@ -193,7 +199,7 @@ func main() {
 
 	if istioReleaseBranch == "" && !check {
 		var err error
-		istioReleaseBranch, err = runBash("git", "rev-parse", "HEAD")
+		istioReleaseBranch, err = runBashWithModuleSupport("git", "rev-parse", "HEAD")
 		if err != nil {
 			log.Fatalf("Could not get current commit: %s", err)
 		}
@@ -209,14 +215,14 @@ func main() {
 	var prevBranch string
 	if checkout {
 		// Save git branch to return to later.
-		pb, err := runBash("git", "rev-parse", "--abbrev-ref", "HEAD")
+		pb, err := runBashWithModuleSupport("git", "rev-parse", "--abbrev-ref", "HEAD")
 		if err != nil {
 			log.Fatalf("Could not get current branch: %s", err)
 		}
 		prevBranch = strings.TrimSpace(pb)
 
 		// Need to switch to branch we're getting the licenses for.
-		_, err = runBash("git", "checkout", istioReleaseBranch)
+		_, err = runBashWithModuleSupport("git", "checkout", istioReleaseBranch)
 		if err != nil {
 			log.Fatalf("Could not git checkout %s: %s", istioReleaseBranch, err)
 		}
@@ -232,35 +238,71 @@ func main() {
 		}
 	}()
 
-	// List all the deps in vendor.
-	out, err := runBash("go", "list", "-f", `'{{ join .Deps  "\n"}}'`, "./vendor/...")
+	// First, make sure all the modules are downloaded into the cache
+	out, err := runBashWithModuleSupport("go", "mod", "download")
 	if err != nil {
-		log.Fatal(out)
+		log.Fatalf("go mod download failed: %s with output:\n%s", err, out)
 	}
-	outv := strings.Split(out, "\n")
-	outv, skipv := filter(dedup(outv))
-	sort.Strings(outv)
-	sort.Strings(skipv)
+
+	// List all the modules using json as we want multiple fields (defined in Module struct)
+	out, err = runBashWithModuleSupport("go", "list", "-m", "-json", "all")
+	if err != nil {
+		log.Fatalf("go list module failed: %s with output:\n%s", err, out)
+	}
+
+	// Unmarshall json output
+	var modules []Module
+
+	// Need to add `,`` between arrays in json output and add []
+	jsonified := "[\n" + strings.Replace(out, "}\n{", "},\n{", -1) + "\n]"
+
+	err = json.Unmarshal([]byte(jsonified), &modules)
+	if err != nil {
+		log.Fatalf("Unmarshall failed: %s", err)
+	}
+
 	var missing []string
 
-	// TODO: detect multiple licenses.
 	licensePath := make(map[string]string)
-	for _, p := range outv {
-		lf, err := findLicenseFile(p)
+	for _, m := range modules {
+
+		// Skip ignored module
+		if contains(ignoredModules, m.Path) {
+			continue
+		}
+		lf, err := findLicenseFiles(m.Dir)
 		if err != nil || lf == nil {
-			if !knownUnknownLicenses[p] {
-				missing = append(missing, p)
+			if !knownUnknownLicenses[m.Path] {
+				missing = append(missing, m.Path)
+				licensePath[m.Path] = ""
 			}
 			continue
 		}
-		licensePath[p] = lf[0]
+
+		// TODO: Process multiple licenses. For now use first one and otput a warning
+		licensePath[m.Path] = lf[0]
+		if len(lf) > 1 {
+			log.Printf("Module %s(%s) has multiple (%d) license files:%v\n", m.Path, m.Dir, len(lf), lf)
+		}
 	}
+
+	// Get sorted list of licensePaths
+	var keys []string
+	for lp := range licensePath {
+		keys = append(keys, lp)
+	}
+	sort.Strings(keys)
 
 	licenseTypes := make(map[string][]string)
 	var reciprocalList, restrictedList, missingList []string
 	unknownMap := make(map[string]string)
 	var licenses, exact, inexact LicenseInfos
-	for p, lp := range licensePath {
+	for _, key := range keys {
+		lp := licensePath[key]
+		if lp == "" {
+			missingList = append(missingList, key)
+			continue
+		}
 		linfo := &LicenseInfo{}
 		if matchDetail || summary || check {
 			// This requires the external licensee program.
@@ -270,14 +312,14 @@ func main() {
 				continue
 			}
 		}
-		linfo.packageName = strings.TrimPrefix(p, istioSubdir+"/vendor/")
+		linfo.packageName = strings.TrimPrefix(key, istioSubdir+"/vendor/")
 		linfo.licenseText = readFile(lp)
 		linfo.path = lp
-		linfo.url = pathToURL(lp)
+		linfo.licensePath = getLicensePath(lp)
 		licenses = append(licenses, linfo)
 		ltypeStr := linfo.licenseTypeString
 		if linfo.exact {
-			licenseTypes[ltypeStr] = append(licenseTypes[ltypeStr], p)
+			licenseTypes[ltypeStr] = append(licenseTypes[ltypeStr], key)
 			exact = append(exact, linfo)
 		} else {
 			inexact = append(inexact, linfo)
@@ -324,8 +366,14 @@ func main() {
 			fmt.Println("The following packages have unknown status licenses (legal")
 			fmt.Println("review required). ")
 			fmt.Println("===========================================================")
-			for k, v := range unknownMap {
-				fmt.Printf("%s:%s\n", k, v)
+			// Get sorted list of paths
+			var keys []string
+			for k := range unknownMap {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				fmt.Printf("%s:%s\n", k, unknownMap[k])
 			}
 			exitCode |= 4
 		}
@@ -350,7 +398,7 @@ func main() {
 			fmt.Printf("%s, MISSING\n", p)
 		}
 		for _, l := range append(inexact, exact...) {
-			fmt.Printf("%s,%s,%s,%s\n", l.packageName, l.url, l.licenseTypeString, l.confidence)
+			fmt.Printf("%s,%s,%s,%s\n", l.packageName, l.licensePath, l.licenseTypeString, l.confidence)
 		}
 		return
 	}
@@ -372,7 +420,7 @@ func main() {
 		fmt.Println("===========================================================")
 		for _, l := range inexact {
 			fmt.Printf("Package: %s\n", l.packageName)
-			fmt.Printf("URL: %s\n", l.url)
+			fmt.Printf("License Relative To Module Cache: %s\n", l.licensePath)
 			fmt.Printf("Match info:\n%s\n", l.licenseeOutput)
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
@@ -396,7 +444,7 @@ func main() {
 
 		for _, l := range append(exact, inexact...) {
 			fmt.Printf("Package: %s\n", l.packageName)
-			fmt.Printf("License URL: %s\n", l.url)
+			fmt.Printf("License Relative To Module Cache: %s\n", l.licensePath)
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
 		}
@@ -418,9 +466,13 @@ func main() {
 	}
 }
 
-// runBash runs a bash command. If command is successful, returns output, otherwise returns stderr output as error.
-func runBash(args ...string) (string, error) {
+// runBashWithModuleSupport runs a bash command. If command is successful, returns output, otherwise returns stderr output as error.
+func runBashWithModuleSupport(args ...string) (string, error) {
 	cmd := exec.Command(args[0], args[1:]...)
+
+	// Turn on GoModule support
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "GO111MODULE=on")
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
@@ -432,9 +484,14 @@ func runBash(args ...string) (string, error) {
 	return out.String(), nil
 }
 
-// pathToURL returns a URL to a path within Istio github code.
-func pathToURL(path string) string {
-	return strings.Replace(path, istioRoot, "https://github.com/istio/istio/blob/"+istioReleaseBranch, 1)
+// getLicensePath returns the license path relative to the Golang module cache.
+// It removes any of the path bup to and including the go mode cache (GOPATH/pkg/mod)
+func getLicensePath(path string) string {
+	index := strings.Index(path, goModCache)
+	if index < 0 {
+		return path
+	}
+	return path[index+len(goModCache):]
 }
 
 func readFile(path string) string {
@@ -487,73 +544,34 @@ func getLicenseAndConfidence(in string) (string, string) {
 	return "UNKNOWN", ""
 }
 
-func findLicenseFile(path string) ([]string, error) {
-	path = filepath.Join(root, path)
-	for i := 0; i <= maxLevelsToLicense; i++ {
-		outb, err := exec.Command("find", path, "-maxdepth", "1",
-			"-iname", "licen[sc]e*", "-o", "-iname", "copying").Output()
-		if err != nil {
-			return nil, err
+func findLicenseFiles(path string) ([]string, error) {
+	// This will find files matching one of the specifications in
+	// the root directory of the module
+	outb, err := exec.Command("find", path, // Uncomment to only return the upper most file "-maxdepth", "1",
+		"-iname", "licen[sc]e",
+		"-o", "-iname", "licen[sc]e.txt",
+		"-o", "-iname", "licen[sc]e.md",
+		"-o", "-iname", "licen[sc]e.code",
+		"-o", "-iname", "copying").Output()
+	if err != nil {
+		return nil, err
+	}
+	out := string(outb)
+	if strings.TrimSpace(out) != "" {
+		outv := strings.Split(out, "\n")
+		for strings.TrimSpace(outv[len(outv)-1]) == "" {
+			outv = outv[:len(outv)-1]
 		}
-		out := string(outb)
-		if strings.TrimSpace(out) != "" {
-			return strings.Split(out, "\n"), nil
-		}
-		path = filepath.Join(path, "..")
-		if strings.Count(path, "/") < strings.Count(istioRoot, "/")+2 {
-			// go no further than the root of the package
-			break
-		}
+		return outv, nil
 	}
 	return nil, nil
 }
 
-func filter(in []string) (keep, skip []string) {
-	for _, s := range in {
-		s = cleanString(s)
-
-		if !hasAnyPrefix(s, mustStartWith) || hasAnyPrefix(s, skipPrefixes) {
-			skip = append(skip, s)
-			continue
-		}
-		keep = append(keep, s)
-	}
-	return keep, skip
-}
-
-func hasAnyPrefix(s string, prefixes []string) bool {
-	for _, p := range prefixes {
-		if strings.HasPrefix(s, p) {
+func contains(strings []string, s string) bool {
+	for _, str := range strings {
+		if str == s {
 			return true
 		}
-
 	}
 	return false
-}
-
-func cleanString(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.TrimPrefix(s, "'")
-	s = strings.TrimSuffix(s, "'")
-	return s
-}
-
-func dedup(s []string) []string {
-	return fromMap(toMap(s))
-}
-
-func toMap(ss []string) map[string]interface{} {
-	out := make(map[string]interface{})
-	for _, s := range ss {
-		out[s] = nil
-	}
-	return out
-}
-
-func fromMap(m map[string]interface{}) []string {
-	var out []string
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
 }

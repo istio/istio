@@ -31,6 +31,9 @@ const (
 	bearerTokenPrefix = "Bearer "
 	httpAuthHeader    = "authorization"
 	idTokenIssuer     = "https://accounts.google.com"
+
+	ClientCertAuthenticatorType = "ClientCertAuthenticator"
+	IDTokenAuthenticatorType    = "IDTokenAuthenticator"
 )
 
 // AuthSource represents where authentication result is derived from.
@@ -49,6 +52,10 @@ type Caller struct {
 
 // ClientCertAuthenticator extracts identities from client certificate.
 type ClientCertAuthenticator struct{}
+
+func (cca *ClientCertAuthenticator) AuthenticatorType() string {
+	return ClientCertAuthenticatorType
+}
 
 // Authenticate extracts identities from presented client certificates. This
 // method assumes that certificate chain has been properly validated before
@@ -96,6 +103,10 @@ func NewIDTokenAuthenticator(aud string) (*IDTokenAuthenticator, error) {
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
 	return &IDTokenAuthenticator{verifier}, nil
+}
+
+func (a *IDTokenAuthenticator) AuthenticatorType() string {
+	return IDTokenAuthenticatorType
 }
 
 // Authenticate authenticates a caller using the JWT in the context.

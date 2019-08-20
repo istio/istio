@@ -1,9 +1,13 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: helloworld-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v1
   template:
     metadata:
       annotations:
@@ -14,7 +18,7 @@ spec:
     spec:
       containers:
         - name: helloworld
-          image: istio/examples-helloworld-v1
+          image: docker.io/istio/examples-helloworld-v1
           resources:
             requests:
               cpu: "100m"

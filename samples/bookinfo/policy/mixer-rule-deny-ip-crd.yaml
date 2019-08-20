@@ -1,0 +1,29 @@
+apiVersion: config.istio.io/v1alpha2
+kind: listchecker
+metadata:
+  name: whitelistip
+spec:
+  # providerUrl: ordinarily black and white lists are maintained
+  # externally and fetched asynchronously using the providerUrl.
+  overrides: ["10.57.0.0/16"]  # overrides provide a static list
+  blacklist: false
+  entryType: IP_ADDRESSES
+---
+apiVersion: config.istio.io/v1alpha2
+kind: listentry
+metadata:
+  name: sourceip
+spec:
+  value: source.ip | ip("0.0.0.0")
+---
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: checkip
+spec:
+  match: source.labels["istio"] == "ingressgateway"
+  actions:
+  - handler: whitelistip.listchecker
+    instances:
+    - sourceip.listentry
+---

@@ -74,6 +74,17 @@ message MeshConfig {
   // Connection timeout used by Envoy. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 6;
 
+  // Automatic protocol detection uses a set of heuristics to
+  // determine whether the connection is using TLS or not (on the
+  // server side), as well as the application protocol being used
+  // (e.g., http vs tcp). These heuristics rely on the client sending
+  // the first bits of data. For server first protocols like MySQL,
+  // MongoDB, etc., Envoy will timeout on the protocol detection after
+  // the specified period, defaulting to non mTLS plain TCP
+  // traffic. Set this field to tweak the period that Envoy will wait
+  // for the client to send the first bits of data. (MUST BE >=1ms)
+  google.protobuf.Duration protocol_detection_timeout = 42;
+
   // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
   istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
 
@@ -139,6 +150,11 @@ message MeshConfig {
   // Encoding for the proxy access log (text or json).
   // Default value is text.
   AccessLogEncoding access_log_encoding = 27;
+
+  // This flag enables Envoy's gRPC Access Log Service.
+  // See [Access Log Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto)
+  // for details about Envoy's gRPC Access Log Service API.
+  bool enable_envoy_access_log_service = 40;
 
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
@@ -216,7 +232,6 @@ message MeshConfig {
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
-  // $hide_from_docs
   // The default value for the ServiceEntry.export_to field and services
   // imported through container registry integrations, e.g. this applies to
   // Kubernetes Service resources. The value is a list of namespace names and
@@ -243,7 +258,6 @@ message MeshConfig {
   // Sidecar, and Gateway.
   repeated string default_service_export_to = 31;
 
-  // $hide_from_docs
   // The default value for the VirtualService.export_to field. Has the same
   // syntax as 'default_service_export_to'.
   //
@@ -251,7 +265,6 @@ message MeshConfig {
   // virtual services are exported to all namespaces
   repeated string default_virtual_service_export_to = 32;
 
-  // $hide_from_docs
   // The default value for the DestinationRule.export_to field. Has the same
   // syntax as 'default_service_export_to'.
   //
@@ -259,7 +272,6 @@ message MeshConfig {
   // destination rules are exported to all namespaces
   repeated string default_destination_rule_export_to = 33;
 
-  // $hide_from_docs
   // The namespace to treat as the administrative root namespace for
   // Istio configuration. When processing a leaf namespace Istio will search for
   // declarations in that namespace first and if none are found it will
@@ -268,12 +280,6 @@ message MeshConfig {
   //
   // The precise semantics of this processing are documented on each resource
   // type.
-  //
-  // There is no default value for this flag in 1.1 but in later releases it
-  // is expected to default to a new namespace, `istio-config`, which is
-  // maintained separately from the `istio-system` namespace where an instance
-  // of the control plane runtime is deployed. This separates the concerns of
-  // configuring the control-plane runtime from configuration of the mesh.
   string root_namespace = 34;
 
   // Locality based load balancing distribution or failover settings.
@@ -282,8 +288,37 @@ message MeshConfig {
   // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
   google.protobuf.Duration dns_refresh_rate = 36;
 
+  // The flag to disable report batch.
+  bool disable_report_batch = 37;
+
+  // When disable_report_batch is false, this value specifies the maximum number
+  // of requests that are batched in report. If left unspecified, the default value
+  // of report_batch_max_entries == 0 will use the hardcoded defaults of
+  // istio::mixerclient::ReportOptions.
+  uint32 report_batch_max_entries = 38;
+
+  // When disable_report_batch is false, this value specifies the maximum elapsed
+  // time a batched report will be sent after a user request is processed. If left
+  // unspecified, the default report_batch_max_time == 0 will use the hardcoded
+  // defaults of istio::mixerclient::ReportOptions.
+  google.protobuf.Duration report_batch_max_time = 39;
+
+  // Default Policy for upgrading http1.1 connections to http2.
+  enum H2UpgradePolicy {
+    // Do not upgrade connections to http2.
+    DO_NOT_UPGRADE = 0;
+    // Upgrade the connections to http2.
+    UPGRADE = 1;
+  }
+
+  // Specify if http1.1 connections should be upgraded to http2 by default.
+  // if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+  // If one or more services or namespaces do not have sidecar(s), then this should be set to DO_NOT_UPGRADE.
+  // It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.
+  H2UpgradePolicy h2_upgrade_policy = 41;
+
   // $hide_from_docs
-  // Next available field number: 37
+  // Next available field number: 43
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -307,7 +342,7 @@ message ConfigSource {
 // traffic originates and where it will terminate. These localities are
 // specified using arbitrary labels that designate a hierarchy of localities in
 // {region}/{zone}/{sub-zone} form. For additional detail refer to
-// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
 // The following example shows how to setup locality weights mesh-wide.
 //
 // Given a mesh with workloads and their service deployed to "us-west/zone1/*"
@@ -385,7 +420,7 @@ message LocalityLoadBalancerSetting{
 
   // Optional: only one of distribute or failover can be set.
   // Explicitly specify loadbalancing weight across different zones and geographical locations.
-  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
   // If empty, the locality weight is set according to the endpoints number within it.
   repeated Distribute distribute = 1;
 

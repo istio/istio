@@ -42,24 +42,12 @@ export OWNER="${OWNER:-e2e-suite}"
 export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
-
+export HUB=${HUB:-"gcr.io/istio-testing"}
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-setup_e2e_cluster
-
-if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
-   cni_run_daemon
+if [[ $HUB == *"istio-testing"* ]]; then
+  setup_and_export_git_sha
 fi
-
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-# e2e tests on prow use clusters borrowed from boskos, which cleans up the
-# clusters. There is no need to cleanup in the test jobs.
-E2E_ARGS+=("--skip_cleanup")
-
-export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${TAG:-${GIT_SHA}}"
-
-make init
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
@@ -72,11 +60,50 @@ for ((i=1; i<=$#; i++)); do
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
         continue
         ;;
+        --variant) ((i++)); VARIANT="${!i}"
+        continue
+        ;;
     esac
     E2E_ARGS+=( "${!i}" )
 done
 
+export TAG="${TAG:-${GIT_SHA}}"
+
+if [[ $HUB == *"istio-testing"* ]]; then
+  export TAG="${TAG:-${GIT_SHA}}"-"${SINGLE_TEST}"
+fi
+
+make init
+
+if [[ $HUB == *"istio-testing"* ]]; then
+  # upload images
+  time ISTIO_DOCKER_HUB="${HUB}" make docker.push HUB="${HUB}" TAG="${TAG}" DOCKER_BUILD_VARIANTS="${VARIANT:-default}"
+fi
+
+if [[ "${SETUP_CLUSTER:-true}" == true ]]; then
+  echo "Setup cluster."
+  date
+  setup_e2e_cluster
+  # e2e tests on prow use clusters borrowed from boskos, which cleans up the
+  # clusters. There is no need to cleanup in the test jobs.
+  E2E_ARGS+=("--skip_cleanup")
+else
+  if [[ -z $KUBECONFIG ]]; then
+    echo "Please specify a KUBECONFIG to run the tests."
+    exit 1
+  fi
+  ARTIFACTS=${ARTIFACTS:-/tmp}
+fi
+
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
+   cni_run_daemon
+fi
+
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
+
+echo "Run test."
+date
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
-  JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+  JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
+  make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

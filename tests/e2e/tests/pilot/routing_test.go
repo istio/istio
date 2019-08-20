@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 func TestRoutes(t *testing.T) {
@@ -245,7 +245,7 @@ func TestRoutes(t *testing.T) {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
 					runRetriableTest(t, testName, 5, func() error {
 						reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
-						resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
+						resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("--key %s --val %s", c.headerKey, c.headerVal))
 						count := make(map[string]int)
 						for _, elt := range resp.Version {
 							count[elt]++
@@ -298,7 +298,7 @@ func TestRouteFaultInjection(t *testing.T) {
 			reqURL := "http://c/a"
 
 			start := time.Now()
-			resp := ClientRequest(cluster, "a", reqURL, 1, "-key version -val v2")
+			resp := ClientRequest(cluster, "a", reqURL, 1, "--key version --val v2")
 			elapsed := time.Since(start)
 
 			statusCode := ""
@@ -338,7 +338,7 @@ func TestRouteRedirectInjection(t *testing.T) {
 			targetPath := "/new/path"
 
 			reqURL := "http://c/a"
-			resp := ClientRequest(cluster, "a", reqURL, 1, "-key testredirect -val enabled")
+			resp := ClientRequest(cluster, "a", reqURL, 1, "--key testredirect --val enabled")
 			if !resp.IsHTTPOk() {
 				return fmt.Errorf("redirect failed: response status code: %v, expected 200", resp.Code)
 			}
@@ -381,7 +381,7 @@ func TestRouteMirroring(t *testing.T) {
 	reqURL := "http://c/a"
 	for cluster := range tc.Kube.Clusters {
 		for i := 1; i <= 100; i++ {
-			resp := ClientRequest(cluster, "a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+			resp := ClientRequest(cluster, "a", reqURL, 1, fmt.Sprintf("--key X-Request-Id --val %d", i))
 			logEntry := fmt.Sprintf("HTTP request from a in %s cluster to c.istio-system.svc.cluster.local:80", cluster)
 			if len(resp.ID) > 0 {
 				id := resp.ID[0]
@@ -411,7 +411,7 @@ func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "v1alpha3", 5, func() error {
 			reqURL := "http://c/a"
-			resp := ClientRequest(cluster, "a", reqURL, 1, "-key envoyfilter-test -val foobar123")
+			resp := ClientRequest(cluster, "a", reqURL, 1, "--key envoyfilter-test --val foobar123")
 
 			statusCode := ""
 			if len(resp.Code) > 0 {
@@ -521,7 +521,7 @@ func TestHeadersManipulations(t *testing.T) {
 				"dst-res-replace:to-be-replaced," +
 				"dst-res-remove:to-be-removed"
 
-			extra := "-headers istio-custom-req-header-remove:to-be-removed," +
+			extra := "--headers istio-custom-req-header-remove:to-be-removed," +
 				"istio-custom-dest-req-header-remove:to-be-removed," +
 				"req-append:sent-by-client," +
 				"req-replace:to-be-replaced," +
@@ -863,21 +863,24 @@ func TestSidecarScope(t *testing.T) {
 			reachable: false,
 		},
 		{
-			testName:    "ns1: http://bookinfo.com:9999 reachable",
-			reqURL:      "http://127.255.0.1:9999/a",
+			testName: "ns1: http://bookinfo.com:9999 reachable",
+			// Assume bookinfo.com is resolved to 192.0.2.1
+			reqURL:      "http://192.0.2.1:9999/a",
 			host:        "bookinfo.com:9999",
 			expectedHdr: regexp.MustCompile("(?i) scope=public"),
 			reachable:   true,
 		},
 		{
-			testName:  "ns1: http://private.com:9999 not reachable",
-			reqURL:    "http://127.255.0.1:9999/a",
+			testName: "ns1: http://private.com:9999 not reachable",
+			// Assume private.com is resolved to 192.0.2.2
+			reqURL:    "http://192.0.2.2:9999/a",
 			host:      "private.com:9999",
 			reachable: false,
 		},
 		{
-			testName:  "ns2: service.tcp.com:8888 reachable",
-			reqURL:    "http://127.255.255.11:8888/a",
+			testName: "ns2: service.tcp.com:8888 reachable",
+			// Assume tcp.com is resolved to 192.0.2.255 which is defined in service-entry-tcp-scope-public.yaml
+			reqURL:    "http://192.0.2.255:8888/a",
 			host:      "tcp.com",
 			reachable: true,
 		},
@@ -894,7 +897,7 @@ func TestSidecarScope(t *testing.T) {
 			for cluster := range tc.Kube.Clusters {
 				testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
 				runRetriableTest(t, testName, 5, func() error {
-					resp := ClientRequest(cluster, "a", c.reqURL, 1, fmt.Sprintf("-key Host -val %s", c.host))
+					resp := ClientRequest(cluster, "a", c.reqURL, 1, fmt.Sprintf("--key Host --val %s", c.host))
 					if c.reachable && !resp.IsHTTPOk() {
 						return fmt.Errorf("cannot reach %s, %v", c.reqURL, resp.Code)
 					}

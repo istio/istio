@@ -17,12 +17,17 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	mixerpb "istio.io/api/mixer/v1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestSessionPool(t *testing.T) {
@@ -123,4 +128,127 @@ func TestSession_EnsureParallelism(t *testing.T) {
 	if cap(s.completed) < 11 {
 		t.Fail()
 	}
+}
+
+func TestDirectResponse(t *testing.T) {
+	testcases := []struct {
+		desc      string
+		status    rpc.Status
+		response  *descriptor.DirectHttpResponse
+		directive *mixerpb.RouteDirective
+	}{
+		{
+			desc:     "status success, no directives",
+			status:   rpc.Status{Code: int32(rpc.OK)},
+			response: &descriptor.DirectHttpResponse{},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusOK,
+			},
+		},
+		{
+			desc:     "fallback to RPC response code (translated to http)",
+			status:   rpc.Status{Code: int32(rpc.UNAUTHENTICATED)},
+			response: &descriptor.DirectHttpResponse{},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusUnauthorized,
+			},
+		},
+		{
+			desc:   "response status has precedence over RPC",
+			status: rpc.Status{Code: int32(rpc.UNIMPLEMENTED)},
+			response: &descriptor.DirectHttpResponse{
+				Code: http.StatusMovedPermanently,
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+			},
+		},
+		{
+			desc: "body is set",
+			response: &descriptor.DirectHttpResponse{
+				Code: http.StatusOK,
+				Body: "OK!",
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusOK,
+				DirectResponseBody: "OK!",
+			},
+		},
+		{
+			desc: "headers added",
+			response: &descriptor.DirectHttpResponse{
+				Code:    http.StatusMovedPermanently,
+				Headers: map[string]string{"Location": "URL"},
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+				ResponseHeaderOperations: []mixerpb.HeaderOperation{
+					{
+						Operation: mixerpb.REPLACE,
+						Name:      "Location",
+						Value:     "URL",
+					},
+				},
+			},
+		},
+		{
+			desc: "multiline set-cookie header",
+			response: &descriptor.DirectHttpResponse{
+				Code:    http.StatusMovedPermanently,
+				Headers: map[string]string{"Location": "URL", "Set-Cookie": "c1=1; Secure; HttpOnly;,c2=2"},
+			},
+			directive: &mixerpb.RouteDirective{
+				DirectResponseCode: http.StatusMovedPermanently,
+				ResponseHeaderOperations: []mixerpb.HeaderOperation{
+					{
+						Operation: mixerpb.REPLACE,
+						Name:      "Location",
+						Value:     "URL",
+					},
+					{
+						Operation: mixerpb.APPEND,
+						Name:      "Set-Cookie",
+						Value:     "c1=1; Secure; HttpOnly;",
+					},
+					{
+						Operation: mixerpb.APPEND,
+						Name:      "Set-Cookie",
+						Value:     "c2=2",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		s := &session{}
+		s.handleDirectResponse(tc.status, tc.response)
+		if s.checkResult.RouteDirective.DirectResponseCode != tc.directive.DirectResponseCode ||
+			s.checkResult.RouteDirective.DirectResponseBody != tc.directive.DirectResponseBody ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.RequestHeaderOperations, tc.directive.RequestHeaderOperations) ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.ResponseHeaderOperations, tc.directive.ResponseHeaderOperations) {
+			t.Fatalf("route directive mismatch in %s '%+v' != '%+v'", tc.desc, s.checkResult.RouteDirective, tc.directive)
+		}
+	}
+}
+
+func equalHeaderOperations(actual, expected []mixerpb.HeaderOperation) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	delta := make(map[mixerpb.HeaderOperation]int)
+
+	for _, ex := range expected {
+		delta[ex]++
+	}
+	for _, h := range actual {
+		if _, ok := delta[h]; !ok {
+			return false
+		}
+		delta[h]--
+		if delta[h] == 0 {
+			delete(delta, h)
+		}
+	}
+	return len(delta) == 0
 }

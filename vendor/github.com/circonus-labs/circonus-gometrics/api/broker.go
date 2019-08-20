@@ -18,6 +18,7 @@ import (
 
 // BrokerDetail defines instance attributes
 type BrokerDetail struct {
+	ClusterIP    *string  `json:"cluster_ip"`               // string or null
 	CN           string   `json:"cn"`                       // string
 	ExternalHost *string  `json:"external_host"`            // string or null
 	ExternalPort uint16   `json:"external_port"`            // uint16

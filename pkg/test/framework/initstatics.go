@@ -18,4 +18,5 @@ import (
 	// Import all packages that have static initializers.
 	_ "istio.io/istio/pkg/test/framework/components/deployment"
 	_ "istio.io/istio/pkg/test/framework/components/environment/kube"
+	_ "istio.io/istio/pkg/test/framework/components/istio"
 )

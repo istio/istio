@@ -29,11 +29,11 @@ import (
 
 	"go.uber.org/multierr"
 
-	"istio.io/istio/pilot/pkg/kube/inject"
 	util2 "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -364,6 +364,8 @@ func getApps() []framework.App {
 		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
 		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
+
+		getJob("test-job", true),
 	}
 }
 
@@ -376,8 +378,8 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 	return framework.App{
 		AppYamlTemplate: "testdata/app.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"deployment":      deploymentName,
 			"replicas":        strconv.Itoa(replicas),
@@ -388,7 +390,6 @@ func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, p
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
-			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"headless":        strconv.FormatBool(headless),
 			"serviceAccount":  strconv.FormatBool(serviceAccount),
@@ -418,6 +419,18 @@ func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 	}
 }
 
+func getJob(jobName string, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/job.yaml",
+		Template: map[string]string{
+			"name": jobName,
+		},
+		KubeInject: injectProxy,
+	}
+}
+
 // ClientRequestForError makes a request from inside the specified k8s container. The request is expected
 // to fail and the error is returned.
 func ClientRequestForError(cluster, app, url string, count int) error {
@@ -428,7 +441,7 @@ func ClientRequestForError(cluster, app, url string, count int) error {
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d", url, count)
+	cmd := fmt.Sprintf("client --url %s --count %d", url, count)
 	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	return err
 }
@@ -444,7 +457,7 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)

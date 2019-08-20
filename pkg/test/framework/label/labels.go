@@ -15,13 +15,29 @@
 package label
 
 const (
-	// Presubmit indicates that the test should be run as part of a presubmit run.
-	Presubmit Instance = "presubmit"
-
-	// Postsubmit indicates that the test should be run as part of a postsubmit run.
+	// Postsubmit indicates that the test should be run as part of a postsubmit run only.
 	Postsubmit Instance = "postsubmit"
+
+	// CustomSetup indicates that the test requires a custom Istio installation.
+	CustomSetup Instance = "customsetup"
+
+	// Flaky indicates that a test is currently flaky and should not be run as part
+	// of presubmit or postsubmit. When a test is determined to be Flaky, a github
+	// issue should be created to fix the test.
+	Flaky Instance = "flaky"
 )
 
 var all = NewSet(
-	Presubmit,
-	Postsubmit)
+	Postsubmit,
+	CustomSetup,
+	Flaky)
+
+// Find the label with the given name
+func Find(name string) (Instance, bool) {
+	candidate := Instance(name)
+	if _, ok := all[candidate]; ok {
+		return candidate, true
+	}
+
+	return Instance(""), false
+}

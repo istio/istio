@@ -23,16 +23,18 @@ import (
 	"net"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	grpcstatus "google.golang.org/grpc/status"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
+	attr "istio.io/pkg/attribute"
 )
 
 // DefaultAmount is the default quota amount to use in testing (1).
@@ -142,7 +144,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 	if result.ReferencedAttributes == nil {
 		result.ReferencedAttributes = requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 	}
-	requestBag.ClearReferencedAttributes()
+	requestBag.Clear()
 
 	resp := &mixerpb.CheckResponse{Precondition: result}
 
@@ -172,7 +174,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 				qr.ReferencedAttributes = *requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 			}
 			resp.Quotas[name] = qr
-			requestBag.ClearReferencedAttributes()
+			requestBag.Clear()
 		}
 	}
 	return resp, nil
@@ -203,7 +205,7 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 	}
 
 	protoBag := attribute.GetProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
-	requestBag := attribute.GetMutableBag(protoBag)
+	requestBag := attr.GetMutableBag(protoBag)
 	defer requestBag.Done()
 	defer protoBag.Done()
 
@@ -212,7 +214,7 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 	for i := 1; i < len(req.Attributes); i++ {
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
-		if err := requestBag.UpdateBagFromProto(&req.Attributes[i], attribute.GlobalList()); err != nil {
+		if err := attribute.UpdateBagFromProto(requestBag, &req.Attributes[i], attribute.GlobalList()); err != nil {
 			return &mixerpb.ReportResponse{}, fmt.Errorf("could not apply attribute delta: %v", err)
 		}
 

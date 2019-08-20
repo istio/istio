@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/adapter/memquota/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/quota"
@@ -207,19 +208,9 @@ func (h *handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "memquota",
-		Impl:        "istio.io/istio/mixer/adapter/memquota",
-		Description: "Volatile memory-based quota tracking",
-		SupportedTemplates: []string{
-			quota.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			MinDeduplicationDuration: 1 * time.Second,
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("memquota")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

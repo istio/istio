@@ -30,9 +30,9 @@ type RulesMatcher struct {
 // GetRules checks path absp and decides whether absp is a test file. It returns true and test type
 // for a test file. If path absp should be skipped, it returns false.
 func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
-	// Skip path which is not go test file or is a directory.
+	// Skip path which is a directory, a go test file, or not a go file at all.
 	paths := strings.Split(absp, "/")
-	if len(paths) == 0 || info.IsDir() || strings.HasSuffix(absp, "_test.go") {
+	if len(paths) == 0 || info.IsDir() || strings.HasSuffix(absp, "_test.go") || !strings.HasSuffix(absp, ".go") {
 		return []checker.Rule{}
 	}
 

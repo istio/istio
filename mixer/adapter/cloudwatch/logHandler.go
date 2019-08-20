@@ -24,8 +24,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/logentry"
+	"istio.io/pkg/pool"
 )
 
 const (

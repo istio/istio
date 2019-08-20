@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/util/wait"
+	"istio.io/pkg/log"
+	"istio.io/pkg/timedfn"
 )
 
 const (
@@ -71,7 +71,10 @@ func TestProcessor_Start_Error(t *testing.T) {
 	defer restoreLogLevel(prevLevel)
 
 	distributor := snapshot.New(groups.IndexFunction)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &Config{
+		Mesh:   meshconfig.NewInMemory(),
+		Schema: resources.TestSchema,
+	}
 	p := NewProcessor(&erroneousSource{}, distributor, cfg)
 
 	err := p.Start()
@@ -194,7 +197,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait for up to 5 seconds.
-	if err := wait.WithTimeout(processCallCount.Wait, timeout); err != nil {
+	if err := timedfn.WithTimeout(processCallCount.Wait, timeout); err != nil {
 		t.Fatal(err)
 	}
 
@@ -211,7 +214,7 @@ func awaitFullSync(t *testing.T, p *Processor) {
 
 func newTestProcessor(src Source, stateStrategy *publish.Strategy,
 	distributor Distributor, hookFn postProcessHookFn) *Processor {
-	return newProcessor(src, cfg, resources.TestSchema, stateStrategy, distributor, hookFn)
+	return newProcessor(src, cfg, stateStrategy, distributor, hookFn)
 }
 
 func setDebugLogLevel() log.Level {
@@ -222,4 +225,29 @@ func setDebugLogLevel() log.Level {
 
 func restoreLogLevel(level log.Level) {
 	runtimeLog.Scope.SetOutputLevel(level)
+}
+
+func TestProcessor_MeshConfig(t *testing.T) {
+	distributor := snapshot.New(groups.IndexFunction)
+	src := NewInMemorySource()
+	b := resource.NewSchemaBuilder()
+	b.RegisterSchema(resources.TestSchema)
+	b.Register(
+		"istio/mesh/v1alpha1/MeshConfig",
+		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
+	types := b.Build()
+	i := types.Get("istio/mesh/v1alpha1/MeshConfig")
+
+	cfg := &Config{
+		Mesh:   meshconfig.NewInMemory(),
+		Schema: types,
+	}
+	p := NewProcessor(src, distributor, cfg)
+	st, ok := p.state.getResourceTypeState(i.Collection)
+	if ok != true {
+		t.Fatalf("Could not get resource type state")
+	}
+	if st.version != 1 {
+		t.Errorf("Meshconfig version not set")
+	}
 }

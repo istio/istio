@@ -25,8 +25,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
+	"istio.io/pkg/attribute"
 )
 
 type (
@@ -222,7 +222,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			var m attribute.StringMap
 			val, ok := dv.out.Get(name)
 			if !ok {
-				m = attribute.NewStringMap(name)
+				m = attribute.NewStringMap(name, make(map[string]string, 1), nil)
 			} else {
 				m = val.(attribute.StringMap)
 			}

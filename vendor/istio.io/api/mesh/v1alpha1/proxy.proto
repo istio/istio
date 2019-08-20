@@ -15,6 +15,8 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
+import "networking/v1alpha3/destination_rule.proto";
 
 package istio.mesh.v1alpha1;
 
@@ -66,6 +68,26 @@ message Tracing {
     string address = 1;
   }
 
+  // Stackdriver defines configuration for a Stackdriver tracer.
+  // See [Opencensus trace config](https://github.com/census-instrumentation/opencensus-proto/blob/master/src/opencensus/proto/trace/v1/trace_config.proto) for details.
+  message Stackdriver {
+    // debug enables trace output to stdout.
+    // $hide_from_docs
+    bool debug = 1;
+    // The global default max number of attributes per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_attributes = 2;
+    // The global default max number of annotation events per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_annotations = 3;
+    // The global default max number of message events per span.
+    // default is 200.
+    // $hide_from_docs
+    google.protobuf.Int64Value max_number_of_message_events = 4;
+  }
+
   // The tracer implementation to be used by Envoy.
   oneof tracer {
     // Use a Zipkin tracer.
@@ -74,6 +96,8 @@ message Tracing {
     Lightstep lightstep = 2;
     // Use a Datadog tracer.
     Datadog datadog = 3;
+    // Use a Stackdriver tracer.
+    Stackdriver stackdriver = 4;
   }
 }
 
@@ -137,10 +161,8 @@ message ProxyConfig {
   // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
   string statsd_udp_address = 10;
 
-  // Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
-  // See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto)
-  // for details about Envoy's Metrics Service API.
-  string envoy_metrics_service_address = 20;
+  // $hide_from_docs
+  string envoy_metrics_service_address = 20 [deprecated=true];
 
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
@@ -190,4 +212,30 @@ message ProxyConfig {
 
   // secret discovery service(SDS) configuration to be used by the proxy.
   SDS sds = 21;
+
+  // Address of the service to which access logs from Envoys should be
+  // sent. (e.g. accesslog-service:15000). See [Access Log
+  // Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto)
+  // for details about Envoy's gRPC Access Log Service API.
+  RemoteService envoy_access_log_service = 22;
+
+  // Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+  // See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto)
+  // for details about Envoy's Metrics Service API.
+  RemoteService envoy_metrics_service = 23;
+}
+
+message RemoteService {
+  // Address of a remove service used for various purposes (access log
+  // receiver, metrics receiver, etc.). Can be IP address or a fully
+  // qualified DNS name.
+  string address = 1;
+
+  // Use the tls_settings to specify the tls mode to use. If the remote service
+  // uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+  // mode as `ISTIO_MUTUAL`.
+  istio.networking.v1alpha3.TLSSettings tls_settings = 2;
+
+  // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+  istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 3;
 }

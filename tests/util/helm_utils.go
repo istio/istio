@@ -18,7 +18,7 @@ import (
 	"context"
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // HelmInit init helm with a service account
@@ -102,4 +102,11 @@ func HelmTillerRunning() error {
 	}
 	log.Infof("Tiller is running")
 	return nil
+}
+
+// HelmFetch will fetch the charts from the provided repo. It is assumed the repo itself has
+// already been added.
+func HelmFetch(chartRepo, chartDir string) error {
+	_, err := Shell("helm fetch --untar --untardir " + chartDir + " " + chartRepo)
+	return err
 }

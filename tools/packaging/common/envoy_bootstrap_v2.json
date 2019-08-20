@@ -54,10 +54,20 @@
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
-          {{- range $a, $s := .inclusionPatterns }}
-            {
-              "prefix": "{{$s}}"
-            },
+          {{- range $a, $s := .inclusionPrefix }}
+          {
+          "prefix": "{{$s}}"
+          },
+          {{- end }}
+          {{- range $a, $s := .inclusionSuffix }}
+          {
+          "suffix": "{{$s}}"
+          },
+          {{- end }}
+          {{- range $a, $s := .inclusionRegexps }}
+          {
+          "regex": "{{js $s}}"
+          },
           {{- end }}
         ]
       }
@@ -67,7 +77,7 @@
     "access_log_path": "/dev/null",
     "address": {
       "socket_address": {
-        "address": "127.0.0.1",
+        "address": "{{ .localhost }}",
         "port_value": {{ .config.ProxyAdminPort }}
       }
     }
@@ -101,7 +111,7 @@
           {
             "socket_address": {
               "protocol": "TCP",
-              "address": "127.0.0.1",
+              "address": "{{ .localhost }}",
               "port_value": {{ .config.ProxyAdminPort }}
             }
           }
@@ -110,7 +120,8 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-        "dns_lookup_family": "V4_ONLY",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
         {{ if eq .config.ControlPlaneAuthPolicy 1 }}
@@ -175,7 +186,8 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-        "dns_lookup_family": "V4_ONLY",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -203,7 +215,9 @@
           }
         },
         {{ end }}
-        "type": "LOGICAL_DNS",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -218,6 +232,8 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
@@ -231,12 +247,37 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-        "dns_lookup_family": "V4_ONLY",
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
         "hosts": [
           {
             "socket_address": {{ .envoy_metrics_service }}
+          }
+        ]
+      }
+      {{ end }}
+      {{ if .envoy_accesslog_service_address }}
+      ,
+      {
+        "name": "envoy_accesslog_service",
+        "type": "STRICT_DNS",
+      {{ if .envoy_accesslog_service_tls }}
+        "tls_context": {{ .envoy_accesslog_service_tls }},
+      {{ end }}
+      {{ if .envoy_accesslog_service_tcp_keepalive }}
+        "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
+      {{ end }}
+        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "http2_protocol_options": {},
+        "hosts": [
+          {
+            "socket_address": {{ .envoy_accesslog_service_address }}
           }
         ]
       }
@@ -247,7 +288,7 @@
         "address": {
           "socket_address": {
             "protocol": "TCP",
-            "address": "0.0.0.0",
+            "address": "{{ .wildcard }}",
             "port_value": 15090
           }
         },
@@ -325,6 +366,28 @@
       }
     }
   }
+  {{ else if .stackdriver }}
+  ,
+  "tracing": {
+    "http": {
+      "name": "envoy.tracers.opencensus",
+      "config": {
+      "stackdriver_exporter_enabled": true,
+      "stackdriver_project_id": "{{ .stackdriverProjectID }}",
+      "stdout_exporter_enabled": {{ .stackdriverDebug }},
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "trace_config":{
+        "constant_sampler":{
+          "decision": "ALWAYS_PARENT"
+        },
+        "max_number_of_annotations": {{ .stackdriverMaxAnnotations }},
+        "max_number_of_attributes": {{ .stackdriverMaxAttributes }},
+        "max_number_of_message_events": {{ .stackdriverMaxEvents }},
+        "max_number_of_links": 200,
+       }
+     }
+  }}
   {{ end }}
   {{ if or .envoy_metrics_service .statsd }}
   ,

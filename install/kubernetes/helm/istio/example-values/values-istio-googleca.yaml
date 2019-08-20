@@ -9,9 +9,10 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
-    useTrustworthyJwt: true 
 
   trustDomain: ""
+
+  useMCP: true
 
 nodeagent:
   enabled: true
@@ -20,3 +21,4 @@ nodeagent:
     CA_PROVIDER: "GoogleCA"
     CA_ADDR: "istioca.googleapis.com:443"
     Plugins: "GoogleTokenExchange"
+    GKE_CLUSTER_URL: ""

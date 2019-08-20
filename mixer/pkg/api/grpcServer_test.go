@@ -23,18 +23,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/loadshedding"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
@@ -182,7 +184,7 @@ func TestCheck(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": 25.0,
 		"A2": 26.0,
 		"A3": 27.0,
@@ -285,7 +287,7 @@ func TestCheckCachedDenial(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": 25.0,
 		"A2": 26.0,
 		"A3": 27.0,
@@ -320,7 +322,7 @@ func TestCheckCachedAllow(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": 25.0,
 		"A2": 26.0,
 		"A3": 27.0,
@@ -360,7 +362,7 @@ func TestCheckQuota(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": 25.0,
 		"A2": 26.0,
 		"A3": 27.0,
@@ -460,18 +462,18 @@ func TestReportDelta(t *testing.T) {
 	}
 
 	// test out delta encoding of attributes
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": int64(25),
 		"A2": int64(26),
 		"A3": int64(27),
 		"A4": int64(28),
 	})
 
-	attr1 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr1 := attr.GetProtoForTesting(map[string]interface{}{
 		"A2": int64(42),
 	})
 
-	attr2 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr2 := attr.GetProtoForTesting(map[string]interface{}{
 		"A4": int64(31415692),
 	})
 
@@ -582,18 +584,18 @@ func TestReportIndependent(t *testing.T) {
 	}
 
 	// test out delta encoding of attributes
-	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr0 := attr.GetProtoForTesting(map[string]interface{}{
 		"A1": int64(25),
 		"A2": int64(26),
 		"A3": int64(27),
 		"A4": int64(28),
 	})
 
-	attr1 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr1 := attr.GetProtoForTesting(map[string]interface{}{
 		"A2": int64(42),
 	})
 
-	attr2 := attribute.GetProtoForTesting(map[string]interface{}{
+	attr2 := attr.GetProtoForTesting(map[string]interface{}{
 		"A4": int64(31415692),
 	})
 

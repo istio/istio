@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
@@ -29,21 +31,25 @@ import (
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
 
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
-	be := policybackend.NewOrFail(t, ctx)
+			g := galley.NewOrFail(t, ctx, galley.Config{})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
+			be := policybackend.NewOrFail(t, ctx)
 
-	ns := namespace.NewOrFail(t, ctx, "mixreport", false)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "mixreport",
+			})
 
-	g.ApplyConfigOrFail(t,
-		ns,
-		testReportConfig,
-		be.CreateConfigSnippet("handler1", ns.Name()))
+			g.ApplyConfigOrFail(t,
+				ns,
+				testReportConfig,
+				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
-	expected := tmpl.EvaluateOrFail(t, `
+			expected := tmpl.EvaluateOrFail(t, `
 {
   "name": "metric1.instance.{{.TestNamespace}}",
   "value": {
@@ -62,25 +68,26 @@ func TestMixer_Report_Direct(t *testing.T) {
 }
 `, map[string]string{"TestNamespace": ns.Name()})
 
-	retry.UntilSuccessOrFail(t, func() error {
-		mxr.Report(t, map[string]interface{}{
-			"context.protocol":      "http",
-			"destination.uid":       "somesrvcname",
-			"destination.namespace": ns.Name(),
-			"response.time":         time.Now(),
-			"request.time":          time.Now(),
-			"destination.service":   "svc." + ns.Name(),
-			"origin.ip":             []byte{1, 2, 3, 4},
+			retry.UntilSuccessOrFail(t, func() error {
+				mxr.Report(t, map[string]interface{}{
+					"context.protocol":      "http",
+					"destination.uid":       "somesrvcname",
+					"destination.namespace": ns.Name(),
+					"response.time":         time.Now(),
+					"request.time":          time.Now(),
+					"destination.service":   "svc." + ns.Name(),
+					"origin.ip":             []byte{1, 2, 3, 4},
+				})
+
+				reports := be.GetReports(t)
+
+				if !policybackend.ContainsReportJSON(t, reports, expected) {
+					return fmt.Errorf("expected report not found in current reports: %v", reports)
+				}
+
+				return nil
+			}, retry.Delay(15*time.Second), retry.Timeout(60*time.Second))
 		})
-
-		reports := be.GetReports(t)
-
-		if !policybackend.ContainsReportJSON(t, reports, expected) {
-			return fmt.Errorf("expected report not found in current reports: %v", reports)
-		}
-
-		return nil
-	})
 }
 
 var testReportConfig = `

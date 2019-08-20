@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 func TestTcpNonHeadlessPorts(t *testing.T) {
@@ -136,7 +136,7 @@ func TestTcpStatefulSets(t *testing.T) {
 func clientRequestFromStatefulSet(cluster, pod, url string, count int, extra string) ClientResponse {
 	out := ClientResponse{}
 
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, pod, cluster)

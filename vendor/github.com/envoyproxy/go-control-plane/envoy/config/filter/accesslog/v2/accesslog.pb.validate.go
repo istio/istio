@@ -332,6 +332,23 @@ func (m *AccessLogFilter) Validate() error {
 			}
 		}
 
+	case *AccessLogFilter_ExtensionFilter:
+
+		{
+			tmp := m.GetExtensionFilter()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return AccessLogFilterValidationError{
+						field:  "ExtensionFilter",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
 	default:
 		return AccessLogFilterValidationError{
 			field:  "FilterSpecifier",
@@ -1162,7 +1179,7 @@ func (m *ResponseFlagFilter) Validate() error {
 		if _, ok := _ResponseFlagFilter_Flags_InLookup[item]; !ok {
 			return ResponseFlagFilterValidationError{
 				field:  fmt.Sprintf("Flags[%v]", idx),
-				reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC URX SI]",
+				reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC URX SI IH]",
 			}
 		}
 
@@ -1245,6 +1262,7 @@ var _ResponseFlagFilter_Flags_InLookup = map[string]struct{}{
 	"DC":   {},
 	"URX":  {},
 	"SI":   {},
+	"IH":   {},
 }
 
 // Validate checks the field values on GrpcStatusFilter with the rules defined
@@ -1325,3 +1343,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GrpcStatusFilterValidationError{}
+
+// Validate checks the field values on ExtensionFilter with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *ExtensionFilter) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Name
+
+	switch m.ConfigType.(type) {
+
+	case *ExtensionFilter_Config:
+
+		{
+			tmp := m.GetConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ExtensionFilterValidationError{
+						field:  "Config",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	case *ExtensionFilter_TypedConfig:
+
+		{
+			tmp := m.GetTypedConfig()
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return ExtensionFilterValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ExtensionFilterValidationError is the validation error returned by
+// ExtensionFilter.Validate if the designated constraints aren't met.
+type ExtensionFilterValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ExtensionFilterValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ExtensionFilterValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ExtensionFilterValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ExtensionFilterValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ExtensionFilterValidationError) ErrorName() string { return "ExtensionFilterValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ExtensionFilterValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sExtensionFilter.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ExtensionFilterValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ExtensionFilterValidationError{}

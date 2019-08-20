@@ -297,7 +297,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: 'true'
+  match: 'true'
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -312,7 +312,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: needmorecheese
+  match: needmorecheese
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -410,7 +410,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: destination.name
+  match: destination.name
   actions:
   - handler: hcheck1.acheck
     instances:

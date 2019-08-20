@@ -13,8 +13,7 @@ func (cm *CheckManager) IsMetricActive(name string) bool {
 	cm.availableMetricsmu.Lock()
 	defer cm.availableMetricsmu.Unlock()
 
-	active, _ := cm.availableMetrics[name]
-	return active
+	return cm.availableMetrics[name]
 }
 
 // ActivateMetric determines if a given metric should be activated

@@ -48,7 +48,7 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	ns := icfg.SystemNamespace
+	ns := icfg.ConfigNamespace
 
 	fetchFn := env.NewSinglePodFetch(ns, "istio=pilot")
 	pods, err := env.WaitUntilPodsAreReady(fetchFn)

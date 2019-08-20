@@ -20,15 +20,17 @@ import (
 )
 
 const (
+	// ProdAddr is the production address.
 	ProdAddr = "logging.googleapis.com:443"
-	Version  = "0.2.0"
 )
 
+// LogPath creates a formatted path from a parent and a logID.
 func LogPath(parent, logID string) string {
 	logID = strings.Replace(logID, "/", "%2F", -1)
 	return fmt.Sprintf("%s/logs/%s", parent, logID)
 }
 
+// LogIDFromPath parses and returns the ID from a log path.
 func LogIDFromPath(parent, path string) string {
 	start := len(parent) + len("/logs/")
 	if len(path) < start {

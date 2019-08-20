@@ -13,14 +13,29 @@
 #   limitations under the License.
 
 # build a tcp-echo binary using the golang container
-FROM golang:1.11 as builder
+FROM golang:1.12 as builder
 WORKDIR /go/src/istio.io/tcp-echo-server/
 COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
 
-# copy the tcp-echo binary to a separate container based on scratch
-FROM scratch
+
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+# No tag available https://hub.docker.com/_/scratch?tab=description
+# hadolint ignore=DL3006
+FROM scratch as default
+
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
+
+# This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION}
 WORKDIR /bin/
+# copy the tcp-echo binary to a separate container based on BASE_DISTRIBUTION
 COPY --from=builder /go/src/istio.io/tcp-echo-server/tcp-echo .
 ENTRYPOINT [ "/bin/tcp-echo" ]
 CMD [ "9000", "hello" ]

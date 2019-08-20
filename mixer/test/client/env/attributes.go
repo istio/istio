@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 // TODO: remove duplicated code by change StringMap object to expose the whole map

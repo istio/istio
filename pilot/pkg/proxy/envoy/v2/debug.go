@@ -24,18 +24,20 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config/host"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
@@ -69,6 +71,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
 	ProxyVersion    string `json:"proxy_version,omitempty"`
+	IstioVersion    string `json:"istio_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -82,15 +85,15 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, _ *http.Request) {
-	syncz := []SyncStatus{}
+	syncz := make([]SyncStatus, 0)
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
-			proxyVersion, _ := con.modelNode.GetProxyVersion()
+			istioVersion, _ := con.modelNode.GetIstioVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
-				ProxyVersion:    proxyVersion,
+				IstioVersion:    istioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -108,7 +111,7 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
+		_, _ = fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -125,16 +128,16 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintln(w, "[")
+	_, _ = fmt.Fprintln(w, "[")
 	for _, svc := range all {
 		b, err := json.MarshalIndent(svc, "", "  ")
 		if err != nil {
 			return
 		}
 		_, _ = w.Write(b)
-		fmt.Fprintln(w, ",")
+		_, _ = fmt.Fprintln(w, ",")
 	}
-	fmt.Fprintln(w, "{}]")
+	_, _ = fmt.Fprintln(w, "{}]")
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
@@ -169,12 +172,12 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
+					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
 						svc.ServiceAccount)
 				}
@@ -184,32 +187,32 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc, _ := s.Env.ServiceDiscovery.Services()
-	fmt.Fprint(w, "[\n")
+	_, _ = fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 			if err != nil {
 				return
 			}
-			fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
+			_, _ = fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
 			for _, svc := range all {
 				b, err := json.MarshalIndent(svc, "  ", "  ")
 				if err != nil {
 					return
 				}
 				_, _ = w.Write(b)
-				fmt.Fprint(w, ",\n")
+				_, _ = fmt.Fprint(w, ",\n")
 			}
-			fmt.Fprint(w, "\n{}]},")
+			_, _ = fmt.Fprint(w, "\n{}]},")
 		}
 	}
-	fmt.Fprint(w, "\n{}]\n")
+	_, _ = fmt.Fprint(w, "\n{}]\n")
 }
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprintf(w, "\n[\n")
+	_, _ = fmt.Fprintf(w, "\n[\n")
 	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
 		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
 		for _, c := range cfg {
@@ -218,10 +221,10 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			_, _ = w.Write(b)
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		}
 	}
-	fmt.Fprint(w, "\n{}]")
+	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
 type authProtocol int
@@ -318,7 +321,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	connections, ok := adsSidecarIDConnectionsMap[proxyID]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, "\n[\n]")
+		_, _ = fmt.Fprint(w, "\n[\n]")
 		return
 	}
 	var mostRecentProxy *model.Proxy
@@ -329,7 +332,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 	}
 	mostRecentProxy = connections[mostRecent].modelNode
-	fmt.Fprintf(w, "\n[\n")
+	_, _ = fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
@@ -343,7 +346,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				mtls := authn_plugin.GetMutualTLS(policy)
+				mtls := authn_alpha1.GetMutualTLS(policy)
 				serverProtocol = getServerAuthProtocol(mtls)
 			} else {
 				serverProtocol = getServerAuthProtocol(nil)
@@ -372,10 +375,10 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
 				_, _ = w.Write(b)
 			}
-			fmt.Fprintf(w, ",\n")
+			_, _ = fmt.Fprintf(w, ",\n")
 		}
 	}
-	fmt.Fprint(w, "\n{}]")
+	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
 // adsz implements a status and debug interface for ADS.
@@ -386,7 +389,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 		adsClientsMutex.RLock()
-		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		adsClientsMutex.RUnlock()
 		return
 	}
@@ -425,7 +428,6 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
@@ -440,7 +442,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	out, err := model.LastPushStatus.JSON()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -455,25 +457,25 @@ func writeAllADS(w io.Writer) {
 	// Dirty json generation - because standard json is dirty (struct madness)
 	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
 	// better ways, but this is mainly for debugging.
-	fmt.Fprint(w, "[\n")
+	_, _ = fmt.Fprint(w, "[\n")
 	comma := false
 	for _, c := range adsClients {
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
-		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, "\"RDSRoutes\":[\n")
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
 		printRoutes(w, c)
-		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, "\"clusters\":[\n")
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
-		fmt.Fprint(w, "]}\n")
+		_, _ = fmt.Fprint(w, "]}\n")
 	}
-	fmt.Fprint(w, "]\n")
+	_, _ = fmt.Fprint(w, "]\n")
 }
 
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
@@ -505,20 +507,21 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	edsClusterMutex.RLock()
 	comma := false
 	if len(edsClusters) > 0 {
-		fmt.Fprintln(w, "[")
-		for _, eds := range edsClusters {
+		_, _ = fmt.Fprintln(w, "[")
+		for cluster := range edsClusters {
 			if comma {
-				fmt.Fprint(w, ",\n")
+				_, _ = fmt.Fprint(w, ",\n")
 			} else {
 				comma = true
 			}
+			cla := s.loadAssignmentsForClusterLegacy(s.globalPushContext(), cluster)
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			dbgString, _ := jsonm.MarshalToString(cla)
 			if _, err := w.Write([]byte(dbgString)); err != nil {
 				return
 			}
 		}
-		fmt.Fprintln(w, "]")
+		_, _ = fmt.Fprintln(w, "]")
 	} else {
 		w.WriteHeader(404)
 	}
@@ -533,19 +536,19 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 	adsClientsMutex.RLock()
 
-	fmt.Fprint(w, "[\n")
+	_, _ = fmt.Fprint(w, "[\n")
 	comma := false
 	for _, c := range adsClients {
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printClusters(w, c)
-		fmt.Fprint(w, "]}\n")
+		_, _ = fmt.Fprint(w, "]}\n")
 	}
-	fmt.Fprint(w, "]\n")
+	_, _ = fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
 }
@@ -558,7 +561,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
@@ -578,7 +581,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
@@ -598,7 +601,7 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}

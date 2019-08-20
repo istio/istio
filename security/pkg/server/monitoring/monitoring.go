@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,16 @@ import (
 	"net/http/pprof"
 	"time"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+)
+
+var (
+	monitorLog = log.RegisterScope("monitor", "metrics monitor debugging", 0)
 )
 
 // Monitor is the server that exposes Prometheus metrics about Citadel.
@@ -59,7 +63,7 @@ func NewMonitor(port int, enableProfiling bool) (*Monitor, error) {
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
-			log.Errorf("Unable to write version string: %v", err)
+			monitorLog.Errorf("Unable to write version string: %v", err)
 		}
 	})
 
@@ -87,7 +91,7 @@ func (m *Monitor) Start(errCh chan<- error) {
 		return
 	}
 
-	log.Info("Monitor server started.")
+	monitorLog.Info("Monitor server started.")
 	err := m.monitoringServer.Serve(listener)
 	errCh <- fmt.Errorf("monitor server error: %v", err)
 	close(m.closed)

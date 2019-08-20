@@ -11,10 +11,8 @@
           optional: true
       {{- if $.Values.global.sds.enabled }}
       - hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -22,7 +20,6 @@
               audience: {{ $.Values.global.trustDomain }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -33,6 +30,13 @@
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -160,12 +164,10 @@
           readOnly: true
         {{- if $.Values.global.sds.enabled }}
         - name: sds-uds-path
-          mountPath: /var/run/sds/uds_path
+          mountPath: /var/run/sds
           readOnly: true
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
-        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
@@ -177,6 +179,9 @@
 {{- define "telemetry_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -184,10 +189,8 @@
           optional: true
       {{- if $.Values.global.sds.enabled }}
       - hostPath:
-          path: /var/run/sds/uds_path
-          type: Socket
+          path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -195,7 +198,6 @@
               audience: {{ $.Values.global.trustDomain }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -206,6 +208,13 @@
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -339,12 +348,10 @@
           readOnly: true
         {{- if $.Values.global.sds.enabled }}
         - name: sds-uds-path
-          mountPath: /var/run/sds/uds_path
+          mountPath: /var/run/sds
           readOnly: true
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
-        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
@@ -375,8 +382,8 @@ spec:
 {{- end }}
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ $spec.rollingMaxSurge }}
+      maxUnavailable: {{ $spec.rollingMaxUnavailable }}
   selector:
     matchLabels:
       istio: mixer

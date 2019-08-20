@@ -68,9 +68,6 @@ func (m *CirconusMetrics) snapCounters() map[string]uint64 {
 	for n, f := range m.counterFuncs {
 		c[n] = f()
 	}
-	if m.resetCounters && len(c) > 0 {
-		m.counterFuncs = make(map[string]func() uint64)
-	}
 
 	return c
 }
@@ -92,9 +89,6 @@ func (m *CirconusMetrics) snapGauges() map[string]interface{} {
 
 	for n, f := range m.gaugeFuncs {
 		g[n] = f()
-	}
-	if m.resetGauges && len(g) > 0 {
-		m.gaugeFuncs = make(map[string]func() int64)
 	}
 
 	return g
@@ -135,9 +129,6 @@ func (m *CirconusMetrics) snapText() map[string]string {
 
 	for n, f := range m.textFuncs {
 		t[n] = f()
-	}
-	if m.resetText && len(t) > 0 {
-		m.textFuncs = make(map[string]func() string)
 	}
 
 	return t

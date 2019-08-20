@@ -27,6 +27,8 @@ spec:
     - uri:
         exact: /productpage
     - uri:
+        prefix: /static
+    - uri:
         exact: /login
     - uri:
         exact: /logout

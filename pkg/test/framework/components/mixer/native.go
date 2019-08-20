@@ -17,16 +17,17 @@ package mixer
 import (
 	"io"
 	"net"
-	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/server"
 	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -134,7 +135,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	//_, err = env.ServiceManager.Create(localServiceName, "", model.PortList{
 	//	&model.Port{
 	//		Name:     grpcPortName,
-	//		Protocol: model.ProtocolGRPC,
+	//		Protocol: protocol.GRPC,
 	//		Port:     port,
 	//	},
 	//})
@@ -149,11 +150,11 @@ func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 
-func (c *nativeComponent) Report(t testing.TB, attributes map[string]interface{}) {
+func (c *nativeComponent) Report(t test.Failer, attributes map[string]interface{}) {
 	c.client.Report(t, attributes)
 }
 
-func (c *nativeComponent) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
+func (c *nativeComponent) Check(t test.Failer, attributes map[string]interface{}) CheckResponse {
 	return c.client.Check(t, attributes)
 }
 

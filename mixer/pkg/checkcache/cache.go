@@ -37,7 +37,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/cache"
+	"istio.io/pkg/cache"
 )
 
 // Cache holds cached results of calls to Mixer.Check

@@ -54,7 +54,7 @@ func (m *ClusterLoadAssignment) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return ClusterLoadAssignmentValidationError{
@@ -178,6 +178,27 @@ func (m *ClusterLoadAssignment_Policy) Validate() error {
 			return ClusterLoadAssignment_PolicyValidationError{
 				field:  "OverprovisioningFactor",
 				reason: "value must be greater than 0",
+			}
+		}
+
+	}
+
+	if d := m.GetEndpointStaleAfter(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
+			return ClusterLoadAssignment_PolicyValidationError{
+				field:  "EndpointStaleAfter",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return ClusterLoadAssignment_PolicyValidationError{
+				field:  "EndpointStaleAfter",
+				reason: "value must be greater than 0s",
 			}
 		}
 

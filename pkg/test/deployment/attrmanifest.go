@@ -18,9 +18,9 @@ import (
 	"errors"
 	"strings"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // ExtractAttributeManifest extracts attribute manifest from Helm charts.
@@ -38,7 +38,7 @@ func ExtractAttributeManifest(workDir string) (string, error) {
 	}
 
 	// Split the template into chunks
-	parts := test.SplitConfigs(s)
+	parts := yml.SplitString(s)
 	for _, part := range parts {
 		// Yaml contains both the CR and the CRD. We only want CR.
 		if strings.Contains(part, "kind: attributemanifest") &&

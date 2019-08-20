@@ -67,7 +67,7 @@ func (m *VirtualHost) Validate() error {
 		{
 			tmp := item
 
-			if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 				if err := v.Validate(); err != nil {
 					return VirtualHostValidationError{
@@ -292,10 +292,19 @@ func (m *Route) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Name
+
+	if m.GetMatch() == nil {
+		return RouteValidationError{
+			field:  "Match",
+			reason: "value is required",
+		}
+	}
+
 	{
 		tmp := m.GetMatch()
 
-		if v, ok := interface{}(&tmp).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
 			if err := v.Validate(); err != nil {
 				return RouteValidationError{
@@ -393,6 +402,21 @@ func (m *Route) Validate() error {
 			}
 		}
 
+	}
+
+	{
+		tmp := m.GetTracing()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RouteValidationError{
+					field:  "Tracing",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
 	}
 
 	switch m.Action.(type) {
@@ -991,18 +1015,19 @@ func (m *RouteAction) Validate() error {
 		}
 	}
 
-	if d := m.GetIdleTimeout(); d != nil {
-		dur := *d
+	{
+		tmp := m.GetIdleTimeout()
 
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
 
-		if dur <= gt {
-			return RouteActionValidationError{
-				field:  "IdleTimeout",
-				reason: "value must be greater than 0s",
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
-
 	}
 
 	{
@@ -1122,6 +1147,21 @@ func (m *RouteAction) Validate() error {
 		}
 	}
 
+	{
+		tmp := m.GetGrpcTimeoutOffset()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					field:  "GrpcTimeoutOffset",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
 	for idx, item := range m.GetUpgradeConfigs() {
 		_, _ = idx, item
 
@@ -1225,6 +1265,9 @@ func (m *RouteAction) Validate() error {
 				}
 			}
 		}
+
+	case *RouteAction_AutoHostRewriteHeader:
+		// no validation rules for AutoHostRewriteHeader
 
 	}
 
@@ -1361,6 +1404,21 @@ func (m *RetryPolicy) Validate() error {
 	}
 
 	// no validation rules for HostSelectionRetryMaxAttempts
+
+	{
+		tmp := m.GetRetryBackOff()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return RetryPolicyValidationError{
+					field:  "RetryBackOff",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -1769,6 +1827,115 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = DecoratorValidationError{}
+
+// Validate checks the field values on Tracing with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *Tracing) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	{
+		tmp := m.GetClientSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "ClientSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
+		tmp := m.GetRandomSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "RandomSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
+		tmp := m.GetOverallSampling()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return TracingValidationError{
+					field:  "OverallSampling",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// TracingValidationError is the validation error returned by Tracing.Validate
+// if the designated constraints aren't met.
+type TracingValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TracingValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TracingValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TracingValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TracingValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TracingValidationError) ErrorName() string { return "TracingValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TracingValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTracing.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TracingValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TracingValidationError{}
 
 // Validate checks the field values on VirtualCluster with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
@@ -3172,6 +3339,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RetryPolicy_RetryHostPredicateValidationError{}
+
+// Validate checks the field values on RetryPolicy_RetryBackOff with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *RetryPolicy_RetryBackOff) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetBaseInterval() == nil {
+		return RetryPolicy_RetryBackOffValidationError{
+			field:  "BaseInterval",
+			reason: "value is required",
+		}
+	}
+
+	if d := m.GetBaseInterval(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return RetryPolicy_RetryBackOffValidationError{
+				field:  "BaseInterval",
+				reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
+	if d := m.GetMaxInterval(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return RetryPolicy_RetryBackOffValidationError{
+				field:  "MaxInterval",
+				reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// RetryPolicy_RetryBackOffValidationError is the validation error returned by
+// RetryPolicy_RetryBackOff.Validate if the designated constraints aren't met.
+type RetryPolicy_RetryBackOffValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RetryPolicy_RetryBackOffValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RetryPolicy_RetryBackOffValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RetryPolicy_RetryBackOffValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RetryPolicy_RetryBackOffValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RetryPolicy_RetryBackOffValidationError) ErrorName() string {
+	return "RetryPolicy_RetryBackOffValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RetryPolicy_RetryBackOffValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRetryPolicy_RetryBackOff.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RetryPolicy_RetryBackOffValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RetryPolicy_RetryBackOffValidationError{}
 
 // Validate checks the field values on RateLimit_Action with the rules defined
 // in the proto definition for this message. If any rules are violated, an

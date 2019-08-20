@@ -15,7 +15,6 @@
 package test
 
 import (
-	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -25,7 +24,7 @@ import (
 type Condition func() bool
 
 // Eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
-func Eventually(t *testing.T, name string, cond Condition) {
+func Eventually(t Failer, name string, cond Condition) {
 	t.Helper()
 	EventualOpts{backoff.NewExponentialBackOff()}.Eventually(t, name, cond)
 }
@@ -53,7 +52,7 @@ func NewEventualOpts(interval, deadline time.Duration) *EventualOpts {
 //
 // name is printed as part of the test failure message when we exceed the deadline to help identify the test case failing.
 // cond does not need to be thread-safe: it is only called from the current goroutine. cond itself can also fail the test early using t.Fatal.
-func (e EventualOpts) Eventually(t *testing.T, name string, cond Condition) {
+func (e EventualOpts) Eventually(t Failer, name string, cond Condition) {
 	t.Helper()
 
 	// Check once before we start polling.

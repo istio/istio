@@ -29,13 +29,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Azure/go-autorest/autorest/date"
-	"github.com/Azure/go-autorest/version"
+	"github.com/Azure/go-autorest/tracing"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -97,16 +96,25 @@ type RefresherWithContext interface {
 type TokenRefreshCallback func(Token) error
 
 // Token encapsulates the access token used to authorize Azure requests.
+// https://docs.microsoft.com/en-us/azure/active-directory/develop/v1-oauth2-client-creds-grant-flow#service-to-service-access-token-response
 type Token struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 
-	ExpiresIn string `json:"expires_in"`
-	ExpiresOn string `json:"expires_on"`
-	NotBefore string `json:"not_before"`
+	ExpiresIn json.Number `json:"expires_in"`
+	ExpiresOn json.Number `json:"expires_on"`
+	NotBefore json.Number `json:"not_before"`
 
 	Resource string `json:"resource"`
 	Type     string `json:"token_type"`
+}
+
+func newToken() Token {
+	return Token{
+		ExpiresIn: "0",
+		ExpiresOn: "0",
+		NotBefore: "0",
+	}
 }
 
 // IsZero returns true if the token object is zero-initialized.
@@ -116,12 +124,12 @@ func (t Token) IsZero() bool {
 
 // Expires returns the time.Time when the Token expires.
 func (t Token) Expires() time.Time {
-	s, err := strconv.Atoi(t.ExpiresOn)
+	s, err := t.ExpiresOn.Float64()
 	if err != nil {
 		s = -3600
 	}
 
-	expiration := date.NewUnixTimeFromSeconds(float64(s))
+	expiration := date.NewUnixTimeFromSeconds(s)
 
 	return time.Time(expiration).UTC()
 }
@@ -218,6 +226,8 @@ func (secret *ServicePrincipalCertificateSecret) SignJwt(spt *ServicePrincipalTo
 
 	token := jwt.New(jwt.SigningMethodRS256)
 	token.Header["x5t"] = thumbprint
+	x5c := []string{base64.StdEncoding.EncodeToString(secret.Certificate.Raw)}
+	token.Header["x5c"] = x5c
 	token.Claims = jwt.MapClaims{
 		"aud": spt.inner.OauthConfig.TokenEndpoint.String(),
 		"iss": spt.inner.ClientID,
@@ -375,8 +385,13 @@ func (spt *ServicePrincipalToken) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	spt.refreshLock = &sync.RWMutex{}
-	spt.sender = &http.Client{}
+	// Don't override the refreshLock or the sender if those have been already set.
+	if spt.refreshLock == nil {
+		spt.refreshLock = &sync.RWMutex{}
+	}
+	if spt.sender == nil {
+		spt.sender = &http.Client{Transport: tracing.Transport}
+	}
 	return nil
 }
 
@@ -414,6 +429,7 @@ func NewServicePrincipalTokenWithSecret(oauthConfig OAuthConfig, id string, reso
 	}
 	spt := &ServicePrincipalToken{
 		inner: servicePrincipalToken{
+			Token:         newToken(),
 			OauthConfig:   oauthConfig,
 			Secret:        secret,
 			ClientID:      id,
@@ -422,7 +438,7 @@ func NewServicePrincipalTokenWithSecret(oauthConfig OAuthConfig, id string, reso
 			RefreshWithin: defaultRefresh,
 		},
 		refreshLock:      &sync.RWMutex{},
-		sender:           &http.Client{},
+		sender:           &http.Client{Transport: tracing.Transport},
 		refreshCallbacks: callbacks,
 	}
 	return spt, nil
@@ -653,6 +669,7 @@ func newServicePrincipalTokenFromMSI(msiEndpoint, resource string, userAssignedI
 
 	spt := &ServicePrincipalToken{
 		inner: servicePrincipalToken{
+			Token: newToken(),
 			OauthConfig: OAuthConfig{
 				TokenEndpoint: *msiEndpointURL,
 			},
@@ -662,7 +679,7 @@ func newServicePrincipalTokenFromMSI(msiEndpoint, resource string, userAssignedI
 			RefreshWithin: defaultRefresh,
 		},
 		refreshLock:           &sync.RWMutex{},
-		sender:                &http.Client{},
+		sender:                &http.Client{Transport: tracing.Transport},
 		refreshCallbacks:      callbacks,
 		MaxMSIRefreshAttempts: defaultMaxMSIRefreshAttempts,
 	}
@@ -779,7 +796,7 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 	if err != nil {
 		return fmt.Errorf("adal: Failed to build the refresh request. Error = '%v'", err)
 	}
-	req.Header.Add("User-Agent", version.UserAgent())
+	req.Header.Add("User-Agent", UserAgent())
 	req = req.WithContext(ctx)
 	if !isIMDS(spt.inner.OauthConfig.TokenEndpoint) {
 		v := url.Values{}

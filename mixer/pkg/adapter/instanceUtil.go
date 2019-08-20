@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/pkg/pool"
 )
 
 // This file contains common utility functions that adapters need to process content

@@ -22,25 +22,24 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/pkg/attribute"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -342,31 +341,12 @@ func getServerArgs(
 	data := make([]string, 0)
 	data = append(data, cfgs...)
 
-	// always include the attribute vocabulary
-	_, filename, _, _ := runtime.Caller(0)
-	additionalCrs := []string{
-		"../../../testdata/config/attributes.yaml",
-		"../../../template/apikey/template.yaml",
-		"../../../template/authorization/template.yaml",
-		"../../../template/checknothing/template.yaml",
-		"../../../template/listentry/template.yaml",
-		"../../../template/logentry/template.yaml",
-		"../../../template/metric/template.yaml",
-		"../../../template/quota/template.yaml",
-		"../../../template/reportnothing/template.yaml",
-		"../../../template/tracespan/tracespan.yaml",
-		"../../../test/spyAdapter/template/apa/tmpl.yaml",
-		"../../../test/spyAdapter/template/checkoutput/tmpl.yaml",
-	}
-
-	for _, fileRelativePath := range additionalCrs {
-		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
-			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
-		} else if f, err := ioutil.ReadFile(f); err != nil {
-			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
-		} else {
-			data = append(data, string(f))
+	for _, cr := range AssetNames() {
+		b, err := Asset(cr)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load %v: %v", cr, err)
 		}
+		data = append(data, string(b))
 	}
 
 	var err error
@@ -397,14 +377,18 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 	return attrProto
 }
 
 func errToStatus(err error) spb.Status {
 	var statusResp spb.Status
 	if s, ok := status.FromError(err); ok {
-		statusResp = *s.Proto()
+		if s == nil {
+			statusResp = spb.Status{Code: int32(codes.OK)}
+		} else {
+			statusResp = *s.Proto()
+		}
 	}
 	return statusResp
 }

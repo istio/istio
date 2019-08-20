@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
@@ -28,85 +30,96 @@ import (
 )
 
 func TestCheck_Allow(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		gal := galley.NewOrFail(t, ctx, galley.Config{})
-		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
-			Galley: gal,
-		})
-		be := policybackend.NewOrFail(t, ctx)
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			gal := galley.NewOrFail(t, ctx, galley.Config{})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
+				Galley: gal,
+			})
+			be := policybackend.NewOrFail(t, ctx)
 
-		ns := namespace.NewOrFail(t, ctx, "testcheck-allow", false)
-
-		gal.ApplyConfigOrFail(
-			t,
-			ns,
-			testCheckConfig,
-			be.CreateConfigSnippet("handler1", ns.Name()))
-
-		// Prime the policy backend'ctx behavior. It should deny all check requests.
-		// This is not strictly necessary, but it is done so for posterity.
-		be.DenyCheck(t, false)
-
-		retry.UntilSuccessOrFail(t, func() error {
-			result := mxr.Check(t, map[string]interface{}{
-				"context.protocol":      "http",
-				"destination.name":      "somesrvcname",
-				"destination.namespace": ns.Name(),
-				"response.time":         time.Now(),
-				"request.time":          time.Now(),
-				"destination.service":   `svc.` + ns.Name(),
-				"origin.ip":             []byte{1, 2, 3, 4},
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "testcheck-allow",
+				Inject: true,
 			})
 
-			// TODO: ensure that the policy backend receives the request.
-			if !result.Succeeded() {
-				return fmt.Errorf("check failed: %v", result.Raw)
-			}
+			gal.ApplyConfigOrFail(
+				t,
+				ns,
+				testCheckConfig,
+				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
-			return nil
-		}, retry.Timeout(time.Second*40))
-	})
+			// Prime the policy backend'ctx behavior. It should deny all check requests.
+			// This is not strictly necessary, but it is done so for posterity.
+			be.AllowCheck(t, 1*time.Second, 1)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				result := mxr.Check(t, map[string]interface{}{
+					"context.protocol":      "http",
+					"destination.name":      "somesrvcname",
+					"destination.namespace": ns.Name(),
+					"response.time":         time.Now(),
+					"request.time":          time.Now(),
+					"destination.service":   `svc.` + ns.Name(),
+					"origin.ip":             []byte{1, 2, 3, 4},
+				})
+
+				// TODO: ensure that the policy backend receives the request.
+				if !result.Succeeded() {
+					return fmt.Errorf("check failed: %v", result.Raw)
+				}
+
+				return nil
+			}, retry.Delay(15*time.Second), retry.Timeout(60*time.Second))
+		})
 }
 
 func TestCheck_Deny(t *testing.T) {
-	framework.Run(t, func(ctx framework.TestContext) {
-		gal := galley.NewOrFail(t, ctx, galley.Config{})
-		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
-			Galley: gal,
-		})
-		be := policybackend.NewOrFail(t, ctx)
-
-		ns := namespace.NewOrFail(t, ctx, "testcheck-deny", false)
-
-		gal.ApplyConfigOrFail(
-			t,
-			ns,
-			testCheckConfig,
-			be.CreateConfigSnippet("handler1", ns.Name()))
-
-		// Prime the policy backend'ctx behavior. It should deny all check requests.
-		// This is not strictly necessary, but it is done so for posterity.
-		be.DenyCheck(t, true)
-
-		retry.UntilSuccessOrFail(t, func() error {
-			result := mxr.Check(t, map[string]interface{}{
-				"context.protocol":      "http",
-				"destination.name":      "somesrvcname",
-				"destination.namespace": ns.Name(),
-				"response.time":         time.Now(),
-				"request.time":          time.Now(),
-				"destination.service":   `svc.` + ns.Name(),
-				"origin.ip":             []byte{1, 2, 3, 4},
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			gal := galley.NewOrFail(t, ctx, galley.Config{})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
+				Galley: gal,
 			})
-			if result.Succeeded() {
-				return fmt.Errorf("check failed: %v", result.Raw)
-			}
+			be := policybackend.NewOrFail(t, ctx)
 
-			// TODO: ensure that the policy backend receives the request.
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "testcheck-deny",
+			})
 
-			return nil
-		}, retry.Timeout(time.Second*40))
-	})
+			gal.ApplyConfigOrFail(
+				t,
+				ns,
+				testCheckConfig,
+				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
+
+			// Prime the policy backend'ctx behavior. It should deny all check requests.
+			// This is not strictly necessary, but it is done so for posterity.
+			be.DenyCheck(t, true)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				result := mxr.Check(t, map[string]interface{}{
+					"context.protocol":      "http",
+					"destination.name":      "somesrvcname",
+					"destination.namespace": ns.Name(),
+					"response.time":         time.Now(),
+					"request.time":          time.Now(),
+					"destination.service":   `svc.` + ns.Name(),
+					"origin.ip":             []byte{1, 2, 3, 4},
+				})
+				if result.Succeeded() {
+					return fmt.Errorf("check failed: %v", result.Raw)
+				}
+
+				// TODO: ensure that the policy backend receives the request.
+
+				return nil
+			}, retry.Delay(15*time.Second), retry.Timeout(60*time.Second))
+		})
 }
 
 var testCheckConfig = `

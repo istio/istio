@@ -160,18 +160,10 @@
             "filters": [
               {
                 "name": "envoy.tcp_proxy",
-                "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "mixertcpproxy",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "service1"
-                        }
-                      ]
-                    }
-                  }
+                "typed_config": {
+                "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                  "stat_prefix": "mixertcpproxy",
+                  "cluster": "service1"
                 }
               }
             ]
@@ -297,18 +289,10 @@
             "filters": [
               {
                 "name": "envoy.tcp_proxy",
-                "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "grpc15011",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "xds_grpc"
-                        }
-                      ]
-                    }
-                  }
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                  "stat_prefix": "grpc15011",
+                  "cluster": "xds_grpc"
                 }
               }
             ]

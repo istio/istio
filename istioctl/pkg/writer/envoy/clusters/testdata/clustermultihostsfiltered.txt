@@ -117,6 +117,7 @@
                     }
                 ],
                 "healthStatus": {
+                    "failedOutlierCheck": true,
                     "edsHealthStatus": "HEALTHY"
                 }
             }

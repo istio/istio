@@ -23,19 +23,15 @@ import (
 	"regexp"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/mixer/adapter"
-	"istio.io/istio/mixer/pkg/config"
-	"istio.io/istio/mixer/pkg/config/store"
-	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
-	"istio.io/istio/mixer/pkg/template"
-	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 )
 
 const (
@@ -52,25 +48,10 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// createMixerValidator creates a mixer backend validator.
-// TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
-// config validation to remove galley dependency on mixer internal
-// packages.
-func createMixerValidator() store.BackendValidator {
-	info := generatedTmplRepo.SupportedTmplInfo
-	templates := make(map[string]*template.Info, len(info))
-	for k := range info {
-		t := info[k]
-		templates[k] = &t
-	}
-	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
-}
-
 func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
+		Host:   fmt.Sprintf("localhost:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 
@@ -92,16 +73,16 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(vc *WebhookParameters, kubeConfig string,
+func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
-	mixerValidator := createMixerValidator()
+	mixerValidator := mixervalidate.NewDefaultValidator(false)
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
 		log.Fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
-	vc.PilotDescriptor = model.IstioConfigTypes
+	vc.PilotDescriptor = schemas.Istio
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {
@@ -113,9 +94,6 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
 		defer validationLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
-
-	// Create the stop channel for all of the servers.
-	stop := make(chan struct{})
 
 	if readinessProbeController != nil {
 		validationReadinessProbe := probe.NewProbe()
@@ -147,7 +125,7 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 					}
 				}
 				select {
-				case <-stop:
+				case <-stopCh:
 					validationReadinessProbe.SetAvailable(errors.New("stopped"))
 					return
 				case <-time.After(httpsHandlerReadinessFreq):
@@ -157,8 +135,10 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 		}()
 	}
 
-	go wh.Run(stop)
-	cmd.WaitSignal(stop)
+	go wh.Run(ready, stopCh)
+	defer wh.Stop()
+
+	cmd.WaitSignal(stopCh)
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in

@@ -36,7 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	echopb "istio.io/istio/pkg/test/application/echo/proto"
+	echopb "istio.io/istio/pkg/test/echo/proto"
 )
 
 var upgrader = websocket.Upgrader{

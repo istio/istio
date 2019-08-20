@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 func TestAggregateStoreBasicMake(t *testing.T) {
@@ -30,13 +31,13 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 	storeOne := &fakes.ConfigStoreCache{}
 	storeTwo := &fakes.ConfigStoreCache{}
 
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
-	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeTwo.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "other-config",
 		Plural:      "other-configs",
 		MessageName: "istio.networking.v1alpha3.Gateway",
@@ -49,7 +50,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 
 	descriptors := store.ConfigDescriptor()
 	g.Expect(descriptors).To(gomega.HaveLen(2))
-	g.Expect(descriptors).To(gomega.ConsistOf([]model.ProtoSchema{
+	g.Expect(descriptors).To(gomega.ConsistOf([]schema.Instance{
 		{
 			Type:        "some-config",
 			Plural:      "some-configs",
@@ -67,7 +68,7 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	storeOne := &fakes.ConfigStoreCache{}
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "broken message name",
@@ -86,7 +87,7 @@ func TestAggregateStoreGet(t *testing.T) {
 	storeOne := &fakes.ConfigStoreCache{}
 	storeTwo := &fakes.ConfigStoreCache{}
 
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
@@ -116,13 +117,13 @@ func TestAggregateStoreList(t *testing.T) {
 	storeOne := &fakes.ConfigStoreCache{}
 	storeTwo := &fakes.ConfigStoreCache{}
 
-	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeTwo.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "istio.networking.v1alpha3.Gateway",
 	}})
 
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
@@ -159,7 +160,7 @@ func TestAggregateStoreFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	storeOne := &fakes.ConfigStoreCache{}
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "other-config",
 		Plural:      "other-configs",
 		MessageName: "istio.networking.v1alpha3.Gateway",
@@ -200,13 +201,13 @@ func TestAggregateStoreCache(t *testing.T) {
 	storeOne := &fakes.ConfigStoreCache{}
 	storeTwo := &fakes.ConfigStoreCache{}
 
-	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeOne.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "some-config",
 		Plural:      "some-configs",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
-	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+	storeTwo.ConfigDescriptorReturns([]schema.Instance{{
 		Type:        "other-config",
 		Plural:      "other-configs",
 		MessageName: "istio.networking.v1alpha3.Gateway",

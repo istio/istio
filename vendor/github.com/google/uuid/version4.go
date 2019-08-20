@@ -6,7 +6,7 @@ package uuid
 
 import "io"
 
-// New is creates a new random UUID or panics.  New is equivalent to
+// New creates a new random UUID or panics.  New is equivalent to
 // the expression
 //
 //    uuid.Must(uuid.NewRandom())
@@ -14,12 +14,12 @@ func New() UUID {
 	return Must(NewRandom())
 }
 
-// NewRandom returns a Random (Version 4) UUID or panics.
+// NewRandom returns a Random (Version 4) UUID.
 //
 // The strength of the UUIDs is based on the strength of the crypto/rand
 // package.
 //
-// A note about uniqueness derived from from the UUID Wikipedia entry:
+// A note about uniqueness derived from the UUID Wikipedia entry:
 //
 //  Randomly generated UUIDs have 122 random bits.  One's annual risk of being
 //  hit by a meteorite is estimated to be one chance in 17 billion, that

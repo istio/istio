@@ -21,8 +21,8 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/pool"
 )
 
 // String writes out contents of a snapshot in a stable way. Useful for quickly writing out contents in a string for

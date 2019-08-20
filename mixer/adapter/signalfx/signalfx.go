@@ -27,6 +27,7 @@ import (
 	"github.com/signalfx/golib/sfxclient"
 
 	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -202,20 +203,7 @@ func (h *handler) Close() error {
 
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "signalfx",
-		Description: "Sends metrics and traces to SignalFx",
-		SupportedTemplates: []string{
-			metric.TemplateName,
-			tracespan.TemplateName,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{
-			EnableMetrics:            true,
-			EnableTracing:            true,
-			DatapointInterval:        10 * time.Second,
-			TracingBufferSize:        1000,
-			TracingSampleProbability: 1.0,
-		},
-	}
+	info := metadata.GetInfo("signalfx")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }

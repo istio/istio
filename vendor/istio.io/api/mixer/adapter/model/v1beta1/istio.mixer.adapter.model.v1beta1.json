@@ -1,0 +1,258 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Definitions used to create adapters and templates.",
+    "version": "v1beta1"
+  },
+  "components": {
+    "schemas": {
+      "istio.mixer.adapter.model.v1beta1.CheckResult": {
+        "description": "Expresses the result of a precondition check.",
+        "type": "object",
+        "properties": {
+          "validUseCount": {
+            "description": "The number of uses for which this result can be considered valid.",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.TemplateVariety": {
+        "description": "The available varieties of templates, controlling the semantics of what an adapter does with each instance.",
+        "enum": [
+          "TEMPLATE_VARIETY_CHECK",
+          "TEMPLATE_VARIETY_REPORT",
+          "TEMPLATE_VARIETY_QUOTA",
+          "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR",
+          "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT"
+        ],
+        "default": "TEMPLATE_VARIETY_CHECK"
+      },
+      "istio.mixer.adapter.model.v1beta1.Info": {
+        "description": "Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an out of process adapter.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Name of the adapter. It must be an RFC 1035 compatible DNS label matching the `^[a-z]([-a-z0-9]*[a-z0-9])?$` regular expression. Name is used in Istio configuration, therefore it should be descriptive but short. example: denier Vendor adapters should use a vendor prefix. example: mycompany-denier",
+            "type": "string",
+            "format": "string"
+          },
+          "description": {
+            "description": "User-friendly description of the adapter.",
+            "type": "string",
+            "format": "string"
+          },
+          "templates": {
+            "description": "Names of the templates the adapter supports.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "config": {
+            "description": "Base64 encoded proto descriptor of the adapter configuration.",
+            "type": "string",
+            "format": "string"
+          },
+          "sessionBased": {
+            "description": "True if backend has implemented the [InfrastructureBackend](https://github.com/istio/api/blob/master/mixer/adapter/model/v1beta1/infrastructure_backend.proto) service; false otherwise.",
+            "type": "boolean"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.CreateSessionRequest": {
+        "description": "Request message for `CreateSession` method.",
+        "type": "object",
+        "required": [
+          "inferredTypes"
+        ],
+        "properties": {
+          "adapterConfig": {
+            "$ref": "#/components/schemas/google.protobuf.Any"
+          },
+          "inferredTypes": {
+            "description": "Map of instance names to their template-specific inferred type.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/google.protobuf.Any"
+            }
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.CreateSessionResponse": {
+        "description": "Response message for `CreateSession` method.",
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "sessionId": {
+            "description": "Id of the created session.",
+            "type": "string",
+            "format": "string"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.ValidateRequest": {
+        "description": "Request message for `Validate` method.",
+        "type": "object",
+        "required": [
+          "inferredTypes"
+        ],
+        "properties": {
+          "adapterConfig": {
+            "$ref": "#/components/schemas/google.protobuf.Any"
+          },
+          "inferredTypes": {
+            "description": "Map of instance names to their template-specific inferred type.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/google.protobuf.Any"
+            }
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.ValidateResponse": {
+        "description": "Response message for `Validate` method.",
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.CloseSessionRequest": {
+        "description": "Request message for `CloseSession` method.",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "description": "Id of the session to be closed.",
+            "type": "string",
+            "format": "string"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.CloseSessionResponse": {
+        "description": "Response message for `CloseSession` method.",
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.QuotaRequest": {
+        "description": "Expresses the quota allocation request.",
+        "type": "object",
+        "required": [
+          "quotas"
+        ],
+        "properties": {
+          "quotas": {
+            "description": "The individual quotas to allocate",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams"
+            }
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams": {
+        "description": "parameters for a quota allocation",
+        "type": "object",
+        "properties": {
+          "amount": {
+            "description": "Amount of quota to allocate",
+            "type": "integer",
+            "format": "int64"
+          },
+          "bestEffort": {
+            "description": "When true, supports returning less quota than what was requested.",
+            "type": "boolean"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.QuotaResult": {
+        "description": "Expresses the result of multiple quota allocations.",
+        "type": "object",
+        "required": [
+          "quotas"
+        ],
+        "properties": {
+          "quotas": {
+            "description": "The resulting quota, one entry per requested quota.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/istio.mixer.adapter.model.v1beta1.QuotaResult.Result"
+            }
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.QuotaResult.Result": {
+        "description": "Expresses the result of a quota allocation.",
+        "type": "object",
+        "properties": {
+          "grantedAmount": {
+            "description": "The amount of granted quota. When `QuotaParams.best_effort` is true, this will be \u003e= 0. If `QuotaParams.best_effort` is false, this will be either 0 or \u003e= `QuotaParams.amount`.",
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "istio.mixer.adapter.model.v1beta1.ReportResult": {
+        "description": "Expresses the result of a report call.",
+        "type": "object"
+      },
+      "istio.mixer.adapter.model.v1beta1.Template": {
+        "description": "Template provides the details of a Mixer template.",
+        "type": "object",
+        "properties": {
+          "descriptor": {
+            "description": "Base64 encoded proto descriptor of the template.",
+            "type": "string",
+            "format": "string"
+          }
+        }
+      },
+      "google.protobuf.Any": {
+        "type": "object",
+        "properties": {
+          "typeUrl": {
+            "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `path/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted).",
+            "type": "string",
+            "format": "string"
+          },
+          "value": {
+            "description": "Must be a valid serialized protocol buffer of the above specified type.",
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      },
+      "google.rpc.Status": {
+        "description": "The success/failure status of close session call.",
+        "type": "object",
+        "properties": {
+          "code": {
+            "description": "The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].",
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "description": "A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.",
+            "type": "string",
+            "format": "string"
+          },
+          "details": {
+            "description": "A list of messages that carry the error details. There is a common set of message types for APIs to use.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/google.protobuf.Any"
+            }
+          }
+        }
+      }
+    }
+  }
+}

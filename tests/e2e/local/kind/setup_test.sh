@@ -5,7 +5,7 @@
 read -p "Do you want to delete old docker images tagged kind/*:e2e[default: no]: " -r update
 delete_images=${update:-"no"}
 if [[ $delete_images = *"y"* ]] || [[ $delete_images = *"Y"* ]]; then
-  docker images kind/*:e2e -q | xargs docker rmi -f
+  docker images "kind/*:e2e" -q | xargs docker rmi -f
 fi
 
 # Make images.

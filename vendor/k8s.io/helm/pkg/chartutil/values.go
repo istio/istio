@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -92,6 +92,22 @@ func (v Values) Encode(w io.Writer) error {
 	}
 	_, err = w.Write(out)
 	return err
+}
+
+// MergeInto takes the properties in src and merges them into Values. Maps
+// are merged while values and arrays are replaced.
+func (v Values) MergeInto(src Values) {
+	for key, srcVal := range src {
+		destVal, found := v[key]
+
+		if found && istable(srcVal) && istable(destVal) {
+			destMap := destVal.(map[string]interface{})
+			srcMap := srcVal.(map[string]interface{})
+			Values(destMap).MergeInto(Values(srcMap))
+		} else {
+			v[key] = srcVal
+		}
+	}
 }
 
 func tableLookup(v Values, simple string) (Values, error) {
@@ -187,7 +203,7 @@ func coalesceDeps(chrt *chart.Chart, dest map[string]interface{}) (map[string]in
 			dvmap := dv.(map[string]interface{})
 
 			// Get globals out of dest and merge them into dvmap.
-			coalesceGlobals(dvmap, dest)
+			coalesceGlobals(dvmap, dest, chrt.Metadata.Name)
 
 			var err error
 			// Now coalesce the rest of the values.
@@ -203,20 +219,20 @@ func coalesceDeps(chrt *chart.Chart, dest map[string]interface{}) (map[string]in
 // coalesceGlobals copies the globals out of src and merges them into dest.
 //
 // For convenience, returns dest.
-func coalesceGlobals(dest, src map[string]interface{}) map[string]interface{} {
+func coalesceGlobals(dest, src map[string]interface{}, chartName string) map[string]interface{} {
 	var dg, sg map[string]interface{}
 
 	if destglob, ok := dest[GlobalKey]; !ok {
 		dg = map[string]interface{}{}
 	} else if dg, ok = destglob.(map[string]interface{}); !ok {
-		log.Printf("warning: skipping globals because destination %s is not a table.", GlobalKey)
+		log.Printf("Warning: Skipping globals for chart '%s' because destination '%s' is not a table.", chartName, GlobalKey)
 		return dg
 	}
 
 	if srcglob, ok := src[GlobalKey]; !ok {
 		sg = map[string]interface{}{}
 	} else if sg, ok = srcglob.(map[string]interface{}); !ok {
-		log.Printf("warning: skipping globals because source %s is not a table.", GlobalKey)
+		log.Printf("Warning: skipping globals for chart '%s' because source '%s' is not a table.", chartName, GlobalKey)
 		return dg
 	}
 
@@ -231,11 +247,11 @@ func coalesceGlobals(dest, src map[string]interface{}) map[string]interface{} {
 				if destvmap, ok := destv.(map[string]interface{}); ok {
 					// Basically, we reverse order of coalesce here to merge
 					// top-down.
-					coalesceTables(vv, destvmap)
+					coalesceTables(vv, destvmap, chartName)
 					dg[key] = vv
 					continue
 				} else {
-					log.Printf("Conflict: cannot merge map onto non-map for %q. Skipping.", key)
+					log.Printf("Warning: For chart '%s', cannot merge map onto non-map for key '%q'. Skipping.", chartName, key)
 				}
 			} else {
 				// Here there is no merge. We're just adding.
@@ -243,7 +259,7 @@ func coalesceGlobals(dest, src map[string]interface{}) map[string]interface{} {
 			}
 		} else if dv, ok := dg[key]; ok && istable(dv) {
 			// It's not clear if this condition can actually ever trigger.
-			log.Printf("key %s is table. Skipping", key)
+			log.Printf("Warning: For chart '%s', key '%s' is a table. Skipping.", chartName, key)
 			continue
 		}
 		// TODO: Do we need to do any additional checking on the value?
@@ -275,7 +291,7 @@ func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interf
 		// On error, we return just the overridden values.
 		// FIXME: We should log this error. It indicates that the YAML data
 		// did not parse.
-		return v, fmt.Errorf("error reading default values (%s): %s", c.Values.Raw, err)
+		return v, fmt.Errorf("Error: Reading chart '%s' default values (%s): %s", c.Metadata.Name, c.Values.Raw, err)
 	}
 
 	for key, val := range nv {
@@ -289,12 +305,12 @@ func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interf
 				// if v[key] is a table, merge nv's val table into v[key].
 				src, ok := val.(map[string]interface{})
 				if !ok {
-					log.Printf("warning: skipped value for %s: Not a table.", key)
+					log.Printf("Warning: Building values map for chart '%s'. Skipped value (%+v) for '%s', as it is not a table.", c.Metadata.Name, src, key)
 					continue
 				}
 				// Because v has higher precedence than nv, dest values override src
 				// values.
-				coalesceTables(dest, src)
+				coalesceTables(dest, src, c.Metadata.Name)
 			}
 		} else {
 			// If the key is not in v, copy it from nv.
@@ -307,7 +323,7 @@ func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interf
 // coalesceTables merges a source map into a destination map.
 //
 // dest is considered authoritative.
-func coalesceTables(dst, src map[string]interface{}) map[string]interface{} {
+func coalesceTables(dst, src map[string]interface{}, chartName string) map[string]interface{} {
 	// Because dest has higher precedence than src, dest values override src
 	// values.
 	for key, val := range src {
@@ -315,13 +331,13 @@ func coalesceTables(dst, src map[string]interface{}) map[string]interface{} {
 			if innerdst, ok := dst[key]; !ok {
 				dst[key] = val
 			} else if istable(innerdst) {
-				coalesceTables(innerdst.(map[string]interface{}), val.(map[string]interface{}))
+				coalesceTables(innerdst.(map[string]interface{}), val.(map[string]interface{}), chartName)
 			} else {
-				log.Printf("warning: cannot overwrite table with non table for %s (%v)", key, val)
+				log.Printf("Warning: Merging destination map for chart '%s'. Cannot overwrite table item '%s', with non table value: %v", chartName, key, val)
 			}
 			continue
 		} else if dv, ok := dst[key]; ok && istable(dv) {
-			log.Printf("warning: destination for %s is a table. Ignoring non-table value %v", key, val)
+			log.Printf("Warning: Merging destination map for chart '%s'. The destination item '%s' is a table and ignoring the source '%s' as it has a non-table value of: %v", chartName, key, key, val)
 			continue
 		} else if !ok { // <- ok is still in scope from preceding conditional.
 			dst[key] = val

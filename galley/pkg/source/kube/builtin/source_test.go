@@ -29,7 +29,7 @@ import (
 	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +74,7 @@ func TestNewWithUnknownSpecShouldError(t *testing.T) {
 		ListKind:  "UnknownList",
 		Singular:  "unknown",
 		Plural:    "unknowns",
-		Version:   "v1alpha1",
+		Versions:  []string{"v1alpha1"},
 		Group:     "cofig.istio.io",
 		Converter: converter.Get("identity"),
 	}

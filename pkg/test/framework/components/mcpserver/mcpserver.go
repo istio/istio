@@ -15,9 +15,8 @@
 package mcpserver
 
 import (
-	"testing"
-
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -25,7 +24,7 @@ import (
 // Instance is a new mcpserver instance. MCP Server is a generic MCP server implementation for testing purposes.
 type Instance interface {
 	Address() string
-	GetCollectionStateOrFail(t *testing.T, collection string) []*sink.Object
+	GetCollectionStateOrFail(t test.Failer, collection string) []*sink.Object
 }
 
 // SinkConfig is configuration for the mcpserver for sink mode.
@@ -43,7 +42,8 @@ func NewSink(ctx resource.Context, cfg SinkConfig) (i Instance, err error) {
 }
 
 // NewSinkOrFail returns a new instance of MCP server in Sink mode or fails.
-func NewSinkOrFail(t *testing.T, c resource.Context, cfg SinkConfig) Instance {
+func NewSinkOrFail(t test.Failer, c resource.Context, cfg SinkConfig) Instance {
+	t.Helper()
 	i, err := NewSink(c, cfg)
 	if err != nil {
 		t.Fatalf("mcpserver.NewOrFail: %v", err)

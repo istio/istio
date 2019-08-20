@@ -1,7 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: template
-metadata:
-  name: keyval
-  namespace: istio-system
-spec:
-  prescriptor: 0

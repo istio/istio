@@ -40,7 +40,7 @@ func TestGetFederatedToken(t *testing.T) {
 		t.Fatalf("failed to start a mock server %v", err)
 	}
 
-	token, _, err := r.ExchangeToken(context.Background(), "", "")
+	token, _, _, err := r.ExchangeToken(context.Background(), "", "")
 	if err != nil {
 		t.Fatalf("failed to call exchange token %v", err)
 	}

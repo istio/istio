@@ -27,9 +27,9 @@ import (
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/routing"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.

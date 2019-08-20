@@ -29,3 +29,8 @@ gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-
 # Copy to the stable folder
 gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
 
+# This file contains the build version
+VERSION_FILE=$(mktemp)
+echo -n "${CB_VERSION}" > "${VERSION_FILE}"
+
+gsutil -q cp "${VERSION_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest.txt"

@@ -22,7 +22,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	gax "github.com/googleapis/gax-go"
+	gax "github.com/googleapis/gax-go/v2"
 	xcontext "golang.org/x/net/context"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
@@ -47,7 +47,7 @@ import (
 type (
 
 	// createClientFunc abstracts over the creation of the stackdriver client to enable network-less testing.
-	createClientFunc func(*config.Params) (*monitoring.MetricClient, error)
+	createClientFunc func(*config.Params, adapter.Logger) (*monitoring.MetricClient, error)
 
 	// pushFunc abstracts over client.CreateTimeSeries for testing
 	pushFunc func(ctx xcontext.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error
@@ -74,6 +74,7 @@ type (
 		client     bufferedClient
 		// We hold a ref for cleanup during Close()
 		ticker *time.Ticker
+		quit   chan struct{}
 	}
 )
 
@@ -121,8 +122,8 @@ func NewBuilder(mg helper.MetadataGenerator) metric.HandlerBuilder {
 	return &builder{createClient: createClient, mg: mg}
 }
 
-func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
-	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
+func createClient(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
+	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg, logger)...)
 }
 
 func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
@@ -169,10 +170,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 
 	ticker := time.NewTicker(cfg.PushInterval)
-
+	quit := make(chan struct{})
 	var err error
 	var client *monitoring.MetricClient
-	if client, err = b.createClient(cfg); err != nil {
+	if client, err = b.createClient(cfg, env.Logger()); err != nil {
 		return nil, err
 	}
 	buffered := &buffered{
@@ -191,8 +192,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		pushInterval:        cfg.PushInterval,
 		env:                 env,
 	}
-	// We hold on to the ref to the ticker so we can stop it later
-	buffered.start(env, ticker)
+	// We hold on to the ref to the ticker so we can stop it later and quit channel to exit the daemon.
+	buffered.start(env, ticker, quit)
 	h := &handler{
 		l:          env.Logger(),
 		now:        time.Now,
@@ -200,6 +201,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		md:         md,
 		metricInfo: types,
 		ticker:     ticker,
+		quit:       quit,
 	}
 	return h, nil
 }
@@ -266,6 +268,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 
 func (h *handler) Close() error {
 	h.ticker.Stop()
+	close(h.quit)
 	return h.client.Close()
 }
 

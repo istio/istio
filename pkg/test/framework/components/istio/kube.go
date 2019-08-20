@@ -116,17 +116,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	// Wait for Galley & the validation webhook to come online before applying Istio configurations.
-	if _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
-		err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
-		scopes.CI.Info(err.Error())
-		return nil, err
-	}
+	if !cfg.SkipWaitForValidationWebhook {
 
-	// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-	err = waitForValidationWebhook(env.Accessor)
-	if err != nil {
-		return nil, err
+		// Wait for Galley & the validation webhook to come online before applying Istio configurations.
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+			scopes.CI.Info(err.Error())
+			return nil, err
+		}
+
+		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
+		err = waitForValidationWebhook(env.Accessor)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Then, apply Istio configuration.
@@ -180,7 +183,7 @@ func (i *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name)
+			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

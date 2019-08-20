@@ -33,8 +33,11 @@ var (
 	fakeCreateTime0 time.Time
 	fakeCreateTime1 time.Time
 
-	cfg = &Config{Mesh: meshconfig.NewInMemory()}
-	fn  = resource.FullNameFromNamespaceAndName("", "fn")
+	cfg = &Config{
+		Mesh:   meshconfig.NewInMemory(),
+		Schema: resources.TestSchema,
+	}
+	fn = resource.FullNameFromNamespaceAndName("", "fn")
 )
 
 func init() {
@@ -305,5 +308,5 @@ func newTestState() *State {
 		// When the state indicates a change occurred, update the publishing strategy
 		stateStrategy.OnChange()
 	})
-	return newState(resources.TestSchema, cfg, stateListener)
+	return newState(cfg, stateListener)
 }

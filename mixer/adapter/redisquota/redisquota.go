@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-redis/redis"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -288,7 +289,7 @@ func getAllocatedTokenFromResult(result *interface{}) (int64, time.Duration, err
 // find override
 func (h *handler) getKeyAndQuotaAmount(instance *quota.Instance, quota *config.Params_Quota) (string, int64, error) {
 	maxAmount := quota.MaxAmount
-	key := quota.Name
+	key := makeKey(quota.Name, instance.Dimensions)
 
 	for idx := range quota.Overrides {
 		if matchDimensions(&quota.Overrides[idx].Dimensions, &instance.Dimensions) {
@@ -375,19 +376,9 @@ func (h handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "redisquota",
-		Impl:        "istio.io/mixer/adapter/redisquota",
-		Description: "Redis-based quotas.",
-		SupportedTemplates: []string{
-			quota.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			RedisServerUrl:     "localhost:6379",
-			ConnectionPoolSize: 10,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("redisquota")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 ///////////////////////////////////////////////////////

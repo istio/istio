@@ -16,7 +16,7 @@ package internal
 
 import (
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)

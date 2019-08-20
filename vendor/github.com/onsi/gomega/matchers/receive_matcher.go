@@ -35,17 +35,12 @@ func (matcher *ReceiveMatcher) Match(actual interface{}) (success bool, err erro
 			if argType.Kind() != reflect.Ptr {
 				return false, fmt.Errorf("Cannot assign a value from the channel:\n%s\nTo:\n%s\nYou need to pass a pointer!", format.Object(actual, 1), format.Object(matcher.Arg, 1))
 			}
-
-			assignable := channelType.Elem().AssignableTo(argType.Elem())
-			if !assignable {
-				return false, fmt.Errorf("Cannot assign a value from the channel:\n%s\nTo:\n%s", format.Object(actual, 1), format.Object(matcher.Arg, 1))
-			}
 		}
 	}
 
 	winnerIndex, value, open := reflect.Select([]reflect.SelectCase{
-		reflect.SelectCase{Dir: reflect.SelectRecv, Chan: channelValue},
-		reflect.SelectCase{Dir: reflect.SelectDefault},
+		{Dir: reflect.SelectRecv, Chan: channelValue},
+		{Dir: reflect.SelectDefault},
 	})
 
 	var closed bool
@@ -71,7 +66,18 @@ func (matcher *ReceiveMatcher) Match(actual interface{}) (success bool, err erro
 	if didReceive {
 		if matcher.Arg != nil {
 			outValue := reflect.ValueOf(matcher.Arg)
-			reflect.Indirect(outValue).Set(value)
+
+			if value.Type().AssignableTo(outValue.Elem().Type()) {
+				outValue.Elem().Set(value)
+				return true, nil
+			}
+			if value.Type().Kind() == reflect.Interface && value.Elem().Type().AssignableTo(outValue.Elem().Type()) {
+				outValue.Elem().Set(value.Elem())
+				return true, nil
+			} else {
+				return false, fmt.Errorf("Cannot assign a value from the channel:\n%s\nType:\n%s\nTo:\n%s", format.Object(actual, 1), format.Object(value.Interface(), 1), format.Object(matcher.Arg, 1))
+			}
+
 		}
 
 		return true, nil

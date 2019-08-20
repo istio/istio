@@ -15,11 +15,17 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -76,7 +82,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Hosts: []string{"foo/bar", "*/*"}, // MBMBMB not valid; one no-port egress
+					Hosts: []string{"foo/bar", "*/*"},
 				},
 			},
 		},
@@ -189,7 +195,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
-			meshConfig := DefaultMeshConfig()
+			meshConfig := mesh.DefaultMeshConfig()
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
@@ -213,13 +219,13 @@ func TestCreateSidecarScope(t *testing.T) {
 			if sidecarConfig != nil {
 				a := sidecarConfig.Spec.(*networking.Sidecar)
 				for _, egress := range a.Egress {
-					for _, host := range egress.Hosts {
-						parts := strings.SplitN(host, "/", 2)
+					for _, egressHost := range egress.Hosts {
+						parts := strings.SplitN(egressHost, "/", 2)
 						found = false
 						for _, listeners := range sidecarScope.EgressListeners {
 							if sidecarScopeHosts, ok := listeners.listenerHosts[parts[0]]; ok {
 								for _, sidecarScopeHost := range sidecarScopeHosts {
-									if sidecarScopeHost == Hostname(parts[1]) &&
+									if sidecarScopeHost == host.Name(parts[1]) &&
 										listeners.IstioListener.Port == egress.Port {
 										found = true
 										break
@@ -231,7 +237,7 @@ func TestCreateSidecarScope(t *testing.T) {
 							}
 						}
 						if !found {
-							t.Errorf("Did not find %v entry in any listener", host)
+							t.Errorf("Did not find %v entry in any listener", egressHost)
 						}
 					}
 				}
@@ -263,6 +269,301 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			// TODO destination rule
+		})
+	}
+}
+
+func TestIstioEgressListenerWrapper(t *testing.T) {
+	serviceA8000 := &Service{
+		Hostname:   "host",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "a"},
+	}
+	serviceA9000 := &Service{
+		Hostname:   "host",
+		Ports:      port9000,
+		Attributes: ServiceAttributes{Namespace: "a"},
+	}
+	serviceAalt := &Service{
+		Hostname:   "alt",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "a"},
+	}
+
+	serviceB8000 := &Service{
+		Hostname:   "host",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
+	serviceB9000 := &Service{
+		Hostname:   "host",
+		Ports:      port9000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
+	serviceBalt := &Service{
+		Hostname:   "alt",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
+	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
+
+	tests := []struct {
+		name          string
+		listenerHosts map[string][]host.Name
+		services      []*Service
+		expected      []*Service
+		namespace     string
+	}{
+		{
+			name:          "*/* imports only those in a",
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
+			services:      allServices,
+			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace:     "a",
+		},
+		{
+			name:          "*/* will bias towards configNamespace",
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
+			services:      []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
+			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace:     "a",
+		},
+		{
+			name:          "a/* imports only those in a",
+			listenerHosts: map[string][]host.Name{"a": {wildcardService}},
+			services:      allServices,
+			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace:     "a",
+		},
+		{
+			name:          "b/*, b/* imports only those in b",
+			listenerHosts: map[string][]host.Name{"b": {wildcardService, wildcardService}},
+			services:      allServices,
+			expected:      []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace:     "a",
+		},
+		{
+			name:          "*/alt imports alt in namespace a",
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {"alt"}},
+			services:      allServices,
+			expected:      []*Service{serviceAalt},
+			namespace:     "a",
+		},
+		{
+			name:          "b/alt imports alt in a namespaces",
+			listenerHosts: map[string][]host.Name{"b": {"alt"}},
+			services:      allServices,
+			expected:      []*Service{serviceBalt},
+			namespace:     "a",
+		},
+		{
+			name:          "b/* imports doesn't import in namespace a with proxy in a",
+			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
+			services:      []*Service{serviceA8000},
+			expected:      []*Service{},
+			namespace:     "a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ilw := &IstioEgressListenerWrapper{
+				listenerHosts: tt.listenerHosts,
+			}
+			got := ilw.selectServices(tt.services, tt.namespace)
+			if !reflect.DeepEqual(got, tt.expected) {
+				gots, _ := json.MarshalIndent(got, "", "  ")
+				expecteds, _ := json.MarshalIndent(tt.expected, "", "  ")
+				t.Errorf("Got %v, expected %v", string(gots), string(expecteds))
+			}
+		})
+	}
+}
+
+func TestContainsEgressNamespace(t *testing.T) {
+	cases := []struct {
+		name      string
+		egress    []string
+		namespace string
+		contains  bool
+	}{
+		{"Just wildcard", []string{"*/*"}, "ns", true},
+		{"Namespace and wildcard", []string{"ns/*", "*/*"}, "ns", true},
+		{"Just Namespace", []string{"ns/*"}, "ns", true},
+		{"Wrong Namespace", []string{"ns/*"}, "other-ns", false},
+		{"No Sidecar", nil, "ns", true},
+		{"No Sidecar Other Namespace", nil, "other-ns", false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				ConfigMeta: ConfigMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: tt.egress,
+						},
+					},
+				},
+			}
+			ps := NewPushContext()
+			meshConfig := mesh.DefaultMeshConfig()
+			ps.Env = &Environment{
+				Mesh: &meshConfig,
+			}
+
+			services := []*Service{
+				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
+				{Hostname: "ns", Attributes: ServiceAttributes{Namespace: "ns"}},
+			}
+			ps.publicServices = append(ps.publicServices, services...)
+			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
+			if len(tt.egress) == 0 {
+				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+			}
+
+			got := sidecarScope.DependsOnNamespace(tt.namespace)
+			if got != tt.contains {
+				t.Fatalf("Expected contains %v, got %v", got, tt.contains)
+			}
+		})
+	}
+}
+
+func TestSidecarOutboundTrafficPolicy(t *testing.T) {
+
+	configWithoutOutboundTrafficPolicy := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{},
+	}
+	configRegistryOnly := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+	}
+	configAllowAny := &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
+
+	meshConfigWithRegistryOnly, err := mesh.ApplyMeshConfigDefaults(`
+outboundTrafficPolicy: 
+  mode: REGISTRY_ONLY
+`)
+	if err != nil {
+		t.Fatalf("unexpected error reading test mesh config: %v", err)
+	}
+
+	tests := []struct {
+		name                  string
+		meshConfig            v1alpha1.MeshConfig
+		sidecar               *Config
+		outboundTrafficPolicy *networking.OutboundTrafficPolicy
+	}{
+		{
+			name:       "default MeshConfig, no Sidecar",
+			meshConfig: mesh.DefaultMeshConfig(),
+			sidecar:    nil,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "default MeshConfig, sidecar without OutboundTrafficPolicy",
+			meshConfig: mesh.DefaultMeshConfig(),
+			sidecar:    configWithoutOutboundTrafficPolicy,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "default MeshConfig, Sidecar with registry only",
+			meshConfig: mesh.DefaultMeshConfig(),
+			sidecar:    configRegistryOnly,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "default MeshConfig, Sidecar with allow any",
+			meshConfig: mesh.DefaultMeshConfig(),
+			sidecar:    configAllowAny,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, no Sidecar",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    nil,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, sidecar without OutboundTrafficPolicy",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configWithoutOutboundTrafficPolicy,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, Sidecar with registry only",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configRegistryOnly,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+		},
+		{
+			name:       "MeshConfig registry only, Sidecar with allow any",
+			meshConfig: *meshConfigWithRegistryOnly,
+			sidecar:    configAllowAny,
+			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Env = &Environment{
+				Mesh: &test.meshConfig,
+			}
+
+			var sidecarScope *SidecarScope
+			if test.sidecar == nil {
+				sidecarScope = DefaultSidecarScopeForNamespace(ps, "not-default")
+			} else {
+				sidecarScope = ConvertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
+			}
+
+			if !reflect.DeepEqual(test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy) {
+				t.Errorf("Unexpected sidecar outbound traffic, want %v, found %v",
+					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
+			}
+
 		})
 	}
 }

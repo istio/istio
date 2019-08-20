@@ -21,11 +21,12 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/core/image"
+
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
-	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -51,12 +52,16 @@ spec:
   selector:
     app: {{.app}}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.deployment}}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: {{.app}}
+      version: {{.version}}
   template:
     metadata:
       labels:
@@ -78,13 +83,65 @@ spec:
           initialDelaySeconds: 1
 ---
 `
+
+	inProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: %s
+spec:
+  params:
+    backend_address: policy-backend.%s.svc.cluster.local:1071
+  compiledAdapter: bypass
+---
+`
+
+	outOfProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: allowhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: true
+      validDuration: 10s
+      validCount: 1
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: denyhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: false
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: keyval
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    table:
+      jason: admin
+---
+`
 )
 
 var (
-	_ Instance          = &kubeComponent{}
-	_ resource.Resetter = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
-	_ resource.Dumper   = &kubeComponent{}
+	_ Instance        = &kubeComponent{}
+	_ io.Closer       = &kubeComponent{}
+	_ resource.Dumper = &kubeComponent{}
 )
 
 type kubeComponent struct {
@@ -121,12 +178,14 @@ func newKube(ctx resource.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = namespace.New(ctx, "policybackend", false)
+	c.namespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "policybackend",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := deployment2.SettingsFromCommandLine()
+	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +218,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	if svc, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
+	if svc, _, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
@@ -186,28 +245,21 @@ func newKube(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) CreateConfigSnippet(name string, namespace string) string {
-	return fmt.Sprintf(
-		`apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: %s
-spec:
-  params:
-    backend_address: policy-backend.%s.svc.cluster.local:1071
-  compiledAdapter: bypass
-`, name, c.namespace.Name())
+func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
+	switch am {
+	case InProcess:
+		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
+	case OutOfProcess:
+		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
+		return handler
+	default:
+		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		return ""
+	}
 }
 
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
-}
-
-func (c *kubeComponent) Reset() error {
-	if c.client != nil {
-		return c.client.Reset()
-	}
-	return nil
 }
 
 func (c *kubeComponent) Close() (err error) {
@@ -235,7 +287,7 @@ func (c *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name)
+			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

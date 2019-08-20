@@ -7,7 +7,7 @@
       
       
     },
-    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar"}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -66,6 +66,9 @@
             {
               "prefix": "cluster.xds-grpc"
             },
+            {
+              "suffix": "ssl_context_update_by_sds"
+            }
         ]
       }
     }
@@ -117,6 +120,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -155,6 +159,8 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
+        "dns_lookup_family": "V4_ONLY",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {

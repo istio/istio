@@ -19,11 +19,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 )
 
 // NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -43,9 +44,10 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 const (
@@ -58,6 +60,10 @@ type fakeValidator struct{ err error }
 
 func (fv *fakeValidator) Validate(*store.BackendEvent) error {
 	return fv.err
+}
+
+func (fv *fakeValidator) SupportsKind(string) bool {
+	return true
 }
 
 var (
@@ -131,7 +137,7 @@ func TestArgs_String(t *testing.T) {
 func createTestWebhook(
 	t testing.TB,
 	cl clientset.Interface,
-	fakeWebhookSource, fakeEndpointSource cache.ListerWatcher,
+	fakeEndpointSource cache.ListerWatcher,
 	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
 
 	t.Helper()
@@ -187,6 +193,7 @@ func createTestWebhook(
 		WebhookConfigFile:             configFile,
 		CACertFile:                    caFile,
 		Clientset:                     cl,
+		WebhookName:                   config.Name,
 		DeploymentName:                dummyDeployment.Name,
 		ServiceName:                   dummyDeployment.Name,
 		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
@@ -197,16 +204,13 @@ func createTestWebhook(
 		t.Fatalf("NewWebhook() failed: %v", err)
 	}
 
-	wh.createInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
-		return fakeWebhookSource
-	}
 	wh.createInformerEndpointSource = func(cl clientset.Interface, namespace, name string) cache.ListerWatcher {
 		return fakeEndpointSource
 	}
 
 	return wh, func() {
 		cleanup()
-		wh.stop()
+		wh.Stop()
 	}
 }
 
@@ -221,7 +225,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.MockConfig.Type,
+			Type: schemas.MockConfig.Type,
 			Name: name,
 			Labels: map[string]string{
 				"key": name,
@@ -230,15 +234,15 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 				"annotationkey": name,
 			},
 		},
-		Spec: &test.MockConfig{
+		Spec: &testConfig.MockConfig{
 			Key: key,
-			Pairs: []*test.ConfigPair{{
+			Pairs: []*testConfig.ConfigPair{{
 				Key:   key,
 				Value: strconv.Itoa(i),
 			}},
 		},
 	}
-	obj, err := crd.ConvertConfig(model.MockConfig, config)
+	obj, err := crd.ConvertConfig(schemas.MockConfig, config)
 	if err != nil {
 		t.Fatalf("ConvertConfig(%v) failed: %v", config.Name, err)
 	}
@@ -264,7 +268,7 @@ func TestAdmitPilot(t *testing.T) {
 	invalidConfig := makePilotConfig(t, 0, false, false)
 	extraKeyConfig := makePilotConfig(t, 0, true, true)
 
-	wh, cancel := createTestWebhook(t, dummyClient, createFakeWebhookSource(), createFakeEndpointsSource(), dummyConfig)
+	wh, cancel := createTestWebhook(t, dummyClient, createFakeEndpointsSource(), dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -368,7 +372,6 @@ func TestAdmitMixer(t *testing.T) {
 	wh, cancel := createTestWebhook(
 		t,
 		fake.NewSimpleClientset(),
-		createFakeWebhookSource(),
 		createFakeEndpointsSource(),
 		dummyConfig)
 	defer cancel()
@@ -432,7 +435,7 @@ func TestAdmitMixer(t *testing.T) {
 				Operation: admissionv1beta1.Delete,
 			},
 			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
+			allowed:   true,
 		},
 		{
 			name: "invalid delete (missing name)",
@@ -519,16 +522,43 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 	return reviewJSON
 }
 
+func TestServe_Basic(t *testing.T) {
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeEndpointsSource(),
+		dummyConfig)
+	defer cleanup()
+
+	stop := make(chan struct{})
+	ready := make(chan struct{})
+	defer func() {
+		close(stop)
+		close(ready)
+	}()
+
+	go wh.Run(ready, stop)
+
+	select {
+	case <-ready:
+		wh.Stop()
+	case <-time.After(10 * time.Second):
+		t.Fatal("The webhook serve cannot be started in 10 seconds")
+	}
+}
+
 func TestServe(t *testing.T) {
 	wh, cleanup := createTestWebhook(t,
 		fake.NewSimpleClientset(),
-		createFakeWebhookSource(),
 		createFakeEndpointsSource(),
 		dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go wh.Run(stop)
+	ready := make(chan struct{})
+	defer func() {
+		close(stop)
+		close(ready)
+	}()
+	go wh.Run(ready, stop)
 
 	validReview := makeTestReview(t, true)
 	invalidReview := makeTestReview(t, false)

@@ -1,0 +1,15 @@
+language: go
+
+go:
+  - "1.8"
+  - "1.9"
+  - "1.10"
+
+before_install:
+  - go get github.com/axw/gocov/gocov
+  - go get github.com/yuin/goveralls
+  - if ! go get code.google.com/p/go.tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+install:
+  - go get -u -v $(go list -f '{{join .Imports "\n"}}{{"\n"}}{{join .TestImports "\n"}}' ./... | sort | uniq | grep -v gopher-lua)
+script:
+  - $HOME/gopath/bin/goveralls -service=travis-ci -vetoff

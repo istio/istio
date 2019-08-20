@@ -1,5 +1,5 @@
 # Bookinfo Sample
-See https://istio.io/docs/guides/bookinfo.html.
+See https://istio.io/docs/examples/bookinfo/
 
 ## Build docker images without pushing
 ```

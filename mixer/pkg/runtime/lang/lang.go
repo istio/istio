@@ -16,13 +16,13 @@
 package lang
 
 import (
+	"istio.io/api/annotation"
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/pkg/annotations"
-	"istio.io/istio/pkg/env"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/env"
 )
 
 type (
@@ -48,21 +48,16 @@ const (
 
 	// COMPAT is a hybrid with CEXL syntax but CEL semantics
 	COMPAT
-
-	// LanguageRuntimeAnnotation on config resources to select a language runtime
-	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
 
-var _ = annotations.Register(LanguageRuntimeAnnotation, "Select a language runtime")
-
-var langVar = env.RegisterStringVar("ISTIO_LANG", "", "")
+var langVar = env.RegisterStringVar("ISTIO_LANG", "", "Selects the attribute expression langauge runtime for Mixer.")
 
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
 	if override, has := langVar.Lookup(); has {
 		return fromString(override)
 	}
-	return fromString(annotations[LanguageRuntimeAnnotation])
+	return fromString(annotations[annotation.PolicyLang.Name])
 }
 
 func fromString(value string) LanguageRuntime {
@@ -77,7 +72,7 @@ func fromString(value string) LanguageRuntime {
 }
 
 // NewBuilder returns an expression builder
-func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
+func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
 	switch mode {
 	case CEL:
 		return cel.NewBuilder(finder, cel.CEL)
@@ -89,7 +84,7 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 }
 
 // NewTypeChecker returns a type checker
-func NewTypeChecker(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
+func NewTypeChecker(finder attribute.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
 	switch mode {
 	case CEL:
 		return cel.NewBuilder(finder, cel.CEL)

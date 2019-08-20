@@ -31,13 +31,12 @@ import (
 	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
+	"istio.io/pkg/attribute"
 )
 
 // Does not implement any template interfaces.
@@ -859,7 +858,7 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
-func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) ast.AttributeDescriptorFinder {
+func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) attribute.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
@@ -871,7 +870,7 @@ func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.
 			attrs[an] = at
 		}
 	}
-	return ast.NewFinder(attrs)
+	return attribute.NewFinder(attrs)
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
@@ -879,7 +878,7 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return true, nil
 }
 
-func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.ValueType, error) {
+func (e *fakeExpr) EvalType(s string, af attribute.AttributeDescriptorFinder) (pb.ValueType, error) {
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}
@@ -887,7 +886,7 @@ func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.Valu
 	return tc.EvalType(s)
 }
 
-func (e *fakeExpr) AssertType(string, ast.AttributeDescriptorFinder, pb.ValueType) error {
+func (e *fakeExpr) AssertType(string, attribute.AttributeDescriptorFinder, pb.ValueType) error {
 	return nil
 }
 

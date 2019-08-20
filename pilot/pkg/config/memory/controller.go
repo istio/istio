@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 type controller struct {
@@ -49,7 +50,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }
 
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *controller) ConfigDescriptor() schema.Set {
 	return c.configStore.ConfigDescriptor()
 }
 

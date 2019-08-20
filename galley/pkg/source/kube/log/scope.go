@@ -14,7 +14,7 @@
 
 package log
 
-import "istio.io/istio/pkg/log"
+import "istio.io/pkg/log"
 
 // Scope for kube sources.
 var Scope = log.RegisterScope("kube", "kube-specific debugging", 0)

@@ -21,11 +21,13 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/pkg/config/mesh"
+
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("meshconfig", "meshconfig watcher/reader", 0)
@@ -60,7 +62,7 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 	c := &FsCache{
 		path:   path,
 		fw:     fw,
-		cached: Default(),
+		cached: mesh.DefaultMeshConfig(),
 	}
 
 	c.reload()
@@ -94,7 +96,7 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	cfg := Default()
+	cfg := mesh.DefaultMeshConfig()
 	if err = jsonpb.UnmarshalString(string(js), &cfg); err != nil {
 		scope.Errorf("Error reading mesh config as json: %v", err)
 		return
