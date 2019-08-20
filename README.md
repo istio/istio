@@ -1,6 +1,5 @@
 [![CircleCI](https://circleci.com/gh/istio/installer.svg?style=shield)](https://circleci.com/gh/istio/installer)
 [![Build Status](https://badge.buildkite.com/a22a72134042949c314994a6d0e0abe0281444541d25d2d105.svg)](https://buildkite.com/istio/istio-installer)
-[![Mergify Status](https://gh.mergify.io/badges/istio/installer.png?style=cut)](https://mergify.io)
 
 # Istio Installer
 
