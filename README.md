@@ -100,8 +100,7 @@ The following command generates a manifest with the compiled in default profile 
 mesh manifest generate
 ```
 
-You can see these sources for the compiled in profiles in the repo under `data/profiles`, while the compiled in Helm
-charts are under `data/charts`. Note: this will change shortly. Charts/profiles will be released separately and the
+You can see these sources for the compiled in profiles in the repo under `data/profiles`. `Charts/profiles` will be released separately and the
 by default the mesh command will point to a version of the released charts.
 
 #### Output to dirs
@@ -259,10 +258,10 @@ way as galley settings. Supported K8s settings currently include:
 - [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container)
 - [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)
 - [replica count](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-- [HoriizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+- [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 - [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)
 - [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-- [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+- [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
 - [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
 - [priority calss name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
 - [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
