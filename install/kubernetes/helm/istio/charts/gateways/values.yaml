@@ -174,7 +174,7 @@ istio-egressgateway:
       memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 256Mi
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}
