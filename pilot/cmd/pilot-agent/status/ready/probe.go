@@ -54,7 +54,7 @@ func (p *Probe) checkInbound() error {
 	if p.NodeType != model.SidecarProxy {
 		return p.checkInboundConfigured()
 	}
-	return p.checkInboundVirtualListener()
+	return nil
 }
 
 func (p *Probe) checkInboundVirtualListener() error {
