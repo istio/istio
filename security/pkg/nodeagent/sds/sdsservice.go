@@ -207,6 +207,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
+	var node *core.Node
 	for {
 		// Block until a request is received.
 		select {
@@ -217,7 +218,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return receiveError
 			}
 
-			if discReq.Node == nil {
+			if discReq.Node != nil {
+				node = discReq.Node
+			}
+
+			if node != nil {
 				sdsServiceLog.Errorf("Close connection. Invalid discovery request with no node")
 				return fmt.Errorf("invalid discovery request with no node")
 			}
@@ -229,7 +234,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if resourceName == "" {
-				sdsServiceLog.Infof("Received empty resource name from %q", discReq.Node.Id)
+				sdsServiceLog.Infof("Received empty resource name from %q", node.Id)
 				continue
 			}
 
@@ -241,13 +246,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Lock()
 			if con.conID == "" {
 				// first request
-				con.conID = constructConnectionID(discReq.Node.Id)
+				con.conID = constructConnectionID(node.Id)
 				key.ConnectionID = con.conID
 				addConn(key, con)
 				firstRequestFlag = true
 			}
 			conID := con.conID
-			con.proxyID = discReq.Node.Id
+			con.proxyID = node.Id
 			con.ResourceName = resourceName
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
@@ -276,18 +281,18 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"error details %s\n", conIDresourceNamePrefix, node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail.GoString())
 				continue
 			}
 
 			if firstRequestFlag {
 				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
-					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"%q, error details %s\n", conIDresourceNamePrefix, node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail.GoString())
 			} else {
 				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"error details %s\n", conIDresourceNamePrefix, node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail.GoString())
 			}
 
@@ -295,14 +300,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
 			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token) {
-				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
+				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, node.Id)
 				continue
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
 			if err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
-					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
+					"secret cache: %v", conIDresourceNamePrefix, node.Id, err)
 				return err
 			}
 
@@ -316,7 +321,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			if err := pushSDS(con); err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
-					conIDresourceNamePrefix, discReq.Node.Id, err)
+					conIDresourceNamePrefix, node.Id, err)
 				return err
 			}
 		case <-con.pushChannel:
@@ -455,10 +460,6 @@ func recycleConnection(conID, resourceName string) {
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
-	if discReq.Node.Id == "" {
-		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
-	}
-
 	if len(discReq.ResourceNames) == 0 {
 		return "", nil
 	}

@@ -24,6 +24,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -261,6 +262,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
+	node := &core.Node{}
 	for {
 		// Block until either a request is received or a push is triggered.
 		select {
@@ -269,9 +271,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			err = s.initConnectionNode(discReq, con)
-			if err != nil {
-				return err
+			if discReq.Node != nil {
+				node = discReq.Node
+				err = s.initConnectionNode(discReq.Node, con)
+				if err != nil {
+					return err
+				}
 			}
 
 			switch discReq.TypeUrl {
@@ -281,7 +286,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(cdsReject, discReq.Node.Id, errCode.String())
+						incrementXDSRejects(cdsReject, node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
@@ -304,7 +309,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(ldsReject, discReq.Node.Id, errCode.String())
+						incrementXDSRejects(ldsReject, node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
@@ -323,7 +328,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
+					incrementXDSRejects(rdsReject, node.Id, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -354,7 +359,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						if discReq.ErrorDetail != nil {
 							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
-							incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
+							incrementXDSRejects(rdsReject, node.Id, errCode.String())
 						}
 						continue
 					} else if len(routes) == 0 {
@@ -380,7 +385,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(edsReject, discReq.Node.Id, errCode.String())
+					incrementXDSRejects(edsReject, node.Id, errCode.String())
 					continue
 				}
 				clusters := discReq.GetResourceNames()
@@ -466,7 +471,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 }
 
 // update the node associated with the connection, after receiving a a packet from envoy.
-func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection) error {
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
 	if con.modelNode != nil {
 		con.mu.RUnlock()
@@ -474,10 +479,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.RUnlock()
 
-	if discReq.Node == nil || discReq.Node.Id == "" {
+	if node == nil || node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(discReq.Node.Id, model.ParseMetadata(discReq.Node.Metadata))
+	nt, err := model.ParseServiceNodeWithMetadata(node.Id, model.ParseMetadata(node.Metadata))
 	if err != nil {
 		return err
 	}
@@ -498,7 +503,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(nt.Locality) {
-		nt.Locality = discReq.Node.Locality
+		nt.Locality = node.Locality
 	}
 
 	if err := nt.SetWorkloadLabels(s.Env); err != nil {
@@ -513,7 +518,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	con.modelNode = nt
 	if con.ConID == "" {
 		// first request
-		con.ConID = connectionID(discReq.Node.Id)
+		con.ConID = connectionID(node.Id)
 	}
 	con.mu.Unlock()
 
