@@ -220,6 +220,13 @@ template: |
     - name: ISTIO_META_SDS_TOKEN_PATH
       value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
     {{- end }}
+    {{- if .Values.global.meshID }}
+    - name: ISTIO_META_MESH_ID
+      value: "{{ .Values.global.meshID }}"
+    {{- else if .Values.global.trustDomain }}
+    - name: ISTIO_META_MESH_ID
+      value: "{{ .Values.global.trustDomain }}"
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
     readinessProbe:
