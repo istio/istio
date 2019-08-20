@@ -37,12 +37,12 @@ func TestParseJwksURI(t *testing.T) {
 			expectedErrorMessage: `URI scheme "" is not supported`,
 		},
 		{
-			in:                   "tcp://foo.bar.com:abc",
+			in:                   "tcp://foo.bar.com:1234",
 			expectedErrorMessage: `URI scheme "tcp" is not supported`,
 		},
 		{
 			in:                   "http://foo.bar.com:abc",
-			expectedErrorMessage: `strconv.Atoi: parsing "abc": invalid syntax`,
+			expectedErrorMessage: `parse http://foo.bar.com:abc: invalid port ":abc" after host`,
 		},
 		{
 			in:               "http://foo.bar.com",
