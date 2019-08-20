@@ -209,7 +209,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
-	var node *core.Node
+	node := &core.Node{}
 	for {
 		// Block until a request is received.
 		select {
