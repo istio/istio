@@ -492,7 +492,7 @@ const (
 	NodeMetadataRouterMode = "ROUTER_MODE"
 
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
-	NodeMetadataInstanceIPs = "INSTANCE_IPS"
+	NodeMetadataInstanceIPs = "ISTIO_META_INSTANCE_IPS"
 
 	// NodeMetadataSdsEnabled specifies whether SDS is enabled.
 	NodeMetadataSdsEnabled = "ISTIO_META_SDS"
