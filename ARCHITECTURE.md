@@ -69,7 +69,18 @@ Gateways | Egress gateway
 AutoInjection | Sidecar injector
 
 Features and components are defined in the
-[name](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/name/name.go#L38) package.
+[name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L44) package.
+
+Note: Besides the features and the components listed in the table above, some addon features and components are as follows:
+
+| Feature | Components |
+|---------|------------|
+Telemetry | Prometheus
+Telemetry | Prometheus Operator
+Telemetry | Grafana
+Telemetry | Kiali
+Telemetry | Tracing
+ThirdParty | CNI
 
 ### Namespaces
 
@@ -105,7 +116,7 @@ citadel | istio-security
 nodeAgent | istio-security-nodeagent
 
 These rules are expressed in code in the
-[name](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/name/name.go#L38) package.
+[name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
 
 ### Enablement
 
@@ -124,13 +135,13 @@ security:
 will enable all components of the security feature except citadel.
 
 These rules are expressed in code in the
-[name](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/name/name.go#L38) package.
+[name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L131) package.
 
 ### K8s settings
 
 Rather than defining selective mappings from parameters to fields in K8s resources, the `IstioControlPlaneSpec` API
 contains a consistent K8s block for each Istio component. The available K8s settings are defined in
-[KubernetesResourcesSpec](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto#L411):
+[KubernetesResourcesSpec](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto#L395):
 
 | Field name | K8s API reference |
 | :--------- | :---------------- |
@@ -140,6 +151,7 @@ replicaCount | [replica count](https://kubernetes.io/docs/concepts/workloads/con
 hpaSpec | [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 podDisruptionBudget | [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)
 podAnnotations | [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+env | [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
 imagePullPolicy| [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
 priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
 nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
@@ -159,23 +171,23 @@ trafficManagement:
 ### Translations
 
 API translations are version specific and are expressed as a
-[table of Translators](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L89)
+[table of Translators](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L110)
 indexed by minor [version](https://github.com/istio/operator/blob/master/pkg/version/version.go). This is because
 mapping rules are only allowed to change between minor (not patch) versions.
 
 The `IstioControlPlaneSpec` API fields are translated to the output manifest in two ways:
 
 1. The `IstioControlPlaneSpec` API fields are mapped to the Helm values.yaml schema using the
-[APIMapping](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L91)
-field of the [Translator](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L48)
+[APIMapping](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L112)
+field of the [Translator](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L52)
 struct.
 1. The K8s settings are applied to resources in the output manifest using the
-[KubernetesMapping](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L108)
-field in the [Translator](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L48)
+[KubernetesMapping](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L132)
+field in the [Translator](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L52)
 struct.
 
 Other per-component mappings to Helm values.yaml are expressed in the
-[ComponentMaps](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/translate/translate.go#L64)
+[ComponentMaps](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L83)
 struct.
 
 ### Validations
@@ -226,9 +238,16 @@ CRs at this layer, so no merge is performed in this step.
 The CLI `mesh` command is implemented in the [cmd/mesh](https://github.com/istio/operator/blob/master/cmd/mesh/)
 subdirectory as a Cobra command with the following subcommands:
 
-- [manifest](https://github.com/istio/operator/blob/master/cmd/mesh/manifest.go): renders a manifest and outputs to console or files.
-- [install](https://github.com/istio/operator/blob/master/cmd/mesh/install.go): renders and manifest and applies it to a cluster.
-- [dump-profile](https://github.com/istio/operator/blob/master/cmd/mesh/dump.go): dumps the default values for a selected profile.
+- [manifest](https://github.com/istio/operator/blob/master/cmd/mesh/manifest.go): the manifest subcommand is used to generate, apply, diff or migrate Istio manifests, it has the following subcommands:
+    - [apply](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-apply.go): the apply subcommand is used to generate an Istio install manifest and apply it to a cluster.
+    - [diff](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
+    - [generate](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
+    - [migrate](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.
+    - [versions](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-versions.go): the versions subcommand is used to list the version of Istio recommended for and supported by this version of the operator binary.
+- [profile](https://github.com/istio/operator/blob/master/cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
+    - [diff](https://github.com/istio/operator/blob/master/cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
+    - [dump](https://github.com/istio/operator/blob/master/cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
+    - [list](https://github.com/istio/operator/blob/master/cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
 
 ## Migration tools
 
