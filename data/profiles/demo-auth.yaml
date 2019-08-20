@@ -62,14 +62,6 @@ spec:
               cpu: 10m
               memory: 100Mi
 
-      proxy:
-        values:
-          accessLogFile: /dev/stdout
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-
   values:
     global:
       disablePolicyChecks: false
