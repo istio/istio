@@ -15,9 +15,12 @@
 package model
 
 import (
+	"istio.io/istio/pkg/config/labels"
 	"reflect"
 	"testing"
 	"time"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -101,4 +104,64 @@ func TestMergeUpdateRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnvoyFilters(t *testing.T) {
+	envoyFilters := []*EnvoyFilterWrapper{
+		{
+			workloadSelector: map[string]string{"app": "v1"},
+			Patches:          nil,
+		},
+	}
+
+	push := &PushContext{
+		Env: &Environment{
+			Mesh: &meshconfig.MeshConfig{
+				RootNamespace: "istio-system",
+			},
+		},
+		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
+			"istio-system": envoyFilters,
+			"test-ns":      envoyFilters,
+		},
+	}
+
+	cases := []struct {
+		name     string
+		proxy    *Proxy
+		expected int
+	}{
+		{
+			name:     "proxy matches two envoyfilters",
+			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			expected: 2,
+		},
+		{
+			name:     "proxy in root namespace matches an envoyfilter",
+			proxy:    &Proxy{ConfigNamespace: "istio-system", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			expected: 1,
+		},
+
+		{
+			name:     "proxy matches no envoyfilter",
+			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v2"}}},
+			expected: 0,
+		},
+
+		{
+			name:     "proxy matches envoyfilter in root ns",
+			proxy:    &Proxy{ConfigNamespace: "test-n2", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			expected: 1,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			filters := push.EnvoyFilters(tt.proxy)
+			if len(filters) != tt.expected {
+				t.Errorf("Expect %d envoy filters, but got %d", len(filters), tt.expected)
+			}
+		})
+	}
+
 }

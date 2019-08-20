@@ -1097,7 +1097,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
-	if ps.Env.Mesh.RootNamespace != "" && len(ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace]) > 0 {
+	if ps.Env.Mesh.RootNamespace != "" {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
@@ -1107,11 +1107,15 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 		}
 	}
 
-	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-			out = append(out, efw)
+	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
+	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
 		}
 	}
+
 	return out
 }
 
