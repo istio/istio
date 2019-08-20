@@ -355,7 +355,7 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 			insertPosition := -1
 			for i := 0; i < len(hcm.HttpFilters); i++ {
 				if httpFilterMatch(hcm.HttpFilters[i], cp) {
-					insertPosition = i + 1
+					insertPosition = i
 					break
 				}
 			}
