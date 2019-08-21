@@ -280,6 +280,7 @@ containers:
   {{- end }}
   - mountPath: /etc/istio/proxy
     name: istio-envoy
+  {{- if .Values.global.sds.udsPath }}
   {{- if .Values.global.sds.enabled }}
   - mountPath: /var/run/sds
     name: sds-uds-path
@@ -290,6 +291,7 @@ containers:
   - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
     name: custom-sds-token
     readOnly: true
+  {{- end }}
   {{- end }}
   {{- else }}
   - mountPath: /etc/certs/
