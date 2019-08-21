@@ -49,10 +49,11 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 		Short: "Migrates a file containing Helm values to IstioControlPlane format.",
 		Long:  "The migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.",
 		Run: func(cmd *cobra.Command, args []string) {
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if len(args) == 0 {
-				migrateFromClusterConfig(rootArgs, mmArgs)
+				migrateFromClusterConfig(rootArgs, mmArgs, l)
 			} else {
-				migrateFromFiles(rootArgs, args)
+				migrateFromFiles(rootArgs, args, l)
 			}
 		}}
 }
@@ -62,56 +63,56 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, args []string) {
-	checkLogsOrExit(rootArgs)
+func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) {
+	initLogsOrExit(rootArgs)
 	value, err := util.ReadFiles(args[0], valueFileFilter)
 	if err != nil {
-		logAndFatalf(rootArgs, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	if value == "" {
-		logAndPrintf(rootArgs, "no valid value.yaml file specified")
+		l.logAndPrint("no valid value.yaml file specified")
 		return
 	}
-	logAndPrintf(rootArgs, "translating input values.yaml file at: %s to new API", args[0])
-	translateFunc(rootArgs, []byte(value))
+	l.logAndPrint("translating input values.yaml file at: ", args[0], " to new API")
+	translateFunc([]byte(value), l)
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(rootArgs *rootArgs, values []byte) {
+func translateFunc(values []byte, l *logger) {
 	ts, err := translate.NewReverseTranslator(version.NewMinorVersion(1, 3))
 	if err != nil {
-		logAndFatalf(rootArgs, "error creating values.yaml translator: %s", err.Error())
+		l.logAndFatal("error creating values.yaml translator: ", err.Error())
 	}
 
 	isCPSpec, err := ts.TranslateFromValueToSpec(values)
 	if err != nil {
-		logAndFatalf(rootArgs, "error translating values.yaml: %s", err.Error())
+		l.logAndFatal("error translating values.yaml: ", err.Error())
 	}
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCPSpec)
 	if err != nil {
-		logAndFatalf(rootArgs, "error marshalling translated IstioControlPlaneSpec: %s", err.Error())
+		l.logAndFatal("error marshalling translated IstioControlPlaneSpec: ", err.Error())
 	}
 	cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 	if err != nil {
-		logAndFatalf(rootArgs, "error converting json: %s\n%s", gotString, err.Error())
+		l.logAndFatal("error converting json: ", gotString, "\n", err.Error())
 	}
 	fmt.Println(string(cpYaml))
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.
-func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) {
-	checkLogsOrExit(rootArgs)
+func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *logger) {
+	initLogsOrExit(rootArgs)
 
-	logAndPrintf(rootArgs, "translating in cluster specs")
+	l.logAndPrint("translating in cluster specs")
 
 	c := kubectlcmd.New()
 	output, stderr, err := c.GetConfig("istio-sidecar-injector", mmArgs.namespace, "jsonpath='{.data.values}'")
 	if err != nil {
-		logAndFatalf(rootArgs, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	if stderr != "" {
-		logAndPrintf(rootArgs, "error: %s\n", stderr)
+		l.logAndPrint("error: ", stderr, "\n")
 	}
 	var value map[string]interface{}
 	if len(output) > 1 {
@@ -119,11 +120,11 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) {
 	}
 	err = json.Unmarshal([]byte(output), &value)
 	if err != nil {
-		logAndFatalf(rootArgs, "error unmarshalling JSON to untyped map %s", err.Error())
+		l.logAndFatal("error unmarshalling JSON to untyped map ", err.Error())
 	}
 	res, err := yaml.Marshal(value)
 	if err != nil {
-		logAndFatalf(rootArgs, "error marshalling untyped map to YAML: %s", err.Error())
+		l.logAndFatal("error marshalling untyped map to YAML: ", err.Error())
 	}
-	translateFunc(rootArgs, res)
+	translateFunc(res, l)
 }

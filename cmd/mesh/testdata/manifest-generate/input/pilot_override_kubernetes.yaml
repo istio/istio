@@ -1,0 +1,38 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  hub: docker.io/istio
+  tag: 1.1.4
+  defaultNamespace: istio-control
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
+  security:
+    enabled: false
+  configManagement:
+    enabled: false
+  autoInjection:
+    enabled: false
+  gateways:
+    enabled: false
+  trafficManagement:
+    enabled: true
+    components:
+      proxy:
+        enabled: false
+      pilot:
+        k8s:
+          overlays:
+            - kind: Deployment
+              name: istio-pilot
+              patches:
+                - path: spec.template.spec.containers.[name:discovery].args.[30m]
+                  value: "60m" # OVERRIDDEN
+                - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
+                  value: 1234 # OVERRIDDEN
+            - kind: Service
+              name: istio-pilot
+              patches:
+                - path: spec.ports.[name:grpc-xds].port
+                  value: 11111 # OVERRIDDEN

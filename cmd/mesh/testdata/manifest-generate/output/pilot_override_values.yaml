@@ -1,0 +1,170 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    checksum/config-volume: 309142f0ed14e82382f3861ec53fb48aaeb3b7218c6a77be7ca925eaf907a0ea
+    checksum/config-volume-envoy: b1f0f532d4964140a9de7fee29031cae5b877ee6bb76c15c3286ddb142479164
+  labels:
+    app: pilot
+    istio: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  selector:
+    matchLabels:
+      istio: pilot
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        checksum/config-volume: ed521864d32d701035ce91edefc645cb606e7fa0c7bf971ed2af09ca45aba460
+        checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: pilot
+        istio: pilot
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+              weight: 2
+            - preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - ppc64le
+              weight: 2
+            - preference:
+                matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - s390x
+              weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
+      containers:
+        - args:
+            - discovery
+            - --monitoringAddr=:15014
+            - --log_output_level=default:info
+            - --domain
+            - cluster.local
+            - --secureGrpcAddr
+            - ""
+            - --keepaliveMaxServerConnectionAge
+            - 30m
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: GODEBUG
+              value: gctrace=1
+            - name: PILOT_TRACE_SAMPLING
+              value: "1"
+            - name: CONFIG_NAMESPACE
+              value: istio-config
+          image: docker.io/istio/pilot:1.1.4
+          imagePullPolicy: Always
+          name: discovery
+          ports:
+            - containerPort: 8080
+            - containerPort: 15010
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+          volumeMounts:
+            - mountPath: /etc/istio/config
+              name: config-volume
+        - args:
+            - proxy
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --serviceCluster
+            - istio-pilot
+            - --templateFile
+            - /var/lib/envoy/envoy.yaml.tmpl
+            - --controlPlaneAuthPolicy
+            - MUTUAL_TLS
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+          image: docker.io/istio/proxyv2:1.1.4
+          imagePullPolicy: Always
+          name: istio-proxy
+          ports:
+            - containerPort: 15011
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: /etc/certs
+              name: istio-certs
+              readOnly: true
+            - mountPath: /var/lib/envoy
+              name: pilot-envoy-config
+      serviceAccountName: istio-pilot-service-account
+      volumes:
+        - configMap:
+            name: istio
+          name: config-volume
+        - configMap:
+            name: pilot-envoy-config
+          name: pilot-envoy-config
+        - name: istio-certs
+          secret:
+            optional: true
+            secretName: istio.istio-pilot-service-account
+
+---
+
