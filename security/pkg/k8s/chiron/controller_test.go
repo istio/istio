@@ -35,6 +35,10 @@ import (
 )
 
 const (
+	// The example certificate here can be generated through
+	// the following command:
+	// kubectl exec -it POD-NAME -n NAMESPACE -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	// Its validity is 5 years.
 	exampleCACert1 = `-----BEGIN CERTIFICATE-----
 MIIDCzCCAfOgAwIBAgIQbfOzhcKTldFipQ1X2WXpHDANBgkqhkiG9w0BAQsFADAv
 MS0wKwYDVQQDEyRhNzU5YzcyZC1lNjcyLTQwMzYtYWMzYy1kYzAxMDBmMTVkNWUw
@@ -406,8 +410,9 @@ func TestGetCACert(t *testing.T) {
 		validatingWebhookConfigNames  []string
 		validatingWebhookServiceNames []string
 		validatingWebhookServicePorts []int
+		expectFail                    bool
 	}{
-		"getCACert should succeed": {
+		"getCACert should succeed for a valid certificate": {
 			deleteWebhookConfigOnExit:    false,
 			gracePeriodRatio:             0.6,
 			k8sCaCertFile:                "./test-data/example-ca-cert.pem",
@@ -417,12 +422,14 @@ func TestGetCACert(t *testing.T) {
 			mutatingWebhookSerivceNames:  mutatingWebhookServiceNames,
 			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
 			validatingWebhookConfigNames: validatingWebhookConfigNames,
+			expectFail:                   false,
 		},
 	}
 
 	client := fake.NewSimpleClientset()
 
 	for _, tc := range testCases {
+		// If the CA cert. is invalid, NewWebhookController will fail.
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -433,11 +440,14 @@ func TestGetCACert(t *testing.T) {
 		}
 
 		cert, err := wc.getCACert()
-		if err != nil {
-			t.Fatalf("failed to get CA cert: %v", err)
-		}
-		if !bytes.Equal(cert, []byte(exampleCACert1)) {
-			t.Fatalf("the CA certificate read does not match the actual certificate")
+		if !tc.expectFail {
+			if err != nil {
+				t.Errorf("failed to get CA cert: %v", err)
+			} else if !bytes.Equal(cert, []byte(exampleCACert1)) {
+				t.Errorf("the CA certificate read does not match the actual certificate")
+			}
+		} else if err == nil {
+			t.Error("expect failure on getting CA cert but succeeded")
 		}
 	}
 }
