@@ -354,32 +354,53 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	// Note: it is for test to not pass s.Push directly.
-	debounce(s.pushChannel, stopCh, func(req *model.PushRequest) {
-		go s.Push(req)
-	})
+	debounce(s.pushChannel, stopCh, s.Push)
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *model.PushRequest)) {
+func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(req *model.PushRequest)) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
 
 	pushCounter := 0
-
 	debouncedEvents := 0
 
 	// Keeps track of the push requests. If updates are debounce they will be merged.
 	var req *model.PushRequest
 
+	free := true
+	freeCh := make(chan struct{}, 1)
+
+	push := func(req *model.PushRequest) {
+		pushFn(req)
+		freeCh <- struct{}{}
+	}
+
 	for {
 		select {
-		case r := <-ch:
+		case <-freeCh:
+			free = true
+			eventDelay := time.Since(startDebounce)
+			quietTime := time.Since(lastConfigUpdateTime)
+			// it has been too long or quiet enough
+			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
+				if req != nil {
+					pushCounter++
+					adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents,
+						quietTime, eventDelay, req.Full)
 
+					free = false
+					go push(req)
+					req = nil
+					debouncedEvents = 0
+				}
+			}
+		case r := <-ch:
 			if !features.EnableEDSDebounce.Get() && !r.Full {
 				// trigger push now, just for EDS
-				fn(r)
+				go pushFn(r)
 				continue
 			}
 
@@ -391,7 +412,6 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 			debouncedEvents++
 
 			req = req.Merge(r)
-
 		case now := <-timeChan:
 			timeChan = nil
 
@@ -399,14 +419,17 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, fn func(req *m
 			quietTime := now.Sub(lastConfigUpdateTime)
 			// it has been too long or quiet enough
 			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
-				pushCounter++
-				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req.Full)
+				if free && req != nil {
+					pushCounter++
+					adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents,
+						quietTime, eventDelay, req.Full)
 
-				fn(req)
-				req = nil
-				debouncedEvents = 0
+					free = false
+					go push(req)
+					req = nil
+					debouncedEvents = 0
+				}
 				continue
 			}
 
