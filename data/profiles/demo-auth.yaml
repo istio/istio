@@ -4,7 +4,7 @@ spec:
   gateways:
     components:
       egressGateway:
-        enabled: false
+        enabled: true
         k8s:
           resources:
             requests:
@@ -67,16 +67,15 @@ spec:
       disablePolicyChecks: false
       mtls:
         enabled: true
+      proxy:
+        accessLogFile: /dev/stdout
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
 
     pilot:
       autoscaleEnabled: false
-
-    proxy:
-      accessLogFile: /dev/stdout
-      resources:
-        requests:
-          cpu: 10m
-          memory: 40Mi
 
     mixer:
       adapters:
@@ -96,7 +95,7 @@ spec:
       telemetry:
         autoscaleEnabled: false
 
-    gateway:
+    gateways:
       istio-egressgateway:
         autoscaleEnabled: false
       istio-ingressgateway:
