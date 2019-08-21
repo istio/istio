@@ -20,7 +20,11 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -165,3 +169,147 @@ func TestEnvoyFilters(t *testing.T) {
 	}
 
 }
+
+func TestSidecarScope(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
+	ps.Env = env
+	ps.ServiceByHostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
+	ps.ServiceByHostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
+
+	configStore := newFakeStore()
+	sidecarWithWorkloadSelector := &networking.Sidecar{
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "foo"},
+		},
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"default/*"},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	sidecarWithoutWorkloadSelector := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"default/*"},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	configWithWorkloadSelector := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      schemas.Sidecar.Type,
+			Group:     schemas.Sidecar.Group,
+			Version:   schemas.Sidecar.Version,
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: sidecarWithWorkloadSelector,
+	}
+	rootConfig := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      schemas.Sidecar.Type,
+			Group:     schemas.Sidecar.Group,
+			Version:   schemas.Sidecar.Version,
+			Name:      "global",
+			Namespace: "istio-system",
+		},
+		Spec: sidecarWithoutWorkloadSelector,
+	}
+	_, _ = configStore.Create(configWithWorkloadSelector)
+	_, _ = configStore.Create(rootConfig)
+
+	store := istioConfigStore{ConfigStore: configStore}
+
+	env.IstioConfigStore = &store
+	if err := ps.initSidecarScopes(env); err != nil {
+		t.Fatalf("init sidecar scope failed: %v", err)
+	}
+	cases := []struct {
+		proxy      *Proxy
+		collection labels.Collection
+		sidecar    string
+		describe   string
+	}{
+		{
+			proxy:      &Proxy{ConfigNamespace: "default"},
+			collection: labels.Collection{map[string]string{"app": "foo"}},
+			sidecar:    "default/foo",
+			describe:   "match local sidecar",
+		},
+		{
+			proxy:      &Proxy{ConfigNamespace: "default"},
+			collection: labels.Collection{map[string]string{"app": "bar"}},
+			sidecar:    "istio-system/global",
+			describe:   "no match local sidecar",
+		},
+		{
+			proxy:      &Proxy{ConfigNamespace: "nosidecar"},
+			collection: labels.Collection{map[string]string{"app": "bar"}},
+			sidecar:    "istio-system/global",
+			describe:   "no sidecar",
+		},
+	}
+	for _, c := range cases {
+		scope := ps.getSidecarScope(c.proxy, c.collection)
+		if c.sidecar != scopeToSidecar(scope) {
+			t.Errorf("case with %s should get sidecar %s but got %s", c.describe, c.sidecar, scopeToSidecar(scope))
+		}
+	}
+}
+
+func scopeToSidecar(scope *SidecarScope) string {
+	if scope == nil || scope.Config == nil {
+		return ""
+	}
+	return scope.Config.Namespace + "/" + scope.Config.Name
+}
+
+type fakeStore struct {
+	store map[string]map[string][]Config
+}
+
+func newFakeStore() *fakeStore {
+	f := fakeStore{
+		store: make(map[string]map[string][]Config),
+	}
+	return &f
+}
+
+var _ ConfigStore = (*fakeStore)(nil)
+
+func (*fakeStore) ConfigDescriptor() schema.Set {
+	return schemas.Istio
+}
+
+func (*fakeStore) Get(typ, name, namespace string) *Config { return nil }
+
+func (s *fakeStore) List(typ, namespace string) ([]Config, error) {
+	nsConfigs := s.store[typ]
+	if nsConfigs == nil {
+		return nil, nil
+	}
+	var res []Config
+	if namespace == NamespaceAll {
+		for _, configs := range nsConfigs {
+			res = append(res, configs...)
+		}
+		return res, nil
+	}
+	return nsConfigs[namespace], nil
+}
+
+func (s *fakeStore) Create(config Config) (revision string, err error) {
+	configs := s.store[config.Type]
+	if configs == nil {
+		configs = make(map[string][]Config)
+	}
+	configs[config.Namespace] = append(configs[config.Namespace], config)
+	s.store[config.Type] = configs
+	return "", nil
+}
+
+func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
+
+func (*fakeStore) Delete(typ, name, namespace string) error { return nil }
