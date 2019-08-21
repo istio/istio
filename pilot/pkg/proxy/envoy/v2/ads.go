@@ -277,7 +277,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return receiveError
 			}
 			// This should be only set for the first request. Guard with ID check regardless.
-			if discReq.Node != nil && discReq.Node.Id != nil {
+			if discReq.Node != nil && discReq.Node.Id != "" {
 				node = discReq.Node
 				err = s.initConnectionNode(discReq.Node, con)
 				if err != nil {
