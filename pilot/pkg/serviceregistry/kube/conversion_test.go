@@ -346,6 +346,12 @@ func TestLBServiceConversion(t *testing.T) {
 		{
 			IP: "127.68.32.113",
 		},
+		{
+			Hostname: "127.68.32.114",
+		},
+		{
+			Hostname: "127.68.32.115",
+		},
 	}
 
 	extSvc := coreV1.Service{

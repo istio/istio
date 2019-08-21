@@ -32,21 +32,19 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
-
 	"golang.org/x/oauth2/google"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/auth"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -75,6 +73,20 @@ var (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
+
+	metadataExchangeKeys = strings.Join(
+		[]string{
+			model.NodeMetadataInstanceName,
+			model.NodeMetadataNamespace,
+			model.NodeMetadataInstanceIPs,
+			model.NodeMetadataLabels,
+			model.NodeMetadataOwner,
+			model.NodeMetadataPlatformMetadata,
+			model.NodeMetadataWorkloadName,
+			model.NodeMetadataCanonicalTelemetryService,
+			model.NodeMetadataMeshID,
+			model.NodeMetadataServiceAccount,
+		}, ",")
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -229,22 +241,10 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 	}
 }
 
-type istioMetadata struct {
-	CanonicalTelemetryService string            `json:"canonical_telemetry_service,omitempty"`
-	IP                        string            `json:"ip,omitempty"`
-	Labels                    map[string]string `json:"labels,omitempty"`
-	Name                      string            `json:"name,omitempty"`
-	Namespace                 string            `json:"namespace,omitempty"`
-	ServiceAccount            string            `json:"service_account,omitempty"`
-	PlatformMetadata          map[string]string `json:"platform_metadata,omitempty"`
-}
-
 func shouldExtract(envVar, prefix string) bool {
-	// this will allow transition from current method of exposition in the future
-	// Example:
-	// if strings.HasPrefix(envVar, "ISTIO_METAJSON_LABELS") {
-	// 	return false
-	// }
+	if strings.HasPrefix(envVar, "ISTIO_META_WORKLOAD") {
+		return false
+	}
 	return strings.HasPrefix(envVar, prefix)
 }
 
@@ -268,27 +268,34 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractIstioMetadata(envVars []string, plat platform.Environment) istioMetadata {
-	im := istioMetadata{}
+func extractAttributesMetadata(envVars []string, plat platform.Environment, meta map[string]interface{}) {
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
-		case "INSTANCE_IP":
-			im.IP = val
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
-			im.Labels = m
-			im.CanonicalTelemetryService = m["istioTelemetryService"]
+			if len(m) > 0 {
+				meta[model.NodeMetadataLabels] = m
+				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
+					meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+				}
+			}
 		case "POD_NAME":
-			im.Name = val
+			meta[model.NodeMetadataInstanceName] = val
 		case "POD_NAMESPACE":
-			im.Namespace = val
+			meta[model.NodeMetadataNamespace] = val
+		case "ISTIO_META_OWNER":
+			meta[model.NodeMetadataOwner] = val
+		case "ISTIO_META_WORKLOAD_NAME":
+			meta[model.NodeMetadataWorkloadName] = val
+		case "SERVICE_ACCOUNT":
+			meta[model.NodeMetadataServiceAccount] = val
 		}
 	}
-	if plat != nil {
-		im.PlatformMetadata = plat.Metadata()
+	if plat != nil && len(plat.Metadata()) > 0 {
+		meta[model.NodeMetadataPlatformMetadata] = plat.Metadata()
 	}
-	return im
+	meta[model.NodeMetadataExchangeKeys] = metadataExchangeKeys
 }
 
 // getNodeMetaData function uses an environment variable contract
@@ -310,7 +317,7 @@ func getNodeMetaData(envs []string, plat platform.Environment) map[string]interf
 	}, meta)
 	meta["istio"] = "sidecar"
 
-	meta["istio.io/metadata"] = extractIstioMetadata(envs, plat)
+	extractAttributesMetadata(envs, plat, meta)
 
 	return meta
 }

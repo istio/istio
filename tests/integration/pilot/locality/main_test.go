@@ -124,8 +124,7 @@ func init() {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
-		// TODO(https://github.com/istio/istio/issues/13812) remove flaky labels
-		Label(label.CustomSetup, label.Flaky).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {

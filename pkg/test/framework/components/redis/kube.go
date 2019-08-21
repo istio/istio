@@ -58,7 +58,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 		}
 	}()
 
-	c.ns, err = namespace.New(ctx, redisNamespace, false)
+	c.ns, err = namespace.New(ctx, namespace.Config{
+		Prefix: redisNamespace,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create %s Namespace for Redis install; err:%v", redisNamespace, err)
 	}

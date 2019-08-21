@@ -31,7 +31,7 @@ api=$(go list -m -f "{{.Dir}}" istio.io/api)
 protobuf=$(go list -m -f "{{.Dir}}" github.com/gogo/protobuf)
 gogo_genproto=$(go list -m -f "{{.Dir}}" istio.io/gogo-genproto)
 
-gen_img=gcr.io/istio-testing/api-build-tools:2019-07-31
+gen_img=gcr.io/istio-testing/build-tools:2019-08-16
 
 docker run \
   -i \

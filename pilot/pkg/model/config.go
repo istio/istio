@@ -205,10 +205,6 @@ type IstioConfigStore interface {
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
 	EnvoyFilter(workloadLabels labels.Collection) *Config
 
-	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
-	// associated with destination service instances.
-	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
-
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
@@ -232,6 +228,9 @@ type IstioConfigStore interface {
 
 	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
 	ClusterRbacConfig() *Config
+
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
 }
 
 const (
@@ -426,50 +425,6 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Co
 	}
 
 	return &Config{Spec: mergedFilterConfig}
-}
-
-// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
-// associated with destination service instances.
-func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstance) []Config {
-	bindings, err := store.List(schemas.HTTPAPISpecBinding.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	specs, err := store.List(schemas.HTTPAPISpec.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// Create a set key from a reference's name and namespace.
-	key := func(name, namespace string) string { return name + "/" + namespace }
-
-	// Build the set of HTTP API spec references bound to the service instance.
-	refs := make(map[string]struct{})
-	for _, binding := range bindings {
-		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
-		for _, service := range b.Services {
-			hostname := ResolveHostname(binding.ConfigMeta, service)
-			if hostname == instance.Service.Hostname {
-				for _, spec := range b.ApiSpecs {
-					namespace := spec.Namespace
-					if namespace == "" {
-						namespace = binding.Namespace
-					}
-					refs[key(spec.Name, namespace)] = struct{}{}
-				}
-			}
-		}
-	}
-
-	// Append any spec that is in the set of references.
-	var out []Config
-	for _, spec := range specs {
-		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
-			out = append(out, spec)
-		}
-	}
-
-	return out
 }
 
 // matchWildcardService matches destinationHost to a wildcarded svc.
@@ -722,14 +677,14 @@ func (store *istioConfigStore) RbacConfig() *Config {
 	return nil
 }
 
-// SortHTTPAPISpec sorts a slice in a stable manner.
-func SortHTTPAPISpec(specs []Config) {
-	sort.Slice(specs, func(i, j int) bool {
-		// protect against incompatible types
-		irule, _ := specs[i].Spec.(*mccpb.HTTPAPISpec)
-		jrule, _ := specs[j].Spec.(*mccpb.HTTPAPISpec)
-		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
-	})
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(schemas.AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 // SortQuotaSpec sorts a slice in a stable manner.
