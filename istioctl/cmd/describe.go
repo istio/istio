@@ -37,13 +37,13 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
-	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 type myGogoValue struct {
@@ -62,16 +62,16 @@ var (
 	ignoreUnmeshed = false
 )
 
-func podInspectCmd() *cobra.Command {
+func podDescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pod",
-		Short: "Inspect pods for Istio configuration [kube-only]",
+		Short: "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental inspect pod productpage-v1-c7765c886-7zzd4`,
+		Example: `istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
@@ -204,11 +204,11 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	return cmd
 }
 
-func inspect() *cobra.Command {
-	inspectCmd := &cobra.Command{
-		Use:     "inspect",
-		Aliases: []string{"i"},
-		Short:   "Inspect resources for Istio configuration",
+func describe() *cobra.Command {
+	describeCmd := &cobra.Command{
+		Use:     "describe",
+		Aliases: []string{"des"},
+		Short:   "Describe resource and related Istio configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -219,8 +219,8 @@ func inspect() *cobra.Command {
 		},
 	}
 
-	inspectCmd.AddCommand(podInspectCmd())
-	return inspectCmd
+	describeCmd.AddCommand(podDescribeCmd())
+	return describeCmd
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod) []string {

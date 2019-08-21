@@ -99,7 +99,7 @@ var (
 	}
 )
 
-func TestInspect(t *testing.T) {
+func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 		"istio-pilot-7f9796fc98-99bp7": []byte(`[
@@ -116,28 +116,28 @@ func TestInspect(t *testing.T) {
 	}
 	cases := []execAndK8sConfigTestCase{
 		{ // case 0
-			args:           strings.Split("experimental inspect", " "),
-			expectedString: "Inspect resources for Istio configuration",
+			args:           strings.Split("experimental describe", " "),
+			expectedString: "Describe resource and related Istio configuration",
 		},
 		{ // case 1 short name 'i'
-			args:           strings.Split("x i", " "),
-			expectedString: "Inspect resources for Istio configuration",
+			args:           strings.Split("x des", " "),
+			expectedString: "Describe resource and related Istio configuration",
 		},
 		{ // case 2 no pod
-			args:           strings.Split("experimental inspect pod", " "),
+			args:           strings.Split("experimental describe pod", " "),
 			expectedString: "Error: expecting pod name",
 			wantException:  true, // "istioctl experimental inspect pod" should fail
 		},
 		{ // case 3 unknown pod
-			args:           strings.Split("experimental inspect pod not-a-pod", " "),
+			args:           strings.Split("experimental describe pod not-a-pod", " "),
 			expectedString: "pods \"not-a-pod\" not found",
-			wantException:  true, // "istioctl experimental inspect pod not-a-pod" should fail
+			wantException:  true, // "istioctl experimental describe pod not-a-pod" should fail
 		},
 		{ // case 4 has data
 			execClientConfig: cannedConfig,
 			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedK8sEnv,
-			args:             strings.Split("experimental inspect pod details-v1-5b7f94f9bc-wp5tb", " "),
+			args:             strings.Split("experimental describe pod details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `Pod: details-v1-5b7f94f9bc-wp5tb
    Pod Ports: 15090 (istio-proxy)
 Suggestion: add 'version' label to pod for Istio telemetry.
