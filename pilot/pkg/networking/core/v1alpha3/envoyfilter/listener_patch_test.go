@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
@@ -261,6 +262,55 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"name": "http-filter3"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: xdsutil.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
+									Name: xdsutil.Fault,
+								},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`{"config": {"upstream_cluster": "scooby"}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: xdsutil.HTTPConnectionManager,
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+{"name": "envoy.http_connection_manager", 
+ "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+         "xffNumTrustedHops": "4"
+ }
+}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*xdsapi.Listener{
@@ -370,6 +420,14 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
+	faultFilterIn := &fault.HTTPFault{
+		UpstreamCluster: "foobar",
+	}
+	faultFilterInAny, _ := types.MarshalAny(faultFilterIn)
+	faultFilterOut := &fault.HTTPFault{
+		UpstreamCluster: "scooby",
+	}
+	faultFilterOutAny, _ := types.MarshalAny(faultFilterOut)
 	sidecarInboundIn := []*xdsapi.Listener{
 		{
 			Name: "12345",
@@ -408,7 +466,9 @@ func TestApplyListenerPatches(t *testing.T) {
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter1"},
+										{Name: xdsutil.Fault,
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
+										},
 										{Name: "http-filter2"},
 									},
 								}),
@@ -440,8 +500,11 @@ func TestApplyListenerPatches(t *testing.T) {
 							Name: xdsutil.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									XffNumTrustedHops: 4,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter1"},
+										{Name: xdsutil.Fault,
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
 									},
