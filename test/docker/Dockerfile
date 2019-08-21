@@ -14,6 +14,7 @@ FROM docker:latest as docker
 # Image to create go binaries
 FROM golang:1.12.5 as golang
 ENV GO111MODULE=on
+ENV GOPROXY=https://proxy.golang.org
 
 # IMPORTANT: kind releases may or may not work with other kindest/node images.
 # When updating, make sure you update the kindest/node version as well
@@ -21,8 +22,6 @@ ENV GO111MODULE=on
 RUN go get -u sigs.k8s.io/kind@v0.4.0
 
 # Used to upload test results to test grid
-# TODO add -u flag back to ci2gubernator once it works correctly. For now it is failing
-RUN go get istio.io/test-infra/toolbox/ci2gubernator
 RUN go get -u github.com/jstemmer/go-junit-report
 
 # get helm binary - do here to limit to only binary in final image
