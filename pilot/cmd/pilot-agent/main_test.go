@@ -138,37 +138,37 @@ func TestDetectSds(t *testing.T) {
 	tests := []struct {
 		controlPlaneBootstrap   bool
 		controlPlaneAuthEnabled bool
-		udsPath              string
-		tokenPath            string
-		expectedSdsEnabled   bool
-		expectedSdsTokenPath string
+		udsPath                 string
+		tokenPath               string
+		expectedSdsEnabled      bool
+		expectedSdsTokenPath    string
 	}{
 		{
 			controlPlaneBootstrap:   true,
 			controlPlaneAuthEnabled: false,
-			expectedSdsEnabled:   false,
-			expectedSdsTokenPath: "",
+			expectedSdsEnabled:      false,
+			expectedSdsTokenPath:    "",
 		},
 		{
 			controlPlaneBootstrap:   true,
 			controlPlaneAuthEnabled: true,
-			udsPath:              "/tmp/testtmpuds1.log",
-			tokenPath:            "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:   true,
-			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
+			udsPath:                 "/tmp/testtmpuds1.log",
+			tokenPath:               "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:      true,
+			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
 		},
 		{
 			controlPlaneBootstrap:   true,
 			controlPlaneAuthEnabled: true,
-			udsPath:              "/tmp/testtmpuds1.log",
-			tokenPath:            "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:   true,
-			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
+			udsPath:                 "/tmp/testtmpuds1.log",
+			tokenPath:               "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:      true,
+			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
 		},
 		{
 			controlPlaneBootstrap:   true,
 			controlPlaneAuthEnabled: true,
-			tokenPath: "/tmp/testtmptoken1.log",
+			tokenPath:               "/tmp/testtmptoken1.log",
 		},
 		{
 			controlPlaneBootstrap:   true,
@@ -196,7 +196,7 @@ func TestDetectSds(t *testing.T) {
 		{
 			controlPlaneBootstrap: false,
 			tokenPath:             "/tmp/test_tmp_token4",
-			udsPath: "/tmp/testtmpuds1.log",
+			udsPath:               "/tmp/testtmpuds1.log",
 		},
 	}
 	for _, tt := range tests {

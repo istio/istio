@@ -175,8 +175,6 @@ spec:
                 fieldPath: status.podIP
           - name: SDS_ENABLED
             value: "{{ $.Values.global.sds.enabled }}"
-          - name: SDS_UDS_PATH
-            value: "{{ $.Values.global.sds.udsPath }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}

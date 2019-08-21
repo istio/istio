@@ -234,8 +234,6 @@ spec:
                 fieldPath: metadata.namespace
           - name: SDS_ENABLED
             value: "{{ $.Values.global.sds.enabled }}"
-          - name: SDS_UDS_PATH
-            value: "{{ $.Values.global.sds.udsPath }}"
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
