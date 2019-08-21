@@ -34,7 +34,7 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: {{ .Values.coreDNSImage }}
+        image: {{ .Values.coreDNSImage }}:{{ .Values.coreDNSTag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
