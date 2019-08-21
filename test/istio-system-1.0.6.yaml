@@ -885,7 +885,7 @@ metadata:
     heritage: Tiller
     release: istio
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-cleanup-secrets-istio-system
@@ -903,7 +903,7 @@ rules:
   resources: ["secrets"]
   verbs: ["list", "delete"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-cleanup-secrets-istio-system
@@ -975,7 +975,7 @@ metadata:
     heritage: Tiller
     release: istio
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-istio-system
@@ -998,7 +998,7 @@ rules:
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "watch"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-istio-system
@@ -2161,7 +2161,7 @@ spec:
 
 ---
 # Source: istio/charts/galley/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-galley-istio-system
@@ -2189,7 +2189,7 @@ rules:
 ---
 # Source: istio/charts/gateways/templates/clusterrole.yaml
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -2203,7 +2203,7 @@ rules:
   resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
   verbs: ["get", "watch", "list", "update"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -2220,7 +2220,7 @@ rules:
 
 ---
 # Source: istio/charts/mixer/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-mixer-istio-system
@@ -2251,7 +2251,7 @@ rules:
 
 ---
 # Source: istio/charts/pilot/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-pilot-istio-system
@@ -2291,7 +2291,7 @@ rules:
 
 ---
 # Source: istio/charts/prometheus/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prometheus-istio-system
@@ -2313,7 +2313,7 @@ rules:
 
 ---
 # Source: istio/charts/security/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-citadel-istio-system
@@ -2335,7 +2335,7 @@ rules:
 
 ---
 # Source: istio/charts/sidecarInjectorWebhook/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-sidecar-injector-istio-system
@@ -2354,7 +2354,7 @@ rules:
 
 ---
 # Source: istio/charts/galley/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-galley-admin-role-binding-istio-system
@@ -2375,7 +2375,7 @@ subjects:
 ---
 # Source: istio/charts/gateways/templates/clusterrolebindings.yaml
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-egressgateway-istio-system
@@ -2388,7 +2388,7 @@ subjects:
     name: istio-egressgateway-service-account
     namespace: istio-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-ingressgateway-istio-system
@@ -2404,7 +2404,7 @@ subjects:
 
 ---
 # Source: istio/charts/mixer/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-mixer-admin-role-binding-istio-system
@@ -2424,7 +2424,7 @@ subjects:
 
 ---
 # Source: istio/charts/pilot/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-system
@@ -2444,7 +2444,7 @@ subjects:
 
 ---
 # Source: istio/charts/prometheus/templates/clusterrolebindings.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prometheus-istio-system
@@ -2459,7 +2459,7 @@ subjects:
 
 ---
 # Source: istio/charts/security/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-citadel-istio-system
@@ -2479,7 +2479,7 @@ subjects:
 
 ---
 # Source: istio/charts/sidecarInjectorWebhook/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-sidecar-injector-admin-role-binding-istio-system
