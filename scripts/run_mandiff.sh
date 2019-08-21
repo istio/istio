@@ -36,7 +36,7 @@ PROFILE_CHARTS_MAP["${ISTIO_DEMOAUTH_PROFILE}"]="crds istio-control/istio-discov
 PROFILE_CHARTS_MAP["${ISTIO_MINIMAL_PROFILE}"]="crds istio-control/istio-discovery"
 PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel security/nodeagent"
 
-# declare map with profile as key and charts as values
+# declare map with charts directory as key and namespaces as values
 declare -A NAMESPACES_MAP
 NAMESPACES_MAP["crds"]="istio-system"
 NAMESPACES_MAP["istio-control/istio-discovery"]="istio-system"
