@@ -271,7 +271,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node != nil {
+			// This should be only set for the first request. Guard with ID check regardless.
+			if discReq.Node != nil && discReq.Node.Id != nil {
 				node = discReq.Node
 				err = s.initConnectionNode(discReq.Node, con)
 				if err != nil {
