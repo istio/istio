@@ -17,6 +17,8 @@ package model
 import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -169,7 +171,7 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 		IsRbacV2:                         false,
 	}
 
-	roles, err := env.List(ServiceRole.Type, NamespaceAll)
+	roles, err := env.List(schemas.ServiceRole.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +179,7 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 		policy.AddConfig(&role)
 	}
 
-	bindings, err := env.List(ServiceRoleBinding.Type, NamespaceAll)
+	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

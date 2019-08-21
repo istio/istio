@@ -33,10 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func mockNeedsPush(node *model.Proxy) bool {
-	return true
-}
-
 func createProxies(n int) []*XdsConnection {
 	proxies := make([]*XdsConnection, 0, n)
 	for p := 0; p < n; p++ {
@@ -86,7 +82,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 			}
 		}()
 	}
-	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
+	go doSendPushes(stopCh, semaphore, queue)
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
@@ -133,7 +129,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 			}
 		}()
 	}
-	go doSendPushes(stopCh, semaphore, queue, mockNeedsPush)
+	go doSendPushes(stopCh, semaphore, queue)
 
 	for _, proxy := range proxies {
 		queue.Enqueue(proxy, &model.PushRequest{})

@@ -395,8 +395,12 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
 # Build targets for apps under ./pilot/cmd
-PILOT_BINS:=pilot-discovery pilot-agent sidecar-injector
+PILOT_BINS:=pilot-discovery pilot-agent
 $(foreach ITEM,$(PILOT_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+
+# Build targets for apps under ./sidecar-injector/cmd
+INJECTOR_BINS:=sidecar-injector
+$(foreach ITEM,$(INJECTOR_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./sidecar-injector/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
 # Build targets for apps under ./mixer/cmd
 MIXER_BINS:=mixs mixc
@@ -422,7 +426,7 @@ $(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker
 ISTIO_TOOLS_BINS:=hyperistio istio-iptables
 $(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
-BUILD_BINS:=$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
 .PHONY: build

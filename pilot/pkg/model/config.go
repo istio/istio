@@ -15,7 +15,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,12 +28,11 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/validation"
-	testConfig "istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -129,7 +127,7 @@ type ConfigStore interface {
 	// ConfigDescriptor exposes the configuration type schema known by the config store.
 	// The type schema defines the bidrectional mapping between configuration
 	// types and the protobuf encoding schema.
-	ConfigDescriptor() ConfigDescriptor
+	ConfigDescriptor() schema.Set
 
 	// Get retrieves a configuration element by a type and a key
 	Get(typ, name, namespace string) *Config
@@ -191,62 +189,6 @@ type ConfigStoreCache interface {
 	HasSynced() bool
 }
 
-// ConfigDescriptor defines the bijection between the short type name and its
-// fully qualified protobuf message name
-type ConfigDescriptor []ProtoSchema
-
-// ProtoSchema provides description of the configuration schema and its key function
-// nolint: maligned
-type ProtoSchema struct {
-	// ClusterScoped is true for resource in cluster-level.
-	ClusterScoped bool
-
-	// Name of the (go) object define the schema. Leave blank to infer from the 'Type' below.
-	// This field is used to generate Kube CRD types map (pilot/pkg/config/kube/crd/types.go).
-	SchemaObjectName string
-
-	// Type is the config proto type.
-	Type string
-
-	// Plural is the type in plural.
-	Plural string
-
-	// Group is the config proto group.
-	Group string
-
-	// Version is the config proto version.
-	Version string
-
-	// MessageName refers to the protobuf message type name corresponding to the type
-	MessageName string
-
-	// Validate configuration as a protobuf message assuming the object is an
-	// instance of the expected message type
-	Validate validation.ValidateFunc
-
-	// MCP collection for this configuration resource schema
-	Collection string
-}
-
-// Types lists all known types in the config schema
-func (descriptor ConfigDescriptor) Types() []string {
-	types := make([]string, 0, len(descriptor))
-	for _, t := range descriptor {
-		types = append(types, t.Type)
-	}
-	return types
-}
-
-// GetByType finds a schema by type if it is available
-func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
-	for _, schema := range descriptor {
-		if schema.Type == name {
-			return schema, true
-		}
-	}
-	return ProtoSchema{}, false
-}
-
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
 // nolint
@@ -262,10 +204,6 @@ type IstioConfigStore interface {
 
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
 	EnvoyFilter(workloadLabels labels.Collection) *Config
-
-	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
-	// associated with destination service instances.
-	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
 
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
@@ -290,12 +228,12 @@ type IstioConfigStore interface {
 
 	// ClusterRbacConfig selects the ClusterRbacConfig of name DefaultRbacConfigName.
 	ClusterRbacConfig() *Config
+
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
 }
 
 const (
-	// Default API version of an Istio config proto message.
-	istioAPIVersion = "v1alpha2"
-
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
 )
@@ -311,226 +249,6 @@ const (
   deprecate model, and do the conversion (hopefully more efficient) only once, when
   an object is first read.
 */
-
-var (
-	// MockConfig is used purely for testing
-	MockConfig = ProtoSchema{
-		Type:        "mock-config",
-		Plural:      "mock-configs",
-		Group:       "test",
-		Version:     "v1",
-		MessageName: "test.MockConfig",
-		Validate: func(name, namespace string, config proto.Message) error {
-			if config.(*testConfig.MockConfig).Key == "" {
-				return errors.New("empty key")
-			}
-			return nil
-		},
-	}
-
-	// VirtualService describes v1alpha3 route rules
-	VirtualService = ProtoSchema{
-		Type:        "virtual-service",
-		Plural:      "virtual-services",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.VirtualService",
-		Validate:    validation.ValidateVirtualService,
-		Collection:  metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
-	}
-
-	// Gateway describes a gateway (how a proxy is exposed on the network)
-	Gateway = ProtoSchema{
-		Type:        "gateway",
-		Plural:      "gateways",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.Gateway",
-		Validate:    validation.ValidateGateway,
-		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
-	}
-
-	// ServiceEntry describes service entries
-	ServiceEntry = ProtoSchema{
-		Type:        "service-entry",
-		Plural:      "service-entries",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.ServiceEntry",
-		Validate:    validation.ValidateServiceEntry,
-		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
-	}
-
-	// DestinationRule describes destination rules
-	DestinationRule = ProtoSchema{
-		Type:        "destination-rule",
-		Plural:      "destination-rules",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.DestinationRule",
-		Validate:    validation.ValidateDestinationRule,
-		Collection:  metadata.IstioNetworkingV1alpha3Destinationrules.Collection.String(),
-	}
-
-	// EnvoyFilter describes additional envoy filters to be inserted by Pilot
-	EnvoyFilter = ProtoSchema{
-		Type:        "envoy-filter",
-		Plural:      "envoy-filters",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
-		Validate:    validation.ValidateEnvoyFilter,
-		Collection:  metadata.IstioNetworkingV1alpha3Envoyfilters.Collection.String(),
-	}
-
-	// Sidecar describes the listeners associated with sidecars in a namespace
-	Sidecar = ProtoSchema{
-		Type:        "sidecar",
-		Plural:      "sidecars",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.Sidecar",
-		Validate:    validation.ValidateSidecar,
-		Collection:  metadata.IstioNetworkingV1alpha3Sidecars.Collection.String(),
-	}
-
-	// HTTPAPISpec describes an HTTP API specification.
-	HTTPAPISpec = ProtoSchema{
-		Type:        "http-api-spec",
-		Plural:      "http-api-specs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
-		Validate:    validation.ValidateHTTPAPISpec,
-		Collection:  metadata.IstioConfigV1alpha2Httpapispecs.Collection.String(),
-	}
-
-	// HTTPAPISpecBinding describes an HTTP API specification binding.
-	HTTPAPISpecBinding = ProtoSchema{
-		Type:        "http-api-spec-binding",
-		Plural:      "http-api-spec-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-		Validate:    validation.ValidateHTTPAPISpecBinding,
-		Collection:  metadata.IstioConfigV1alpha2Httpapispecbindings.Collection.String(),
-	}
-
-	// QuotaSpec describes an Quota specification.
-	QuotaSpec = ProtoSchema{
-		Type:        "quota-spec",
-		Plural:      "quota-specs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
-		Validate:    validation.ValidateQuotaSpec,
-		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecs.Collection.String(),
-	}
-
-	// QuotaSpecBinding describes an Quota specification binding.
-	QuotaSpecBinding = ProtoSchema{
-		Type:        "quota-spec-binding",
-		Plural:      "quota-spec-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
-		Validate:    validation.ValidateQuotaSpecBinding,
-		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecbindings.Collection.String(),
-	}
-
-	// AuthenticationPolicy describes an authentication policy.
-	AuthenticationPolicy = ProtoSchema{
-		SchemaObjectName: "AuthenticationPolicy",
-		Type:             "policy",
-		Plural:           "policies",
-		Group:            "authentication",
-		Version:          "v1alpha1",
-		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         validation.ValidateAuthenticationPolicy,
-		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
-	}
-
-	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
-	AuthenticationMeshPolicy = ProtoSchema{
-		ClusterScoped:    true,
-		SchemaObjectName: "AuthenticationMeshPolicy",
-		Type:             "mesh-policy",
-		Plural:           "mesh-policies",
-		Group:            "authentication",
-		Version:          "v1alpha1",
-		MessageName:      "istio.authentication.v1alpha1.Policy",
-		Validate:         validation.ValidateAuthenticationPolicy,
-		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
-	}
-
-	// ServiceRole describes an RBAC service role.
-	ServiceRole = ProtoSchema{
-		Type:        "service-role",
-		Plural:      "service-roles",
-		Group:       "rbac",
-		Version:     "v1alpha1",
-		MessageName: "istio.rbac.v1alpha1.ServiceRole",
-		Validate:    validation.ValidateServiceRole,
-		Collection:  metadata.IstioRbacV1alpha1Serviceroles.Collection.String(),
-	}
-
-	// ServiceRoleBinding describes an RBAC service role.
-	ServiceRoleBinding = ProtoSchema{
-		ClusterScoped: false,
-		Type:          "service-role-binding",
-		Plural:        "service-role-bindings",
-		Group:         "rbac",
-		Version:       "v1alpha1",
-		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
-		Validate:      validation.ValidateServiceRoleBinding,
-		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
-	}
-
-	// RbacConfig describes the mesh level RBAC config.
-	// Deprecated: use ClusterRbacConfig instead.
-	// See https://github.com/istio/istio/issues/8825 for more details.
-	RbacConfig = ProtoSchema{
-		Type:        "rbac-config",
-		Plural:      "rbac-configs",
-		Group:       "rbac",
-		Version:     "v1alpha1",
-		MessageName: "istio.rbac.v1alpha1.RbacConfig",
-		Validate:    validation.ValidateRbacConfig,
-		Collection:  metadata.IstioRbacV1alpha1Rbacconfigs.Collection.String(),
-	}
-
-	// ClusterRbacConfig describes the cluster level RBAC config.
-	ClusterRbacConfig = ProtoSchema{
-		ClusterScoped: true,
-		Type:          "cluster-rbac-config",
-		Plural:        "cluster-rbac-configs",
-		Group:         "rbac",
-		Version:       "v1alpha1",
-		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
-		Validate:      validation.ValidateClusterRbacConfig,
-		Collection:    metadata.IstioRbacV1alpha1Clusterrbacconfigs.Collection.String(),
-	}
-
-	// IstioConfigTypes lists all Istio config types with schemas and validation
-	IstioConfigTypes = ConfigDescriptor{
-		VirtualService,
-		Gateway,
-		ServiceEntry,
-		DestinationRule,
-		EnvoyFilter,
-		Sidecar,
-		HTTPAPISpec,
-		HTTPAPISpecBinding,
-		QuotaSpec,
-		QuotaSpecBinding,
-		AuthenticationPolicy,
-		AuthenticationMeshPolicy,
-		ServiceRole,
-		ServiceRoleBinding,
-		RbacConfig,
-		ClusterRbacConfig,
-	}
-)
 
 // ResolveHostname produces a FQDN based on either the service or
 // a concat of the namespace + domain
@@ -635,7 +353,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	configs, err := store.List(ServiceEntry.Type, NamespaceAll)
+	configs, err := store.List(schemas.ServiceEntry.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -659,7 +377,7 @@ func sortConfigByCreationTime(configs []Config) []Config {
 }
 
 func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
-	configs, err := store.List(Gateway.Type, NamespaceAll)
+	configs, err := store.List(schemas.Gateway.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -682,7 +400,7 @@ func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Conf
 }
 
 func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
-	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
+	configs, err := store.List(schemas.EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -707,50 +425,6 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Co
 	}
 
 	return &Config{Spec: mergedFilterConfig}
-}
-
-// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
-// associated with destination service instances.
-func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstance) []Config {
-	bindings, err := store.List(HTTPAPISpecBinding.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	specs, err := store.List(HTTPAPISpec.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// Create a set key from a reference's name and namespace.
-	key := func(name, namespace string) string { return name + "/" + namespace }
-
-	// Build the set of HTTP API spec references bound to the service instance.
-	refs := make(map[string]struct{})
-	for _, binding := range bindings {
-		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
-		for _, service := range b.Services {
-			hostname := ResolveHostname(binding.ConfigMeta, service)
-			if hostname == instance.Service.Hostname {
-				for _, spec := range b.ApiSpecs {
-					namespace := spec.Namespace
-					if namespace == "" {
-						namespace = binding.Namespace
-					}
-					refs[key(spec.Name, namespace)] = struct{}{}
-				}
-			}
-		}
-	}
-
-	// Append any spec that is in the set of references.
-	var out []Config
-	for _, spec := range specs {
-		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
-			out = append(out, spec)
-		}
-	}
-
-	return out
 }
 
 // matchWildcardService matches destinationHost to a wildcarded svc.
@@ -836,14 +510,14 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 // associated with destination service instances.
 func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
 	log.Debugf("QuotaSpecByDestination(%v)", instance)
-	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
+	bindings, err := store.List(schemas.QuotaSpecBinding.Type, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
 		return nil
 	}
 
 	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
-	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
+	specs, err := store.List(schemas.QuotaSpec.Type, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
 		return nil
@@ -877,7 +551,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 		return nil
 	}
 	namespace := service.Attributes.Namespace
-	specs, err := store.List(AuthenticationPolicy.Type, namespace)
+	specs, err := store.List(schemas.AuthenticationPolicy.Type, namespace)
 	if err != nil {
 		return nil
 	}
@@ -941,7 +615,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 	// cluster-scoped (global) policy.
 	// Note: to avoid multiple global policy, we restrict that only the one with name equals to
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
-	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
+	if specs, err := store.List(schemas.AuthenticationMeshPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				return &spec
@@ -953,7 +627,7 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
-	roles, err := store.List(ServiceRole.Type, namespace)
+	roles, err := store.List(schemas.ServiceRole.Type, namespace)
 	if err != nil {
 		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
 		return nil
@@ -963,7 +637,7 @@ func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
 }
 
 func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
-	bindings, err := store.List(ServiceRoleBinding.Type, namespace)
+	bindings, err := store.List(schemas.ServiceRoleBinding.Type, namespace)
 	if err != nil {
 		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
 		return nil
@@ -973,7 +647,7 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 }
 
 func (store *istioConfigStore) ClusterRbacConfig() *Config {
-	clusterRbacConfig, err := store.List(ClusterRbacConfig.Type, "")
+	clusterRbacConfig, err := store.List(schemas.ClusterRbacConfig.Type, "")
 	if err != nil {
 		log.Errorf("failed to get ClusterRbacConfig: %v", err)
 	}
@@ -986,7 +660,7 @@ func (store *istioConfigStore) ClusterRbacConfig() *Config {
 }
 
 func (store *istioConfigStore) RbacConfig() *Config {
-	rbacConfigs, err := store.List(RbacConfig.Type, "")
+	rbacConfigs, err := store.List(schemas.RbacConfig.Type, "")
 	if err != nil {
 		return nil
 	}
@@ -1003,14 +677,14 @@ func (store *istioConfigStore) RbacConfig() *Config {
 	return nil
 }
 
-// SortHTTPAPISpec sorts a slice in a stable manner.
-func SortHTTPAPISpec(specs []Config) {
-	sort.Slice(specs, func(i, j int) bool {
-		// protect against incompatible types
-		irule, _ := specs[i].Spec.(*mccpb.HTTPAPISpec)
-		jrule, _ := specs[j].Spec.(*mccpb.HTTPAPISpec)
-		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
-	})
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(schemas.AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 // SortQuotaSpec sorts a slice in a stable manner.

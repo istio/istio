@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
@@ -318,8 +319,8 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			p := &fakePlugin{}
 			virtualService := model.Config{
 				ConfigMeta: model.ConfigMeta{
-					Type:      model.VirtualService.Type,
-					Version:   model.VirtualService.Version,
+					Type:      schemas.VirtualService.Type,
+					Version:   schemas.VirtualService.Version,
 					Name:      "test_vs",
 					Namespace: "default",
 				},
@@ -567,9 +568,20 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 		},
 	}
 	listeners := buildInboundListeners(p, proxy, sidecarConfig)
-	if expected := 0; len(listeners) != expected {
+	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
 	}
+
+	if len(listeners[0].FilterChains) != 4 ||
+		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
+		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
+		!isTCPFilterChain(listeners[0].FilterChains[3]) {
+		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -793,8 +805,14 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 		},
 	}
 	listeners := buildInboundListeners(p, proxy, sidecarConfig)
-	if expected := 0; len(listeners) != expected {
+	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+	if !isHTTPListener(listeners[0]) {
+		t.Fatal("expected HTTP listener, found TCP")
+	}
+	for _, l := range listeners {
+		verifyInboundHTTP10(t, isNodeHTTP10(proxy), l)
 	}
 }
 

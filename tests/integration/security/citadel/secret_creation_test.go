@@ -35,7 +35,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 		secret.ExamineOrFail(t, s)
 
 		// Delete the istio.default secret immediately
-		c.DeleteSecretOrFail(t)
+		c.DeleteSecretOrFail(t, s.Name)
 
 		t.Log(`secret "istio.default" has been deleted`)
 

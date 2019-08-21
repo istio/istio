@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -148,10 +150,10 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
-		case model.Gateway.Type:
+		case schemas.Gateway.Type:
 			//config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			//f(config, event)
-		case model.VirtualService.Type:
+		case schemas.VirtualService.Type:
 			f(model.Config{}, event)
 		}
 
@@ -172,14 +174,14 @@ func (c *controller) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *controller) ConfigDescriptor() schema.Set {
 	//TODO: are these two config descriptors right?
-	return model.ConfigDescriptor{model.Gateway, model.VirtualService}
+	return schema.Set{schemas.Gateway, schemas.VirtualService}
 }
 
 //TODO: we don't return out of this function now
 func (c *controller) Get(typ, name, namespace string) *model.Config {
-	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
 		return nil
 	}
 
@@ -203,7 +205,7 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -222,15 +224,15 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case model.VirtualService.Type:
+		case schemas.VirtualService.Type:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
-		case model.Gateway.Type:
+		case schemas.Gateway.Type:
 			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
 
-	if typ == model.VirtualService.Type {
+	if typ == schemas.VirtualService.Type {
 		for _, obj := range ingressByHost {
 			out = append(out, *obj)
 		}

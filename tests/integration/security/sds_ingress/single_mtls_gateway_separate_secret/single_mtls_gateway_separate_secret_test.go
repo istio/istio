@@ -15,15 +15,13 @@
 package singlemtlsgatewayseparatesecret
 
 import (
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-
-	"testing"
 )
 
 var (
@@ -46,12 +44,6 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-			//  environment https://github.com/istio/istio/issues/14180.
-			if ctx.Environment().(*kube.Environment).Settings().Minikube {
-				t.Skip("https://github.com/istio/istio/issues/14180")
-			}
-
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
 
 			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
@@ -66,7 +58,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 20*time.Second)
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 60*time.Second)
 			if err != nil {
 				t.Errorf("total active listener stats does not match: %v", err)
 			}
@@ -85,7 +77,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB)
 			// Expect 1 more SDS updates for the server key/cert update.
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 3, 10*time.Second)
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 3, 30*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
@@ -100,7 +92,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// validation at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
 			// Expect 1 more SDS updates for the server key/cert update.
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 4, 10*time.Second)
+			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 4, 30*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}

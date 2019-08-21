@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 	testConfig "istio.io/istio/pkg/test/config"
 )
@@ -224,7 +225,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.MockConfig.Type,
+			Type: schemas.MockConfig.Type,
 			Name: name,
 			Labels: map[string]string{
 				"key": name,
@@ -241,7 +242,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 			}},
 		},
 	}
-	obj, err := crd.ConvertConfig(model.MockConfig, config)
+	obj, err := crd.ConvertConfig(schemas.MockConfig, config)
 	if err != nil {
 		t.Fatalf("ConvertConfig(%v) failed: %v", config.Name, err)
 	}

@@ -389,6 +389,10 @@ func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 	return err
 }
 
+func (a *Accessor) GetServiceAccount(namespace string) kubeClientCore.ServiceAccountInterface {
+	return a.set.CoreV1().ServiceAccounts(namespace)
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
@@ -404,28 +408,25 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	return err
 }
 
-// CreateNamespaceWithInjectionEnabled with the given name and have sidecar-injection enabled.
-func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string,
-	customSidecarInjectorNamespace string) error {
-	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
+// CreateNamespaceWithLabels with the specified name, sidecar-injection behavior, and labels
+func (a *Accessor) CreateNamespaceWithLabels(ns string, istioTestingAnnotation string, labels map[string]string) error {
+	scopes.Framework.Debugf("Creating namespace %s ns with labels %v", ns, labels)
 
-	n := a.newNamespace(ns, istioTestingAnnotation)
-
-	n.ObjectMeta.Labels["istio-injection"] = "enabled"
-
-	if customSidecarInjectorNamespace != "" {
-		n.ObjectMeta.Labels["istio-env"] = customSidecarInjectorNamespace
-	}
-
+	n := a.newNamespaceWithLabels(ns, istioTestingAnnotation, labels)
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
 	return err
 }
 
 func (a *Accessor) newNamespace(ns string, istioTestingAnnotation string) kubeApiCore.Namespace {
+	n := a.newNamespaceWithLabels(ns, istioTestingAnnotation, make(map[string]string))
+	return n
+}
+
+func (a *Accessor) newNamespaceWithLabels(ns string, istioTestingAnnotation string, labels map[string]string) kubeApiCore.Namespace {
 	n := kubeApiCore.Namespace{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:   ns,
-			Labels: map[string]string{},
+			Labels: labels,
 		},
 	}
 	if istioTestingAnnotation != "" {

@@ -36,6 +36,7 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
@@ -632,13 +633,12 @@ func TestNodeMetadata(t *testing.T) {
 	plat := &fakePlatform{meta: map[string]string{"some_env": "foo", "other_env": "bar"}}
 
 	wantMap := map[string]interface{}{
-		"istio": "sidecar",
-		"istio.io/metadata": istioMetadata{
-			Labels:           labels,
-			PlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
-		},
-		"l1": "v1",
-		"l2": "v2",
+		"istio":                            "sidecar",
+		model.NodeMetadataExchangeKeys:     metadataExchangeKeys,
+		model.NodeMetadataLabels:           labels,
+		model.NodeMetadataPlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
+		"l1":                               "v1",
+		"l2":                               "v2",
 	}
 
 	_, envs := createEnv(t, labels, nil)

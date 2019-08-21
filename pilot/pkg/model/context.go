@@ -355,7 +355,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
+	if len(out.IPAddresses) == 0 {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
@@ -484,10 +484,6 @@ const (
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
 
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
-	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "SIDECAR_UID"
-
 	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
 	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
 
@@ -532,6 +528,35 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataCanonicalTelemetryService specifies the service name to use for all node telemetry.
+	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"
+
+	// NodeMetadataLabels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	NodeMetadataLabels = "LABELS"
+
+	// NodeMetadataWorkloadName specifies the name of the workload represented by this node.
+	NodeMetadataWorkloadName = "WORKLOAD_NAME"
+
+	// NodeMetadataOwner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	NodeMetadataOwner = "OWNER"
+
+	// NodeMetadataServiceAccount specifies the service account which is running the workload.
+	NodeMetadataServiceAccount = "SERVICE_ACCOUNT"
+
+	// NodeMetadataPlatformMetadata contains any platform specific metadata
+	NodeMetadataPlatformMetadata = "PLATFORM_METADATA"
+
+	// NodeMetadataInstanceName is the short name for the workload instance (ex: pod name)
+	NodeMetadataInstanceName = "NAME" // replaces POD_NAME
+
+	// NodeMetadataNamespace is the namespace in which the workload instance is running.
+	NodeMetadataNamespace = "NAMESPACE" // replaces CONFIG_NAMESPACE
+
+	// NodeMetadataExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	// The list is comma-separated.
+	NodeMetadataExchangeKeys = "EXCHANGE_KEYS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

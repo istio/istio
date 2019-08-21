@@ -877,6 +877,21 @@ func init() {
 
 	versions = make([]string, 0)
 
+	versions = append(versions, "v1beta1")
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "AuthorizationPolicy",
+		ListKind:  "AuthorizationPolicyList",
+		Singular:  "authorizationpolicy",
+		Plural:    "authorizationpolicies",
+		Versions:  versions,
+		Group:     "security.istio.io",
+		Target:    metadata.Types.Get("istio/security/v1beta1/authorizationpolicies"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
 	versions = append(versions, "v1")
 
 	b.Add(schema.ResourceSpec{

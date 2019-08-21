@@ -74,8 +74,12 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 	}
 
 	if !env.Accessor.NamespaceExists(name) {
-		if err := env.CreateNamespaceWithInjectionEnabled(name, "istio-test",
-			cfg.CustomSidecarInjectorNamespace); err != nil {
+		nsConfig := Config{
+			Inject:                  true,
+			CustomInjectorNamespace: cfg.CustomSidecarInjectorNamespace,
+		}
+		nsLabels := createNamespaceLabels(&nsConfig)
+		if err := env.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
 			return nil, err
 		}
 
@@ -84,7 +88,7 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 }
 
 // NewNamespace allocates a new testing namespace.
-func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error) {
+func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	mu.Lock()
 	idctr++
 	nsid := idctr
@@ -92,23 +96,11 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 	mu.Unlock()
 
 	env := ctx.Environment().(*kube.Environment)
-	ns := fmt.Sprintf("%s-%d-%d", prefix, nsid, r)
+	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 
-	if inject {
-		cfg, err := istio.DefaultConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		err = env.CreateNamespaceWithInjectionEnabled(ns, "istio-test",
-			cfg.CustomSidecarInjectorNamespace)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := env.CreateNamespace(ns, "istio-test")
-		if err != nil {
-			return nil, err
-		}
+	nsLabels := createNamespaceLabels(nsConfig)
+	if err := env.CreateNamespaceWithLabels(ns, "istio-test", nsLabels); err != nil {
+		return nil, err
 	}
 
 	n := &kubeNamespace{name: ns, a: env.Accessor}
@@ -116,4 +108,21 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 	n.id = id
 
 	return n, nil
+}
+
+// createNamespaceLabels will take a namespace config and generate the proper k8s labels
+func createNamespaceLabels(cfg *Config) map[string]string {
+	l := make(map[string]string)
+	if cfg.Inject {
+		l["istio-injection"] = "enabled"
+		if cfg.CustomInjectorNamespace != "" {
+			l["istio-env"] = cfg.CustomInjectorNamespace
+		}
+	}
+
+	// bring over supplied labels
+	for k, v := range cfg.Labels {
+		l[k] = v
+	}
+	return l
 }

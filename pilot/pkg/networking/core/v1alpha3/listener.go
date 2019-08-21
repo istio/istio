@@ -41,7 +41,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -258,7 +258,7 @@ var (
 )
 
 func init() {
-	monitoring.MustRegisterViews(invalidOutboundListeners)
+	monitoring.MustRegister(invalidOutboundListeners)
 }
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
@@ -387,8 +387,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
-			// determine the bindToPort setting for listeners
+			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
 			bindToPort := false
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
@@ -409,26 +410,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				Name:     ingressListener.Port.Name,
 			}
 
-			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
-			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
-			// Sidecar doesn't include all the info needed to configure a port.
+			bind := ingressListener.Bind
+			if len(bind) == 0 {
+				// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
+				bind = getSidecarInboundBindIP(node)
+			}
+
 			instance := configgen.findServiceInstanceForIngressListener(node.ServiceInstances, ingressListener)
 
 			if instance == nil {
-				// We didn't find a matching service instance. Skip this ingress listener
-				continue
-			}
-
-			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to instance unicast IP - this is an inbound port.
-			// if no global unicast IP is available, then default to wildcard IP - 0.0.0.0 or ::
-			if len(bind) == 0 && bindToPort {
-				bind = getSidecarInboundBindIP(node)
-			} else if len(bind) == 0 {
-				// auto infer the IP from the proxyInstances
-				// We assume all endpoints in the proxy instances have the same IP
-				// as they should all be pointing to the same network endpoint
-				bind = instance.Endpoint.Address
+				// We didn't find a matching instance. Create a dummy one because we need the right
+				// params to generate the right cluster name. CDS would have setup the cluster as
+				// as inbound|portNumber|portName|SidecarScopeID
+				instance = &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{},
+					Service: &model.Service{
+						Hostname: host.Name(sidecarScopeID),
+						Attributes: model.ServiceAttributes{
+							Name: sidecarScope.Config.Name,
+							// This will ensure that the right AuthN policies are selected
+							Namespace: sidecarScope.Config.Namespace,
+						},
+					},
+				}
 			}
 
 			listenerOpts := buildListenerOpts{
@@ -441,15 +445,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				bindToPort:     bindToPort,
 			}
 
-			// Update the values here so that the plugins use the right ports
-			// uds values
-			// TODO: all plugins need to be updated to account for the fact that
-			// the port may be 0 but bind may have a UDS value
-			// Inboundroute will be different for
-			instance.Endpoint.Address = bind
+			// we don't need to set other fields of the endpoint here as
+			// the consumers of this service instance (listener/filter chain constructors)
+			// are simply looking for the service port and the service associated with the instance.
 			instance.Endpoint.ServicePort = listenPort
-			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
-			instance.Endpoint.Port = listenPort.Port
 
 			// Validation ensures that the protocol specified in Sidecar.ingress
 			// is always a valid known protocol
@@ -542,7 +541,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		log.Debugf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
 			listenerMapKey)
 	} else {
-		log.Debugf("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
@@ -857,12 +855,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
-					// check if this node is capable of starting a listener on this service port
-					// if bindToPort is true. Else Envoy will crash
-					if !validatePort(node, servicePort.Port, bindToPort) {
-						continue
-					}
-
 					listenerOpts := buildListenerOpts{
 						env:            env,
 						proxy:          node,
@@ -983,22 +975,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		return nil
 	}
 	return l
-}
-
-// validatePort checks if the sidecar proxy is capable of listening on a
-// given port in a particular bind mode for a given UID. Sidecars not running
-// as root wont be able to listen on ports <1024 when using bindToPort = true
-func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
-	if !bindToPort {
-		return true // all good, iptables doesn't care
-	}
-
-	if i > 1024 {
-		return true
-	}
-
-	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
-	return proxyProcessUID == "0"
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, listenerMapKey *string,

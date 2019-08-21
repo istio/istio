@@ -46,7 +46,10 @@ func TestAuthnJwt(t *testing.T) {
 
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "authn-jwt", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "authn-jwt",
+				Inject: true,
+			})
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

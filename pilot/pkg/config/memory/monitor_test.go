@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestEventConsistency(t *testing.T) {
@@ -34,7 +35,7 @@ func TestEventConsistency(t *testing.T) {
 
 	lock := sync.Mutex{}
 
-	controller.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, event model.Event) {
+	controller.RegisterEventHandler(schemas.MockConfig.Type, func(config model.Config, event model.Event) {
 
 		lock.Lock()
 		tc := testConfig
@@ -77,7 +78,7 @@ func TestEventConsistency(t *testing.T) {
 
 	// Test Delete Event
 	testEvent = model.EventDelete
-	if err := controller.Delete(model.MockConfig.Type, testConfig.Name, TestNamespace); err != nil {
+	if err := controller.Delete(schemas.MockConfig.Type, testConfig.Name, TestNamespace); err != nil {
 		t.Error(err)
 		return
 	}

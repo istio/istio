@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
@@ -58,7 +59,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
-		callbacks.RegisterEventHandler(model.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		callbacks.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
