@@ -27,7 +27,6 @@ import (
 )
 
 func TestValueToProto(t *testing.T) {
-	t.Skip("Disabled while components.common.values is removed.")
 
 	tests := []struct {
 		desc      string
@@ -136,7 +135,15 @@ trafficManagement:
        hpaSpec:
           maxReplicas: 3
           minReplicas: 1
-          scaleTargetRef: {}
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-pilot
+          metrics:
+           - resource:
+               name: cpu
+               targetAverageUtilization: 80
+             type: Resource
        nodeSelector:
           beta.kubernetes.io/os: linux
        resources:
@@ -156,7 +163,8 @@ values:
   proxy:
     readinessInitialDelaySeconds: 2
   mixer:
-    image: mixer
+    policy:
+      image: mixer
 `,
 		},
 		{

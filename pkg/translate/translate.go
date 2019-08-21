@@ -115,7 +115,7 @@ var (
 				"K8SDefaults":      {"global.resources", nil},
 				"DefaultNamespace": {"global.istioNamespace", nil},
 
-				"TrafficManagement.Components.Proxy.Values": {"global.proxy", nil},
+				"Values.Proxy": {"global.proxy", nil},
 
 				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
 
