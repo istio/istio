@@ -850,6 +850,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 				var labels map[string]string
 				locality, sa, uid := "", "", ""
+				mtlsReady := false
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
@@ -857,10 +858,9 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
-				}
-				mtlsReady := false
-				if kube.PodMTLSReady(pod) {
-					mtlsReady = true
+					if kube.PodMTLSReady(pod) {
+						mtlsReady = true
+					}
 				}
 
 				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints

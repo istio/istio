@@ -432,6 +432,32 @@ func escapeJSONPointerValue(in string) string {
 	return strings.Replace(step, "/", "~1", -1)
 }
 
+func updateLabels(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
+	for key, value := range added {
+		if target == nil {
+			target = map[string]string{}
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "add",
+				Path: "/metadata/labels",
+				Value: map[string]string{
+					key: value,
+				},
+			})
+		} else {
+			op := "add"
+			if target[key] != "" {
+				op = "replace"
+			}
+			patch = append(patch, rfc6902PatchOperation{
+				Op:    op,
+				Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
+				Value: value,
+			})
+		}
+	}
+	return patch
+}
+
 func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
 	for key, value := range added {
 		if target == nil {
@@ -499,6 +525,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	if sic.MTLSReady && pod.Labels["security.istio.io/mtlsReady"] == "" {
+		patch = append(patch, updateLabels(pod.Labels, map[string]string{"security.istio.io/mtlsReady": "true"})...)
+	}
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
@@ -636,8 +666,12 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
-	if pod.Annotations[annotation.AuthenticationMtlsReady.Name] == "" {
-		annotations[annotation.AuthenticationMtlsReady.Name] = "true"
+	labels := make(map[string]string, 0)
+	if pod.Labels["security.istio.io/mtlsReady"] == "" && spec.MTLSReady {
+		log.Errorf("gihanson: adding mtlsready label")
+		labels["security.istio.io/mtlsReady"] = "true"
+	} else {
+		log.Errorf("spec: %v, label: %v", spec.MTLSReady, pod.Labels["security.istio.io/mtlsReady"])
 	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)

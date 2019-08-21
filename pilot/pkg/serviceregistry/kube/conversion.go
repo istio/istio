@@ -175,7 +175,7 @@ func SecureNamingSAN(pod *coreV1.Pod) string {
 
 // PodMTLSReady returns true if pod has been injected with sidecar and ready to configure Istio mTLS
 func PodMTLSReady(pod *coreV1.Pod) bool {
-	return pod.Annotations[annotation.AuthenticationMtlsReady.Name] == "true"
+	return pod.Labels["security.istio.io/mtlsReady"] == "true"
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

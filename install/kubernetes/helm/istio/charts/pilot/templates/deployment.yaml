@@ -100,6 +100,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+{{- if .Values.global.autopilot.enabled }}
+          - name: PILOT_USE_AUTOPILOT_MTLS
+            vale: true
+{{- end }}
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}

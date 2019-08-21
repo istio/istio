@@ -187,7 +187,7 @@ global:
         caCertificates: # example: /etc/istio/als/root-cert.pem
         sni: # example: als.somedomain
         subjectAltNames: []
-        # - als.somedomain 
+        # - als.somedomain
       tcpKeepalive:
         probes: 3
         time: 10s
@@ -341,6 +341,9 @@ global:
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
+    enabled: false
+
+  autopilot:
     enabled: false
 
   # Lists the secrets you need to use to pull Istio images from a private registry.

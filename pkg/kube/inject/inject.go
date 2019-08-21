@@ -60,7 +60,6 @@ var (
 	annotationRegistry = map[string]annotationValidationFunc{
 		annotation.SidecarInject.Name:                             alwaysValidFunc,
 		annotation.SidecarStatus.Name:                             alwaysValidFunc,
-		annotation.AuthenticationMtlsReady.Name:                   alwaysValidFunc,
 		annotation.SidecarRewriteAppHTTPProbers.Name:              alwaysValidFunc,
 		annotation.SidecarControlPlaneAuthPolicy.Name:             alwaysValidFunc,
 		annotation.SidecarDiscoveryAddress.Name:                   alwaysValidFunc,
@@ -152,6 +151,7 @@ type SidecarInjectionSpec struct {
 	Volumes             []corev1.Volume               `yaml:"volumes"`
 	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
 	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	MTLSReady           bool                          `yaml:"mtlsReady"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -653,7 +653,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, mtlsReady bool, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -671,7 +671,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, mtlsReady, obj) // nolint: vetshadow
+			outObject, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -711,7 +711,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, mtlsReady bool, in runtime.Object) (interface{}, error) {
+func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -732,7 +732,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, mtlsReady, obj) // nolint: vetshadow
+			r, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -854,8 +854,8 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
 
-	if status != "" && mtlsReady && metadata.Annotations[annotation.AuthenticationMtlsReady.Name] == "" {
-		metadata.Annotations[annotation.AuthenticationMtlsReady.Name] = "true"
+	if status != "" && spec.MTLSReady && metadata.Labels["security.istio.io/mtlsReady"] == "" {
+		metadata.Labels["security.istio.io/mtlsReady"] = "true"
 	}
 
 	return out, nil
