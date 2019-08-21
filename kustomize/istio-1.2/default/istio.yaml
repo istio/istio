@@ -1357,7 +1357,7 @@ metadata:
     heritage: Tiller
     release: istio
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-istio-system
@@ -1380,7 +1380,7 @@ rules:
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "watch"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-istio-system

@@ -1,6 +1,6 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if $gateway.sds.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istio-ingressgateway-sds
