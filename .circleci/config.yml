@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+    - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25-libcxx8
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
@@ -42,6 +42,10 @@ initWorkingDir: &initWorkingDir
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
     curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
+    # Install libc++ (required by Proxy in release-1.1 and release-1.2).
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+    curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    sudo apt-get update && sudo apt-get -qqy install "libc++-8-dev" "libc++abi-8-dev"
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
