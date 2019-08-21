@@ -18,12 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
-
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
@@ -68,10 +66,10 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
-	fullStatus := []*writerStatus{}
+	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
+	var fullStatus []*writerStatus
 	for pilot, status := range statuses {
-		ss := []*writerStatus{}
+		var ss []*writerStatus
 		err := json.Unmarshal(status, &ss)
 		if err != nil {
 			return nil, nil, err
@@ -99,7 +97,7 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 		// but it is better than not providing any information.
 		version = status.ProxyVersion + "*"
 	}
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, routeSynced, status.pilot, version)
 	return nil
 }
@@ -111,17 +109,7 @@ func xdsStatus(sent, acked string) string {
 	if sent == acked {
 		return "SYNCED"
 	}
-	timeSent, _ := parseTime(sent)
-	timeAcked, _ := parseTime(acked)
-	if timeAcked.Equal(time.Time{}) {
-		return "STALE (Never Acknowledged)"
-	}
-	timeDiff := timeSent.Sub(timeAcked)
-	return fmt.Sprintf("STALE (%v)", timeDiff.String())
-}
 
-func parseTime(s string) (time.Time, error) {
-	s = strings.Split(s, " m=+")[0]
-	layout := "2006-01-02 15:04:05 +0000 MST"
-	return time.Parse(layout, s)
+	// Since the Nonce changes to uuid, so there is no more any time diff info
+	return "STALE"
 }
