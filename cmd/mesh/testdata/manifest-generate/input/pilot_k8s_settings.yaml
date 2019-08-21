@@ -1,0 +1,59 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  hub: docker.io/istio
+  tag: 1.1.4
+  defaultNamespace: istio-control
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
+  security:
+    enabled: false
+  configManagement:
+    enabled: false
+  autoInjection:
+    enabled: false
+  gateways:
+    enabled: false
+  trafficManagement:
+    enabled: true
+    components:
+      namespace: istio-control
+      proxy:
+        enabled: false
+      pilot:
+        k8s:
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: new.path
+            - name: GODEBUG
+              value: gctrace=111
+            - name: NEW_VAR
+              value: new_value
+          hpaSpec:
+            maxReplicas: 333
+            minReplicas: 222
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-pilot
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 444
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 555
+            periodSeconds: 666
+            timeoutSeconds: 777
+          resources:
+            requests:
+              cpu: 888m
+              memory: 999Mi

@@ -20,14 +20,15 @@ set -u
 set -x
 set -e
 
-if [[ "$#" -ne 1 ]]; then
-    echo "Usage: run_update_charts.sh <sha or branch>"
+ISTIO_DIR="${GOPATH}/src/istio.io"
+OPERATOR_DIR="${ISTIO_DIR}/operator"
+INSTALLER_DIR="${ISTIO_DIR}/installer"
+OUT_DIR="${OPERATOR_DIR}/data/charts"
+SHA=`cat ${OPERATOR_DIR}/installer.sha`
+
+if [[ "$#" -eq 1 ]]; then
+    SHA="${1}"
 fi
-
-SHA="${1}"
-
-INSTALLER_DIR=${GOPATH}/src/istio.io/installer
-OUT_DIR=${GOPATH}/src/istio.io/operator/data/charts
 
 if [[ ! -d "${INSTALLER_DIR}" ]]; then
     git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"

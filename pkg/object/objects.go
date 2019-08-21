@@ -410,7 +410,7 @@ func filterResourceWithSelectAndIgnore(a, selectResources, ignoreResources strin
 	for ak, av := range aom {
 		if strings.Compare(selectResources, "") != 0 {
 			for _, selected := range selections {
-				re, err := buildResourceRegexp(selected)
+				re, err := buildResourceRegexp(strings.TrimSpace(selected))
 				if err != nil {
 					return nil, fmt.Errorf("error building the resource regexp: %v", err)
 				}
@@ -421,7 +421,7 @@ func filterResourceWithSelectAndIgnore(a, selectResources, ignoreResources strin
 		}
 		if strings.Compare(ignoreResources, "") != 0 {
 			for _, ignored := range ignores {
-				re, err := buildResourceRegexp(ignored)
+				re, err := buildResourceRegexp(strings.TrimSpace(ignored))
 				if err != nil {
 					return nil, fmt.Errorf("error building the resource regexp: %v", err)
 				}

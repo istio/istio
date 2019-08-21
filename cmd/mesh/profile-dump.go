@@ -56,25 +56,26 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 		Long:  "The dump subcommand is used to dump the values in an Istio configuration profile.",
 		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			profileDump(args, rootArgs, pdArgs)
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			profileDump(args, rootArgs, pdArgs, l)
 		}}
 
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs) {
-	checkLogsOrExit(rootArgs)
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *logger) {
+	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilename != "" {
-		logAndFatalf(rootArgs, "Cannot specify both profile name and filename flag.")
+		l.logAndFatal("Cannot specify both profile name and filename flag.")
 	}
 
 	writer, err := getWriter("")
 	if err != nil {
-		logAndFatalf(rootArgs, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	defer func() {
 		if err := writer.Close(); err != nil {
-			logAndFatalf(rootArgs, "Did not close output successfully: %v", err)
+			l.logAndFatal("Did not close output successfully: ", err)
 		}
 	}()
 
@@ -84,11 +85,11 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs) {
 	}
 	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath)
 	if err != nil {
-		logAndFatalf(rootArgs, err.Error())
+		l.logAndFatal(err.Error())
 	}
 
 	if _, err := writer.WriteString(y); err != nil {
-		logAndFatalf(rootArgs, "Could not write values; %s", err)
+		l.logAndFatal("Could not write values; ", err)
 	}
 }
 
