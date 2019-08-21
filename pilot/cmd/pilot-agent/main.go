@@ -295,7 +295,7 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(sdsUdsPathVar.Get(), trustworthyJWTPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it skip waiting cert if sds is enabled, otherwise it takes long time for
@@ -481,8 +481,27 @@ func getDNSDomain(domain string) string {
 
 // detectSds checks config for control plane SDS . The returned values are used by caller
 // to decide whether SDS or file-mounted secret is used for control plane.
-func detectSds(udspath, trustworthyJWTPath string) (bool, string) {
+func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
+		return false, ""
+	}
+
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
+		return false, ""
+	}
+
+	if !controlPlaneBootstrap {
+		// workload sidecar
+		// treat sds as disabled if uds path isn't set.
+		if _, err := os.Stat(udspath); err != nil {
+			return false, ""
+		}
+		if _, err := os.Stat(trustworthyJWTPath); err == nil {
+			return true, trustworthyJWTPath
+		}
+
 		return false, ""
 	}
 
