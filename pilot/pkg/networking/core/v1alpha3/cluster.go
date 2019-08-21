@@ -673,26 +673,10 @@ func conditionallyConvertToIstioMtls(
 	tlsPolicy *authn.Policy,
 	mtlsReady bool,
 ) *networking.TLSSettings {
-	if features.UseAutoPilotMTLS.Get() && tlsPolicy != nil {
-		if peers := tlsPolicy.GetPeers(); len(peers) != 0 {
-			// TODO gihanson need to handle mutliple peer blocks?
-			for _, peer := range peers {
-				mtls := peer.GetMtls()
-				switch mtls.Mode {
-				case authn.MutualTls_PERMISSIVE:
-					// permissive mTLS enabled and all service instances are injected
-					if mtlsReady {
-						tls = &networking.TLSSettings{
-							Mode: networking.TLSSettings_ISTIO_MUTUAL,
-						}
-					}
-				default:
-					// strict mTLS is enabled, configure mTLS by default
-					tls = &networking.TLSSettings{
-						Mode: networking.TLSSettings_ISTIO_MUTUAL,
-					}
-				}
-			}
+
+	if authn_model.UseIstioMTLS(tlsPolicy, mtlsReady) {
+		tls = &networking.TLSSettings{
+			Mode: networking.TLSSettings_ISTIO_MUTUAL,
 		}
 	}
 
