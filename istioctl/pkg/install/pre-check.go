@@ -67,9 +67,11 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
 		fmt.Fprintf(writer, fmt.Sprintf("Failed to query the Kubernetes API Server: %v.\n", err))
-	} else {
-		fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
+		fmt.Fprintf(writer, "Istio install NOT verified because the cluster is unreachable.\n")
+		return errs
 	}
+	fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
+
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#2. Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
