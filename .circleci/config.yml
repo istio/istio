@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: gcr.io/istio-testing/circleci:2019-04-22
+    - image: istio/ci:go1.12-k8s1.10.4-helm2.7.2-minikube0.25-v1
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
@@ -17,7 +17,8 @@ defaults: &defaults
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
-  machine: true
+  machine:
+    image: ubuntu-1604:201903-01
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
@@ -42,6 +43,9 @@ initWorkingDir: &initWorkingDir
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
     curl https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+    curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    sudo apt-get update && sudo apt-get -qqy install "libc++-7-dev" "libc++abi-7-dev"
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
