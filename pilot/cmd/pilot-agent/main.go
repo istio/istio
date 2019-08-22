@@ -307,8 +307,6 @@ var (
 			}
 
 			opts := make(map[string]interface{})
-			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
-			// for control plane SDS.
 			if sdsEnabled {
 				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
