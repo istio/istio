@@ -87,7 +87,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: nginx
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/v1/namespaces/default/pod/nginx
+          value: kubernetes://api/v1/namespaces/default/pods/nginx
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
