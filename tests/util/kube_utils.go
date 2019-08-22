@@ -941,7 +941,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 		return err
 	}
 
-	log.Infof("Secret for cluster %v created in cluster\n", remoteKubeConfig, localKubeConfig)
+	log.Infof("Secret for cluster %v created in cluster %v\n", remoteKubeConfig, localKubeConfig)
 	return nil
 }
 
