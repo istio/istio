@@ -373,7 +373,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	if data, ok := metadata[NodeMetadataLabels]; ok {
 		var nodeLabels map[string]string
 		if err := json.Unmarshal([]byte(data), &nodeLabels); err != nil {
-			return out, fmt.Errorf("invalid %s: %s", NodeMetadataLabels, data)
+			log.Warnf("invalid node label %s: %v", data, err)
 		}
 		if len(nodeLabels) > 0 {
 			out.WorkloadLabels = labels.Collection{nodeLabels}
