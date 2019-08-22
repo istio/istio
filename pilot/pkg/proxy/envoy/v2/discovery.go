@@ -107,9 +107,9 @@ type DiscoveryServer struct {
 	// incremental updates. This is keyed by service and namespace
 	EndpointShardsByService map[string]map[string]*EndpointShards
 
-	// WorkloadsById keeps track of information about a workload, based on direct notifications
+	// WorkloadsByIP keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
-	WorkloadsByID map[string]*Workload
+	WorkloadsByIP map[string]*Workload
 
 	pushChannel chan *model.PushRequest
 	// connectionsByIP keeps track of active XdsConnection structures,
@@ -163,7 +163,7 @@ func NewDiscoveryServer(
 		ConfigController:        configCache,
 		KubeController:          kubeController,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
-		WorkloadsByID:           map[string]*Workload{},
+		WorkloadsByIP:           map[string]*Workload{},
 		connectionsByIP:         map[string]*XdsConnection{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),

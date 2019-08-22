@@ -430,64 +430,67 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]string, _ map[string]string) {
+func (s *DiscoveryServer) WorkloadUpdate(ip string, workloadLabels map[string]string, _ map[string]string) {
 	inboundWorkloadUpdates.Increment()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if workloadLabels == nil {
 		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID, id)
+		delete(s.WorkloadsByIP, ip)
 		return
 	}
-	w, f := s.WorkloadsByID[id]
+
+	w, f := s.WorkloadsByIP[ip]
+	// the first time workload comes up.
 	if !f {
-		s.WorkloadsByID[id] = &Workload{
+		s.WorkloadsByIP[ip] = &Workload{
 			Labels: workloadLabels,
 		}
 
 		adsClientsMutex.RLock()
-		for _, connection := range adsClients {
-			// if the workload has envoy proxy and connected to server,
-			// then do a full xDS push for this proxy;
-			// otherwise:
-			//   case 1: the workload has no sidecar proxy, no need xDS push at all.
-			//   case 2: the workload xDS connection has not been established,
-			//           also no need to trigger a full push here.
-			if connection.modelNode.IPAddresses[0] == id {
-				// There is a possibility that the pod comes up later than endpoint.
-				// So no endpoints add/update events after this, we should request
-				// full push immediately to speed up sidecar startup.
-				s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-				break
-			}
-		}
+		connection := s.connectionsByIP[ip]
 		adsClientsMutex.RUnlock()
+
+		// if the workload has envoy proxy and connected to server,
+		// then do a full xDS push for this proxy;
+		// otherwise:
+		//   case 1: the workload has no sidecar proxy, no need xDS push at all.
+		//   case 2: the workload xDS connection has not been established,
+		//           also no need to trigger a full push here.
+		if connection != nil {
+			// update workload labels in case it updates after proxy connected
+			// and before the first time pod comes up.
+			connection.modelNode.WorkloadLabels = labels.Collection{workloadLabels}
+			// There is a possibility that the pod comes up later than endpoint.
+			// So no endpoints add/update events after this, we should request
+			// full push immediately to speed up sidecar startup.
+			s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
+		}
 
 		return
 	}
+
 	if reflect.DeepEqual(w.Labels, workloadLabels) {
 		// No label change.
 		return
 	}
 
+	// label changed
 	w.Labels = workloadLabels
 
 	// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
 	adsClientsMutex.RLock()
-	for _, connection := range adsClients {
-		// update node label
-		if connection.modelNode.IPAddresses[0] == id {
-			connection.modelNode.WorkloadLabels = labels.Collection{workloadLabels}
-			break
-		}
-	}
+	connection := s.connectionsByIP[ip]
 	adsClientsMutex.RUnlock()
+	if connection != nil {
+		connection.modelNode.WorkloadLabels = labels.Collection{workloadLabels}
+	}
 
 	// Label changes require recomputing the config.
 	// TODO: we can do a push for the affected workload only, but we need to confirm
 	// no other workload can be affected. Safer option is to fallback to full push.
 
-	adsLog.Infof("Label change, full push %s ", id)
+	adsLog.Infof("Label change, full push %s ", ip)
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 }
 

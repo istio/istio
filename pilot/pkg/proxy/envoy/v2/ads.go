@@ -792,9 +792,8 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		delete(adsSidecarIDConnectionsMap[node.ID], conID)
 		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
 			delete(adsSidecarIDConnectionsMap, node.ID)
+			delete(s.connectionsByIP, node.IPAddresses[0])
 		}
-
-		delete(s.connectionsByIP, node.IPAddresses[0])
 	}
 }
 

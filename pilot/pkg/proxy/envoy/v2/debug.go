@@ -158,7 +158,7 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	s.mutex.RLock()
-	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
+	out, _ := json.MarshalIndent(s.WorkloadsByIP, " ", " ")
 	s.mutex.RUnlock()
 	_, _ = w.Write(out)
 }
