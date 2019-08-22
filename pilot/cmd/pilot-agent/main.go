@@ -310,7 +310,7 @@ var (
 			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
 			// for control plane SDS.
 			if controlPlaneAuthEnabled && sdsEnabled {
-				opts["sds_path"] = "unix:" + sdsUdsPathVar.Get()
+				opts["sds_uds_path"] = "unix:" + sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
 
@@ -478,8 +478,8 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// detectSds checks config for control plane SDS . The returned values are used by caller
-// to decide whether SDS or file-mounted secret is used for control plane.
+// detectSds checks config for control plane SDS. The returned values are used by caller
+// to decide whether SDS is used for control plane.
 func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
