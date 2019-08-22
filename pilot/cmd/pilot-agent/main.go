@@ -499,12 +499,6 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 		return false, ""
 	}
 
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
-	if !controlPlaneAuthEnabled {
-		return false, ""
-	}
-
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
