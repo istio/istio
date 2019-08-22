@@ -369,26 +369,32 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 		freeCh <- struct{}{}
 	}
 
+	pushWorker := func() {
+		eventDelay := time.Since(startDebounce)
+		quietTime := time.Since(lastConfigUpdateTime)
+		// it has been too long or quiet enough
+		if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
+			if req != nil {
+				pushCounter++
+				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+					pushCounter, debouncedEvents,
+					quietTime, eventDelay, req.Full)
+
+				free = false
+				go push(req)
+				req = nil
+				debouncedEvents = 0
+			}
+		} else {
+			timeChan = time.After(DebounceAfter - quietTime)
+		}
+	}
+
 	for {
 		select {
 		case <-freeCh:
 			free = true
-			eventDelay := time.Since(startDebounce)
-			quietTime := time.Since(lastConfigUpdateTime)
-			// it has been too long or quiet enough
-			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
-				if req != nil {
-					pushCounter++
-					adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
-						quietTime, eventDelay, req.Full)
-
-					free = false
-					go push(req)
-					req = nil
-					debouncedEvents = 0
-				}
-			}
+			pushWorker()
 		case r := <-ch:
 			if !features.EnableEDSDebounce.Get() && !r.Full {
 				// trigger push now, just for EDS
@@ -404,28 +410,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			debouncedEvents++
 
 			req = req.Merge(r)
-		case now := <-timeChan:
-			timeChan = nil
-
-			eventDelay := now.Sub(startDebounce)
-			quietTime := now.Sub(lastConfigUpdateTime)
-			// it has been too long or quiet enough
-			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
-				if free && req != nil {
-					pushCounter++
-					adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
-						quietTime, eventDelay, req.Full)
-
-					free = false
-					go push(req)
-					req = nil
-					debouncedEvents = 0
-				}
-				continue
+		case <-timeChan:
+			if free {
+				pushWorker()
 			}
-
-			timeChan = time.After(DebounceAfter - quietTime)
 		case <-stopCh:
 			return
 		}
