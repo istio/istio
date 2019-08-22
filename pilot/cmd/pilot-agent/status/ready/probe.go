@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
-	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 // Probe for readiness.
@@ -41,33 +40,19 @@ func (p *Probe) Check() error {
 		return err
 	}
 
-	// Envoy has received some configuration, make sure that configuration has been received for
-	// all inbound ports.
-	if err := p.checkInbound(); err != nil {
-		return err
+	// Envoy has received some listener configuration, make sure that configuration has been received for
+	// any of the inbound ports.
+	if p.NodeType == model.Router {
+		if err := p.checkInboundConfigured(); err != nil {
+			return err
+		}
 	}
 
 	return p.checkServerInfo()
 }
 
-func (p *Probe) checkInbound() error {
-	if p.NodeType != model.SidecarProxy {
-		return p.checkInboundConfigured()
-	}
-	return p.checkInboundVirtualListener()
-}
-
-func (p *Probe) checkInboundVirtualListener() error {
-	// Warning: this is not reliable at envoy start up.
-	// TODO(silentdai): switch to /configdump
-	err := util.HasListenerName(p.LocalHostAddr, p.AdminPort, networking.VirtualInboundListenerName)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
+// Notes it is used only by envoy in Router mode.
 func (p *Probe) checkInboundConfigured() error {
 	if len(p.ApplicationPorts) > 0 {
 		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort, p.NodeType)
