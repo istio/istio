@@ -709,7 +709,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 
 		for _, vh := range rcd.RouteConfig.VirtualHosts {
 			for _, route := range vh.Routes {
-				if routeDestinationMatchesSvc(route, svc) {
+				if routeDestinationMatchesSvc(route, svc, vh) {
 					return getIstioConfig(route.Metadata)
 				}
 			}
@@ -719,7 +719,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
-func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service) bool {
+func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh *envoy_api_route.VirtualHost) bool {
 	if route == nil {
 		return false
 	}
@@ -729,6 +729,17 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service) bo
 		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
 		if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
 			return true
+		}
+	} else {
+		// No mixer config, infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
+		re := regexp.MustCompile(`(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`)
+		for _, domain := range vh.Domains {
+			ss := re.FindStringSubmatch(domain)
+			if ss != nil {
+				if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
+					return true
+				}
+			}
 		}
 	}
 
