@@ -91,7 +91,7 @@ func TestGolden(t *testing.T) {
 		{
 			base: "auth",
 			opts: map[string]interface{}{
-				"sds_uds_path":       "udspath",
+				"sds_uds_path":   "udspath",
 				"sds_token_path": "/var/run/secrets/tokens/istio-token",
 			},
 		},
@@ -114,7 +114,7 @@ func TestGolden(t *testing.T) {
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
 			opts: map[string]interface{}{
-				"sds_uds_path":       "udspath",
+				"sds_uds_path":   "udspath",
 				"sds_token_path": "/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 			checkLocality: true,
