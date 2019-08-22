@@ -295,3 +295,76 @@ func TestDebounce(t *testing.T) {
 		})
 	}
 }
+
+func TestDebounceSyncPush(t *testing.T) {
+	// This test tests the timeout and debouncing of config updates
+	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
+	// For now, this seems to work well
+	DebounceAfter = time.Millisecond * 50
+	DebounceMax = DebounceAfter * 2
+
+	tests := []struct {
+		name string
+		test func(updateCh chan *model.PushRequest, expect func(partial, full int32))
+	}{
+		{
+			name: "Should push synchronously after debounce",
+			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
+				updateCh <- &model.PushRequest{Full: true}
+				time.Sleep(DebounceAfter)
+				updateCh <- &model.PushRequest{Full: true}
+				expect(0, 2)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stopCh := make(chan struct{})
+			updateCh := make(chan *model.PushRequest, 10)
+			pushingCh := make(chan struct{}, 1)
+
+			var partialPushes int32
+			var fullPushes int32
+
+			fakePush := func(req *model.PushRequest) {
+				select {
+				case pushingCh <- struct{}{}:
+				default:
+					t.Fatalf("multiple pushes happen simutaneously")
+				}
+				if req.Full {
+					atomic.AddInt32(&fullPushes, 1)
+				} else {
+					atomic.AddInt32(&partialPushes, 1)
+				}
+				time.Sleep(2 * DebounceMax)
+				<-pushingCh
+			}
+
+			go func() {
+				debounce(updateCh, stopCh, fakePush)
+			}()
+
+			expect := func(expectedPartial, expectedFull int32) {
+				t.Helper()
+				err := retry.UntilSuccess(func() error {
+					partial := atomic.LoadInt32(&partialPushes)
+					full := atomic.LoadInt32(&fullPushes)
+					if partial != expectedPartial || full != expectedFull {
+						return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+					}
+					return nil
+				}, retry.Timeout(DebounceAfter*8), retry.Delay(DebounceAfter/2))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Send updates
+			tt.test(updateCh, expect)
+
+			close(stopCh)
+		})
+	}
+}
