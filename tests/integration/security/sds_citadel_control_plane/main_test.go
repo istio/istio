@@ -58,6 +58,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth-test.yaml
-	cfg.ValuesFile = "values-istio-sds-auth-test.yaml"
+	// Helm values from install/kubernetes/helm/istio/values-istio-sds-control-plane.yaml
+	cfg.ValuesFile = "values-istio-sds-control-plane.yaml"
 }
