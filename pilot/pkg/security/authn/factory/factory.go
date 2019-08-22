@@ -18,7 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/v1alpha1"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
+	// authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
@@ -26,6 +26,6 @@ import (
 func NewPolicyApplier(configStore model.IstioConfigStore,
 	serviceInstance *model.ServiceInstance) authn.PolicyApplier {
 	// TODO: check v1alpha2 policy and returns alpha2 applier, if exists.
-	authnPolicy := authn_model.GetConsolidateAuthenticationPolicy(configStore, serviceInstance)
+	authnPolicy := v1alpha1.GetConsolidateAuthenticationPolicy(configStore, serviceInstance)
 	return v1alpha1.NewPolicyApplier(authnPolicy)
 }
