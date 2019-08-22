@@ -478,7 +478,7 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// detectSds checks config for control plane SDS. The returned values are used by caller
+// detectSds checks if the UDS and JWT paths are present. The returned values are used by caller
 // to decide whether SDS is used for control plane.
 func detectSds(controlPlaneBootstrap bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
