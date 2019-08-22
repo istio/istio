@@ -4,6 +4,7 @@
 // ../../data/charts/crds/files/crd-10.yaml
 // ../../data/charts/crds/files/crd-11.yaml
 // ../../data/charts/crds/files/crd-12.yaml
+// ../../data/charts/crds/files/crd-14.yaml
 // ../../data/charts/crds/files/crd-certmanager-10.yaml
 // ../../data/charts/crds/files/crd-certmanager-11.yaml
 // ../../data/charts/crds/kustomization.yaml
@@ -105,6 +106,7 @@
 // ../../data/charts/istio-policy/templates/serviceaccount.yaml
 // ../../data/charts/istio-policy/values.yaml
 // ../../data/charts/istio-telemetry/grafana/Chart.yaml
+// ../../data/charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json
 // ../../data/charts/istio-telemetry/grafana/dashboards/galley-dashboard.json
 // ../../data/charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json
 // ../../data/charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json
@@ -977,6 +979,47 @@ func chartsCrdsFilesCrd12Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsCrdsFilesCrd14Yaml = []byte(`kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: authorizationpolicies.security.istio.io
+  labels:
+    app: istio-pilot
+    istio: security
+    heritage: Tiller
+    release: istio
+spec:
+  group: security.istio.io
+  names:
+    kind: AuthorizationPolicy
+    plural: authorizationpolicies
+    singular: authorizationpolicy
+    categories:
+      - istio-io
+      - security-istio-io
+  scope: Namespaced
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+---
+`)
+
+func chartsCrdsFilesCrd14YamlBytes() ([]byte, error) {
+	return _chartsCrdsFilesCrd14Yaml, nil
+}
+
+func chartsCrdsFilesCrd14Yaml() (*asset, error) {
+	bytes, err := chartsCrdsFilesCrd14YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/crds/files/crd-14.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsCrdsFilesCrdCertmanager10Yaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -1179,6 +1222,7 @@ resources:
   - files/crd-10.yaml
   - files/crd-11.yaml
   - files/crd-12.yaml
+  - files/crd-14.yaml
   - files/crd-certmanager-10.yaml
   - files/crd-certmanager-11.yaml
 `)
@@ -1201,6 +1245,7 @@ func chartsCrdsKustomizationYaml() (*asset, error) {
 var _chartsCrdsTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-10.yaml" }}
 {{ .Files.Get "files/crd-11.yaml" }}
 {{ .Files.Get "files/crd-12.yaml" }}
+{{ .Files.Get "files/crd-14.yaml" }}
 {{- if .Values.certmanager }}
 {{- if .Values.certmanager.enabled }}
 {{ .Files.Get "files/crd-certmanager-10.yaml" }}
@@ -2178,18 +2223,18 @@ gateways:
     ### Advanced options ############
     # TODO: convert to real options, env should not be exposed
     env:
-    # Set this to "external" if and only if you want the egress gateway to
-    # act as a transparent SNI gateway that routes mTLS/TLS traffic to
-    # external services defined using service entries, where the service
-    # entry has resolution set to DNS, has one or more endpoints with
-    # network field set to "external". By default its set to "" so that
-    # the egress gateway sees the same set of endpoints as the sidecars
-    # preserving backward compatibility
-    # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
-    # A gateway with this mode ensures that pilot generates an additional
-    # set of clusters for internal services but without Istio mTLS, to
-    # enable cross cluster routing.
-    ISTIO_META_ROUTER_MODE: "sni-dnat"
+      # Set this to "external" if and only if you want the egress gateway to
+      # act as a transparent SNI gateway that routes mTLS/TLS traffic to
+      # external services defined using service entries, where the service
+      # entry has resolution set to DNS, has one or more endpoints with
+      # network field set to "external". By default its set to "" so that
+      # the egress gateway sees the same set of endpoints as the sidecars
+      # preserving backward compatibility
+      # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
 
     nodeSelector: {}
     tolerations: []
@@ -3336,7 +3381,7 @@ func chartsGatewaysIstioIngressTemplatesPreconfiguredYaml() (*asset, error) {
 
 var _chartsGatewaysIstioIngressTemplatesRoleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if $gateway.sds.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: istio-ingressgateway-sds
@@ -4368,6 +4413,13 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     {{- if .Values.global.sds.customTokenDirectory }}
     - name: ISTIO_META_SDS_TOKEN_PATH
       value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
+    {{- end }}
+    {{- if .Values.global.meshID }}
+    - name: ISTIO_META_MESH_ID
+      value: "{{ .Values.global.meshID }}"
+    {{- else if .Values.global.trustDomain }}
+    - name: ISTIO_META_MESH_ID
+      value: "{{ .Values.global.trustDomain }}"
     {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
@@ -5577,6 +5629,9 @@ rules:
 - apiGroups: ["rbac.istio.io"]
   resources: ["*"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions","apps"]
   resources: ["deployments"]
   resourceNames: ["istio-galley"]
@@ -6171,6 +6226,15 @@ webhooks:
         - CREATE
         - UPDATE
         apiGroups:
+        - security.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - "*"
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
         - authentication.istio.io
         apiVersions:
         - "*"
@@ -6554,6 +6618,9 @@ rules:
   resources: ["*"]
   verbs: ["*"]
 - apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["security.istio.io"]
   resources: ["*"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["networking.istio.io"]
@@ -8687,6 +8754,1111 @@ func chartsIstioTelemetryGrafanaChartYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "panels": [],
+      "title": "Performance",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "CPU usage across Citadel instances.",
+      "fill": 1,
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 10,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"citadel\", pod_name=~\"istio-citadel-.*\"}[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Citadel CPU usage rate",
+          "refId": "A"
+        },
+        {
+          "expr": "irate(process_cpu_seconds_total{job=\"citadel\"}[1m])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Citadel CPU usage irate",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "CPU",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "Citadel process memory statistics.",
+      "fill": 1,
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "id": 12,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "process_virtual_memory_bytes{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Virtual Memory",
+          "refId": "A"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Resident Memory",
+          "refId": "B"
+        },
+        {
+          "expr": "go_memstats_heap_sys_bytes{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Heap Memory Total",
+          "refId": "C"
+        },
+        {
+          "expr": "go_memstats_alloc_bytes{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Heap Memory Allocated",
+          "refId": "E"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Heap Inuse",
+          "refId": "F"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Memory",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "fill": 1,
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 14,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Goroutines",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Goroutines",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 28,
+      "panels": [],
+      "title": "General",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "Total number of CSR requests made to Citadel.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 30,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "citadel_server_csr_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "CSR Request Count",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "CSR Requests",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of certificates issuances that have succeeded.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 32,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "citadel_server_success_cert_issuance_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Certificates Issued",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Certificates Issued",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 23,
+      "panels": [],
+      "title": "Errors",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of errors occurred when creating the CSR.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
+      "id": 20,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "citadel_secret_controller_csr_err_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "CSR Creation Error Count",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "CSR Creation Errors",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
+      "id": 24,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "CSR Parse Error Count",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "CSR Parse Errors",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of authentication failures.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
+      "id": 26,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}\t",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Authentication Failure Count",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Authentication Failures",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 4,
+      "panels": [],
+      "title": "Secret Controller",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of certificates created due to service account creation.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "citadel_secret_controller_svc_acc_created_cert_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "SA Secrets Created",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Service Account Secrets Created (due to SA creation)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "short",
+          "label": "Certs Created",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of certificates deleted due to service account deletion.",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 20
+      },
+      "id": 16,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "SA Secrets Deleted",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Service Account Secrets Deleted (due to SA deletion)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "short",
+          "label": "Certs Created",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "description": "The number of certificates recreated due to secret deletion (service account still exists).",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 20
+      },
+      "id": 6,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "SA Secrets Recreated",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Service Account Secrets Recreated (due to errant deletion)",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "short",
+          "label": "Certs Created",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 18,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "Istio Citadel Dashboard",
+  "uid": "OOyOqb4Wz",
+  "version": 1
+}`)
+
+func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes() ([]byte, error) {
+	return _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, nil
+}
+
+func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson() (*asset, error) {
+	bytes, err := chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
   "__inputs": [
     {
@@ -8900,7 +10072,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
           "refId": "H"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"galley\", pod_name=~\"istio-galley-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"galley\", pod_name=~\"istio-galley-.*\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Total (kis)",
@@ -9091,7 +10263,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"galley\", pod_name=~\"istio-galley-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }} ",
@@ -9176,7 +10348,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"istio-galley\"}",
+          "expr": "go_goroutines{job=\"galley\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "goroutines_total",
@@ -9190,7 +10362,7 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
           "refId": "B"
         },
         {
-          "expr": "go_goroutines{job=\"istio-galley\"}/galley_mcp_source_clients_total",
+          "expr": "go_goroutines{job=\"galley\"}/galley_mcp_source_clients_total",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "avg_goroutines_per_client",
@@ -11609,7 +12781,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "B"
         },
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-control\",container_name=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -11714,7 +12886,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "B"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-control\",container_name=\"istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -11818,28 +12990,28 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(sum(container_memory_usage_bytes{pod_name=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-telemetry / 1k rps",
           "refId": "A"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{pod_name=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{pod_name=~\"istio-ingressgateway-.*\",container_name!=\"POD\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-ingressgateway-.*\",container_name!=\"POD\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio-ingressgateway",
           "refId": "B"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{namespace!=\"istio-control\",container_name=\"istio-proxy\"}) / count(container_memory_usage_bytes{namespace!=\"istio-control\",container_name=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container_name=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio proxy",
           "refId": "C"
         },
         {
-          "expr": "(sum(container_memory_usage_bytes{pod_name=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod_name=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-policy / 1k rps",
@@ -11937,7 +13109,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "B"
         },
         {
-          "expr": "sum(irate(istio_response_bytes_sum{source_workload_namespace!=\"istio-control\", reporter=\"source\"}[1m])) + sum(irate(istio_response_bytes_sum{destination_workload_namespace!=\"istio-control\", reporter=\"destination\"}[1m])) + sum(irate(istio_request_bytes_sum{source_workload_namespace!=\"istio-control\", reporter=\"source\"}[1m])) + sum(irate(istio_request_bytes_sum{destination_workload_namespace!=\"istio-control\", reporter=\"destination\"}[1m]))",
+          "expr": "sum(irate(istio_response_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_response_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m])) + sum(irate(istio_request_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_request_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
@@ -12139,7 +13311,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=\"istio-proxy\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -12313,7 +13485,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_fs_usage_bytes{container_name=\"istio-proxy\"})",
+          "expr": "sum(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
@@ -12471,7 +13643,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -12480,7 +13652,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -12682,7 +13854,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
@@ -12769,7 +13941,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"istio-pilot\"}",
+          "expr": "go_goroutines{job=\"pilot\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Number of Goroutines",
@@ -12918,7 +14090,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "go_memstats_stack_inuse_bytes{job=~\"istio-telemetry|istio-policy\"}",
+          "expr": "go_memstats_stack_inuse_bytes{job=~\"istio-policy|istio-telemetry\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Stack in-use",
@@ -12926,7 +14098,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -12935,7 +14107,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -13040,7 +14212,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "irate(process_cpu_seconds_total{job=~\"istio-telemetry|istio-policy\"}[1m])",
+          "expr": "irate(process_cpu_seconds_total{job=~\"istio-policy|istio-telemetry\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -13127,17 +14299,17 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=~\"istio-telemetry|istio-policy\"}",
+          "expr": "process_open_fds{job=~\"istio-policy|istio-telemetry\"}",
           "format": "time_series",
           "hide": true,
           "instant": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "Open FDs (mixer)",
+          "legendFormat": "Open FDs (pilot)",
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container_name }}",
@@ -18535,7 +19707,7 @@ var _chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson = []byte(`{
           "refId": "G"
         },
         {
-          "expr": "sum(label_replace(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
+          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -18543,7 +19715,7 @@ var _chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson = []byte(`{
           "refId": "C"
         },
         {
-          "expr": "sum(label_replace(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
+          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -18739,7 +19911,7 @@ var _chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "sum(label_replace(container_fs_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
+          "expr": "sum(label_replace(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ service }} - {{ container_name }}",
@@ -20112,7 +21284,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": 6,
+  "id": 11,
   "links": [],
   "panels": [
     {
@@ -20321,22 +21493,20 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"})",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"discovery\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
-          "refId": "C",
+          "legendFormat": "Discovery (container)",
+          "refId": "B",
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "{{ container_name }} (k8s)",
-          "refId": "B",
-          "step": 2
+          "intervalFactor": 1,
+          "legendFormat": "Sidecar (container)",
+          "refId": "C"
         }
       ],
       "thresholds": [],
@@ -20417,30 +21587,28 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=\"discovery\", pod_name=~\"istio-pilot-.*\"}[1m]))",
           "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
-          "refId": "A",
-          "step": 2
-        },
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m])) by (container_name)",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "{{ container_name }} (k8s)",
-          "refId": "B",
-          "step": 2
+          "intervalFactor": 1,
+          "legendFormat": "Discovery (container)",
+          "refId": "A"
         },
         {
           "expr": "irate(process_cpu_seconds_total{job=\"pilot\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "pilot (self-reported)",
+          "legendFormat": "Discovery (process)",
           "refId": "C",
+          "step": 2
+        },
+        {
+          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=\"istio-proxy\", pod_name=~\"istio-pilot-.*\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 2,
+          "legendFormat": "Sidecar (container)",
+          "refId": "B",
           "step": 2
         }
       ],
@@ -20522,22 +21690,19 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=\"pilot\"}",
-          "format": "time_series",
-          "hide": true,
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 2,
-          "legendFormat": "Open FDs (pilot)",
-          "refId": "A"
-        },
-        {
-          "expr": "container_fs_usage_bytes{container_name=~\"discovery|istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=\"discovery\", pod_name=~\"istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "{{ container_name }}",
+          "legendFormat": "Discovery",
           "refId": "B",
           "step": 2
+        },
+        {
+          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=\"istio-proxy\", pod_name=~\"istio-pilot-.*\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Sidecar",
+          "refId": "A"
         }
       ],
       "thresholds": [],
@@ -20619,7 +21784,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"istio-pilot\"}",
+          "expr": "go_goroutines{job=\"pilot\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Number of Goroutines",
@@ -20686,11 +21851,11 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "bars": true,
       "dashLength": 10,
       "dashes": false,
-      "description": "Shows pilot pushes",
+      "description": "Shows the rate of pilot pushes",
       "fill": 1,
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 15
       },
@@ -20719,14 +21884,32 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(pilot_xds_pushes{type!~\".*_senderr\"}[1m])) by (type)",
+          "expr": "sum(irate(pilot_xds_pushes{type=\"cds\"}[1m]))",
           "format": "time_series",
-          "instant": false,
-          "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ type }}",
-          "refId": "B",
-          "step": 2
+          "legendFormat": "Cluster",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(irate(pilot_xds_pushes{type=\"eds\"}[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Endpoints",
+          "refId": "D"
+        },
+        {
+          "expr": "sum(irate(pilot_xds_pushes{type=\"lds\"}[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Listeners",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(irate(pilot_xds_pushes{type=\"rds\"}[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Routes",
+          "refId": "E"
         }
       ],
       "thresholds": [],
@@ -20782,14 +21965,16 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "fill": 1,
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 15
       },
       "id": 67,
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": true,
+        "hideZero": true,
         "max": false,
         "min": false,
         "show": true,
@@ -20810,15 +21995,15 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "expr": "sum(pilot_xds_cds_reject{job=\"pilot\"}) or (absent(pilot_xds_cds_reject{job=\"pilot\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "Rejected CDS Configs - {{ node }}: {{ err }}",
+          "legendFormat": "Rejected CDS Configs",
           "refId": "C"
         },
         {
-          "expr": "pilot_xds_eds_reject{job=\"pilot\"}",
+          "expr": "sum(pilot_xds_eds_reject{job=\"pilot\"}) or (absent(pilot_xds_eds_reject{job=\"pilot\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -20826,26 +22011,80 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "D"
         },
         {
-          "expr": "rate(pilot_xds_write_timeout{job=\"pilot\"}[1m])",
+          "expr": "sum(pilot_xds_rds_reject{job=\"pilot\"}) or (absent(pilot_xds_rds_reject{job=\"pilot\"}) - 1)",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected RDS Configs",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(pilot_xds_lds_reject{job=\"pilot\"}) or (absent(pilot_xds_lds_reject{job=\"pilot\"}) - 1)",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Rejected LDS Configs",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_write_timeout{job=\"pilot\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Write Timeouts",
           "refId": "F"
         },
         {
-          "expr": "rate(pilot_xds_push_timeout{job=\"pilot\"}[1m])",
+          "expr": "sum(rate(pilot_total_xds_internal_errors{job=\"pilot\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Internal Errors",
+          "refId": "H"
+        },
+        {
+          "expr": "sum(rate(pilot_total_xds_rejects{job=\"pilot\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Config Rejection Rate",
+          "refId": "E"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_push_context_errors{job=\"pilot\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Push Context Errors",
+          "refId": "K"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_pushes{type!~\"lds|cds|rds|eds\"}[1m])) by (type)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Push Errors ({{ type }})",
+          "refId": "L"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m])) by (type)",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "Push Errors ({{ type }})",
+          "refId": "I"
+        },
+        {
+          "expr": "sum(rate(pilot_xds_push_timeout{job=\"pilot\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Push Timeouts",
           "refId": "G"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_push_timeout_failures{job=\"pilot\"}[1m]))",
           "format": "time_series",
-          "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "Push Errors ({{ type }})",
-          "refId": "I"
+          "legendFormat": "Push Timeouts Failures",
+          "refId": "J"
         }
       ],
       "thresholds": [],
@@ -20890,204 +22129,19 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       }
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 23
-      },
-      "id": 64,
-      "panels": [],
-      "title": "xDS",
-      "type": "row"
-    },
-    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "description": "Shows the total time it takes to push a config update to a proxy",
       "fill": 1,
       "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 24
-      },
-      "id": 40,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(irate(envoy_cluster_update_success{cluster_name=\"xds-grpc\"}[1m]))",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 1,
-          "legendFormat": "XDS GRPC Successes",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Updates",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "ops",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "ops",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 24
-      },
-      "id": 42,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "round(sum(rate(envoy_cluster_update_attempt{cluster_name=\"xds-grpc\"}[1m])) - sum(rate(envoy_cluster_update_success{cluster_name=\"xds-grpc\"}[1m])))",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "XDS GRPC ",
-          "refId": "A",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Failures",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "ops",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 8,
         "x": 16,
-        "y": 24
+        "y": 15
       },
-      "id": 41,
+      "id": 624,
       "legend": {
         "avg": false,
         "current": false,
@@ -21102,7 +22156,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pointradius": 5,
+      "pointradius": 2,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
@@ -21111,19 +22165,39 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(envoy_cluster_upstream_cx_active{cluster_name=\"xds-grpc\"})",
+          "expr": "histogram_quantile(0.5, sum(rate(pilot_proxy_convergence_time_bucket[1m])) by (le))",
           "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Pilot (XDS GRPC)",
-          "refId": "C",
-          "step": 2
+          "intervalFactor": 1,
+          "legendFormat": "p50 ",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum(rate(pilot_proxy_convergence_time_bucket[1m])) by (le))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(pilot_proxy_convergence_time_bucket[1m])) by (le))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "p99",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.999, sum(rate(pilot_proxy_convergence_time_bucket[1m])) by (le))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "p99.9",
+          "refId": "D"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Active Connections",
+      "title": "Proxy Push Time",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -21139,7 +22213,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       },
       "yaxes": [
         {
-          "format": "short",
+          "format": "s",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -21171,12 +22245,14 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 30
+        "y": 23
       },
       "id": 45,
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": true,
+        "hideZero": true,
         "max": false,
         "min": false,
         "show": true,
@@ -21186,7 +22262,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "lines": true,
       "linewidth": 1,
       "links": [],
-      "nullPointMode": "null",
+      "nullPointMode": "null as zero",
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -21199,6 +22275,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         {
           "expr": "pilot_conflict_inbound_listener{job=\"pilot\"}",
           "format": "time_series",
+          "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Inbound Listeners",
           "refId": "B"
@@ -21206,6 +22283,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         {
           "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{job=\"pilot\"}",
           "format": "time_series",
+          "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Outbound Listeners (http over current tcp)",
           "refId": "A"
@@ -21213,6 +22291,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         {
           "expr": "pilot_conflict_outbound_listener_tcp_over_current_tcp{job=\"pilot\"}",
           "format": "time_series",
+          "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Outbound Listeners (tcp over current tcp)",
           "refId": "C"
@@ -21220,6 +22299,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         {
           "expr": "pilot_conflict_outbound_listener_tcp_over_current_http{job=\"pilot\"}",
           "format": "time_series",
+          "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Outbound Listeners (tcp over current http)",
           "refId": "D"
@@ -21258,7 +22338,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -21277,7 +22357,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 30
+        "y": 23
       },
       "id": 47,
       "legend": {
@@ -21317,55 +22397,11 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "B"
         },
         {
-          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
-          "format": "time_series",
-          "hide": true,
-          "intervalFactor": 1,
-          "legendFormat": "Rejected CDS Configs - {{ node }}: {{ err }}",
-          "refId": "C"
-        },
-        {
-          "expr": "pilot_xds_eds_reject{job=\"pilot\"}",
-          "format": "time_series",
-          "hide": true,
-          "intervalFactor": 1,
-          "legendFormat": "Rejected EDS Configs",
-          "refId": "D"
-        },
-        {
           "expr": "pilot_xds{job=\"pilot\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Connected Endpoints",
           "refId": "E"
-        },
-        {
-          "expr": "rate(pilot_xds_write_timeout{job=\"pilot\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Write Timeouts",
-          "refId": "F"
-        },
-        {
-          "expr": "rate(pilot_xds_push_timeout{job=\"pilot\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Push Timeouts",
-          "refId": "G"
-        },
-        {
-          "expr": "rate(pilot_xds_pushes{job=\"pilot\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Pushes ({{ type }})",
-          "refId": "H"
-        },
-        {
-          "expr": "rate(pilot_xds_push_errors{job=\"pilot\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Push Errors ({{ type }})",
-          "refId": "I"
         }
       ],
       "thresholds": [],
@@ -21410,6 +22446,180 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       }
     },
     {
+      "columns": [],
+      "datasource": "Prometheus",
+      "description": "Clusters in this table do not have any endpoints known to pilot. This could be from referencing subsets that do not have any instances, or pods marked as NotReady",
+      "fontSize": "100%",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 23
+      },
+      "id": 51,
+      "links": [],
+      "pageSize": null,
+      "scroll": true,
+      "showHeader": true,
+      "sort": {
+        "col": null,
+        "desc": false
+      },
+      "styles": [
+        {
+          "alias": "Time",
+          "dateFormat": "YYYY-MM-DD HH:mm:ss",
+          "pattern": "Time",
+          "type": "date"
+        },
+        {
+          "alias": "Clusters",
+          "colorMode": null,
+          "colors": [
+            "rgba(245, 54, 54, 0.9)",
+            "rgba(237, 129, 40, 0.89)",
+            "rgba(50, 172, 45, 0.97)"
+          ],
+          "decimals": 2,
+          "pattern": "/.*/",
+          "thresholds": [],
+          "type": "number",
+          "unit": "short"
+        }
+      ],
+      "targets": [
+        {
+          "expr": "sum(pilot_xds_eds_instances{job=\"pilot\", cluster=~\".+\\\\|.+\"}) by (cluster) < 1",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "intervalFactor": 1,
+          "legendFormat": "{{cluster}}",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Clusters with no known endpoints",
+      "transform": "timeseries_aggregations",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "id": 64,
+      "panels": [],
+      "title": "Envoy Information",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Shows details about Envoy proxies in the mesh",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
+      "id": 40,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(irate(envoy_cluster_upstream_cx_total{cluster_name=\"xds-grpc\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "XDS Connections",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(irate(envoy_cluster_upstream_cx_connect_fail{cluster_name=\"xds-grpc\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "XDS Connection Failures",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(envoy_server_hot_restart_epoch[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Envoy Restarts",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Envoy Details",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ops",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "ops",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -21419,180 +22629,10 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 16,
-        "y": 30
-      },
-      "id": 49,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "label_replace(sum(pilot_xds_cds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ node }}  ({{ err }})",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Rejected CDS Configs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 0,
-        "y": 38
-      },
-      "id": 52,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "label_replace(sum(pilot_xds_eds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ node }} ({{err}})",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Rejected EDS Configs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 8,
         "x": 8,
-        "y": 38
+        "y": 32
       },
-      "id": 54,
+      "id": 41,
       "legend": {
         "avg": false,
         "current": false,
@@ -21616,18 +22656,19 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(sum(pilot_xds_lds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "expr": "sum(envoy_cluster_upstream_cx_active{cluster_name=\"xds-grpc\"})",
           "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ node }} ({{err}})",
-          "refId": "A"
+          "intervalFactor": 2,
+          "legendFormat": "XDS Active Connections",
+          "refId": "C",
+          "step": 2
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Rejected LDS Configs",
+      "title": "XDS Active Connections",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -21670,17 +22711,20 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Shows the size of XDS requests and responses",
       "fill": 1,
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 8,
         "x": 16,
-        "y": 38
+        "y": 32
       },
-      "id": 53,
+      "id": 42,
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": false,
+        "hideZero": false,
         "max": false,
         "min": false,
         "show": true,
@@ -21701,18 +22745,41 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(sum(pilot_xds_rds_reject{job=\"pilot\"}) by (node, err), \"node\", \"$1\", \"node\", \".*~.*~(.*)~.*\")",
+          "expr": "max(rate(envoy_cluster_upstream_cx_rx_bytes_total{cluster_name=\"xds-grpc\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "XDS Response Bytes Max",
+          "refId": "D"
+        },
+        {
+          "expr": "quantile(0.5, rate(envoy_cluster_upstream_cx_rx_bytes_total{cluster_name=\"xds-grpc\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "XDS Response Bytes Average",
+          "refId": "B"
+        },
+        {
+          "expr": "max(rate(envoy_cluster_upstream_cx_tx_bytes_total{cluster_name=\"xds-grpc\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ node }} ({{err}})",
+          "legendFormat": "XDS Request Bytes Max",
           "refId": "A"
+        },
+        {
+          "expr": "quantile(.5, rate(envoy_cluster_upstream_cx_tx_bytes_total{cluster_name=\"xds-grpc\"}[1m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "XDS Request Bytes Average",
+          "refId": "C"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Rejected RDS Configs",
+      "title": "XDS Requests Size",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -21728,7 +22795,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       },
       "yaxes": [
         {
-          "format": "short",
+          "format": "Bps",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -21736,104 +22803,12 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "show": true
         },
         {
-          "format": "short",
+          "format": "ops",
           "label": null,
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {
-        "outbound|80||default-http-backend.kube-system.svc.cluster.local": "rgba(255, 255, 255, 0.97)"
-      },
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 0,
-        "y": 45
-      },
-      "id": 51,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "outbound|80||default-http-backend.kube-system.svc.cluster.local",
-          "yaxis": 1
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(pilot_xds_eds_instances{job=\"pilot\"}) by (cluster)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ cluster }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "EDS Instances",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -21881,9 +22856,8 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
   "timezone": "browser",
   "title": "Istio Pilot Dashboard",
   "uid": "3--MLVZZk",
-  "version": 1
-}
-`)
+  "version": 11
+}`)
 
 func chartsIstioTelemetryGrafanaDashboardsPilotDashboardJsonBytes() ([]byte, error) {
 	return _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson, nil
@@ -22854,6 +23828,16 @@ rules:
       - list
       - patch
       - watch
+  - apiGroups: ["security.istio.io"]
+    resources:
+      - authorizationpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - watch
   - apiGroups: ["monitoring.kiali.io"]
     resources:
       - monitoringdashboards
@@ -22964,6 +23948,13 @@ rules:
       - rbacconfigs
       - serviceroles
       - servicerolebindings
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: ["security.istio.io"]
+    resources:
+      - authorizationpolicies
     verbs:
       - get
       - list
@@ -27404,7 +28395,7 @@ spec:
     requests:
       memory: 400Mi
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prometheus-{{ .Release.Namespace }}
@@ -27427,7 +28418,7 @@ rules:
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prometheus-{{ .Release.Namespace }}
@@ -28571,7 +29562,7 @@ tracing:
 
   jaeger:
     hub: docker.io/jaegertracing
-    image: all-on-one
+    image: all-in-one
     tag: 1.12
     memory:
       max_traces: 50000
@@ -29827,7 +30818,7 @@ func chartsSecurityCitadelTemplates_helpersTpl() (*asset, error) {
 }
 
 var _chartsSecurityCitadelTemplatesClusterroleYaml = []byte(`{{ if .Values.clusterResources }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
@@ -29842,7 +30833,7 @@ rules:
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 - apiGroups: [""]
-  resources: ["serviceaccounts", "services"]
+  resources: ["serviceaccounts", "services", "namespaces"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]
@@ -29868,7 +30859,7 @@ func chartsSecurityCitadelTemplatesClusterroleYaml() (*asset, error) {
 }
 
 var _chartsSecurityCitadelTemplatesClusterrolebindingYaml = []byte(`{{ if .Values.clusterResources }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
@@ -31588,22 +32579,6 @@ spec:
     components:
       nodeAgent:
         enabled: true
-        k8s:
-          env:
-          - name: CA_ADDR
-            value: "istio-citadel:8060"
-          - name: CA_PROVIDER
-            value: Citadel
-          - name: Plugins
-            value: ""
-          - name: VALID_TOKEN
-            value: "true"
-          - name: Trust_Domain
-            value: ""
-          - name: NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
   values:
     global:
       controlPlaneSecurityEnabled: false
@@ -31616,6 +32591,11 @@ spec:
         useTrustworthyJwt: true
     nodeagent:
       image: node-agent-k8s
+      env:
+        CA_PROVIDER: "Citadel"
+        CA_ADDR: "istio-citadel:8060"
+        VALID_TOKEN: true
+
 `)
 
 func profilesSdsYamlBytes() ([]byte, error) {
@@ -31689,6 +32669,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/crds/files/crd-10.yaml": chartsCrdsFilesCrd10Yaml,
 	"charts/crds/files/crd-11.yaml": chartsCrdsFilesCrd11Yaml,
 	"charts/crds/files/crd-12.yaml": chartsCrdsFilesCrd12Yaml,
+	"charts/crds/files/crd-14.yaml": chartsCrdsFilesCrd14Yaml,
 	"charts/crds/files/crd-certmanager-10.yaml": chartsCrdsFilesCrdCertmanager10Yaml,
 	"charts/crds/files/crd-certmanager-11.yaml": chartsCrdsFilesCrdCertmanager11Yaml,
 	"charts/crds/kustomization.yaml": chartsCrdsKustomizationYaml,
@@ -31790,6 +32771,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-policy/templates/serviceaccount.yaml": chartsIstioPolicyTemplatesServiceaccountYaml,
 	"charts/istio-policy/values.yaml": chartsIstioPolicyValuesYaml,
 	"charts/istio-telemetry/grafana/Chart.yaml": chartsIstioTelemetryGrafanaChartYaml,
+	"charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json": chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/galley-dashboard.json": chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
@@ -31947,6 +32929,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"crd-10.yaml": &bintree{chartsCrdsFilesCrd10Yaml, map[string]*bintree{}},
 				"crd-11.yaml": &bintree{chartsCrdsFilesCrd11Yaml, map[string]*bintree{}},
 				"crd-12.yaml": &bintree{chartsCrdsFilesCrd12Yaml, map[string]*bintree{}},
+				"crd-14.yaml": &bintree{chartsCrdsFilesCrd14Yaml, map[string]*bintree{}},
 				"crd-certmanager-10.yaml": &bintree{chartsCrdsFilesCrdCertmanager10Yaml, map[string]*bintree{}},
 				"crd-certmanager-11.yaml": &bintree{chartsCrdsFilesCrdCertmanager11Yaml, map[string]*bintree{}},
 			}},
@@ -32089,6 +33072,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"grafana": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
 				"dashboards": &bintree{nil, map[string]*bintree{
+					"citadel-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
 					"galley-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
 					"istio-mesh-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
 					"istio-performance-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},

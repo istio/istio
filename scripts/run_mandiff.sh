@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
@@ -50,7 +52,7 @@ NAMESPACES_MAP["security/citadel"]="istio-system"
 NAMESPACES_MAP["security/nodeagent"]="istio-system"
 
 # define the ingored resource list for manifest comparison
-MANDIFF_IGNORE_RESOURCE_LIST="ConfigMap::istio,ConfigMap::istio-sidecar-injector"
+MANDIFF_IGNORE_RESOURCE_LIST="ConfigMap::istio,ConfigMap::istio-sidecar-injector,Deployment:istio-system:istio-pilot"
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
@@ -114,9 +116,9 @@ function mesh_mandiff_with_profile() {
     mesh manifest diff --ignore "${MANDIFF_IGNORE_RESOURCE_LIST}" --directory "${OUT}/helm-template/istio-${profile}" "${OUT}/mesh-manifest/istio-${profile}"
 }
 
-mesh_mandiff_with_profile "${ISTIO_DEFAULT_PROFILE}" > "${OUT}/mandiff-default-profile.diff" || echo "${ISTIO_DEFAULT_PROFILE} profile has diffs"
-mesh_mandiff_with_profile "${ISTIO_DEMO_PROFILE}" > "${OUT}/mandiff-demo-profile.diff" || echo "${ISTIO_DEMO_PROFILE} profile has diffs"
-mesh_mandiff_with_profile "${ISTIO_DEMOAUTH_PROFILE}" > "${OUT}/mandiff-demoauth-profile.diff" || echo "${ISTIO_DEMOAUTH_PROFILE} profile has diffs"
-mesh_mandiff_with_profile "${ISTIO_MINIMAL_PROFILE}" > "${OUT}/mandiff-minimal-profile.diff" || echo "${ISTIO_MINIMAL_PROFILE} profile has diffs"
-mesh_mandiff_with_profile "${ISTIO_SDS_PROFILE}" > "${OUT}/mandiff-sds-profile.diff" || echo "${ISTIO_SDS_PROFILE} profile has diffs"
+mesh_mandiff_with_profile "${ISTIO_DEFAULT_PROFILE}" > "${OUT}/mandiff-default-profile.diff" || { echo "${ISTIO_DEFAULT_PROFILE} profile has diffs"; exit 1; }
+mesh_mandiff_with_profile "${ISTIO_DEMO_PROFILE}" > "${OUT}/mandiff-demo-profile.diff" || { echo "${ISTIO_DEMO_PROFILE} profile has diffs"; exit 1; }
+mesh_mandiff_with_profile "${ISTIO_DEMOAUTH_PROFILE}" > "${OUT}/mandiff-demoauth-profile.diff" || { echo "${ISTIO_DEMOAUTH_PROFILE} profile has diffs"; exit 1; }
+mesh_mandiff_with_profile "${ISTIO_MINIMAL_PROFILE}" > "${OUT}/mandiff-minimal-profile.diff" || { echo "${ISTIO_MINIMAL_PROFILE} profile has diffs"; exit 1; }
+mesh_mandiff_with_profile "${ISTIO_SDS_PROFILE}" > "${OUT}/mandiff-sds-profile.diff" || { echo "${ISTIO_SDS_PROFILE} profile has diffs"; exit 1; }
 
