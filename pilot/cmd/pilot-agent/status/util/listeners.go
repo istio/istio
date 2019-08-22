@@ -21,7 +21,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -67,6 +67,23 @@ func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType m
 	}
 
 	return ports, buf.String(), nil
+}
+
+func HasListenerName(localHostAddr string, adminPort uint16, name string) error {
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners?format=json", localHostAddr, adminPort))
+	if err != nil {
+		return multierror.Prefix(err, "failed retrieving Envoy listeners:")
+	}
+	listeners := &admin.Listeners{}
+	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
+		return fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+	}
+	for _, l := range listeners.ListenerStatuses {
+		if l.Name == name {
+			return nil
+		}
+	}
+	return fmt.Errorf("no such listener name %s", name)
 }
 
 func isLocalListener(l string) bool {
