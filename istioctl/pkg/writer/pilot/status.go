@@ -110,7 +110,10 @@ func xdsStatus(sent, acked string) string {
 	if sent == acked {
 		return "SYNCED"
 	}
-
+	// acked will be empty string when there is never Acknowledged
+	if acked == "" {
+		return "STALE (Never Acknowledged)"
+	}
 	// Since the Nonce changes to uuid, so there is no more any time diff info
 	return "STALE"
 }
