@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	// Integration test for the SDS Citadel CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Citadel CA flow.
 	framework.
-		NewSuite("sds_citadel_flow_test", m).
+		NewSuite("sds_citadel_flow_control_plane_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {

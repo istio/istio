@@ -62,9 +62,6 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 				},
 			}
 
-			// Sleep 10 seconds for the workload pods to be ready.
-			time.Sleep(10 * time.Second)
-
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			}
