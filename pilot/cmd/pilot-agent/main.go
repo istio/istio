@@ -298,7 +298,7 @@ var (
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it skip waiting cert if sds is enabled, otherwise it takes long time for
+			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
 			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
