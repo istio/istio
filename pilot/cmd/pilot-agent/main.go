@@ -486,8 +486,8 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 		return false, ""
 	}
 
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
+	// If controlplanesecurity is disabled, return false so that Pilot agent does not create SDS config
+	// in bootstrap config.
 	if !controlPlaneAuthEnabled {
 		return false, ""
 	}
