@@ -179,15 +179,15 @@ func TestDetectSds(t *testing.T) {
 			controlPlaneBootstrap: false,
 			udsPath:               "/tmp/test_tmp_uds2",
 			tokenPath:             "/tmp/test_tmp_token2",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/test_tmp_token2",
+			expectedSdsEnabled:    false,
+			expectedSdsTokenPath:  "",
 		},
 		{
 			controlPlaneBootstrap: false,
 			udsPath:               "/tmp/test_tmp_uds3",
 			tokenPath:             "/tmp/test_tmp_token3",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/test_tmp_token3",
+			expectedSdsEnabled:    false,
+			expectedSdsTokenPath:  "",
 		},
 		{
 			controlPlaneBootstrap: false,
@@ -196,6 +196,7 @@ func TestDetectSds(t *testing.T) {
 		{
 			controlPlaneBootstrap: false,
 			tokenPath:             "/tmp/test_tmp_token4",
+			udsPath:               "/tmp/testtmpuds1.log",
 		},
 	}
 	for _, tt := range tests {
