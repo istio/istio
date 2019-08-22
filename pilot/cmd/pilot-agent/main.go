@@ -101,7 +101,7 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS unix domain socket path")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -295,10 +295,11 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
-			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
+			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
+			// pod to start.
 			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
@@ -307,7 +308,9 @@ var (
 			}
 
 			opts := make(map[string]interface{})
-			if sdsEnabled {
+			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
+			// for control plane SDS.
+			if controlPlaneAuthEnabled && sdsEnabled {
 				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
@@ -476,9 +479,9 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// check if SDS UDS path and token path exist, if both exist, requests key/cert
-// using SDS instead of secret mount.
-func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
+// detectSds checks if the UDS and JWT paths are present. The returned values are used by caller
+// to decide whether SDS is used for control plane.
+func detectSds(controlPlaneBootstrap bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
 	}
@@ -493,12 +496,6 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 			return true, trustworthyJWTPath
 		}
 
-		return false, ""
-	}
-
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
-	if !controlPlaneAuthEnabled {
 		return false, ""
 	}
 
