@@ -111,6 +111,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd)
 	experimentalCmd.AddCommand(describe())
+	experimentalCmd.AddCommand(addToMeshCmd())
 
 	experimentalCmd.AddCommand(mesh.ManifestCmd())
 	experimentalCmd.AddCommand(mesh.ProfileCmd())
