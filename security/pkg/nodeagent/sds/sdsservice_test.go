@@ -993,7 +993,7 @@ func TestDebugEndpoints(t *testing.T) {
 		response := httptest.NewRecorder()
 
 		server.workloadSds.debugHTTPHandler(response, workloadRequest)
-		workloadDebugResponse := &sdsdebug{}
+		workloadDebugResponse := &Debug{}
 		if err := json.Unmarshal(response.Body.Bytes(), workloadDebugResponse); err != nil {
 			t.Fatalf("debug JSON unmarshalling failed: %v", err)
 		}

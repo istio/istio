@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"text/tabwriter"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -57,4 +58,38 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
+}
+
+// PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
+func (c *ConfigWriter) PrintSecretDump() error {
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return err
+	}
+	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	if err := jsonm.Marshal(c.Stdout, secretDump); err != nil {
+		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
+	}
+	return nil
+}
+
+// PrintSecretSummary prints a summary of dynamic active secrets from the config dump
+func (c *ConfigWriter) PrintSecretSummary() error {
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintln(w, "NAME\tVERSION")
+	for _, secret := range secretDump.DynamicActiveSecrets {
+		_, _ = fmt.Fprintf(w, "%v\t%v\n",
+			secret.Secret.Name, secret.VersionInfo)
+	}
+	return w.Flush()
 }

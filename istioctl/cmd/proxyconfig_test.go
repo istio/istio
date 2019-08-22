@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/version"
 )
 
@@ -76,12 +77,17 @@ func TestProxyConfig(t *testing.T) {
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config routes invalid" should fail
 		},
-		{ // case 5 bootstrap invalid
+		{ // case 6 bootstrap invalid
 			args:           strings.Split("proxy-config bootstrap invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config bootstrap invalid" should fail
 		},
-		{ // case 6 clusters valid
+		{ // case 7 secret invalid
+			args:           strings.Split("proxy-config secret invalid", " "),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
+			wantException:  true, // "istioctl proxy-config secret invalid" should fail
+		},
+		{ // case 8 clusters valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config clusters details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
@@ -89,7 +95,7 @@ istio-policy.istio-system.svc.cluster.local     15004     -          outbound   
 xds-grpc                                        -         -          -             STRICT_DNS
 `,
 		},
-		{ // case 7 listeners valid
+		{ // case 9 listeners valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config listeners details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `ADDRESS            PORT     TYPE
@@ -97,7 +103,7 @@ xds-grpc                                        -         -          -          
 0.0.0.0            8080     HTTP
 `,
 		},
-		{ // case 8 routes valid
+		{ // case 10 routes valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config routes details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `NOTE: This output only contains routes loaded via RDS.
@@ -106,53 +112,66 @@ NAME                                                    VIRTUAL HOSTS
 inbound|9080||productpage.default.svc.cluster.local     1
 `,
 		},
-		{ // case 9 endpoint invalid
+		{ // case 11 secret valid
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-config secret details-v1-5b7f94f9bc-wp5tb", " "),
+			expectedOutput: `NAME        VERSION
+default     2019-08-27 17:19:57.597297632 +0000 UTC m=+64.076469895
+`,
+		},
+		{ // case 12 endpoint invalid
 			args:           strings.Split("proxy-config endpoint invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config endpoint invalid" should fail
 		},
-		{ // case 10 endpoint valid
+		{ // case 13 endpoint valid
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=15014", " "),
 			expectedOutput: `ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
 172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
-		{ // case 11 endpoint status filter
+		{ // case 14 endpoint status filter
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
 			expectedOutput: `ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
 172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
-		{ // case 12 no args
+		{ // case 15 no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config bootstrap", " "),
 			expectedString:   `Error: bootstrap requires pod name`,
 			wantException:    true,
 		},
-		{ // case 13 no args
+		{ // case 16 no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config cluster", " "),
 			expectedString:   `Error: cluster requires pod name`,
 			wantException:    true,
 		},
-		{ // case 14 no args
+		{ // case 17 no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint", " "),
 			expectedString:   `Error: endpoint requires pod name`,
 			wantException:    true,
 		},
-		{ // case 15 no args
+		{ // case 18 no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config listener", " "),
 			expectedString:   `Error: listener requires pod name`,
 			wantException:    true,
 		},
-		{ // case 16 no args
+		{ // case 19 no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config route", " "),
 			expectedString:   `Error: route requires pod name`,
+			wantException:    true,
+		},
+		{ // case 20 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config secret", " "),
+			expectedString:   `Error: secret requires pod name`,
 			wantException:    true,
 		},
 	}
@@ -173,7 +192,6 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-
 	file = "" // Clear, because we re-use
 
 	fErr := rootCmd.Execute()
@@ -247,4 +265,12 @@ func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*
 
 func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
+}
+
+func (client mockExecConfig) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map[string]sds.Debug, error) {
+	return map[string]sds.Debug{}, nil
+}
+
+func (client mockExecConfig) NodeAgentDebugEndpointOutput(podName, ns, secretType, container string) (sds.Debug, error) {
+	return sds.Debug{}, nil
 }
