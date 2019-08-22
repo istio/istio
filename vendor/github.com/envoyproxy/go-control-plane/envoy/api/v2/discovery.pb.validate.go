@@ -43,12 +43,17 @@ func (m *DiscoveryRequest) Validate() error {
 
 	// no validation rules for VersionInfo
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DiscoveryRequestValidationError{
-				field:  "Node",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetNode()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -57,12 +62,17 @@ func (m *DiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DiscoveryRequestValidationError{
-				field:  "ErrorDetail",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetErrorDetail()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -137,12 +147,17 @@ func (m *DiscoveryResponse) Validate() error {
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return DiscoveryResponseValidationError{
-					field:  fmt.Sprintf("Resources[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return DiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -155,12 +170,17 @@ func (m *DiscoveryResponse) Validate() error {
 
 	// no validation rules for Nonce
 
-	if v, ok := interface{}(m.GetControlPlane()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DiscoveryResponseValidationError{
-				field:  "ControlPlane",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetControlPlane()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DiscoveryResponseValidationError{
+					field:  "ControlPlane",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -232,12 +252,17 @@ func (m *DeltaDiscoveryRequest) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DeltaDiscoveryRequestValidationError{
-				field:  "Node",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetNode()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DeltaDiscoveryRequestValidationError{
+					field:  "Node",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -248,12 +273,17 @@ func (m *DeltaDiscoveryRequest) Validate() error {
 
 	// no validation rules for ResponseNonce
 
-	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return DeltaDiscoveryRequestValidationError{
-				field:  "ErrorDetail",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetErrorDetail()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return DeltaDiscoveryRequestValidationError{
+					field:  "ErrorDetail",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -330,12 +360,17 @@ func (m *DeltaDiscoveryResponse) Validate() error {
 	for idx, item := range m.GetResources() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return DeltaDiscoveryResponseValidationError{
-					field:  fmt.Sprintf("Resources[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
+		{
+			tmp := item
+
+			if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+				if err := v.Validate(); err != nil {
+					return DeltaDiscoveryResponseValidationError{
+						field:  fmt.Sprintf("Resources[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
 				}
 			}
 		}
@@ -416,12 +451,17 @@ func (m *Resource) Validate() error {
 
 	// no validation rules for Version
 
-	if v, ok := interface{}(m.GetResource()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ResourceValidationError{
-				field:  "Resource",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetResource()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return ResourceValidationError{
+					field:  "Resource",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

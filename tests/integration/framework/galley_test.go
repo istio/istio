@@ -45,8 +45,10 @@ spec:
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			gal := galley.NewOrFail(t, ctx, galley.Config{})
-
-			ns := namespace.NewOrFail(t, ctx, "res", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "res",
+				Inject: true,
+			})
 
 			t.Run("ApplyConfig", func(t *testing.T) {
 				gal.ApplyConfigOrFail(t, ns, simpleResource)

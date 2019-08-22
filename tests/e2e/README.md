@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
+E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with kind in Prow in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
 
 Developers, on the other hand, are recommended to run the tests locally before sending out any PR.
 

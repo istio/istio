@@ -29,8 +29,8 @@ import (
 	"istio.io/api/annotation"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
@@ -49,7 +49,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: kube.ConvertProtocol(port.Name, port.Protocol),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
 	}
 }
 
@@ -120,7 +120,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				lbAddrs = append(lbAddrs, ingress.IP)
 			} else if len(ingress.Hostname) > 0 {
 				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-				if err != nil {
+				if err == nil {
 					lbAddrs = append(lbAddrs, addrs...)
 				}
 			}
@@ -153,8 +153,8 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 }
 
 // ServiceHostname produces FQDN for a k8s service
-func ServiceHostname(name, namespace, domainSuffix string) config.Hostname {
-	return config.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+func ServiceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

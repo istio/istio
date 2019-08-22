@@ -20,8 +20,8 @@ import (
 
 	"k8s.io/api/extensions/v1beta1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress/annotations"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/synthesize"
@@ -118,7 +118,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 	meta.Name = s.name
 	meta.Version = s.version
 	if meta.Annotations != nil {
-		delete(meta.Annotations, annotations.IngressClass.Name)
+		delete(meta.Annotations, annotation.IoKubernetesIngressClass.Name)
 	}
 
 	virtualService := &v1alpha3.VirtualService{

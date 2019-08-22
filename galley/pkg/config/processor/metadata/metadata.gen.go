@@ -146,10 +146,6 @@ collections:
     proto:        "istio.policy.v1beta1.Rule"
     protoPackage: "istio.io/api/policy/v1beta1"
 
-  - name:         "istio/rbac/v1alpha1/authorizationpolicies"
-    proto:        "istio.rbac.v1alpha1.AuthorizationPolicy"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-
   - name:         "istio/rbac/v1alpha1/clusterrbacconfigs"
     proto:        "istio.rbac.v1alpha1.RbacConfig"
     protoPackage: "istio.io/api/rbac/v1alpha1"
@@ -165,6 +161,10 @@ collections:
   - name:         "istio/rbac/v1alpha1/serviceroles"
     proto:        "istio.rbac.v1alpha1.ServiceRole"
     protoPackage: "istio.io/api/rbac/v1alpha1"
+
+  - name:         "istio/security/v1beta1/authorizationpolicies"
+    proto:        "istio.security.v1beta1.AuthorizationPolicy"
+    protoPackage: "istio.io/api/security/v1beta1"
 
   ### K8s collections ###
 
@@ -264,10 +264,6 @@ collections:
     proto:        "istio.policy.v1beta1.Handler"
     protoPackage: "istio.io/api/policy/v1beta1"
 
-  - name:         "k8s/rbac.istio.io/v1alpha1/authorizationpolicies"
-    proto:        "istio.rbac.v1alpha1.AuthorizationPolicy"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-
   - name:         "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
     proto:        "istio.rbac.v1alpha1.RbacConfig"
     protoPackage: "istio.io/api/rbac/v1alpha1"
@@ -283,6 +279,10 @@ collections:
   - name:         "k8s/rbac.istio.io/v1alpha1/serviceroles"
     proto:        "istio.rbac.v1alpha1.ServiceRole"
     protoPackage: "istio.io/api/rbac/v1alpha1"
+
+  - name:         "k8s/security.istio.io/v1beta1/authorizationpolicies"
+    proto:        "istio.security.v1beta1.AuthorizationPolicy"
+    protoPackage: "istio.io/api/security/v1beta1"
 
     # Keep Legacy Mixer CRD related collections separate, as these will be gone soon.
   - name:          "k8s/config.istio.io/v1alpha2/apikeys"
@@ -558,11 +558,11 @@ snapshots:
       - "istio/policy/v1beta1/handlers"
       - "istio/policy/v1beta1/instances"
       - "istio/policy/v1beta1/rules"
-      - "istio/rbac/v1alpha1/authorizationpolicies"
       - "istio/rbac/v1alpha1/clusterrbacconfigs"
       - "istio/rbac/v1alpha1/rbacconfigs"
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
+      - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
       # Legacy Mixer CRDs
@@ -722,13 +722,7 @@ sources:
       plural:       "servicerolebindings"
       group:        "rbac.istio.io"
       version:      "v1alpha1"
-  
-    - collection:   "k8s/rbac.istio.io/v1alpha1/authorizationpolicies"
-      kind:         "AuthorizationPolicy"
-      plural:       "authorizationpolicies"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
-  
+
     - collection:   "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
       kind:         "RbacConfig"
       plural:       "rbacconfigs"
@@ -740,6 +734,12 @@ sources:
       plural:       "clusterrbacconfigs"
       group:        "rbac.istio.io"
       version:      "v1alpha1"
+
+    - collection:   "k8s/security.istio.io/v1beta1/authorizationpolicies"
+      kind:         "AuthorizationPolicy"
+      plural:       "authorizationpolicies"
+      group:        "security.istio.io"
+      version:      "v1beta1"
 
     - collection:   "k8s/config.istio.io/v1alpha2/rules"
       kind:         "rule"
@@ -1005,30 +1005,30 @@ sources:
 transforms:
   - type: direct
     mapping:
-      "k8s/config.istio.io/v1alpha2/adapters":             "istio/config/v1alpha2/adapters"
-      "k8s/config.istio.io/v1alpha2/attributemanifests":   "istio/policy/v1beta1/attributemanifests"
-      "k8s/config.istio.io/v1alpha2/handlers":             "istio/policy/v1beta1/handlers"
-      "k8s/config.istio.io/v1alpha2/httpapispecs":         "istio/config/v1alpha2/httpapispecs"
-      "k8s/config.istio.io/v1alpha2/httpapispecbindings":  "istio/config/v1alpha2/httpapispecbindings"
-      "k8s/config.istio.io/v1alpha2/instances":            "istio/policy/v1beta1/instances"
-      "k8s/config.istio.io/v1alpha2/quotaspecs":           "istio/mixer/v1/config/client/quotaspecs"
-      "k8s/config.istio.io/v1alpha2/quotaspecbindings":    "istio/mixer/v1/config/client/quotaspecbindings"
-      "k8s/config.istio.io/v1alpha2/rules":                "istio/policy/v1beta1/rules"
-      "k8s/config.istio.io/v1alpha2/templates":            "istio/config/v1alpha2/templates"
-      "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
-      "k8s/networking.istio.io/v1alpha3/envoyfilters":     "istio/networking/v1alpha3/envoyfilters"
-      "k8s/networking.istio.io/v1alpha3/gateways":         "istio/networking/v1alpha3/gateways"
-      "k8s/networking.istio.io/v1alpha3/serviceentries":   "istio/networking/v1alpha3/serviceentries"
-      "k8s/networking.istio.io/v1alpha3/sidecars":         "istio/networking/v1alpha3/sidecars"
-      "k8s/networking.istio.io/v1alpha3/virtualservices":  "istio/networking/v1alpha3/virtualservices"
-      "k8s/rbac.istio.io/v1alpha1/authorizationpolicies":  "istio/rbac/v1alpha1/authorizationpolicies"
-      "k8s/rbac.istio.io/v1alpha1/policy":                 "istio/rbac/v1alpha1/servicerolebindings"
-      "k8s/rbac.istio.io/v1alpha1/rbacconfigs":            "istio/rbac/v1alpha1/rbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs":     "istio/rbac/v1alpha1/clusterrbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/serviceroles":           "istio/rbac/v1alpha1/serviceroles"
-      "k8s/core/v1/namespaces":                            "k8s/core/v1/namespaces"
-      "k8s/core/v1/services":                              "k8s/core/v1/services"
-      "istio/mesh/v1alpha1/MeshConfig":                    "istio/mesh/v1alpha1/MeshConfig"
+      "k8s/config.istio.io/v1alpha2/adapters":                "istio/config/v1alpha2/adapters"
+      "k8s/config.istio.io/v1alpha2/attributemanifests":      "istio/policy/v1beta1/attributemanifests"
+      "k8s/config.istio.io/v1alpha2/handlers":                "istio/policy/v1beta1/handlers"
+      "k8s/config.istio.io/v1alpha2/httpapispecs":            "istio/config/v1alpha2/httpapispecs"
+      "k8s/config.istio.io/v1alpha2/httpapispecbindings":     "istio/config/v1alpha2/httpapispecbindings"
+      "k8s/config.istio.io/v1alpha2/instances":               "istio/policy/v1beta1/instances"
+      "k8s/config.istio.io/v1alpha2/quotaspecs":              "istio/mixer/v1/config/client/quotaspecs"
+      "k8s/config.istio.io/v1alpha2/quotaspecbindings":       "istio/mixer/v1/config/client/quotaspecbindings"
+      "k8s/config.istio.io/v1alpha2/rules":                   "istio/policy/v1beta1/rules"
+      "k8s/config.istio.io/v1alpha2/templates":               "istio/config/v1alpha2/templates"
+      "k8s/networking.istio.io/v1alpha3/destinationrules":    "istio/networking/v1alpha3/destinationrules"
+      "k8s/networking.istio.io/v1alpha3/envoyfilters":        "istio/networking/v1alpha3/envoyfilters"
+      "k8s/networking.istio.io/v1alpha3/gateways":            "istio/networking/v1alpha3/gateways"
+      "k8s/networking.istio.io/v1alpha3/serviceentries":      "istio/networking/v1alpha3/serviceentries"
+      "k8s/networking.istio.io/v1alpha3/sidecars":            "istio/networking/v1alpha3/sidecars"
+      "k8s/networking.istio.io/v1alpha3/virtualservices":     "istio/networking/v1alpha3/virtualservices"
+      "k8s/rbac.istio.io/v1alpha1/policy":                    "istio/rbac/v1alpha1/servicerolebindings"
+      "k8s/rbac.istio.io/v1alpha1/rbacconfigs":               "istio/rbac/v1alpha1/rbacconfigs"
+      "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs":        "istio/rbac/v1alpha1/clusterrbacconfigs"
+      "k8s/rbac.istio.io/v1alpha1/serviceroles":              "istio/rbac/v1alpha1/serviceroles"
+      "k8s/security.istio.io/v1beta1/authorizationpolicies":  "istio/security/v1beta1/authorizationpolicies"
+      "k8s/core/v1/namespaces":                               "k8s/core/v1/namespaces"
+      "k8s/core/v1/services":                                 "k8s/core/v1/services"
+      "istio/mesh/v1alpha1/MeshConfig":                       "istio/mesh/v1alpha1/MeshConfig"
 
       # Legacy Mixer CRD mappings
       "k8s/config.istio.io/v1alpha2/apikeys":              "istio/config/v1alpha2/legacy/apikeys"

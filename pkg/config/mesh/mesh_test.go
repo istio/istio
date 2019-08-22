@@ -21,20 +21,20 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
 )
 
 func TestDefaultProxyConfig(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
-	if err := config.ValidateProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
-	if err := config.ValidateMeshConfig(&m); err != nil {
+	if err := validation.ValidateMeshConfig(&m); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
 }

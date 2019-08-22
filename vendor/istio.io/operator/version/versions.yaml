@@ -1,0 +1,4 @@
+- operatorVersion: 1.3.0
+  supportedIstioVersions: 1.3.0
+  recommendedIstioVersions: 1.3.0
+

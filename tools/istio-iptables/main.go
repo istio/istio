@@ -243,7 +243,13 @@ func run(args []string, flagSet *flag.FlagSet) {
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+
+	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+	if inboundPortsInclude == "*" {
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+	} else {
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+	}
 
 	var table string
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
@@ -417,7 +423,11 @@ func run(args []string, flagSet *flag.FlagSet) {
 		// Use this chain also for redirecting inbound traffic to the common Envoy port
 		// when not using TPROXY.
 		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+		if inboundPortsInclude == "*" {
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+		} else {
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+		}
 		// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 		// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 		if inboundPortsInclude != "" {

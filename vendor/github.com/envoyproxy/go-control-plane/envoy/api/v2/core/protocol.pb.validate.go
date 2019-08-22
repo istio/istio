@@ -108,12 +108,17 @@ func (m *HttpProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpProtocolOptionsValidationError{
-				field:  "IdleTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetIdleTimeout()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return HttpProtocolOptionsValidationError{
+					field:  "IdleTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -185,12 +190,17 @@ func (m *Http1ProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetAllowAbsoluteUrl()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Http1ProtocolOptionsValidationError{
-				field:  "AllowAbsoluteUrl",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetAllowAbsoluteUrl()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Http1ProtocolOptionsValidationError{
+					field:  "AllowAbsoluteUrl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -266,12 +276,17 @@ func (m *Http2ProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHpackTableSize()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Http2ProtocolOptionsValidationError{
-				field:  "HpackTableSize",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetHpackTableSize()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Http2ProtocolOptionsValidationError{
+					field:  "HpackTableSize",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
@@ -380,12 +395,17 @@ func (m *GrpcProtocolOptions) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetHttp2ProtocolOptions()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return GrpcProtocolOptionsValidationError{
-				field:  "Http2ProtocolOptions",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetHttp2ProtocolOptions()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return GrpcProtocolOptionsValidationError{
+					field:  "Http2ProtocolOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}

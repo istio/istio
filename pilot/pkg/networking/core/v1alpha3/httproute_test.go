@@ -27,8 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -300,8 +301,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService1 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme2-v1",
 			Namespace: "not-default",
 		},
@@ -309,8 +310,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService2 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v2",
 			Namespace: "not-default",
 		},
@@ -318,8 +319,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService3 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v3",
 			Namespace: "not-default",
 		},
@@ -604,7 +605,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime: tnow,
-		Hostname:     config.Hostname(hostname),
+		Hostname:     host.Name(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.Passthrough,

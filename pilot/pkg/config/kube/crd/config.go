@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 // IstioKind is the generic Kubernetes API object wrapper
@@ -139,7 +140,7 @@ type IstioObjectList interface {
 	GetItems() []IstioObject
 }
 
-func APIVersion(schema *model.ProtoSchema) string {
+func APIVersion(schema *schema.Instance) string {
 	return ResourceGroup(schema) + "/" + schema.Version
 }
 

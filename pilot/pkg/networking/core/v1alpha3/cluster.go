@@ -29,6 +29,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -36,10 +38,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -192,7 +194,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []config.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					setUpstreamProtocol(subsetCluster, port)
@@ -286,7 +288,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []config.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					subsetCluster.TlsContext = nil
@@ -346,7 +348,7 @@ func updateEds(cluster *apiv2.Cluster) {
 }
 
 func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels config.LabelsCollection) []*endpoint.LocalityLbEndpoints {
+	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil
@@ -497,13 +499,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
-		if len(instances) == 0 {
-			return clusters
-		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		sidecarScopeID := sidecarScope.Config.Name + "." + sidecarScope.Config.Namespace
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
-			// as inbound|portNumber|portName|Hostname
+			// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
 			listenPort := &model.Port{
 				Port:     int(ingressListener.Port.Number),
 				Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -514,11 +514,13 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
 			endpointAddress := actualLocalHost
+			endpointFamily := model.AddressFamilyTCP
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
+				endpointFamily = model.AddressFamilyUnix
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
@@ -531,19 +533,27 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			}
 
 			// Find the service instance that corresponds to this ingress listener by looking
-			// for a service instance that either matches this ingress port or one that has
-			// a port with same name as this ingress port
+			// for a service instance that either matches this ingress port as this will allow us
+			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 			instance := configgen.findServiceInstanceForIngressListener(instances, ingressListener)
 
 			if instance == nil {
-				// We didn't find a matching instance
-				continue
+				// We didn't find a matching instance. Create a dummy one because we need the right
+				// params to generate the right cluster name. LDS would have setup the cluster as
+				// as inbound|portNumber|portName|SidecarScopeID
+				instance = &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{},
+					Service: &model.Service{
+						Hostname: host.Name(sidecarScopeID),
+						Attributes: model.ServiceAttributes{
+							Name:      sidecarScope.Config.Name,
+							Namespace: sidecarScope.Config.Namespace,
+						},
+					},
+				}
 			}
 
-			// Update the values here so that the plugins use the right ports
-			// uds values
-			// TODO: all plugins need to be updated to account for the fact that
-			// the port may be 0 but bind may have a UDS value
+			instance.Endpoint.Family = endpointFamily
 			instance.Endpoint.Address = endpointAddress
 			instance.Endpoint.ServicePort = listenPort
 			instance.Endpoint.Port = port
@@ -576,23 +586,7 @@ func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(inst
 				Labels:         realInstance.Labels,
 				ServiceAccount: realInstance.ServiceAccount,
 			}
-			return instance
-		}
-	}
-
-	// If the port number does not match, the user might have specified a
-	// UDS socket with port number 0. So search by name
-	for _, realInstance := range instances {
-		for _, iport := range realInstance.Service.Ports {
-			if iport.Name == ingressListener.Port.Name {
-				instance = &model.ServiceInstance{
-					Endpoint:       realInstance.Endpoint,
-					Service:        realInstance.Service,
-					Labels:         realInstance.Labels,
-					ServiceAccount: realInstance.ServiceAccount,
-				}
-				return instance
-			}
+			break
 		}
 	}
 
@@ -1045,13 +1039,12 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
-					env.Mesh.SdsUdsPath, env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata))
+					env.Mesh.SdsUdsPath, metadata))
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath,
-						env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata),
+					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, metadata),
 				},
 			}
 		}
@@ -1128,6 +1121,9 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
+		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
+			cluster.RespectDnsTtl = true
+		}
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {

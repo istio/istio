@@ -22,9 +22,12 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const checkInterval = 100 * time.Millisecond
@@ -74,7 +77,7 @@ var updateConfigSet = []*model.Config{
 func TestMonitorForChange(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := model.ConfigDescriptor{model.Gateway}
+	configDescriptor := schema.Set{schemas.Gateway}
 
 	store := memory.Make(configDescriptor)
 
@@ -139,7 +142,7 @@ func TestMonitorForChange(t *testing.T) {
 func TestMonitorForError(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := model.ConfigDescriptor{model.Gateway}
+	configDescriptor := schema.Set{schemas.Gateway}
 
 	store := memory.Make(configDescriptor)
 

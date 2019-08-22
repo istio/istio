@@ -30,12 +30,13 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schemas"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -97,25 +98,25 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	sn := snapshot.NewInMemoryBuilder()
 
-	for _, m := range model.IstioConfigTypes {
+	for _, m := range schemas.Istio {
 		sn.SetVersion(m.Collection, "v0")
 	}
 
-	sn.SetEntry(model.Gateway.Collection, "cloudfoundry-ingress", "v1", fakeCreateTime2, nil, nil, gateway)
+	sn.SetEntry(schemas.Gateway.Collection, "cloudfoundry-ingress", "v1", fakeCreateTime2, nil, nil, gateway)
 
-	sn.SetEntry(model.VirtualService.Collection, "vs-1", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.VirtualService.Collection, "vs-1", "v1", fakeCreateTime2, nil, nil,
 		virtualService(8060, "cloudfoundry-ingress", "/some/path", cfRouteOne, subsetOne))
-	sn.SetEntry(model.VirtualService.Collection, "vs-2", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.VirtualService.Collection, "vs-2", "v1", fakeCreateTime2, nil, nil,
 		virtualService(8070, "cloudfoundry-ingress", "", cfRouteTwo, subsetTwo))
 
-	sn.SetEntry(model.DestinationRule.Collection, "dr-1", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.DestinationRule.Collection, "dr-1", "v1", fakeCreateTime2, nil, nil,
 		destinationRule(cfRouteOne, subsetOne))
-	sn.SetEntry(model.DestinationRule.Collection, "dr-2", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.DestinationRule.Collection, "dr-2", "v1", fakeCreateTime2, nil, nil,
 		destinationRule(cfRouteTwo, subsetTwo))
 
-	sn.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(8060, app1ListenPort, nil, cfRouteOne, subsetOne))
-	sn.SetEntry(model.ServiceEntry.Collection, "se-2", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.ServiceEntry.Collection, "se-2", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(8070, app2ListenPort, nil, cfRouteTwo, subsetTwo))
 
 	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
@@ -206,10 +207,10 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	defer copilotMCPServer.Close()
 
 	sn := snapshot.NewInMemoryBuilder()
-	for _, m := range model.IstioConfigTypes {
+	for _, m := range schemas.Istio {
 		sn.SetVersion(m.Collection, "v0")
 	}
-	sn.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
+	sn.SetEntry(schemas.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne))
 	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
@@ -253,8 +254,8 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 }
 
 func startMCPCopilot() (*mcptesting.Server, error) {
-	collections := make([]string, len(model.IstioConfigTypes))
-	for i, m := range model.IstioConfigTypes {
+	collections := make([]string, len(schemas.Istio))
+	for i, m := range schemas.Istio {
 		collections[i] = m.Collection
 	}
 

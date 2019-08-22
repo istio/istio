@@ -23,8 +23,9 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 )
 
 type LbEpInfo struct {
@@ -205,8 +206,8 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 		},
 	}
 
-	gwSvcName := config.Hostname("istio-ingressgateway.istio-system.svc.cluster.local")
-	serviceDiscovery := NewMemServiceDiscovery(map[config.Hostname]*model.Service{
+	gwSvcName := host.Name("istio-ingressgateway.istio-system.svc.cluster.local")
+	serviceDiscovery := NewMemServiceDiscovery(map[host.Name]*model.Service{
 		gwSvcName: {
 			Hostname: gwSvcName,
 			Attributes: model.ServiceAttributes{

@@ -131,7 +131,6 @@ func TestSession_EnsureParallelism(t *testing.T) {
 }
 
 func TestDirectResponse(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15932")
 	testcases := []struct {
 		desc      string
 		status    rpc.Status
@@ -224,9 +223,32 @@ func TestDirectResponse(t *testing.T) {
 	for _, tc := range testcases {
 		s := &session{}
 		s.handleDirectResponse(tc.status, tc.response)
-		if !reflect.DeepEqual(s.checkResult.RouteDirective, tc.directive) {
+		if s.checkResult.RouteDirective.DirectResponseCode != tc.directive.DirectResponseCode ||
+			s.checkResult.RouteDirective.DirectResponseBody != tc.directive.DirectResponseBody ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.RequestHeaderOperations, tc.directive.RequestHeaderOperations) ||
+			!equalHeaderOperations(s.checkResult.RouteDirective.ResponseHeaderOperations, tc.directive.ResponseHeaderOperations) {
 			t.Fatalf("route directive mismatch in %s '%+v' != '%+v'", tc.desc, s.checkResult.RouteDirective, tc.directive)
 		}
-
 	}
+}
+
+func equalHeaderOperations(actual, expected []mixerpb.HeaderOperation) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	delta := make(map[mixerpb.HeaderOperation]int)
+
+	for _, ex := range expected {
+		delta[ex]++
+	}
+	for _, h := range actual {
+		if _, ok := delta[h]; !ok {
+			return false
+		}
+		delta[h]--
+		if delta[h] == 0 {
+			delete(delta, h)
+		}
+	}
+	return len(delta) == 0
 }

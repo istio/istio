@@ -37,9 +37,7 @@ func WaitSignal(stop chan struct{}) {
 
 // AddFlags adds all command line flags to the given command.
 func AddFlags(rootCmd *cobra.Command) {
-	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		rootCmd.PersistentFlags().AddGoFlag(gf)
-	})
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
 
 // PrintFlags logs the flags in the flagset

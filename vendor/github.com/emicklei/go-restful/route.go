@@ -38,6 +38,7 @@ type Route struct {
 	Operation               string
 	ParameterDocs           []*Parameter
 	ResponseErrors          map[int]ResponseError
+	DefaultResponse         *ResponseError
 	ReadSample, WriteSample interface{} // structs that model an example request or response payload
 
 	// Extra information used to store custom information about the route.
@@ -45,6 +46,9 @@ type Route struct {
 
 	// marks a route as deprecated
 	Deprecated bool
+
+	//Overrides the container.contentEncodingEnabled
+	contentEncodingEnabled *bool
 }
 
 // Initialize for Route
@@ -74,28 +78,36 @@ func (r *Route) dispatchWithFilters(wrappedRequest *Request, wrappedResponse *Re
 	}
 }
 
+func stringTrimSpaceCutset(r rune) bool {
+	return r == ' '
+}
+
 // Return whether the mimeType matches to what this Route can produce.
 func (r Route) matchesAccept(mimeTypesWithQuality string) bool {
-	parts := strings.Split(mimeTypesWithQuality, ",")
-	for _, each := range parts {
-		var withoutQuality string
-		if strings.Contains(each, ";") {
-			withoutQuality = strings.Split(each, ";")[0]
+	remaining := mimeTypesWithQuality
+	for {
+		var mimeType string
+		if end := strings.Index(remaining, ","); end == -1 {
+			mimeType, remaining = remaining, ""
 		} else {
-			withoutQuality = each
+			mimeType, remaining = remaining[:end], remaining[end+1:]
 		}
-		// trim before compare
-		withoutQuality = strings.Trim(withoutQuality, " ")
-		if withoutQuality == "*/*" {
+		if quality := strings.Index(mimeType, ";"); quality != -1 {
+			mimeType = mimeType[:quality]
+		}
+		mimeType = strings.TrimFunc(mimeType, stringTrimSpaceCutset)
+		if mimeType == "*/*" {
 			return true
 		}
 		for _, producibleType := range r.Produces {
-			if producibleType == "*/*" || producibleType == withoutQuality {
+			if producibleType == "*/*" || producibleType == mimeType {
 				return true
 			}
 		}
+		if len(remaining) == 0 {
+			return false
+		}
 	}
-	return false
 }
 
 // Return whether this Route can consume content with a type specified by mimeTypes (can be empty).
@@ -116,29 +128,33 @@ func (r Route) matchesContentType(mimeTypes string) bool {
 		mimeTypes = MIME_OCTET
 	}
 
-	parts := strings.Split(mimeTypes, ",")
-	for _, each := range parts {
-		var contentType string
-		if strings.Contains(each, ";") {
-			contentType = strings.Split(each, ";")[0]
+	remaining := mimeTypes
+	for {
+		var mimeType string
+		if end := strings.Index(remaining, ","); end == -1 {
+			mimeType, remaining = remaining, ""
 		} else {
-			contentType = each
+			mimeType, remaining = remaining[:end], remaining[end+1:]
 		}
-		// trim before compare
-		contentType = strings.Trim(contentType, " ")
+		if quality := strings.Index(mimeType, ";"); quality != -1 {
+			mimeType = mimeType[:quality]
+		}
+		mimeType = strings.TrimFunc(mimeType, stringTrimSpaceCutset)
 		for _, consumeableType := range r.Consumes {
-			if consumeableType == "*/*" || consumeableType == contentType {
+			if consumeableType == "*/*" || consumeableType == mimeType {
 				return true
 			}
 		}
+		if len(remaining) == 0 {
+			return false
+		}
 	}
-	return false
 }
 
 // Tokenize an URL path using the slash separator ; the result does not have empty tokens
 func tokenizePath(path string) []string {
 	if "/" == path {
-		return []string{}
+		return nil
 	}
 	return strings.Split(strings.Trim(path, "/"), "/")
 }
@@ -146,4 +162,9 @@ func tokenizePath(path string) []string {
 // for debugging
 func (r Route) String() string {
 	return r.Method + " " + r.Path
+}
+
+// EnableContentEncoding (default=false) allows for GZIP or DEFLATE encoding of responses. Overrides the container.contentEncodingEnabled value.
+func (r Route) EnableContentEncoding(enabled bool) {
+	r.contentEncodingEnabled = &enabled
 }

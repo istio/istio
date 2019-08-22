@@ -12,69 +12,71 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file describes the abstract model of services (and their instances) as
-// represented in Istio. This model is independent of the underlying platform
-// (Kubernetes, Mesos, etc.). Platform specific adapters found populate the
-// model object with various fields, from the metadata found in the platform.
-// The platform independent proxy code uses the representation in the model to
-// generate the configuration files for the Layer 7 proxy sidecar. The proxy
-// code is specific to individual proxy implementations
-
 package kube
 
 import (
-	"fmt"
 	"strings"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ConvertLabels(obj metaV1.ObjectMeta) config.Labels {
-	out := make(config.Labels, len(obj.Labels))
+const (
+	SMTP    = 25
+	DNS     = 53
+	MySQL   = 3306
+	MongoDB = 27017
+)
+
+var (
+	// Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
+	// protocol sniffing is enabled.
+	wellKnownPorts = map[int32]struct{}{
+		SMTP:    {},
+		DNS:     {},
+		MySQL:   {},
+		MongoDB: {},
+	}
+)
+
+func ConvertLabels(obj metaV1.ObjectMeta) labels.Instance {
+	out := make(labels.Instance, len(obj.Labels))
 	for k, v := range obj.Labels {
 		out[k] = v
 	}
 	return out
 }
 
-// ParseHostname extracts service name and namespace from the service hostname
-func ParseHostname(hostname config.Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(string(hostname), ".")
-	if len(parts) < 2 {
-		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
-		return
-	}
-	name = parts[0]
-	namespace = parts[1]
-	return
-}
-
 var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(name string, proto coreV1.Protocol) protocol.Instance {
-	out := protocol.TCP
-	switch proto {
-	case coreV1.ProtocolUDP:
-		out = protocol.UDP
-	case coreV1.ProtocolTCP:
-		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
-			out = protocol.GRPCWeb
-			break
-		}
-		i := strings.IndexByte(name, '-')
-		if i >= 0 {
-			name = name[:i]
-		}
-		p := protocol.Parse(name)
-		if p != protocol.UDP && p != protocol.Unsupported {
-			out = p
+func ConvertProtocol(port int32, name string, proto coreV1.Protocol) protocol.Instance {
+	if proto == coreV1.ProtocolUDP {
+		return protocol.UDP
+	}
+
+	// Check if the port name prefix is "grpc-web". Need to do this before the general
+	// prefix check below, since it contains a hyphen.
+	if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
+		return protocol.GRPCWeb
+	}
+
+	// Parse the port name to find the prefix, if any.
+	i := strings.IndexByte(name, '-')
+	if i >= 0 {
+		name = name[:i]
+	}
+
+	p := protocol.Parse(name)
+	if p == protocol.Unsupported {
+		// Make TCP as default protocol for well know ports if protocol is not specified.
+		if _, has := wellKnownPorts[port]; has {
+			return protocol.TCP
 		}
 	}
-	return out
+	return p
 }

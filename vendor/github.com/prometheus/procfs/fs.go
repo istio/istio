@@ -17,9 +17,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-
-	"github.com/prometheus/procfs/nfs"
-	"github.com/prometheus/procfs/xfs"
 )
 
 // FS represents the pseudo-filesystem proc, which provides an interface to
@@ -46,37 +43,4 @@ func NewFS(mountPoint string) (FS, error) {
 // Path returns the path of the given subsystem relative to the procfs root.
 func (fs FS) Path(p ...string) string {
 	return path.Join(append([]string{string(fs)}, p...)...)
-}
-
-// XFSStats retrieves XFS filesystem runtime statistics.
-func (fs FS) XFSStats() (*xfs.Stats, error) {
-	f, err := os.Open(fs.Path("fs/xfs/stat"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return xfs.ParseStats(f)
-}
-
-// NFSClientRPCStats retrieves NFS client RPC statistics.
-func (fs FS) NFSClientRPCStats() (*nfs.ClientRPCStats, error) {
-	f, err := os.Open(fs.Path("net/rpc/nfs"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return nfs.ParseClientRPCStats(f)
-}
-
-// NFSdServerRPCStats retrieves NFS daemon RPC statistics.
-func (fs FS) NFSdServerRPCStats() (*nfs.ServerRPCStats, error) {
-	f, err := os.Open(fs.Path("net/rpc/nfsd"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return nfs.ParseServerRPCStats(f)
 }

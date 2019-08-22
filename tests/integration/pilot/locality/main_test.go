@@ -124,8 +124,7 @@ func init() {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
-		// TODO(https://github.com/istio/istio/issues/13812) remove flaky labels
-		Label(label.CustomSetup, label.Flaky).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
@@ -224,8 +223,7 @@ func WaitUntilRoute(c echo.Instance, dest string) error {
 	return nil
 }
 
-func sendTraffic(ctx framework.TestContext, from echo.Instance, host string) {
-	ctx.Helper()
+func sendTraffic(from echo.Instance, host string) error {
 	headers := http.Header{}
 	headers.Add("Host", host)
 	// This is a hack to remain infrastructure agnostic when running these tests
@@ -237,19 +235,20 @@ func sendTraffic(ctx framework.TestContext, from echo.Instance, host string) {
 		Count:    sendCount,
 	})
 	if err != nil {
-		ctx.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
+		return fmt.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
 	}
 	if len(resp) != sendCount {
-		ctx.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
+		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
 	}
 	numFailed := 0
 	for i, r := range resp {
 		if match := bHostnameMatcher.FindString(r.Hostname); len(match) == 0 {
 			numFailed++
-			ctx.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
+			return fmt.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
 		}
 	}
 	if numFailed > 0 {
-		ctx.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
+		return fmt.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
 	}
+	return nil
 }

@@ -21,7 +21,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -35,6 +37,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerProtocolAuto enables auto protocol detection
+	ListenerProtocolAuto
 
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
@@ -46,15 +50,26 @@ const (
 	Mixer = "mixer"
 )
 
-// ModelProtocolToListenerProtocol converts from a config.Instance to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
+// ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
+func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
+	// If protocol sniffing is not enabled, the default value is TCP
+	if !util.IsProtocolSniffingEnabledForNode(node) && p == protocol.Unsupported {
+		p = protocol.TCP
+	}
+
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
+	case protocol.UDP:
+		return ListenerProtocolUnknown
 	default:
+		if util.IsProtocolSniffingEnabledForNode(node) {
+			return ListenerProtocolAuto
+		}
+
 		return ListenerProtocolUnknown
 	}
 }

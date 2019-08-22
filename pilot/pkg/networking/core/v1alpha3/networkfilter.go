@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -29,15 +28,14 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
-
-const tcpEnvoyAccesslogName string = "tcp_envoy_accesslog"
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
@@ -64,7 +62,7 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		acc := &accesslog.AccessLog{
 			Name: xdsutil.FileAccessLog,
 		}
-		buildAccessLog(fl, env)
+		buildAccessLog(node, fl, env)
 
 		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
@@ -75,32 +73,7 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		config.AccessLog = append(config.AccessLog, acc)
 	}
 
-	if env.Mesh.EnableEnvoyAccessLogService {
-		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
-			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: tcpEnvoyAccesslogName,
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: EnvoyAccessLogCluster,
-						},
-					},
-				},
-			},
-		}
-
-		acc := &accesslog.AccessLog{
-			Name: xdsutil.HTTPGRPCAccessLog,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
-
-		config.AccessLog = append(config.AccessLog, acc)
-	}
+	// envoy als is not enabled for tcp
 	return config
 }
 
@@ -162,7 +135,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	}
 
 	for _, route := range routes {
-		service := node.SidecarScope.ServiceForHostname(config.Hostname(route.Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := node.SidecarScope.ServiceForHostname(host.Name(route.Destination.Host), push.ServiceByHostnameAndNamespace)
 		if route.Weight > 0 {
 			clusterName := istio_route.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
@@ -212,7 +185,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 
 	if len(routes) == 1 {
-		service := node.SidecarScope.ServiceForHostname(config.Hostname(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
 	}
@@ -267,7 +240,9 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
 		},
 		PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-			CatchAllCluster: clusterName,
+			CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+				Cluster: clusterName,
+			},
 		},
 	}
 

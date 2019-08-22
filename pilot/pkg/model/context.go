@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"regexp"
@@ -25,7 +26,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -119,7 +121,7 @@ type Proxy struct {
 	ServiceInstances []*ServiceInstance
 
 	// labels associated with the workload
-	WorkloadLabels config.LabelsCollection
+	WorkloadLabels labels.Collection
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -246,8 +248,7 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		labels := node.WorkloadLabels
-		node.SidecarScope = ps.getSidecarScope(node, labels)
+		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
@@ -267,13 +268,19 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	labels, err := env.GetProxyWorkloadLabels(node)
-	if err != nil {
-		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		labels = config.LabelsCollection{node.Metadata}
+	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
+	// Or updated in DiscoveryServer.WorkloadUpdate.
+	if node.WorkloadLabels != nil {
+		return nil
 	}
 
-	node.WorkloadLabels = labels
+	l, err := env.GetProxyWorkloadLabels(node)
+	if err != nil {
+		log.Errorf("failed to get service proxy labels: %v", err)
+		return err
+	}
+
+	node.WorkloadLabels = l
 	return nil
 }
 
@@ -355,13 +362,23 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
+	if len(out.IPAddresses) == 0 {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
 	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
+
+	if data, ok := metadata[NodeMetadataLabels]; ok {
+		var nodeLabels map[string]string
+		if err := json.Unmarshal([]byte(data), &nodeLabels); err != nil {
+			log.Warnf("invalid node label %s: %v", data, err)
+		}
+		if len(nodeLabels) > 0 {
+			out.WorkloadLabels = labels.Collection{nodeLabels}
+		}
+	}
 	return out, nil
 }
 
@@ -484,10 +501,6 @@ const (
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
 
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
-	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "SIDECAR_UID"
-
 	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
 	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
 
@@ -507,6 +520,9 @@ const (
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+
+	// NodeMetadataMeshID specifies the mesh ID environment variable.
+	NodeMetadataMeshID = "MESH_ID"
 
 	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
 	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
@@ -529,6 +545,35 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataCanonicalTelemetryService specifies the service name to use for all node telemetry.
+	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"
+
+	// NodeMetadataLabels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	NodeMetadataLabels = "LABELS"
+
+	// NodeMetadataWorkloadName specifies the name of the workload represented by this node.
+	NodeMetadataWorkloadName = "WORKLOAD_NAME"
+
+	// NodeMetadataOwner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	NodeMetadataOwner = "OWNER"
+
+	// NodeMetadataServiceAccount specifies the service account which is running the workload.
+	NodeMetadataServiceAccount = "SERVICE_ACCOUNT"
+
+	// NodeMetadataPlatformMetadata contains any platform specific metadata
+	NodeMetadataPlatformMetadata = "PLATFORM_METADATA"
+
+	// NodeMetadataInstanceName is the short name for the workload instance (ex: pod name)
+	NodeMetadataInstanceName = "NAME" // replaces POD_NAME
+
+	// NodeMetadataNamespace is the namespace in which the workload instance is running.
+	NodeMetadataNamespace = "NAMESPACE" // replaces CONFIG_NAMESPACE
+
+	// NodeMetadataExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	// The list is comma-separated.
+	NodeMetadataExchangeKeys = "EXCHANGE_KEYS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

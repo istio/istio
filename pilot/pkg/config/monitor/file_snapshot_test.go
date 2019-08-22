@@ -23,8 +23,10 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var gatewayYAML = `
@@ -92,7 +94,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, schema.Set{schemas.VirtualService})
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))

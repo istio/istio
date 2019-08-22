@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 // InMemoryCache is an in-memory only mesh cache
@@ -31,7 +32,7 @@ var _ Cache = &InMemoryCache{}
 // NewInMemory returns a new InMemoryCache
 func NewInMemory() *InMemoryCache {
 	return &InMemoryCache{
-		config: Default(),
+		config: mesh.DefaultMeshConfig(),
 	}
 }
 

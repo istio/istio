@@ -48,12 +48,17 @@ func (m *MetricsServiceConfig) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return MetricsServiceConfigValidationError{
-				field:  "GrpcService",
-				reason: "embedded message failed validation",
-				cause:  err,
+	{
+		tmp := m.GetGrpcService()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return MetricsServiceConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
 	}
