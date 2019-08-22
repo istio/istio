@@ -98,6 +98,17 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
+		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		{
+			in:                           "hello_named_container_port.yaml",
+			want:                         "hello_named_container_port.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
 		//verifies that the sidecar will not be injected again for an injected yaml
 		{
 			in:                           "hello.yaml.injected",

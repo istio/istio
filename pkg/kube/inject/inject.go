@@ -790,6 +790,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+	applyContainerPortStrip(podSpec)
+
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
