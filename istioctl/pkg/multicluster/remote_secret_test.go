@@ -30,6 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
+
+	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 var secretTemplate = `# Remote pilot credentials for cluster context "{{ .Name }}"
@@ -38,8 +40,7 @@ kind: Secret
 metadata:
   creationTimestamp: null
   labels:
-    istio.io/remote-multi-cluster: "true"
-    istio/multiCluster: "true"
+    {{ .MultiClusterSecretLabel }}: "true"
   name: istio-pilot-remote-secret-{{ .Name }}
 stringData:
   {{ .Name }}: |
@@ -66,12 +67,13 @@ stringData:
 
 type testClusterData struct {
 	// Pilot SA data
-	Name         string
-	CAData       string
-	CADataBase64 string
-	Token        string
+	Name                    string
+	CAData                  string
+	CADataBase64            string
+	Token                   string
+	MultiClusterSecretLabel string
 
-	// Secret with Pilot SA encoded in kubeconfig
+	// Secret with Pilot SA encoded in Kubeconfig
 	kubeconfigSecretYaml string
 
 	Server string
@@ -81,11 +83,12 @@ func makeTestClusterData(name string) *testClusterData {
 	caData := fmt.Sprintf("caData-%v", name)
 	token := fmt.Sprintf("token-%v", name)
 	d := &testClusterData{
-		Name:         name,
-		CAData:       caData,
-		CADataBase64: base64.StdEncoding.EncodeToString([]byte(caData)),
-		Token:        token,
-		Server:       fmt.Sprintf("server-%v", name),
+		Name:                    name,
+		CAData:                  caData,
+		CADataBase64:            base64.StdEncoding.EncodeToString([]byte(caData)),
+		Token:                   token,
+		Server:                  fmt.Sprintf("server-%v", name),
+		MultiClusterSecretLabel: secretcontroller.MultiClusterSecretLabel,
 	}
 
 	var out bytes.Buffer
@@ -196,7 +199,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:   testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName, "secret0"),
+					makeServiceAccount(DefaultServiceAccountName, "secret0"),
 					makeSecret("secret0", c0.CAData, c0.Token),
 				},
 			},
@@ -208,15 +211,15 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:   testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName, "secret0"),
+					makeServiceAccount(DefaultServiceAccountName, "secret0"),
 					makeSecret("secret0", c0.CAData, c0.Token),
 				},
 				"c1": {
-					makeServiceAccount(defaultServiceAccountName, "secret1"),
+					makeServiceAccount(DefaultServiceAccountName, "secret1"),
 					makeSecret("secret1", c1.CAData, c1.Token),
 				},
 				"c2": {
-					makeServiceAccount(defaultServiceAccountName, "secret2"),
+					makeServiceAccount(DefaultServiceAccountName, "secret2"),
 					makeSecret("secret2", c2.CAData, c2.Token),
 				},
 			},
@@ -240,7 +243,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:   testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName, "secret0"),
+					makeServiceAccount(DefaultServiceAccountName, "secret0"),
 					makeSecret("missing-secret1", c0.CAData, c0.Token),
 				},
 			},
@@ -252,7 +255,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:   testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName),
+					makeServiceAccount(DefaultServiceAccountName),
 					makeSecret("secret0", c0.CAData, c0.Token),
 				},
 			},
@@ -264,7 +267,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:   testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName, "secret0", "secret0"),
+					makeServiceAccount(DefaultServiceAccountName, "secret0", "secret0"),
 					makeSecret("secret1", c0.CAData, c0.Token),
 				},
 			},
@@ -277,11 +280,11 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 			config:            testAPIConfig,
 			objs: map[string][]runtime.Object{
 				"c0": {
-					makeServiceAccount(defaultServiceAccountName, "secret0"),
+					makeServiceAccount(DefaultServiceAccountName, "secret0"),
 					makeSecret("secret0", c0.CAData, c0.Token),
 				},
 				"c1": {
-					makeServiceAccount(defaultServiceAccountName, "bad-secret1"),
+					makeServiceAccount(DefaultServiceAccountName, "bad-secret1"),
 					makeSecret("secret1", c1.CAData, c1.Token),
 				},
 			},
@@ -307,12 +310,10 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 				return fake.NewSimpleClientset(objs...), nil
 			}
 
-			got, err := createPilotRemoteSecrets(options{
-				secretPrefix:       defaultSecretPrefix,
-				serviceAccountName: defaultServiceAccountName,
-				secretLabels:       defaultSecretlabels,
-				namespace:          testNamespace,
-				args:               c.contexts,
+			got, err := CreatePilotRemoteSecrets(Options{
+				ServiceAccountName: DefaultServiceAccountName,
+				Namespace:          testNamespace,
+				Contexts:           c.contexts,
 			})
 			if c.wantErrStr != "" {
 				if err == nil {
@@ -347,7 +348,7 @@ func TestCreateRemotePilotKubeconfig(t *testing.T) {
 				Contexts: map[string]*api.Context{},
 			},
 			context:    "c0",
-			wantErrStr: "context not found in kubeconfig",
+			wantErrStr: "context not found in Kubeconfig",
 		},
 		{
 			name: "missing cluster",
@@ -357,7 +358,7 @@ func TestCreateRemotePilotKubeconfig(t *testing.T) {
 				Clusters: map[string]*api.Cluster{},
 			},
 			context:    "c0",
-			wantErrStr: "cluster not found in kubeconfig",
+			wantErrStr: "cluster not found in Kubeconfig",
 		},
 		{
 			name: "missing caData",

@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 var (
@@ -53,33 +54,24 @@ func init() {
 	)
 }
 
-type options struct {
-	secretPrefix       string
-	serviceAccountName string
-	secretLabels       map[string]string
+type Options struct {
+	ServiceAccountName string
+	Contexts           []string
 
 	// inherited from root command
-	namespace  string
-	kubeconfig string
-
-	args []string
+	Namespace  string
+	Kubeconfig string
 }
 
 var (
-	defaultSecretPrefix = "istio-pilot-remote-secret-"
-	defaultSecretlabels = map[string]string{
-		"istio/multiCluster":            "true", // legacy label
-		"istio.io/remote-multi-cluster": "true",
-	}
-	defaultServiceAccountName = "istio-pilot-service-account"
+	defaultSecretPrefix       = "istio-pilot-remote-secret-"
+	DefaultServiceAccountName = "istio-pilot-service-account"
 )
 
 // NewCreatePilotRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
 func NewCreatePilotRemoteSecretCommand(kubeconfig, namespace *string) *cobra.Command {
-	o := options{
-		secretPrefix:       defaultSecretPrefix,
-		secretLabels:       defaultSecretlabels,
-		serviceAccountName: defaultServiceAccountName,
+	o := Options{
+		ServiceAccountName: DefaultServiceAccountName,
 	}
 
 	c := &cobra.Command{
@@ -102,11 +94,11 @@ istioctl x create-pilot-remote-secrets c0 c1 \
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			o.args = args
-			o.kubeconfig = *kubeconfig
-			o.namespace = *namespace
+			o.Contexts = args
+			o.Kubeconfig = *kubeconfig
+			o.Namespace = *namespace
 
-			out, err := createPilotRemoteSecrets(o)
+			out, err := CreatePilotRemoteSecrets(o)
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)
 				os.Exit(1)
@@ -117,7 +109,7 @@ istioctl x create-pilot-remote-secrets c0 c1 \
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringVar(&o.serviceAccountName, "service-account-name", o.serviceAccountName,
+	flags.StringVar(&o.ServiceAccountName, "service-account-name", o.ServiceAccountName,
 		"name of Pilot service account in the remote cluster(s)")
 
 	return c
@@ -142,12 +134,12 @@ const (
 func createRemotePilotKubeconfig(in *v1.Secret, config *api.Config, context string) (*api.Config, error) {
 	contextInfo, ok := config.Contexts[context]
 	if !ok {
-		return nil, fmt.Errorf("%q context not found in kubeconfig(s)", context)
+		return nil, fmt.Errorf("%q context not found in Kubeconfig(s)", context)
 	}
 
 	clusterInfo, ok := config.Clusters[contextInfo.Cluster]
 	if !ok {
-		return nil, fmt.Errorf("%q cluster not found in kubeconfig(s) for context %q", contextInfo.Cluster, context)
+		return nil, fmt.Errorf("%q cluster not found in Kubeconfig(s) for context %q", contextInfo.Cluster, context)
 	}
 
 	caData, ok := in.Data[caDataSecretKey]
@@ -185,15 +177,17 @@ func createRemotePilotKubeconfig(in *v1.Secret, config *api.Config, context stri
 	return kubeconfig, nil
 }
 
-func createRemotePilotServiceAccountSecret(kubeconfig *api.Config, name, prefix string, labels map[string]string) (*v1.Secret, error) { // nolint:interfacer
+func createRemotePilotServiceAccountSecret(kubeconfig *api.Config, name string) (*v1.Secret, error) { // nolint:interfacer
 	var data bytes.Buffer
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
 	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("%v%v", prefix, name),
-			Labels: labels,
+			Name: fmt.Sprintf("%v%v", defaultSecretPrefix, name),
+			Labels: map[string]string{
+				secretcontroller.MultiClusterSecretLabel: "true",
+			},
 		},
 		StringData: map[string]string{
 			name: data.String(),
@@ -202,43 +196,43 @@ func createRemotePilotServiceAccountSecret(kubeconfig *api.Config, name, prefix 
 	return out, nil
 }
 
-func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, context string, o *options) error {
+func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, context string, o *Options) error {
 	if _, err := out.WriteString(fmt.Sprintf("# Remote pilot credentials for cluster context %q\n", context)); err != nil {
 		return err
 	}
 
-	kube, err := newKubernetesInterface(o.kubeconfig, context)
+	kube, err := newKubernetesInterface(o.Kubeconfig, context)
 	if err != nil {
 		return err
 	}
 
 	// Get the remote pilot's service-account-token secret
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(o.namespace).Get(o.serviceAccountName, metav1.GetOptions{})
+	serviceAccount, err := kube.CoreV1().ServiceAccounts(o.Namespace).Get(o.ServiceAccountName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.namespace, name, context)
+		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.Namespace, name, context)
 	}
 	if len(serviceAccount.Secrets) != 1 {
 		return fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s in cluster %v",
-			len(serviceAccount.Secrets), o.namespace, name, context)
+			len(serviceAccount.Secrets), o.Namespace, name, context)
 	}
 	secretName := serviceAccount.Secrets[0].Name
 	secretNamespace := serviceAccount.Secrets[0].Namespace
 	if secretNamespace == "" {
-		secretNamespace = o.namespace
+		secretNamespace = o.Namespace
 	}
 	saSecret, err := kube.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get secret %s/%s in cluster %v", secretNamespace, secretName, context)
 	}
 
-	// Create a kubeconfig to access the remote cluster using the remote pilot's service account credentials.
+	// Create a Kubeconfig to access the remote cluster using the remote pilot's service account credentials.
 	kubeconfig, err := createRemotePilotKubeconfig(saSecret, config, context)
 	if err != nil {
 		return err
 	}
 
-	// Encode the kubeconfig in a secret that can be loaded by Pilot to dynamically discover and access the remote cluster.
-	mcSecret, err := createRemotePilotServiceAccountSecret(kubeconfig, name, o.secretPrefix, o.secretLabels)
+	// Encode the Kubeconfig in a secret that can be loaded by Pilot to dynamically discover and access the remote cluster.
+	mcSecret, err := createRemotePilotServiceAccountSecret(kubeconfig, name)
 	if err != nil {
 		return err
 	}
@@ -253,12 +247,12 @@ func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, contex
 
 const outputHeader = "# This file is autogenerated, do not edit.\n#\n"
 
-func createPilotRemoteSecrets(o options) (string, error) {
-	if len(o.args) < 1 {
+func CreatePilotRemoteSecrets(o Options) (string, error) {
+	if len(o.Contexts) < 1 {
 		return "", errors.New("no remote cluster contexts specified")
 	}
 
-	config, err := newStartingConfig(o.kubeconfig)
+	config, err := newStartingConfig(o.Kubeconfig)
 	if err != nil {
 		return "", err
 	}
@@ -267,7 +261,7 @@ func createPilotRemoteSecrets(o options) (string, error) {
 	if _, err := out.WriteString(outputHeader); err != nil {
 		return "", err
 	}
-	for _, context := range o.args {
+	for _, context := range o.Contexts {
 		if err := createPilotRemoteSecret(&out, config, context, context, &o); err != nil {
 			return "", err
 		}
