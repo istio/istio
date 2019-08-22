@@ -100,7 +100,7 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS unix domain socket path")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -310,7 +310,7 @@ var (
 			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
 			// for control plane SDS.
 			if controlPlaneAuthEnabled && sdsEnabled {
-				opts["sds_uds_path"] = "unix:" + sdsUdsPathVar.Get()
+				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
 
@@ -485,12 +485,6 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 		return false, ""
 	}
 
-	// If controlplanesecurity is disabled, return false so that Pilot agent does not create SDS config
-	// in bootstrap config.
-	if !controlPlaneAuthEnabled {
-		return false, ""
-	}
-
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
@@ -501,6 +495,12 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 			return true, trustworthyJWTPath
 		}
 
+		return false, ""
+	}
+
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
 		return false, ""
 	}
 
