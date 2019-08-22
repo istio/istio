@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -607,6 +608,9 @@ type Entry struct {
 	// The ID is a 16-character hexadecimal encoding of an 8-byte array.
 	SpanID string
 
+	// If set, symbolizes that this request was sampled.
+	TraceSampled bool
+
 	// Optional. Source code location information associated with the log entry,
 	// if any.
 	SourceLocation *logpb.LogEntrySourceLocation
@@ -828,6 +832,37 @@ func (l *Logger) writeLogEntries(entries []*logpb.LogEntry) {
 // (for example by calling SetFlags or SetPrefix).
 func (l *Logger) StandardLogger(s Severity) *log.Logger { return l.stdLoggers[s] }
 
+var reCloudTraceContext = regexp.MustCompile(`([a-f\d]+)/([a-f\d]+);o=(\d)`)
+
+func deconstructXCloudTraceContext(s string) (traceID, spanID string, traceSampled bool) {
+	// As per the format described at https://cloud.google.com/trace/docs/troubleshooting#force-trace
+	//    "X-Cloud-Trace-Context: TRACE_ID/SPAN_ID;o=TRACE_TRUE"
+	// for example:
+	//    "X-Cloud-Trace-Context: 105445aa7843bc8bf206b120001000/0;o=1"
+	//
+	// We expect:
+	//   * traceID:         "105445aa7843bc8bf206b120001000"
+	//   * spanID:          ""
+	//   * traceSampled:    true
+	matches := reCloudTraceContext.FindAllStringSubmatch(s, -1)
+	if len(matches) != 1 {
+		return
+	}
+
+	sub := matches[0]
+	if len(sub) != 4 {
+		return
+	}
+
+	traceID, spanID = sub[1], sub[2]
+	if spanID == "0" {
+		spanID = ""
+	}
+	traceSampled = sub[3] == "1"
+
+	return
+}
+
 func (l *Logger) toLogEntry(e Entry) (*logpb.LogEntry, error) {
 	if e.LogName != "" {
 		return nil, errors.New("logging: Entry.LogName should be not be set when writing")
@@ -845,7 +880,18 @@ func (l *Logger) toLogEntry(e Entry) (*logpb.LogEntry, error) {
 		if traceHeader != "" {
 			// Set to a relative resource name, as described at
 			// https://cloud.google.com/appengine/docs/flexible/go/writing-application-logs.
-			e.Trace = fmt.Sprintf("%s/traces/%s", l.client.parent, traceHeader)
+			traceID, spanID, traceSampled := deconstructXCloudTraceContext(traceHeader)
+			if traceID != "" {
+				e.Trace = fmt.Sprintf("%s/traces/%s", l.client.parent, traceID)
+			}
+			if e.SpanID == "" {
+				e.SpanID = spanID
+			}
+
+			// If we previously hadn't set TraceSampled, let's retrieve it
+			// from the HTTP request's header, as per:
+			//   https://cloud.google.com/trace/docs/troubleshooting#force-trace
+			e.TraceSampled = e.TraceSampled || traceSampled
 		}
 	}
 	ent := &logpb.LogEntry{
@@ -859,6 +905,7 @@ func (l *Logger) toLogEntry(e Entry) (*logpb.LogEntry, error) {
 		SpanId:         e.SpanID,
 		Resource:       e.Resource,
 		SourceLocation: e.SourceLocation,
+		TraceSampled:   e.TraceSampled,
 	}
 	switch p := e.Payload.(type) {
 	case string:

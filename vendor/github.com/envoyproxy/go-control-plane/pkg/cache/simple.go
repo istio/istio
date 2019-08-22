@@ -16,13 +16,13 @@ package cache
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/pkg/log"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 )
 
 // SnapshotCache is a snapshot-based cache that maintains a single versioned
@@ -286,7 +286,7 @@ func (cache *snapshotCache) Fetch(ctx context.Context, request Request) (*Respon
 		// It might be beneficial to hold the request since Envoy will re-attempt the refresh.
 		version := snapshot.GetVersion(request.TypeUrl)
 		if request.VersionInfo == version {
-			return nil, errors.New("skip fetch: version up to date")
+			return nil, &util.SkipFetchError{}
 		}
 
 		resources := snapshot.GetResources(request.TypeUrl)
