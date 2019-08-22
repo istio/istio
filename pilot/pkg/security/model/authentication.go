@@ -77,31 +77,6 @@ func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceIns
 	return nil
 }
 
-// UseIstioMTLS return true if cluster should be configured with Isito mTLS
-// if PERMISSIVE tls configured, and all service endpoints are mtlsReady, return true
-// if STRICT tls configured, always return true
-func UseIstioMTLS(tlsPolicy *authn.Policy, mtlsReady bool) bool {
-	if features.UseAutoPilotMTLS.Get() && tlsPolicy != nil {
-		if peers := tlsPolicy.GetPeers(); len(peers) != 0 {
-			// TODO gihanson need to handle mutliple peer blocks?
-			for _, peer := range peers {
-				mtls := peer.GetMtls()
-				switch mtls.Mode {
-				case authn.MutualTls_PERMISSIVE:
-					// permissive mTLS enabled and all service instances are injected
-					if mtlsReady {
-						return true
-					}
-				case authn.MutualTls_STRICT:
-					// strict mTLS is enabled, configure mTLS by default
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // ConstructSdsSecretConfig constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {

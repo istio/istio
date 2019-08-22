@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_policy "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -673,10 +674,20 @@ func conditionallyConvertToIstioMtls(
 	tlsPolicy *authn.Policy,
 	mtlsReady bool,
 ) *networking.TLSSettings {
-
-	if authn_model.UseIstioMTLS(tlsPolicy, mtlsReady) {
-		tls = &networking.TLSSettings{
-			Mode: networking.TLSSettings_ISTIO_MUTUAL,
+	if mtls := authn_policy.GetMutualTLS(tlsPolicy); mtls != nil {
+		switch mtls.Mode {
+		case authn.MutualTls_PERMISSIVE:
+			// permissive mTLS enabled and all service instances are injected
+			if mtlsReady {
+				tls = &networking.TLSSettings{
+					Mode: networking.TLSSettings_ISTIO_MUTUAL,
+				}
+			}
+		case authn.MutualTls_STRICT:
+			// strict mTLS is enabled, configure mTLS by default
+			tls = &networking.TLSSettings{
+				Mode: networking.TLSSettings_ISTIO_MUTUAL,
+			}
 		}
 	}
 
