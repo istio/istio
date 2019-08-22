@@ -20,26 +20,21 @@ import (
 	proto "github.com/gogo/protobuf/types"
 )
 
+type configTypeURL string
+
 // See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 const (
-	// BootstrapConfigDumpTypeURL is the unique type indicator for the Bootstrap section of the config dump
-	BootstrapConfigDumpTypeURL = "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump"
-
-	// ListenersConfigDumpTypeURL is the unique identifier the Listeners section of the config dump
-	ListenersConfigDumpTypeURL = "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump"
-
-	// ClustersConfigDumpTypeURL is the unique identifier the Clusters section of the config dump
-	ClustersConfigDumpTypeURL = "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump"
-
-	// BootstrapConfigDumpTypeURL is the unique identifier the Routes section of the config dump
-	RoutesConfigDumpTypeURL = "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump"
+	bootstrap configTypeURL = "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump"
+	listeners configTypeURL = "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump"
+	clusters  configTypeURL = "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump"
+	routes    configTypeURL = "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump"
 )
 
-// configDumpSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
-func (w *Wrapper) configDumpSection(sectionTypeURL string) (proto.Any, error) {
+// getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
+func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (proto.Any, error) {
 	var dumpAny proto.Any
 	for _, conf := range w.Configs {
-		if conf.TypeUrl == sectionTypeURL {
+		if conf.TypeUrl == string(sectionTypeURL) {
 			dumpAny = *conf
 		}
 	}

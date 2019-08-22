@@ -21,7 +21,7 @@ import (
 
 // GetBootstrapConfigDump retrieves the bootstrap config dump from the ConfigDump
 func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error) {
-	bootstrapDumpAny, err := w.configDumpSection(BootstrapConfigDumpTypeURL)
+	bootstrapDumpAny, err := w.getSection(bootstrap)
 	if err != nil {
 		return nil, err
 	}

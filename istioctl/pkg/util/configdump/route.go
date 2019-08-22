@@ -68,7 +68,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
 func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
-	routeDumpAny, err := w.configDumpSection(RoutesConfigDumpTypeURL)
+	routeDumpAny, err := w.getSection(routes)
 	if err != nil {
 		return nil, err
 	}

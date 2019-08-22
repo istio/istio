@@ -42,7 +42,7 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
 func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error) {
-	listenerDumpAny, err := w.configDumpSection(ListenersConfigDumpTypeURL)
+	listenerDumpAny, err := w.getSection(listeners)
 	if err != nil {
 		return nil, err
 	}

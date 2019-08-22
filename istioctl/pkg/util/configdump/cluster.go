@@ -42,7 +42,7 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 
 // GetClusterConfigDump retrieves the cluster config dump from the ConfigDump
 func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
-	clusterDumpAny, err := w.configDumpSection(ClustersConfigDumpTypeURL)
+	clusterDumpAny, err := w.getSection(clusters)
 	if err != nil {
 		return nil, err
 	}
