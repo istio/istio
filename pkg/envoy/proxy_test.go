@@ -28,7 +28,7 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.Concurrency = 8
 
 	opts := make(map[string]interface{})
-	opts["sds_uds_path"] = "udspath"
+	opts["sds_path"] = "udspath"
 	opts["sds_token_path"] = "tokenpath"
 
 	test := &envoy{

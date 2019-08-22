@@ -297,8 +297,9 @@ var (
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
-			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
+			// before starting it skip waiting cert if sds is enabled, otherwise it takes long time for
+			// pod to start.
 			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
@@ -307,8 +308,10 @@ var (
 			}
 
 			opts := make(map[string]interface{})
-			if sdsEnabled {
-				opts["sds_uds_path"] = sdsUdsPathVar.Get()
+			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
+			// for control plane SDS.
+			if controlPlaneAuthEnabled && sdsEnabled {
+				opts["sds_path"] = "unix:" + sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
 
@@ -476,10 +479,16 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// check if SDS UDS path and token path exist, if both exist, requests key/cert
-// using SDS instead of secret mount.
+// detectSds checks config for control plane SDS . The returned values are used by caller
+// to decide whether SDS or file-mounted secret is used for control plane.
 func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
+		return false, ""
+	}
+
+	// for controlplane sidecar, if controlplanesecurity isn't enabled
+	// doens't matter what to return since sds won't be used.
+	if !controlPlaneAuthEnabled {
 		return false, ""
 	}
 
@@ -493,12 +502,6 @@ func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, tru
 			return true, trustworthyJWTPath
 		}
 
-		return false, ""
-	}
-
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
-	if !controlPlaneAuthEnabled {
 		return false, ""
 	}
 
