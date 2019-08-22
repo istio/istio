@@ -180,44 +180,46 @@ func TestConvertLocality(t *testing.T) {
 		name     string
 		locality string
 		want     *core.Locality
+		reverse  string
 	}{
 		{
-			"nil locality",
-			"",
-			nil,
+			name:     "nil locality",
+			locality: "",
+			want:     nil,
 		},
 		{
-			"locality with only region",
-			"region",
-			&core.Locality{
+			name:     "locality with only region",
+			locality: "region",
+			want: &core.Locality{
 				Region: "region",
 			},
 		},
 		{
-			"locality with region and zone",
-			"region/zone",
-			&core.Locality{
+			name:     "locality with region and zone",
+			locality: "region/zone",
+			want: &core.Locality{
 				Region: "region",
 				Zone:   "zone",
 			},
 		},
 		{
-			"locality with region zone and subzone",
-			"region/zone/subzone",
-			&core.Locality{
+			name:     "locality with region zone and subzone",
+			locality: "region/zone/subzone",
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
 			},
 		},
 		{
-			"locality with region zone subzone and rack",
-			"region/zone/subzone/rack",
-			&core.Locality{
+			name:     "locality with region zone subzone and rack",
+			locality: "region/zone/subzone/rack",
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
 			},
+			reverse: "region/zone/subzone",
 		},
 	}
 
@@ -226,6 +228,16 @@ func TestConvertLocality(t *testing.T) {
 			got := ConvertLocality(tt.locality)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
+			}
+			// Verify we can reverse the conversion back to the original input
+			reverse := LocalityToString(got)
+			if tt.reverse != "" {
+				// Special case, reverse lookup is different than original input
+				if tt.reverse != reverse {
+					t.Errorf("Expected locality string %s, got %v", tt.reverse, reverse)
+				}
+			} else if tt.locality != reverse {
+				t.Errorf("Expected locality string %s, got %v", tt.locality, reverse)
 			}
 		})
 	}
