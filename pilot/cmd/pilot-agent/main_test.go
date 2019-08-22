@@ -136,38 +136,38 @@ func TestDetectSds(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	tests := []struct {
-		controlPlaneBootstrap   bool
-		udsPath                 string
-		tokenPath               string
-		expectedSdsEnabled      bool
-		expectedSdsTokenPath    string
+		controlPlaneBootstrap bool
+		udsPath               string
+		tokenPath             string
+		expectedSdsEnabled    bool
+		expectedSdsTokenPath  string
 	}{
 		{
-			controlPlaneBootstrap:   true,
-			expectedSdsEnabled:      false,
-			expectedSdsTokenPath:    "",
+			controlPlaneBootstrap: true,
+			expectedSdsEnabled:    false,
+			expectedSdsTokenPath:  "",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			udsPath:                 "/tmp/testtmpuds1.log",
-			tokenPath:               "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:      true,
-			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			udsPath:               "/tmp/testtmpuds1.log",
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			udsPath:                 "/tmp/testtmpuds1.log",
-			tokenPath:               "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:      true,
-			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			udsPath:               "/tmp/testtmpuds1.log",
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			tokenPath:               "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			tokenPath:             "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			udsPath:                 "/tmp/testtmpuds1.log",
+			controlPlaneBootstrap: true,
+			udsPath:               "/tmp/testtmpuds1.log",
 		},
 		{
 			controlPlaneBootstrap: false,
