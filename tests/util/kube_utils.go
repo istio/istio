@@ -350,6 +350,16 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 	}
 }
 
+func GetServiceEndpoint(namespace, svc string) (string, error) {
+	endpoint, err := ShellSilent(
+		"kubectl -n %s get endpoints %s -o jsonpath='{.subsets[*].addresses[*].ip}'",
+		namespace, svc)
+	if err != nil {
+		return "", err
+	}
+	return endpoint, err
+}
+
 func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) {
 	ip, err := ShellSilent(
 		"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s",
