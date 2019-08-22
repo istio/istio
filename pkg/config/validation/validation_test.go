@@ -1450,6 +1450,30 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
+		{"istio_mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			""},
+		{"istio_mutual with server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard"},
+			"cannot have associated server cert"},
+		{"istio_mutual with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker"},
+			"cannot have associated"},
+		{"istio_mutual with private key",
+			&networking.Server_TLSOptions{
+				Mode:       networking.Server_TLSOptions_ISTIO_MUTUAL,
+				PrivateKey: "Khan Noonien Singh"},
+			"cannot have associated private key"},
 	}
 
 	for _, tt := range tests {

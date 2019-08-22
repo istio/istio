@@ -85,7 +85,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/batch/v1/namespaces/default/job/pi
+          value: kubernetes://api/batch/v1/namespaces/default/jobs/pi
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -131,7 +131,7 @@ spec:
         - -x
         - ""
         - -b
-        - ""
+        - '*'
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest

@@ -471,3 +471,31 @@ func MergeAnyWithStruct(any *types.Any, pbStruct *types.Struct) (*types.Any, err
 
 	return retVal, nil
 }
+
+// MergeAnyWithAny merges a given any typed message into the given Any typed message by dynamically inferring the
+// type of Any
+func MergeAnyWithAny(dst *types.Any, src *types.Any) (*types.Any, error) {
+	// Assuming that Pilot is compiled with this type [which should always be the case]
+	var err error
+	var dstX, srcX types.DynamicAny
+
+	// get an object of type used by this message
+	if err = types.UnmarshalAny(dst, &dstX); err != nil {
+		return nil, err
+	}
+
+	// get an object of type used by this message
+	if err = types.UnmarshalAny(src, &srcX); err != nil {
+		return nil, err
+	}
+
+	// Merge the two typed protos
+	proto.Merge(dstX.Message, srcX.Message)
+	var retVal *types.Any
+	// Convert the merged proto back to dst
+	if retVal, err = types.MarshalAny(dstX.Message); err != nil {
+		return nil, err
+	}
+
+	return retVal, nil
+}

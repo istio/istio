@@ -86,7 +86,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/v1/namespaces/default/pod/pi
+          value: kubernetes://api/v1/namespaces/default/pods/pi
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -132,7 +132,7 @@ spec:
         - -x
         - ""
         - -b
-        - ""
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
