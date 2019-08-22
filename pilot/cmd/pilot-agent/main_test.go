@@ -137,7 +137,6 @@ func TestDetectSds(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tests := []struct {
 		controlPlaneBootstrap   bool
-		controlPlaneAuthEnabled bool
 		udsPath                 string
 		tokenPath               string
 		expectedSdsEnabled      bool
@@ -145,13 +144,11 @@ func TestDetectSds(t *testing.T) {
 	}{
 		{
 			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: false,
 			expectedSdsEnabled:      false,
 			expectedSdsTokenPath:    "",
 		},
 		{
 			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
 			udsPath:                 "/tmp/testtmpuds1.log",
 			tokenPath:               "/tmp/testtmptoken1.log",
 			expectedSdsEnabled:      true,
@@ -159,7 +156,6 @@ func TestDetectSds(t *testing.T) {
 		},
 		{
 			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
 			udsPath:                 "/tmp/testtmpuds1.log",
 			tokenPath:               "/tmp/testtmptoken1.log",
 			expectedSdsEnabled:      true,
@@ -167,12 +163,10 @@ func TestDetectSds(t *testing.T) {
 		},
 		{
 			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
 			tokenPath:               "/tmp/testtmptoken1.log",
 		},
 		{
 			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
 			udsPath:                 "/tmp/testtmpuds1.log",
 		},
 		{
@@ -201,7 +195,7 @@ func TestDetectSds(t *testing.T) {
 			}
 		}
 
-		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.controlPlaneAuthEnabled, tt.udsPath, tt.tokenPath)
+		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.udsPath, tt.tokenPath)
 		g.Expect(enabled).To(gomega.Equal(tt.expectedSdsEnabled))
 		g.Expect(path).To(gomega.Equal(tt.expectedSdsTokenPath))
 	}
