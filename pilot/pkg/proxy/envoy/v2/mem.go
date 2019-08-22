@@ -108,6 +108,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 
 func (sd *MemServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 	sd.ip2workloadLabels[ip] = &labels
+	sd.EDSUpdater.WorkloadUpdate(sd.ClusterID, map[string]string(labels), nil)
 }
 
 // AddHTTPService is a helper to add a service of type http, named 'http-main', with the
@@ -233,6 +234,11 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 	}
 
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+}
+
+// UpdateWorkloadLabels updates the workload labels, similar with K8S controller.
+func (sd *MemServiceDiscovery) UpdateWorkloadLabels(ip string, labels labels.Instance) {
+	sd.AddWorkload(ip, labels)
 }
 
 // Services implements discovery interface
