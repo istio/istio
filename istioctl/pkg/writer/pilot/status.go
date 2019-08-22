@@ -18,10 +18,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"sort"
 	"strings"
 	"text/tabwriter"
+
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
