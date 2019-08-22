@@ -17,7 +17,6 @@ package pilot
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"testing"
 
