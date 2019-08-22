@@ -57,7 +57,6 @@ spec:
     match:
       context: SIDECAR_INBOUND
       listener:
-        portNumber: 80
         filterChain:
           filter:
             name: "envoy.http_connection_manager"
@@ -75,6 +74,46 @@ spec:
             function envoy_on_response(handle)
               handle:logWarn("DEBUG RESPONSE")
             end
+  - applyTo: NETWORK_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        portNumber: 80
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
+          access_log:
+          - name: envoy.http_grpc_access_log
+            config: 
+              common_config:
+                log_name: "grpc-als-example"
+                grpc_service:
+                  envoy_grpc:
+                    cluster_name: grpc-als-cluster
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: ADD
+      value:
+        name: grpc-als-cluster
+        type: STRICT_DNS
+        connect_timeout: 0.25s
+        http2_protocol_options: {}
+        load_assignment:
+          cluster_name: grpc-als-cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 9999
 `
 
 	AppConfig = `
@@ -225,6 +264,7 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	}
 
 	expectedHTTPFilters := []string{"istio_authn", "envoy.lua", "mixer", "envoy.cors", "envoy.fault", "envoy.router"}
+	expectedHTTPAccessLogFilteers := []string{"envoy.file_access_log", "envoy.http_grpc_access_log"}
 	var listenerToCheck *xdsapi.Listener
 	got := map[string]struct{}{}
 	for _, res := range resp.Resources {
@@ -256,6 +296,9 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 					}
 				}
 
+				if err := hcm.Validate(); err != nil {
+					return false, fmt.Errorf("invalid http connection manager: %v", err)
+				}
 				httpFiltersFound := make([]string, 0)
 				for _, httpFilter := range hcm.HttpFilters {
 					httpFiltersFound = append(httpFiltersFound, httpFilter.Name)
@@ -263,6 +306,15 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 				if !reflect.DeepEqual(expectedHTTPFilters, httpFiltersFound) {
 					return false, fmt.Errorf("excepted http filters %+v, got %+v",
 						expectedHTTPFilters, httpFiltersFound)
+				}
+
+				accessLogFiltersFound := make([]string, 0)
+				for _, al := range hcm.AccessLog {
+					accessLogFiltersFound = append(accessLogFiltersFound, al.Name)
+				}
+				if !reflect.DeepEqual(expectedHTTPAccessLogFilteers, accessLogFiltersFound) {
+					return false, fmt.Errorf("excepted accesslog filters %+v, got %+v",
+						expectedHTTPAccessLogFilteers, accessLogFiltersFound)
 				}
 
 			}
