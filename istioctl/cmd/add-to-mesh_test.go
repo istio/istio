@@ -41,7 +41,7 @@ type testcase struct {
 
 var (
 	one          = int32(1)
-	cannedK8sEnv = []runtime.Object{
+	tck8sConfigs = []runtime.Object{
 		&coreV1.ConfigMapList{Items: []coreV1.ConfigMap{}},
 
 		&appsv1.DeploymentList{Items: []appsv1.Deployment{
@@ -120,7 +120,7 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
-			k8sConfigs:        cannedK8sEnv,
+			k8sConfigs:        tck8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
 				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
 				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
@@ -131,7 +131,7 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: true,
-			k8sConfigs:        cannedK8sEnv,
+			k8sConfigs:        tck8sConfigs,
 			expectedOutput:    "Error: services \"test\" not found\n",
 		},
 		{
@@ -140,7 +140,7 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
-			k8sConfigs:        cannedK8sEnv,
+			k8sConfigs:        tck8sConfigs,
 			expectedOutput:    "No deployments found for service dummyservice.default\n",
 		},
 	}
@@ -155,7 +155,7 @@ func TestAddToMesh(t *testing.T) {
 func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	t.Helper()
 
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
+	interfaceFactory = mockInterfaceFactory(c.k8sConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
@@ -181,7 +181,7 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	}
 }
 
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
+func mockInterfaceFactory(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
 	outFactory := func(_ string) (kubernetes.Interface, error) {
 		client := fake.NewSimpleClientset(k8sConfigs...)
 		return client, nil

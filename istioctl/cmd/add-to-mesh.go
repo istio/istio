@@ -36,7 +36,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
-
 func addToMeshCmd() *cobra.Command {
 	addToMeshCmd := &cobra.Command{
 		Use:     "add-to-mesh",
