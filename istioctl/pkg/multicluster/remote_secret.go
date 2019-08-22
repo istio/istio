@@ -16,7 +16,6 @@ package multicluster
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -112,7 +111,7 @@ istioctl x create-pilot-remote-secrets c0 c1 \
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)
 				os.Exit(1)
 			}
-			fmt.Print(c.OutOrStdout(), out)
+			fmt.Fprint(c.OutOrStdout(), out)
 			return nil
 		},
 	}
@@ -172,7 +171,7 @@ func createRemotePilotKubeconfig(in *v1.Secret, config *api.Config, context stri
 		},
 		AuthInfos: map[string]*api.AuthInfo{
 			contextInfo.Cluster: {
-				Token: base64.StdEncoding.EncodeToString(token),
+				Token: string(token),
 			},
 		},
 		Contexts: map[string]*api.Context{

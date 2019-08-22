@@ -60,18 +60,16 @@ stringData:
     users:
     - name: {{ .Name }}
       user:
-        token: {{ .TokenBase64 }}
+        token: {{ .Token }}
 ---
 `
 
 type testClusterData struct {
 	// Pilot SA data
-	Name   string
-	CAData string
-	Token  string
-
+	Name         string
+	CAData       string
 	CADataBase64 string
-	TokenBase64  string
+	Token        string
 
 	// Secret with Pilot SA encoded in kubeconfig
 	kubeconfigSecretYaml string
@@ -87,7 +85,6 @@ func makeTestClusterData(name string) *testClusterData {
 		CAData:       caData,
 		CADataBase64: base64.StdEncoding.EncodeToString([]byte(caData)),
 		Token:        token,
-		TokenBase64:  base64.StdEncoding.EncodeToString([]byte(token)),
 		Server:       fmt.Sprintf("server-%v", name),
 	}
 
@@ -146,12 +143,6 @@ var (
 	c0 = makeTestClusterData("c0")
 	c1 = makeTestClusterData("c1")
 	c2 = makeTestClusterData("c2")
-
-	clusters = map[string]*testClusterData{
-		"c0": c0,
-		"c1": c1,
-		"c2": c2,
-	}
 )
 
 var testAPIConfig = &api.Config{
@@ -411,7 +402,7 @@ func TestCreateRemotePilotKubeconfig(t *testing.T) {
 				},
 				AuthInfos: map[string]*api.AuthInfo{
 					"c0": {
-						Token: c0.TokenBase64,
+						Token: c0.Token,
 					},
 				},
 				CurrentContext: "c0",
