@@ -619,6 +619,11 @@ type AlertPolicy struct {
 	// with a letter.
 	UserLabels map[string]string `json:"userLabels,omitempty"`
 
+	// Validity: Read-only description of how the alert policy is invalid.
+	// OK if the alert policy is valid. If not OK, the alert policy will not
+	// generate incidents.
+	Validity *Status `json:"validity,omitempty"`
+
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
@@ -967,6 +972,23 @@ func (s *Condition) MarshalJSON() ([]byte, error) {
 type ContentMatcher struct {
 	// Content: String or regex content to match (max 1024 bytes)
 	Content string `json:"content,omitempty"`
+
+	// Matcher: The matcher representing content match options which the
+	// check will run with. If the field is not specified (in previous
+	// versions), the option is set to be CONTAINS_STRING which performs
+	// content substring matching.
+	//
+	// Possible values:
+	//   "CONTENT_MATCHER_OPTION_UNSPECIFIED" - No content macher option
+	// specified. Treated as CONTAINS_STRING.
+	//   "CONTAINS_STRING" - Allows checking substring matching. Default
+	// value for previous versions without option.
+	//   "NOT_CONTAINS_STRING" - Allows checking negation of substring
+	// matching (doesn't contain the substring).
+	//   "MATCHES_REGEX" - Allows checking regular expression matching.
+	//   "NOT_MATCHES_REGEX" - Allows checking negation of regular
+	// expression matching.
+	Matcher string `json:"matcher,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Content") to
 	// unconditionally include in API requests. By default, fields with
@@ -1720,6 +1742,11 @@ type HttpCheck struct {
 
 	// UseSsl: If true, use HTTPS instead of HTTP to run the check.
 	UseSsl bool `json:"useSsl,omitempty"`
+
+	// ValidateSsl: Boolean specifying whether to validate SSL certificates.
+	// Only applies to uptime_url checks. If use_ssl is false, setting this
+	// to true has no effect.
+	ValidateSsl bool `json:"validateSsl,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AuthInfo") to
 	// unconditionally include in API requests. By default, fields with

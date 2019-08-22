@@ -9,7 +9,8 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 require (
-	cloud.google.com/go v0.38.0
+	cloud.google.com/go v0.44.3
+	cloud.google.com/go/logging v1.0.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
@@ -46,7 +47,8 @@ require (
 	github.com/duosecurity/duo_api_golang v0.0.0-20190308151101-6c680f768e74 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/emicklei/go-restful v2.9.3+incompatible
-	github.com/envoyproxy/go-control-plane v0.8.6
+	github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a
+	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/evanphx/json-patch v4.2.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
@@ -62,10 +64,10 @@ require (
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
-	github.com/google/go-cmp v0.3.0
+	github.com/google/go-cmp v0.3.1
 	github.com/google/go-github v15.0.0+incompatible
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/google/uuid v1.1.1
@@ -84,6 +86,7 @@ require (
 	github.com/hashicorp/go-plugin v1.0.0 // indirect
 	github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.3 // indirect
 	github.com/hashicorp/serf v0.8.1 // indirect
 	github.com/hashicorp/vault v0.10.0
@@ -136,16 +139,18 @@ require (
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
-	go.opencensus.io v0.21.0
+	go.opencensus.io v0.22.0
 	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586 // indirect
+	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
-	google.golang.org/api v0.8.0
-	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
+	golang.org/x/tools v0.0.0-20190822000311-fc82fb2afd64
+	google.golang.org/api v0.9.0
+	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.23.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/ini.v1 v1.42.0 // indirect
@@ -156,7 +161,7 @@ require (
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20190820204432-483f2547d882
-	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
+	istio.io/gogo-genproto v0.0.0-20190819131816-7a8328e41c1a
 	istio.io/operator v0.0.0-20190813061052-3b21fa19e418
 	istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471

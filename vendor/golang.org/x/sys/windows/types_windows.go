@@ -197,8 +197,11 @@ const (
 	FILE_MAP_READ    = 0x04
 	FILE_MAP_EXECUTE = 0x20
 
-	CTRL_C_EVENT     = 0
-	CTRL_BREAK_EVENT = 1
+	CTRL_C_EVENT        = 0
+	CTRL_BREAK_EVENT    = 1
+	CTRL_CLOSE_EVENT    = 2
+	CTRL_LOGOFF_EVENT   = 5
+	CTRL_SHUTDOWN_EVENT = 6
 
 	// Windows reserves errors >= 1<<29 for application use.
 	APPLICATION_ERROR = 1 << 29
@@ -1649,3 +1652,17 @@ const (
 	KF_FLAG_SIMPLE_IDLIST                    = 0x00000100
 	KF_FLAG_ALIAS_ONLY                       = 0x80000000
 )
+
+type OsVersionInfoEx struct {
+	osVersionInfoSize uint32
+	MajorVersion      uint32
+	MinorVersion      uint32
+	BuildNumber       uint32
+	PlatformId        uint32
+	CsdVersion        [128]uint16
+	ServicePackMajor  uint16
+	ServicePackMinor  uint16
+	SuiteMask         uint16
+	ProductType       byte
+	_                 byte
+}

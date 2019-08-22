@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -138,7 +139,7 @@ func (c *AlertPolicyClient) setGoogleClientInfo(keyval ...string) {
 
 // ListAlertPolicies lists the existing alerting policies for the project.
 func (c *AlertPolicyClient) ListAlertPolicies(ctx context.Context, req *monitoringpb.ListAlertPoliciesRequest, opts ...gax.CallOption) *AlertPolicyIterator {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListAlertPolicies[0:len(c.CallOptions.ListAlertPolicies):len(c.CallOptions.ListAlertPolicies)], opts...)
 	it := &AlertPolicyIterator{}
@@ -171,12 +172,13 @@ func (c *AlertPolicyClient) ListAlertPolicies(ctx context.Context, req *monitori
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	it.pageInfo.MaxSize = int(req.PageSize)
+	it.pageInfo.Token = req.PageToken
 	return it
 }
 
 // GetAlertPolicy gets a single alerting policy.
 func (c *AlertPolicyClient) GetAlertPolicy(ctx context.Context, req *monitoringpb.GetAlertPolicyRequest, opts ...gax.CallOption) (*monitoringpb.AlertPolicy, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetAlertPolicy[0:len(c.CallOptions.GetAlertPolicy):len(c.CallOptions.GetAlertPolicy)], opts...)
 	var resp *monitoringpb.AlertPolicy
@@ -193,7 +195,7 @@ func (c *AlertPolicyClient) GetAlertPolicy(ctx context.Context, req *monitoringp
 
 // CreateAlertPolicy creates a new alerting policy.
 func (c *AlertPolicyClient) CreateAlertPolicy(ctx context.Context, req *monitoringpb.CreateAlertPolicyRequest, opts ...gax.CallOption) (*monitoringpb.AlertPolicy, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateAlertPolicy[0:len(c.CallOptions.CreateAlertPolicy):len(c.CallOptions.CreateAlertPolicy)], opts...)
 	var resp *monitoringpb.AlertPolicy
@@ -210,7 +212,7 @@ func (c *AlertPolicyClient) CreateAlertPolicy(ctx context.Context, req *monitori
 
 // DeleteAlertPolicy deletes an alerting policy.
 func (c *AlertPolicyClient) DeleteAlertPolicy(ctx context.Context, req *monitoringpb.DeleteAlertPolicyRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteAlertPolicy[0:len(c.CallOptions.DeleteAlertPolicy):len(c.CallOptions.DeleteAlertPolicy)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -226,7 +228,7 @@ func (c *AlertPolicyClient) DeleteAlertPolicy(ctx context.Context, req *monitori
 // specifying the fields to be updated via updateMask. Returns the
 // updated alerting policy.
 func (c *AlertPolicyClient) UpdateAlertPolicy(ctx context.Context, req *monitoringpb.UpdateAlertPolicyRequest, opts ...gax.CallOption) (*monitoringpb.AlertPolicy, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "alert_policy.name", req.GetAlertPolicy().GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "alert_policy.name", url.QueryEscape(req.GetAlertPolicy().GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateAlertPolicy[0:len(c.CallOptions.UpdateAlertPolicy):len(c.CallOptions.UpdateAlertPolicy)], opts...)
 	var resp *monitoringpb.AlertPolicy

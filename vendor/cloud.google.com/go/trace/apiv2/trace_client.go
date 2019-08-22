@@ -19,6 +19,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	gax "github.com/googleapis/gax-go/v2"
@@ -126,7 +127,7 @@ func (c *Client) setGoogleClientInfo(keyval ...string) {
 // BatchWriteSpans sends new spans to new or existing traces. You cannot update
 // existing spans.
 func (c *Client) BatchWriteSpans(ctx context.Context, req *cloudtracepb.BatchWriteSpansRequest, opts ...gax.CallOption) error {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchWriteSpans[0:len(c.CallOptions.BatchWriteSpans):len(c.CallOptions.BatchWriteSpans)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -139,7 +140,7 @@ func (c *Client) BatchWriteSpans(ctx context.Context, req *cloudtracepb.BatchWri
 
 // CreateSpan creates a new span.
 func (c *Client) CreateSpan(ctx context.Context, req *cloudtracepb.Span, opts ...gax.CallOption) (*cloudtracepb.Span, error) {
-	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", url.QueryEscape(req.GetName())))
 	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateSpan[0:len(c.CallOptions.CreateSpan):len(c.CallOptions.CreateSpan)], opts...)
 	var resp *cloudtracepb.Span

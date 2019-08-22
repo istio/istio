@@ -16,14 +16,14 @@
 package metricexport
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"context"
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/metric/metricproducer"
 	"go.opencensus.io/trace"
-	"sync"
 )
 
 var (

@@ -27,6 +27,19 @@ type NodeHash interface {
 	ID(node *core.Node) string
 }
 
+// IDHash uses ID field as the node hash.
+type IDHash struct{}
+
+// ID uses the node ID field
+func (IDHash) ID(node *core.Node) string {
+	if node == nil {
+		return ""
+	}
+	return node.Id
+}
+
+var _ NodeHash = IDHash{}
+
 // StatusInfo tracks the server state for the remote Envoy node.
 // Not all fields are used by all cache implementations.
 type StatusInfo interface {

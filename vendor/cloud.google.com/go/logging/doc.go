@@ -85,11 +85,11 @@ If you have a []byte of JSON, wrap it in json.RawMessage:
 	lg.Log(logging.Entry{Payload: json.RawMessage(j)})
 
 
-The Standard Logger Interface
+The Standard Logger
 
 You may want use a standard log.Logger in your program.
 
-	// stdlg implements log.Logger
+	// stdlg is an instance of *log.Logger.
 	stdlg := lg.StandardLogger(logging.Info)
 	stdlg.Println("some info")
 

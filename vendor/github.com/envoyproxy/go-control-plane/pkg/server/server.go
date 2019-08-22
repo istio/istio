@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 )
@@ -188,6 +189,9 @@ func (s *server) process(stream stream, reqCh <-chan *v2.DiscoveryRequest, defau
 		}
 	}
 
+	// node may only be set on the first discovery request
+	var node = &core.Node{}
+
 	for {
 		select {
 		// config watcher can send the requested resources types in any order
@@ -248,6 +252,13 @@ func (s *server) process(stream stream, reqCh <-chan *v2.DiscoveryRequest, defau
 			}
 			if req == nil {
 				return status.Errorf(codes.Unavailable, "empty request")
+			}
+
+			// node field in discovery request is delta-compressed
+			if req.Node != nil {
+				node = req.Node
+			} else {
+				req.Node = node
 			}
 
 			// nonces can be reused across streams; we verify nonce only if nonce is not initialized

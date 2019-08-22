@@ -1494,7 +1494,8 @@ type RouteAction struct {
 	HostRewriteSpecifier isRouteAction_HostRewriteSpecifier `protobuf_oneof:"host_rewrite_specifier"`
 	// Specifies the upstream timeout for the route. If not specified, the default is 15s. This
 	// spans between the point at which the entire downstream request (i.e. end-of-stream) has been
-	// processed and when the upstream response has been completely processed.
+	// processed and when the upstream response has been completely processed. A value of 0 will
+	// disable the route's timeout.
 	//
 	// .. note::
 	//
