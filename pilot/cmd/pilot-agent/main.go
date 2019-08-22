@@ -100,7 +100,7 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -478,18 +478,33 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// detectSds checks if the UDS and JWT paths are present. The returned values are used by caller
-// to decide whether SDS is used for control plane.
-func detectSds(controlPlaneBootstrap bool, udspath, trustworthyJWTPath string) (bool, string) {
+// detectSds checks if the SDS address (when it is UDS) and JWT paths are present.
+func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
+	}
+
+	if len(sdsAddress) == 0 {
+		return false, ""
+	}
+
+	// sdsAddress will not be empty when sdsAddress is a UDS address.
+	udsPath := ""
+	if strings.HasPrefix(sdsAddress, "unix:") {
+		udsPath = strings.TrimPrefix(sdsAddress, "unix:")
+		if len(udsPath) == 0 {
+			// If sdsAddress is "unix:", it is invalid, return false.
+			return false, ""
+		}
 	}
 
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
-		if _, err := os.Stat(udspath); err != nil {
-			return false, ""
+		if len(udsPath) > 0 {
+			if _, err := os.Stat(udsPath); err != nil {
+				return false, ""
+			}
 		}
 		if _, err := os.Stat(trustworthyJWTPath); err == nil {
 			return true, trustworthyJWTPath
@@ -501,8 +516,10 @@ func detectSds(controlPlaneBootstrap bool, udspath, trustworthyJWTPath string) (
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
-	if !waitForFile(udspath, sdsUdsWaitTimeout) {
-		return false, ""
+	if len(udsPath) > 0 {
+		if !waitForFile(udsPath, sdsUdsWaitTimeout) {
+			return false, ""
+		}
 	}
 	if _, err := os.Stat(trustworthyJWTPath); err == nil {
 		return true, trustworthyJWTPath
