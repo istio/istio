@@ -36,10 +36,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
-var (
-	// Function that creates Kubernetes client-go; making it a variable lets us mock client-go
-	interfaceFactory = createInterface
-)
 
 func addToMeshCmd() *cobra.Command {
 	addToMeshCmd := &cobra.Command{
