@@ -102,7 +102,7 @@ spec:
                 fieldPath: metadata.namespace
 {{- if .Values.global.autopilot.enabled }}
           - name: PILOT_USE_AUTOPILOT_MTLS
-            vale: true
+            value: "true"
 {{- end }}
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
