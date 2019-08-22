@@ -234,6 +234,10 @@ spec:
                 fieldPath: metadata.namespace
           - name: SDS_ENABLED
             value: "{{ $.Values.global.sds.enabled }}"
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: {{ $key }}
+          - name: ISTIO_META_OWNER
+            value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
