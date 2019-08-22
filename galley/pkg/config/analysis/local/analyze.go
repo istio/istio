@@ -35,18 +35,20 @@ const domainSuffix = "svc.local"
 
 // SourceAnalyzer handles local analysis of k8s and file based event sources
 type SourceAnalyzer struct {
-	m        *schema.Metadata
-	sources  []event.Source
-	analyzer analysis.Analyzer
+	m         *schema.Metadata
+	sources   []event.Source
+	analyzer  analysis.Analyzer
+	defaultNs string
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, defaultNs string) *SourceAnalyzer {
 	return &SourceAnalyzer{
-		m:        m,
-		sources:  make([]event.Source, 0),
-		analyzer: analyzer,
+		m:         m,
+		sources:   make([]event.Source, 0),
+		analyzer:  analyzer,
+		defaultNs: defaultNs,
 	}
 }
 
@@ -80,6 +82,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.m.KubeSource().Resources())
 
+	src.SetDefaultNamespace(sa.defaultNs)
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)
 		if err != nil {

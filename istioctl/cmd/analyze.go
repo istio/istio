@@ -64,7 +64,8 @@ istioctl experimental analyze -k a.yaml b.yaml
 			}
 			cancel := make(chan struct{})
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All())
+			//TODO: Default namespace should be a config param
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All(), "default")
 
 			// If we're using kube, use that as a base source.
 			if useKube {

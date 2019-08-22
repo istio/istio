@@ -42,6 +42,7 @@ type KubeSource struct {
 	name      string
 	resources schema.KubeResources
 	source    *inmemory.Source
+	defaultNs string
 
 	versionCtr int64
 	shas       map[kubeResourceKey]resourceSha
@@ -84,6 +85,11 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 		shas:      make(map[kubeResourceKey]resourceSha),
 		byFile:    make(map[string]map[kubeResourceKey]collection.Name),
 	}
+}
+
+// SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
+func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
+	s.defaultNs = defaultNs
 }
 
 // Start implements processor.Source
@@ -140,6 +146,15 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	newKeys := make(map[kubeResourceKey]collection.Name)
 
 	for _, r := range resources {
+		// If namespace is blank and we have a default set, fill in the default
+		// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
+		//TODO: Scope this only to resources where it makes sense?
+		ns, n := r.entry.Metadata.Name.InterpretAsNamespaceAndName()
+		if ns == "" && s.defaultNs != "" {
+			scope.Source.Debugf("KubeSource.ApplyContent: namespace not specified for %q, using %q", r.entry.Metadata.Name, s.defaultNs)
+			r.entry.Metadata.Name = resource.NewName(s.defaultNs, n)
+		}
+
 		key := r.newKey()
 
 		oldSha, found := s.shas[key]
