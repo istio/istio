@@ -17,6 +17,7 @@ package multicluster
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -53,13 +54,9 @@ func init() {
 	)
 }
 
-type Options struct {
-	ServiceAccountName string
-
-	// inherited from root command
-	Namespace  string
-	Kubeconfig string
-	Context    string
+type commandFlags struct {
+	serviceAccountName string
+	clusterName        string
 }
 
 var (
@@ -69,8 +66,8 @@ var (
 
 // NewCreateRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
 func NewCreateRemoteSecretCommand(kubeconfig, namespace, context *string) *cobra.Command {
-	o := Options{
-		ServiceAccountName: DefaultServiceAccountName,
+	f := commandFlags{
+		serviceAccountName: DefaultServiceAccountName,
 	}
 
 	c := &cobra.Command{
@@ -86,13 +83,9 @@ istioctl --kubeconfig=c0.yaml x create-remote-secrets \
     | kubectl -n istio-system --kubeconfig=c1.yaml delete -f -
 
 `,
-		Args: cobra.NoArgs(),
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			o.Context = *context
-			o.Kubeconfig = *kubeconfig
-			o.Namespace = *namespace
-
-			out, err := CreateRemoteSecrets(o)
+			out, err := CreateRemoteSecret(*context, *kubeconfig, *namespace, f.serviceAccountName, args[0])
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)
 				os.Exit(1)
@@ -103,73 +96,22 @@ istioctl --kubeconfig=c0.yaml x create-remote-secrets \
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringVar(&o.ServiceAccountName, "service-account-name", o.ServiceAccountName,
-		"name of service account in the remote cluster")
+	flags.StringVar(&f.serviceAccountName, "service-account-testName", f.serviceAccountName,
+		"testName of service account in the remote cluster")
 
 	return c
 }
 
 // hooks for testing
 var (
-	newStartingConfig = func(kubeconfig string) (*api.Config, error) {
-		return kube.BuildClientCmd(kubeconfig, "").ConfigAccess().GetStartingConfig()
+	newStartingConfig = func(kubeconfig, context string) (*api.Config, error) {
+		return kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
 	}
 
 	newKubernetesInterface = func(kubeconfig, context string) (kubernetes.Interface, error) {
 		return kube.CreateClientset(kubeconfig, context)
 	}
 )
-
-const (
-	caDataSecretKey = "ca.crt"
-	tokenSecretKey  = "token"
-)
-
-func createRemoteKubeconfig(in *v1.Secret, config *api.Config, context string) (*api.Config, error) {
-	contextInfo, ok := config.Contexts[context]
-	if !ok {
-		return nil, fmt.Errorf("%q context not found in Kubeconfig(s)", context)
-	}
-
-	clusterInfo, ok := config.Clusters[contextInfo.Cluster]
-	if !ok {
-		return nil, fmt.Errorf("%q cluster not found in Kubeconfig(s) for context %q", contextInfo.Cluster, context)
-	}
-
-	caData, ok := in.Data[caDataSecretKey]
-	if !ok {
-		return nil, fmt.Errorf("no %q data found in secret %s/%s for context %q",
-			caDataSecretKey, in.Namespace, in.Name, context)
-	}
-
-	token, ok := in.Data[tokenSecretKey]
-	if !ok {
-		return nil, fmt.Errorf("no %q data found in secret %s/%s for context %q",
-			tokenSecretKey, in.Namespace, in.Name, context)
-	}
-
-	kubeconfig := &api.Config{
-		Clusters: map[string]*api.Cluster{
-			contextInfo.Cluster: {
-				CertificateAuthorityData: caData,
-				Server:                   clusterInfo.Server,
-			},
-		},
-		AuthInfos: map[string]*api.AuthInfo{
-			contextInfo.Cluster: {
-				Token: string(token),
-			},
-		},
-		Contexts: map[string]*api.Context{
-			contextInfo.Cluster: {
-				Cluster:  contextInfo.Cluster,
-				AuthInfo: contextInfo.Cluster,
-			},
-		},
-		CurrentContext: contextInfo.Cluster,
-	}
-	return kubeconfig, nil
-}
 
 func createRemoteServiceAccountSecret(kubeconfig *api.Config, name string) (*v1.Secret, error) { // nolint:interfacer
 	var data bytes.Buffer
@@ -190,72 +132,136 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, name string) (*v1.
 	return out, nil
 }
 
-// TODO extend to use other forms of k8s auth (see https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies)
-func createRemoteSecret(out *bytes.Buffer, config *api.Config, name, context string, o *Options) error {
-	if _, err := out.WriteString(fmt.Sprintf("# Remote credentials for cluster context %q\n", context)); err != nil {
-		return err
+func createKubeconfig(caData, token []byte, context, server string) *api.Config {
+	return &api.Config{
+		Clusters: map[string]*api.Cluster{
+			context: {
+				CertificateAuthorityData: caData,
+				Server:                   server,
+			},
+		},
+		AuthInfos: map[string]*api.AuthInfo{
+			context: {
+				Token: string(token),
+			},
+		},
+		Contexts: map[string]*api.Context{
+			context: {
+				Cluster:  context,
+				AuthInfo: context,
+			},
+		},
+		CurrentContext: context,
+	}
+}
+
+var (
+	errMissingRootCAKey = fmt.Errorf("no %q data found", v1.ServiceAccountRootCAKey)
+	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
+)
+
+func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, name, server string) (*v1.Secret, error) {
+	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
+	if !ok {
+		return nil, errMissingRootCAKey
+	}
+	token, ok := tokenSecret.Data[v1.ServiceAccountTokenKey]
+	if !ok {
+		return nil, errMissingTokenKey
 	}
 
-	kube, err := newKubernetesInterface(o.Kubeconfig, context)
-	if err != nil {
-		return err
-	}
+	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
+	kubeconfig := createKubeconfig(caData, token, name, server)
 
-	// Get the remote service-account-token secret
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(o.Namespace).Get(o.ServiceAccountName, metav1.GetOptions{})
+	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
+	return createRemoteServiceAccountSecret(kubeconfig, name)
+}
+
+func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
+	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(saName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.Namespace, o.ServiceAccountName, context)
+		return nil, err
 	}
 	if len(serviceAccount.Secrets) != 1 {
-		return fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s in cluster %v",
-			len(serviceAccount.Secrets), o.Namespace, name, context)
+		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s",
+			len(serviceAccount.Secrets), saNamespace, saName)
 	}
 	secretName := serviceAccount.Secrets[0].Name
 	secretNamespace := serviceAccount.Secrets[0].Namespace
 	if secretNamespace == "" {
-		secretNamespace = o.Namespace
+		secretNamespace = saNamespace
 	}
-	saSecret, err := kube.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get secret %s/%s in cluster %v", secretNamespace, secretName, context)
-	}
-
-	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
-	kubeconfig, err := createRemoteKubeconfig(saSecret, config, context)
-	if err != nil {
-		return err
-	}
-
-	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
-	mcSecret, err := createRemoteServiceAccountSecret(kubeconfig, name)
-	if err != nil {
-		return err
-	}
-
-	// Output the secret in a multi-document YAML friendly format.
-	if err := Codec.Encode(mcSecret, out); err != nil {
-		return err
-	}
-	_, err = out.WriteString("---\n")
-	return err
+	return kube.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
 }
 
-const outputHeader = "# This file is autogenerated, do not edit.\n#\n"
+func getClusterServerFromKubeconfig(kubeconfig, context string) (string, error) {
+	config, err := newStartingConfig(kubeconfig, context)
+	if err != nil {
+		return "", err
+	}
+	cluster, ok := config.Clusters[config.CurrentContext]
+	if !ok {
+		return "", fmt.Errorf("could not find server for context %q", config.CurrentContext)
+	}
+	return cluster.Server, nil
+}
 
-// CreateRemoteSecrets creates a remote secret with credentials of the specified service account.
+const (
+	outputHeader  = "# This file is autogenerated, do not edit.\n"
+	outputTrailer = "---\n"
+)
+
+func writeEncodedSecret(out io.Writer, secret *v1.Secret) error {
+	if _, err := fmt.Fprint(out, outputHeader); err != nil {
+		return err
+	}
+	if err := Codec.Encode(secret, out); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprint(out, outputTrailer); err != nil {
+		return err
+	}
+	return nil
+}
+
+type writer interface {
+	io.Writer
+	String() string
+}
+
+func makeOutputWriter() writer {
+	return &bytes.Buffer{}
+}
+
+var makeOutputWriterTestHook = makeOutputWriter
+
+// CreateRemoteSecret creates a remote secret with credentials of the specified service account.
 // This is useful for providing a cluster access to a remote apiserver.
-func CreateRemoteSecrets(o Options) (string, error) {
-	config, err := newStartingConfig(o.Kubeconfig)
+//
+// TODO extend to use other forms of k8s auth (see https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies)
+func CreateRemoteSecret(kubeconfig, context, namespace, serviceAccountName, name string) (string, error) {
+	kube, err := newKubernetesInterface(kubeconfig, context)
 	if err != nil {
 		return "", err
 	}
 
-	var out bytes.Buffer
-	if _, err := out.WriteString(outputHeader); err != nil {
+	tokenSecret, err := getServiceAccountSecretToken(kube, serviceAccountName, namespace)
+	if err != nil {
 		return "", err
 	}
-	if err := createRemoteSecret(&out, config, o.Context, o.Context, &o); err != nil {
+
+	server, err := getClusterServerFromKubeconfig(kubeconfig, context)
+	if err != nil {
 		return "", err
 	}
-	return out.String(), nil
+	remoteSecret, err := createRemoteSecretFromTokenAndServer(tokenSecret, name, server)
+	if err != nil {
+		return "", err
+	}
+
+	w := makeOutputWriterTestHook()
+	if err := writeEncodedSecret(w, remoteSecret); err != nil {
+		return "", err
+	}
+	return w.String(), nil
 }

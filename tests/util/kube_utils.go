@@ -926,12 +926,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 
 	currentContext = strings.Trim(currentContext, "\n")
 
-	config, err := multicluster.CreatePilotRemoteSecrets(multicluster.Options{
-		ServiceAccountName: "istio-multi",
-		Kubeconfig:         remoteKubeConfig,
-		Namespace:          namespace,
-		Contexts:           []string{currentContext},
-	})
+	config, err := multicluster.CreateRemoteSecret(remoteKubeConfig, currentContext, "istio-multi", namespace, currentContext)
 	if err != nil {
 		log.Infof("Failed to create remote secret: %v\n", err)
 		return err
