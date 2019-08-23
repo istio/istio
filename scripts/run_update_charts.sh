@@ -20,9 +20,11 @@ set -u
 set -x
 set -e
 
-ISTIO_DIR="${GOPATH}/src/istio.io"
-OPERATOR_DIR="${ISTIO_DIR}/operator"
-INSTALLER_DIR="${ISTIO_DIR}/installer"
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+
+OPERATOR_DIR="${ROOTDIR}"
+INSTALLER_DIR=$(mktemp -d)
 OUT_DIR="${OPERATOR_DIR}/data/charts"
 SHA=`cat ${OPERATOR_DIR}/installer.sha`
 
@@ -30,9 +32,7 @@ if [[ "$#" -eq 1 ]]; then
     SHA="${1}"
 fi
 
-if [[ ! -d "${INSTALLER_DIR}" ]]; then
-    git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
-fi
+git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
 
 pushd .
 cd "${INSTALLER_DIR}"

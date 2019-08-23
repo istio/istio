@@ -2,6 +2,10 @@ module istio.io/operator
 
 go 1.12
 
+replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
+
+replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
+
 require (
 	cloud.google.com/go v0.37.4 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.4.12 // indirect
@@ -43,7 +47,7 @@ require (
 	github.com/go-openapi/spec v0.17.2
 	github.com/go-openapi/swag v0.19.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.1
