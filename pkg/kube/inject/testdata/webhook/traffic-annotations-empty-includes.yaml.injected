@@ -12,7 +12,6 @@ spec:
   template:
     metadata:
       annotations:
-        traffic-annotations-empty-includes.yaml.injected
         sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
@@ -21,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: traffic
+        security.istio.io/mtlsReady: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

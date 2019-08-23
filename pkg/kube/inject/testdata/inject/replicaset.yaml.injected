@@ -11,7 +11,6 @@ spec:
   template:
     metadata:
       annotations:
-        authentication.istio.io/mtlsReady: "true"
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
@@ -20,6 +19,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0

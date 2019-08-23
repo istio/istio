@@ -17,7 +17,6 @@ items:
     template:
       metadata:
         annotations:
-          authentication.istio.io/mtlsReady: "true"
           sidecar.istio.io/interceptionMode: REDIRECT
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
@@ -26,6 +25,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          security.istio.io/mtlsReady: "true"
           tier: backend
           track: stable
           version: v1
@@ -194,7 +194,6 @@ items:
     template:
       metadata:
         annotations:
-          authentication.istio.io/mtlsReady: "true"
           sidecar.istio.io/interceptionMode: REDIRECT
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
@@ -203,6 +202,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          security.istio.io/mtlsReady: "true"
           tier: backend
           track: stable
           version: v2

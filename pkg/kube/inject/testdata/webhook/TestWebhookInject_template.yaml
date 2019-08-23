@@ -6,6 +6,7 @@ containers:
   image: example.com/proxy:latest
 imagePullSecrets:
 - name: istio-image-pull-secrets
+mtlsReady: true
 volumes:
 - emptyDir:
     medium: Memory

@@ -12,7 +12,6 @@ spec:
   template:
     metadata:
       annotations:
-        authentication.istio.io/mtlsReady: "true"
         readiness.status.sidecar.istio.io/applicationPorts: 1,2,3
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
@@ -22,6 +21,7 @@ spec:
       creationTimestamp: null
       labels:
         app: status
+        security.istio.io/mtlsReady: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

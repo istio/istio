@@ -62,14 +62,16 @@
   },
   {
     "op": "add",
-    "path": "/metadata/annotations/authentication.istio.io~1mtlsReady",
-    "value": "true"
-  },
-  {
-    "op": "add",
     "path": "/metadata/annotations",
     "value": {
       "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels",
+    "value": {
+      "security.istio.io/mtlsReady": "true"
     }
   },
   {

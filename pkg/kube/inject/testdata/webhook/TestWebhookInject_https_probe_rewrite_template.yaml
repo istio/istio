@@ -10,6 +10,7 @@ containers:
     - 15020
 imagePullSecrets:
 - name: istio-image-pull-secrets
+mtlsReady: true
 volumes:
 - emptyDir:
     medium: Memory

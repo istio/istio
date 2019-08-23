@@ -7,11 +7,11 @@ spec:
   jobTemplate:
     metadata:
       annotations:
-        authentication.istio.io/mtlsReady: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
     spec:
       template:
         metadata:
