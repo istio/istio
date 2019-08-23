@@ -149,7 +149,6 @@ func validateFlags() error {
 
 var (
 	emitTemplate bool
-	mtlsReady    bool
 
 	inFilename          string
 	outFilename         string

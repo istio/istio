@@ -855,6 +855,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
 
 	if status != "" && spec.MTLSReady && metadata.Labels["security.istio.io/mtlsReady"] == "" {
+		if metadata.Labels == nil {
+			metadata.Labels = make(map[string]string)
+		}
 		metadata.Labels["security.istio.io/mtlsReady"] = "true"
 	}
 

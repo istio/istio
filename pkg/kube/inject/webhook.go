@@ -666,13 +666,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
-	labels := make(map[string]string, 0)
-	if pod.Labels["security.istio.io/mtlsReady"] == "" && spec.MTLSReady {
-		log.Errorf("gihanson: adding mtlsready label")
-		labels["security.istio.io/mtlsReady"] = "true"
-	} else {
-		log.Errorf("spec: %v, label: %v", spec.MTLSReady, pod.Labels["security.istio.io/mtlsReady"])
-	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
