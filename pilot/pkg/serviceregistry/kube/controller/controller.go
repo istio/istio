@@ -35,11 +35,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/pkg/log"
 )
@@ -64,19 +64,19 @@ const (
 )
 
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents)
+	monitoring.MustRegister(k8sEvents)
 }
 
 func incrementEvent(kind, event string) {
@@ -656,39 +656,6 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	}
 }
 
-// getServiceInstanceByEndpoint returns the service instances represented by the given endpoints.
-func (c *Controller) getServiceInstanceByEndpoint(endpoints v1.Endpoints) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-
-	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	if svc != nil {
-		for _, ss := range endpoints.Subsets {
-			for _, port := range ss.Ports {
-				svcPort, exists := svc.Ports.Get(port.Name)
-				if !exists {
-					continue
-				}
-
-				var addrs []v1.EndpointAddress
-				addrs = append(addrs, ss.Addresses...)
-				addrs = append(addrs, ss.NotReadyAddresses...)
-
-				for _, addr := range addrs {
-					if addr.IP != "" {
-						out = append(out, c.getEndpoints(addr.IP, port.Port, svcPort, svc))
-					}
-				}
-			}
-		}
-	}
-
-	return out
-}
-
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
@@ -804,11 +771,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		}
 
 		c.updateEDS(ep, event)
-
-		instances := c.getServiceInstanceByEndpoint(*ep)
-		for _, instance := range instances {
-			f(instance, event)
-		}
 
 		return nil
 	})

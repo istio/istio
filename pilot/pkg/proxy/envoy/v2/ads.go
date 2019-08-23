@@ -460,7 +460,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return nil
 			}
-
 		}
 	}
 }
@@ -705,37 +704,6 @@ func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bo
 	return false
 }
 
-// updateProxyServiceInstances determines whether the proxy associated with the given service instance
-// needs to refresh its local inbound listeners, and if so, triggers a push to that proxy.
-func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceInstance) error {
-	instanceIP := instance.Endpoint.Address
-
-	// Check whether there's an existing connection from that IP address
-	adsClientsMutex.RLock()
-	con, ok := s.connectionsByIP[instanceIP]
-	adsClientsMutex.RUnlock()
-	if !ok {
-		return nil
-	}
-
-	proxy := con.modelNode
-	instances, err := s.Env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		adsLog.Errorf("Error getting proxy %s service instances: %v", proxy.ID, err)
-		return err
-	}
-
-	if reflect.DeepEqual(instances, proxy.ServiceInstances) {
-		// no changes detected - nothing to update
-		return nil
-	}
-
-	// Trigger an update to that particular proxy
-	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-
-	return nil
-}
-
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
@@ -749,8 +717,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 		} else {
 			adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
-
-		s.connectionsByIP[node.IPAddresses[0]] = con
 	}
 }
 
@@ -777,8 +743,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
 			delete(adsSidecarIDConnectionsMap, node.ID)
 		}
-
-		delete(s.connectionsByIP, node.IPAddresses[0])
 	}
 }
 

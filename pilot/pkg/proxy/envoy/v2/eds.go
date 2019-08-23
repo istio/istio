@@ -471,6 +471,18 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 	}
 
 	w.Labels = workloadLabels
+
+	// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
+	adsClientsMutex.RLock()
+	for _, connection := range adsClients {
+		// update node label
+		if connection.modelNode.IPAddresses[0] == id {
+			connection.modelNode.WorkloadLabels = labels.Collection{workloadLabels}
+			break
+		}
+	}
+	adsClientsMutex.RUnlock()
+
 	// Label changes require recomputing the config.
 	// TODO: we can do a push for the affected workload only, but we need to confirm
 	// no other workload can be affected. Safer option is to fallback to full push.

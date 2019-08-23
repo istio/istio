@@ -101,7 +101,7 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -295,10 +295,11 @@ var (
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), trustworthyJWTPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
-			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
+			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
+			// pod to start.
 			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
@@ -307,7 +308,9 @@ var (
 			}
 
 			opts := make(map[string]interface{})
-			if sdsEnabled {
+			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
+			// for control plane SDS.
+			if controlPlaneAuthEnabled && sdsEnabled {
 				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
@@ -476,43 +479,50 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// check if SDS UDS path and token path exist, if both exist, requests key/cert
-// using SDS instead of secret mount.
-func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, trustworthyJWTPath string) (bool, string) {
+// detectSds checks if the SDS address (when it is UDS) and JWT paths are present.
+func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
+	}
+
+	if len(sdsAddress) == 0 {
+		return false, ""
+	}
+
+	if _, err := os.Stat(trustworthyJWTPath); err != nil {
+		return false, ""
+	}
+
+	// sdsAddress will not be empty when sdsAddress is a UDS address.
+	udsPath := ""
+	if strings.HasPrefix(sdsAddress, "unix:") {
+		udsPath = strings.TrimPrefix(sdsAddress, "unix:")
+		if len(udsPath) == 0 {
+			// If sdsAddress is "unix:", it is invalid, return false.
+			return false, ""
+		}
+	} else {
+		return true, trustworthyJWTPath
 	}
 
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
-		if _, err := os.Stat(udspath); err != nil {
+		if _, err := os.Stat(udsPath); err != nil {
 			return false, ""
 		}
-		if _, err := os.Stat(trustworthyJWTPath); err == nil {
-			return true, trustworthyJWTPath
-		}
 
-		return false, ""
-	}
-
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
-	if !controlPlaneAuthEnabled {
-		return false, ""
+		return true, trustworthyJWTPath
 	}
 
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
-	if !waitForFile(udspath, sdsUdsWaitTimeout) {
+	if !waitForFile(udsPath, sdsUdsWaitTimeout) {
 		return false, ""
 	}
-	if _, err := os.Stat(trustworthyJWTPath); err == nil {
-		return true, trustworthyJWTPath
-	}
 
-	return false, ""
+	return true, trustworthyJWTPath
 }
 
 func parseApplicationPorts() ([]uint16, error) {

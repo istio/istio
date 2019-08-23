@@ -256,11 +256,11 @@ func validateTraffic(t framework.TestContext, pil pilot.Instance, gal galley.Ins
 
 	ready := make(map[string]bool)
 	vHosts := virtualServiceHosts(t, stage.Input)
-	for _, call := range stage.Traffic.Calls {
+	for i, call := range stage.Traffic.Calls {
 		call.URL = tmpl.EvaluateOrFail(t, call.URL, constraint.Params{
 			Namespace: ns.Name(),
 		})
-		t.NewSubTest(call.URL).Run(func(t framework.TestContext) {
+		t.NewSubTest(strconv.Itoa(i)).Run(func(t framework.TestContext) {
 			hostname, err := wildcardToRegexp(call.Response.Callee)
 			if err != nil {
 				t.Fatalf("Internal error: regexp.Compile: %v", err)

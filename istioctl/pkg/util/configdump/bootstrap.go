@@ -15,22 +15,18 @@
 package configdump
 
 import (
-	"fmt"
-
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	proto "github.com/gogo/protobuf/types"
 )
 
 // GetBootstrapConfigDump retrieves the bootstrap config dump from the ConfigDump
 func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error) {
-	// The bootstrap dump is the first one in the list.
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	if len(w.Configs) < 1 {
-		return nil, fmt.Errorf("config dump has no bootstrap dump")
+	bootstrapDumpAny, err := w.getSection(bootstrap)
+	if err != nil {
+		return nil, err
 	}
-	bootstrapDumpAny := w.Configs[0]
 	bootstrapDump := &adminapi.BootstrapConfigDump{}
-	err := proto.UnmarshalAny(bootstrapDumpAny, bootstrapDump)
+	err = proto.UnmarshalAny(&bootstrapDumpAny, bootstrapDump)
 	if err != nil {
 		return nil, err
 	}
