@@ -44,7 +44,7 @@ func TestKubeInject(t *testing.T) {
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.injected",
 		},
-		{// case 3
+		{ // case 3
 			configs: []model.Config{},
 			args: strings.Split(
 				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
