@@ -62,8 +62,8 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	authzPolicies := b.authzPolicies
 
 	namespace := serviceMetadata.GetNamespace()
-	bindings := authzPolicies.BindingsInNamespace(namespace)
-	for _, roleConfig := range authzPolicies.RolesInNamespace(namespace) {
+	bindings := authzPolicies.GetBindingsInNamespace(namespace)
+	for _, roleConfig := range authzPolicies.GetRolesInNamespace(namespace) {
 		roleName := roleConfig.Name
 		rbacLog.Debugf("checking role %v", roleName)
 

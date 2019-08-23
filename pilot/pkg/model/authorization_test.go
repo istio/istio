@@ -176,7 +176,7 @@ func TestRolesInNamespace(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := newAuthzPolicies(tc.configs, t)
 
-			got := authzPolicies.RolesInNamespace(tc.ns)
+			got := authzPolicies.GetRolesInNamespace(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
 			}
@@ -295,7 +295,7 @@ func TestBindingsInNamespace(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := newAuthzPolicies(tc.configs, t)
 
-			got := authzPolicies.BindingsInNamespace(tc.ns)
+			got := authzPolicies.GetBindingsInNamespace(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want: %v\n but got: %v", tc.want, got)
 			}
@@ -438,9 +438,9 @@ func newAuthzPolicies(configs []Config, t *testing.T) *AuthorizationPolicies {
 		store.add(cfg)
 	}
 	environment := &Environment{IstioConfigStore: MakeIstioStore(store)}
-	authzPolicies, err := NewAuthorizationPolicies(environment)
+	authzPolicies, err := GetAuthorizationPolicies(environment)
 	if err != nil {
-		t.Fatalf("NewAuthorizationPolicies failed: %v", err)
+		t.Fatalf("GetAuthorizationPolicies failed: %v", err)
 	}
 	return authzPolicies
 }

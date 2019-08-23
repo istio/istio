@@ -42,8 +42,8 @@ type AuthorizationPolicies struct {
 	rbacConfig *rbacproto.RbacConfig
 }
 
-// NewAuthorizationPolicies creates a new AuthorizationPolicies.
-func NewAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
+// GetAuthorizationPolicies gets the authorization policies in the mesh.
+func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
 	policy := &AuthorizationPolicies{
 		namespaceToV1Policies: map[string]*RolesAndBindings{},
 	}
@@ -60,13 +60,13 @@ func NewAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	if err != nil {
 		return nil, err
 	}
-	policy.addConfig(roles)
+	policy.addServiceRoles(roles)
 
 	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
-	policy.addConfig(bindings)
+	policy.addServiceRoleBindings(bindings)
 
 	return policy, nil
 }
@@ -96,8 +96,8 @@ func (policy *AuthorizationPolicies) IsGlobalPermissiveEnabled() bool {
 		policy.rbacConfig.EnforcementMode == rbacproto.EnforcementMode_PERMISSIVE
 }
 
-// RolesInNamespace returns ServiceRole in the given namespace.
-func (policy *AuthorizationPolicies) RolesInNamespace(ns string) []Config {
+// GetRolesInNamespace returns ServiceRole in the given namespace.
+func (policy *AuthorizationPolicies) GetRolesInNamespace(ns string) []Config {
 	if policy == nil {
 		return nil
 	}
@@ -109,8 +109,8 @@ func (policy *AuthorizationPolicies) RolesInNamespace(ns string) []Config {
 	return rolesAndBindings.Roles
 }
 
-// BindingsInNamespace returns the ServiceRoleBindings in the given namespace.
-func (policy *AuthorizationPolicies) BindingsInNamespace(ns string) map[string][]*rbacproto.ServiceRoleBinding {
+// GetBindingsInNamespace returns the ServiceRoleBindings in the given namespace.
+func (policy *AuthorizationPolicies) GetBindingsInNamespace(ns string) map[string][]*rbacproto.ServiceRoleBinding {
 	if policy == nil {
 		return map[string][]*rbacproto.ServiceRoleBinding{}
 	}
@@ -123,57 +123,51 @@ func (policy *AuthorizationPolicies) BindingsInNamespace(ns string) map[string][
 	return rolesAndBindings.Bindings
 }
 
-func (policy *AuthorizationPolicies) addServiceRole(role *Config) {
-	if role == nil || policy == nil {
+func (policy *AuthorizationPolicies) addServiceRoles(roles []Config) {
+	if policy == nil {
 		return
 	}
-	if _, ok := role.Spec.(*rbacproto.ServiceRole); !ok {
-		return
-	}
-
-	if policy.namespaceToV1Policies[role.Namespace] == nil {
-		policy.namespaceToV1Policies[role.Namespace] = &RolesAndBindings{
-			Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
+	for _, role := range roles {
+		if _, ok := role.Spec.(*rbacproto.ServiceRole); !ok {
+			return
 		}
+
+		if policy.namespaceToV1Policies[role.Namespace] == nil {
+			policy.namespaceToV1Policies[role.Namespace] = &RolesAndBindings{
+				Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
+			}
+		}
+		rolesAndBindings := policy.namespaceToV1Policies[role.Namespace]
+		rolesAndBindings.Roles = append(rolesAndBindings.Roles, role)
 	}
-	rolesAndBindings := policy.namespaceToV1Policies[role.Namespace]
-	rolesAndBindings.Roles = append(rolesAndBindings.Roles, *role)
 }
 
-func (policy *AuthorizationPolicies) addServiceRoleBinding(binding *Config) {
-	if binding == nil || policy == nil {
-		return
-	}
-	spec, ok := binding.Spec.(*rbacproto.ServiceRoleBinding)
-	if !ok {
+func (policy *AuthorizationPolicies) addServiceRoleBindings(bindings []Config) {
+	if policy == nil {
 		return
 	}
 
-	name := spec.RoleRef.Name
-	if name == "" {
-		rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
-			binding.Name, binding.Namespace)
-		return
-	}
-
-	if policy.namespaceToV1Policies[binding.Namespace] == nil {
-		policy.namespaceToV1Policies[binding.Namespace] = &RolesAndBindings{
-			Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
+	for _, binding := range bindings {
+		spec, ok := binding.Spec.(*rbacproto.ServiceRoleBinding)
+		if !ok {
+			return
 		}
-	}
-	rolesAndBindings := policy.namespaceToV1Policies[binding.Namespace]
-	rolesAndBindings.Bindings[name] = append(
-		rolesAndBindings.Bindings[name], binding.Spec.(*rbacproto.ServiceRoleBinding))
-}
 
-func (policy *AuthorizationPolicies) addConfig(cfgs []Config) {
-	for _, cfg := range cfgs {
-		switch cfg.Spec.(type) {
-		case *rbacproto.ServiceRole:
-			policy.addServiceRole(&cfg)
-		case *rbacproto.ServiceRoleBinding:
-			policy.addServiceRoleBinding(&cfg)
+		name := spec.RoleRef.Name
+		if name == "" {
+			rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
+				binding.Name, binding.Namespace)
+			return
 		}
+
+		if policy.namespaceToV1Policies[binding.Namespace] == nil {
+			policy.namespaceToV1Policies[binding.Namespace] = &RolesAndBindings{
+				Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
+			}
+		}
+		rolesAndBindings := policy.namespaceToV1Policies[binding.Namespace]
+		rolesAndBindings.Bindings[name] = append(
+			rolesAndBindings.Bindings[name], binding.Spec.(*rbacproto.ServiceRoleBinding))
 	}
 }
 
