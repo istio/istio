@@ -7,6 +7,9 @@ rollingMaxSurge: 100%
 rollingMaxUnavailable: 25%
 image: sidecar_injector
 enableNamespacesByDefault: false
+namespaceSelector:
+  matchLabels:
+    istio-injection: enabled
 nodeSelector: {}
 tolerations: []
 

@@ -33,7 +33,6 @@ webhooks:
         values:
         - disabled
 {{- else }}
-      matchLabels:
-        istio-injection: enabled
+      {{- toYaml .Values.namespaceSelector | trim | nindent 6 }}
 {{- end }}
 
