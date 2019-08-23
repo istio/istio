@@ -751,6 +751,9 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
+		errs = appendErrors(errs,
+			validateProtocol(port.Protocol))
+
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: ports with 0 value must have a unix domain socket bind address"))
 		} else {
@@ -762,6 +765,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 		}
 	} else {
 		errs = appendErrors(errs,
+			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
@@ -780,6 +784,7 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 	}
 
 	errs = appendErrors(errs,
+		validateProtocol(port.Protocol),
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
@@ -2434,6 +2439,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	for _, port := range serviceEntry.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),
+			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 	}
 
@@ -2444,6 +2450,14 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 func validatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
+	}
+	return nil
+}
+
+func validateProtocol(protocolStr string) error {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil
 }

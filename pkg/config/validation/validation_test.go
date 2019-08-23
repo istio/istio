@@ -3561,6 +3561,16 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "empty protocol", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: true},
 	}
 
 	for _, c := range cases {
@@ -4525,6 +4535,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"empty protocol", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number: 90,
+						Name:   "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
 	}
 
 	for _, tt := range tests {
