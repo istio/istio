@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -33,6 +34,7 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
+	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
@@ -201,6 +203,30 @@ func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryServic
 
 func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &core.Node{
+			Id:       node,
+			Metadata: nodeMetadata,
+		},
+		TypeUrl: v2.ListenerType})
+	if err != nil {
+		return fmt.Errorf("LDS request failed: %s", err)
+	}
+
+	return nil
+}
+
+func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
+	data, err := json.Marshal(labels)
+	if err != nil {
+		return err
+	}
+
+	nodeMetadata.Fields[model.NodeMetadataLabels] = &proto.Value{Kind: &proto.Value_StringValue{StringValue: string(data)}}
+	// Not influence other cases
+	defer delete(nodeMetadata.Fields, model.NodeMetadataLabels)
+
+	err = ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,

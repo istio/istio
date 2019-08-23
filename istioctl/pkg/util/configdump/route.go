@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -69,19 +68,12 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
 func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
-	// The route dump is no longer the 4th one;
-	// now envoy.admin.v2alpha.ScopedRoutesConfigDump may be 4th.
-	var routeDumpAny proto.Any
-	for _, conf := range w.Configs {
-		if conf.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump" {
-			routeDumpAny = *conf
-		}
-	}
-	if routeDumpAny.TypeUrl == "" {
-		return nil, fmt.Errorf("config dump has no route dump")
+	routeDumpAny, err := w.getSection(routes)
+	if err != nil {
+		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err := proto.UnmarshalAny(&routeDumpAny, routeDump)
+	err = proto.UnmarshalAny(&routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}
