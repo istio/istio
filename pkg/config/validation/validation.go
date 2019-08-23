@@ -636,7 +636,6 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap := make(map[uint32]struct{})
-	udsMap := make(map[string]struct{})
 	for _, i := range rule.Ingress {
 		if i.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
@@ -644,20 +643,12 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		}
 
 		bind := i.GetBind()
-		captureMode := i.GetCaptureMode()
-		errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+		errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-		if i.Port.Number == 0 {
-			if _, found := udsMap[bind]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
-			}
-			udsMap[bind] = struct{}{}
-		} else {
-			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
-			}
-			portMap[i.Port.Number] = struct{}{}
+		if _, found := portMap[i.Port.Number]; found {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 		}
+		portMap[i.Port.Number] = struct{}{}
 
 		if len(i.DefaultEndpoint) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
@@ -686,7 +677,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap = make(map[uint32]struct{})
-	udsMap = make(map[string]struct{})
+	udsMap := make(map[string]struct{})
 	catchAllEgressListenerFound := false
 	for index, i := range rule.Egress {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.
@@ -704,7 +695,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		} else {
 			bind := i.GetBind()
 			captureMode := i.GetCaptureMode()
-			errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+			errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
 
 			if i.Port.Number == 0 {
 				if _, found := udsMap[bind]; found {
@@ -733,7 +724,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	return
 }
 
-func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
 	// Port name is optional. Validate if exists.
@@ -764,6 +755,24 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 		if len(bind) != 0 {
 			errs = appendErrors(errs, ValidateIPv4Address(bind))
 		}
+	}
+
+	return
+}
+
+func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
+	errs = appendErrors(errs,
+		validateProtocol(port.Protocol),
+		ValidatePort(int(port.Number)))
+
+	if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPv4Address(bind))
 	}
 
 	return
