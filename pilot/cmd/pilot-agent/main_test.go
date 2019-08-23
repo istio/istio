@@ -172,6 +172,7 @@ func TestDetectSds(t *testing.T) {
 		{
 			controlPlaneBootstrap: true,
 			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    false,
 		},
 		{
 			controlPlaneBootstrap: true,

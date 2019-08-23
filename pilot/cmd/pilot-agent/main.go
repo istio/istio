@@ -489,6 +489,10 @@ func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string
 		return false, ""
 	}
 
+	if _, err := os.Stat(trustworthyJWTPath); err != nil {
+		return false, ""
+	}
+
 	// sdsAddress will not be empty when sdsAddress is a UDS address.
 	udsPath := ""
 	if strings.HasPrefix(sdsAddress, "unix:") {
@@ -497,36 +501,27 @@ func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string
 			// If sdsAddress is "unix:", it is invalid, return false.
 			return false, ""
 		}
+	} else {
+		return true, trustworthyJWTPath
 	}
 
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
-		if len(udsPath) > 0 {
-			if _, err := os.Stat(udsPath); err != nil {
-				return false, ""
-			}
+		if _, err := os.Stat(udsPath); err != nil {
+			return false, ""
 		}
-		if _, err := os.Stat(trustworthyJWTPath); err == nil {
-			return true, trustworthyJWTPath
-		}
-
-		return false, ""
+		return true, trustworthyJWTPath
 	}
 
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
-	if len(udsPath) > 0 {
-		if !waitForFile(udsPath, sdsUdsWaitTimeout) {
-			return false, ""
-		}
-	}
-	if _, err := os.Stat(trustworthyJWTPath); err == nil {
-		return true, trustworthyJWTPath
+	if !waitForFile(udsPath, sdsUdsWaitTimeout) {
+		return false, ""
 	}
 
-	return false, ""
+	return true, trustworthyJWTPath
 }
 
 func parseApplicationPorts() ([]uint16, error) {
