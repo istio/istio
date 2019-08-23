@@ -496,7 +496,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 	proxyNamespace := ""
 	if len(proxy.IPAddresses) > 0 {
-		// There is only one IP for kube registry
+		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
 		pod := c.pods.getPodByIP(proxyIP)
 		if pod != nil {
@@ -569,18 +570,19 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					continue
 				}
 
-				// There is only one IP for kube registry
-				proxyIP := proxy.IPAddresses[0]
+				podIP := proxy.IPAddresses[0]
 
-				if hasProxyIP(ss.Addresses, proxyIP) {
-					out = append(out, c.getEndpoints(proxyIP, port.Port, svcPort, svc))
-				}
+				// consider multiple IP scenarios
+				for _, ip := range proxy.IPAddresses {
+					if hasProxyIP(ss.Addresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+					}
 
-				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
-					nrEP := c.getEndpoints(proxyIP, port.Port, svcPort, svc)
-					out = append(out, nrEP)
-					if c.Env != nil {
-						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					if hasProxyIP(ss.NotReadyAddresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+						if c.Env != nil {
+							c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						}
 					}
 				}
 			}
@@ -613,11 +615,13 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-		// There is only one IP for kube registry
-		proxyIP := proxy.IPAddresses[0]
 
-		out = append(out, c.getEndpoints(proxyIP, int32(portNum), svcPort, svc))
+		podIP := proxy.IPAddresses[0]
 
+		// consider multiple IP scenarios
+		for _, ip := range proxy.IPAddresses {
+			out = append(out, c.getEndpoints(podIP, ip, int32(portNum), svcPort, svc))
+		}
 	}
 
 	return out
@@ -634,9 +638,9 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 	return nil, nil
 }
 
-func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	podLabels, _ := c.pods.labelsByIP(ip)
-	pod := c.pods.getPodByIP(ip)
+func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+	podLabels, _ := c.pods.labelsByIP(podIP)
+	pod := c.pods.getPodByIP(podIP)
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodLocality(pod)
@@ -644,10 +648,10 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address:     ip,
+			Address:     address,
 			Port:        int(endpointPort),
 			ServicePort: svcPort,
-			Network:     c.endpointNetwork(ip),
+			Network:     c.endpointNetwork(address),
 			Locality:    az,
 		},
 		Service:        svc,
