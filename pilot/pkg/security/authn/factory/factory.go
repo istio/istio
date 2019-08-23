@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/v1alpha1"
-	// authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
