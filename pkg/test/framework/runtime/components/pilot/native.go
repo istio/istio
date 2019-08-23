@@ -115,13 +115,16 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		return err
 	}
 
+	// Start the server
+	go func() {
+		err = c.server.Start(c.stopChan)
+	}()
+
 	c.client, err = newClient(c.server.GRPCListeningAddr.(*net.TCPAddr))
 	if err != nil {
 		return err
 	}
 
-	// Start the server
-	err = c.server.Start(c.stopChan)
 	return
 }
 
