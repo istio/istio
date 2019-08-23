@@ -27,7 +27,7 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
+ISTIO_CNI_HUB ?= gcr.io/istio-release
 export ISTIO_CNI_HUB
 ISTIO_CNI_TAG ?=  release-1.3-latest-daily
 export ISTIO_CNI_TAG

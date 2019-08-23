@@ -149,7 +149,7 @@ function setup_kind_cluster() {
 
 function cni_run_daemon_kind() {
   echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
   ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-release-1.3-latest-daily}
 
   # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
@@ -167,7 +167,7 @@ function cni_run_daemon_kind() {
 function cni_run_daemon() {
 
   echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
   ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-release-1.3-latest-daily}
 
   chartdir=$(pwd)/charts
