@@ -29,7 +29,7 @@ func TestTLSMultiplexing(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			// This policy configures b to use PERMISSIVE for port 80 and STRICT for port 8080.
+			// This policy configures b to use PERMISSIVE for port 80 and STRICT for port 9090.
 			"testdata/authn/v1alpha1/multiplexing/authn-policy-permissive.yaml",
 			// This configure serivce b's client to use ISTIO_MUTUAL mTLS when talking to service c.
 			"testdata/authn/v1alpha1/multiplexing/destination-rule.yaml",
@@ -45,13 +45,13 @@ func TestTLSMultiplexing(t *testing.T) {
 	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"d"}
-	ports := []string{"80", "7070"}
+	ports := []string{"80", "9090"}
 	shouldFails := []struct {
 		src  string
 		dest string
 		port string
 	}{
-		{"t", "d", "7070"},
+		{"t", "d", "9090"},
 	}
 
 	// Run all request tests.
