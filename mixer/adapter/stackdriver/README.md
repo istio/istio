@@ -4,7 +4,7 @@ To enable stackdriver adapter:
 
 1.  Download istio/installer repo:
     ```
-    git clone https://github.com/istio/installer && cd installer`
+    git clone https://github.com/istio/installer && cd installer
     ```
 2.  Render and apply Stackdriver adapter manifest:
     ```
