@@ -112,7 +112,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uin
 	}
 }
 
-func (fx *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
+func (fx *FakeXdsUpdater) WorkloadUpdate(shard, id string, labels map[string]string, annotations map[string]string) {
 	select {
 	case fx.Events <- XdsEvent{Type: "workload", ID: id}:
 	default:

@@ -137,7 +137,7 @@ type XDSUpdater interface {
 	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
 	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
 	// We use Endpoints to track the membership to a service and readiness.
-	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
+	WorkloadUpdate(shard, id string, labels map[string]string, annotations map[string]string)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.

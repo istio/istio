@@ -109,7 +109,8 @@ type DiscoveryServer struct {
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
-	WorkloadsByID map[string]*Workload
+	// clusterID => workloadID => Workload
+	WorkloadsByID map[string]map[string]*Workload
 
 	pushChannel chan *model.PushRequest
 
@@ -160,7 +161,7 @@ func NewDiscoveryServer(
 		ConfigController:        configCache,
 		KubeController:          kubeController,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
-		WorkloadsByID:           map[string]*Workload{},
+		WorkloadsByID:           map[string]map[string]*Workload{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
