@@ -79,11 +79,10 @@ func TestParseJwksURI(t *testing.T) {
 	for _, c := range cases {
 		actual, err := security.ParseJwksURI(c.in)
 		if c.expectedError == (err == nil) {
-			t.Errorf("ParseJwksURI(%s): expected error (%v), got (%v)", c.in, c.expectedError, err)
-		} else {
-			if !reflect.DeepEqual(c.expected, actual) {
-				t.Errorf("expected %+v, got %+v", c.expected, actual)
-			}
+			t.Fatalf("ParseJwksURI(%s): expected error (%v), got (%v)", c.in, c.expectedError, err)
+		}
+		if !reflect.DeepEqual(c.expected, actual) {
+			t.Fatalf("expected %+v, got %+v", c.expected, actual)
 		}
 	}
 }
