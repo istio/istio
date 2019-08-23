@@ -20,7 +20,6 @@ import (
 )
 
 var (
-	// concurrencyCmdFlagName
 	shouldStripContainerPort = true
 	StripNamePattern         = regexp.MustCompile(`^$`)
 )

@@ -98,7 +98,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
-		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		//verifies that some container ports are stripped
 		{
 			in:                           "hello_named_container_port.yaml",
 			want:                         "hello_named_container_port.yaml.injected",
