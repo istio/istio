@@ -95,8 +95,8 @@ istioctl --kubeconfig=c0.yaml x create-remote-secrets \
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringVar(&f.serviceAccountName, "service-account-testName", f.serviceAccountName,
-		"name of service account in the remote cluster")
+	flags.StringVar(&f.serviceAccountName, "service-account", f.serviceAccountName,
+		"create a secret with this service account's credentials.")
 
 	return c
 }

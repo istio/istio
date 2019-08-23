@@ -420,13 +420,12 @@ users:
 `
 
 	cases := []struct {
-		name        string
-		in          *v1.Secret
-		clusterName string
-		server      string
-		want        *v1.Secret
-		wantErrStr  string
-		context     string
+		name       string
+		context    string
+		server     string
+		in         *v1.Secret
+		want       *v1.Secret
+		wantErrStr string
 	}{
 		{
 			name:       "missing caData",
