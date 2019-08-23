@@ -34,14 +34,14 @@ import (
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
-var secretTemplate = `# Remote pilot credentials for cluster context "{{ .Name }}"
+var secretTemplate = `# Remote credentials for cluster context "{{ .Name }}"
 apiVersion: v1
 kind: Secret
 metadata:
   creationTimestamp: null
   labels:
     {{ .MultiClusterSecretLabel }}: "true"
-  name: istio-pilot-remote-secret-{{ .Name }}
+  name: istio-remote-secret-{{ .Name }}
 stringData:
   {{ .Name }}: |
     apiVersion: v1
@@ -66,14 +66,14 @@ stringData:
 `
 
 type testClusterData struct {
-	// Pilot SA data
+	// SA data
 	Name                    string
 	CAData                  string
 	CADataBase64            string
 	Token                   string
 	MultiClusterSecretLabel string
 
-	// Secret with Pilot SA encoded in Kubeconfig
+	// Secret with SA encoded in Kubeconfig
 	kubeconfigSecretYaml string
 
 	Server string
@@ -162,7 +162,7 @@ var testAPIConfig = &api.Config{
 	},
 }
 
-func TestCreatePilotRemoteSecrets(t *testing.T) {
+func TestCreateRemoteSecrets(t *testing.T) {
 	prevStartingConfig := newStartingConfig
 	defer func() { newStartingConfig = prevStartingConfig }()
 
@@ -310,7 +310,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 				return fake.NewSimpleClientset(objs...), nil
 			}
 
-			got, err := CreatePilotRemoteSecrets(Options{
+			got, err := CreateRemoteSecrets(Options{
 				ServiceAccountName: DefaultServiceAccountName,
 				Namespace:          testNamespace,
 				Contexts:           c.contexts,
@@ -332,7 +332,7 @@ func TestCreatePilotRemoteSecrets(t *testing.T) {
 	}
 }
 
-func TestCreateRemotePilotKubeconfig(t *testing.T) {
+func TestCreateRemoteKubeconfig(t *testing.T) {
 	cases := []struct {
 		name       string
 		in         *v1.Secret
@@ -414,7 +414,7 @@ func TestCreateRemotePilotKubeconfig(t *testing.T) {
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemotePilotKubeconfig(c.in, c.config, c.context)
+			got, err := createRemoteKubeconfig(c.in, c.config, c.context)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("got success but expected error to contain %v", c.wantErrStr)

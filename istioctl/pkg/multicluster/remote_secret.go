@@ -16,7 +16,6 @@ package multicluster
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 
@@ -56,49 +55,44 @@ func init() {
 
 type Options struct {
 	ServiceAccountName string
-	Contexts           []string
 
 	// inherited from root command
 	Namespace  string
 	Kubeconfig string
+	Context    string
 }
 
 var (
-	defaultSecretPrefix       = "istio-pilot-remote-secret-"
+	defaultSecretPrefix       = "istio-remote-secret-"
 	DefaultServiceAccountName = "istio-pilot-service-account"
 )
 
-// NewCreatePilotRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
-func NewCreatePilotRemoteSecretCommand(kubeconfig, namespace *string) *cobra.Command {
+// NewCreateRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
+func NewCreateRemoteSecretCommand(kubeconfig, namespace, context *string) *cobra.Command {
 	o := Options{
 		ServiceAccountName: DefaultServiceAccountName,
 	}
 
 	c := &cobra.Command{
-		Use:   "create-pilot-remote-secrets <cluster_context>... [OPTIONS]",
-		Short: "Create secret(s) for Pilot to discovery and join remote k8s service registries",
+		Use:   "create-remote-secret [OPTIONS]",
+		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
 		Example: `
-# Create a secret for remote cluster c1 and install it in cluster c0.
-istioctl x create-pilot-remote-secrets c1 > c1-secret.kubeconfigSecretYaml
-kubectl --context=c0 -n istio-system apply -f c1-secret.kubeconfigSecretYaml
+# Create a secret to access cluster c0's apiserver and install it in cluster c1.
+istioctl --kubeconfig=c0.yaml x create-remote-secrets \
+    | kubectl -n istio-system --kubeconfig=c1.yaml apply -f -
 
-# Create and directly install secrets for multiple clusters. These 
-# commands 'join' clusters c0, c1, and c2 together.
-istioctl x create-pilot-remote-secrets c1 c2 \
-    | kubectl --context=c0 apply -f - --prune -l istio/multiCluster=true
-istioctl x create-pilot-remote-secrets c0 c2 \
-    | kubectl --context=c1 apply -f - --prune -l istio/multiCluster=true
-istioctl x create-pilot-remote-secrets c0 c1 \
-    | kubectl --context=c2 apply -f - --prune -l istio/multiCluster=true
+# Delete a secret that was previously installed in c1
+istioctl --kubeconfig=c0.yaml x create-remote-secrets \
+    | kubectl -n istio-system --kubeconfig=c1.yaml delete -f -
 
 `,
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.NoArgs(),
 		RunE: func(c *cobra.Command, args []string) error {
-			o.Contexts = args
+			o.Context = *context
 			o.Kubeconfig = *kubeconfig
 			o.Namespace = *namespace
 
-			out, err := CreatePilotRemoteSecrets(o)
+			out, err := CreateRemoteSecrets(o)
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)
 				os.Exit(1)
@@ -110,7 +104,7 @@ istioctl x create-pilot-remote-secrets c0 c1 \
 
 	flags := c.PersistentFlags()
 	flags.StringVar(&o.ServiceAccountName, "service-account-name", o.ServiceAccountName,
-		"name of Pilot service account in the remote cluster(s)")
+		"name of service account in the remote cluster")
 
 	return c
 }
@@ -131,7 +125,7 @@ const (
 	tokenSecretKey  = "token"
 )
 
-func createRemotePilotKubeconfig(in *v1.Secret, config *api.Config, context string) (*api.Config, error) {
+func createRemoteKubeconfig(in *v1.Secret, config *api.Config, context string) (*api.Config, error) {
 	contextInfo, ok := config.Contexts[context]
 	if !ok {
 		return nil, fmt.Errorf("%q context not found in Kubeconfig(s)", context)
@@ -177,7 +171,7 @@ func createRemotePilotKubeconfig(in *v1.Secret, config *api.Config, context stri
 	return kubeconfig, nil
 }
 
-func createRemotePilotServiceAccountSecret(kubeconfig *api.Config, name string) (*v1.Secret, error) { // nolint:interfacer
+func createRemoteServiceAccountSecret(kubeconfig *api.Config, name string) (*v1.Secret, error) { // nolint:interfacer
 	var data bytes.Buffer
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
@@ -196,8 +190,9 @@ func createRemotePilotServiceAccountSecret(kubeconfig *api.Config, name string) 
 	return out, nil
 }
 
-func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, context string, o *Options) error {
-	if _, err := out.WriteString(fmt.Sprintf("# Remote pilot credentials for cluster context %q\n", context)); err != nil {
+// TODO extend to use other forms of k8s auth (see https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies)
+func createRemoteSecret(out *bytes.Buffer, config *api.Config, name, context string, o *Options) error {
+	if _, err := out.WriteString(fmt.Sprintf("# Remote credentials for cluster context %q\n", context)); err != nil {
 		return err
 	}
 
@@ -206,7 +201,7 @@ func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, contex
 		return err
 	}
 
-	// Get the remote pilot's service-account-token secret
+	// Get the remote service-account-token secret
 	serviceAccount, err := kube.CoreV1().ServiceAccounts(o.Namespace).Get(o.ServiceAccountName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.Namespace, o.ServiceAccountName, context)
@@ -225,14 +220,14 @@ func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, contex
 		return fmt.Errorf("failed to get secret %s/%s in cluster %v", secretNamespace, secretName, context)
 	}
 
-	// Create a Kubeconfig to access the remote cluster using the remote pilot's service account credentials.
-	kubeconfig, err := createRemotePilotKubeconfig(saSecret, config, context)
+	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
+	kubeconfig, err := createRemoteKubeconfig(saSecret, config, context)
 	if err != nil {
 		return err
 	}
 
-	// Encode the Kubeconfig in a secret that can be loaded by Pilot to dynamically discover and access the remote cluster.
-	mcSecret, err := createRemotePilotServiceAccountSecret(kubeconfig, name)
+	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
+	mcSecret, err := createRemoteServiceAccountSecret(kubeconfig, name)
 	if err != nil {
 		return err
 	}
@@ -247,11 +242,9 @@ func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, contex
 
 const outputHeader = "# This file is autogenerated, do not edit.\n#\n"
 
-func CreatePilotRemoteSecrets(o Options) (string, error) {
-	if len(o.Contexts) < 1 {
-		return "", errors.New("no remote cluster contexts specified")
-	}
-
+// CreateRemoteSecrets creates a remote secret with credentials of the specified service account.
+// This is useful for providing a cluster access to a remote apiserver.
+func CreateRemoteSecrets(o Options) (string, error) {
 	config, err := newStartingConfig(o.Kubeconfig)
 	if err != nil {
 		return "", err
@@ -261,10 +254,8 @@ func CreatePilotRemoteSecrets(o Options) (string, error) {
 	if _, err := out.WriteString(outputHeader); err != nil {
 		return "", err
 	}
-	for _, context := range o.Contexts {
-		if err := createPilotRemoteSecret(&out, config, context, context, &o); err != nil {
-			return "", err
-		}
+	if err := createRemoteSecret(&out, config, o.Context, o.Context, &o); err != nil {
+		return "", err
 	}
 	return out.String(), nil
 }
