@@ -56,7 +56,6 @@ func init() {
 
 type commandFlags struct {
 	serviceAccountName string
-	clusterName        string
 }
 
 var (
@@ -65,7 +64,7 @@ var (
 )
 
 // NewCreateRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
-func NewCreateRemoteSecretCommand(kubeconfig, namespace, context *string) *cobra.Command {
+func NewCreateRemoteSecretCommand(kubeconfig, context, namespace *string) *cobra.Command {
 	f := commandFlags{
 		serviceAccountName: DefaultServiceAccountName,
 	}
@@ -97,7 +96,7 @@ istioctl --kubeconfig=c0.yaml x create-remote-secrets \
 
 	flags := c.PersistentFlags()
 	flags.StringVar(&f.serviceAccountName, "service-account-testName", f.serviceAccountName,
-		"testName of service account in the remote cluster")
+		"name of service account in the remote cluster")
 
 	return c
 }
@@ -254,6 +253,7 @@ func CreateRemoteSecret(kubeconfig, context, namespace, serviceAccountName, name
 	if err != nil {
 		return "", err
 	}
+
 	remoteSecret, err := createRemoteSecretFromTokenAndServer(tokenSecret, name, server)
 	if err != nil {
 		return "", err

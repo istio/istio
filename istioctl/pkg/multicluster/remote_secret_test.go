@@ -16,12 +16,10 @@ package multicluster
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
-	"text/template"
 
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
@@ -34,76 +32,10 @@ import (
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
-var secretTemplate = `# Remote credentials for cluster "{{ .Name }}"
-apiVersion: v1
-kind: Secret
-metadata:
-  creationTimestamp: null
-  labels:
-    {{ .MultiClusterSecretLabel }}: "true"
-  testName: istio-remote-secret-{{ .Name }}
-stringData:
-  {{ .Name }}: |
-    apiVersion: v1
-    clusters:
-    - cluster:
-        certificate-authority-data: {{ .CADataBase64 }}
-        server: {{ .Server }}
-      testName: {{ .Name }}
-    contexts:
-    - context:
-        cluster: {{ .Name }}
-        user: {{ .Name }}
-      testName: {{ .Name }}
-    current-context: {{ .Name }}
-    kind: Config
-    preferences: {}
-    users:
-    - testName: {{ .Name }}
-      user:
-        token: {{ .Token }}
----
-`
-
-type testClusterData struct {
-	// SA data
-	Name                    string
-	CAData                  string
-	CADataBase64            string
-	Token                   string
-	MultiClusterSecretLabel string
-
-	// Secret with SA encoded in Kubeconfig
-	kubeconfigSecretYaml string
-
-	Server string
-}
-
-func makeTestClusterData(name string) *testClusterData {
-	caData := fmt.Sprintf("caData-%v", name)
-	token := fmt.Sprintf("token-%v", name)
-	d := &testClusterData{
-		Name:                    name,
-		CAData:                  caData,
-		CADataBase64:            base64.StdEncoding.EncodeToString([]byte(caData)),
-		Token:                   token,
-		Server:                  fmt.Sprintf("server-%v", name),
-		MultiClusterSecretLabel: secretcontroller.MultiClusterSecretLabel,
-	}
-
-	var out bytes.Buffer
-	tmpl, err := template.New("secretTemplate").Parse(secretTemplate)
-	if err != nil {
-		panic(err)
-	}
-	if err := tmpl.Execute(&out, d); err != nil {
-		panic(err)
-	}
-
-	d.kubeconfigSecretYaml = out.String()
-
-	return d
-}
+var (
+	testNamespace          = "istio-system-test"
+	testServiceAccountName = "test-service-account"
+)
 
 func makeServiceAccount(name string, secrets ...string) *v1.ServiceAccount {
 	sa := &v1.ServiceAccount{
@@ -140,11 +72,6 @@ func makeSecret(name, caData, token string) *v1.Secret {
 	return out
 }
 
-var (
-	testNamespace = "istio-system-test"
-	c0            = makeTestClusterData("c0")
-)
-
 type fakeOutputWriter struct {
 	b           bytes.Buffer
 	injectError error
@@ -170,7 +97,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 	prevOutputWriterStub := makeOutputWriterTestHook
 	defer func() { makeOutputWriterTestHook = prevOutputWriterStub }()
 
-	sa := makeServiceAccount(DefaultServiceAccountName, "saSecret")
+	sa := makeServiceAccount(testServiceAccountName, "saSecret")
 	saSecret := makeSecret("saSecret", "caData", "token")
 	saSecretMissingToken := makeSecret("saSecret", "caData", "")
 
@@ -314,7 +241,7 @@ stringData:
 				return &fakeOutputWriter{injectError: c.outputWriterError}
 			}
 
-			got, err := CreateRemoteSecret(testKubeconfig, testContext, testNamespace, DefaultServiceAccountName, c.name)
+			got, err := CreateRemoteSecret(testKubeconfig, testContext, testNamespace, testServiceAccountName, c.name)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -345,35 +272,35 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 	}{
 		{
 			name:        "missing service account",
-			saName:      DefaultServiceAccountName,
+			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
-			wantErrStr:  fmt.Sprintf("serviceaccounts %q not found", DefaultServiceAccountName),
+			wantErrStr:  fmt.Sprintf("serviceaccounts %q not found", testServiceAccountName),
 		},
 		{
 			name:        "wrong number of secrets",
-			saName:      DefaultServiceAccountName,
+			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(DefaultServiceAccountName, "secret", "extra-secret"),
+				makeServiceAccount(testServiceAccountName, "secret", "extra-secret"),
 			},
 			wantErrStr: "wrong number of secrets",
 		},
 		{
 			name:        "missing service account token secret",
-			saName:      DefaultServiceAccountName,
+			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(DefaultServiceAccountName, "wrong-secret"),
+				makeServiceAccount(testServiceAccountName, "wrong-secret"),
 				secret,
 			},
 			wantErrStr: `secrets "wrong-secret" not found`,
 		},
 		{
 			name:        "success",
-			saName:      DefaultServiceAccountName,
+			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(DefaultServiceAccountName, "secret"),
+				makeServiceAccount(testServiceAccountName, "secret"),
 				secret,
 			},
 			want: secret,
@@ -475,7 +402,7 @@ func TestCreateRemoteKubeconfig(t *testing.T) {
 	kubeconfig := `apiVersion: v1
 clusters:
 - cluster:
-    certificate-authority-data: Y2FEYXRhLWMw
+    certificate-authority-data: Y2FEYXRh
     server: ""
   name: c0
 contexts:
@@ -489,7 +416,7 @@ preferences: {}
 users:
 - name: c0
   user:
-    token: token-c0
+    token: token
 `
 
 	cases := []struct {
@@ -503,19 +430,19 @@ users:
 	}{
 		{
 			name:       "missing caData",
-			in:         makeSecret("", "", c0.Token),
+			in:         makeSecret("", "", "token"),
 			context:    "c0",
 			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
 			name:       "missing token",
-			in:         makeSecret("", c0.CAData, ""),
+			in:         makeSecret("", "caData", ""),
 			context:    "c0",
 			wantErrStr: errMissingTokenKey.Error(),
 		},
 		{
 			name:    "success",
-			in:      makeSecret("", c0.CAData, c0.Token),
+			in:      makeSecret("", "caData", "token"),
 			context: "c0",
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
