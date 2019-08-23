@@ -1,0 +1,3129 @@
+---
+title: values
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 69
+---
+<h2 id="AddonIngressConfig">AddonIngressConfig</h2>
+<section>
+<p>AddonIngressConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AddonIngressConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="AddonIngressConfig-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ArchConfig">ArchConfig</h2>
+<section>
+<p>ArchConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ArchConfig-amd64">
+<td><code>amd64</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets pod scheduling weight for amd64 arch</p>
+
+</td>
+</tr>
+<tr id="ArchConfig-ppc64le">
+<td><code>ppc64le</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets pod scheduling weight for ppc64le arch.</p>
+
+</td>
+</tr>
+<tr id="ArchConfig-s390x">
+<td><code>s390x</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets pod scheduling weight for s390x arch.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNIConfig">CNIConfig</h2>
+<section>
+<p>CNIConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNIConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</h2>
+<section>
+<p>CPUTargetUtilizationConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CPUTargetUtilizationConfig-targetAverageUtilization">
+<td><code>targetAverageUtilization</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CertManagerConfig">CertManagerConfig</h2>
+<section>
+<p>CertManagerConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CertManagerConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="CertManagerConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CertManagerConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+<p>NodeSelector map[string]interface&lbrace;} <code>json:&quot;nodeSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="CertManagerConfig-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CoreDNSConfig">CoreDNSConfig</h2>
+<section>
+<p>CoreDNSConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CoreDNSConfig-coreDNSImage">
+<td><code>coreDNSImage</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CoreDNSConfig-coreDNSPluginImage">
+<td><code>coreDNSPluginImage</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CoreDNSConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="CoreDNSConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>NodeSelector       map[string]interface&lbrace;} <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="DefaultPodDisruptionBudgetConfig">DefaultPodDisruptionBudgetConfig</h2>
+<section>
+<p>DefaultPodDisruptionBudgetConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="DefaultPodDisruptionBudgetConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>k8s PodDisruptionBudget settings.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="DefaultResourcesConfig">DefaultResourcesConfig</h2>
+<section>
+<p>DefaultResourcesConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="DefaultResourcesConfig-requests">
+<td><code>requests</code></td>
+<td><code><a href="#ResourcesRequestsConfig">ResourcesRequestsConfig</a></code></td>
+<td>
+<p>k8s resources settings.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EgressGatewayConfig">EgressGatewayConfig</h2>
+<section>
+<p>EgressGatewayConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EgressGatewayConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-connectTimeout">
+<td><code>connectTimeout</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-drainDuration">
+<td><code>drainDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-labels">
+<td><code>labels</code></td>
+<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-ports">
+<td><code>ports</code></td>
+<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
+<td>
+<p>PodAnnotations                   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code>
+PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
+PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-secretVolumes">
+<td><code>secretVolumes</code></td>
+<td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayConfig-zvpn">
+<td><code>zvpn</code></td>
+<td><code><a href="#ZeroVPNConfig">ZeroVPNConfig</a></code></td>
+<td>
+<p>ServiceAnnotations               map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
+  Type                             v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyMetricsConfig">EnvoyMetricsConfig</h2>
+<section>
+<p>EnvoyMetricsConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyMetricsConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables the Envoy Metrics Service.</p>
+
+</td>
+</tr>
+<tr id="EnvoyMetricsConfig-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+<p>Sets the destination Envoy Metrics Service address in Envoy.</p>
+
+</td>
+</tr>
+<tr id="EnvoyMetricsConfig-port">
+<td><code>port</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Sets the destination Envoy Metrics Service port in Envoy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GalleyConfig">GalleyConfig</h2>
+<section>
+<p>GalleyConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GalleyConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="GalleyConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="GalleyConfig-mesh">
+<td><code>mesh</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="GalleyConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>PodAntiAffinityLabelSelector     []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
+PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="GalleyConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
+<section>
+<p>GatewayLabelsConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GatewayLabelsConfig-app">
+<td><code>app</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="GatewayLabelsConfig-istio">
+<td><code>istio</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GatewaysConfig">GatewaysConfig</h2>
+<section>
+<p>GatewaysConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GatewaysConfig-istio_egressgateway">
+<td><code>istioEgressgateway</code></td>
+<td><code><a href="#EgressGatewayConfig">EgressGatewayConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GatewaysConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="GatewaysConfig-istio_ilbgateway">
+<td><code>istioIlbgateway</code></td>
+<td><code><a href="#ILBGatewayConfig">ILBGatewayConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GatewaysConfig-istio_ingressgateway">
+<td><code>istioIngressgateway</code></td>
+<td><code><a href="#IngressGatewayConfig">IngressGatewayConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GlobalConfig">GlobalConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GlobalConfig-arch">
+<td><code>arch</code></td>
+<td><code><a href="#ArchConfig">ArchConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-configNamespace">
+<td><code>configNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configuration validation component namespace</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-configValidation">
+<td><code>configValidation</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables server-side validation of configuration.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-controlPlaneSecurityEnabled">
+<td><code>controlPlaneSecurityEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables MTLS for control plane.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-defaultNodeSelector">
+<td><code>defaultNodeSelector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>K8s NodeSelector</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-defaultPodDisruptionBudget">
+<td><code>defaultPodDisruptionBudget</code></td>
+<td><code><a href="#DefaultPodDisruptionBudgetConfig">DefaultPodDisruptionBudgetConfig</a></code></td>
+<td>
+<p>k8s PodDisruptionBudget settings.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-disablePolicyChecks">
+<td><code>disablePolicyChecks</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Selects whether policy enforcement is installed.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-defaultResources">
+<td><code>defaultResources</code></td>
+<td><code><a href="#DefaultResourcesConfig">DefaultResourcesConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-enableHelmTest">
+<td><code>enableHelmTest</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable helm test</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-enableTracing">
+<td><code>enableTracing</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables tracing.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+<p>Root for docker image paths.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-istioNamespace">
+<td><code>istioNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>ImagePullPolicy             v1.PullPolicy                 <code>json:&quot;imagePullPolicy,omitempty&quot;</code>
+Default namespace.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-localityLbSetting">
+<td><code>localityLbSetting</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-k8sIngress">
+<td><code>k8sIngress</code></td>
+<td><code><a href="#KubernetesIngressConfig">KubernetesIngressConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-logging">
+<td><code>logging</code></td>
+<td><code><a href="#GlobalLoggingConfig">GlobalLoggingConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-meshExpansion">
+<td><code>meshExpansion</code></td>
+<td><code><a href="#MeshExpansionConfig">MeshExpansionConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-meshNetworks">
+<td><code>meshNetworks</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-monitoringPort">
+<td><code>monitoringPort</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Monitor port number for all control plane components.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-mtls">
+<td><code>mtls</code></td>
+<td><code><a href="#MTLSConfig">MTLSConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-multiCluster">
+<td><code>multiCluster</code></td>
+<td><code><a href="#MultiClusterConfig">MultiClusterConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-oneNamespace">
+<td><code>oneNamespace</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Restricts the applications namespace that the controller manages.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-outboundTrafficPolicy">
+<td><code>outboundTrafficPolicy</code></td>
+<td><code><a href="#OutboundTrafficPolicyConfig">OutboundTrafficPolicyConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-policyCheckFailOpen">
+<td><code>policyCheckFailOpen</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If set, allows traffic in cases when the mixer policy service cannot be reached.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-policyNamespace">
+<td><code>policyNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace of policy components</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-priorityClassName">
+<td><code>priorityClassName</code></td>
+<td><code>string</code></td>
+<td>
+<p>k8s priorityClassName.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-proxy">
+<td><code>proxy</code></td>
+<td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-proxy_init">
+<td><code>proxyInit</code></td>
+<td><code><a href="#ProxyInitConfig">ProxyInitConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDSConfig">SDSConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GlobalConfig-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+<p>Version tag for docker images.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-telemetryNamespace">
+<td><code>telemetryNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace of telemetry components</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-tracer">
+<td><code>tracer</code></td>
+<td><code><a href="#TracerConfig">TracerConfig</a></code></td>
+<td>
+<p>test</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-trustDomain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the trust domain that corresponds to the root cert of CA.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-useMCP">
+<td><code>useMCP</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Selects use of Mesh Configuration Protocol to configure Pilot.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GlobalLoggingConfig">GlobalLoggingConfig</h2>
+<section>
+<p>GlobalLoggingConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GlobalLoggingConfig-level">
+<td><code>level</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ILBGatewayConfig">ILBGatewayConfig</h2>
+<section>
+<p>ILBGatewayConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ILBGatewayConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-labels">
+<td><code>labels</code></td>
+<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-loadBalancerIP">
+<td><code>loadBalancerIP</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-ports">
+<td><code>ports</code></td>
+<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
+<td>
+<p>NodeSelector       map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code>
+PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="ILBGatewayConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ILBGatewayConfig-secretVolumes">
+<td><code>secretVolumes</code></td>
+<td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
+<td>
+<p>ServiceAnnotations map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
+  Type               v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IngressGatewayConfig">IngressGatewayConfig</h2>
+<section>
+<p>IngressGatewayConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IngressGatewayConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-connectTimeout">
+<td><code>connectTimeout</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-customService">
+<td><code>customService</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-debug">
+<td><code>debug</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-domain">
+<td><code>domain</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-drainDuration">
+<td><code>drainDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-externalIPs">
+<td><code>externalIPs</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-k8sIngress">
+<td><code>k8sIngress</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-k8sIngressHttps">
+<td><code>k8sIngressHttps</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-labels">
+<td><code>labels</code></td>
+<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-loadBalancerIP">
+<td><code>loadBalancerIP</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-loadBalancerSourceRanges">
+<td><code>loadBalancerSourceRanges</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-meshExpansionPorts">
+<td><code>meshExpansionPorts</code></td>
+<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-ports">
+<td><code>ports</code></td>
+<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
+<td>
+<p>NodeSelector                     map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code>
+PodAnnotations                   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code>
+PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
+PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#IngressGatewaySdsConfig">IngressGatewaySdsConfig</a></code></td>
+<td>
+<p>Resources                        map[string]interface&lbrace;}      <code>json:&quot;resources,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-secretVolumes">
+<td><code>secretVolumes</code></td>
+<td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayConfig-zvpn">
+<td><code>zvpn</code></td>
+<td><code><a href="#IngressGatewayZvpnConfig">IngressGatewayZvpnConfig</a></code></td>
+<td>
+<p>ServiceAnnotations               map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
+  Type                             v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IngressGatewaySdsConfig">IngressGatewaySdsConfig</h2>
+<section>
+<p>IngressGatewaySdsConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IngressGatewaySdsConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewaySdsConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IngressGatewayZvpnConfig">IngressGatewayZvpnConfig</h2>
+<section>
+<p>IngressGatewayZvpnConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IngressGatewayZvpnConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayZvpnConfig-suffix">
+<td><code>suffix</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</h2>
+<section>
+<p>KubernetesEnvMixerAdapterConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KubernetesEnvMixerAdapterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KubernetesIngressConfig">KubernetesIngressConfig</h2>
+<section>
+<p>KubernetesIngressConfig represents the configuration for Kubernetes Ingress.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KubernetesIngressConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables gateway for legacy k8s Ingress.</p>
+
+</td>
+</tr>
+<tr id="KubernetesIngressConfig-enableHttps">
+<td><code>enableHttps</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables gateway for legacy k8s Ingress.</p>
+
+</td>
+</tr>
+<tr id="KubernetesIngressConfig-gatewayName">
+<td><code>gatewayName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Sets the gateway name for legacy k8s Ingress.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadSheddingConfig">LoadSheddingConfig</h2>
+<section>
+<p>LoadSheddingConfig configs when mixer starts rejecting grpc requests.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadSheddingConfig-latencyThreshold">
+<td><code>latencyThreshold</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadSheddingConfig-mode">LoadSheddingConfig.mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadSheddingConfig-mode-DISABLED">
+<td><code>DISABLED</code></td>
+<td>
+</td>
+</tr>
+<tr id="LoadSheddingConfig-mode-LOG_ONLY">
+<td><code>LOG_ONLY</code></td>
+<td>
+</td>
+</tr>
+<tr id="LoadSheddingConfig-mode-ENFORCE">
+<td><code>ENFORCE</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MTLSConfig">MTLSConfig</h2>
+<section>
+<p>MTLSConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MTLSConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables MTLS for service to service traffic.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshExpansionConfig">MeshExpansionConfig</h2>
+<section>
+<p>MeshExpansionConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshExpansionConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Exposes Pilot and Citadel mTLS on the ingress gateway.</p>
+
+</td>
+</tr>
+<tr id="MeshExpansionConfig-useILB">
+<td><code>useILB</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerAdaptersConfig">MixerAdaptersConfig</h2>
+<section>
+<p>MixerAdaptersConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerAdaptersConfig-kubernetesenv">
+<td><code>kubernetesenv</code></td>
+<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerAdaptersConfig-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerAdaptersConfig-stdio">
+<td><code>stdio</code></td>
+<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerAdaptersConfig-useAdapterCRDs">
+<td><code>useAdapterCRDs</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerConfig">MixerConfig</h2>
+<section>
+<p>MixerConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerConfig-adapters">
+<td><code>adapters</code></td>
+<td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerConfig-policy">
+<td><code>policy</code></td>
+<td><code><a href="#MixerPolicyConfig">MixerPolicyConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerConfig-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#MixerTelemetryConfig">MixerTelemetryConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerPolicyConfig">MixerPolicyConfig</h2>
+<section>
+<p>MixerPolicyConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerPolicyConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerPolicyConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>PodAnnotations   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerTelemetryConfig">MixerTelemetryConfig</h2>
+<section>
+<p>MixerTelemetryConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerTelemetryConfig-adapters">
+<td><code>adapters</code></td>
+<td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-loadshedding">
+<td><code>loadshedding</code></td>
+<td><code><a href="#LoadSheddingConfig">LoadSheddingConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>NodeSelector           map[string]interface&lbrace;}     <code>json:&quot;nodeSelector,omitempty&quot;</code>
+PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-sessionAffinityEnabled">
+<td><code>sessionAffinityEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MultiClusterConfig">MultiClusterConfig</h2>
+<section>
+<p>MultiClusterConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MultiClusterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NodeAgentConfig">NodeAgentConfig</h2>
+<section>
+<p>NodeAgentConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NodeAgentConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="NodeAgentConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+<p>Env          map[string]interface&lbrace;} <code>json:&quot;env,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OutboundTrafficPolicyConfig">OutboundTrafficPolicyConfig</h2>
+<section>
+<p>OutboundTrafficPolicyConfig is described in istio.io documentation.</p>
+
+</section>
+<h2 id="OutboundTrafficPolicyConfig-mode">OutboundTrafficPolicyConfig.mode</h2>
+<section>
+<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicyConfig-mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+<tr id="OutboundTrafficPolicyConfig-mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotConfig">PilotConfig</h2>
+<section>
+<p>PilotConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-autoscaleEnabled">
+<td><code>autoscaleEnabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-autoscaleMin">
+<td><code>autoscaleMin</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-autoscaleMax">
+<td><code>autoscaleMax</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-sidecar">
+<td><code>sidecar</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-traceSampling">
+<td><code>traceSampling</code></td>
+<td><code>double</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-configNamespace">
+<td><code>configNamespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-cpu">
+<td><code>cpu</code></td>
+<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-keepaliveMaxServerConnectionAge">
+<td><code>keepaliveMaxServerConnectionAge</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>NodeSelector                     map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="PilotConfig-deploymentLabels">
+<td><code>deploymentLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-configMap">
+<td><code>configMap</code></td>
+<td><code>bool</code></td>
+<td>
+<p>MeshNetworks                     map[string]interface&lbrace;}      <code>json:&quot;meshNetworks,omitempty&quot;</code>
+PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
+PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="PilotConfig-ingress">
+<td><code>ingress</code></td>
+<td><code><a href="#PilotIngressConfig">PilotIngressConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-useMCP">
+<td><code>useMCP</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-policy">
+<td><code>policy</code></td>
+<td><code><a href="#PilotPolicyConfig">PilotPolicyConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotConfig-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#PilotTelemetryConfig">PilotTelemetryConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotIngressConfig">PilotIngressConfig</h2>
+<section>
+<p>PilotIngressConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotIngressConfig-ingressService">
+<td><code>ingressService</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotIngressConfig-ingressClass">
+<td><code>ingressClass</code></td>
+<td><code>string</code></td>
+<td>
+<p>Value to set on &ldquo;kubernetes.io/ingress.class&rdquo; annotations to activate, if mode is STRICT</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotIngressConfig-ingressControllerMode">PilotIngressConfig.ingressControllerMode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotIngressConfig-ingressControllerMode-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>all Ingress resources without annotation or with istio annotation.</p>
+
+</td>
+</tr>
+<tr id="PilotIngressConfig-ingressControllerMode-STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>only with istio annotation.</p>
+
+</td>
+</tr>
+<tr id="PilotIngressConfig-ingressControllerMode-OFF">
+<td><code>OFF</code></td>
+<td>
+<p>no ingress or sync.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotPolicyConfig">PilotPolicyConfig</h2>
+<section>
+<p>PilotPolicyConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotPolicyConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotTelemetryConfig">PilotTelemetryConfig</h2>
+<section>
+<p>PilotTelemetryConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotTelemetryConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PortsConfig">PortsConfig</h2>
+<section>
+<p>PortsConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PortsConfig-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PortsConfig-port">
+<td><code>port</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PortsConfig-nodePort">
+<td><code>nodePort</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PortsConfig-targetPort">
+<td><code>targetPort</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrometheusConfig">PrometheusConfig</h2>
+<section>
+<p>PrometheusConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrometheusConfig-createPrometheusResource">
+<td><code>createPrometheusResource</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-retention">
+<td><code>retention</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-scrapeInterval">
+<td><code>scrapeInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>NodeSelector             map[string]interface&lbrace;}    <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="PrometheusConfig-contextPath">
+<td><code>contextPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-ingress">
+<td><code>ingress</code></td>
+<td><code><a href="#AddonIngressConfig">AddonIngressConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-service">
+<td><code>service</code></td>
+<td><code><a href="#PrometheusServiceConfig">PrometheusServiceConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusConfig-security">
+<td><code>security</code></td>
+<td><code><a href="#PrometheusSecurityConfig">PrometheusSecurityConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</h2>
+<section>
+<p>PrometheusMixerAdapterConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrometheusMixerAdapterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusMixerAdapterConfig-metricsExpiryDuration">
+<td><code>metricsExpiryDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrometheusSecurityConfig">PrometheusSecurityConfig</h2>
+<section>
+<p>PrometheusSecurityConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrometheusSecurityConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrometheusServiceConfig">PrometheusServiceConfig</h2>
+<section>
+<p>PrometheusServiceConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrometheusServiceConfig-nodePort">
+<td><code>nodePort</code></td>
+<td><code><a href="#PrometheusServiceNodePortConfig">PrometheusServiceNodePortConfig</a></code></td>
+<td>
+<p>Annotations map[string]interface&lbrace;}           <code>json:&quot;annotations,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrometheusServiceNodePortConfig">PrometheusServiceNodePortConfig</h2>
+<section>
+<p>PrometheusServiceNodePortConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrometheusServiceNodePortConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="PrometheusServiceNodePortConfig-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig">ProxyConfig</h2>
+<section>
+<p>ProxyConfig specifies how proxies are configured within Istio.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-accessLogFile">
+<td><code>accessLogFile</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the path to write the sidecar access log file.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-accessLogFormat">
+<td><code>accessLogFormat</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configures how and what fields are displayed in sidecar access log.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-clusterDomain">
+<td><code>clusterDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>Domain for the cluster - defaults to .cluster.local, but k8s allows this to be customized, can be prod.example.com</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-componentLogLevel">
+<td><code>componentLogLevel</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-concurrency">
+<td><code>concurrency</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Controls number of proxy worker threads.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-dnsRefreshRate">
+<td><code>dnsRefreshRate</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-enableCoreDump">
+<td><code>enableCoreDump</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables core dumps for newly injected sidecars.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoyMetricsService">
+<td><code>envoyMetricsService</code></td>
+<td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-envoyStatsd">
+<td><code>envoyStatsd</code></td>
+<td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-excludeInboundPorts">
+<td><code>excludeInboundPorts</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the Istio ingress ports not to capture.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-excludeIPRanges">
+<td><code>excludeIPRanges</code></td>
+<td><code>string</code></td>
+<td>
+<p>Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+<p>Image name or path for the proxy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-includeInboundPorts">
+<td><code>includeInboundPorts</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the Istio ingress ports to capture.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-includeIPRanges">
+<td><code>includeIPRanges</code></td>
+<td><code>string</code></td>
+<td>
+<p>Lists the IP ranges of Istio egress traffic that the sidecar captures.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-kubevirtInterfaces">
+<td><code>kubevirtInterfaces</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-logLevel">
+<td><code>logLevel</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-privileged">
+<td><code>privileged</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-readinessInitialDelaySeconds">
+<td><code>readinessInitialDelaySeconds</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets the initial delay for readiness probes in seconds.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-readinessPeriodSeconds">
+<td><code>readinessPeriodSeconds</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets the interval between readiness probes in seconds.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-readinessFailureThreshold">
+<td><code>readinessFailureThreshold</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Sets the number of successive failed probes before indicating readiness failure.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-statusPort">
+<td><code>statusPort</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Default port used for the Pilot agent&rsquo;s health checks.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig-accessLogEncoding">ProxyConfig.accessLogEncoding</h2>
+<section>
+<p>Configure the access log for sidecar to JSON or TEXT</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-accessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-accessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig-autoInject">ProxyConfig.autoInject</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-autoInject-ENABLED">
+<td><code>ENABLED</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-autoInject-DISABLED">
+<td><code>DISABLED</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig-tracer">ProxyConfig.tracer</h2>
+<section>
+<p>Specifies which tracer to use.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyConfig-tracer-ZIPKIN">
+<td><code>ZIPKIN</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-tracer-LIGHTSTEP">
+<td><code>LIGHTSTEP</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyConfig-tracer-DATADOG">
+<td><code>DATADOG</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyInitConfig">ProxyInitConfig</h2>
+<section>
+<p>ProxyInitConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyInitConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ResourcesRequestsConfig">ResourcesRequestsConfig</h2>
+<section>
+<p>ResourcesRequestsConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ResourcesRequestsConfig-cpu">
+<td><code>cpu</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ResourcesRequestsConfig-memory">
+<td><code>memory</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SDSConfig">SDSConfig</h2>
+<section>
+<p>SDSConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDSConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="SDSConfig-udsPath">
+<td><code>udsPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.</p>
+
+</td>
+</tr>
+<tr id="SDSConfig-useNormalJwt">
+<td><code>useNormalJwt</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables SDS use of k8s sa normal JWT to request for certificates.</p>
+
+</td>
+</tr>
+<tr id="SDSConfig-useTrustworthyJwt">
+<td><code>useTrustworthyJwt</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables SDS use of trustworthy JWT to request for certificates.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SecretVolume">SecretVolume</h2>
+<section>
+<p>SecretVolume is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SecretVolume-mountPath">
+<td><code>mountPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecretVolume-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecretVolume-secretName">
+<td><code>secretName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SecurityConfig">SecurityConfig</h2>
+<section>
+<p>SecurityConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SecurityConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-selfSigned">
+<td><code>selfSigned</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-trustDomain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-dnsCerts">
+<td><code>dnsCerts</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityConfig-createMeshPolicy">
+<td><code>createMeshPolicy</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceConfig">ServiceConfig</h2>
+<section>
+<p>ServiceConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceConfig-externalPort">
+<td><code>externalPort</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Annotations  map[string]interface&lbrace;} <code>json:&quot;annotations,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="ServiceConfig-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type         v1.ServiceType     <code>json:&quot;type,omitempty&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SidecarInjectorConfig">SidecarInjectorConfig</h2>
+<section>
+<p>SidecarInjectorConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SidecarInjectorConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>AlwaysInjectSelector             []map[string]interface&lbrace;} <code>json:&quot;alwaysInjectSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-enableNamespacesByDefault">
+<td><code>enableNamespacesByDefault</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-replicaCount">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>NodeSelector                     map[string]interface&lbrace;}   <code>json:&quot;nodeSelector,omitempty&quot;</code>
+NeverInjectSelector              []map[string]interface&lbrace;} <code>json:&quot;neverInjectSelector,omitempty&quot;</code>
+PodAntiAffinityLabelSelector     []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
+PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-rewriteAppHTTPProbe">
+<td><code>rewriteAppHTTPProbe</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-selfSigned">
+<td><code>selfSigned</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StdioMixerAdapterConfig">StdioMixerAdapterConfig</h2>
+<section>
+<p>StdioMixerAdapterConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StdioMixerAdapterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="StdioMixerAdapterConfig-outputAsJson">
+<td><code>outputAsJson</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerConfig">TracerConfig</h2>
+<section>
+<p>TracerConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerConfig-datadog">
+<td><code>datadog</code></td>
+<td><code><a href="#TracerDatadogConfig">TracerDatadogConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracerConfig-lightstep">
+<td><code>lightstep</code></td>
+<td><code><a href="#TracerLightStepConfig">TracerLightStepConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracerConfig-zipkin">
+<td><code>zipkin</code></td>
+<td><code><a href="#TracerZipkinConfig">TracerZipkinConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerDatadogConfig">TracerDatadogConfig</h2>
+<section>
+<p>TracerDatadogConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerDatadogConfig-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerLightStepConfig">TracerLightStepConfig</h2>
+<section>
+<p>TracerLightStepConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerLightStepConfig-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Sets the lightstep satellite pool address.</p>
+
+</td>
+</tr>
+<tr id="TracerLightStepConfig-accessToken">
+<td><code>accessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>Sets the lightstep access token.</p>
+
+</td>
+</tr>
+<tr id="TracerLightStepConfig-cacertPath">
+<td><code>cacertPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Sets path to the file containing the cacert to use when verifying TLS.</p>
+
+</td>
+</tr>
+<tr id="TracerLightStepConfig-secure">
+<td><code>secure</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enables lightstep secure connection.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerZipkinConfig">TracerZipkinConfig</h2>
+<section>
+<p>TracerZipkinConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerZipkinConfig-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies address in host:port format for reporting trace data in zipkin format.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingConfig">TracingConfig</h2>
+<section>
+<p>TracingConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingConfig-ingress">
+<td><code>ingress</code></td>
+<td><code><a href="#TracingIngressConfig">TracingIngressConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingConfig-jaeger">
+<td><code>jaeger</code></td>
+<td><code><a href="#TracingJaegerConfig">TracingJaegerConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingConfig-provider">
+<td><code>provider</code></td>
+<td><code>string</code></td>
+<td>
+<p>NodeSelector map[string]interface&lbrace;} <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="TracingConfig-service">
+<td><code>service</code></td>
+<td><code><a href="#ServiceConfig">ServiceConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingConfig-zipkin">
+<td><code>zipkin</code></td>
+<td><code><a href="#TracingZipkinConfig">TracingZipkinConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingIngressConfig">TracingIngressConfig</h2>
+<section>
+<p>TracingIngressConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingIngressConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingJaegerConfig">TracingJaegerConfig</h2>
+<section>
+<p>TracingJaegerConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingJaegerConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingJaegerConfig-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingJaegerConfig-memory">
+<td><code>memory</code></td>
+<td><code><a href="#TracingJaegerMemoryConfig">TracingJaegerMemoryConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingJaegerMemoryConfig">TracingJaegerMemoryConfig</h2>
+<section>
+<p>TracingJaegerMemoryConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingJaegerMemoryConfig-max_traces">
+<td><code>maxTraces</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingZipkinConfig">TracingZipkinConfig</h2>
+<section>
+<p>TracingZipkinConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingZipkinConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-probeStartupDelay">
+<td><code>probeStartupDelay</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-queryPort">
+<td><code>queryPort</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-javaOptsHeap">
+<td><code>javaOptsHeap</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-maxSpans">
+<td><code>maxSpans</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="TracingZipkinConfig-node">
+<td><code>node</code></td>
+<td><code><a href="#TracingZipkinNodeConfig">TracingZipkinNodeConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingZipkinNodeConfig">TracingZipkinNodeConfig</h2>
+<section>
+<p>TracingZipkinNodeConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingZipkinNodeConfig-cpus">
+<td><code>cpus</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Values">Values</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Values-certmanager">
+<td><code>certmanager</code></td>
+<td><code><a href="#CertManagerConfig">CertManagerConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-istio_cni">
+<td><code>istioCni</code></td>
+<td><code><a href="#CNIConfig">CNIConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-istiocoredns">
+<td><code>istiocoredns</code></td>
+<td><code><a href="#CoreDNSConfig">CoreDNSConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-galley">
+<td><code>galley</code></td>
+<td><code><a href="#GalleyConfig">GalleyConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-gateways">
+<td><code>gateways</code></td>
+<td><code><a href="#GatewaysConfig">GatewaysConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-global">
+<td><code>global</code></td>
+<td><code><a href="#GlobalConfig">GlobalConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-mixer">
+<td><code>mixer</code></td>
+<td><code><a href="#MixerConfig">MixerConfig</a></code></td>
+<td>
+<p>Grafana         map[string]interface&lbrace;} <code>json:&quot;grafana,omitempty&quot;</code></p>
+
+</td>
+</tr>
+<tr id="Values-nodeagent">
+<td><code>nodeagent</code></td>
+<td><code><a href="#NodeAgentConfig">NodeAgentConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-pilot">
+<td><code>pilot</code></td>
+<td><code><a href="#PilotConfig">PilotConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#PrometheusConfig">PrometheusConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-security">
+<td><code>security</code></td>
+<td><code><a href="#SecurityConfig">SecurityConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-sidecarInjectorWebhook">
+<td><code>sidecarInjectorWebhook</code></td>
+<td><code><a href="#SidecarInjectorConfig">SidecarInjectorConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Values-tracing">
+<td><code>tracing</code></td>
+<td><code><a href="#TracingConfig">TracingConfig</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ZeroVPNConfig">ZeroVPNConfig</h2>
+<section>
+<p>ZeroVPNConfig is described in istio.io documentation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ZeroVPNConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="ZeroVPNConfig-suffix">
+<td><code>suffix</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</h2>
+<section>
+<p>ResourceRequirements describes the compute resource requirements.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-core-v1-ResourceRequirements-limits">
+<td><code>limits</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#k8s-io-apimachinery-pkg-api-resource-Quantity">k8s.io.apimachinery.pkg.api.resource.Quantity</a>&gt;</code></td>
+<td>
+<p>Limits describes the maximum amount of compute resources allowed.
+More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ResourceRequirements-requests">
+<td><code>requests</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#k8s-io-apimachinery-pkg-api-resource-Quantity">k8s.io.apimachinery.pkg.api.resource.Quantity</a>&gt;</code></td>
+<td>
+<p>Requests describes the minimum amount of compute resources required.
+If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+otherwise to an implementation-defined value.
+More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

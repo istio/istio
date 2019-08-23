@@ -5,9 +5,9 @@
 # The original version of this file is located in the https://github.com/istio/common-files repo.
 # If you're looking at this file in a different repo and want to make a change, please go to the
 # common-files repo, make the change there and check it in. Then come back to this repo and run
-# "make updatecommon".
+# "make update-common".
 
-# Copyright 2018 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,6 @@ set -e
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 
-img=gcr.io/istio-testing/api-build-tools:2019-07-30
+img=gcr.io/istio-testing/build-tools:2019-08-18T16-45-52
 
 docker run -i --sig-proxy=true --rm --entrypoint go-bindata --user "$(id -u)" -v /etc/passwd:/etc/passwd:ro -v "${ROOTDIR}:${ROOTDIR}" -w "$(pwd)" ${img} "$@"

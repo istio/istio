@@ -1,3 +1,17 @@
+# Copyright 2019 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 export GO111MODULE=on
 ifeq ($(BUILD_WITH_CONTAINER),0)
 override GOBIN := $(GOPATH)/bin
@@ -8,9 +22,7 @@ pwd := $(shell pwd)
 # make targets
 .PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts
 
-lint:
-	@scripts/check_license.sh
-	@golangci-lint run -j 8 -v ./...
+lint: lint-copyright-banner lint-go
 
 test:
 	@go test -race ./...
@@ -24,8 +36,7 @@ mandiff: update-charts
 
 build: mesh
 
-fmt:
-	@goimports -w -local "istio.io" $(shell find . -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' )
+fmt: format-go
 
 update-charts: installer.sha
 	@scripts/run_update_charts.sh `cat installer.sha`
@@ -34,80 +45,64 @@ update-charts: installer.sha
 vfsgen: data/ update-charts
 	go generate ./...
 
-########################
-# protoc_gen_gogo*
-########################
+generate: generate-values generate-types vfsgen
 
-gogofast_plugin_prefix := --gogofast_out=plugins=grpc,
-
-comma := ,
-empty:=
-space := $(empty) $(empty)
-
-importmaps := \
-	gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto \
-	google/protobuf/any.proto=github.com/gogo/protobuf/types \
-	google/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor \
-	google/protobuf/duration.proto=github.com/gogo/protobuf/types \
-	google/protobuf/struct.proto=github.com/gogo/protobuf/types \
-	google/protobuf/timestamp.proto=github.com/gogo/protobuf/types \
-	google/protobuf/wrappers.proto=github.com/gogo/protobuf/types \
-	google/rpc/status.proto=github.com/gogo/googleapis/google/rpc \
-	google/rpc/code.proto=github.com/gogo/googleapis/google/rpc \
-	google/rpc/error_details.proto=github.com/gogo/googleapis/google/rpc \
-
-# generate mapping directive with M<proto>:<go pkg>, format for each proto file
-mapping_with_spaces := $(foreach map,$(importmaps),M$(map),)
-gogo_mapping := $(subst $(space),$(empty),$(mapping_with_spaces))
-
-#gofast_plugin := $(gofast_plugin_prefix)$(gogo_mapping):$(out_path)
-gogofast_plugin := $(gogofast_plugin_prefix)$(gogo_mapping):$(out_path)
-
-#####################
-# Generation Rules
-#####################
-
-api_path := pkg/apis/istio/v1alpha2
-api_protos := $(shell find $(api_path) -type f -name '*.proto' | sort)
-api_pb_gos := $(api_protos:.proto=.pb.go)
-
-########################
-# protoc_gen_docs
-########################
-
-gen_doc_iscp: get_dep_proto
-	protoc -I/tmp/src -I$(pwd) -I/usr/include/protobuf --docs_out=warnings=true,emit_yaml=true,mode=html_page:$(pwd) pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
-
-gen_doc_values: get_dep_proto
-	protoc -I/tmp/src -I$(pwd) -I/usr/include/protobuf --docs_out=warnings=true,emit_yaml=true,mode=html_page:$(pwd) pkg/apis/istio/v1alpha2/values/values_types.proto
+clean: clean-values clean-types
 
 default: mesh
 
-generate-api-go: $(api_pb_gos)
-	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
-
-$(api_pb_gos): $(api_protos)
-	@protoc $(gogofast_plugin) $^
-
-clean-proto:
-	rm -f $(api_pb_gos)
-
-# is all of this needed or is this cruft?
-
-get_dep_proto:
-	GO111MODULE=off GOPATH=/tmp go get k8s.io/api/core/v1 k8s.io/api/autoscaling/v2beta1 k8s.io/apimachinery/pkg/apis/meta/v1/
-
-proto_iscp: get_dep_proto
-	protoc -I=/tmp/src -I$(pwd) -I=/usr/include/protobuf --gogofast_out=$(pwd) pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto
-	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go
-	patch pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go < pkg/apis/istio/v1alpha2/fixup_go_structs.patch
-
-proto_values: get_dep_proto
-	protoc -I=/tmp/src -I$(pwd) -I=/usr/include/protobuf --go_out=$(pwd) pkg/apis/istio/v1alpha2/values/values_types.proto
-	sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' pkg/apis/istio/v1alpha2/values/values_types.pb.go
-	patch pkg/apis/istio/v1alpha2/values/values_types.pb.go < pkg/apis/istio/v1alpha2/values/fix_values_structs.patch
-
 mesh: vfsgen
 	go build -o ${GOBIN}/mesh ./cmd/mesh.go
+
+########################
+
+repo_dir := .
+out_path = /tmp
+protoc = protoc -I/usr/include/protobuf -I.
+
+go_plugin_prefix := --go_out=plugins=grpc,
+go_plugin := $(go_plugin_prefix):$(out_path)
+
+python_output_path := python/istio_api
+protoc_gen_python_prefix := --python_out=,
+protoc_gen_python_plugin := $(protoc_gen_python_prefix):$(repo_dir)/$(python_output_path)
+
+protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
+
+types_v1alpha2_path := pkg/apis/istio/v1alpha2
+types_v1alpha2_protos := $(wildcard $(types_v1alpha2_path)/*.proto)
+types_v1alpha2_pb_gos := $(types_v1alpha2_protos:.proto=.pb.go)
+types_v1alpha2_pb_pythons := $(patsubst $(types_v1alpha2_path)/%.proto,$(python_output_path)/$(types_v1alpha2_path)/%_pb2.py,$(types_v1alpha2_protos))
+types_v1alpha2_pb_docs := $(types_v1alpha2_protos:.proto=.pb.html)
+types_v1alpha2_openapi := $(types_v1alpha2_protos:.proto=.json)
+
+$(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons): $(types_v1alpha2_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
+	@cp -r /tmp/pkg/* pkg/
+	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@patch $(types_v1alpha2_path)/istiocontrolplane_types.pb.go < $(types_v1alpha2_path)/fixup_go_structs.patch
+
+generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
+
+clean-types:
+	@rm -fr $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
+
+values_v1alpha2_path := pkg/apis/istio/v1alpha2/values
+values_v1alpha2_protos := $(wildcard $(values_v1alpha2_path)/*.proto)
+values_v1alpha2_pb_gos := $(values_v1alpha2_protos:.proto=.pb.go)
+values_v1alpha2_pb_pythons := $(patsubst $(values_v1alpha2_path)/%.proto,$(python_output_path)/$(values_v1alpha2_path)/%_pb2.py,$(values_v1alpha2_protos))
+values_v1alpha2_pb_docs := $(values_v1alpha2_protos:.proto=.pb.html)
+values_v1alpha2_openapi := $(values_v1alpha2_protos:.proto=.json)
+
+$(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons): $(values_v1alpha2_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha2_path) $(protoc_gen_python_plugin) $^
+	@cp -r /tmp/pkg/* pkg/
+	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha2_path)/values_types.pb.go
+	@patch $(values_v1alpha2_path)/values_types.pb.go < $(values_v1alpha2_path)/fix_values_structs.patch
+
+generate-values: $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
+
+clean-values:
+	@rm -fr $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
 
 include Makefile.common.mk
