@@ -110,8 +110,8 @@ spec:
           - "{{ .Version }}"
         ports:
 {{- range $i, $p := .ContainerPorts }}
-        - containerPort: {{ $p.Port }} 
 {{- if eq .Port 3333 }}
+        - containerPort: {{ $p.Port }} 
           name: tcp-health-port
 {{- end }}
 {{- end }}
