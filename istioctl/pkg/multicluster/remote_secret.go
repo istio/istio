@@ -209,7 +209,7 @@ func createPilotRemoteSecret(out *bytes.Buffer, config *api.Config, name, contex
 	// Get the remote pilot's service-account-token secret
 	serviceAccount, err := kube.CoreV1().ServiceAccounts(o.Namespace).Get(o.ServiceAccountName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.Namespace, name, context)
+		return fmt.Errorf("failed to get serviceaccount %s/%s in cluster %v", o.Namespace, o.ServiceAccountName, context)
 	}
 	if len(serviceAccount.Secrets) != 1 {
 		return fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s in cluster %v",
