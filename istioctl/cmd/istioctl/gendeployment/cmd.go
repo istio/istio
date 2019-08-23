@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	defaultTag = "master-latest-daily"
+	defaultTag = "release-1.3-latest-daily"
 )
 
 // Command returns the "gen-deploy" subcommand for istioctl.

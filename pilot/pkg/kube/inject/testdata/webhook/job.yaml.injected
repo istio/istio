@@ -87,7 +87,7 @@ spec:
           value: pi
         - name: ISTIO_META_OWNER
           value: kubernetes://api/v1/namespaces/default/pods/pi
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-release/proxyv2:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -135,7 +135,7 @@ spec:
         - ""
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-release/proxy_init:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:

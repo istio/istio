@@ -150,12 +150,12 @@ function setup_kind_cluster() {
 function cni_run_daemon_kind() {
   echo 'Run the CNI daemon set'
   ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-release-1.3-latest-daily}
 
   # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
   chartdir=$(mktemp -d)
   helm init --client-only
-  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.3-latest-daily/charts/
   helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
 
   helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
@@ -168,7 +168,7 @@ function cni_run_daemon() {
 
   echo 'Run the CNI daemon set'
   ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-release-1.3-latest-daily}
 
   chartdir=$(pwd)/charts
   mkdir "${chartdir}"

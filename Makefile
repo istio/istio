@@ -29,7 +29,7 @@ ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_CNI_HUB ?= gcr.io/istio-release
 export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= master-latest-daily
+ISTIO_CNI_TAG ?=  release-1.3-latest-daily
 export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
