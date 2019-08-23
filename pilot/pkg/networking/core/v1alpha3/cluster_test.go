@@ -28,6 +28,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -657,21 +658,41 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
+	strictAuthPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{},
+			},
+		}},
+	}
+	permissiveAuthPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{
+					Mode: authn.MutualTls_PERMISSIVE,
+				},
+			},
+		}},
+	}
 	tests := []struct {
-		name  string
-		tls   *networking.TLSSettings
-		sans  []string
-		sni   string
-		proxy *model.Proxy
-		want  *networking.TLSSettings
+		name       string
+		tls        *networking.TLSSettings
+		authPolicy *authn.Policy
+		sans       []string
+		sni        string
+		proxy      *model.Proxy
+		want       *networking.TLSSettings
+		mtlsReady  bool
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
+			nil,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
 			tlsSettings,
+			true,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
@@ -683,6 +704,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
+			nil,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
@@ -694,10 +716,12 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			true,
 		},
 		{
 			"Cert path override",
 			tlsSettings,
+			nil,
 			[]string{},
 			"",
 			&model.Proxy{Metadata: map[string]string{
@@ -713,12 +737,69 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
+			true,
+		},
+		{
+			"MTlSReady permissive: service ready",
+			nil,
+			permissiveAuthPolicy,
+			nil,
+			"",
+			&model.Proxy{Metadata: map[string]string{}},
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+			},
+			true,
+		},
+		{
+			"MTlSReady permissive: service not ready",
+			nil,
+			permissiveAuthPolicy,
+			nil,
+			"",
+			&model.Proxy{Metadata: map[string]string{}},
+			nil,
+			false,
+		},
+		{
+			"MTlSReady strict: service ready",
+			nil,
+			strictAuthPolicy,
+			nil,
+			"",
+			&model.Proxy{Metadata: map[string]string{}},
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+			},
+			true,
+		},
+		{
+			"MTlSReady strict: service not ready",
+			nil,
+			strictAuthPolicy,
+			nil,
+			"",
+			&model.Proxy{Metadata: map[string]string{}},
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+			},
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy)
+			_ = os.Setenv(features.UseAutoPilotMTLS.Name, "1")
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.authPolicy, tt.mtlsReady)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}

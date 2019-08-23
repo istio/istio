@@ -674,19 +674,21 @@ func conditionallyConvertToIstioMtls(
 	tlsPolicy *authn.Policy,
 	mtlsReady bool,
 ) *networking.TLSSettings {
-	if mtls := authn_policy.GetMutualTLS(tlsPolicy); mtls != nil {
-		switch mtls.Mode {
-		case authn.MutualTls_PERMISSIVE:
-			// permissive mTLS enabled and all service instances are injected
-			if mtlsReady {
+	if features.UseAutoPilotMTLS.Get() {
+		if mtls := authn_policy.GetMutualTLS(tlsPolicy); mtls != nil {
+			switch mtls.Mode {
+			case authn.MutualTls_PERMISSIVE:
+				// permissive mTLS enabled and all service instances are injected
+				if mtlsReady {
+					tls = &networking.TLSSettings{
+						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					}
+				}
+			case authn.MutualTls_STRICT:
+				// strict mTLS is enabled, configure mTLS by default
 				tls = &networking.TLSSettings{
 					Mode: networking.TLSSettings_ISTIO_MUTUAL,
 				}
-			}
-		case authn.MutualTls_STRICT:
-			// strict mTLS is enabled, configure mTLS by default
-			tls = &networking.TLSSettings{
-				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			}
 		}
 	}
