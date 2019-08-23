@@ -445,37 +445,39 @@ func (s *DiscoveryServer) WorkloadUpdate(shard, id string, workloadLabels map[st
 		s.WorkloadsByID[shard] = map[string]*Workload{id: {Labels: workloadLabels}}
 		s.sendPushRequestTo(id)
 		return
-	} else {
-		w, ok := s.WorkloadsByID[shard][id]
-		if !ok {
-			s.WorkloadsByID[shard][id] = &Workload{Labels: workloadLabels}
-			s.sendPushRequestTo(id)
-			return
-		}
-
-		if reflect.DeepEqual(w.Labels, workloadLabels) {
-			// No label change.
-			return
-		}
-		w.Labels = workloadLabels
-		// Label changes require recomputing the config.
-		// TODO: we can do a push for the affected workload only, but we need to confirm
-		// no other workload can be affected. Safer option is to fallback to full push.
-
-		// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
-		adsClientsMutex.RLock()
-		for _, connection := range adsClients {
-			// update node label
-			if connection.modelNode.IPAddresses[0] == id {
-				// set to nil, trigger re-set in SetWorkloadLabels
-				connection.modelNode.WorkloadLabels = nil
-			}
-		}
-		adsClientsMutex.RUnlock()
-
-		adsLog.Infof("Label change, full push %s ", id)
-		s.ConfigUpdate(&model.PushRequest{Full: true})
 	}
+
+	w, ok := s.WorkloadsByID[shard][id]
+	if !ok {
+		s.WorkloadsByID[shard][id] = &Workload{Labels: workloadLabels}
+		s.sendPushRequestTo(id)
+		return
+	}
+
+	if reflect.DeepEqual(w.Labels, workloadLabels) {
+		// No label change.
+		return
+	}
+	w.Labels = workloadLabels
+
+	// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
+	adsClientsMutex.RLock()
+	for _, connection := range adsClients {
+		// update node label
+		if connection.modelNode.IPAddresses[0] == id {
+			// set to nil, trigger re-set in SetWorkloadLabels
+			connection.modelNode.WorkloadLabels = nil
+		}
+	}
+	adsClientsMutex.RUnlock()
+
+	// Label changes require recomputing the config.
+	// TODO: we can do a push for the affected workload only, but we need to confirm
+	// no other workload can be affected. Safer option is to fallback to full push.
+
+	adsLog.Infof("Label change, full push %s ", id)
+	s.ConfigUpdate(&model.PushRequest{Full: true})
+
 }
 
 // Note: we can not get the specific xds connection in single control plane multi-network model,
