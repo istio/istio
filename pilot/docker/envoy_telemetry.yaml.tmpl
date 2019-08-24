@@ -132,6 +132,54 @@ static_resources:
           stat_prefix: "15004"
         name: envoy.http_connection_manager
 {{- if .ControlPlaneAuth }}
+{{- if .sds_uds_path }}
+      tls_context:
+        common_tls_context:
+          alpn_protocols:
+          - h2
+          tls_certificate_sds_secret_configs:
+          - name: default
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                - google_grpc:
+                    target_uri: {{ .sds_uds_path }}
+                    channel_credentials:
+                      local_credentials: {}
+                    call_credentials:
+                    - from_plugin:
+                        name: envoy.grpc_credentials.file_based_metadata
+                        config:
+                          header_key: istio_sds_credentials_header-bin
+                          secret_data:
+                            filename: {{ .sds_token_path }}
+                    credentials_factory_name: envoy.grpc_credentials.file_based_metadata
+                    stat_prefix: sdsstat
+          combined_validation_context:
+            default_validation_context:
+              verify_subject_alt_name: []
+            validation_context_sds_secret_config:
+              name: ROOTCA
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - google_grpc:
+                      target_uri: {{ .sds_uds_path }}
+                      channel_credentials:
+                        local_credentials: {}
+                      call_credentials:
+                      - from_plugin:
+                          name: envoy.grpc_credentials.file_based_metadata
+                          config:
+                            header_key: istio_sds_credentials_header-bin
+                            secret_data:
+                              filename: {{ .sds_token_path }}
+                      credentials_factory_name: envoy.grpc_credentials.file_based_metadata
+                      stat_prefix: sdsstat
+        require_client_certificate: true
+{{- else }}
       tls_context:
         common_tls_context:
           alpn_protocols:
@@ -145,6 +193,7 @@ static_resources:
             trusted_ca:
               filename: /etc/certs/root-cert.pem
         require_client_certificate: true
+{{- end }}
 {{- end }}
     name: "15004"
   - address:

@@ -90,6 +90,9 @@ func TestGolden(t *testing.T) {
 	}{
 		{
 			base: "auth",
+		},
+		{
+			base: "authsds",
 			opts: map[string]interface{}{
 				"sds_uds_path":   "udspath",
 				"sds_token_path": "/var/run/secrets/tokens/istio-token",
@@ -113,9 +116,26 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
+			checkLocality: true,
+		},
+		{
+			base: "runningsds",
+			envVars: map[string]string{
+				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
+				"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
+				"ISTIO_META_ISTIO_VERSION":     "release-3.1",
+				"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAMESPACE":                "test",
+				"INSTANCE_IP":                  "10.10.10.1",
+				"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
+			},
+			annotations: map[string]string{
+				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
+			},
 			opts: map[string]interface{}{
 				"sds_uds_path":   "udspath",
-				"sds_token_path": "/var/run/secrets/kubernetes.io/serviceaccount/token",
+				"sds_token_path": "/var/run/secrets/tokens/istio-token",
 			},
 			checkLocality: true,
 		},
