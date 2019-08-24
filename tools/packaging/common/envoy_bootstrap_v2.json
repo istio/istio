@@ -134,6 +134,9 @@
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
+          {
+          "prefix": "reporter="
+          },
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
