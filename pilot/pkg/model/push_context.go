@@ -910,11 +910,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]Config, 0)
 	sidecarConfigWithoutSelector := make([]Config, 0)
+	sidecarsWithoutSelectorByNamesapce := make(map[string]struct{})
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
+			sidecarsWithoutSelectorByNamesapce[sidecarConfig.Namespace] = struct{}{}
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -945,14 +947,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if len(ps.sidecarsByNamespace[ns]) == 0 {
-				// use the contents from the root namespace or the default if there is no root namespace
-				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+			if _, exist := sidecarsWithoutSelectorByNamesapce[ns]; !exist {
+				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 			}
 		}
 	}
