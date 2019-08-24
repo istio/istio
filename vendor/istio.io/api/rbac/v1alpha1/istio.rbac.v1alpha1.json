@@ -24,7 +24,7 @@
         "type": "object",
         "properties": {
           "services": {
-            "description": "Required. A list of service names. Exact match, prefix match, and suffix match are supported for service names. For example, the service name \"bookstore.mtv.cluster.local\" matches \"bookstore.mtv.cluster.local\" (exact match), or \"bookstore*\" (prefix match), or \"*.mtv.cluster.local\" (suffix match). If set to [\"*\"], it refers to all services in the namespace.",
+            "description": "Required. A list of service names. Exact match, prefix match, and suffix match are supported for service names. For example, the service name \"bookstore.mtv.cluster.local\" matches \"bookstore.mtv.cluster.local\" (exact match), or \"bookstore\\*\" (prefix match), or \"\\*.mtv.cluster.local\" (suffix match). If set to [\"\\*\"], it refers to all services in the namespace.",
             "type": "array",
             "items": {
               "type": "string",
@@ -32,7 +32,7 @@
             }
           },
           "hosts": {
-            "description": "Optional. A list of HTTP hosts. This is matched against the HOST header in a HTTP request. Exact match, prefix match and suffix match are supported. For example, the host \"test.abc.com\" matches \"test.abc.com\" (exact match), or \"*.abc.com\" (prefix match), or \"test.abc.*\" (suffix match). If not specified, it matches to any host. This field should not be set for TCP services. The policy will be ignored.",
+            "description": "Optional. A list of HTTP hosts. This is matched against the HOST header in a HTTP request. Exact match, prefix match and suffix match are supported. For example, the host \"test.abc.com\" matches \"test.abc.com\" (exact match), or \"\\*.abc.com\" (prefix match), or \"test.abc.\\*\" (suffix match). If not specified, it matches to any host. This field should not be set for TCP services. The policy will be ignored.",
             "type": "array",
             "items": {
               "type": "string",
@@ -48,7 +48,7 @@
             }
           },
           "paths": {
-            "description": "Optional. A list of HTTP paths or gRPC methods. gRPC methods must be presented as fully-qualified name in the form of \"/packageName.serviceName/methodName\" and are case sensitive. Exact match, prefix match, and suffix match are supported. For example, the path \"/books/review\" matches \"/books/review\" (exact match), or \"/books/*\" (prefix match), or \"*/review\" (suffix match). If not specified, it matches to any path. This field should not be set for TCP services. The policy will be ignored.",
+            "description": "Optional. A list of HTTP paths or gRPC methods. gRPC methods must be presented as fully-qualified name in the form of \"/packageName.serviceName/methodName\" and are case sensitive. Exact match, prefix match, and suffix match are supported. For example, the path \"/books/review\" matches \"/books/review\" (exact match), or \"/books/\\*\" (prefix match), or \"\\*/review\" (suffix match). If not specified, it matches to any path. This field should not be set for TCP services. The policy will be ignored.",
             "type": "array",
             "items": {
               "type": "string",
@@ -64,7 +64,7 @@
             }
           },
           "methods": {
-            "description": "Optional. A list of HTTP methods (e.g., \"GET\", \"POST\"). If not specified or specified as \"*\", it matches to any methods. This field should not be set for TCP services. The policy will be ignored. For gRPC services, only `POST` is allowed; other methods will result in denying services.",
+            "description": "Optional. A list of HTTP methods (e.g., \"GET\", \"POST\"). If not specified or specified as \"\\*\", it matches to any methods. This field should not be set for TCP services. The policy will be ignored. For gRPC services, only `POST` is allowed; other methods will result in denying services.",
             "type": "array",
             "items": {
               "type": "string",
@@ -114,7 +114,7 @@
             "format": "string"
           },
           "values": {
-            "description": "List of valid values for the constraint. Exact match, prefix match, and suffix match are supported. For example, the value \"v1alpha2\" matches \"v1alpha2\" (exact match), or \"v1*\" (prefix match), or \"*alpha2\" (suffix match).",
+            "description": "List of valid values for the constraint. Exact match, prefix match, and suffix match are supported. For example, the value \"v1alpha2\" matches \"v1alpha2\" (exact match), or \"v1\\*\" (prefix match), or \"\\*alpha2\" (suffix match).",
             "type": "array",
             "items": {
               "type": "string",
@@ -125,6 +125,7 @@
       },
       "istio.rbac.v1alpha1.EnforcementMode": {
         "description": "RBAC ServiceRoleBinding enforcement mode, used to verify new ServiceRoleBinding configs work as expected before rolling to production. RBAC engine only logs results from configs that are in permissive mode, and discards result before returning to the user.",
+        "type": "string",
         "enum": [
           "ENFORCED",
           "PERMISSIVE"
@@ -175,7 +176,7 @@
             "format": "string"
           },
           "names": {
-            "description": "Optional. A list of subject names. This is matched to the `source.principal` attribute. If one of subject names is \"*\", it matches to a subject with any name. Prefix and suffix matches are supported.",
+            "description": "Optional. A list of subject names. This is matched to the `source.principal` attribute. If one of subject names is \"\\*\", it matches to a subject with any name. Prefix and suffix matches are supported.",
             "type": "array",
             "items": {
               "type": "string",
@@ -288,6 +289,7 @@
         }
       },
       "istio.rbac.v1alpha1.RbacConfig.Mode": {
+        "type": "string",
         "enum": [
           "OFF",
           "ON",

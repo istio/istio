@@ -8,6 +8,8 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
+replace istio.io/api => github.com/pnovotnak/api v0.0.0-20190824230835-c29ab8c3ad0f
+
 require (
 	cloud.google.com/go v0.37.4
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0

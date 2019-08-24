@@ -4,7 +4,7 @@ description: Configuration state for the Mixer client library.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.mixer.v1.config.client
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 20
+number_of_entries: 21
 ---
 <p>Describes the configuration state for the Mixer client library that&rsquo;s built into Envoy.</p>
 
@@ -932,6 +932,87 @@ It applies on the new TCP connections.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Specify report interval to send periodical reports for long TCP
+connections. If not specified, the interval is 10 seconds. This interval
+should not be less than 1 second, otherwise it will be reset to 1 second.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ThriftClientConfig">ThriftClientConfig</h2>
+<section>
+<p>Defines the client config for Thrift.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ThriftClientConfig-transport">
+<td><code>transport</code></td>
+<td><code><a href="#TransportConfig">TransportConfig</a></code></td>
+<td>
+<p>The transport config.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-service_configs">
+<td><code>serviceConfigs</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#ServiceConfig">ServiceConfig</a>&gt;</code></td>
+<td>
+<p>Map of control configuration indexed by destination.service. This
+is used to support per-service configuration for cases where a
+mixerclient serves multiple services.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-default_destination_service">
+<td><code>defaultDestinationService</code></td>
+<td><code>string</code></td>
+<td>
+<p>Default destination service name if none was specified in the
+client request.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-mixer_attributes">
+<td><code>mixerAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to send to Mixer in both Check and
+Report. This typically includes &ldquo;destination.ip&rdquo; and
+&ldquo;destination.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-connection_quota_spec">
+<td><code>connectionQuotaSpec</code></td>
+<td><code><a href="#QuotaSpec">QuotaSpec</a></code></td>
+<td>
+<p>Quota specifications to generate quota requirements.
+It applies on the new TCP connections.</p>
+
+</td>
+</tr>
+<tr id="ThriftClientConfig-report_interval">
+<td><code>reportInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Specify report interval to send periodical reports for long Thrift
 connections. If not specified, the interval is 10 seconds. This interval
 should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 

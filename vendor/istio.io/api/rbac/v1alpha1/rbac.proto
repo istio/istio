@@ -25,7 +25,7 @@ syntax = "proto3";
 // the following standard fields:
 //
 //   * services: a list of services.
-//   * methods: A list of HTTP methods. You can set the value to `*` to include all HTTP methods.
+//   * methods: A list of HTTP methods. You can set the value to `\*` to include all HTTP methods.
 //              This field should not be set for TCP services. The policy will be ignored.
 //              For gRPC services, only `POST` is allowed; other methods will result in denying services.
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
@@ -97,16 +97,16 @@ message AccessRule {
   // Required. A list of service names.
   // Exact match, prefix match, and suffix match are supported for service names.
   // For example, the service name "bookstore.mtv.cluster.local" matches
-  // "bookstore.mtv.cluster.local" (exact match), or "bookstore*" (prefix match),
-  // or "*.mtv.cluster.local" (suffix match).
-  // If set to ["*"], it refers to all services in the namespace.
+  // "bookstore.mtv.cluster.local" (exact match), or "bookstore\*" (prefix match),
+  // or "\*.mtv.cluster.local" (suffix match).
+  // If set to ["\*"], it refers to all services in the namespace.
   repeated string services = 1;
 
   // $hide_from_docs
   // Optional. A list of HTTP hosts. This is matched against the HOST header in
   // a HTTP request. Exact match, prefix match and suffix match are supported.
   // For example, the host "test.abc.com" matches "test.abc.com" (exact match),
-  // or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
+  // or "\*.abc.com" (prefix match), or "test.abc.\*" (suffix match).
   // If not specified, it matches to any host.
   // This field should not be set for TCP services. The policy will be ignored.
   repeated string hosts = 5;
@@ -120,7 +120,7 @@ message AccessRule {
   // "/packageName.serviceName/methodName" and are case sensitive.
   // Exact match, prefix match, and suffix match are supported. For example,
   // the path "/books/review" matches "/books/review" (exact match),
-  // or "/books/*" (prefix match), or "*/review" (suffix match).
+  // or "/books/\*" (prefix match), or "\*/review" (suffix match).
   // If not specified, it matches to any path.
   // This field should not be set for TCP services. The policy will be ignored.
   repeated string paths = 2;
@@ -130,7 +130,7 @@ message AccessRule {
   repeated string not_paths = 7;
 
   // Optional. A list of HTTP methods (e.g., "GET", "POST").
-  // If not specified or specified as "*", it matches to any methods.
+  // If not specified or specified as "\*", it matches to any methods.
   // This field should not be set for TCP services. The policy will be ignored.
   // For gRPC services, only `POST` is allowed; other methods will result in denying services.
   repeated string methods = 3;
@@ -159,7 +159,7 @@ message AccessRule {
     // List of valid values for the constraint.
     // Exact match, prefix match, and suffix match are supported.
     // For example, the value "v1alpha2" matches "v1alpha2" (exact match),
-    // or "v1*" (prefix match), or "*alpha2" (suffix match).
+    // or "v1\*" (prefix match), or "\*alpha2" (suffix match).
     repeated string values = 2;
   }
 
@@ -246,7 +246,7 @@ message Subject {
 
   // $hide_from_docs
   // Optional. A list of subject names. This is matched to the
-  // `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+  // `source.principal` attribute. If one of subject names is "\*", it matches to a subject with any name.
   // Prefix and suffix matches are supported.
   repeated string names = 4;
 

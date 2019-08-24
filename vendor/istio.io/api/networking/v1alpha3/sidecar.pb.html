@@ -312,10 +312,16 @@ associated <code>DestinationRule</code> in the same namespace will also be used.
 <p>The <code>dnsName</code> should be specified using FQDN format, optionally including
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all services from the specified namespace
-(e.g., <code>prod/*</code>). The <code>namespace</code> can also be set to <code>*</code> to select a particular
-service from any available namespace (e.g., <code>*/foo.example.com</code>).
-If a host is set to <code>*/*</code>,  Istio will automatically configure the sidecar to
-be able to reach every service in the mesh that is visible to this namespace.</p>
+(e.g., <code>prod/*</code>).</p>
+
+<p>The <code>namespace</code> can be set to <code>*</code>, <code>.</code>, or <code>~</code>, representing any, the current,
+or no namespace, respectively. For example, <code>*/foo.example.com</code> selects the
+service from any available namespace while <code>./foo.example.com</code> only selects
+the service from the namespace of the sidecar. If a host is set to <code>*/*</code>,
+Istio will configure the sidecar to be able to reach every service in the
+mesh that is exported to the sidecar&rsquo;s namespace. The value <code>~/*</code> can be used
+to completely trim the configuration for sidecars that simply receive traffic
+and respond, but make no outbound connections of their own.</p>
 
 <p>NOTE: Only services and configuration artifacts exported to the sidecar&rsquo;s
 namespace (e.g., <code>exportTo</code> value of <code>*</code>) can be referenced.
@@ -355,9 +361,7 @@ traffic listener on the sidecar proxy attached to a workload instance.</p>
 <td><code>port</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html#Port">Port</a></code></td>
 <td>
-<p>REQUIRED. The port associated with the listener. If using
-Unix domain socket, use 0 as the port number, with a valid
-protocol.</p>
+<p>REQUIRED. The port associated with the listener.</p>
 
 </td>
 </tr>
@@ -365,11 +369,12 @@ protocol.</p>
 <td><code>bind</code></td>
 <td><code>string</code></td>
 <td>
-<p>The ip or the Unix domain socket to which the listener should be bound
-to. Format: <code>x.x.x.x</code> or <code>unix:///path/to/uds</code> or <code>unix://@foobar</code> (Linux
-abstract namespace). If omitted, Istio will automatically configure the defaults
-based on imported services and the workload instances to which this
-configuration is applied to.</p>
+<p>The ip to which the listener should be bound. Must be in the
+format <code>x.x.x.x</code>. Unix domain socket addresses are not allowed in
+the bind field for ingress listeners. If omitted, Istio will
+automatically configure the defaults based on imported services
+and the workload instances to which this configuration is applied
+to.</p>
 
 </td>
 </tr>
@@ -377,9 +382,8 @@ configuration is applied to.</p>
 <td><code>captureMode</code></td>
 <td><code><a href="#CaptureMode">CaptureMode</a></code></td>
 <td>
-<p>When the bind address is an IP, the captureMode option dictates
-how traffic to the listener is expected to be captured (or not).
-captureMode must be DEFAULT or NONE for Unix domain socket binds.</p>
+<p>The captureMode option dictates how traffic to the listener is
+expected to be captured (or not).</p>
 
 </td>
 </tr>
@@ -389,7 +393,7 @@ captureMode must be DEFAULT or NONE for Unix domain socket binds.</p>
 <td>
 <p>REQUIRED: The loopback IP endpoint or Unix domain socket to which
 traffic should be forwarded to. This configuration can be used to
-redirect traffic arriving at the bind point on the sidecar to a port
+redirect traffic arriving at the bind IP:Port on the sidecar to a localhost:port
 or Unix domain socket where the application workload instance is listening for
 connections. Format should be 127.0.0.1:PORT or <code>unix:///path/to/socket</code></p>
 

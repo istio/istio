@@ -174,10 +174,10 @@ github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1
 github.com/envoyproxy/go-control-plane/envoy/type
 github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2
-github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2
 github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha
@@ -757,7 +757,7 @@ gopkg.in/square/go-jose.v2/jwt
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190813012407-93fc23ae4a32
+# istio.io/api v0.0.0-20190813012407-93fc23ae4a32 => github.com/pnovotnak/api v0.0.0-20190824230835-c29ab8c3ad0f
 istio.io/api/mesh/v1alpha1
 istio.io/api/mcp/v1alpha1
 istio.io/api/authentication/v1alpha1

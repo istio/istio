@@ -8,9 +8,12 @@
     "schemas": {
       "istio.networking.v1alpha3.PortSelector": {
         "description": "PortSelector specifies the number of a port to be used for matching or selection for final routing.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "number"
+            ],
             "properties": {
               "number": {
                 "description": "Valid port number",
@@ -19,10 +22,11 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "name"
+            ],
             "properties": {
               "name": {
-                "description": "$hide_from_docs",
                 "type": "string",
                 "format": "string"
               }
@@ -119,7 +123,8 @@
             "type": "boolean"
           },
           "timeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Timeout for HTTP requests.",
+            "type": "string"
           },
           "retries": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.HTTPRetry"
@@ -134,7 +139,6 @@
             "$ref": "#/components/schemas/istio.networking.v1alpha3.CorsPolicy"
           },
           "appendHeaders": {
-            "description": "$hide_from_docs",
             "type": "object",
             "additionalProperties": {
               "type": "string",
@@ -142,7 +146,6 @@
             }
           },
           "removeResponseHeaders": {
-            "description": "$hide_from_docs",
             "type": "array",
             "items": {
               "type": "string",
@@ -150,7 +153,6 @@
             }
           },
           "appendResponseHeaders": {
-            "description": "$hide_from_docs",
             "type": "object",
             "additionalProperties": {
               "type": "string",
@@ -158,7 +160,6 @@
             }
           },
           "removeRequestHeaders": {
-            "description": "$hide_from_docs",
             "type": "array",
             "items": {
               "type": "string",
@@ -166,7 +167,6 @@
             }
           },
           "appendRequestHeaders": {
-            "description": "$hide_from_docs",
             "type": "object",
             "additionalProperties": {
               "type": "string",
@@ -259,7 +259,6 @@
             "type": "integer"
           },
           "gateways": {
-            "description": "$hide_from_docs",
             "type": "array",
             "items": {
               "type": "string",
@@ -283,7 +282,6 @@
             "$ref": "#/components/schemas/istio.networking.v1alpha3.StringMatch"
           },
           "sourceLabels": {
-            "description": "$hide_from_docs",
             "type": "object",
             "additionalProperties": {
               "type": "string",
@@ -402,7 +400,8 @@
             "format": "int32"
           },
           "perTryTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE \u003e=1ms.",
+            "type": "string"
           },
           "retryOn": {
             "description": "Specifies the conditions under which retry takes place. One or more policies can be specified using a ‘,’ delimited list. See the [supported policies](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on) and [here](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on) for more details.",
@@ -460,10 +459,13 @@
             }
           },
           "maxAge": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Specifies how long the results of a preflight request can be cached. Translates to the `Access-Control-Max-Age` header.",
+            "type": "string"
           },
           "allowCredentials": {
-            "$ref": "#/components/schemas/google.protobuf.BoolValue"
+            "description": "Indicates whether the caller is allowed to send the actual request (not the preflight) using credentials. Translates to `Access-Control-Allow-Credentials` header.",
+            "type": "boolean",
+            "nullable": true
           }
         }
       },
@@ -621,9 +623,12 @@
       },
       "istio.networking.v1alpha3.StringMatch": {
         "description": "Describes how to match a given string in HTTP headers. Match is case-sensitive.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "exact"
+            ],
             "properties": {
               "exact": {
                 "description": "exact string match",
@@ -633,7 +638,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "prefix"
+            ],
             "properties": {
               "prefix": {
                 "description": "prefix-based match",
@@ -643,7 +650,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "regex"
+            ],
             "properties": {
               "regex": {
                 "description": "ECMAscript style regex-based match",
@@ -656,9 +665,12 @@
       },
       "istio.networking.v1alpha3.HTTPFaultInjection.Delay": {
         "description": "Delay specification is used to inject latency into the request forwarding path. The following example will introduce a 5 second delay in 1 out of every 1000 requests to the \"v1\" version of the \"reviews\" service from all pods with label env: prod",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "fixedDelay"
+            ],
             "properties": {
               "percent": {
                 "description": "Percentage of requests on which the delay will be injected (0-100). Use of integer `percent` value is deprecated. Use the double `percentage` field instead.",
@@ -669,12 +681,15 @@
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.Percent"
               },
               "fixedDelay": {
-                "$ref": "#/components/schemas/google.protobuf.Duration"
+                "description": "REQUIRED. Add a fixed delay before forwarding the request. Format: 1h/1m/1s/1ms. MUST be \u003e=1ms.",
+                "type": "string"
               }
             }
           },
           {
-            "type": "object",
+            "required": [
+              "exponentialDelay"
+            ],
             "properties": {
               "percent": {
                 "description": "Percentage of requests on which the delay will be injected (0-100). Use of integer `percent` value is deprecated. Use the double `percentage` field instead.",
@@ -685,7 +700,7 @@
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.Percent"
               },
               "exponentialDelay": {
-                "$ref": "#/components/schemas/google.protobuf.Duration"
+                "type": "string"
               }
             }
           }
@@ -693,9 +708,12 @@
       },
       "istio.networking.v1alpha3.HTTPFaultInjection.Abort": {
         "description": "Abort specification is used to prematurely abort a request with a pre-specified error code. The following example will return an HTTP 400 error code for 1 out of every 1000 requests to the \"ratings\" service \"v1\".",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "httpStatus"
+            ],
             "properties": {
               "percent": {
                 "description": "Percentage of requests to be aborted with the error code provided (0-100). Use of integer `percent` value is deprecated. Use the double `percentage` field instead.",
@@ -713,7 +731,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "grpcStatus"
+            ],
             "properties": {
               "percent": {
                 "description": "Percentage of requests to be aborted with the error code provided (0-100). Use of integer `percent` value is deprecated. Use the double `percentage` field instead.",
@@ -724,14 +744,15 @@
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.Percent"
               },
               "grpcStatus": {
-                "description": "$hide_from_docs",
                 "type": "string",
                 "format": "string"
               }
             }
           },
           {
-            "type": "object",
+            "required": [
+              "http2Error"
+            ],
             "properties": {
               "percent": {
                 "description": "Percentage of requests to be aborted with the error code provided (0-100). Use of integer `percent` value is deprecated. Use the double `percentage` field instead.",
@@ -742,7 +763,6 @@
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.Percent"
               },
               "http2Error": {
-                "description": "$hide_from_docs",
                 "type": "string",
                 "format": "string"
               }
@@ -757,32 +777,6 @@
           "value": {
             "type": "number",
             "format": "double"
-          }
-        }
-      },
-      "google.protobuf.BoolValue": {
-        "description": "Indicates whether the caller is allowed to send the actual request (not the preflight) using credentials. Translates to `Access-Control-Allow-Credentials` header.",
-        "type": "object",
-        "properties": {
-          "value": {
-            "description": "The bool value.",
-            "type": "boolean"
-          }
-        }
-      },
-      "google.protobuf.Duration": {
-        "description": "$hide_from_docs",
-        "type": "object",
-        "properties": {
-          "seconds": {
-            "description": "Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years",
-            "type": "integer",
-            "format": "int64"
-          },
-          "nanos": {
-            "description": "Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.",
-            "type": "integer",
-            "format": "int32"
           }
         }
       }

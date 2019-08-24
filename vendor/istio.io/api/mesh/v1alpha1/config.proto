@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 import "mesh/v1alpha1/proxy.proto";
 import "networking/v1alpha3/destination_rule.proto";
 
@@ -210,6 +211,19 @@ message MeshConfig {
   // can be configured for a single control plane.
   repeated ConfigSource config_sources = 22;
 
+  // This flag is used to enable mutual TLS automatically for service to service communication
+  // within the mesh, default false.
+  // If set to true, and a given service does not have a corresponding DestinationRule configured,
+  // or its DestinationRule does not have TLSSettings specified, Istio configures client side
+  // TLS configuration appropriately. More specifically,
+  // If the upstream authentication policy is in STRICT mode, use Istio provisioned certificate
+  // for mutual TLS to connect to upstream.
+  // If upstream service is in plain text mode, use plain text.
+  // If the upstream authentication policy is in PERMISSIVE mode, Istio configures clients to use
+  // mutual TLS when server sides are capable of accepting mutual TLS traffic.
+  // If service DestinationRule exists and has TLSSettings specified, that is always used instead.
+  google.protobuf.BoolValue enable_auto_mtls = 43;
+
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS).
   // If set to true ([prerequisite](https://kubernetes.io/docs/concepts/storage/volumes/#projected)), Istio will inject volumes mount
@@ -318,7 +332,7 @@ message MeshConfig {
   H2UpgradePolicy h2_upgrade_policy = 41;
 
   // $hide_from_docs
-  // Next available field number: 43
+  // Next available field number: 44
 }
 
 // ConfigSource describes information about a configuration store inside a

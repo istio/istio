@@ -8,7 +8,7 @@
 // the following standard fields:
 //
 //   * services: a list of services.
-//   * methods: A list of HTTP methods. You can set the value to `*` to include all HTTP methods.
+//   * methods: A list of HTTP methods. You can set the value to `\*` to include all HTTP methods.
 //              This field should not be set for TCP services. The policy will be ignored.
 //              For gRPC services, only `POST` is allowed; other methods will result in denying services.
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
@@ -213,15 +213,15 @@ type AccessRule struct {
 	// Required. A list of service names.
 	// Exact match, prefix match, and suffix match are supported for service names.
 	// For example, the service name "bookstore.mtv.cluster.local" matches
-	// "bookstore.mtv.cluster.local" (exact match), or "bookstore*" (prefix match),
-	// or "*.mtv.cluster.local" (suffix match).
-	// If set to ["*"], it refers to all services in the namespace.
+	// "bookstore.mtv.cluster.local" (exact match), or "bookstore\*" (prefix match),
+	// or "\*.mtv.cluster.local" (suffix match).
+	// If set to ["\*"], it refers to all services in the namespace.
 	Services []string `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of HTTP hosts. This is matched against the HOST header in
 	// a HTTP request. Exact match, prefix match and suffix match are supported.
 	// For example, the host "test.abc.com" matches "test.abc.com" (exact match),
-	// or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
+	// or "\*.abc.com" (prefix match), or "test.abc.\*" (suffix match).
 	// If not specified, it matches to any host.
 	// This field should not be set for TCP services. The policy will be ignored.
 	Hosts []string `protobuf:"bytes,5,rep,name=hosts,proto3" json:"hosts,omitempty"`
@@ -233,7 +233,7 @@ type AccessRule struct {
 	// "/packageName.serviceName/methodName" and are case sensitive.
 	// Exact match, prefix match, and suffix match are supported. For example,
 	// the path "/books/review" matches "/books/review" (exact match),
-	// or "/books/*" (prefix match), or "*/review" (suffix match).
+	// or "/books/\*" (prefix match), or "\*/review" (suffix match).
 	// If not specified, it matches to any path.
 	// This field should not be set for TCP services. The policy will be ignored.
 	Paths []string `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
@@ -241,7 +241,7 @@ type AccessRule struct {
 	// Optional. A list of HTTP paths or gRPC methods that must not be matched.
 	NotPaths []string `protobuf:"bytes,7,rep,name=not_paths,json=notPaths,proto3" json:"not_paths,omitempty"`
 	// Optional. A list of HTTP methods (e.g., "GET", "POST").
-	// If not specified or specified as "*", it matches to any methods.
+	// If not specified or specified as "\*", it matches to any methods.
 	// This field should not be set for TCP services. The policy will be ignored.
 	// For gRPC services, only `POST` is allowed; other methods will result in denying services.
 	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
@@ -375,7 +375,7 @@ type AccessRule_Constraint struct {
 	// List of valid values for the constraint.
 	// Exact match, prefix match, and suffix match are supported.
 	// For example, the value "v1alpha2" matches "v1alpha2" (exact match),
-	// or "v1*" (prefix match), or "*alpha2" (suffix match).
+	// or "v1\*" (prefix match), or "\*alpha2" (suffix match).
 	Values               []string `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -556,7 +556,7 @@ type Subject struct {
 	User string `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	// $hide_from_docs
 	// Optional. A list of subject names. This is matched to the
-	// `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+	// `source.principal` attribute. If one of subject names is "\*", it matches to a subject with any name.
 	// Prefix and suffix matches are supported.
 	Names []string `protobuf:"bytes,4,rep,name=names,proto3" json:"names,omitempty"`
 	// $hide_from_docs

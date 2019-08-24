@@ -86,9 +86,12 @@
       },
       "istio.networking.v1alpha3.LoadBalancerSettings": {
         "description": "Load balancing policies to apply for a specific destination. See Envoy's load balancing [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancing) for more details.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "simple"
+            ],
             "properties": {
               "simple": {
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.LoadBalancerSettings.SimpleLB"
@@ -96,7 +99,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "consistentHash"
+            ],
             "properties": {
               "consistentHash": {
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.LoadBalancerSettings.ConsistentHashLB"
@@ -122,7 +127,8 @@
         "type": "object",
         "properties": {
           "interval": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Time interval between ejection sweep analysis. format: 1h/1m/1s/1ms. MUST BE \u003e=1ms. Default is 10s.",
+            "type": "string"
           },
           "consecutiveErrors": {
             "description": "Number of errors before a host is ejected from the connection pool. Defaults to 5. When the upstream host is accessed over HTTP, a 502, 503 or 504 return code qualifies as an error. When the upstream host is accessed over an opaque TCP connection, connect timeouts and connection error/failure events qualify as an error.",
@@ -130,7 +136,8 @@
             "format": "int32"
           },
           "baseEjectionTime": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Minimum ejection duration. A host will remain ejected for a period equal to the product of minimum ejection duration and the number of times the host has been ejected. This technique allows the system to automatically increase the ejection period for unhealthy upstream servers. format: 1h/1m/1s/1ms. MUST BE \u003e=1ms. Default is 30s.",
+            "type": "string"
           },
           "maxEjectionPercent": {
             "description": "Maximum % of hosts in the load balancing pool for the upstream service that can be ejected. Defaults to 10%.",
@@ -204,9 +211,12 @@
       },
       "istio.networking.v1alpha3.PortSelector": {
         "description": "PortSelector specifies the number of a port to be used for matching or selection for final routing.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "number"
+            ],
             "properties": {
               "number": {
                 "description": "Valid port number",
@@ -215,10 +225,11 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "name"
+            ],
             "properties": {
               "name": {
-                "description": "$hide_from_docs",
                 "type": "string",
                 "format": "string"
               }
@@ -228,6 +239,7 @@
       },
       "istio.networking.v1alpha3.LoadBalancerSettings.SimpleLB": {
         "description": "Standard load balancing algorithms that require no tuning.",
+        "type": "string",
         "enum": [
           "ROUND_ROBIN",
           "LEAST_CONN",
@@ -238,9 +250,12 @@
       },
       "istio.networking.v1alpha3.LoadBalancerSettings.ConsistentHashLB": {
         "description": "Consistent Hash-based load balancing can be used to provide soft session affinity based on HTTP headers, cookies or other properties. This load balancing policy is applicable only for HTTP connections. The affinity to a particular destination host will be lost when one or more hosts are added/removed from the destination service.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "httpHeaderName"
+            ],
             "properties": {
               "minimumRingSize": {
                 "description": "The minimum number of virtual nodes to use for the hash ring. Defaults to 1024. Larger ring sizes result in more granular load distributions. If the number of hosts in the load balancing pool is larger than the ring size, each host will be assigned a single virtual node.",
@@ -254,7 +269,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "httpCookie"
+            ],
             "properties": {
               "minimumRingSize": {
                 "description": "The minimum number of virtual nodes to use for the hash ring. Defaults to 1024. Larger ring sizes result in more granular load distributions. If the number of hosts in the load balancing pool is larger than the ring size, each host will be assigned a single virtual node.",
@@ -266,7 +283,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "useSourceIp"
+            ],
             "properties": {
               "minimumRingSize": {
                 "description": "The minimum number of virtual nodes to use for the hash ring. Defaults to 1024. Larger ring sizes result in more granular load distributions. If the number of hosts in the load balancing pool is larger than the ring size, each host will be assigned a single virtual node.",
@@ -293,6 +312,10 @@
             "description": "REQUIRED. Name of the cookie.",
             "type": "string",
             "format": "string"
+          },
+          "ttl": {
+            "description": "REQUIRED. Lifetime of the cookie.",
+            "type": "string"
           }
         }
       },
@@ -306,7 +329,8 @@
             "format": "int32"
           },
           "connectTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "TCP connection timeout.",
+            "type": "string"
           },
           "tcpKeepalive": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive"
@@ -338,7 +362,8 @@
             "format": "int32"
           },
           "idleTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests. If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed. Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.",
+            "type": "string"
           },
           "h2UpgradePolicy": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy"
@@ -350,19 +375,22 @@
         "type": "object",
         "properties": {
           "time": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time duration a connection needs to be idle before keep-alive probes start being sent. Default is to use the OS level configuration (unless overridden, Linux defaults to 7200s (ie 2 hours.)",
+            "type": "string"
           },
           "probes": {
             "description": "Maximum number of keepalive probes to send without response before deciding the connection is dead. Default is to use the OS level configuration (unless overridden, Linux defaults to 9.)",
             "type": "integer"
           },
           "interval": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time duration between keep-alive probes. Default is to use the OS level configuration (unless overridden, Linux defaults to 75s.)",
+            "type": "string"
           }
         }
       },
       "istio.networking.v1alpha3.ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy": {
         "description": "Policy for upgrading http1.1 connections to http2.",
+        "type": "string",
         "enum": [
           "DEFAULT",
           "DO_NOT_UPGRADE",
@@ -372,6 +400,7 @@
       },
       "istio.networking.v1alpha3.TLSSettings.TLSmode": {
         "description": "TLS connection mode",
+        "type": "string",
         "enum": [
           "DISABLE",
           "SIMPLE",
@@ -379,22 +408,6 @@
           "ISTIO_MUTUAL"
         ],
         "default": "DISABLE"
-      },
-      "google.protobuf.Duration": {
-        "description": "$hide_from_docs",
-        "type": "object",
-        "properties": {
-          "seconds": {
-            "description": "Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years",
-            "type": "integer",
-            "format": "int64"
-          },
-          "nanos": {
-            "description": "Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.",
-            "type": "integer",
-            "format": "int32"
-          }
-        }
       }
     }
   }
