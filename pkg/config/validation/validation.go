@@ -377,6 +377,22 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		return
 	}
 
+	if tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
+		// therefore, we should fail validation if other TLS fields are set
+		if tls.ServerCertificate != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+		}
+		if tls.PrivateKey != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+		}
+		if tls.CaCertificates != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+		}
+
+		return
+	}
+
 	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
