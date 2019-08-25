@@ -204,10 +204,20 @@ func NewWebhookController(deleteWebhookConfigurationsOnExit bool, gracePeriodRat
 	for i := range watchers {
 		*watchers[i], err = fsnotify.NewWatcher()
 		if err != nil {
+			for _, w := range watchers {
+				if *w != nil {
+					(*w).Close()
+				}
+			}
 			return nil, err
 		}
 		watchDir, _ := filepath.Split(files[i])
 		if err := (*watchers[i]).Watch(watchDir); err != nil {
+			for _, w := range watchers {
+				if *w != nil {
+					(*w).Close()
+				}
+			}
 			return nil, fmt.Errorf("could not watch %v: %v", files[i], err)
 		}
 	}

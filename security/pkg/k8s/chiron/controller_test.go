@@ -125,11 +125,20 @@ func TestNewWebhookController(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
+		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookServiceNames, tc.mutatingWebhookServicePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed at NewWebhookController()")
@@ -187,6 +196,15 @@ func TestCleanUpCertGen(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -286,6 +304,15 @@ func TestRebuildMutatingWebhookConfig(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -359,6 +386,15 @@ func TestRebuildValidatingWebhookConfig(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -435,6 +471,15 @@ func TestGetCACert(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -521,6 +566,15 @@ func TestUpsertSecret(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -613,6 +667,15 @@ func TestGetServiceName(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookServiceNames, tc.mutatingWebhookServicePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Errorf("failed to create a webhook controller: %v", err)
 		}
@@ -666,6 +729,15 @@ func TestGetWebhookSecretNameFromSvcname(t *testing.T) {
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
 			tc.mutatingWebhookServiceNames, tc.mutatingWebhookServicePorts, tc.validatingWebhookConfigFiles,
 			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+		if wc != nil && wc.K8sCaCertWatcher != nil {
+			defer wc.K8sCaCertWatcher.Close()
+		}
+		if wc != nil && wc.MutatingWebhookFileWatcher != nil {
+			defer wc.MutatingWebhookFileWatcher.Close()
+		}
+		if wc != nil && wc.ValidatingWebhookFileWatcher != nil {
+			defer wc.ValidatingWebhookFileWatcher.Close()
+		}
 		if err != nil {
 			t.Errorf("failed to create a webhook controller: %v", err)
 		}
