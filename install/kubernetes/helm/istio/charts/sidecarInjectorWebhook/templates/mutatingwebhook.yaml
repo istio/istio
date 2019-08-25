@@ -36,4 +36,16 @@ webhooks:
       matchLabels:
         istio-injection: enabled
 {{- end }}
-
+{{- if .Values.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
