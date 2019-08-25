@@ -15,6 +15,8 @@
       "ISTIO_PROXY_SHA":"istio-proxy:sha",
       "ISTIO_VERSION":"release-3.1",
       "POD_NAME":"svc-0-0-0-6944fb884d-4pgx8",
+      "ISTIO_META_SDS": "1",
+      "ISTIO_META_TRUSTJWT": "1",
       "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",
@@ -41,7 +43,7 @@
       },
       {
         "tag_name": "response_code",
-        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$"
       },
       {
         "tag_name": "response_code_class",
@@ -228,23 +230,82 @@
             "alpn_protocols": [
               "h2"
             ],
-            "tls_certificates": [
+            "tls_certificate_sds_secret_configs":[
               {
-                "certificate_chain": {
-                  "filename": "/etc/certs/cert-chain.pem"
-                },
-                "private_key": {
-                  "filename": "/etc/certs/key.pem"
+                "name":"default",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "udspath",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "call_credentials":[
+                            {
+                              "from_plugin":{
+                                "name":"envoy.grpc_credentials.file_based_metadata",
+                                "config":{
+                                  "secret_data":{
+                                    "filename": "/var/run/secrets/tokens/istio-token"
+                                  },
+                                  "header_key":"istio_sds_credentials_header-bin"
+                                }
+                              }
+                            }
+                          ],
+                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
                 }
               }
             ],
-            "validation_context": {
-              "trusted_ca": {
-                "filename": "/etc/certs/root-cert.pem"
+            "combined_validation_context":{
+              "default_validation_context":{
+                "verify_subject_alt_name":[
+                  "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
+                ]
               },
-              "verify_subject_alt_name": [
-                "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
-              ]
+              "validation_context_sds_secret_config":{
+                "name":"ROOTCA",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "udspath",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "call_credentials":[
+                            {
+                              "from_plugin":{
+                                "name":"envoy.grpc_credentials.file_based_metadata",
+                                "config":{
+                                  "secret_data":{
+                                    "filename": "/var/run/secrets/tokens/istio-token"
+                                  },
+                                  "header_key":"istio_sds_credentials_header-bin"
+                                }
+                              }
+                            }
+                          ],
+                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
             }
           }
         },
