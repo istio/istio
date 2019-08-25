@@ -15,18 +15,24 @@
 package v1alpha3
 
 import (
+	"fmt"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	google_protobuf "github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -137,6 +143,17 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 				Name: xdsutil.TlsInspector,
 			})
 	}
+
+	// Note: the HTTP inspector should be after TLS inspector.
+	// If TLS inspector sets transport protocol to tls, the http inspector
+	// won't inspect the packet.
+	if util.IsProtocolSniffingEnabledForNode(builder.node) {
+		builder.virtualInboundListener.ListenerFilters =
+			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+				Name: envoyListenerHTTPInspector,
+			})
+	}
+
 	return builder
 }
 
@@ -276,12 +293,16 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
+	filterChains := newInboundPassthroughFilterChains(env, node)
+	if util.IsProtocolSniffingEnabledForNode(node) {
+		filterChains = append(filterChains, newHTTPPassThroughFilterChain(env, node)...)
+	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:           VirtualInboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   newInboundPassthroughFilterChains(env, node),
+		FilterChains:   filterChains,
 	}
 	if builder.useInboundFilterChain {
 		builder.aggregateVirtualInboundListener()
@@ -407,6 +428,87 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 				filter,
 			},
 		}
+		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
+		filterChains = append(filterChains, filterChain)
+	}
+
+	return filterChains
+}
+
+func newHTTPPassThroughFilterChain(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
+	filterChains := make([]*listener.FilterChain, 0, 2)
+
+	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
+		matchingIP := ""
+		if clusterName == util.InboundPassthroughClusterIpv4 {
+			matchingIP = "0.0.0.0/0"
+		} else if clusterName == util.InboundPassthroughClusterIpv6 {
+			matchingIP = "::0/0"
+		}
+
+		filterChainMatch := listener.FilterChainMatch{
+			// Port : EMPTY to match all ports
+			PrefixRanges: []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIP),
+			},
+			ApplicationProtocols: applicationProtocols,
+		}
+
+		traceOperation := matchingIP
+
+		defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
+		inboundVHost := &route.VirtualHost{
+			Name:    fmt.Sprintf("%s|http|15006", model.TrafficDirectionInbound),
+			Domains: []string{"*"},
+			Routes:  []*route.Route{defaultRoute},
+		}
+
+		r := &xdsapi.RouteConfiguration{
+			Name:             clusterName,
+			VirtualHosts:     []*route.VirtualHost{inboundVHost},
+			ValidateClusters: proto.BoolFalse,
+		}
+
+		httpOpts := &httpListenerOpts{
+			routeConfig:      r,
+			rds:              "", // no RDS for inbound traffic
+			useRemoteAddress: false,
+			direction:        http_conn.INGRESS,
+			connectionManager: &http_conn.HttpConnectionManager{
+				// Append and forward client cert to backend.
+				ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+					Subject: &google_protobuf.BoolValue{Value: true},
+					Uri:     true,
+					Dns:     true,
+				},
+				ServerName: EnvoyServerName,
+				HttpProtocolOptions: &core.Http1ProtocolOptions{
+					AcceptHttp_10: true,
+				},
+			},
+			statPrefix: clusterName,
+		}
+
+		var httpFilters []*http_conn.HttpFilter
+		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, httpFilters)
+
+		filter := &listener.Filter{
+			Name: xdsutil.HTTPConnectionManager,
+		}
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)}
+		}
+
+		filterChain := &listener.FilterChain{
+			FilterChainMatch: &filterChainMatch,
+			Filters: []*listener.Filter{
+				filter,
+			},
+		}
+
 		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}
