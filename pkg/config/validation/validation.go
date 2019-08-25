@@ -2455,7 +2455,8 @@ func validatePortName(name string) error {
 }
 
 func validateProtocol(protocolStr string) error {
-	if protocol.Parse(protocolStr) == protocol.Unsupported {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil
