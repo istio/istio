@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestSdsCitadelCaControlPlane(t *testing.T) {
+func TestSdsCitadelCaControlPlaneAuthDisabled(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -40,7 +40,7 @@ func TestSdsCitadelCaControlPlane(t *testing.T) {
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "sds-citadel-control-plane",
+				Prefix: "sds-citadel-control-plane-auth-disabled",
 				Inject: true,
 			})
 
