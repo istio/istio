@@ -1,5 +1,7 @@
 package api
 
+import "context"
+
 func (c *Sys) SealStatus() (*SealStatusResponse, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/seal-status")
 	return sealStatusRequest(c, r)
@@ -7,7 +9,10 @@ func (c *Sys) SealStatus() (*SealStatusResponse, error) {
 
 func (c *Sys) Seal() error {
 	r := c.c.NewRequest("PUT", "/v1/sys/seal")
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -36,8 +41,19 @@ func (c *Sys) Unseal(shard string) (*SealStatusResponse, error) {
 	return sealStatusRequest(c, r)
 }
 
+func (c *Sys) UnsealWithOptions(opts *UnsealOpts) (*SealStatusResponse, error) {
+	r := c.c.NewRequest("PUT", "/v1/sys/unseal")
+	if err := r.SetJSONBody(opts); err != nil {
+		return nil, err
+	}
+
+	return sealStatusRequest(c, r)
+}
+
 func sealStatusRequest(c *Sys, r *Request) (*SealStatusResponse, error) {
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +66,21 @@ func sealStatusRequest(c *Sys, r *Request) (*SealStatusResponse, error) {
 
 type SealStatusResponse struct {
 	Type         string `json:"type"`
+	Initialized  bool   `json:"initialized"`
 	Sealed       bool   `json:"sealed"`
 	T            int    `json:"t"`
 	N            int    `json:"n"`
 	Progress     int    `json:"progress"`
 	Nonce        string `json:"nonce"`
 	Version      string `json:"version"`
+	Migration    bool   `json:"migration"`
 	ClusterName  string `json:"cluster_name,omitempty"`
 	ClusterID    string `json:"cluster_id,omitempty"`
 	RecoverySeal bool   `json:"recovery_seal"`
+}
+
+type UnsealOpts struct {
+	Key     string `json:"key"`
+	Reset   bool   `json:"reset"`
+	Migrate bool   `json:"migrate"`
 }

@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 )
 
 // Response is a raw response that wraps an HTTP response.
@@ -42,36 +42,79 @@ func (r *Response) Error() error {
 	r.Body.Close()
 	r.Body = ioutil.NopCloser(bodyBuf)
 
+	// Build up the error object
+	respErr := &ResponseError{
+		HTTPMethod: r.Request.Method,
+		URL:        r.Request.URL.String(),
+		StatusCode: r.StatusCode,
+	}
+
 	// Decode the error response if we can. Note that we wrap the bodyBuf
 	// in a bytes.Reader here so that the JSON decoder doesn't move the
 	// read pointer for the original buffer.
 	var resp ErrorResponse
 	if err := jsonutil.DecodeJSON(bodyBuf.Bytes(), &resp); err != nil {
-		// Ignore the decoding error and just drop the raw response
-		return fmt.Errorf(
-			"Error making API request.\n\n"+
-				"URL: %s %s\n"+
-				"Code: %d. Raw Message:\n\n%s",
-			r.Request.Method, r.Request.URL.String(),
-			r.StatusCode, bodyBuf.String())
+		// Store the fact that we couldn't decode the errors
+		respErr.RawError = true
+		respErr.Errors = []string{bodyBuf.String()}
+	} else {
+		// Store the decoded errors
+		respErr.Errors = resp.Errors
 	}
 
-	var errBody bytes.Buffer
-	errBody.WriteString(fmt.Sprintf(
-		"Error making API request.\n\n"+
-			"URL: %s %s\n"+
-			"Code: %d. Errors:\n\n",
-		r.Request.Method, r.Request.URL.String(),
-		r.StatusCode))
-	for _, err := range resp.Errors {
-		errBody.WriteString(fmt.Sprintf("* %s", err))
-	}
-
-	return fmt.Errorf(errBody.String())
+	return respErr
 }
 
 // ErrorResponse is the raw structure of errors when they're returned by the
 // HTTP API.
 type ErrorResponse struct {
 	Errors []string
+}
+
+// ResponseError is the error returned when Vault responds with an error or
+// non-success HTTP status code. If a request to Vault fails because of a
+// network error a different error message will be returned. ResponseError gives
+// access to the underlying errors and status code.
+type ResponseError struct {
+	// HTTPMethod is the HTTP method for the request (PUT, GET, etc).
+	HTTPMethod string
+
+	// URL is the URL of the request.
+	URL string
+
+	// StatusCode is the HTTP status code.
+	StatusCode int
+
+	// RawError marks that the underlying error messages returned by Vault were
+	// not parsable. The Errors slice will contain the raw response body as the
+	// first and only error string if this value is set to true.
+	RawError bool
+
+	// Errors are the underlying errors returned by Vault.
+	Errors []string
+}
+
+// Error returns a human-readable error string for the response error.
+func (r *ResponseError) Error() string {
+	errString := "Errors"
+	if r.RawError {
+		errString = "Raw Message"
+	}
+
+	var errBody bytes.Buffer
+	errBody.WriteString(fmt.Sprintf(
+		"Error making API request.\n\n"+
+			"URL: %s %s\n"+
+			"Code: %d. %s:\n\n",
+		r.HTTPMethod, r.URL, r.StatusCode, errString))
+
+	if r.RawError && len(r.Errors) == 1 {
+		errBody.WriteString(r.Errors[0])
+	} else {
+		for _, err := range r.Errors {
+			errBody.WriteString(fmt.Sprintf("* %s", err))
+		}
+	}
+
+	return errBody.String()
 }

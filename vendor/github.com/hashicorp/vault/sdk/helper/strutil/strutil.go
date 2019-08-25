@@ -43,9 +43,9 @@ func StrListSubset(super, sub []string) bool {
 	return true
 }
 
-// Parses a comma separated list of strings into a slice of strings.
-// The return slice will be sorted and will not contain duplicate or
-// empty items.
+// ParseDedupAndSortStrings parses a comma separated list of strings
+// into a slice of strings. The return slice will be sorted and will
+// not contain duplicate or empty items.
 func ParseDedupAndSortStrings(input string, sep string) []string {
 	input = strings.TrimSpace(input)
 	parsed := []string{}
@@ -56,9 +56,10 @@ func ParseDedupAndSortStrings(input string, sep string) []string {
 	return RemoveDuplicates(strings.Split(input, sep), false)
 }
 
-// Parses a comma separated list of strings into a slice of strings.
-// The return slice will be sorted and will not contain duplicate or
-// empty items. The values will be converted to lower case.
+// ParseDedupLowercaseAndSortStrings parses a comma separated list of
+// strings into a slice of strings. The return slice will be sorted and
+// will not contain duplicate or empty items. The values will be converted
+// to lower case.
 func ParseDedupLowercaseAndSortStrings(input string, sep string) []string {
 	input = strings.TrimSpace(input)
 	parsed := []string{}
@@ -69,8 +70,8 @@ func ParseDedupLowercaseAndSortStrings(input string, sep string) []string {
 	return RemoveDuplicates(strings.Split(input, sep), true)
 }
 
-// Parses a comma separated list of `<key>=<value>` tuples into a
-// map[string]string.
+// ParseKeyValues parses a comma separated list of `<key>=<value>` tuples
+// into a map[string]string.
 func ParseKeyValues(input string, out map[string]string, sep string) error {
 	if out == nil {
 		return fmt.Errorf("'out is nil")
@@ -97,8 +98,8 @@ func ParseKeyValues(input string, out map[string]string, sep string) error {
 	return nil
 }
 
-// Parses arbitrary <key,value> tuples. The input can be one of
-// the following:
+// ParseArbitraryKeyValues parses arbitrary <key,value> tuples. The input
+// can be one of the following:
 // * JSON string
 // * Base64 encoded JSON string
 // * Comma separated list of `<key>=<value>` pairs
@@ -144,8 +145,8 @@ func ParseArbitraryKeyValues(input string, out map[string]string, sep string) er
 	return nil
 }
 
-// Parses a `sep`-separated list of strings into a
-// []string.
+// ParseStringSlice parses a `sep`-separated list of strings into a
+// []string with surrounding whitespace removed.
 //
 // The output will always be a valid slice but may be of length zero.
 func ParseStringSlice(input string, sep string) []string {
@@ -157,14 +158,14 @@ func ParseStringSlice(input string, sep string) []string {
 	splitStr := strings.Split(input, sep)
 	ret := make([]string, len(splitStr))
 	for i, val := range splitStr {
-		ret[i] = val
+		ret[i] = strings.TrimSpace(val)
 	}
 
 	return ret
 }
 
-// Parses arbitrary string slice. The input can be one of
-// the following:
+// ParseArbitraryStringSlice parses arbitrary string slice. The input
+// can be one of the following:
 // * JSON string
 // * Base64 encoded JSON string
 // * `sep` separated list of values
@@ -215,8 +216,9 @@ func TrimStrings(items []string) []string {
 	return ret
 }
 
-// Removes duplicate and empty elements from a slice of strings. This also may
-// convert the items in the slice to lower case and returns a sorted slice.
+// RemoveDuplicates removes duplicate and empty elements from a slice of
+// strings. This also may convert the items in the slice to lower case and
+// returns a sorted slice.
 func RemoveDuplicates(items []string, lowercase bool) []string {
 	itemsMap := map[string]bool{}
 	for _, item := range items {
@@ -230,11 +232,49 @@ func RemoveDuplicates(items []string, lowercase bool) []string {
 		itemsMap[item] = true
 	}
 	items = make([]string, 0, len(itemsMap))
-	for item, _ := range itemsMap {
+	for item := range itemsMap {
 		items = append(items, item)
 	}
 	sort.Strings(items)
 	return items
+}
+
+// RemoveDuplicatesStable removes duplicate and empty elements from a slice of
+// strings, preserving order (and case) of the original slice.
+// In all cases, strings are compared after trimming whitespace
+// If caseInsensitive, strings will be compared after ToLower()
+func RemoveDuplicatesStable(items []string, caseInsensitive bool) []string {
+	itemsMap := make(map[string]bool, len(items))
+	deduplicated := make([]string, 0, len(items))
+
+	for _, item := range items {
+		key := strings.TrimSpace(item)
+		if caseInsensitive {
+			key = strings.ToLower(key)
+		}
+		if key == "" || itemsMap[key] {
+			continue
+		}
+		itemsMap[key] = true
+		deduplicated = append(deduplicated, item)
+	}
+	return deduplicated
+}
+
+// RemoveEmpty removes empty elements from a slice of
+// strings
+func RemoveEmpty(items []string) []string {
+	if len(items) == 0 {
+		return items
+	}
+	itemsSlice := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+		itemsSlice = append(itemsSlice, item)
+	}
+	return itemsSlice
 }
 
 // EquivalentSlices checks whether the given string sets are equivalent, as in,
@@ -260,10 +300,10 @@ func EquivalentSlices(a, b []string) bool {
 
 	// Now we'll build our checking slices
 	var sortedA, sortedB []string
-	for keyA, _ := range mapA {
+	for keyA := range mapA {
 		sortedA = append(sortedA, keyA)
 	}
-	for keyB, _ := range mapB {
+	for keyB := range mapB {
 		sortedB = append(sortedB, keyB)
 	}
 	sort.Strings(sortedA)
@@ -276,6 +316,24 @@ func EquivalentSlices(a, b []string) bool {
 
 	for i := range sortedA {
 		if sortedA[i] != sortedB[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// EqualStringMaps tests whether two map[string]string objects are equal.
+// Equal means both maps have the same sets of keys and values. This function
+// is 6-10x faster than a call to reflect.DeepEqual().
+func EqualStringMaps(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k := range a {
+		v, ok := b[k]
+		if !ok || a[k] != v {
 			return false
 		}
 	}
@@ -299,6 +357,8 @@ func StrListDelete(s []string, d string) []string {
 	return s
 }
 
+// GlobbedStringsMatch compares item to val with support for a leading and/or
+// trailing wildcard '*' in item.
 func GlobbedStringsMatch(item, val string) bool {
 	if len(item) < 2 {
 		return val == item
@@ -324,4 +384,64 @@ func AppendIfMissing(slice []string, i string) []string {
 		return slice
 	}
 	return append(slice, i)
+}
+
+// MergeSlices adds an arbitrary number of slices together, uniquely
+func MergeSlices(args ...[]string) []string {
+	all := map[string]struct{}{}
+	for _, slice := range args {
+		for _, v := range slice {
+			all[v] = struct{}{}
+		}
+	}
+
+	result := make([]string, 0, len(all))
+	for k := range all {
+		result = append(result, k)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// Difference returns the set difference (A - B) of the two given slices. The
+// result will also remove any duplicated values in set A regardless of whether
+// that matches any values in set B.
+func Difference(a, b []string, lowercase bool) []string {
+	if len(a) == 0 {
+		return a
+	}
+	if len(b) == 0 {
+		if !lowercase {
+			return a
+		}
+		newA := make([]string, len(a))
+		for i, v := range a {
+			newA[i] = strings.ToLower(v)
+		}
+		return newA
+	}
+
+	a = RemoveDuplicates(a, lowercase)
+	b = RemoveDuplicates(b, lowercase)
+
+	itemsMap := map[string]bool{}
+	for _, aVal := range a {
+		itemsMap[aVal] = true
+	}
+
+	// Perform difference calculation
+	for _, bVal := range b {
+		if _, ok := itemsMap[bVal]; ok {
+			itemsMap[bVal] = false
+		}
+	}
+
+	items := []string{}
+	for item, exists := range itemsMap {
+		if exists {
+			items = append(items, item)
+		}
+	}
+	sort.Strings(items)
+	return items
 }

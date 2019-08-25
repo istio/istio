@@ -1,5 +1,7 @@
 package api
 
+import "context"
+
 func (c *Sys) Health() (*HealthResponse, error) {
 	r := c.c.NewRequest("GET", "/v1/sys/health")
 	// If the code is 400 or above it will automatically turn into an error,
@@ -9,7 +11,11 @@ func (c *Sys) Health() (*HealthResponse, error) {
 	r.Params.Add("sealedcode", "299")
 	r.Params.Add("standbycode", "299")
 	r.Params.Add("drsecondarycode", "299")
-	resp, err := c.c.RawRequest(r)
+	r.Params.Add("performancestandbycode", "299")
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -24,10 +30,12 @@ type HealthResponse struct {
 	Initialized                bool   `json:"initialized"`
 	Sealed                     bool   `json:"sealed"`
 	Standby                    bool   `json:"standby"`
+	PerformanceStandby         bool   `json:"performance_standby"`
 	ReplicationPerformanceMode string `json:"replication_performance_mode"`
 	ReplicationDRMode          string `json:"replication_dr_mode"`
 	ServerTimeUTC              int64  `json:"server_time_utc"`
 	Version                    string `json:"version"`
 	ClusterName                string `json:"cluster_name,omitempty"`
 	ClusterID                  string `json:"cluster_id,omitempty"`
+	LastWAL                    uint64 `json:"last_wal,omitempty"`
 }

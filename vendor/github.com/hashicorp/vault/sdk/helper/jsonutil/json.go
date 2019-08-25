@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/hashicorp/errwrap"
-	"github.com/hashicorp/vault/helper/compressutil"
+	"github.com/hashicorp/vault/sdk/helper/compressutil"
 )
 
 // Encodes/Marshals the given object into JSON

@@ -1,5 +1,7 @@
 package api
 
+import "context"
+
 func (c *Sys) GenerateRootStatus() (*GenerateRootStatusResponse, error) {
 	return c.generateRootStatusCommon("/v1/sys/generate-root/attempt")
 }
@@ -10,7 +12,10 @@ func (c *Sys) GenerateDROperationTokenStatus() (*GenerateRootStatusResponse, err
 
 func (c *Sys) generateRootStatusCommon(path string) (*GenerateRootStatusResponse, error) {
 	r := c.c.NewRequest("GET", path)
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +45,9 @@ func (c *Sys) generateRootInitCommon(path, otp, pgpKey string) (*GenerateRootSta
 		return nil, err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +68,10 @@ func (c *Sys) GenerateDROperationTokenCancel() error {
 
 func (c *Sys) generateRootCancelCommon(path string) error {
 	r := c.c.NewRequest("DELETE", path)
-	resp, err := c.c.RawRequest(r)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -87,7 +97,9 @@ func (c *Sys) generateRootUpdateCommon(path, shard, nonce string) (*GenerateRoot
 		return nil, err
 	}
 
-	resp, err := c.c.RawRequest(r)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	resp, err := c.c.RawRequestWithContext(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -107,4 +119,6 @@ type GenerateRootStatusResponse struct {
 	EncodedToken     string `json:"encoded_token"`
 	EncodedRootToken string `json:"encoded_root_token"`
 	PGPFingerprint   string `json:"pgp_fingerprint"`
+	OTP              string `json:"otp"`
+	OTPLength        int    `json:"otp_length"`
 }
