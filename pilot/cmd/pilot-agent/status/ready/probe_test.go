@@ -21,15 +21,35 @@ import (
 	"testing"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyapicore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 var (
 	goodStats      = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
 	liveServerInfo = &admin.ServerInfo{State: admin.ServerInfo_LIVE}
 	initServerInfo = &admin.ServerInfo{State: admin.ServerInfo_INITIALIZING}
+	listeners      = admin.Listeners{
+		ListenerStatuses: []*admin.ListenerStatus{
+			{
+				Name: networking.VirtualInboundListenerName,
+				LocalAddress: &envoyapicore.Address{
+					Address: &envoyapicore.Address_SocketAddress{
+						SocketAddress: &envoyapicore.SocketAddress{
+							PortSpecifier: &envoyapicore.SocketAddress_PortValue{
+								PortValue: 15006,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
@@ -164,19 +184,53 @@ func TestEnvoyInitializing(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 }
 
-func createAndStartServer(statsToReturn string, serverInfo proto.Message) *httptest.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/stats", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		// Send response to be tested
-		rw.Write([]byte(statsToReturn))
-	}))
-	mux.HandleFunc("/server_info", http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	funcMap := createDefaultFuncMap(goodStats, liveServerInfo)
+
+	funcMap["/listeners"] = func(rw http.ResponseWriter, _ *http.Request) {
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		infoJSON, _ := jsonm.MarshalToString(serverInfo)
+		listenerBytes, _ := jsonm.MarshalToString(&listeners)
 
 		// Send response to be tested
-		rw.Write([]byte(infoJSON))
-	}))
+		rw.Write([]byte(listenerBytes))
+	}
+
+	server := createHTTPServer(funcMap)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234, receivedFirstUpdate: true, NodeType: model.SidecarProxy}
+
+	err := probe.Check()
+
+	g.Expect(err).ToNot(HaveOccurred())
+}
+
+func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[string]func(rw http.ResponseWriter, _ *http.Request) {
+	return map[string]func(rw http.ResponseWriter, _ *http.Request){
+
+		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
+			// Send response to be tested
+			rw.Write([]byte(statsToReturn))
+		},
+		"/server_info": func(rw http.ResponseWriter, _ *http.Request) {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			infoJSON, _ := jsonm.MarshalToString(serverInfo)
+
+			// Send response to be tested
+			rw.Write([]byte(infoJSON))
+		},
+	}
+}
+func createAndStartServer(statsToReturn string, serverInfo proto.Message) *httptest.Server {
+	return createHTTPServer(createDefaultFuncMap(statsToReturn, serverInfo))
+}
+
+func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
+	mux := http.NewServeMux()
+	for k, v := range handlers {
+		mux.HandleFunc(k, http.HandlerFunc(v))
+	}
 
 	// Start a local HTTP server
 	server := httptest.NewUnstartedServer(mux)
