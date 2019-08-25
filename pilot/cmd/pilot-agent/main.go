@@ -511,7 +511,7 @@ func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string
 		if _, err := os.Stat(udsPath); err != nil {
 			return false, ""
 		}
-		
+
 		return true, trustworthyJWTPath
 	}
 
