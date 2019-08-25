@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/operator/pkg/util"
+	"istio.io/operator/pkg/compare"
 	"istio.io/pkg/log"
 )
 
@@ -379,56 +379,52 @@ func ManifestDiff(a, b string) (string, error) {
 	}
 
 	aom, bom := ao.ToMap(), bo.ToMap()
-	return manifestDiff(aom, bom)
+	return manifestDiff(aom, bom, nil)
 }
 
 // ManifestDiffWithSelect checks the manifest differences with selected and ignored resources.
 // The selected filter will apply before the ignored filter.
 func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources string) (string, error) {
-	aosm, err := filterResourceWithSelectAndIgnore(a, selectResources, ignoreResources)
+	sm := getObjPathMap(selectResources)
+	im := getObjPathMap(ignoreResources)
+	aosm, err := filterResourceWithSelectAndIgnore(a, sm, im)
 	if err != nil {
 		return "", err
 	}
-	bosm, err := filterResourceWithSelectAndIgnore(b, selectResources, ignoreResources)
+	bosm, err := filterResourceWithSelectAndIgnore(b, sm, im)
 	if err != nil {
 		return "", err
 	}
 
-	return manifestDiff(aosm, bosm)
+	return manifestDiff(aosm, bosm, im)
 }
 
 // filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
-func filterResourceWithSelectAndIgnore(a, selectResources, ignoreResources string) (map[string]*K8sObject, error) {
+func filterResourceWithSelectAndIgnore(a string, sm, im map[string]string) (map[string]*K8sObject, error) {
 	ao, err := ParseK8sObjectsFromYAMLManifest(a)
 	if err != nil {
 		return nil, err
 	}
 	aom := ao.ToMap()
 	aosm := make(map[string]*K8sObject)
-	selections := strings.Split(selectResources, ",")
-	ignores := strings.Split(ignoreResources, ",")
 	for ak, av := range aom {
-		if strings.Compare(selectResources, "") != 0 {
-			for _, selected := range selections {
-				re, err := buildResourceRegexp(strings.TrimSpace(selected))
-				if err != nil {
-					return nil, fmt.Errorf("error building the resource regexp: %v", err)
-				}
-				if re.MatchString(ak) {
-					aosm[ak] = av
-				}
+		for selected := range sm {
+			re, err := buildResourceRegexp(strings.TrimSpace(selected))
+			if err != nil {
+				return nil, fmt.Errorf("error building the resource regexp: %v", err)
+			}
+			if re.MatchString(ak) {
+				aosm[ak] = av
 			}
 		}
-		if strings.Compare(ignoreResources, "") != 0 {
-			for _, ignored := range ignores {
-				re, err := buildResourceRegexp(strings.TrimSpace(ignored))
-				if err != nil {
-					return nil, fmt.Errorf("error building the resource regexp: %v", err)
-				}
-				if re.MatchString(ak) {
-					if _, ok := aosm[ak]; ok {
-						delete(aosm, ak)
-					}
+		for ignored := range im {
+			re, err := buildResourceRegexp(strings.TrimSpace(ignored))
+			if err != nil {
+				return nil, fmt.Errorf("error building the resource regexp: %v", err)
+			}
+			if re.MatchString(ak) {
+				if _, ok := aosm[ak]; ok {
+					delete(aosm, ak)
 				}
 			}
 		}
@@ -448,7 +444,7 @@ func buildResourceRegexp(s string) (*regexp.Regexp, error) {
 }
 
 // manifestDiff an internal function to compare the manifests difference specified in the input.
-func manifestDiff(aom, bom map[string]*K8sObject) (string, error) {
+func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string) (string, error) {
 	var sb strings.Builder
 	for ak, av := range aom {
 		ay, err := av.YAML()
@@ -464,7 +460,10 @@ func manifestDiff(aom, bom map[string]*K8sObject) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		diff := util.YAMLDiff(string(ay), string(by))
+
+		ignorePaths := objectIgnorePaths(ak, im)
+		diff := compare.YAMLCmpWithIgnore(string(ay), string(by), ignorePaths)
+
 		if diff != "" {
 			writeStringSafe(&sb, "\n\nObject "+ak+" has diffs:\n\n")
 			writeStringSafe(&sb, diff)
@@ -478,6 +477,43 @@ func manifestDiff(aom, bom map[string]*K8sObject) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+func getObjPathMap(rs string) map[string]string {
+	rm := make(map[string]string)
+	if len(rs) == 0 {
+		return rm
+	}
+	for _, r := range strings.Split(rs, ",") {
+		split := strings.Split(r, ":")
+		if len(split) < 4 {
+			rm[r] = ""
+			continue
+		}
+		kind, namespace, name, path := split[0], split[1], split[2], split[3]
+		obj := fmt.Sprintf("%v:%v:%v", kind, namespace, name)
+		rm[obj] = path
+	}
+	return rm
+}
+
+func objectIgnorePaths(objectName string, im map[string]string) (ignorePaths []string) {
+	if im == nil {
+		im = make(map[string]string)
+	}
+	for obj, path := range im {
+		if path == "" {
+			continue
+		}
+		re, err := buildResourceRegexp(strings.TrimSpace(obj))
+		if err != nil {
+			continue
+		}
+		if re.MatchString(objectName) {
+			ignorePaths = append(ignorePaths, path)
+		}
+	}
+	return ignorePaths
 }
 
 func writeStringSafe(sb io.StringWriter, s string) {
