@@ -122,7 +122,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 
 	callOptions := []callOptions{
 		{"http", scheme.HTTP},
-		{"http", scheme.HTTP},
 		{"foo", scheme.HTTP},
 	}
 
