@@ -26,6 +26,7 @@ metadata:
     monitoring: istio-components
     release: {{ .Release.Name }}
 spec:
+  jobLabel: istio
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel]}
@@ -295,6 +296,11 @@ spec:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     honorLabels: true
     interval: {{ .Values.prometheus.scrapeInterval }}
+    relabelings:
+    - sourceLabels: [job]
+      action: replace
+      replacement: kubernetes-cadvisor
+      targetLabel: job
     metricRelabelings:
     - action: drop
       regex: container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)
