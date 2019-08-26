@@ -15,41 +15,14 @@
 package mesh
 
 import (
-	"bytes"
-	"io/ioutil"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"istio.io/operator/pkg/object"
 )
 
-var (
-	repoRootDir string
-	testDataDir string
-)
-
-func init() {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	repoRootDir = filepath.Join(wd, "../..")
-	testDataDir = filepath.Join(wd, "testdata/manifest-generate")
-
-	if err := syncCharts(); err != nil {
-		panic(err)
-	}
-}
-
-func syncCharts() error {
-	cmd := exec.Command(filepath.Join(repoRootDir, "scripts/run_update_charts.sh"))
-	return cmd.Run()
-}
-
 func TestManifestGenerate(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	tests := []struct {
 		desc       string
 		diffSelect string
@@ -107,22 +80,6 @@ func TestManifestGenerate(t *testing.T) {
 	}
 }
 
-func runCommand(command string) (string, error) {
-	var out bytes.Buffer
-	rootCmd := GetRootCmd(strings.Split(command, " "))
-	rootCmd.SetOutput(&out)
-
-	if err := rootCmd.Execute(); err != nil {
-		return "", err
-	}
-	return out.String(), nil
-}
-
 func runManifestGenerate(path string) (string, error) {
 	return runCommand("manifest generate -f " + path)
-}
-
-func readFile(path string) (string, error) {
-	b, err := ioutil.ReadFile(path)
-	return string(b), err
 }
