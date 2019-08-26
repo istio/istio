@@ -17,18 +17,21 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"strings"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+
+	"istio.io/istio/pkg/config/schemas"
+
+	//"istio.io/istio/pilot/pkg/config/kube/crd"
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/dynamic/fake"
 )
 
 type testcase struct {
@@ -36,12 +39,13 @@ type testcase struct {
 	expectedException bool
 	args              []string
 	k8sConfigs        []runtime.Object
+	dynamicConfigs    []runtime.Object
 	expectedOutput    string
 }
 
 var (
-	one          = int32(1)
-	tck8sConfigs = []runtime.Object{
+	one              = int32(1)
+	cannedK8sConfigs = []runtime.Object{
 		&coreV1.ConfigMapList{Items: []coreV1.ConfigMap{}},
 
 		&appsv1.DeploymentList{Items: []appsv1.Deployment{
@@ -104,6 +108,18 @@ var (
 			},
 		}},
 	}
+	cannedDynamicConfigs = []runtime.Object{
+		&unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "networking.istio.io/" + schemas.ServiceEntry.Version,
+				"kind":       schemas.ServiceEntry.VariableName,
+				"metadata": map[string]interface{}{
+					"namespace": "default",
+					"name":      "mesh-expansion-vmtest",
+				},
+			},
+		},
+	}
 )
 
 func TestAddToMesh(t *testing.T) {
@@ -120,7 +136,7 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
-			k8sConfigs:        tck8sConfigs,
+			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
 				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
 				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
@@ -131,7 +147,7 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: true,
-			k8sConfigs:        tck8sConfigs,
+			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput:    "Error: services \"test\" not found\n",
 		},
 		{
@@ -140,8 +156,48 @@ func TestAddToMesh(t *testing.T) {
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
-			k8sConfigs:        tck8sConfigs,
+			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput:    "No deployments found for service dummyservice.default\n",
+		},
+		{
+			description:       "Invalid command args - missing service name",
+			args:              strings.Split("experimental add-to-mesh service", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting service name\n",
+		},
+		{
+			description:       "Invalid command args - missing service IP",
+			args:              strings.Split("experimental add-to-mesh external-service test tcp:12345", " "),
+			expectedException: true,
+			expectedOutput:    "Error: provide service name, IP and Port List\n",
+		},
+		{
+			description:       "Invalid command args - missing service Ports",
+			args:              strings.Split("experimental add-to-mesh external-service test 172.186.15.123", " "),
+			expectedException: true,
+			expectedOutput:    "Error: provide service name, IP and Port List\n",
+		},
+		{
+			description:       "Invalid command args - invalid port protocol",
+			args:              strings.Split("experimental add-to-mesh external-service test 172.186.15.123 tcp1:12345", " "),
+			expectedException: true,
+			expectedOutput:    "Error: Protocal tcp1 is not supported by Istio\n",
+		},
+		{
+			description:       "service already exists",
+			args:              strings.Split("experimental add-to-mesh external-service dummyservice 11.11.11.11 tcp:12345", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			dynamicConfigs:    cannedDynamicConfigs,
+			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
+		},
+		{
+			description:       "ServiceEntry already exists",
+			args:              strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			dynamicConfigs:    cannedDynamicConfigs,
+			expectedOutput:    "Error: service entry \"mesh-expansion-vmtest\" already exists, skip\n",
 		},
 	}
 
@@ -155,12 +211,11 @@ func TestAddToMesh(t *testing.T) {
 func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	t.Helper()
 
-	interfaceFactory = mockInterfaceFactory(c.k8sConfigs)
+	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
+	crdFactory = mockDynamicClientGenerator(c.dynamicConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-
-	file = "" // Clear, because we re-use
 
 	fErr := rootCmd.Execute()
 	output := out.String()
@@ -181,11 +236,11 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	}
 }
 
-func mockInterfaceFactory(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
-	outFactory := func(_ string) (kubernetes.Interface, error) {
-		client := fake.NewSimpleClientset(k8sConfigs...)
+func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig string) (dynamic.Interface, error) {
+	outFactory := func(_ string) (dynamic.Interface, error) {
+		types := runtime.NewScheme()
+		client := fake.NewSimpleDynamicClient(types, dynamicConfigs...)
 		return client, nil
 	}
-
 	return outFactory
 }
