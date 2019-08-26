@@ -215,7 +215,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	for k, v := range byListenerName {
 		if k == VirtualInboundListenerName && v != 4 {
-			t.Fatalf("expect virtual listener has 2 passthrough listeners, found %d", v)
+			t.Fatalf("expect virtual listener has 4 passthrough listeners, found %d", v)
 		}
 		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
 			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
@@ -234,10 +234,10 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 	l := listeners[2]
 	// 4 is the 2 passthrough tcp filter chains one for ipv4 and one for ipv6
-	// and 2 http filter chain
+	// and 2 http filter chains one for ipv4 and one for ipv6
 	if len(l.FilterChains) != len(listeners[0].FilterChains)+4 {
 		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
-			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
+			"plus the 4 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+4, len(l.FilterChains))
 	}
 
 	sawIpv4PassthroughCluster := false
@@ -266,7 +266,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
 			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
 			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols) {
-				t.Fatalf("expecte %v application protocols, found %v", applicationProtocols, fc.FilterChainMatch.ApplicationProtocols)
+				t.Fatalf("expect %v application protocols, found %v", applicationProtocols, fc.FilterChainMatch.ApplicationProtocols)
 			}
 		}
 	}
@@ -281,7 +281,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
 		l.ListenerFilters[1].Name != envoyListenerHTTPInspector {
-		t.Fatalf("exptected listener filters [%q, %q], found [%q, %q]",
+		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
 			xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
 	}
 }
