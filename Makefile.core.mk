@@ -105,4 +105,4 @@ generate-values: $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v
 clean-values:
 	@rm -fr $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
 
-include Makefile.common.mk
+include common/Makefile.common.mk

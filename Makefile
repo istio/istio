@@ -5,7 +5,7 @@
 # common-files repo, make the change there and check it in. Then come back to this repo and run
 # "make update-common".
 
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,19 +22,18 @@
 # allow optional per-repo overrides
 -include Makefile.overrides.mk
 
-RUN =
-
 # Set the environment variable BUILD_WITH_CONTAINER to use a container
 # to build the repo. The only dependencies in this mode are to have make and
 # docker. If you'd rather build with a local tool chain instead, you'll need to
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
+
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-08-21T08-35-40
+IMG = gcr.io/istio-testing/build-tools:2019-08-25T20-37-02
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
-export GOBIN ?= /work/out/bin
+GOBIN ?= /work/out/bin
 
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
@@ -46,23 +45,25 @@ GOARCH_LOCAL := arm
 else
 GOARCH_LOCAL := $(LOCAL_ARCH)
 endif
-export GOARCH ?= $(GOARCH_LOCAL)
+
+GOARCH ?= $(GOARCH_LOCAL)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   export GOOS_LOCAL = linux
+   GOOS_LOCAL = linux
 else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS_LOCAL = darwin
+   GOOS_LOCAL = darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-export GOOS ?= $(GOOS_LOCAL)
+GOOS ?= $(GOOS_LOCAL)
 
 RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
 	-e GOOS="$(GOOS)" \
 	-e GOARCH="$(GOARCH)" \
 	-e GOBIN="$(GOBIN)" \
+	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	-v $(readlink /etc/localtime):/etc/localtime:ro \
 	$(CONTAINER_OPTIONS) \
@@ -73,6 +74,7 @@ RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
 	-w /work $(IMG)
 else
 export GOBIN ?= ./out/bin
+RUN =
 endif
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
@@ -82,3 +84,5 @@ MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 default:
 	@$(MAKE)
+
+.PHONY: default
