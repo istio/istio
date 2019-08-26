@@ -128,10 +128,6 @@ func (policy *AuthorizationPolicies) addServiceRoles(roles []Config) {
 		return
 	}
 	for _, role := range roles {
-		if _, ok := role.Spec.(*rbacproto.ServiceRole); !ok {
-			return
-		}
-
 		if policy.namespaceToV1Policies[role.Namespace] == nil {
 			policy.namespaceToV1Policies[role.Namespace] = &RolesAndBindings{
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
@@ -148,11 +144,7 @@ func (policy *AuthorizationPolicies) addServiceRoleBindings(bindings []Config) {
 	}
 
 	for _, binding := range bindings {
-		spec, ok := binding.Spec.(*rbacproto.ServiceRoleBinding)
-		if !ok {
-			return
-		}
-
+		spec := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		name := spec.RoleRef.Name
 		if name == "" {
 			rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",

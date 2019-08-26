@@ -47,16 +47,11 @@ func NewGenerator(
 }
 
 func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
-	rbacLog.Debugf("building v2 policy")
+	rbacLog.Debugf("building v1beta1 policy")
 
 	rbac := &envoy_rbac.RBAC{
 		Action:   envoy_rbac.RBAC_ALLOW,
 		Policies: map[string]*envoy_rbac.Policy{},
-	}
-
-	if b.isGlobalPermissiveEnabled {
-		// TODO(pitlv2109): Handle permissive mode in the future.
-		rbacLog.Errorf("ignored global permissive mode: not implemented for v2 policy.")
 	}
 
 	// TODO(yangminzhu): Implement the new authorization v1beta1 policy.

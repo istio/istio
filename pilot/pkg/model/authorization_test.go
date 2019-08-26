@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schemas"
 )
 
-func TestNewAuthorizationPolicies(t *testing.T) {
+func TestGetAuthorizationPolicies(t *testing.T) {
 	testNS := "test-ns"
 	roleCfg := Config{
 		ConfigMeta: ConfigMeta{
@@ -95,7 +95,7 @@ func TestNewAuthorizationPolicies(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			authzPolicies := newAuthzPolicies(c.config, t)
+			authzPolicies := createFakeAuthorizationPolicies(c.config, t)
 			got := authzPolicies.namespaceToV1Policies[testNS]
 			if !reflect.DeepEqual(c.want, got) {
 				t.Errorf("want:\n%s\n, got:\n%s\n", c.want, got)
@@ -104,7 +104,7 @@ func TestNewAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func TestRolesInNamespace(t *testing.T) {
+func TestGetRolesInNamespace(t *testing.T) {
 	role := &rbacproto.ServiceRole{}
 	binding := &rbacproto.ServiceRoleBinding{
 		Subjects: []*rbacproto.Subject{
@@ -174,7 +174,7 @@ func TestRolesInNamespace(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := newAuthzPolicies(tc.configs, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
 			got := authzPolicies.GetRolesInNamespace(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
@@ -184,7 +184,7 @@ func TestRolesInNamespace(t *testing.T) {
 	}
 }
 
-func TestBindingsInNamespace(t *testing.T) {
+func TestGetBindingsInNamespace(t *testing.T) {
 	role := &rbacproto.ServiceRole{}
 	binding := &rbacproto.ServiceRoleBinding{
 		Subjects: []*rbacproto.Subject{
@@ -293,7 +293,7 @@ func TestBindingsInNamespace(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := newAuthzPolicies(tc.configs, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
 			got := authzPolicies.GetBindingsInNamespace(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
@@ -303,7 +303,7 @@ func TestBindingsInNamespace(t *testing.T) {
 	}
 }
 
-func TestIsRbacEnabled(t *testing.T) {
+func TestIsV1RbacEnabled(t *testing.T) {
 	target := &rbacproto.RbacConfig_Target{
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
@@ -423,7 +423,7 @@ func TestIsRbacEnabled(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := newAuthzPolicies(tc.config, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.config, t)
 			got := authzPolicies.IsV1RbacEnabled(tc.service, tc.namespace)
 			if tc.want != got {
 				t.Errorf("want %v but got %v", tc.want, got)
@@ -432,7 +432,7 @@ func TestIsRbacEnabled(t *testing.T) {
 	}
 }
 
-func newAuthzPolicies(configs []Config, t *testing.T) *AuthorizationPolicies {
+func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *AuthorizationPolicies {
 	store := &fakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)
