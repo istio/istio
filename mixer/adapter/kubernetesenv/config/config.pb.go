@@ -67,7 +67,7 @@ type Params struct {
 	//
 	// Details on multicluster and the Kubernetes secret required to
 	// access the remote cluster's credentials can be found in
-	// [multicluster install](https://istio.io/docs/setup/kubernetes/install/multicluster/).
+	// [multicluster install](https://istio.io/docs/setup/install/multicluster/).
 	//
 	// NOTE: If `cluster_registries_namespace` is not set then the environment
 	// variable `POD_NAMESPACE` is checked/used. If `POD_NAMESPACE` is not
