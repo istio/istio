@@ -320,9 +320,10 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 	fields := metadata.GetFields()
 	res := make(map[string]string, len(fields))
 	for k, v := range fields {
-		if s, ok := v.GetKind().(*types.Value_StringValue); ok {
+		switch s := v.GetKind().(type) {
+		case *types.Value_StringValue:
 			res[k] = s.StringValue
-		} else if s, ok := v.GetKind().(*types.Value_StructValue); ok {
+		case *types.Value_StructValue:
 			// Some fields are not simple strings, they are structs. Dump these to json strings.
 			// TODO: convert metadata to a properly typed struct rather than map[string]string
 			j, err := (&jsonpb.Marshaler{}).MarshalToString(s.StructValue)
@@ -331,6 +332,8 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 				continue
 			}
 			res[k] = j
+		default:
+			continue
 		}
 	}
 	if len(res) == 0 {
