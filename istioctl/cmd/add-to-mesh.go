@@ -299,7 +299,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 		}
 		protocol := istioProtocol.Parse(np.Name)
 		if protocol == istioProtocol.Unsupported {
-			return nil, fmt.Errorf("Protocal %s is not supported by Istio", np.Name)
+			return nil, fmt.Errorf("protocal %s is not supported by Istio", np.Name)
 		}
 		portList = append(portList, &model.Port{
 			Port:     int(np.Port),
