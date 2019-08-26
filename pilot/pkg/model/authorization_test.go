@@ -433,7 +433,7 @@ func TestIsV1RbacEnabled(t *testing.T) {
 }
 
 func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *AuthorizationPolicies {
-	store := &fakeStore{}
+	store := &authzFakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)
 	}
@@ -466,7 +466,7 @@ func newConfig(name, ns string, spec proto.Message) Config {
 	}
 }
 
-type fakeStore struct {
+type authzFakeStore struct {
 	data []struct {
 		typ string
 		ns  string
@@ -474,7 +474,7 @@ type fakeStore struct {
 	}
 }
 
-func (fs *fakeStore) add(config Config) {
+func (fs *authzFakeStore) add(config Config) {
 	fs.data = append(fs.data, struct {
 		typ string
 		ns  string
@@ -486,15 +486,15 @@ func (fs *fakeStore) add(config Config) {
 	})
 }
 
-func (fs *fakeStore) ConfigDescriptor() schema.Set {
+func (fs *authzFakeStore) ConfigDescriptor() schema.Set {
 	return nil
 }
 
-func (fs *fakeStore) Get(typ, name, namespace string) *Config {
+func (fs *authzFakeStore) Get(typ, name, namespace string) *Config {
 	return nil
 }
 
-func (fs *fakeStore) List(typ, namespace string) ([]Config, error) {
+func (fs *authzFakeStore) List(typ, namespace string) ([]Config, error) {
 	var configs []Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -507,13 +507,13 @@ func (fs *fakeStore) List(typ, namespace string) ([]Config, error) {
 	return configs, nil
 }
 
-func (fs *fakeStore) Delete(typ, name, namespace string) error {
+func (fs *authzFakeStore) Delete(typ, name, namespace string) error {
 	return fmt.Errorf("not implemented")
 }
-func (fs *fakeStore) Create(config Config) (string, error) {
+func (fs *authzFakeStore) Create(config Config) (string, error) {
 	return "not implemented", nil
 }
 
-func (fs *fakeStore) Update(config Config) (string, error) {
+func (fs *authzFakeStore) Update(config Config) (string, error) {
 	return "not implemented", nil
 }
