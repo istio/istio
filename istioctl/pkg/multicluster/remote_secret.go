@@ -70,15 +70,15 @@ func NewCreateRemoteSecretCommand(kubeconfig, context, namespace *string) *cobra
 	}
 
 	c := &cobra.Command{
-		Use:   "create-remote-secret [OPTIONS]",
+		Use:   "create-remote-secret <cluster-name>",
 		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
 		Example: `
 # Create a secret to access cluster c0's apiserver and install it in cluster c1.
-istioctl --kubeconfig=c0.yaml x create-remote-secrets \
+istioctl --kubeconfig=c0.yaml x create-remote-secret c0 \
     | kubectl -n istio-system --kubeconfig=c1.yaml apply -f -
 
 # Delete a secret that was previously installed in c1
-istioctl --kubeconfig=c0.yaml x create-remote-secrets \
+istioctl --kubeconfig=c0.yaml x create-remote-secret c1 \
     | kubectl -n istio-system --kubeconfig=c1.yaml delete -f -
 
 `,
