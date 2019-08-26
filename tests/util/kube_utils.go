@@ -926,9 +926,8 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 
 	currentContext = strings.Trim(currentContext, "\n")
 
-	config, err := multicluster.CreateRemoteSecret(remoteKubeConfig, currentContext, "istio-multi", namespace, currentContext)
+	config, err := multicluster.CreateRemoteSecret(remoteKubeConfig, currentContext, namespace, "istio-multi", currentContext)
 	if err != nil {
-		log.Infof("Failed to create remote secret: %v\n", err)
 		return err
 	}
 	secret, err := ioutil.TempFile("", "")
@@ -943,9 +942,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 	}
 	log.Infof("Created multi-cluster secret %q for cluster %v", secret.Name(), remoteKubeConfig)
 
-	_, err = ShellMuteOutput("kubectl --kubeconfig=%v -n %v apply -f %v", localKubeConfig, namespace, secret.Name())
-	if err != nil {
-		log.Infof("Failed to install remote secret: %v\n", err)
+	if _, err := ShellMuteOutput("kubectl --kubeconfig=%v -n %v apply -f %v", localKubeConfig, namespace, secret.Name()); err != nil {
 		return err
 	}
 
