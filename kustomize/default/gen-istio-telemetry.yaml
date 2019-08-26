@@ -486,6 +486,7 @@ spec:
         image: "gcr.io/istio-release/mixer:master-latest-daily"
         imagePullPolicy: Always
         ports:
+        - containerPort: 9091
         - containerPort: 15014
         - containerPort: 42422
         args:
@@ -530,7 +531,6 @@ spec:
         image: "gcr.io/istio-release/proxyv2:master-latest-daily"
         imagePullPolicy: Always
         ports:
-        - containerPort: 9091
         - containerPort: 15004
         - containerPort: 15090
           protocol: TCP
@@ -566,8 +566,8 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 0m
-            memory: 1Mi
+            cpu: 100m
+            memory: 128Mi
           
         volumeMounts:
         - name: telemetry-envoy-config
