@@ -499,6 +499,22 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		// There is only one IP for kube registry
 		proxyIP := proxy.IPAddresses[0]
 		pod := c.pods.getPodByIP(proxyIP)
+
+		if clusterId := proxy.Metadata[model.NodeMetadataClusterId]; clusterId == c.ClusterID {
+			// We can be certain this proxy will have an associated pod. Therefor, it is safe to wait for
+			// the pod to show up. This may take a few seconds due to eventual consistency issues.
+			attemptDelay := time.Millisecond * 100
+			attempts := 0
+			for pod == nil && attempts < 1000 {
+				attempts++
+				time.Sleep(attemptDelay)
+				pod = c.pods.getPodByIP(proxyIP)
+			}
+			log.Errorf("howardjohn: Got pod %v after %v", proxy.ID, attempts)
+		} else {
+			log.Errorf("howardjohn: Skipping %v, can't find cluster id %v == %v", proxy.ID, clusterId, c.ClusterID)
+		}
+
 		if pod != nil {
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
 			// which can happen when multi clusters using same pod cidr.

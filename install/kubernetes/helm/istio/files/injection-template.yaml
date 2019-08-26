@@ -196,6 +196,8 @@ containers:
   - name: ISTIO_META_NETWORK
     value: "{{ .Values.global.network }}"
   {{- end }}
+  - name: ISTIO_META_CLUSTER_ID
+    value: "{{ valueOrDefault .Values.global.clusterId `Kubernetes` }}"
   {{ if .ObjectMeta.Annotations }}
   - name: ISTIO_METAJSON_ANNOTATIONS
     value: |

@@ -488,6 +488,9 @@ const (
 	// will be replaced with the gateway defined in the settings.
 	NodeMetadataNetwork = "NETWORK"
 
+	// NodeMetadataNetwork defines the cluster the node belongs to.
+	NodeMetadataClusterId = "CLUSTER_ID"
+
 	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
