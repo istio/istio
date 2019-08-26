@@ -69,16 +69,6 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		l.logAndFatal("Cannot specify both profile name and filename flag.")
 	}
 
-	writer, err := getWriter("")
-	if err != nil {
-		l.logAndFatal(err.Error())
-	}
-	defer func() {
-		if err := writer.Close(); err != nil {
-			l.logAndFatal("Did not close output successfully: ", err)
-		}
-	}()
-
 	profile := ""
 	if len(args) == 1 {
 		profile = args[0]
@@ -88,9 +78,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		l.logAndFatal(err.Error())
 	}
 
-	if _, err := writer.WriteString(y); err != nil {
-		l.logAndFatal("Could not write values; ", err)
-	}
+	l.print(y + "\n")
 }
 
 func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string) (string, error) {

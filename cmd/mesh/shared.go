@@ -47,19 +47,6 @@ func configLogs(args *rootArgs) error {
 	return log.Configure(opt)
 }
 
-func getWriter(outFilename string) (*os.File, error) {
-	writer := os.Stdout
-	if outFilename != "" {
-		file, err := os.Create(outFilename)
-		if err != nil {
-			return nil, err
-		}
-
-		writer = file
-	}
-	return writer, nil
-}
-
 type logger struct {
 	logToStdErr bool
 	stdOut      io.Writer
