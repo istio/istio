@@ -60,16 +60,9 @@ func (p *Probe) checkInboundConfigured() error {
 			return err
 		}
 
-		// Only those container ports exposed through the service receive a configuration from Pilot. Since we don't know
-		// which ports are defined by the service, just ensure that at least one container port has a cluster/listener
-		// configuration in Envoy. The CDS/LDS updates will contain everything, so just ensuring at least one port has
-		// been configured should be sufficient.
+		// The CDS/LDS updates will contain everything, so just ensuring at least one port has been configured
+		// should be sufficient. The full check is mainly to provide a full inspection.
 		for _, appPort := range p.ApplicationPorts {
-			if listeningPorts[appPort] && p.NodeType != model.Router {
-				// Success - Envoy is configured.
-				// For gateways we should check for all ports though, so don't return success yet.
-				return nil
-			}
 			if !listeningPorts[appPort] {
 				err = multierror.Append(err, fmt.Errorf("envoy missing listener for inbound application port: %d", appPort))
 			}
