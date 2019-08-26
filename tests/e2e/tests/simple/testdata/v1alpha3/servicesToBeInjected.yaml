@@ -34,7 +34,7 @@ spec:
   host: 'echosrv.istio-system.svc.cluster.local'
   trafficPolicy:
     tls:
-      mode: DISABLE​
+      mode: DISABLE
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
