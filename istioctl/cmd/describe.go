@@ -801,17 +801,6 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 		if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
 			return true
 		}
-	} else {
-		// No mixer config, infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
-		re := regexp.MustCompile(`(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`)
-		for _, domain := range vh.Domains {
-			ss := re.FindStringSubmatch(domain)
-			if ss != nil {
-				if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
-					return true
-				}
-			}
-		}
 	}
 
 	if rte := route.GetRoute(); rte != nil {
@@ -824,6 +813,17 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 						return true
 					}
 				}
+			}
+		}
+	}
+
+	// No mixer config, infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
+	re := regexp.MustCompile(`(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`)
+	for _, domain := range vh.Domains {
+		ss := re.FindStringSubmatch(domain)
+		if ss != nil {
+			if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
+				return true
 			}
 		}
 	}
