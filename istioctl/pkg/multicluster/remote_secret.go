@@ -84,7 +84,7 @@ istioctl --kubeconfig=c0.yaml x create-remote-secret c1 \
 `,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			out, err := CreateRemoteSecret(*context, *kubeconfig, *namespace, f.serviceAccountName, args[0])
+			out, err := CreateRemoteSecret(*kubeconfig, *context, *namespace, f.serviceAccountName, args[0])
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)
 				os.Exit(1)
