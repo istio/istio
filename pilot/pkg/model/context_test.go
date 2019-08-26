@@ -115,7 +115,7 @@ func TestParseMetadata(t *testing.T) {
 		},
 	}
 
-	nodeId := "sidecar~1.1.1.1~id~domain"
+	nodeID := "sidecar~1.1.1.1~id~domain"
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestParseMetadata(t *testing.T) {
 				t.Fatalf("failed to setup metadata: %v", err)
 			}
 			parsed := model.ParseMetadata(meta)
-			node, err := model.ParseServiceNodeWithMetadata(nodeId, parsed)
+			node, err := model.ParseServiceNodeWithMetadata(nodeID, parsed)
 			if err != nil {
 				t.Fatalf("failed to parse service node: %v", err)
 			}
