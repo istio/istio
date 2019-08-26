@@ -156,8 +156,7 @@ spec:
             mountPath: /badger
           resources:
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 10m
             
       affinity:      
         nodeAffinity:

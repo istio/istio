@@ -492,8 +492,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 100m
+              memory: 128Mi
             
 
           volumeMounts:
