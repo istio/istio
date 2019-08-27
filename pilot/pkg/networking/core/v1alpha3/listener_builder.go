@@ -15,9 +15,6 @@
 package v1alpha3
 
 import (
-	"sync"
-	"time"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -42,6 +39,14 @@ var (
 	// Precompute these filters as an optimization
 	blackholeAnyMarshalling    = newBlackholeFilter(true)
 	blackholeStructMarshalling = newBlackholeFilter(false)
+
+	dummyServiceInstance = &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Port:        15006,
+			ServicePort: &model.Port{},
+		},
+		Service: &model.Service{},
+	}
 )
 
 // A stateful listener builder
@@ -460,7 +465,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 			Env:                        env,
 			Node:                       node,
-			ServiceInstance:            dummyServiceInstance(),
+			ServiceInstance:            dummyServiceInstance,
 			Port:                       port,
 			Push:                       push,
 			Bind:                       matchingIP,
@@ -530,37 +535,4 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 
 func isAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
-}
-
-func dummyServiceInstance() *model.ServiceInstance {
-	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Family:  0,
-			Address: "",
-			Port:    15006,
-			ServicePort: &model.Port{
-				Name:     "",
-				Port:     0,
-				Protocol: "",
-			},
-			UID:      "",
-			Network:  "",
-			Locality: "",
-			LbWeight: 0,
-		},
-		Service: &model.Service{
-			Hostname:        "",
-			Address:         "",
-			Mutex:           sync.RWMutex{},
-			ClusterVIPs:     nil,
-			Ports:           nil,
-			ServiceAccounts: nil,
-			MeshExternal:    false,
-			Resolution:      0,
-			CreationTime:    time.Time{},
-			Attributes:      model.ServiceAttributes{},
-		},
-		Labels:         nil,
-		ServiceAccount: "",
-	}
 }
