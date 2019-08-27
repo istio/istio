@@ -24,8 +24,8 @@ import (
 
 	"github.com/alicebob/miniredis"
 	"github.com/alicebob/miniredis/server"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
