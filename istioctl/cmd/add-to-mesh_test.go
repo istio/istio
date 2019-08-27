@@ -181,7 +181,7 @@ func TestAddToMesh(t *testing.T) {
 			description:       "Invalid command args - invalid port protocol",
 			args:              strings.Split("experimental add-to-mesh external-service test 172.186.15.123 tcp1:12345", " "),
 			expectedException: true,
-			expectedOutput:    "Error: protocal tcp1 is not supported by Istio\n",
+			expectedOutput:    "Error: protocol tcp1 is not supported by Istio\n",
 		},
 		{
 			description:       "service already exists",

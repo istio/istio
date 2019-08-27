@@ -141,13 +141,12 @@ func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "external-service <svcname> <ip> [name1:]port1 [name2:]port2 ...",
 		Short: "Add external service(eg:services running on VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and\ 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh external-service vmhttp 
-172.12.23.125 http:9080 tcp:8888 -l app=test,version=v1`,
+		Example: `istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125 http:9080 tcp:8888 -l app=test,version=v1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 3 {
 				return fmt.Errorf("provide service name, IP and Port List")
@@ -241,7 +240,14 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			continue
 
 		}
-		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(res); err != nil {
+		d := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dep.Name,
+				Namespace: dep.Namespace,
+				UID:       dep.UID,
+			},
+		}
+		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
 			errs = multierr.Append(fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err), errs)
 			continue
@@ -269,7 +275,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 		return nil, err
 	}
 	for _, dep := range deployments.Items {
-		depLabels := k8s_labels.Set(dep.ObjectMeta.Labels)
+		depLabels := k8s_labels.Set(dep.Spec.Selector.MatchLabels)
 		if svcSelector.Matches(depLabels) {
 			deps = append(deps, dep)
 		}
@@ -299,7 +305,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 		}
 		protocol := istioProtocol.Parse(np.Name)
 		if protocol == istioProtocol.Unsupported {
-			return nil, fmt.Errorf("protocal %s is not supported by Istio", np.Name)
+			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.Name)
 		}
 		portList = append(portList, &model.Port{
 			Port:     int(np.Port),
