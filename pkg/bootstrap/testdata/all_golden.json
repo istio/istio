@@ -123,7 +123,8 @@
     ],
     "stats_matcher": {
       "inclusion_list": {
-        "patterns": [{
+        "patterns": [{"prefix": "reporter="},
+          {
             "prefix": "cluster_manager"
           },
           {
