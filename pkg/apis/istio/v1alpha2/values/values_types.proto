@@ -416,34 +416,45 @@ message MixerAdaptersConfig {
 
 // MixerConfig is described in istio.io documentation.
 message MixerConfig {
-  MixerAdaptersConfig adapters = 1;
+  // MixerPolicyConfig is set of configurations for Mixer Policy
+  MixerPolicyConfig policy = 1;
 
-  bool enabled = 2;
-
-  map<string, string> env = 3;
-
-  string image = 4;
-
-  MixerPolicyConfig policy = 5;
-
-  MixerTelemetryConfig telemetry = 6;
+  // MixerTelemetryConfig is set of configurations for Mixer Telemetry
+  MixerTelemetryConfig telemetry = 2;
 }
 
-// MixerPolicyConfig is described in istio.io documentation.
+// MixerPolicyConfig is set of configurations for Mixer Policy
 message MixerPolicyConfig {
+  // Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.
   bool autoscaleEnabled = 1;
 
+  // Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
   uint32 autoscaleMax = 2;
 
+  // Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
   uint32 autoscaleMin = 3;
 
+  // Target CPU utilization used in HorizontalPodAutoscaler.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 4;
 
+  // Controls whether Mixer Policy is enabled
   bool enabled = 5;
 
+  // Image name used for Mixer Policy.
+  //
+  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+  //
+  // Examples: custom-mixer, docker.io/someuser:custom-mixer
   string image = 6;
 
-  // 	PodAnnotations   map[string]interface{}      `json:"podAnnotations,omitempty"`
+  // K8s annotations to attach to mixer policy deployment
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  // PodAnnotations   map[string]interface{}      `json:"podAnnotations,omitempty"`
+
+  // Number of replicas in the Mixer Policy Deployment
   uint32 replicaCount = 7;
 }
 
