@@ -66,12 +66,7 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	if len(v) == 0 {
 		return
 	}
-	s := ""
-	if fmtStr, ok := v[0].(string); ok {
-		s = fmt.Sprintf(fmtStr, v[1:]...)
-	} else {
-		s = fmt.Sprint(v...)
-	}
+	s := fmt.Sprint(v...)
 	if !l.logToStdErr {
 		l.print(s)
 	}
