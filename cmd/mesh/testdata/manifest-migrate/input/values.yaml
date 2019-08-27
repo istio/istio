@@ -1,0 +1,626 @@
+gateways:
+  enabled: true
+  istio-ingressgateway:
+    sds:
+      enabled: false
+      image: node-agent-k8s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
+    ports:
+      - port: 15020
+        targetPort: 15020
+        name: status-port
+      - port: 80
+        targetPort: 80
+        name: http2
+      - port: 443
+        name: https
+      - port: 15029
+        targetPort: 15029
+        name: kiali
+      - port: 15030
+        targetPort: 15030
+        name: prometheus
+      - port: 15031
+        targetPort: 15031
+        name: grafana
+      - port: 15032
+        targetPort: 15032
+        name: tracing
+      - port: 15443
+        targetPort: 15443
+        name: tls
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+    debug: info
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalIPs: []
+    serviceAnnotations: {}
+    domain: ""
+    zvpn:
+      enabled: true
+      suffix: global
+    podAnnotations: {}
+    type: LoadBalancer 
+    meshExpansionPorts:
+      - port: 15011
+        targetPort: 15011
+        name: tcp-pilot-grpc-tls
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      - port: 853
+        targetPort: 853
+        name: tcp-dns-tls
+    secretVolumes:
+      - name: ingressgateway-certs
+        secretName: istio-ingressgateway-certs
+        mountPath: /etc/istio/ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secretName: istio-ingressgateway-ca-certs
+        mountPath: /etc/istio/ingressgateway-ca-certs
+    telemetry_domain_name: ""
+    applicationPorts: ""
+    telemetry_addon_gateways:
+      tracing_gateway:
+        name: tracing
+        port: 15032
+        desPort: 80
+        enabled: false
+        tls: false
+      kiali_gateway:
+        name: kiali
+        port: 15029
+        desPort: 20001
+        enabled: false
+        tls: false
+      grafana_gateway:
+        name: grafana
+        port: 15031
+        desPort: 3000
+        enabled: false
+        tls: false
+      prometheus_gateway:
+        name: prometheus
+        port: 15030
+        desPort: 9090
+        enabled: false
+        tls: false
+    env:
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+    nodeSelector: {}
+    tolerations: []
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+  istio-egressgateway:
+    ports:
+      - port: 80
+        name: http2
+      - port: 443
+        name: https
+      - port: 15443
+        targetPort: 15443
+        name: tls
+    zvpn:
+      suffix: global
+      enabled: true
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 256Mi
+    cpu:
+      targetAverageUtilization: 80
+    drainDuration: 45s
+    connectTimeout: 10s
+    serviceAnnotations: {}
+    podAnnotations: {}
+    type: ClusterIP 
+    secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
+    env:
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+    nodeSelector: {}
+    tolerations: []
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+sidecarInjectorWebhook:
+  enabled: true
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  image: sidecar_injector
+  enableNamespacesByDefault: false
+  rewriteAppHTTPProbe: false
+  selfSigned: false
+  nodeSelector: {}
+  tolerations: []
+  injectLabel: istio-injection
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+galley:
+  enabled: true
+  image: galley
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  resources:
+    requests:
+      cpu: 100m
+  mesh: {}
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+mixer:
+  policy:
+    enabled: true
+    image: mixer
+    replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+    podAnnotations: {}
+    env:
+      GODEBUG: gctrace=1
+    adapters:
+      kubernetesenv:
+        enabled: true
+    nodeSelector: {}
+    tolerations: []
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+  telemetry:
+    enabled: true
+    image: mixer
+    replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+    sessionAffinityEnabled: false
+    loadshedding:
+      mode: enforce
+      latencyThreshold: 100ms
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1G
+      limits:
+        cpu: 4800m
+        memory: 4G
+    reportBatchMaxEntries: 100
+    reportBatchMaxTime: 1s
+    useMCP: true
+    nodeSelector: {}
+    tolerations: []
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+pilot:
+  enabled: true
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  image: pilot
+  traceSampling: 1.0
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+  configNamespace: istio-config
+  appNamespaces: []
+  env:
+    GODEBUG: gctrace=1
+  cpu:
+    targetAverageUtilization: 80
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  keepaliveMaxServerConnectionAge: 30m
+  deploymentLabels:
+  meshNetworks:
+    networks: {}
+  configMap: true
+  ingress:
+    ingressService: istio-ingressgateway
+    ingressControllerMode: "OFF"
+    ingressClass: istio
+  telemetry:
+    enabled: true
+  policy:
+    enabled: false
+  useMCP: true
+security:
+  enabled: true
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  image: citadel
+  selfSigned: true 
+  trustDomain: cluster.local 
+  workloadCertTtl: 2160h
+  enableNamespacesByDefault: true
+  dnsCerts:
+    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
+    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
+    istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
+    istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
+    istio-sidecar-injector-service-account.istio-control: istio-sidecar-injector.istio-control.svc
+    istio-sidecar-injector-service-account.istio-master: istio-sidecar-injector.istio-master.svc
+    istio-sidecar-injector-service-account.istio-control-master: istio-sidecar-injector.istio-control-master.svc
+    istio-galley-service-account.istio-pilot11: istio-galley.istio-pilot11.svc
+    istio-galley-service-account.istio-control: istio-galley.istio-control.svc
+    istio-galley-service-account.istio-master: istio-galley.istio-master.svc
+    istio-galley-service-account.istio-control-master: istio-galley.istio-control-master.svc
+    istio-galley-service-account.istio-config: istio-galley.istio-config.svc
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+nodeagent:
+  enabled: false
+  image: node-agent-k8s
+  env:
+    CA_PROVIDER: ""
+    CA_ADDR: ""
+    Plugins: ""
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+grafana:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: grafana/grafana
+    tag: 6.1.6
+  ingress:
+    enabled: false
+    hosts:
+      - grafana.local
+    annotations:
+    tls:
+  persist: false
+  storageClassName: ""
+  accessMode: ReadWriteMany
+  security:
+    enabled: false
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
+  nodeSelector: {}
+  tolerations: []
+  env: {}
+  envSecrets: {}
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  contextPath: /grafana
+  service:
+    annotations: {}
+    name: http
+    type: ClusterIP
+    externalPort: 3000
+    loadBalancerIP:
+    loadBalancerSourceRanges:
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          orgId: 1
+          url: http://prometheus:9090
+          access: proxy
+          isDefault: true
+          jsonData:
+            timeInterval: 5s
+          editable: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'istio'
+          orgId: 1
+          folder: 'istio'
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/istio
+prometheus:
+  enabled: true
+  replicaCount: 1
+  hub: docker.io/prom
+  image: prometheus
+  tag: v2.8.0
+  retention: 6h
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  scrapeInterval: 15s
+  contextPath: /prometheus
+  ingress:
+    enabled: false
+    hosts:
+      - prometheus.local
+    annotations:
+    tls:
+  service:
+    annotations: {}
+    nodePort:
+      enabled: false
+      port: 32090
+  security:
+    enabled: true
+tracing:
+  enabled: false
+  provider: jaeger
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  jaeger:
+    hub: docker.io/jaegertracing
+    image: all-in-one
+    tag: 1.12
+    memory:
+      max_traces: 50000
+    spanStorageType: badger
+    persist: false
+    storageClassName: ""
+    accessMode: ReadWriteMany
+  zipkin:
+    hub: docker.io/openzipkin
+    image: zipkin
+    tag: 2.14.2
+    probeStartupDelay: 200
+    queryPort: 9411
+    resources:
+      limits:
+        cpu: 300m
+        memory: 900Mi
+      requests:
+        cpu: 150m
+        memory: 900Mi
+    javaOptsHeap: 700
+    maxSpans: 500000
+    node:
+      cpus: 2
+  service:
+    annotations: {}
+    name: http
+    type: ClusterIP
+    externalPort: 9411
+  ingress:
+    enabled: false
+    hosts:
+    annotations:
+    tls:
+kiali:
+  enabled: false
+  replicaCount: 1
+  hub: quay.io/kiali
+  image: kiali
+  tag: v1.1.0
+  contextPath: /kiali 
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+  ingress:
+    enabled: false
+    hosts:
+      - kiali.local
+    annotations:
+    tls:
+  dashboard:
+    auth:
+      strategy: login 
+    secretName: kiali 
+    viewOnlyMode: false 
+    grafanaURL:  
+    jaegerURL:  
+  prometheusAddr: http://prometheus:9090
+  createDemoSecret: false
+  security:
+    enabled: true
+    cert_file: /kiali-cert/cert-chain.pem
+    private_key_file: /kiali-cert/key.pem
+certmanager:
+  enabled: false
+  replicaCount: 1
+  hub: quay.io/jetstack
+  image: cert-manager-controller
+  tag: v0.6.2
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+istio_cni:
+  enabled: false
+  hub: gcr.io/istio-release
+  tag: master-latest-daily
+  pullPolicy: Always
+  logLevel: info
+  cniBinDir: /opt/cni/bin
+  cniConfDir: /etc/cni/net.d
+  excludeNamespaces:
+    - istio-system
+istiocoredns:
+  enabled: false
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  coreDNSImage: coredns/coredns:1.1.2
+  coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
+  nodeSelector: {}
+  tolerations: []
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+global:
+  hub: gcr.io/istio-release
+  tag: master-latest-daily
+  logging:
+    level: "default:info"
+  monitoringPort: 15014
+  k8sIngress:
+    enabled: false
+    gatewayName: ingressgateway
+    enableHttps: false
+  proxy:
+    init:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 50Mi
+        requests:
+          cpu: 10m
+          memory: 10Mi
+    image: proxyv2
+    clusterDomain: "cluster.local"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+    concurrency: 2
+    accessLogFile: ""
+    accessLogFormat: ""
+    accessLogEncoding: TEXT
+    envoyAccessLogService:
+      enabled: false
+      host: 
+      port: 
+      tlsSettings:
+        mode: DISABLE 
+        clientCertificate: 
+        privateKey: 
+        caCertificates: 
+        sni: 
+        subjectAltNames: []
+      tcpKeepalive:
+        probes: 3
+        time: 10s
+        interval: 10s
+    logLevel: ""
+    componentLogLevel: ""
+    dnsRefreshRate: 300s
+    protocolDetectionTimeout: 10ms
+    privileged: false
+    enableCoreDump: false
+    enableCoreDumpImage: ubuntu:xenial
+    statusPort: 15020
+    readinessInitialDelaySeconds: 1
+    readinessPeriodSeconds: 2
+    readinessFailureThreshold: 30
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+    excludeOutboundPorts: ""
+    kubevirtInterfaces: ""
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    autoInject: enabled
+    envoyStatsd:
+      enabled: false
+      host: 
+      port: 
+    envoyMetricsService:
+      enabled: false
+      host: 
+      port: 
+    tracer: "zipkin"
+  proxy_init:
+    image: proxy_init
+  imagePullPolicy: IfNotPresent
+  controlPlaneSecurityEnabled: false
+  disablePolicyChecks: true
+  policyCheckFailOpen: false
+  enableTracing: true
+  tracer:
+    lightstep:
+      address: ""                
+      accessToken: ""            
+      secure: true               
+      cacertPath: ""             
+    zipkin:
+      address: ""
+    datadog:
+      address: "$(HOST_IP):8126"
+  mtls:
+    enabled: false
+  imagePullSecrets: []
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+  oneNamespace: false
+  defaultNodeSelector: {}
+  defaultTolerations: []
+  configValidation: true
+  meshExpansion:
+    enabled: false
+    useILB: false
+  multiCluster:
+    enabled: false
+  defaultResources:
+    requests:
+      cpu: 10m
+  defaultPodDisruptionBudget:
+    enabled: true
+  priorityClassName: ""
+  useMCP: true
+  trustDomain: ""
+  meshID: ""
+  sds:
+    enabled: false
+    udsPath: ""
+  meshNetworks: {}
+  localityLbSetting:
+    enabled: true
+  enableHelmTest: false
