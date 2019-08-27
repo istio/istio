@@ -30,7 +30,7 @@ message AddonIngressConfig {
   repeated string hosts = 2;
 }
 
-// ArchConfig is described in istio.io documentation.
+// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 message ArchConfig {
   // Sets pod scheduling weight for amd64 arch
   uint32 amd64 = 1;
@@ -86,15 +86,19 @@ message CoreDNSConfig {
   uint32 replicaCount = 4;
 }
 
-// DefaultPodDisruptionBudgetConfig is described in istio.io documentation.
+// DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
+// 
+// See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 message DefaultPodDisruptionBudgetConfig {
   // k8s PodDisruptionBudget settings.
   bool enabled = 1;
 }
 
-// DefaultResourcesConfig is described in istio.io documentation.
+// DefaultResourcesConfig specifies the default k8s resources settings for all Istio control plane components.
 message DefaultResourcesConfig {
   // k8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   ResourcesRequestsConfig requests = 1;
 }
 
@@ -215,97 +219,175 @@ message GatewaysConfig {
   IngressGatewayConfig istio_ingressgateway = 4;
 }
 
+// GlobalConfig is a set of configuration parameters for all Istio components.
 message GlobalConfig {
+  // Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  //   0 - Never scheduled
+  //   1 - Least preferred
+  //   2 - No preference
+  //   3 - Most preferred
   ArchConfig arch = 30;
 
-  // Configuration validation component namespace
+  // Specifies the namespace for the configuration and validation component.
   string configNamespace = 1;
 
-  // Enables server-side validation of configuration.
+  // Controls whether the server-side validation is enabled or not.
   bool configValidation = 2;
 
-  // Enables MTLS for control plane.
+  // Controls whether the MTLS for communication between the control plane components is enabled or not.
   bool controlPlaneSecurityEnabled = 3;
 
-  // K8s NodeSelector
+  // Default k8s node selector for all the Istio control plane components
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   map<string, string> defaultNodeSelector = 31;
 
-  // k8s PodDisruptionBudget settings.
+  // Specifies the default pod disruption budget configuration.
   DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 4;
 
-  // Selects whether policy enforcement is installed.
+  // Controls whether the policy enforcement is enabled or not.
   bool disablePolicyChecks = 5;
 
+  // Default k8s resources settings for all Istio control plane components.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   DefaultResourcesConfig defaultResources = 6;
 
-  // Enable helm test
+  // Controls whether the helm test templates are enabled or not.
   bool enableHelmTest = 7;
 
-  // Enables tracing.
+  // Controls whether the distributed tracing for the applications is enabled or not.
+  //
+  // See https://opentracing.io/docs/overview/what-is-tracing/
   bool enableTracing = 8;
 
-  // Root for docker image paths.
+  // Specifies the docker hub for the Istio images.
   string hub = 9;
 
+  // Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
+  // Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
+  //
+  // More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-  // Default namespace.
+
+  // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 10;
 
+  // Specifies the global locality load balancing settings.
+  // Locality-weighted load balancing allows administrators to control the distribution of traffic to
+  // endpoints based on the localities of where the traffic originates and where it will terminate.
+  // Please set either failover or distribute configuration but not both.
+  //
+  // localityLbSetting:
+  //   distribute:
+  //   - from: "us-central1/*"
+  //     to:
+  //       "us-central1/*": 80
+  //       "us-central2/*": 20
+  //
+  // localityLbSetting:
+  //   failover:
+  //   - from: us-east
+  //     to: eu-west
+  //   - from: us-west
+  //     to: us-east
   map<string, string> localityLbSetting = 32;
 
+  // Specifies the configuration for the legacy kubernetes Ingress.
   KubernetesIngressConfig k8sIngress = 11;
 
+  // Specifies the global logging level settings for the Istio control plane components.
   GlobalLoggingConfig logging = 12;
 
+  // Specifies the configuration for Istio mesh expansion to bare mental.
   MeshExpansionConfig meshExpansion = 13;
 
+  // Configure the mesh networks to be used by the Split Horizon EDS.
+  //
+  // The following example defines two networks with different endpoints association methods.
+  // For `network1` all endpoints that their IP belongs to the provided CIDR range will be
+  // mapped to network1. The gateway for this network example is specified by its public IP
+  // address and port.
+  // The second network, `network2`, in this example is defined differently with all endpoints
+  // retrieved through the specified Multi-Cluster registry being mapped to network2. The
+  // gateway is also defined differently with the name of the gateway service on the remote
+  // cluster. The public IP for the gateway will be determined from that remote service (only
+  // LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  // it still need to be configured manually).
+  //
+  // meshNetworks:
+  //   network1:
+  //     endpoints:
+  //     - fromCidr: "192.168.0.1/24"
+  //     gateways:
+  //     - address: 1.1.1.1
+  //       port: 80
+  //   network2:
+  //     endpoints:
+  //     - fromRegistry: reg1
+  //     gateways:
+  //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+  //       port: 443
+  //
   map<string, string> meshNetworks = 33;
 
-  // Monitor port number for all control plane components.
+  // Specifies the monitor port number for all Istio control plane components.
   uint32 monitoringPort = 14;
 
+  // Specifies the MTLS settings for the applications that Istio manages.
   MTLSConfig mtls = 15;
 
+  // Specifies the configuration for Istio mesh across multiple clusters through the istio gateways.
   MultiClusterConfig multiCluster = 16;
 
-  // Restricts the applications namespace that the controller manages.
+  // Whether to restrict the applications namespace the controller manages;
+  // If set it to false, the controller watches all namespaces.
   bool oneNamespace = 17;
 
+  // Controls the default behavior of the sidecar for handling outbound traffic from the application.
   OutboundTrafficPolicyConfig outboundTrafficPolicy = 18;
 
-  // If set, allows traffic in cases when the mixer policy service cannot be reached.
+  // Controls whether to allow traffic in cases when the mixer policy service cannot be reached.
   bool policyCheckFailOpen = 19;
 
-  // Namespace of policy components
+  // Specifies the namespace for the policy component.
   string policyNamespace = 20;
 
-  // k8s priorityClassName.
+  // Specifies the k8s priorityClassName for the istio control plane components.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   string priorityClassName = 21;
 
+  // Specifies how proxies are configured within Istio.
   ProxyConfig proxy = 22;
 
+  // Specifies the configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
   ProxyInitConfig proxy_init = 23;
 
+  // Specifies the configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   SDSConfig sds = 24;
 
-  // Version tag for docker images.
+  // Specifies the tag for the Istio docker images.
   string tag = 25;
 
-  // Namespace of telemetry components
+  // Specifies the namespace for the telemetry component.
   string telemetryNamespace = 26;
 
-  // TracerConfig is a set of configuration parameters for different tracer.
+  // Specifies the configuration for each of the supported tracers.
   TracerConfig tracer = 27;
 
   // Specifies the trust domain that corresponds to the root cert of CA.
   string trustDomain = 28;
 
-  // Selects use of Mesh Configuration Protocol to configure Pilot.
+  // Controls whether to use of Mesh Configuration Protocol to distribute configuration. 
   bool useMCP = 29;
 }
 
-// GlobalLoggingConfig is described in istio.io documentation.
+// GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
 message GlobalLoggingConfig {
+  // Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  // The control plane has different scopes depending on component, but can configure default log level across all components
+  // If empty, default scope and level will be used as configured in code
   string level = 1;
 }
 
@@ -414,7 +496,7 @@ message KubernetesEnvMixerAdapterConfig {
   bool enabled = 1;
 }
 
-// KubernetesIngressConfig represents the configuration for Kubernetes Ingress.
+// KubernetesIngressConfig specifies the configuration for the legacy kubernetes Ingress.
 message KubernetesIngressConfig {
   // Enables gateway for legacy k8s Ingress.
   bool enabled = 1;
@@ -441,13 +523,13 @@ message LoadSheddingConfig {
   }
 }
 
-// MTLSConfig is described in istio.io documentation.
+// MTLSConfig specifies the MTLS settings for the applications that Istio manages.
 message MTLSConfig {
   // Enables MTLS for service to service traffic.
   bool enabled = 1;
 }
 
-// MeshExpansionConfig is described in istio.io documentation.
+// MeshExpansionConfig specifies the configuration for Istio mesh expansion to bare mental.
 message MeshExpansionConfig {
   // Exposes Pilot and Citadel mTLS on the ingress gateway.
   bool enabled = 1;
@@ -576,7 +658,7 @@ message MixerTelemetryConfig {
   bool sessionAffinityEnabled = 12;
 }
 
-// MultiClusterConfig is described in istio.io documentation.
+// MultiClusterConfig specifies the configuration for Istio mesh across multiple clusters through the istio gateways.
 message MultiClusterConfig {
   // Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.
   bool enabled = 1;
@@ -604,7 +686,7 @@ message NodeAgentConfig {
   // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
 }
 
-// OutboundTrafficPolicyConfig is described in istio.io documentation.
+// OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
 message OutboundTrafficPolicyConfig {
   // Specifies the sidecar's default behavior when handling outbound traffic from the application.
   enum mode {
@@ -952,8 +1034,9 @@ message ProxyConfig {
   }
 }
 
-// ProxyInitConfig is described in istio.io documentation.
+// ProxyInitConfig specifies the configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
 message ProxyInitConfig {
+  // Specifies the image for the proxy_init container.
   string image = 1;
 }
 
@@ -964,8 +1047,9 @@ message ResourcesRequestsConfig {
   string memory = 2;
 }
 
-// SDSConfig is described in istio.io documentation.
+// SDSConfig specifies the configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
+  // Specifies whether the SecretDiscoveryService is enabled or not.
   bool enabled = 1;
 
   // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
@@ -1120,25 +1204,26 @@ message StdioMixerAdapterConfig {
   bool outputAsJson = 2;
 }
 
-// Configuration parameters for different tracing system.
+
+// TracerConfig specifies the configuration for each of the supported tracers.
 message TracerConfig {
-  // TracerDatadogConfig defines configuration for datadog tracer.
+  // Specifies the configuration for the datadog tracing service.
   TracerDatadogConfig datadog = 1;
 
-  // TracerLightStepConfig defines configuration for LightStep tracer
+  // Specifies the configuration for the lightstep tracing service.
   TracerLightStepConfig lightstep = 2;
 
-  // TracerZipkinConfig defines configuration for existing zipkin tracer
+  // Specifies the configuration for the zipkin tracing service.
   TracerZipkinConfig zipkin = 3;
 }
 
-// TracerDatadogConfig defines configuration for datadog tracing.
+// TracerDatadogConfig specifies the configuration for the datadog tracing service.
 message TracerDatadogConfig {
-  // Specifies address of datadog instance in host:port format for reporting trace data.
+  // Specifies address in host:port format for reporting trace data to the Datadog agent.
   string address = 1;
 }
 
-// TracerLightStepConfig defines configuration for LightStep tracer
+// TracerLightStepConfig specifies the configuration for the lightstep tracing service.
 message TracerLightStepConfig {
   // Sets the lightstep satellite pool address in host:port format for reporting trace data.
   string address = 1;
@@ -1153,7 +1238,7 @@ message TracerLightStepConfig {
   bool secure = 4;
 }
 
-// TracerZipkinConfig defines configuration for existing zipkin tracer
+// TracerZipkinConfig specifies the configuration for the zipkin tracing service.
 message TracerZipkinConfig {
   // Specifies address of zipkin instance in host:port format for reporting trace data.
   //
