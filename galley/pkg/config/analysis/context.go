@@ -25,8 +25,8 @@ type IteratorFn func(r *resource.Entry) bool
 
 // Context is an analysis context that is passed to individual analyzers.
 type Context interface {
-	// Report a diagnostic message against a resource Entry.
-	Report(c collection.Name, r *resource.Entry, t diag.Message)
+	// Report a diagnostic message
+	Report(c collection.Name, t diag.Message)
 
 	// Find a resource in the collection. If not found, nil is returned
 	Find(c collection.Name, name resource.Name) *resource.Entry

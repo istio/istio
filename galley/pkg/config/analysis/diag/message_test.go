@@ -20,9 +20,23 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type testOrigin string
+
+func (o testOrigin) FriendlyName() string {
+	return string(o)
+}
+
 func TestMessage_String(t *testing.T) {
 	g := NewGomegaWithT(t)
 	m := NewMessage(Error, Code(42), nil, "Cheese type not found: %q", "Feta")
 
 	g.Expect(m.String()).To(Equal(`[EIST0042] Cheese type not found: "Feta"`))
+}
+
+func TestMessageWithOrigin_String(t *testing.T) {
+	g := NewGomegaWithT(t)
+	o := testOrigin("toppings/cheese")
+	m := NewMessage(Error, Code(42), o, "Cheese type not found: %q", "Feta")
+
+	g.Expect(m.String()).To(Equal(`[EIST0042](toppings/cheese) Cheese type not found: "Feta"`))
 }

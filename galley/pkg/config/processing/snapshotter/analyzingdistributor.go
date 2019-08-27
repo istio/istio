@@ -109,7 +109,7 @@ type context struct {
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(coll collection.Name, r *resource.Entry, m diag.Message) {
+func (c *context) Report(coll collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
