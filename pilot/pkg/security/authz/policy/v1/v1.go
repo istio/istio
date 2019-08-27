@@ -62,14 +62,14 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	authzPolicies := b.authzPolicies
 
 	namespace := serviceMetadata.GetNamespace()
-	roleToBindings := authzPolicies.RoleToBindingsForNamespace(namespace)
-	for _, roleConfig := range authzPolicies.RolesForNamespace(namespace) {
+	bindings := authzPolicies.GetBindingsInNamespace(namespace)
+	for _, roleConfig := range authzPolicies.GetRolesInNamespace(namespace) {
 		roleName := roleConfig.Name
 		rbacLog.Debugf("checking role %v", roleName)
 
 		var enforcedBindings []*istio_rbac.ServiceRoleBinding
 		var permissiveBindings []*istio_rbac.ServiceRoleBinding
-		for _, binding := range roleToBindings[roleName] {
+		for _, binding := range bindings[roleName] {
 			if binding.Mode == istio_rbac.EnforcementMode_PERMISSIVE || b.isGlobalPermissiveEnabled {
 				// If RBAC Config is set to permissive mode globally, all policies will be in
 				// permissive mode regardless its own mode.
