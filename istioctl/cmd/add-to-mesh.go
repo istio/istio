@@ -139,14 +139,15 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "external-service <svcname> <ip> [name1:]port1 [name2:]port2 ...",
+		Use:   "external-service <svcname> <ip>... [name1:]port1 [name2:]port2 ...",
 		Short: "Add external service(eg:services running on VM) to Istio service mesh",
 		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and\ 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125 http:9080 tcp:8888 -l app=test,version=v1`,
+		Example: `istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126\
+http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 3 {
 				return fmt.Errorf("provide service name, IP and Port List")
@@ -320,7 +321,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
 	args, l, a []string, svcAcctAnn string, writer io.Writer) error {
 	svcName := args[0]
-	ip := args[1]
+	ips := strings.Split(args[1], ",")
 	portsListStr := args[2:]
 	ports, err := convertPortList(portsListStr)
 	if err != nil {
@@ -332,7 +333,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 		Name:           svcName,
 		Namespace:      ns,
 		PortList:       ports,
-		IP:             []string{ip},
+		IP:             ips,
 		ServiceAccount: svcAcctAnn,
 		Labels:         labels,
 		Annotations:    annotations,
@@ -382,7 +383,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err = createServiceEntry(dynamicClient, ns, u, opts.Name, writer); err != nil {
 		return err
 	}
-	return createService(client, ns, s, writer)
+	return createK8sService(client, ns, s, writer)
 }
 
 func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error {
@@ -458,8 +459,8 @@ func splitEqual(str string) (string, string) {
 	return k, v
 }
 
-// createService creates kubernetes service object in order to register vm service.
-func createService(client kubernetes.Interface, ns string, svc *corev1.Service, writer io.Writer) error {
+// createK8sService creates k8s service object for external services in order for DNS query and cluster VIP.
+func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Service, writer io.Writer) error {
 	if svc == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
