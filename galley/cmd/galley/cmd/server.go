@@ -153,8 +153,6 @@ func serverCmd() *cobra.Command {
 		"Enable service discovery processing in Galley")
 	serverCmd.PersistentFlags().BoolVar(&serverArgs.UseOldProcessor, "useOldProcessor", serverArgs.UseOldProcessor,
 		"Use the old processing pipeline for config processing")
-	serverCmd.PersistentFlags().BoolVar(&serverArgs.EnableConfigAnalysis, "enableAnalysis", serverArgs.EnableConfigAnalysis,
-		"Enable config analysis service")
 
 	// validation config
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookConfigFile,
@@ -210,7 +208,6 @@ func setupAliases() {
 	viper.RegisterAlias("general.monitoringPort", "monitoringPort")
 	viper.RegisterAlias("general.pprofPort", "pprofPort")
 	viper.RegisterAlias("general.enable_profiling", "enableProfiling")
-	viper.RegisterAlias("processing.analysis.enable", "enableAnalysis")
 	viper.RegisterAlias("processing.domainSuffix", "domain")
 	viper.RegisterAlias("processing.server.enable", "enable-server")
 	viper.RegisterAlias("processing.server.address", "server-address")

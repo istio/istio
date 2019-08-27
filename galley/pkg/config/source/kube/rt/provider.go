@@ -88,8 +88,7 @@ func (p *Provider) sharedInformerFactory() (informers.SharedInformerFactory, err
 	return p.informers, nil
 }
 
-// GetDynamicResourceInterface returns a dynamic.NamespaceableResourceInterface for the given resource.
-func (p *Provider) GetDynamicResourceInterface(r schema.KubeResource) (dynamic.NamespaceableResourceInterface, error) {
+func (p *Provider) dynamicResource(r schema.KubeResource) (dynamic.NamespaceableResourceInterface, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

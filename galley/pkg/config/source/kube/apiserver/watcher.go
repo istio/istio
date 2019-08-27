@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
@@ -32,21 +31,19 @@ import (
 type watcher struct {
 	mu sync.Mutex
 
-	adapter   *rt.Adapter
-	resource  schema.KubeResource
-	statusCtl *status.Controller
+	adapter  *rt.Adapter
+	resource schema.KubeResource
 
 	handler event.Handler
 
 	done chan struct{}
 }
 
-func newWatcher(r schema.KubeResource, a *rt.Adapter, s *status.Controller) *watcher {
+func newWatcher(r schema.KubeResource, a *rt.Adapter) *watcher {
 	return &watcher{
-		resource:  r,
-		adapter:   a,
-		statusCtl: s,
-		handler:   event.SentinelHandler(),
+		resource: r,
+		adapter:  a,
+		handler:  event.SentinelHandler(),
 	}
 }
 
@@ -128,10 +125,6 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	}
 
 	r := rt.ToResourceEntry(object, &w.resource, res)
-
-	if !w.adapter.IsBuiltIn() {
-		w.statusCtl.UpdateResourceStatus(w.resource.Collection.Name, r.Metadata.Name, r.Metadata.Version, w.adapter.GetStatus(obj))
-	}
 
 	e := event.Event{
 		Kind:   c,
