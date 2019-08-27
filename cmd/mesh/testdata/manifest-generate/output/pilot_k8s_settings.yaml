@@ -259,8 +259,6 @@ data:
       requests:
         cpu: 500m
         memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     tolerations: []

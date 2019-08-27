@@ -1,6 +1,6 @@
---- pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig	2019-07-16 23:54:05.946555219 -0700
-+++ pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go	2019-07-17 00:29:40.578006785 -0700
-@@ -222,8 +223,8 @@
+--- pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig	2019-08-26 22:57:50.731329334 -0700
++++ pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go	2019-08-26 23:05:09.508609092 -0700
+@@ -123,8 +123,8 @@
  	AutoInjection     *AutoInjectionFeatureSpec     `protobuf:"bytes,30,opt,name=auto_injection,json=autoInjection,proto3" json:"auto_injection,omitempty"`
  	Gateways          *GatewayFeatureSpec           `protobuf:"bytes,31,opt,name=gateways,proto3" json:"gateways,omitempty"`
  	// Overrides for default global values.yaml.
@@ -11,8 +11,7 @@
  	// Path or name for the profile e.g.
  	//   minimal (looks in profiles dir for a file called minimal.yaml)
  	//   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
-@@ -2439,8 +2441,9 @@
- 	// Path of the form a.b:c.e.:f
+@@ -1837,6 +1837,7 @@
  	// Where b:c is a list element selector of the form key:value and :f is a list selector of the form :value.
  	// All path intermediate nodes must exist.
  	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -20,9 +19,7 @@
  	XXX_NoUnkeyedLiteral struct{} `json:"-"`
  	XXX_unrecognized     []byte   `json:"-"`
  	XXX_sizecache        int32    `json:"-"`
- }
-@@ -2838,8 +2841,9 @@
-
+@@ -2188,6 +2189,7 @@
  // Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
  type HTTPGetAction struct {
  	Path                 string        `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -30,14 +27,20 @@
  	Host                 string        `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`
  	Scheme               string        `protobuf:"bytes,4,opt,name=scheme,proto3" json:"scheme,omitempty"`
  	HttpHeaders          []*HTTPHeader `protobuf:"bytes,5,rep,name=httpHeaders,proto3" json:"httpHeaders,omitempty"`
- 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-@@ -2965,8 +2969,9 @@
- }
-
+@@ -2299,6 +2301,7 @@
+ 
  // Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
  type TCPSocketAction struct {
 +	Port IntOrStringForPB `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
  	Host                 string   `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
+ 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+ 	XXX_unrecognized     []byte   `json:"-"`
+@@ -2443,6 +2446,8 @@
+ 
+ // Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.
+ type RollingUpdateDeployment struct {
++	MaxUnavailable IntOrStringForPB `protobuf:"bytes,1,opt,name=maxUnavailable,proto3" json:"maxUnavailable,omitempty"`
++	MaxSurge IntOrStringForPB `protobuf:"bytes,1,opt,name=maxSurge,proto3" json:"maxSurge,omitempty"`
  	XXX_NoUnkeyedLiteral struct{} `json:"-"`
  	XXX_unrecognized     []byte   `json:"-"`
  	XXX_sizecache        int32    `json:"-"`

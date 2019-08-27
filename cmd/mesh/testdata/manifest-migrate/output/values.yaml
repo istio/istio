@@ -9,6 +9,10 @@ autoInjection:
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
         replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 configManagement:
   components:
@@ -24,6 +28,10 @@ configManagement:
         resources:
           requests:
             cpu: 100m
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 gateways:
   components:
@@ -58,6 +66,10 @@ gateways:
           requests:
             cpu: 100m
             memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
     ingressGateway:
       enabled: true
       k8s:
@@ -89,6 +101,10 @@ gateways:
           requests:
             cpu: 100m
             memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 hub: gcr.io/istio-release
 policy:
@@ -118,6 +134,10 @@ policy:
         nodeSelector: {}
         podAnnotations: {}
         replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 security:
   components:
@@ -132,6 +152,10 @@ security:
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
         replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
     nodeAgent:
       enabled: false
   enabled: true
@@ -166,6 +190,10 @@ telemetry:
           requests:
             cpu: 1000m
             memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 trafficManagement:
   components:
@@ -197,6 +225,10 @@ trafficManagement:
           requests:
             cpu: 500m
             memory: 2048Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 values:
   certmanager:
@@ -206,8 +238,6 @@ values:
     tag: v0.6.2
   galley:
     image: galley
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
   gateways:
     istio-egressgateway:
       connectTimeout: 10s
@@ -216,8 +246,6 @@ values:
         name: tls
         port: 15443
         targetPort: 15443
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       secretVolumes:
         mountPath: /etc/istio/egressgateway-ca-certs
         name: egressgateway-ca-certs
@@ -238,8 +266,6 @@ values:
         name: tls
         port: 15443
         targetPort: 15443
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       sds:
         image: node-agent-k8s
         resources:
@@ -395,8 +421,6 @@ values:
     coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
     enabled: false
     replicaCount: 1
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
   kiali:
     contextPath: /kiali
     createDemoSecret: false
@@ -422,8 +446,6 @@ values:
   mixer:
     policy:
       image: mixer
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
     telemetry:
       image: mixer
       loadshedding:
@@ -431,8 +453,6 @@ values:
         mode: enforce
       reportBatchMaxEntries: 100
       reportBatchMaxTime: 1s
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       sessionAffinityEnabled: false
       useMCP: true
   nodeagent:
@@ -452,8 +472,6 @@ values:
     keepaliveMaxServerConnectionAge: 30m
     policy:
       enabled: false
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     traceSampling: 1
@@ -560,8 +578,6 @@ values:
         istio-remote: istio-sidecar-injector.istio-remote.svc
     enableNamespacesByDefault: true
     image: citadel
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     selfSigned: true
     trustDomain: cluster.local
     workloadCertTtl: 2160h
@@ -570,8 +586,6 @@ values:
     image: sidecar_injector
     injectLabel: istio-injection
     rewriteAppHTTPProbe: false
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     selfSigned: false
   tracing:
     enabled: false

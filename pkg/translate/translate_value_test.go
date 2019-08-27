@@ -41,6 +41,8 @@ galley:
   enabled: false
 pilot:
   enabled: true
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   resources:
     requests:
       cpu: 1000m
@@ -154,6 +156,10 @@ trafficManagement:
           requests:
             cpu: 1000m
             memory: 1G
+       strategy:
+         rollingUpdate:
+           maxSurge: 100%
+           maxUnavailable: 25%
  enabled: true
 autoInjection:
  components:
@@ -200,6 +206,8 @@ nodeagent:
 gateways:
   enabled: true
   istio-ingressgateway:
+    rollingMaxSurge: 4
+    rollingMaxUnavailable: 1
     resources:
       requests:
         cpu: 1000m
@@ -257,7 +265,11 @@ gateways:
         resources:
           requests:
             cpu: 1000m
-            memory: 1G 
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 4
+            maxUnavailable: 1
     egressGateway:
           enabled: false
   enabled: true
