@@ -189,11 +189,11 @@ ifeq ($(USE_LOCAL_PROXY),1)
   export ISTIO_ENVOY_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
   # Point the native paths to the local envoy build.
   ifeq ($(GOOS_LOCAL), Darwin)
-    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_MACOS_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   else
-    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_LINUX_DEBUG_PATH = ${ISTIO_ENVOY_LOCAL}
     export ISTIO_ENVOY_LINUX_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   endif
