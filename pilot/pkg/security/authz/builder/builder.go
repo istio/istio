@@ -19,13 +19,11 @@ import (
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	v1 "istio.io/istio/pilot/pkg/security/authz/policy/v1"
-	v2 "istio.io/istio/pilot/pkg/security/authz/policy/v2"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -49,7 +47,7 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 	serviceName := serviceInstance.Service.Attributes.Name
 	serviceNamespace := serviceInstance.Service.Attributes.Namespace
 	serviceHostname := string(serviceInstance.Service.Hostname)
-	if !isRbacEnabled(serviceHostname, serviceNamespace, policies) {
+	if !policies.IsV1RbacEnabled(serviceHostname, serviceNamespace) {
 		rbacLog.Debugf("RBAC disabled for service %s", serviceHostname)
 		return nil
 	}
@@ -60,15 +58,8 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 		return nil
 	}
 
-	rbacConfig := policies.RbacConfig
-	isGlobalPermissiveEnabled := rbacConfig != nil && rbacConfig.EnforcementMode == istio_rbac.EnforcementMode_PERMISSIVE
-
-	var generator policy.Generator
-	if policies.IsRbacV2 {
-		generator = v2.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
-	} else {
-		generator = v1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
-	}
+	isGlobalPermissiveEnabled := policies.IsGlobalPermissiveEnabled()
+	generator := v1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
 
 	return &Builder{
 		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
@@ -114,41 +105,4 @@ func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
 
 	rbacLog.Debugf("built tcp filter config: %v", tcpConfig)
 	return &tcpConfig
-}
-
-// isInRbacTargetList checks if a given service and namespace is included in the RbacConfig target.
-func isInRbacTargetList(serviceHostname string, namespace string, target *istio_rbac.RbacConfig_Target) bool {
-	if target == nil {
-		return false
-	}
-	for _, ns := range target.Namespaces {
-		if namespace == ns {
-			return true
-		}
-	}
-	for _, service := range target.Services {
-		if service == serviceHostname {
-			return true
-		}
-	}
-	return false
-}
-
-// isRbacEnabled checks if a given service and namespace is enabled for Rbac.
-func isRbacEnabled(serviceHostname string, namespace string, policies *model.AuthorizationPolicies) bool {
-	if policies == nil || policies.RbacConfig == nil {
-		return false
-	}
-
-	rbacConfig := policies.RbacConfig
-	switch rbacConfig.Mode {
-	case istio_rbac.RbacConfig_ON:
-		return true
-	case istio_rbac.RbacConfig_ON_WITH_INCLUSION:
-		return isInRbacTargetList(serviceHostname, namespace, rbacConfig.Inclusion)
-	case istio_rbac.RbacConfig_ON_WITH_EXCLUSION:
-		return !isInRbacTargetList(serviceHostname, namespace, rbacConfig.Exclusion)
-	default:
-		return false
-	}
 }
