@@ -80,7 +80,7 @@ option (gogoproto.stable_marshaler_all) = true;
 //           stringValue: deletePet
 //     httpMethod: DELETE
 //     uriTemplate: /api/pets/{id}
-//   api_keys:
+//   apiKeys:
 //   - query: api-key
 // ```
 message HTTPAPISpec {
@@ -226,7 +226,7 @@ message HTTPAPISpecReference {
 //   services:
 //   - name: foo
 //     namespace: bar
-//   api_specs:
+//   apiSpecs:
 //   - name: petstore
 //     namespace: default
 // ```
