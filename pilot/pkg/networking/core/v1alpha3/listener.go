@@ -291,7 +291,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
 			buildSidecarOutboundListeners(configgen, env, node, push).
 			buildManagementListeners(configgen, env, node, push).
 			buildVirtualOutboundListener(configgen, env, node, push).
-			buildVirtualInboundListener(env, node)
+			buildVirtualInboundListener(configgen, env, node, push)
 	}
 
 	return builder
@@ -473,9 +473,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *httpListenerOpts {
+	clusterName := pluginParams.ClusterName
+	if pluginParams.ClusterName == "" {
+		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.Endpoint.ServicePort.Name,
+			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.Endpoint.ServicePort.Port)
+	}
+
 	httpOpts := &httpListenerOpts{
 		routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
-			pluginParams.Push, pluginParams.ServiceInstance),
+			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		direction:        http_conn.INGRESS,

@@ -110,6 +110,9 @@ type InputParams struct {
 
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
+
+	// Cluster name
+	ClusterName string
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
