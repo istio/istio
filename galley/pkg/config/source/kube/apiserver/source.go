@@ -22,14 +22,10 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
@@ -57,7 +53,7 @@ type Source struct { // nolint:maligned
 
 	// Set of resources that we're waiting CRD events for. As CRD events arrive, if they match to entries in expectedResources,
 	// the watchers for those resources will be created.
-	expectedResources map[groupkind]schema.KubeResource
+	expectedResources map[string]schema.KubeResource
 
 	// publishing indicates that the CRD discovery phase is over and actual data events are being published. Until
 	// publishing set, the incoming CRD events will cause new watchers to come online. Once the publishing is set,
@@ -71,19 +67,15 @@ type Source struct { // nolint:maligned
 
 	// watchers for each collection that were created as part of CRD discovery.
 	watchers map[collection.Name]*watcher
-
-	statusCtl *status.Controller
 }
 
 var _ event.Source = &Source{}
-var _ snapshotter.StatusUpdater = &Source{}
 
 // New returns a new kube.Source.
 func New(o Options) *Source {
 	s := &Source{
-		options:   o,
-		handlers:  &event.Handlers{},
-		statusCtl: status.NewController(),
+		options:  o,
+		handlers: &event.Handlers{},
 	}
 
 	return s
@@ -109,7 +101,7 @@ func (s *Source) Start() {
 
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.
-	s.expectedResources = make(map[groupkind]schema.KubeResource)
+	s.expectedResources = make(map[string]schema.KubeResource)
 	for _, r := range s.options.Resources {
 		// If we received the metadata with the resource marked as disabled, simply ignore it.
 		if r.Disabled {
@@ -118,14 +110,14 @@ func (s *Source) Start() {
 
 		// Use the disabled bit to track whether we received an event for this resource.
 		r.Disabled = true
-		s.expectedResources[asGroupKind(r.Group, r.Kind)] = r
+		s.expectedResources[asKey(r.Group, r.Kind)] = r
 	}
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
 	s.provider = rt.NewProvider(s.options.Client, s.options.ResyncPeriod)
 	a := s.provider.GetAdapter(crdKubeResource)
-	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
+	s.crdWatcher = newWatcher(crdKubeResource, a)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
 	s.crdWatcher.start()
 }
@@ -152,7 +144,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 		crd := e.Entry.Item.(*v1beta1.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
-		key := asGroupKind(g, k)
+		key := asKey(g, k)
 		r, ok := s.expectedResources[key]
 		if ok {
 			scope.Source.Debugf("Marking resource as available: %v", r.CanonicalResourceName())
@@ -162,23 +154,11 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	case event.FullSync:
 		scope.Source.Infof("CRD Discovery complete, starting listening to resources...")
-
-		// sort resources by name for consistent logging
-		resources := make([]schema.KubeResource, 0, len(s.expectedResources))
-		for _, r := range s.expectedResources {
-			resources = append(resources, r)
-		}
-
-		sort.Slice(resources, func(i, j int) bool {
-			return strings.Compare(resources[i].CanonicalResourceName(), resources[j].CanonicalResourceName()) < 0
-		})
-
-		s.statusCtl.Start(s.provider, resources)
-		s.startWatchers(resources)
+		s.startWatchers()
 		s.publishing = true
 
 	case event.Updated, event.Deleted, event.Reset:
-		// The code is currently not equipped to deal with this. Simply publish a reset event to get everything restarted.
+		// The code is currently not equipped to deal with this. Simply publish a reset event to get everything restarted later.
 		s.handlers.Handle(event.Event{Kind: event.Reset})
 
 	default:
@@ -186,10 +166,20 @@ func (s *Source) onCrdEvent(e event.Event) {
 	}
 }
 
-func (s *Source) startWatchers(resources []schema.KubeResource) {
+func (s *Source) startWatchers() {
 	// must be called under lock
 
-	scope.Source.Info("creating watchers for Kubernetes resources")
+	// sort resources by name for consistent logging
+	resources := make([]schema.KubeResource, 0, len(s.expectedResources))
+	for _, r := range s.expectedResources {
+		resources = append(resources, r)
+	}
+
+	sort.Slice(resources, func(i, j int) bool {
+		return strings.Compare(resources[i].CanonicalResourceName(), resources[j].CanonicalResourceName()) < 0
+	})
+
+	scope.Source.Info("Creating watchers for Kubernetes CRDs")
 	s.watchers = make(map[collection.Name]*watcher)
 	for i, r := range resources {
 		a := s.provider.GetAdapter(r)
@@ -203,7 +193,7 @@ func (s *Source) startWatchers(resources []schema.KubeResource) {
 		}
 
 		if a.IsBuiltIn() || !r.Disabled {
-			col := newWatcher(r, a, s.statusCtl)
+			col := newWatcher(r, a)
 			col.dispatch(s.handlers)
 			s.watchers[r.Collection.Name] = col
 		}
@@ -212,6 +202,7 @@ func (s *Source) startWatchers(resources []schema.KubeResource) {
 			// Send a Full Sync event.
 			s.handlers.Handle(event.FullSyncFor(r.Collection.Name))
 		}
+
 	}
 
 	for c, w := range s.watchers {
@@ -233,39 +224,8 @@ func (s *Source) Stop() {
 	s.stop()
 }
 
-// Update implements processing.StatusUpdater
-func (s *Source) Update(messages diag.Messages) {
-	msgs := make(map[collection.Name]map[resource.Name]diag.Messages)
-	for _, m := range messages {
-
-		if m.Origin == nil {
-			// TODO: Log
-			continue
-		}
-
-		origin, ok := m.Origin.(*rt.Origin)
-		if !ok {
-			// TODO: log
-			continue
-		}
-
-		byResource, ok := msgs[origin.Collection]
-		if !ok {
-			byResource = make(map[resource.Name]diag.Messages)
-			msgs[origin.Collection] = byResource
-		}
-		current := byResource[origin.Name]
-		current = append(current, m)
-		byResource[origin.Name] = current
-	}
-
-	s.statusCtl.Report(msgs)
-}
-
 func (s *Source) stop() {
 	// must be called under lock
-
-	s.statusCtl.Stop()
 
 	if s.watchers != nil {
 		for c, w := range s.watchers {
@@ -285,4 +245,9 @@ func (s *Source) stop() {
 	s.expectedResources = nil
 
 	s.started = false
+
+}
+
+func asKey(group, kind string) string {
+	return group + "/" + kind
 }

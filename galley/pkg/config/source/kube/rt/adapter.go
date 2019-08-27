@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -33,7 +34,6 @@ type Adapter struct {
 	extractResource extractResourceFn
 	newInformer     newInformerFn
 	parseJSON       parseJSONFn
-	getStatus       getStatusFn
 	isEqual         isEqualFn
 	isBuiltIn       bool
 }
@@ -56,11 +56,6 @@ func (p *Adapter) NewInformer() (cache.SharedInformer, error) {
 // ParseJSON parses the given JSON into a k8s object of this type.
 func (p *Adapter) ParseJSON(input []byte) (interface{}, error) {
 	return p.parseJSON(input)
-}
-
-// GetStatus returns the status of the resource.
-func (p *Adapter) GetStatus(o interface{}) interface{} {
-	return p.getStatus(o)
 }
 
 // IsEqual checks whether the given two resources are equal
@@ -94,7 +89,6 @@ type extractObjectFn func(o interface{}) metav1.Object
 type extractResourceFn func(o interface{}) (proto.Message, error)
 type newInformerFn func() (cache.SharedIndexInformer, error)
 type parseJSONFn func(input []byte) (interface{}, error)
-type getStatusFn func(o interface{}) interface{}
 type isEqualFn func(o1 interface{}, o2 interface{}) bool
 
 // resourceVersionsMatch is a resourceEqualFn that determines equality by the resource version.

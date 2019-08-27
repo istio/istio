@@ -46,9 +46,6 @@ loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
 		mk := mock.NewKube()
-		cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-		mk.AddResponse(cl, nil)
-
 		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
 		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 
@@ -116,8 +113,8 @@ func TestProcessing2_Basic(t *testing.T) {
 
 	mk := mock.NewKube()
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	mk.AddResponse(cl, nil)
 
+	mk.AddResponse(cl, nil)
 	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()

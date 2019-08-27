@@ -15,8 +15,6 @@
 package pb
 
 import (
-	"strings"
-
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -27,8 +25,7 @@ import (
 func UnmarshalData(pb proto.Message, data interface{}) error {
 	js, err := toJSON(data)
 	if err == nil {
-		um := jsonpb.Unmarshaler{AllowUnknownFields: true}
-		err = um.Unmarshal(strings.NewReader(js), pb)
+		err = jsonpb.UnmarshalString(js, pb)
 	}
 	return err
 }
