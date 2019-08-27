@@ -493,8 +493,6 @@ istio_cni:
 istiocoredns:
   enabled: false
   replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
   coreDNSImage: coredns/coredns:1.1.2
   coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
   nodeSelector: {}

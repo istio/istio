@@ -167,6 +167,10 @@ var (
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
 					nil,
 				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.strategy",
+					nil,
+				},
 			},
 			ToFeature: map[name.ComponentName]name.FeatureName{
 				name.IstioBaseComponentName:       name.IstioBaseFeatureName,

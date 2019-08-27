@@ -4,6 +4,10 @@ autoInjection:
       enabled: true
       k8s:
         replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 configManagement:
   components:
@@ -14,6 +18,10 @@ configManagement:
         resources:
           requests:
             cpu: 100m
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 defaultNamespace: istio-system
 gateways:
@@ -40,6 +48,10 @@ gateways:
           requests:
             cpu: 100m
             memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
     ingressGateway:
       enabled: true
       k8s:
@@ -62,6 +74,10 @@ gateways:
           requests:
             cpu: 100m
             memory: 128Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 hub: gcr.io/istio-release
 policy:
@@ -85,12 +101,23 @@ policy:
             kind: Deployment
             name: istio-policy
         replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: false
 profile: sds
 security:
   components:
     certManager:
       enabled: false
+    citadel:
+      enabled: true
+      k8s:
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
     nodeAgent:
       enabled: true
   enabled: true
@@ -125,6 +152,10 @@ telemetry:
           requests:
             cpu: 1000m
             memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 trafficManagement:
   components:
@@ -171,6 +202,10 @@ trafficManagement:
           requests:
             cpu: 500m
             memory: 2048Mi
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   enabled: true
 values:
   certmanager:
@@ -182,14 +217,10 @@ values:
       istio-pilot-service-account.istio-system: istio-pilot.istio-system
     enableNamespacesByDefault: true
     image: citadel
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     selfSigned: true
     trustDomain: cluster.local
   clusterResources: true
-  galley:
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
+  galley: null
   gateways:
     istio-egressgateway:
       autoscaleEnabled: true
@@ -205,8 +236,6 @@ values:
       - name: tls
         port: 15443
         targetPort: 15443
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       secretVolumes:
       - mountPath: /etc/istio/egressgateway-certs
         name: egressgateway-certs
@@ -258,8 +287,6 @@ values:
       - name: tls
         port: 15443
         targetPort: 15443
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       secretVolumes:
       - mountPath: /etc/istio/ingressgateway-certs
         name: ingressgateway-certs
@@ -507,8 +534,6 @@ values:
         kubernetesenv:
           enabled: true
       image: mixer
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
     telemetry:
       autoscaleEnabled: true
       image: mixer
@@ -521,8 +546,6 @@ values:
       replicaCount: 1
       reportBatchMaxEntries: 100
       reportBatchMaxTime: 1s
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
       sessionAffinityEnabled: false
       tolerations: []
       useMCP: true
@@ -558,8 +581,6 @@ values:
     policy:
       enabled: false
     replicaCount: 1
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     telemetry:
       enabled: true
     tolerations: []
@@ -590,8 +611,6 @@ values:
     image: sidecar_injector
     injectLabel: istio-injection
     rewriteAppHTTPProbe: false
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
     selfSigned: false
   tracing:
     enabled: false
@@ -648,3 +667,4 @@ values:
           memory: 900Mi
       tag: 2.14.2
   version: ""
+

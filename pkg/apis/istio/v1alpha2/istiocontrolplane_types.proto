@@ -432,7 +432,7 @@ message KubernetesResourcesSpec {
     k8s.io.api.core.v1.ServiceSpec service = 12;
     // k8s deployment strategy.
     // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
-    k8s.io.api.apps.v1.DeploymentStrategy strategy = 13;
+    DeploymentStrategy strategy = 13;
 
     // Overlays for k8s resources in rendered manifests.
     repeated k8sObjectOverlay overlays = 100;
@@ -534,6 +534,16 @@ message PodDisruptionBudgetSpec {
     uint32 min_available = 1;
     k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector selector = 2;
     uint32 max_unavailable = 3;
+}
+
+// Mirrors k8s.io.api.apps.v1.DeploymentStrategy for unmarshaling.
+message DeploymentStrategy {
+    string type = 1;
+    RollingUpdateDeployment rollingUpdate = 2;
+}
+
+// Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.
+message RollingUpdateDeployment {
 }
 
 message ObjectMeta {

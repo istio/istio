@@ -53,16 +53,18 @@ var (
 					"Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution",
 				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
 					"Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.env":                 "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
-				"{{.ValueComponentName}}.autoscaleEnabled":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
-				"{{.ValueComponentName}}.imagePullPolicy":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
-				"{{.ValueComponentName}}.nodeSelector":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector",
-				"{{.ValueComponentName}}.podDisruptionBudget": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
-				"{{.ValueComponentName}}.podAnnotations":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations",
-				"{{.ValueComponentName}}.priorityClassName":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName",
-				"{{.ValueComponentName}}.readinessProbe":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe",
-				"{{.ValueComponentName}}.replicaCount":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount",
-				"{{.ValueComponentName}}.resources":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources",
+				"{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
+				"{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
+				"{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
+				"{{.ValueComponentName}}.nodeSelector":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector",
+				"{{.ValueComponentName}}.podDisruptionBudget":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
+				"{{.ValueComponentName}}.podAnnotations":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations",
+				"{{.ValueComponentName}}.priorityClassName":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName",
+				"{{.ValueComponentName}}.readinessProbe":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe",
+				"{{.ValueComponentName}}.replicaCount":          "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount",
+				"{{.ValueComponentName}}.resources":             "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources",
+				"{{.ValueComponentName}}.rollingMaxSurge":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy",
+				"{{.ValueComponentName}}.rollingMaxUnavailable": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Strategy",
 			},
 			KubernetesMapping:     map[string]*Translation{},
 			ValuesToComponentName: map[string]name.ComponentName{},
@@ -254,6 +256,25 @@ func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[st
 	return nil
 }
 
+// translateStrategy translates Deployment Strategy related configurations from helm values.yaml tree.
+func translateStrategy(fieldName string, outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
+	fieldMap := map[string]string{
+		"rollingMaxSurge":       "maxSurge",
+		"rollingMaxUnavailable": "maxUnavailable",
+	}
+	newFieldName, ok := fieldMap[fieldName]
+	if !ok {
+		return fmt.Errorf("expected field name found in values.yaml: %s", fieldName)
+	}
+	outPath += ".rollingUpdate." + newFieldName
+
+	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), value); err != nil {
+		return err
+	}
+	return nil
+}
+
 // translateHPASpec translates HPA related configurations from helm values.yaml tree.
 func translateHPASpec(inPath string, outPath string, value interface{}, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
 	asEnabled, ok := value.(bool)
@@ -414,6 +435,12 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			err := translateAffinity(v.outPath, m, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating k8s Affinity: %s", err)
+			}
+
+		case "rollingMaxSurge", "rollingMaxUnavailable":
+			err := translateStrategy(k8sSettingName, v.outPath, m, cpSpecTree)
+			if err != nil {
+				return fmt.Errorf("error in translating k8s Strategy: %s", err)
 			}
 
 		default:

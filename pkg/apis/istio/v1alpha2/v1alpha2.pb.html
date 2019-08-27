@@ -2,7 +2,7 @@
 title: v1alpha2
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 48
+number_of_entries: 49
 ---
 <h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>
 <section>
@@ -182,6 +182,34 @@ number_of_entries: 48
 <tr id="ConfigManagementFeatureSpec-Components-galley">
 <td><code>galley</code></td>
 <td><code><a href="#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="DeploymentStrategy">DeploymentStrategy</h2>
+<section>
+<p>Mirrors k8s.io.api.apps.v1.DeploymentStrategy for unmarshaling.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="DeploymentStrategy-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="DeploymentStrategy-rollingUpdate">
+<td><code>rollingUpdate</code></td>
+<td><code><a href="#RollingUpdateDeployment">RollingUpdateDeployment</a></code></td>
 <td>
 </td>
 </tr>
@@ -826,7 +854,7 @@ https://kubernetes.io/docs/concepts/services-networking/service/</p>
 </tr>
 <tr id="KubernetesResourcesSpec-strategy">
 <td><code>strategy</code></td>
-<td><code><a href="#k8s-io-api-apps-v1-DeploymentStrategy">k8s.io.api.apps.v1.DeploymentStrategy</a></code></td>
+<td><code><a href="#DeploymentStrategy">DeploymentStrategy</a></code></td>
 <td>
 <p>k8s deployment strategy.
 https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
@@ -1195,6 +1223,11 @@ Must be enabled to enable any sub-component.</p>
 </tbody>
 </table>
 </section>
+<h2 id="RollingUpdateDeployment">RollingUpdateDeployment</h2>
+<section>
+<p>Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.</p>
+
+</section>
 <h2 id="SecurityFeatureSpec">SecurityFeatureSpec</h2>
 <section>
 <p>Configuration options for security feature.</p>
@@ -1552,45 +1585,6 @@ Must be enabled to enable any sub-component.</p>
 <td><code>proxy</code></td>
 <td><code><a href="#ProxyComponentSpec">ProxyComponentSpec</a></code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="k8s-io-api-apps-v1-DeploymentStrategy">k8s.io.api.apps.v1.DeploymentStrategy</h2>
-<section>
-<p>DeploymentStrategy describes how to replace existing pods with new ones.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="k8s-io-api-apps-v1-DeploymentStrategy-type">
-<td><code>type</code></td>
-<td><code>string</code></td>
-<td>
-<p>Type of deployment. Can be &ldquo;Recreate&rdquo; or &ldquo;RollingUpdate&rdquo;. Default is RollingUpdate.
-+optional</p>
-
-</td>
-</tr>
-<tr id="k8s-io-api-apps-v1-DeploymentStrategy-rollingUpdate">
-<td><code>rollingUpdate</code></td>
-<td><code><a href="#k8s-io-api-apps-v1-RollingUpdateDeployment">k8s.io.api.apps.v1.RollingUpdateDeployment</a></code></td>
-<td>
-<p>Rolling update config params. Present only if DeploymentStrategyType =</p>
-
-<h2 id="rollingupdate">RollingUpdate.</h2>
-
-<p>TODO: Update this to follow our convention for oneOf, whatever we decide it
-to be.
-+optional</p>
-
 </td>
 </tr>
 </tbody>
