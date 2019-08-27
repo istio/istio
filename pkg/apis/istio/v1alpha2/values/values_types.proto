@@ -52,15 +52,25 @@ message CPUTargetUtilizationConfig {
   int32 targetAverageUtilization = 1;
 }
 
-// CertManagerConfig is described in istio.io documentation.
+// CertManagerConfig is a set of configuration parameters for CertManager.
 message CertManagerConfig {
+  // Controls whether CertManager is enabled.
   bool enabled = 1;
 
+  // Image hub for the CertManager Deployment.
   string hub = 2;
 
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   // 	NodeSelector map[string]interface{} `json:"nodeSelector"`
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 3;
 
+  // Image tag for the CertManager Deployment.
   string tag = 4;
 }
 
@@ -529,13 +539,25 @@ message MultiClusterConfig {
   bool enabled = 1;
 }
 
-// NodeAgentConfig is described in istio.io documentation.
+// NodeAgentConfig is a set of configuration parameters for Node Agent Daemonset.
 message NodeAgentConfig {
+  // Controls whether Node Agent is enabled.
   bool enabled = 1;
 
+  // Environment variables passed to the Node Agent container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
   // 	Env          map[string]interface{} `json:"env,omitempty"`
+
+  // Image name for the Node Agent DaemonSet.
   string image = 2;
 
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
 }
 
@@ -884,22 +906,49 @@ message SecretVolume {
   string secretName = 3;
 }
 
-// SecurityConfig is described in istio.io documentation.
+// SecurityConfig is a set of configuration parameters for Citadel.
 message SecurityConfig {
+  // Controls whether Citadel is enabled.
   bool enabled = 1;
 
+  // Number of replicas in the Citadel Deployment.
   uint32 replicaCount = 2;
 
+  // Image name used for Citadel.
+  //
+  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+  //
+  // Examples: custom-citadel, docker.io/someuser:custom-citadel
   string image = 3;
 
+  // Controls whether self-signed CA is used for citadel to generate the certificate/key pair.
+  //
+  // Setting to false if you want to use your own root CA for Citade Deployment.
   bool selfSigned = 4;
 
+  // The trust domain corresponds to the trust root of a system
+  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  // Indicate the domain used in SPIFFE identity URL
+  // The default depends on the environment.
+  //   kubernetes: cluster.local
+  //    else:  default dns domain
   string trustDomain = 5;
 
+  // The DNS Certs specifies the customized DNS name and corresponding service account.
+  //
+  // Example:
+  //   istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
+  //   istio-galley-service-account.istio-config: istio-galley.istio-config.svc
   map<string, string> dnsCerts = 6;
 
+  // Controls whether the mesh-wide authentication policy is created or not.
+  //
+  // Setting to true creates the mesh-wide authentication policy with name "default".
   bool createMeshPolicy = 7;
 
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   // NodeSelector     map[string]interface{} `json:"nodeSelector,omitempty"`
 }
 
