@@ -406,8 +406,11 @@ message IngressGatewayZvpnConfig {
   string suffix = 2;
 }
 
-// KubernetesEnvMixerAdapterConfig is described in istio.io documentation.
+// Configuration parameters for Kubernetes environment adapter in mixer.
 message KubernetesEnvMixerAdapterConfig {
+  // Enables the Kubernetes env adapter in Mixer.
+  //
+  // See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/
   bool enabled = 1;
 }
 
@@ -427,9 +430,13 @@ message KubernetesIngressConfig {
 message LoadSheddingConfig {
   string latencyThreshold = 1;
 
+  // Different throttling behavior for mixer.
   enum mode {
+    // Removes throttling behavior for mixer.
     DISABLED = 0;
+    // Enables an advisory mode for throttling behavior for mixer.
     LOG_ONLY = 1;
+    // Turn on throttling behavior for mixer.
     ENFORCE = 2;
   }
 }
@@ -449,14 +456,18 @@ message MeshExpansionConfig {
   bool useILB = 2;
 }
 
-// MixerAdaptersConfig is described in istio.io documentation.
+// MixerAdaptersConfig is a set of configuration parameters for different mixer adapters.
 message MixerAdaptersConfig {
+  // Configuration parameters for Kubernetes environment adapter in mixer.
   KubernetesEnvMixerAdapterConfig kubernetesenv = 1;
 
+  // Configuration parameters for Prometheus adapter in mixer.
   PrometheusMixerAdapterConfig prometheus = 2;
 
+  // Configuration parameters for stdio adapter in mixer, recommended for debug usage only.
   StdioMixerAdapterConfig stdio = 3;
 
+  // Sets the --useAdapterCRDs mixer startup argument.
   bool useAdapterCRDs = 4;
 }
 
@@ -504,32 +515,64 @@ message MixerPolicyConfig {
   uint32 replicaCount = 7;
 }
 
-// MixerTelemetryConfig is described in istio.io documentation.
+// MixerTelemetryConfig is a set of configuration parameters for Mixer Telemetry
 message MixerTelemetryConfig {
+  // MixerAdaptersConfig is a set of configuration parameters for different mixer adapters.
   MixerAdaptersConfig adapters = 1;
 
+  // Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.
   bool autoscaleEnabled = 2;
 
+  // Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
   uint32 autoscaleMax = 3;
 
+  // Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
   uint32 autoscaleMin = 4;
 
+  // Target CPU utilization used in HorizontalPodAutoscaler.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5;
 
+  // Controls whether Mixer Telemetry is enabled
   bool enabled = 6;
 
+  // Environment variables passed to the Mixer container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
   map<string, string> env = 7;
 
+  // Image name used for Mixer Telemetry.
+  //
+  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+  //
+  // Examples: custom-mixer, docker.io/someuser:custom-mixer
   string image = 8;
 
+  // LoadSheddingConfig configs when mixer starts rejecting grpc requests.
   LoadSheddingConfig loadshedding = 9;
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  // NodeSelector           map[string]interface{}     `json:"nodeSelector,omitempty"`
 
-  // 	NodeSelector           map[string]interface{}     `json:"nodeSelector,omitempty"`
-  // 	PodAnnotations         map[string]interface{}     `json:"podAnnotations,omitempty"`
+  // K8s annotations to attach to mixer telemetry deployment
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  // PodAnnotations         map[string]interface{}     `json:"podAnnotations,omitempty"`
+
+  // Number of replicas in the Mixer Telemetry Deployment.
   uint32 replicaCount = 10;
 
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 11;
 
+  // Controls whether to enable the sticky session setting when choosing backend pods.
   bool sessionAffinityEnabled = 12;
 }
 
@@ -766,10 +809,14 @@ message PrometheusConfig {
   PrometheusSecurityConfig security = 11;
 }
 
-// PrometheusMixerAdapterConfig is described in istio.io documentation.
+// Configuration parameters for Prometheus adapter in mixer
 message PrometheusMixerAdapterConfig {
+  // Enables the Prometheus adapter in Mixer.
   bool enabled = 1;
 
+  // Sets the duration after which Prometheus registry purges a metric.
+  //
+  // See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus/#Params
   google.protobuf.Duration metricsExpiryDuration = 2;
 }
 
@@ -981,10 +1028,12 @@ message SidecarInjectorConfig {
   bool selfSigned = 6;
 }
 
-// StdioMixerAdapterConfig is described in istio.io documentation.
+// Configuration parameters for stdio adapter in mixer, recommended for debug usage only.
 message StdioMixerAdapterConfig {
+  // Enable stdio adapter to output logs and metrics to local machine.
   bool enabled = 1;
 
+  // Whether to output a console-friendly or json-friendly format.
   bool outputAsJson = 2;
 }
 
