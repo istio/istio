@@ -331,7 +331,8 @@ func TestDebounceSyncPush(t *testing.T) {
 				select {
 				case pushingCh <- struct{}{}:
 				default:
-					t.Error("multiple pushes happen simultaneously")
+					t.Logf("multiple pushes happen simultaneously")
+					t.FailNow()
 				}
 				if req.Full {
 					atomic.AddInt32(&fullPushes, 1)
