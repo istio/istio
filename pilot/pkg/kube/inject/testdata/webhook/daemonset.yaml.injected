@@ -136,7 +136,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:release-1.3-latest-daily

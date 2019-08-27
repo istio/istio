@@ -142,7 +142,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "123"
         image: docker.io/istio/proxy_init:unittest
