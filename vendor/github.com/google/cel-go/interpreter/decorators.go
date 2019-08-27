@@ -90,7 +90,7 @@ func decFoldConstants() InterpretableDecorator {
 					return i, nil
 				}
 			}
-			val := l.Eval(emptyActivation)
+			val := l.Eval(EmptyActivation())
 			return &evalConst{
 				id:  l.id,
 				val: val,
@@ -107,7 +107,7 @@ func decFoldConstants() InterpretableDecorator {
 					return i, nil
 				}
 			}
-			val := mp.Eval(emptyActivation)
+			val := mp.Eval(EmptyActivation())
 			return &evalConst{
 				id:  mp.id,
 				val: val,
@@ -285,7 +285,3 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
 	varActivationPool.Put(accuCtx)
 	return res
 }
-
-var (
-	emptyActivation = NewActivation(map[string]interface{}{})
-)

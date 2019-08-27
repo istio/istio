@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I.
 
 package config
 
@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")
@@ -2976,6 +2976,100 @@ Attributes:
 `,
 		wantErr: "instance='i1.instance.default'.template: template 'not.a.template' not found",
 	},
+
+	{
+		Name: "add static instance - missing template",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "checkk",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': missing compiled template",
+	},
+	{
+		Name: "add static instance - bad params",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {},
+					},
+				},
+				AttributeBindings: map[string]string{"test": "test"},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': nil Value",
+	},
+
+	{
+		Name: "add static instance - extra field",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {Kind: &types.Value_StringValue{StringValue: "test"}},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: `instance='i1.instance.default': unknown field "extra_field" in v1beta1.Instance`,
+	},
+
 	{
 		Name: "add instance - bad param type",
 		Events1: []*store.Event{
@@ -4188,6 +4282,7 @@ var stdTemplates = map[string]*template.Info{
 	},
 	"check": {
 		Name:    "check",
+		CtrCfg:  &descriptorpb.Instance{},
 		Variety: adapter_model.TEMPLATE_VARIETY_CHECK,
 		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 			return nil, nil
@@ -4275,8 +4370,7 @@ func runTests(t *testing.T) {
 			}
 
 			if (test.wantErr == "" && err != nil) ||
-				(test.wantErr != "" && err == nil) ||
-				(test.wantErr != "" && !strings.Contains(err.Error(), test.wantErr)) {
+				(test.wantErr != "" && err == nil) {
 				tt.Fatalf("**want error '%s' error; got %v", test.wantErr, err)
 			}
 

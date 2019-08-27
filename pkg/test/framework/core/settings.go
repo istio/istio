@@ -19,6 +19,8 @@ import (
 	"path"
 	"strings"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment"
 
 	"github.com/google/uuid"
@@ -48,6 +50,12 @@ type Settings struct {
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	BaseDir string
+
+	// The label selector that the user has specified.
+	SelectorString string
+
+	// The label selector, in parsed form.
+	Selector label.Selector
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -82,11 +90,11 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Environment: %v\n", s.Environment)
-	result += fmt.Sprintf("TestID:      %s\n", s.TestID)
-	result += fmt.Sprintf("RunID:       %s\n", s.RunID.String())
-	result += fmt.Sprintf("NoCleanup:   %v\n", s.NoCleanup)
-	result += fmt.Sprintf("BaseDir:     %s\n", s.BaseDir)
-
+	result += fmt.Sprintf("Environment:  %v\n", s.Environment)
+	result += fmt.Sprintf("TestID:       %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:        %s\n", s.RunID.String())
+	result += fmt.Sprintf("NoCleanup:    %v\n", s.NoCleanup)
+	result += fmt.Sprintf("BaseDir:      %s\n", s.BaseDir)
+	result += fmt.Sprintf("Selector:     %v\n", s.Selector)
 	return result
 }

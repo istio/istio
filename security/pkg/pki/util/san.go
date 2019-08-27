@@ -119,7 +119,8 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 		return nil, fmt.Errorf("failed to marshal the raw values for SAN field (err: %s)", err)
 	}
 
-	return &pkix.Extension{Id: oidSubjectAlternativeName, Value: bs}, nil
+	// SAN is Critical because the subject is empty. This is compliant with X.509 and SPIFFE standards.
+	return &pkix.Extension{Id: oidSubjectAlternativeName, Critical: true, Value: bs}, nil
 }
 
 // ExtractIDsFromSAN takes a SAN extension and extracts the identities.

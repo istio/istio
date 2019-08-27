@@ -22,18 +22,19 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `checknothing` template represents an empty block of data, which can useful
+// The `checknothing` template represents an empty block of data, which can be useful
 // in different testing scenarios.
 //
 // Example config:
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: checknothing
+// kind: instance
 // metadata:
 //   name: denyrequest
 //   namespace: istio-system
 // spec:
+//   compiledTemplate: checknothing
 // ```
 
 // Fully qualified name of the template

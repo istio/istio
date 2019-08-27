@@ -12,7 +12,7 @@ __Notice:__ The addition of websockets upgrade support in v1alpha3 routing rules
 1. First install the application service:
    - With manual sidecar injection:
    ```command
-   kubectl create -f <(istioctl kube-inject --debug -f samples/websockets/app.yaml)
+   kubectl create -f <(istioctl kube-inject -f samples/websockets/app.yaml)
    ```
    - With automatic sidecar injection:
    ```command

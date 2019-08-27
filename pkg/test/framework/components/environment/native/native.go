@@ -15,13 +15,29 @@
 package native
 
 import (
-	meshConfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"io"
+	"sync"
+
+	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/docker"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
+
+const (
+	systemNamespace = "istio-system"
+	domain          = "cluster.local"
+
+	networkLabelKey   = "app"
+	networkLabelValue = "istio-test"
+)
+
+var _ io.Closer = &Environment{}
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
@@ -29,27 +45,41 @@ type Environment struct {
 	id  resource.ID
 	ctx api.Context
 
-	// TODO: It is not correct to have fixed meshconfig at the environment level. We should align this with Galley's
-	// mesh usage as well, which is per-component instantiation.
+	// SystemNamespace is the namespace used for all Istio system components.
+	SystemNamespace string
 
-	// Mesh for configuring pilot.
-	Mesh *meshConfig.MeshConfig
+	// Domain used by components in the native environment.
+	Domain string
 
-	// ServiceManager for all deployed services.
-	ServiceManager *service.Manager
+	// PortManager provides free ports on-demand.
+	PortManager reserveport.PortManager
+
+	// Docker resources, Lazy-initialized.
+	dockerClient  *client.Client
+	network       *docker.Network
+	imageRegistry *ImageRegistry
+	mux           sync.Mutex
 }
 
 var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx api.Context) (resource.Environment, error) {
-	mesh := model.DefaultMeshConfig()
+	portMgr, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, err
+	}
+
 	e := &Environment{
-		ctx:            ctx,
-		Mesh:           &mesh,
-		ServiceManager: service.NewManager(),
+		ctx:             ctx,
+		SystemNamespace: systemNamespace,
+		Domain:          domain,
+		PortManager:     portMgr,
 	}
 	e.id = ctx.TrackResource(e)
+
+	// Set the trust domain.
+	spiffe.SetTrustDomain(domain)
 
 	return e, nil
 }
@@ -69,4 +99,90 @@ func (e *Environment) Case(name environment.Name, fn func()) {
 // ID implements resource.Instance
 func (e *Environment) ID() resource.ID {
 	return e.id
+}
+
+func (e *Environment) DockerClient() (*client.Client, error) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	if e.dockerClient == nil {
+		// Create a shared network for Docker containers.
+		c, err := client.NewEnvClient()
+		if err != nil {
+			return nil, err
+		}
+		e.dockerClient = c
+	}
+
+	return e.dockerClient, nil
+}
+
+func (e *Environment) Network() (*docker.Network, error) {
+	c, err := e.DockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	if e.network == nil {
+		networkName := "istio-" + e.ctx.Settings().RunID.String()
+		n, err := docker.NewNetwork(c, docker.NetworkConfig{
+			Name: networkName,
+			Labels: map[string]string{
+				networkLabelKey: networkLabelValue,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// Save the network.
+		e.network = n
+	}
+
+	return e.network, nil
+}
+
+func (e *Environment) ImageRegistry() (*ImageRegistry, error) {
+	c, err := e.DockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	if e.imageRegistry == nil {
+		e.imageRegistry = newImageRegistry(c)
+	}
+
+	return e.imageRegistry, nil
+}
+
+func (e *Environment) Close() (err error) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	if e.PortManager != nil {
+		err = multierror.Append(err, e.PortManager.Close()).ErrorOrNil()
+	}
+	e.PortManager = nil
+
+	if e.network != nil {
+		err = multierror.Append(err, e.network.Close()).ErrorOrNil()
+	}
+	e.network = nil
+
+	if e.imageRegistry != nil {
+		err = multierror.Append(err, e.imageRegistry.Close()).ErrorOrNil()
+	}
+	e.imageRegistry = nil
+
+	if e.dockerClient != nil {
+		err = multierror.Append(err, e.dockerClient.Close()).ErrorOrNil()
+	}
+	e.dockerClient = nil
+	return
 }

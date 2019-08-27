@@ -34,9 +34,8 @@ type checker struct {
 	mappings           *mapping
 	freeTypeVarCounter int
 	sourceInfo         *exprpb.SourceInfo
-
-	types      map[int64]*exprpb.Type
-	references map[int64]*exprpb.Reference
+	types              map[int64]*exprpb.Type
+	references         map[int64]*exprpb.Reference
 }
 
 // Check performs type checking, giving a typed AST.
@@ -54,9 +53,8 @@ func Check(parsedExpr *exprpb.ParsedExpr,
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
-
-		types:      make(map[int64]*exprpb.Type),
-		references: make(map[int64]*exprpb.Reference),
+		types:              make(map[int64]*exprpb.Type),
+		references:         make(map[int64]*exprpb.Reference),
 	}
 	c.check(parsedExpr.GetExpr())
 
@@ -190,7 +188,10 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		// Objects yield their field type declaration as the selection result type, but only if
 		// the field is defined.
 		messageType := targetType
-		if fieldType, found := c.lookupFieldType(c.location(e), messageType, sel.Field); found {
+		if fieldType, found := c.lookupFieldType(
+			c.location(e),
+			messageType.GetMessageType(),
+			sel.Field); found {
 			resultType = fieldType.Type
 			// In proto3, primitive field types can't support presence testing, so the has()
 			// style operation would be invalid in this instance.
@@ -402,11 +403,15 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 		c.check(value)
 
 		fieldType := decls.Error
-		if t, found := c.lookupFieldType(c.locationByID(ent.Id), messageType, field); found {
+		if t, found := c.lookupFieldType(
+			c.locationByID(ent.Id),
+			messageType.GetMessageType(),
+			field); found {
 			fieldType = t.Type
 		}
 		if !c.isAssignable(fieldType, c.getType(value)) {
-			c.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, c.getType(value))
+			c.errors.fieldTypeMismatch(
+				c.locationByID(ent.Id), field, fieldType, c.getType(value))
 		}
 	}
 }
@@ -431,31 +436,45 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 	}
 
-	c.env.enterScope()
+	// Create a scope for the comprehension since it has a local accumulation variable.
+	// This scope will contain the accumulation variable used to compute the result.
+	c.env = c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.AccuVar, accuType, nil))
-	// Declare iteration variable on inner scope.
-	c.env.enterScope()
+	// Create a block scope for the loop.
+	c.env = c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.IterVar, varType, nil))
+	// Check the variable references in the condition and step.
 	c.check(comp.LoopCondition)
 	c.assertType(comp.LoopCondition, decls.Bool)
 	c.check(comp.LoopStep)
 	c.assertType(comp.LoopStep, accuType)
-	// Forget iteration variable, as result expression must only depend on accu.
-	c.env.exitScope()
+	// Exit the loop's block scope before checking the result.
+	c.env = c.env.exitScope()
 	c.check(comp.Result)
-	c.env.exitScope()
+	// Exit the comprehension scope.
+	c.env = c.env.exitScope()
 	c.setType(e, c.getType(comp.Result))
 }
 
 // Checks compatibility of joined types, and returns the most general common type.
-func (c *checker) joinTypes(loc common.Location, previous *exprpb.Type, current *exprpb.Type) *exprpb.Type {
+func (c *checker) joinTypes(loc common.Location,
+	previous *exprpb.Type,
+	current *exprpb.Type) *exprpb.Type {
 	if previous == nil {
 		return current
 	}
-	if !c.isAssignable(previous, current) {
+	if c.isAssignable(previous, current) {
+		return mostGeneral(previous, current)
+	}
+	if c.dynAggregateLiteralElementTypesEnabled() {
 		return decls.Dyn
 	}
-	return mostGeneral(previous, current)
+	c.errors.typeMismatch(loc, previous, current)
+	return decls.Error
+}
+
+func (c *checker) dynAggregateLiteralElementTypesEnabled() bool {
+	return c.env.aggLitElemType == dynElementType
 }
 
 func (c *checker) newTypeVar() *exprpb.Type {
@@ -484,14 +503,14 @@ func (c *checker) isAssignableList(l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 	return false
 }
 
-func (c *checker) lookupFieldType(l common.Location, messageType *exprpb.Type, fieldName string) (*ref.FieldType, bool) {
-	if _, found := c.env.typeProvider.FindType(messageType.GetMessageType()); !found {
+func (c *checker) lookupFieldType(l common.Location, messageType string, fieldName string) (*ref.FieldType, bool) {
+	if _, found := c.env.provider.FindType(messageType); !found {
 		// This should not happen, anyway, report an error.
-		c.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
+		c.errors.unexpectedFailedResolution(l, messageType)
 		return nil, false
 	}
 
-	if ft, found := c.env.typeProvider.FindFieldType(messageType, fieldName); found {
+	if ft, found := c.env.provider.FindFieldType(messageType, fieldName); found {
 		return ft, found
 	}
 

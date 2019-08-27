@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // To route all external traffic via Istio Egress gateway
@@ -51,7 +51,7 @@ func TestRouteHTTPViaEgressGateway(t *testing.T) {
 		runRetriableTest(t, "RouteHTTPViaEgressGateway", defaultRetryBudget, func() error {
 			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 			reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
+			resp := ClientRequest(cluster, "a", reqURL, 100, "--key Host --val scooby.eu.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Host {
 				count[elt]++
@@ -97,7 +97,7 @@ func TestRouteSNIViaEgressGateway(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		for _, url := range []string{"https://www.google.com", "https://www.bing.com"} {
 			runRetriableTest(t, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
-				reqURL := fmt.Sprintf(url)
+				reqURL := url
 				resp := ClientRequest(cluster, "a", reqURL, 100, "")
 				count := make(map[string]int)
 				for _, elt := range resp.Code {

@@ -5,13 +5,11 @@ package envoy_admin_v2alpha
 
 import (
 	fmt "fmt"
+	v2alpha "github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
+	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
-
-	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
-
-	v2alpha "github.com/envoyproxy/go-control-plane/envoy/service/tap/v2alpha"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

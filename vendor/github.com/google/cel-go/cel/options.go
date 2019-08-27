@@ -19,13 +19,12 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -58,12 +57,22 @@ func ClearMacros() EnvOption {
 	}
 }
 
+// CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
+//
+// Note: This option must be specified before the Types and TypeDescs options when used together.
+func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
+	return func(e *env) (*env, error) {
+		e.adapter = adapter
+		return e, nil
+	}
+}
+
 // CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
 //
-// Note: This option must be specified before the Types option when used together.
+// Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
-		e.types = provider
+		e.provider = provider
 		return e, nil
 	}
 }
@@ -76,6 +85,19 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	// to the underlying proto implementations.
 	return func(e *env) (*env, error) {
 		e.declarations = append(e.declarations, decls...)
+		return e, nil
+	}
+}
+
+// HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree
+// during type-checking.
+//
+// Note, it is still possible to have heterogeneous aggregates when provided as variables to the
+// expression, as well as via conversion of well-known dynamic types, or with unchecked
+// expressions.
+func HomogeneousAggregateLiterals() EnvOption {
+	return func(e *env) (*env, error) {
+		e.enableDynamicAggregateLiterals = false
 		return e, nil
 	}
 }
@@ -114,26 +136,56 @@ func Container(pkg string) EnvOption {
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
 		for _, t := range addTypes {
 			switch t.(type) {
 			case proto.Message:
-				fd, err := pb.DescribeFile(t.(proto.Message))
+				err := reg.RegisterMessage(t.(proto.Message))
 				if err != nil {
 					return nil, err
 				}
-				for _, typeName := range fd.GetTypeNames() {
-					err := e.types.RegisterType(types.NewObjectTypeValue(typeName))
-					if err != nil {
-						return nil, err
-					}
-				}
 			case ref.Type:
-				err := e.types.RegisterType(t.(ref.Type))
+				err := reg.RegisterType(t.(ref.Type))
 				if err != nil {
 					return nil, err
 				}
 			default:
 				return nil, fmt.Errorf("unsupported type: %T", t)
+			}
+		}
+		return e, nil
+	}
+}
+
+// TypeDescs adds type declarations for one or more protocol buffer
+// FileDescriptorProtos or FileDescriptorSets.  Note that types added
+// via descriptor will not be able to instantiate messages, and so are
+// only useful for Check() operations.
+func TypeDescs(descs ...interface{}) EnvOption {
+	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
+		for _, d := range descs {
+			switch p := d.(type) {
+			case *descpb.FileDescriptorSet:
+				for _, fd := range p.File {
+					err := reg.RegisterDescriptor(fd)
+					if err != nil {
+						return nil, err
+					}
+				}
+			case *descpb.FileDescriptorProto:
+				err := reg.RegisterDescriptor(p)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("unsupported type descriptor: %T", d)
 			}
 		}
 		return e, nil
@@ -153,11 +205,18 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 	}
 }
 
-// Globals sets the global variable values for a given program. These values may be shadowed within
-// the Activation value provided to the Eval() function.
-func Globals(vars interpreter.Activation) ProgramOption {
+// Globals sets the global variable values for a given program. These values may be shadowed by
+// variables with the same name provided to the Eval() call.
+//
+// The vars value may either be an `interpreter.Activation` instance or a `map[string]interface{}`.
+func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		p.defaultVars = vars
+		defaultVars, err :=
+			interpreter.NewAdaptingActivation(p.adapter, vars)
+		if err != nil {
+			return nil, err
+		}
+		p.defaultVars = defaultVars
 		return p, nil
 	}
 }

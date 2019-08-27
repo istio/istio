@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,20 +34,23 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField          = 2
-	defaultClusterSubnet = "24"
+	statusField            = 2
+	defaultClusterSubnet   = "24"
+	defaultClusterSubnetv6 = "128"
 
 	// NodePortServiceType NodePort type of Kubernetes Service
 	NodePortServiceType = "NodePort"
 
 	// LoadBalancerServiceType LoadBalancer type of Kubernetes Service
 	LoadBalancerServiceType = "LoadBalancer"
+
+	ingressHTTPServicePort = "80"
 )
 
 var (
@@ -131,6 +135,17 @@ func DeleteDeployment(d string, n string, kubeconfig string) error {
 	return err
 }
 
+// LabelNamespace will add a label to the kubernetes namespace
+func LabelNamespace(n, label, kubeconfig string) error {
+	if _, err := Shell("kubectl label namespace %s %s --kubeconfig=%s", n, label, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
+	}
+	log.Infof("label %s added to namespace %s", label, n)
+	return nil
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)
@@ -169,12 +184,18 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// KubeCommand executes the given kubectl command with the given yaml file
+func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
+	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
+	return err
+}
+
 // KubeGetYaml kubectl get yaml content for given resource.
 func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
@@ -239,9 +260,18 @@ func GetClusterSubnet(kubeconfig string) (string, error) {
 	}
 	parts := strings.Split(cidr, "/")
 	if len(parts) != 2 {
-		// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
-		log.Info("unable to identify cluster subnet. running on minikube?")
-		return defaultClusterSubnet, nil
+		ip, _ := GetKubeMasterIP(kubeconfig)
+		addr := net.ParseIP(ip)
+		if addr == nil {
+			return "", fmt.Errorf("unable to determine the kubernetes service IP and cluster subnet")
+		}
+		if addr.To4() != nil {
+			// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
+			log.Info("unable to identify cluster subnet. running on minikube?")
+			return defaultClusterSubnet, nil
+		}
+		log.Info("unable to identify IPv6 cluster subnet")
+		return defaultClusterSubnetv6, nil
 	}
 	return parts[1], nil
 }
@@ -267,7 +297,7 @@ func getRetrier(serviceType string) Retrier {
 // GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
 // Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
 // Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
-func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string, sanityCheck bool) (string, error) {
 
 	retry := getRetrier(serviceType)
 	var ingress string
@@ -299,6 +329,10 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
+	if !sanityCheck {
+		return ingress, nil
+	}
+
 	client := &http.Client{Timeout: 5 * time.Second}
 	ingressURL := fmt.Sprintf("http://%s", ingress)
 	log.Infof("Sanity checking %v", ingressURL)
@@ -325,9 +359,23 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		return "", err
 	}
 
+	if ip == "" {
+		// This block is used for docker-desktop kubernetes
+		ip, err = ShellSilent(
+			"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].hostname}' --kubeconfig=%s",
+			name, namespace, kubeconfig)
+
+		if err != nil {
+			return "", err
+		}
+		if ip == "localhost" {
+			ip = "127.0.0.1"
+		}
+	}
+
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", errors.New("ingress ip not available yet")
 	}
 
@@ -344,8 +392,8 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
@@ -354,13 +402,16 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", err
 	}
 
+	if addr.To4() == nil {
+		return "[" + ip + "]" + ":" + port, nil
+	}
 	return ip + ":" + port, nil
 }
 
 func getServicePort(serviceName, namespace, kubeconfig string) (string, error) {
 	port, err := Shell(
-		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s",
-		serviceName, namespace, kubeconfig)
+		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[?(@.port==%s)].nodePort}' --kubeconfig=%s",
+		serviceName, namespace, ingressHTTPServicePort, kubeconfig)
 
 	if err != nil {
 		return "", err
@@ -422,6 +473,20 @@ func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
 		m[app] = append(m[app], podName)
 	}
 	return m, nil
+}
+
+// IsJobSucceeded checks whether a job for the given namespace succeeded
+func IsJobSucceeded(n, name string, kubeconfig string) (bool, error) {
+	succeed, err := Shell("kubectl -n %s get job  %s -o jsonpath='{.status.succeeded}' --kubeconfig=%s", n, name, kubeconfig)
+	if err != nil {
+		log.Warnf("could not get %s job: %v", name, err)
+		return false, err
+	}
+
+	if len(succeed) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // GetPodLabelValues gets a map of pod name to label value for the given label and namespace
@@ -644,12 +709,21 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		// Log the description; if we fail to get the logs it may help
 		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig=%s",
 			namespace, pod, kubeconfig)
-		describeOutput, errDescribe := Shell(describeCmd)
+		describeOutput, errDescribe := ShellMuteOutput(describeCmd)
 		if errDescribe != nil {
 			log.Warnf("Error getting description for pod %s: %v\n", pod, errDescribe)
 			// don't bail, keep going
 		} else {
-			log.Info(describeOutput)
+			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_describe.log", pod))
+			f, err := os.Create(filePath)
+			if err != nil {
+				log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
+				return err
+			}
+			if _, err = f.WriteString(fmt.Sprintf("%s\n", describeOutput)); err != nil {
+				log.Warnf("Error writing log dump to %s for pod %s/%s: %v\n", filePath, namespace, pod, err)
+				return err
+			}
 		}
 
 		cmd := fmt.Sprintf(
@@ -675,7 +749,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			dump, err := ShellMuteOutput(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				log.Warnf("Error gettings logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
+				log.Warnf("Error getting logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
 				// don't stop if we can't get the current log; keep going
 			}
 
@@ -684,10 +758,10 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 				return err
 			}
 
-			dump1, err := ShellMuteOutput(
+			dump1, err := ShellMuteOutputError(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s -p --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				log.Infof("No previous log %v", err)
+				log.Infof("No previous log for %s", pod)
 			} else if len(dump1) > 0 {
 				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.prev.log", pod, container))
 				f1, err := os.Create(filePath)
@@ -736,14 +810,10 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		if yaml, err0 := ShellMuteOutput(
 			fmt.Sprintf("kubectl get %s -n %s -o yaml --kubeconfig=%s", resrc, namespace, kubeconfig)); err0 != nil {
 			multiErr = multierror.Append(multiErr, err0)
-		} else {
-			if f, err1 := os.Create(filePath); err1 != nil {
-				multiErr = multierror.Append(multiErr, err1)
-			} else {
-				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
-					multiErr = multierror.Append(multiErr, err2)
-				}
-			}
+		} else if f, err1 := os.Create(filePath); err1 != nil {
+			multiErr = multierror.Append(multiErr, err1)
+		} else if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+			multiErr = multierror.Append(multiErr, err2)
 		}
 	}
 	return multiErr
@@ -776,7 +846,7 @@ func WaitForDeploymentsReady(ns string, timeout time.Duration, kubeconfig string
 // CheckDeploymentsReady checks if deployment resources are ready.
 // get podsReady() sometimes gets pods created by the "Job" resource which never reach the "Running" steady state.
 func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
-	CMD := "kubectl -n %s get deployments -ao jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
+	CMD := "kubectl -n %s get deployments -o jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
 		"{@.status.availableReplicas}{\"\\n\"}{end}' --kubeconfig=%s"
 	out, err := Shell(fmt.Sprintf(CMD, ns, kubeconfig))
 
@@ -787,10 +857,10 @@ func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
 	notReady := 0
 	for _, line := range strings.Split(out, "\n") {
 		flds := strings.Fields(line)
-		if len(flds) < 2 {
+		if len(flds) < 1 {
 			continue
 		}
-		if flds[1] == "0" { // no replicas ready
+		if len(flds) == 1 || flds[1] == "0" { // no replicas ready
 			notReady++
 		}
 	}
@@ -845,14 +915,14 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 }
 
 // CreateMultiClusterSecret will create the secret associated with the remote cluster
-func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
+func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretLabel = "istio/multiCluster"
 		labelValue  = "true"
 	)
-	secretName := filepath.Base(RemoteKubeConfig)
+	secretName := filepath.Base(remoteKubeConfig)
 
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, remoteKubeConfig, namespace, localKubeConfig)
 	if err != nil {
 		log.Infof("Failed to create secret %s\n", secretName)
 		return err
@@ -866,18 +936,30 @@ func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKu
 		return err
 	}
 
-	log.Infof("Secret %s labelled with %s=%s\n", secretName, secretLabel, labelValue)
+	log.Infof("Secret %s labeled with %s=%s\n", secretName, secretLabel, labelValue)
 	return nil
 }
 
 // DeleteMultiClusterSecret delete the remote cluster secret
-func DeleteMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
-	secretName := filepath.Base(RemoteKubeConfig)
+func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
+	secretName := filepath.Base(remoteKubeConfig)
 	_, err := ShellMuteOutput("kubectl delete secret %s -n %s --kubeconfig=%s", secretName, namespace, localKubeConfig)
 	if err != nil {
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)
 	} else {
 		log.Infof("Deleted secret %s", secretName)
+	}
+	return err
+}
+
+// ReplaceInConfigMap will modify an existing configmap with the provided sed expression
+func ReplaceInConfigMap(namespace string, configmapName string, sedExpression string, kubeconfig string) error {
+	_, err := ShellMuteOutput("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml | sed \"%s\" | kubectl replace --kubeconfig=%s -f -",
+		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
+	if err != nil {
+		log.Errorf("Failed to edit the configmap %s: %v", configmapName, err)
+	} else {
+		log.Infof("Configmap %s updated with sed expression %s", configmapName, sedExpression)
 	}
 	return err
 }

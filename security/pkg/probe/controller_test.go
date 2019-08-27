@@ -19,16 +19,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
-	"istio.io/istio/pkg/probe"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/probe"
 )
 
 func TestGcpGetServiceIdentity(t *testing.T) {

@@ -115,7 +115,7 @@ mv_unless_max_exceeded() {
   local dst_file="${2}"
 
   file_size=$(wc -c "${src_file}" | awk '{print $1}')
-  local nsb=$(("${stored_log_bytes}" + "${file_size}"))
+  local nsb=$((stored_log_bytes + file_size))
 
   if (("${nsb}" > "${MAX_LOG_BYTES}")); then
     log "Not storing ${log_file} because appending its ${file_size} bytes would exceed max logged bytes ${MAX_LOG_BYTES}"
@@ -149,7 +149,8 @@ dump_logs_for_container() {
   local restart_count
   restart_count=$(kubectl get --namespace="${namespace}" \
       pod "${pod}" -o=jsonpath="${json_path}")
-  if [ "${restart_count}" -gt 0 ]; then
+  # (There will be no restart_count if the pod status is for example "Pending")
+  if [ -n "${restart_count}" ] && [ "${restart_count}" -gt 0 ]; then
     log "Retrieving previous logs for ${namespace}/${pod}/${container}"
 
     local log_previous_file
@@ -226,7 +227,7 @@ tap_containers() {
 }
 
 dump_kubernetes_resources() {
-  log "Retrieving kubernetes resource configurations"
+  log "Retrieving Kubernetes resource configurations"
 
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
@@ -236,7 +237,7 @@ dump_kubernetes_resources() {
 }
 
 dump_istio_custom_resource_definitions() {
-  log "Retrieving istio resource configurations"
+  log "Retrieving Istio resource configurations"
 
   local istio_resources
   # Trim to only first field; join by comma; remove last comma.

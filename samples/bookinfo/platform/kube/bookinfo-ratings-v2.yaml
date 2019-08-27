@@ -12,21 +12,34 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-apiVersion: extensions/v1beta1
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-ratings-v2
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v2
+  labels:
+    app: ratings
+    version: v2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+      version: v2
   template:
     metadata:
       labels:
         app: ratings
         version: v2
     spec:
+      serviceAccountName: bookinfo-ratings-v2
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v2:1.10.1
+        image: docker.io/istio/examples-bookinfo-ratings-v2:1.15.0
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.

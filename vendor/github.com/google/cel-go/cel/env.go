@@ -82,6 +82,12 @@ type Env interface {
 
 	// Program generates an evaluable instance of the Ast within the environment (Env).
 	Program(ast Ast, opts ...ProgramOption) (Program, error)
+
+	// TypeAdapter returns the `ref.TypeAdapter` configured for the environment.
+	TypeAdapter() ref.TypeAdapter
+
+	// TypeProvider returns the `ref.TypeProvider` configured for the environment.
+	TypeProvider() ref.TypeProvider
 }
 
 // Issues defines methods for inspecting the error details of parse and check calls.
@@ -103,12 +109,15 @@ type Issues interface {
 //
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
+	registry := types.NewRegistry()
 	e := &env{
-		declarations:   checker.StandardDeclarations(),
-		enableBuiltins: true,
-		macros:         parser.AllMacros,
-		pkg:            packages.DefaultPackage,
-		types:          types.NewProvider(),
+		declarations:                   checker.StandardDeclarations(),
+		macros:                         parser.AllMacros,
+		pkg:                            packages.DefaultPackage,
+		provider:                       registry,
+		adapter:                        registry,
+		enableBuiltins:                 true,
+		enableDynamicAggregateLiterals: true,
 	}
 	// Customized the environment using the provided EnvOption values. If an error is
 	// generated at any step this, will be returned as a nil Env with a non-nil error.
@@ -119,6 +128,14 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 			return nil, err
 		}
 	}
+	// Construct the internal checker env, erroring if there is an issue adding the declarations.
+	ce := checker.NewEnv(e.pkg, e.provider)
+	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
+	err = ce.Add(e.declarations...)
+	if err != nil {
+		return nil, err
+	}
+	e.chk = ce
 	return e, nil
 }
 
@@ -161,24 +178,26 @@ func (ast *astValue) Source() Source {
 
 // env is the internal implementation of the Env interface.
 type env struct {
-	declarations   []*exprpb.Decl
-	enableBuiltins bool
-	macros         []parser.Macro
-	pkg            packages.Packager
-	types          ref.TypeProvider
+	declarations []*exprpb.Decl
+	macros       []parser.Macro
+	pkg          packages.Packager
+	provider     ref.TypeProvider
+	adapter      ref.TypeAdapter
+	chk          *checker.Env
+	// environment options, true by default.
+	enableBuiltins                 bool
+	enableDynamicAggregateLiterals bool
 }
 
 // Check implements the Env interface method.
 func (e *env) Check(ast Ast) (Ast, Issues) {
-	ce := checker.NewEnv(e.pkg, e.types)
-	ce.Add(e.declarations...)
 	pe, err := AstToParsedExpr(ast)
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, err.Error())
 		return nil, &issues{errs: errs}
 	}
-	res, errs := checker.Check(pe, ast.Source(), ce)
+	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}
 	}
@@ -215,6 +234,16 @@ func (e *env) Program(ast Ast, opts ...ProgramOption) (Program, error) {
 			opts...)
 	}
 	return newProgram(e, ast, opts...)
+}
+
+// TypeAdapter implements the Env interface method.
+func (e *env) TypeAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
+// TypeProvider implements the Env interface method.
+func (e *env) TypeProvider() ref.TypeProvider {
+	return e.provider
 }
 
 // issues is the internal implementation of the Issues interface.

@@ -66,8 +66,8 @@ func (RouterJSR311) extractParams(pathExpr *pathExpression, matches []string) ma
 
 // http://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-360003.7.2
 func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*Route, error) {
-	ifOk := []Route{}
-	for _, each := range routes {
+	candidates := make([]*Route, 0, 8)
+	for i, each := range routes {
 		ok := true
 		for _, fn := range each.If {
 			if !fn(httpRequest) {
@@ -76,10 +76,10 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 			}
 		}
 		if ok {
-			ifOk = append(ifOk, each)
+			candidates = append(candidates, &routes[i])
 		}
 	}
-	if len(ifOk) == 0 {
+	if len(candidates) == 0 {
 		if trace {
 			traceLogger.Printf("no Route found (from %d) that passes conditional checks", len(routes))
 		}
@@ -87,54 +87,58 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 	}
 
 	// http method
-	methodOk := []Route{}
-	for _, each := range ifOk {
+	previous := candidates
+	candidates = candidates[:0]
+	for _, each := range previous {
 		if httpRequest.Method == each.Method {
-			methodOk = append(methodOk, each)
+			candidates = append(candidates, each)
 		}
 	}
-	if len(methodOk) == 0 {
+	if len(candidates) == 0 {
 		if trace {
-			traceLogger.Printf("no Route found (in %d routes) that matches HTTP method %s\n", len(routes), httpRequest.Method)
+			traceLogger.Printf("no Route found (in %d routes) that matches HTTP method %s\n", len(previous), httpRequest.Method)
 		}
 		return nil, NewError(http.StatusMethodNotAllowed, "405: Method Not Allowed")
 	}
-	inputMediaOk := methodOk
 
 	// content-type
 	contentType := httpRequest.Header.Get(HEADER_ContentType)
-	inputMediaOk = []Route{}
-	for _, each := range methodOk {
+	previous = candidates
+	candidates = candidates[:0]
+	for _, each := range previous {
 		if each.matchesContentType(contentType) {
-			inputMediaOk = append(inputMediaOk, each)
+			candidates = append(candidates, each)
 		}
 	}
-	if len(inputMediaOk) == 0 {
+	if len(candidates) == 0 {
 		if trace {
-			traceLogger.Printf("no Route found (from %d) that matches HTTP Content-Type: %s\n", len(methodOk), contentType)
+			traceLogger.Printf("no Route found (from %d) that matches HTTP Content-Type: %s\n", len(previous), contentType)
 		}
-		return nil, NewError(http.StatusUnsupportedMediaType, "415: Unsupported Media Type")
+		if httpRequest.ContentLength > 0 {
+			return nil, NewError(http.StatusUnsupportedMediaType, "415: Unsupported Media Type")
+		}
 	}
 
 	// accept
-	outputMediaOk := []Route{}
+	previous = candidates
+	candidates = candidates[:0]
 	accept := httpRequest.Header.Get(HEADER_Accept)
 	if len(accept) == 0 {
 		accept = "*/*"
 	}
-	for _, each := range inputMediaOk {
+	for _, each := range previous {
 		if each.matchesAccept(accept) {
-			outputMediaOk = append(outputMediaOk, each)
+			candidates = append(candidates, each)
 		}
 	}
-	if len(outputMediaOk) == 0 {
+	if len(candidates) == 0 {
 		if trace {
-			traceLogger.Printf("no Route found (from %d) that matches HTTP Accept: %s\n", len(inputMediaOk), accept)
+			traceLogger.Printf("no Route found (from %d) that matches HTTP Accept: %s\n", len(previous), accept)
 		}
 		return nil, NewError(http.StatusNotAcceptable, "406: Not Acceptable")
 	}
 	// return r.bestMatchByMedia(outputMediaOk, contentType, accept), nil
-	return &outputMediaOk[0], nil
+	return candidates[0], nil
 }
 
 // http://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-360003.7.2

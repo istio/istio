@@ -23,52 +23,38 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/tests/util"
+	testUtil "istio.io/istio/pkg/test/util"
+	testsUtil "istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
-	istioctlURL   = "ISTIOCTL_URL"
-	proxyHubConst = "HUB"
-	proxyTagConst = "TAG"
+	istioctlURL = "ISTIOCTL_URL"
 )
 
 var (
-	defaultProxy = flag.Bool("default_proxy", false, "Test with default proxy hub and tag")
-	remotePath   = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
-	localPath    = flag.String("istioctl", "", "Use local istioctl instead of remote")
+	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
+	localPath  = flag.String("istioctl", "", "Use local istioctl instead of remote")
 )
 
 // Istioctl gathers istioctl information.
 type Istioctl struct {
-	localPath       string
-	remotePath      string
-	binaryPath      string
-	namespace       string
-	istioNamespace  string
-	proxyHub        string
-	proxyTag        string
-	imagePullPolicy string
-	kubeconfig      string
-	yamlDir         string
-	// If true, will ignore proxyHub and proxyTag but use the default one.
-	defaultProxy bool
-	// if non-null, used for sidecar inject (note: proxyHub and proxyTag overridden)
+	localPath      string
+	remotePath     string
+	binaryPath     string
+	namespace      string
+	istioNamespace string
+	kubeconfig     string
+	yamlDir        string
+	// if non-null, used for sidecar inject
 	injectConfigMap string
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap, kubeconfig string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, injectConfigMap, kubeconfig string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
-	}
-
-	if proxyHub == "" {
-		proxyHub = os.Getenv(proxyHubConst)
-	}
-	if proxyTag == "" {
-		proxyTag = os.Getenv(proxyTagConst)
 	}
 
 	return &Istioctl{
@@ -77,11 +63,7 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePu
 		binaryPath:      filepath.Join(tmpDir, "istioctl"),
 		namespace:       namespace,
 		istioNamespace:  istioNamespace,
-		proxyHub:        proxyHub,
-		proxyTag:        proxyTag,
-		imagePullPolicy: imagePullPolicy,
 		yamlDir:         filepath.Join(yamlDir, "istioctl"),
-		defaultProxy:    *defaultProxy,
 		injectConfigMap: injectConfigMap,
 		kubeconfig:      kubeconfig,
 	}, nil
@@ -120,11 +102,11 @@ func (i *Istioctl) Install() error {
 		}
 		homeDir := usr.HomeDir
 
-		istioctlSuffix, err := util.GetOsExt()
+		istioctlSuffix, err := testsUtil.GetOsExt()
 		if err != nil {
 			return err
 		}
-		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
+		if err = testUtil.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
 			log.Error("Failed to download istioctl")
 			return err
 		}
@@ -142,7 +124,7 @@ func (i *Istioctl) Install() error {
 
 func (i *Istioctl) run(format string, args ...interface{}) (res string, err error) {
 	format = i.binaryPath + " " + format
-	if res, err = util.ShellMuteOutput(format, args...); err != nil {
+	if res, err = testsUtil.ShellMuteOutput(format, args...); err != nil {
 		log.Errorf("istioctl %s failed", args)
 		return "", err
 	}
@@ -162,19 +144,9 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 	if kubeconfig != "" {
 		kubeconfigStr = " --kubeconfig " + kubeconfig
 	}
-	if i.defaultProxy {
-		_, err := i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-			src, dest, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
-		return err
-	}
 
-	imagePullPolicyStr := ""
-	if i.imagePullPolicy != "" {
-		imagePullPolicyStr = fmt.Sprintf("--imagePullPolicy %s", i.imagePullPolicy)
-	}
-
-	_, err := i.run(`kube-inject -f %s -o %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-		src, dest, imagePullPolicyStr, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
+	_, err := i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
+		src, dest, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
 	return err
 }
 

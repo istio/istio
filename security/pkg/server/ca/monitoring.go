@@ -27,7 +27,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_count",
-		Help:      "The number of CSRs recerived by Citadel server.",
+		Help:      "The number of CSRs received by Citadel server.",
 	}, []string{})
 
 	authnErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -41,7 +41,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_parsing_err_count",
-		Help:      "The number of erorrs occurred when parsing the CSR.",
+		Help:      "The number of errors occurred when parsing the CSR.",
 	}, []string{})
 
 	idExtractionErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -55,7 +55,7 @@ var (
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_sign_err_count",
-		Help:      "The number of erorrs occurred when signing the CSR.",
+		Help:      "The number of errors occurred when signing the CSR.",
 	}, []string{errorlabel})
 
 	successCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -64,6 +64,15 @@ var (
 		Name:      "success_cert_issuance_count",
 		Help:      "The number of certificates issuances that have succeeded.",
 	}, []string{})
+
+	rootCertExpiryTimestamp = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "citadel",
+			Name:      "citadel_root_cert_expiry_timestamp",
+			Subsystem: "server",
+			Help: "The unix timestamp, in seconds, when Citadel root cert will expire. " +
+				"We set it to negative in case of internal error.",
+		})
 )
 
 func init() {
@@ -73,6 +82,7 @@ func init() {
 	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
+	prometheus.MustRegister(rootCertExpiryTimestamp)
 }
 
 // monitoringMetrics are counters for certificate signing related operations.

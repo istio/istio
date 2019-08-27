@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/google/cel-go/common/types"
@@ -34,10 +35,56 @@ type Activation interface {
 	Parent() Activation
 }
 
+// EmptyActivation returns a variable free activation.
+func EmptyActivation() Activation {
+	// This call cannot fail.
+	a, _ := NewActivation(map[string]interface{}{})
+	return a
+}
+
 // NewActivation returns an activation based on a map-based binding where the map keys are
 // expected to be qualified names used with ResolveName calls.
-func NewActivation(bindings map[string]interface{}) Activation {
-	return &mapActivation{bindings: bindings}
+//
+// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
+//
+// When the bindings are a `map` form whose values are not of `ref.Val` type, the values will be
+// converted to CEL values (if possible) using the `types.DefaultTypeAdapter`.
+func NewActivation(bindings interface{}) (Activation, error) {
+	return NewAdaptingActivation(types.DefaultTypeAdapter, bindings)
+}
+
+// NewAdaptingActivation returns an actvation which is capable of adapting `bindings` from native
+// Go values to equivalent CEL `ref.Val` objects.
+//
+// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
+//
+// When the bindings are a `map` the values may be one of the following types:
+//   - `ref.Val`: a CEL value instance.
+//   - `func() ref.Val`: a CEL value supplier.
+//   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
+func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activation, error) {
+	a, isActivation := bindings.(Activation)
+	if isActivation {
+		return a, nil
+	}
+	m, isMap := bindings.(map[string]interface{})
+	if !isMap {
+		return nil, fmt.Errorf(
+			"activation input must be an activation or map[string]interface: got %T",
+			bindings)
+	}
+	var allRefVals = true
+	for _, v := range m {
+		_, isVal := v.(ref.Val)
+		if !isVal {
+			allRefVals = false
+			break
+		}
+	}
+	if allRefVals {
+		return &mapActivation{bindings: m}, nil
+	}
+	return &mapActivation{adapter: adapter, bindings: m}, nil
 }
 
 // mapActivation which implements Activation and maps of named values.
@@ -45,6 +92,7 @@ func NewActivation(bindings map[string]interface{}) Activation {
 // Named bindings may lazily supply values by providing a function which accepts no arguments and
 // produces an interface value.
 type mapActivation struct {
+	adapter  ref.TypeAdapter
 	bindings map[string]interface{}
 }
 
@@ -66,7 +114,9 @@ func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
 		case ref.Val:
 			return object.(ref.Val), true
 		default:
-			return types.NativeToValue(object), true
+			if a.adapter != nil {
+				return a.adapter.NativeToValue(object), true
+			}
 		}
 	}
 	return nil, false

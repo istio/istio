@@ -3,18 +3,17 @@
 
 package types
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import bytes "bytes"
-
-import strconv "strconv"
-
-import strings "strings"
-import reflect "reflect"
-
-import io "io"
+import (
+	bytes "bytes"
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	io "io"
+	math "math"
+	math_bits "math/bits"
+	reflect "reflect"
+	strconv "strconv"
+	strings "strings"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,22 +31,23 @@ type Syntax int32
 
 const (
 	// Syntax `proto2`.
-	SYNTAX_PROTO2 Syntax = 0
+	Syntax_SYNTAX_PROTO2 Syntax = 0
 	// Syntax `proto3`.
-	SYNTAX_PROTO3 Syntax = 1
+	Syntax_SYNTAX_PROTO3 Syntax = 1
 )
 
 var Syntax_name = map[int32]string{
 	0: "SYNTAX_PROTO2",
 	1: "SYNTAX_PROTO3",
 }
+
 var Syntax_value = map[string]int32{
 	"SYNTAX_PROTO2": 0,
 	"SYNTAX_PROTO3": 1,
 }
 
 func (Syntax) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{0}
+	return fileDescriptor_dd271cc1e348c538, []int{0}
 }
 
 // Basic field types.
@@ -55,43 +55,43 @@ type Field_Kind int32
 
 const (
 	// Field type unknown.
-	TYPE_UNKNOWN Field_Kind = 0
+	Field_TYPE_UNKNOWN Field_Kind = 0
 	// Field type double.
-	TYPE_DOUBLE Field_Kind = 1
+	Field_TYPE_DOUBLE Field_Kind = 1
 	// Field type float.
-	TYPE_FLOAT Field_Kind = 2
+	Field_TYPE_FLOAT Field_Kind = 2
 	// Field type int64.
-	TYPE_INT64 Field_Kind = 3
+	Field_TYPE_INT64 Field_Kind = 3
 	// Field type uint64.
-	TYPE_UINT64 Field_Kind = 4
+	Field_TYPE_UINT64 Field_Kind = 4
 	// Field type int32.
-	TYPE_INT32 Field_Kind = 5
+	Field_TYPE_INT32 Field_Kind = 5
 	// Field type fixed64.
-	TYPE_FIXED64 Field_Kind = 6
+	Field_TYPE_FIXED64 Field_Kind = 6
 	// Field type fixed32.
-	TYPE_FIXED32 Field_Kind = 7
+	Field_TYPE_FIXED32 Field_Kind = 7
 	// Field type bool.
-	TYPE_BOOL Field_Kind = 8
+	Field_TYPE_BOOL Field_Kind = 8
 	// Field type string.
-	TYPE_STRING Field_Kind = 9
+	Field_TYPE_STRING Field_Kind = 9
 	// Field type group. Proto2 syntax only, and deprecated.
-	TYPE_GROUP Field_Kind = 10
+	Field_TYPE_GROUP Field_Kind = 10
 	// Field type message.
-	TYPE_MESSAGE Field_Kind = 11
+	Field_TYPE_MESSAGE Field_Kind = 11
 	// Field type bytes.
-	TYPE_BYTES Field_Kind = 12
+	Field_TYPE_BYTES Field_Kind = 12
 	// Field type uint32.
-	TYPE_UINT32 Field_Kind = 13
+	Field_TYPE_UINT32 Field_Kind = 13
 	// Field type enum.
-	TYPE_ENUM Field_Kind = 14
+	Field_TYPE_ENUM Field_Kind = 14
 	// Field type sfixed32.
-	TYPE_SFIXED32 Field_Kind = 15
+	Field_TYPE_SFIXED32 Field_Kind = 15
 	// Field type sfixed64.
-	TYPE_SFIXED64 Field_Kind = 16
+	Field_TYPE_SFIXED64 Field_Kind = 16
 	// Field type sint32.
-	TYPE_SINT32 Field_Kind = 17
+	Field_TYPE_SINT32 Field_Kind = 17
 	// Field type sint64.
-	TYPE_SINT64 Field_Kind = 18
+	Field_TYPE_SINT64 Field_Kind = 18
 )
 
 var Field_Kind_name = map[int32]string{
@@ -115,6 +115,7 @@ var Field_Kind_name = map[int32]string{
 	17: "TYPE_SINT32",
 	18: "TYPE_SINT64",
 }
+
 var Field_Kind_value = map[string]int32{
 	"TYPE_UNKNOWN":  0,
 	"TYPE_DOUBLE":   1,
@@ -138,7 +139,7 @@ var Field_Kind_value = map[string]int32{
 }
 
 func (Field_Kind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{1, 0}
+	return fileDescriptor_dd271cc1e348c538, []int{1, 0}
 }
 
 // Whether a field is optional, required, or repeated.
@@ -146,13 +147,13 @@ type Field_Cardinality int32
 
 const (
 	// For fields with unknown cardinality.
-	CARDINALITY_UNKNOWN Field_Cardinality = 0
+	Field_CARDINALITY_UNKNOWN Field_Cardinality = 0
 	// For optional fields.
-	CARDINALITY_OPTIONAL Field_Cardinality = 1
+	Field_CARDINALITY_OPTIONAL Field_Cardinality = 1
 	// For required fields. Proto2 syntax only.
-	CARDINALITY_REQUIRED Field_Cardinality = 2
+	Field_CARDINALITY_REQUIRED Field_Cardinality = 2
 	// For repeated fields.
-	CARDINALITY_REPEATED Field_Cardinality = 3
+	Field_CARDINALITY_REPEATED Field_Cardinality = 3
 )
 
 var Field_Cardinality_name = map[int32]string{
@@ -161,6 +162,7 @@ var Field_Cardinality_name = map[int32]string{
 	2: "CARDINALITY_REQUIRED",
 	3: "CARDINALITY_REPEATED",
 }
+
 var Field_Cardinality_value = map[string]int32{
 	"CARDINALITY_UNKNOWN":  0,
 	"CARDINALITY_OPTIONAL": 1,
@@ -169,7 +171,7 @@ var Field_Cardinality_value = map[string]int32{
 }
 
 func (Field_Cardinality) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{1, 1}
+	return fileDescriptor_dd271cc1e348c538, []int{1, 1}
 }
 
 // A protocol buffer message type.
@@ -177,13 +179,13 @@ type Type struct {
 	// The fully qualified message name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The list of fields.
-	Fields []*Field `protobuf:"bytes,2,rep,name=fields" json:"fields,omitempty"`
+	Fields []*Field `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty"`
 	// The list of types appearing in `oneof` definitions in this type.
-	Oneofs []string `protobuf:"bytes,3,rep,name=oneofs" json:"oneofs,omitempty"`
+	Oneofs []string `protobuf:"bytes,3,rep,name=oneofs,proto3" json:"oneofs,omitempty"`
 	// The protocol buffer options.
-	Options []*Option `protobuf:"bytes,4,rep,name=options" json:"options,omitempty"`
+	Options []*Option `protobuf:"bytes,4,rep,name=options,proto3" json:"options,omitempty"`
 	// The source context.
-	SourceContext *SourceContext `protobuf:"bytes,5,opt,name=source_context,json=sourceContext" json:"source_context,omitempty"`
+	SourceContext *SourceContext `protobuf:"bytes,5,opt,name=source_context,json=sourceContext,proto3" json:"source_context,omitempty"`
 	// The source syntax.
 	Syntax               Syntax   `protobuf:"varint,6,opt,name=syntax,proto3,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -194,7 +196,7 @@ type Type struct {
 func (m *Type) Reset()      { *m = Type{} }
 func (*Type) ProtoMessage() {}
 func (*Type) Descriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{0}
+	return fileDescriptor_dd271cc1e348c538, []int{0}
 }
 func (m *Type) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -204,15 +206,15 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
 		return b[:n], nil
 	}
 }
-func (dst *Type) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Type.Merge(dst, src)
+func (m *Type) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Type.Merge(m, src)
 }
 func (m *Type) XXX_Size() int {
 	return m.Size()
@@ -262,7 +264,7 @@ func (m *Type) GetSyntax() Syntax {
 	if m != nil {
 		return m.Syntax
 	}
-	return SYNTAX_PROTO2
+	return Syntax_SYNTAX_PROTO2
 }
 
 func (*Type) XXX_MessageName() string {
@@ -288,7 +290,7 @@ type Field struct {
 	// Whether to use alternative packed wire representation.
 	Packed bool `protobuf:"varint,8,opt,name=packed,proto3" json:"packed,omitempty"`
 	// The protocol buffer options.
-	Options []*Option `protobuf:"bytes,9,rep,name=options" json:"options,omitempty"`
+	Options []*Option `protobuf:"bytes,9,rep,name=options,proto3" json:"options,omitempty"`
 	// The field JSON name.
 	JsonName string `protobuf:"bytes,10,opt,name=json_name,json=jsonName,proto3" json:"json_name,omitempty"`
 	// The string value of the default value of this field. Proto2 syntax only.
@@ -301,7 +303,7 @@ type Field struct {
 func (m *Field) Reset()      { *m = Field{} }
 func (*Field) ProtoMessage() {}
 func (*Field) Descriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{1}
+	return fileDescriptor_dd271cc1e348c538, []int{1}
 }
 func (m *Field) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -311,15 +313,15 @@ func (m *Field) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Field.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
 		return b[:n], nil
 	}
 }
-func (dst *Field) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Field.Merge(dst, src)
+func (m *Field) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Field.Merge(m, src)
 }
 func (m *Field) XXX_Size() int {
 	return m.Size()
@@ -334,14 +336,14 @@ func (m *Field) GetKind() Field_Kind {
 	if m != nil {
 		return m.Kind
 	}
-	return TYPE_UNKNOWN
+	return Field_TYPE_UNKNOWN
 }
 
 func (m *Field) GetCardinality() Field_Cardinality {
 	if m != nil {
 		return m.Cardinality
 	}
-	return CARDINALITY_UNKNOWN
+	return Field_CARDINALITY_UNKNOWN
 }
 
 func (m *Field) GetNumber() int32 {
@@ -409,11 +411,11 @@ type Enum struct {
 	// Enum type name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Enum value definitions.
-	Enumvalue []*EnumValue `protobuf:"bytes,2,rep,name=enumvalue" json:"enumvalue,omitempty"`
+	Enumvalue []*EnumValue `protobuf:"bytes,2,rep,name=enumvalue,proto3" json:"enumvalue,omitempty"`
 	// Protocol buffer options.
-	Options []*Option `protobuf:"bytes,3,rep,name=options" json:"options,omitempty"`
+	Options []*Option `protobuf:"bytes,3,rep,name=options,proto3" json:"options,omitempty"`
 	// The source context.
-	SourceContext *SourceContext `protobuf:"bytes,4,opt,name=source_context,json=sourceContext" json:"source_context,omitempty"`
+	SourceContext *SourceContext `protobuf:"bytes,4,opt,name=source_context,json=sourceContext,proto3" json:"source_context,omitempty"`
 	// The source syntax.
 	Syntax               Syntax   `protobuf:"varint,5,opt,name=syntax,proto3,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -424,7 +426,7 @@ type Enum struct {
 func (m *Enum) Reset()      { *m = Enum{} }
 func (*Enum) ProtoMessage() {}
 func (*Enum) Descriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{2}
+	return fileDescriptor_dd271cc1e348c538, []int{2}
 }
 func (m *Enum) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -434,15 +436,15 @@ func (m *Enum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Enum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
 		return b[:n], nil
 	}
 }
-func (dst *Enum) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Enum.Merge(dst, src)
+func (m *Enum) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Enum.Merge(m, src)
 }
 func (m *Enum) XXX_Size() int {
 	return m.Size()
@@ -485,7 +487,7 @@ func (m *Enum) GetSyntax() Syntax {
 	if m != nil {
 		return m.Syntax
 	}
-	return SYNTAX_PROTO2
+	return Syntax_SYNTAX_PROTO2
 }
 
 func (*Enum) XXX_MessageName() string {
@@ -499,7 +501,7 @@ type EnumValue struct {
 	// Enum value number.
 	Number int32 `protobuf:"varint,2,opt,name=number,proto3" json:"number,omitempty"`
 	// Protocol buffer options.
-	Options              []*Option `protobuf:"bytes,3,rep,name=options" json:"options,omitempty"`
+	Options              []*Option `protobuf:"bytes,3,rep,name=options,proto3" json:"options,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -508,7 +510,7 @@ type EnumValue struct {
 func (m *EnumValue) Reset()      { *m = EnumValue{} }
 func (*EnumValue) ProtoMessage() {}
 func (*EnumValue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{3}
+	return fileDescriptor_dd271cc1e348c538, []int{3}
 }
 func (m *EnumValue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -518,15 +520,15 @@ func (m *EnumValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_EnumValue.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
 		return b[:n], nil
 	}
 }
-func (dst *EnumValue) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EnumValue.Merge(dst, src)
+func (m *EnumValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnumValue.Merge(m, src)
 }
 func (m *EnumValue) XXX_Size() int {
 	return m.Size()
@@ -574,7 +576,7 @@ type Option struct {
 	// the corresponding wrapper type defined in google/protobuf/wrappers.proto
 	// should be used. If the value is an enum, it should be stored as an int32
 	// value using the google.protobuf.Int32Value type.
-	Value                *Any     `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value                *Any     `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -583,7 +585,7 @@ type Option struct {
 func (m *Option) Reset()      { *m = Option{} }
 func (*Option) ProtoMessage() {}
 func (*Option) Descriptor() ([]byte, []int) {
-	return fileDescriptor_type_345e3aff58b7b252, []int{4}
+	return fileDescriptor_dd271cc1e348c538, []int{4}
 }
 func (m *Option) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -593,15 +595,15 @@ func (m *Option) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Option.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
 		return b[:n], nil
 	}
 }
-func (dst *Option) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Option.Merge(dst, src)
+func (m *Option) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Option.Merge(m, src)
 }
 func (m *Option) XXX_Size() int {
 	return m.Size()
@@ -630,15 +632,75 @@ func (*Option) XXX_MessageName() string {
 	return "google.protobuf.Option"
 }
 func init() {
+	proto.RegisterEnum("google.protobuf.Syntax", Syntax_name, Syntax_value)
+	proto.RegisterEnum("google.protobuf.Field_Kind", Field_Kind_name, Field_Kind_value)
+	proto.RegisterEnum("google.protobuf.Field_Cardinality", Field_Cardinality_name, Field_Cardinality_value)
 	proto.RegisterType((*Type)(nil), "google.protobuf.Type")
 	proto.RegisterType((*Field)(nil), "google.protobuf.Field")
 	proto.RegisterType((*Enum)(nil), "google.protobuf.Enum")
 	proto.RegisterType((*EnumValue)(nil), "google.protobuf.EnumValue")
 	proto.RegisterType((*Option)(nil), "google.protobuf.Option")
-	proto.RegisterEnum("google.protobuf.Syntax", Syntax_name, Syntax_value)
-	proto.RegisterEnum("google.protobuf.Field_Kind", Field_Kind_name, Field_Kind_value)
-	proto.RegisterEnum("google.protobuf.Field_Cardinality", Field_Cardinality_name, Field_Cardinality_value)
 }
+
+func init() { proto.RegisterFile("google/protobuf/type.proto", fileDescriptor_dd271cc1e348c538) }
+
+var fileDescriptor_dd271cc1e348c538 = []byte{
+	// 840 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xcf, 0x73, 0xda, 0x46,
+	0x14, 0xf6, 0x0a, 0x21, 0xa3, 0x87, 0xc1, 0x9b, 0x4d, 0x26, 0x51, 0x9c, 0x19, 0x95, 0xa1, 0x3d,
+	0x30, 0x39, 0xe0, 0x29, 0x78, 0x3c, 0xbd, 0x82, 0x91, 0x29, 0x63, 0x22, 0xa9, 0x8b, 0x68, 0xe2,
+	0x5e, 0x18, 0x0c, 0x72, 0x86, 0x44, 0xac, 0x18, 0x24, 0x5a, 0x73, 0xeb, 0x4c, 0xcf, 0xfd, 0x27,
+	0x7a, 0xea, 0xf4, 0xdc, 0x3f, 0xc2, 0xc7, 0x1e, 0x7b, 0xac, 0xc9, 0xa5, 0xc7, 0x1c, 0x73, 0x6b,
+	0x67, 0x57, 0x20, 0x8b, 0x1f, 0x9d, 0x49, 0xdb, 0x1b, 0xef, 0xfb, 0xbe, 0xf7, 0x73, 0x9f, 0x1e,
+	0x70, 0xf4, 0xda, 0xf7, 0x5f, 0x7b, 0xee, 0xf1, 0x64, 0xea, 0x87, 0xfe, 0xd5, 0xec, 0xfa, 0x38,
+	0x9c, 0x4f, 0xdc, 0xb2, 0xb0, 0xc8, 0x61, 0xc4, 0x95, 0x57, 0xdc, 0xd1, 0xd3, 0x4d, 0x71, 0x9f,
+	0xcd, 0x23, 0xf6, 0xe8, 0xb3, 0x4d, 0x2a, 0xf0, 0x67, 0xd3, 0x81, 0xdb, 0x1b, 0xf8, 0x2c, 0x74,
+	0x6f, 0xc2, 0x48, 0x55, 0xfc, 0x51, 0x02, 0xd9, 0x99, 0x4f, 0x5c, 0x42, 0x40, 0x66, 0xfd, 0xb1,
+	0xab, 0xa1, 0x02, 0x2a, 0xa9, 0x54, 0xfc, 0x26, 0x65, 0x50, 0xae, 0x47, 0xae, 0x37, 0x0c, 0x34,
+	0xa9, 0x90, 0x2a, 0x65, 0x2b, 0x8f, 0xcb, 0x1b, 0xf9, 0xcb, 0xe7, 0x9c, 0xa6, 0x4b, 0x15, 0x79,
+	0x0c, 0x8a, 0xcf, 0x5c, 0xff, 0x3a, 0xd0, 0x52, 0x85, 0x54, 0x49, 0xa5, 0x4b, 0x8b, 0x7c, 0x0e,
+	0xfb, 0xfe, 0x24, 0x1c, 0xf9, 0x2c, 0xd0, 0x64, 0x11, 0xe8, 0xc9, 0x56, 0x20, 0x4b, 0xf0, 0x74,
+	0xa5, 0x23, 0x06, 0xe4, 0xd7, 0xeb, 0xd5, 0xd2, 0x05, 0x54, 0xca, 0x56, 0xf4, 0x2d, 0xcf, 0x8e,
+	0x90, 0x9d, 0x45, 0x2a, 0x9a, 0x0b, 0x92, 0x26, 0x39, 0x06, 0x25, 0x98, 0xb3, 0xb0, 0x7f, 0xa3,
+	0x29, 0x05, 0x54, 0xca, 0xef, 0x48, 0xdc, 0x11, 0x34, 0x5d, 0xca, 0x8a, 0xbf, 0x2a, 0x90, 0x16,
+	0x4d, 0x91, 0x63, 0x90, 0xdf, 0x8e, 0xd8, 0x50, 0x0c, 0x24, 0x5f, 0x79, 0xb6, 0xbb, 0xf5, 0xf2,
+	0xc5, 0x88, 0x0d, 0xa9, 0x10, 0x92, 0x06, 0x64, 0x07, 0xfd, 0xe9, 0x70, 0xc4, 0xfa, 0xde, 0x28,
+	0x9c, 0x6b, 0x92, 0xf0, 0x2b, 0xfe, 0x83, 0xdf, 0xd9, 0xbd, 0x92, 0x26, 0xdd, 0xf8, 0x0c, 0xd9,
+	0x6c, 0x7c, 0xe5, 0x4e, 0xb5, 0x54, 0x01, 0x95, 0xd2, 0x74, 0x69, 0xc5, 0xef, 0x23, 0x27, 0xde,
+	0xe7, 0x29, 0x64, 0xf8, 0x72, 0xf4, 0x66, 0x53, 0x4f, 0xf4, 0xa7, 0xd2, 0x7d, 0x6e, 0x77, 0xa7,
+	0x1e, 0xf9, 0x04, 0xb2, 0x62, 0xf8, 0xbd, 0x11, 0x1b, 0xba, 0x37, 0xda, 0xbe, 0x88, 0x05, 0x02,
+	0x6a, 0x71, 0x84, 0xe7, 0x99, 0xf4, 0x07, 0x6f, 0xdd, 0xa1, 0x96, 0x29, 0xa0, 0x52, 0x86, 0x2e,
+	0xad, 0xe4, 0x5b, 0xa9, 0x1f, 0xf9, 0x56, 0xcf, 0x40, 0x7d, 0x13, 0xf8, 0xac, 0x27, 0xea, 0x03,
+	0x51, 0x47, 0x86, 0x03, 0x26, 0xaf, 0xf1, 0x53, 0xc8, 0x0d, 0xdd, 0xeb, 0xfe, 0xcc, 0x0b, 0x7b,
+	0xdf, 0xf6, 0xbd, 0x99, 0xab, 0x65, 0x85, 0xe0, 0x60, 0x09, 0x7e, 0xcd, 0xb1, 0xe2, 0xad, 0x04,
+	0x32, 0x9f, 0x24, 0xc1, 0x70, 0xe0, 0x5c, 0xda, 0x46, 0xaf, 0x6b, 0x5e, 0x98, 0xd6, 0x4b, 0x13,
+	0xef, 0x91, 0x43, 0xc8, 0x0a, 0xa4, 0x61, 0x75, 0xeb, 0x6d, 0x03, 0x23, 0x92, 0x07, 0x10, 0xc0,
+	0x79, 0xdb, 0xaa, 0x39, 0x58, 0x8a, 0xed, 0x96, 0xe9, 0x9c, 0x9e, 0xe0, 0x54, 0xec, 0xd0, 0x8d,
+	0x00, 0x39, 0x29, 0xa8, 0x56, 0x70, 0x3a, 0xce, 0x71, 0xde, 0x7a, 0x65, 0x34, 0x4e, 0x4f, 0xb0,
+	0xb2, 0x8e, 0x54, 0x2b, 0x78, 0x9f, 0xe4, 0x40, 0x15, 0x48, 0xdd, 0xb2, 0xda, 0x38, 0x13, 0xc7,
+	0xec, 0x38, 0xb4, 0x65, 0x36, 0xb1, 0x1a, 0xc7, 0x6c, 0x52, 0xab, 0x6b, 0x63, 0x88, 0x23, 0xbc,
+	0x30, 0x3a, 0x9d, 0x5a, 0xd3, 0xc0, 0xd9, 0x58, 0x51, 0xbf, 0x74, 0x8c, 0x0e, 0x3e, 0x58, 0x2b,
+	0xab, 0x5a, 0xc1, 0xb9, 0x38, 0x85, 0x61, 0x76, 0x5f, 0xe0, 0x3c, 0x79, 0x00, 0xb9, 0x28, 0xc5,
+	0xaa, 0x88, 0xc3, 0x0d, 0xe8, 0xf4, 0x04, 0xe3, 0xfb, 0x42, 0xa2, 0x28, 0x0f, 0xd6, 0x80, 0xd3,
+	0x13, 0x4c, 0x8a, 0x21, 0x64, 0x13, 0xbb, 0x45, 0x9e, 0xc0, 0xc3, 0xb3, 0x1a, 0x6d, 0xb4, 0xcc,
+	0x5a, 0xbb, 0xe5, 0x5c, 0x26, 0xe6, 0xaa, 0xc1, 0xa3, 0x24, 0x61, 0xd9, 0x4e, 0xcb, 0x32, 0x6b,
+	0x6d, 0x8c, 0x36, 0x19, 0x6a, 0x7c, 0xd5, 0x6d, 0x51, 0xa3, 0x81, 0xa5, 0x6d, 0xc6, 0x36, 0x6a,
+	0x8e, 0xd1, 0xc0, 0xa9, 0xe2, 0x5f, 0x08, 0x64, 0x83, 0xcd, 0xc6, 0x3b, 0xcf, 0xc8, 0x17, 0xa0,
+	0xba, 0x6c, 0x36, 0x8e, 0x9e, 0x3f, 0xba, 0x24, 0x47, 0x5b, 0x4b, 0xc5, 0xbd, 0xc5, 0x32, 0xd0,
+	0x7b, 0x71, 0x72, 0x19, 0x53, 0xff, 0xf9, 0x70, 0xc8, 0xff, 0xef, 0x70, 0xa4, 0x3f, 0xee, 0x70,
+	0xbc, 0x01, 0x35, 0x6e, 0x61, 0xe7, 0x14, 0xee, 0x3f, 0x6c, 0x69, 0xed, 0xc3, 0xfe, 0xf7, 0x3d,
+	0x16, 0xbf, 0x04, 0x25, 0x82, 0x76, 0x26, 0x7a, 0x0e, 0xe9, 0xd5, 0xa8, 0x79, 0xe3, 0x8f, 0xb6,
+	0xc2, 0xd5, 0xd8, 0x9c, 0x46, 0x92, 0xe7, 0x65, 0x50, 0xa2, 0x3e, 0xf8, 0xb2, 0x75, 0x2e, 0x4d,
+	0xa7, 0xf6, 0xaa, 0x67, 0x53, 0xcb, 0xb1, 0x2a, 0x78, 0x6f, 0x13, 0xaa, 0x62, 0x54, 0xff, 0x01,
+	0xfd, 0x7e, 0xa7, 0xef, 0xbd, 0xbf, 0xd3, 0xd1, 0x87, 0x3b, 0x1d, 0x7d, 0xbf, 0xd0, 0xd1, 0xcf,
+	0x0b, 0x1d, 0xdd, 0x2e, 0x74, 0xf4, 0xdb, 0x42, 0x47, 0x7f, 0x2c, 0x74, 0xf4, 0xe7, 0x42, 0xdf,
+	0x7b, 0xcf, 0xf1, 0x77, 0x3a, 0xba, 0x7d, 0xa7, 0x23, 0x78, 0x38, 0xf0, 0xc7, 0x9b, 0x25, 0xd4,
+	0x55, 0xfe, 0x9f, 0x63, 0x73, 0xcb, 0x46, 0xdf, 0xa4, 0xf9, 0xd1, 0x0a, 0x3e, 0x20, 0xf4, 0x93,
+	0x94, 0x6a, 0xda, 0xf5, 0x5f, 0x24, 0xbd, 0x19, 0xc9, 0xed, 0x55, 0xc5, 0x2f, 0x5d, 0xcf, 0xbb,
+	0x60, 0xfe, 0x77, 0x8c, 0xbb, 0x05, 0x57, 0x8a, 0x88, 0x53, 0xfd, 0x3b, 0x00, 0x00, 0xff, 0xff,
+	0xbc, 0x2a, 0x5e, 0x82, 0x2b, 0x07, 0x00, 0x00,
+}
+
 func (this *Type) Compare(that interface{}) int {
 	if that == nil {
 		if this == nil {
@@ -1343,7 +1405,7 @@ func valueToGoStringType(v interface{}, typ string) string {
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1351,80 +1413,87 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Fields) > 0 {
-		for _, msg := range m.Fields {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.Syntax != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.Syntax))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.SourceContext != nil {
+		{
+			size, err := m.SourceContext.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Options) > 0 {
+		for iNdEx := len(m.Options) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Options[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
 		}
 	}
 	if len(m.Oneofs) > 0 {
-		for _, s := range m.Oneofs {
+		for iNdEx := len(m.Oneofs) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Oneofs[iNdEx])
+			copy(dAtA[i:], m.Oneofs[iNdEx])
+			i = encodeVarintType(dAtA, i, uint64(len(m.Oneofs[iNdEx])))
+			i--
 			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+		}
+	}
+	if len(m.Fields) > 0 {
+		for iNdEx := len(m.Fields) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Fields[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if len(m.Options) > 0 {
-		for _, msg := range m.Options {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.SourceContext != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.SourceContext.Size()))
-		n1, err := m.SourceContext.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.Syntax != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Syntax))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Field) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1432,86 +1501,98 @@ func (m *Field) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Field) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Field) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Kind != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Kind))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Cardinality != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Cardinality))
+	if len(m.DefaultValue) > 0 {
+		i -= len(m.DefaultValue)
+		copy(dAtA[i:], m.DefaultValue)
+		i = encodeVarintType(dAtA, i, uint64(len(m.DefaultValue)))
+		i--
+		dAtA[i] = 0x5a
 	}
-	if m.Number != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Number))
+	if len(m.JsonName) > 0 {
+		i -= len(m.JsonName)
+		copy(dAtA[i:], m.JsonName)
+		i = encodeVarintType(dAtA, i, uint64(len(m.JsonName)))
+		i--
+		dAtA[i] = 0x52
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.TypeUrl) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.TypeUrl)))
-		i += copy(dAtA[i:], m.TypeUrl)
-	}
-	if m.OneofIndex != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.OneofIndex))
+	if len(m.Options) > 0 {
+		for iNdEx := len(m.Options) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Options[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4a
+		}
 	}
 	if m.Packed {
-		dAtA[i] = 0x40
-		i++
+		i--
 		if m.Packed {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x40
 	}
-	if len(m.Options) > 0 {
-		for _, msg := range m.Options {
-			dAtA[i] = 0x4a
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.OneofIndex != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.OneofIndex))
+		i--
+		dAtA[i] = 0x38
 	}
-	if len(m.JsonName) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.JsonName)))
-		i += copy(dAtA[i:], m.JsonName)
+	if len(m.TypeUrl) > 0 {
+		i -= len(m.TypeUrl)
+		copy(dAtA[i:], m.TypeUrl)
+		i = encodeVarintType(dAtA, i, uint64(len(m.TypeUrl)))
+		i--
+		dAtA[i] = 0x32
 	}
-	if len(m.DefaultValue) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.DefaultValue)))
-		i += copy(dAtA[i:], m.DefaultValue)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Number != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.Number))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if m.Cardinality != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.Cardinality))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Kind != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.Kind))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Enum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1519,65 +1600,78 @@ func (m *Enum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Enum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Enum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Enumvalue) > 0 {
-		for _, msg := range m.Enumvalue {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Options) > 0 {
-		for _, msg := range m.Options {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.SourceContext != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.SourceContext.Size()))
-		n2, err := m.SourceContext.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Syntax != 0 {
-		dAtA[i] = 0x28
-		i++
 		i = encodeVarintType(dAtA, i, uint64(m.Syntax))
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.SourceContext != nil {
+		{
+			size, err := m.SourceContext.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.Options) > 0 {
+		for iNdEx := len(m.Options) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Options[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Enumvalue) > 0 {
+		for iNdEx := len(m.Enumvalue) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Enumvalue[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EnumValue) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1585,43 +1679,52 @@ func (m *EnumValue) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EnumValue) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EnumValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.Number != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Number))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Options) > 0 {
-		for _, msg := range m.Options {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintType(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Options) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Options[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintType(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Number != 0 {
+		i = encodeVarintType(dAtA, i, uint64(m.Number))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Option) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1629,45 +1732,56 @@ func (m *Option) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Option) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Option) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Value != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Value.Size()))
-		n3, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintType(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintType(dAtA []byte, offset int, v uint64) int {
+	offset -= sovType(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func NewPopulatedType(r randyType, easy bool) *Type {
 	this := &Type{}
 	this.Name = string(randStringType(r))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := r.Intn(5)
 		this.Fields = make([]*Field, v1)
 		for i := 0; i < v1; i++ {
@@ -1679,14 +1793,14 @@ func NewPopulatedType(r randyType, easy bool) *Type {
 	for i := 0; i < v2; i++ {
 		this.Oneofs[i] = string(randStringType(r))
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := r.Intn(5)
 		this.Options = make([]*Option, v3)
 		for i := 0; i < v3; i++ {
 			this.Options[i] = NewPopulatedOption(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.SourceContext = NewPopulatedSourceContext(r, easy)
 	}
 	this.Syntax = Syntax([]int32{0, 1}[r.Intn(2)])
@@ -1711,7 +1825,7 @@ func NewPopulatedField(r randyType, easy bool) *Field {
 		this.OneofIndex *= -1
 	}
 	this.Packed = bool(bool(r.Intn(2) == 0))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := r.Intn(5)
 		this.Options = make([]*Option, v4)
 		for i := 0; i < v4; i++ {
@@ -1729,21 +1843,21 @@ func NewPopulatedField(r randyType, easy bool) *Field {
 func NewPopulatedEnum(r randyType, easy bool) *Enum {
 	this := &Enum{}
 	this.Name = string(randStringType(r))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(5)
 		this.Enumvalue = make([]*EnumValue, v5)
 		for i := 0; i < v5; i++ {
 			this.Enumvalue[i] = NewPopulatedEnumValue(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := r.Intn(5)
 		this.Options = make([]*Option, v6)
 		for i := 0; i < v6; i++ {
 			this.Options[i] = NewPopulatedOption(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.SourceContext = NewPopulatedSourceContext(r, easy)
 	}
 	this.Syntax = Syntax([]int32{0, 1}[r.Intn(2)])
@@ -1760,7 +1874,7 @@ func NewPopulatedEnumValue(r randyType, easy bool) *EnumValue {
 	if r.Intn(2) == 0 {
 		this.Number *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := r.Intn(5)
 		this.Options = make([]*Option, v7)
 		for i := 0; i < v7; i++ {
@@ -1776,7 +1890,7 @@ func NewPopulatedEnumValue(r randyType, easy bool) *EnumValue {
 func NewPopulatedOption(r randyType, easy bool) *Option {
 	this := &Option{}
 	this.Name = string(randStringType(r))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = NewPopulatedAny(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -1858,6 +1972,9 @@ func encodeVarintPopulateType(dAtA []byte, v uint64) []byte {
 	return dAtA
 }
 func (m *Type) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1896,6 +2013,9 @@ func (m *Type) Size() (n int) {
 }
 
 func (m *Field) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Kind != 0 {
@@ -1942,6 +2062,9 @@ func (m *Field) Size() (n int) {
 }
 
 func (m *Enum) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1974,6 +2097,9 @@ func (m *Enum) Size() (n int) {
 }
 
 func (m *EnumValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1996,6 +2122,9 @@ func (m *EnumValue) Size() (n int) {
 }
 
 func (m *Option) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -2013,14 +2142,7 @@ func (m *Option) Size() (n int) {
 }
 
 func sovType(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozType(x uint64) (n int) {
 	return sovType(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -2029,11 +2151,21 @@ func (this *Type) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForFields := "[]*Field{"
+	for _, f := range this.Fields {
+		repeatedStringForFields += strings.Replace(f.String(), "Field", "Field", 1) + ","
+	}
+	repeatedStringForFields += "}"
+	repeatedStringForOptions := "[]*Option{"
+	for _, f := range this.Options {
+		repeatedStringForOptions += strings.Replace(f.String(), "Option", "Option", 1) + ","
+	}
+	repeatedStringForOptions += "}"
 	s := strings.Join([]string{`&Type{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
-		`Fields:` + strings.Replace(fmt.Sprintf("%v", this.Fields), "Field", "Field", 1) + `,`,
+		`Fields:` + repeatedStringForFields + `,`,
 		`Oneofs:` + fmt.Sprintf("%v", this.Oneofs) + `,`,
-		`Options:` + strings.Replace(fmt.Sprintf("%v", this.Options), "Option", "Option", 1) + `,`,
+		`Options:` + repeatedStringForOptions + `,`,
 		`SourceContext:` + strings.Replace(fmt.Sprintf("%v", this.SourceContext), "SourceContext", "SourceContext", 1) + `,`,
 		`Syntax:` + fmt.Sprintf("%v", this.Syntax) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
@@ -2045,6 +2177,11 @@ func (this *Field) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForOptions := "[]*Option{"
+	for _, f := range this.Options {
+		repeatedStringForOptions += strings.Replace(f.String(), "Option", "Option", 1) + ","
+	}
+	repeatedStringForOptions += "}"
 	s := strings.Join([]string{`&Field{`,
 		`Kind:` + fmt.Sprintf("%v", this.Kind) + `,`,
 		`Cardinality:` + fmt.Sprintf("%v", this.Cardinality) + `,`,
@@ -2053,7 +2190,7 @@ func (this *Field) String() string {
 		`TypeUrl:` + fmt.Sprintf("%v", this.TypeUrl) + `,`,
 		`OneofIndex:` + fmt.Sprintf("%v", this.OneofIndex) + `,`,
 		`Packed:` + fmt.Sprintf("%v", this.Packed) + `,`,
-		`Options:` + strings.Replace(fmt.Sprintf("%v", this.Options), "Option", "Option", 1) + `,`,
+		`Options:` + repeatedStringForOptions + `,`,
 		`JsonName:` + fmt.Sprintf("%v", this.JsonName) + `,`,
 		`DefaultValue:` + fmt.Sprintf("%v", this.DefaultValue) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
@@ -2065,10 +2202,20 @@ func (this *Enum) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForEnumvalue := "[]*EnumValue{"
+	for _, f := range this.Enumvalue {
+		repeatedStringForEnumvalue += strings.Replace(f.String(), "EnumValue", "EnumValue", 1) + ","
+	}
+	repeatedStringForEnumvalue += "}"
+	repeatedStringForOptions := "[]*Option{"
+	for _, f := range this.Options {
+		repeatedStringForOptions += strings.Replace(f.String(), "Option", "Option", 1) + ","
+	}
+	repeatedStringForOptions += "}"
 	s := strings.Join([]string{`&Enum{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
-		`Enumvalue:` + strings.Replace(fmt.Sprintf("%v", this.Enumvalue), "EnumValue", "EnumValue", 1) + `,`,
-		`Options:` + strings.Replace(fmt.Sprintf("%v", this.Options), "Option", "Option", 1) + `,`,
+		`Enumvalue:` + repeatedStringForEnumvalue + `,`,
+		`Options:` + repeatedStringForOptions + `,`,
 		`SourceContext:` + strings.Replace(fmt.Sprintf("%v", this.SourceContext), "SourceContext", "SourceContext", 1) + `,`,
 		`Syntax:` + fmt.Sprintf("%v", this.Syntax) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
@@ -2080,10 +2227,15 @@ func (this *EnumValue) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForOptions := "[]*Option{"
+	for _, f := range this.Options {
+		repeatedStringForOptions += strings.Replace(f.String(), "Option", "Option", 1) + ","
+	}
+	repeatedStringForOptions += "}"
 	s := strings.Join([]string{`&EnumValue{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`Number:` + fmt.Sprintf("%v", this.Number) + `,`,
-		`Options:` + strings.Replace(fmt.Sprintf("%v", this.Options), "Option", "Option", 1) + `,`,
+		`Options:` + repeatedStringForOptions + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -2124,7 +2276,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2152,7 +2304,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2162,6 +2314,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2181,7 +2336,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2190,6 +2345,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2212,7 +2370,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2222,6 +2380,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2241,7 +2402,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2250,6 +2411,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2272,7 +2436,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2281,6 +2445,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2305,7 +2472,7 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Syntax |= (Syntax(b) & 0x7F) << shift
+				m.Syntax |= Syntax(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2317,6 +2484,9 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthType
 			}
 			if (iNdEx + skippy) > l {
@@ -2347,7 +2517,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2375,7 +2545,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Kind |= (Field_Kind(b) & 0x7F) << shift
+				m.Kind |= Field_Kind(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2394,7 +2564,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Cardinality |= (Field_Cardinality(b) & 0x7F) << shift
+				m.Cardinality |= Field_Cardinality(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2413,7 +2583,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Number |= (int32(b) & 0x7F) << shift
+				m.Number |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2432,7 +2602,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2442,6 +2612,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2461,7 +2634,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2471,6 +2644,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2490,7 +2666,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.OneofIndex |= (int32(b) & 0x7F) << shift
+				m.OneofIndex |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2509,7 +2685,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2529,7 +2705,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2538,6 +2714,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2560,7 +2739,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2570,6 +2749,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2589,7 +2771,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2599,6 +2781,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2611,6 +2796,9 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthType
 			}
 			if (iNdEx + skippy) > l {
@@ -2641,7 +2829,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2669,7 +2857,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2679,6 +2867,9 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2698,7 +2889,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2707,6 +2898,9 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2729,7 +2923,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2738,6 +2932,9 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2760,7 +2957,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2769,6 +2966,9 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2793,7 +2993,7 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Syntax |= (Syntax(b) & 0x7F) << shift
+				m.Syntax |= Syntax(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2805,6 +3005,9 @@ func (m *Enum) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthType
 			}
 			if (iNdEx + skippy) > l {
@@ -2835,7 +3038,7 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2863,7 +3066,7 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2873,6 +3076,9 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2892,7 +3098,7 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Number |= (int32(b) & 0x7F) << shift
+				m.Number |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2911,7 +3117,7 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2920,6 +3126,9 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2935,6 +3144,9 @@ func (m *EnumValue) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthType
 			}
 			if (iNdEx + skippy) > l {
@@ -2965,7 +3177,7 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -2993,7 +3205,7 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -3003,6 +3215,9 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -3022,7 +3237,7 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -3031,6 +3246,9 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthType
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -3048,6 +3266,9 @@ func (m *Option) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthType
 			}
 			if (iNdEx + skippy) > l {
@@ -3117,8 +3338,11 @@ func skipType(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthType
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthType
 			}
 			return iNdEx, nil
@@ -3149,6 +3373,9 @@ func skipType(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthType
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -3167,62 +3394,3 @@ var (
 	ErrInvalidLengthType = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowType   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("google/protobuf/type.proto", fileDescriptor_type_345e3aff58b7b252) }
-
-var fileDescriptor_type_345e3aff58b7b252 = []byte{
-	// 844 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xcf, 0x73, 0xda, 0x46,
-	0x14, 0x66, 0x41, 0xc8, 0xe8, 0x61, 0xf0, 0x66, 0x93, 0x49, 0x14, 0x67, 0x46, 0x65, 0x68, 0x0f,
-	0x4c, 0x0e, 0x78, 0x0a, 0x1e, 0x4f, 0xaf, 0x60, 0x64, 0xca, 0x98, 0x48, 0xea, 0x22, 0x9a, 0xb8,
-	0x17, 0x06, 0x83, 0x9c, 0x21, 0x11, 0x2b, 0x06, 0x89, 0xd6, 0xdc, 0x7a, 0xeb, 0xa9, 0xff, 0x44,
-	0x4f, 0x9d, 0x9e, 0xfb, 0x47, 0xf8, 0x98, 0x63, 0x8f, 0x35, 0xb9, 0xf4, 0x98, 0x63, 0x6e, 0xed,
-	0xec, 0x0a, 0x64, 0xf1, 0xa3, 0x33, 0x6e, 0x73, 0xe3, 0x7d, 0xdf, 0xf7, 0x7e, 0xee, 0xd3, 0x03,
-	0x0e, 0x5f, 0x7b, 0xde, 0x6b, 0xd7, 0x39, 0x9a, 0x4c, 0xbd, 0xc0, 0xbb, 0x9c, 0x5d, 0x1d, 0x05,
-	0xf3, 0x89, 0x53, 0x16, 0x16, 0x39, 0x08, 0xb9, 0xf2, 0x8a, 0x3b, 0x7c, 0xba, 0x29, 0xee, 0xb3,
-	0x79, 0xc8, 0x1e, 0x7e, 0xb1, 0x49, 0xf9, 0xde, 0x6c, 0x3a, 0x70, 0x7a, 0x03, 0x8f, 0x05, 0xce,
-	0x75, 0x10, 0xaa, 0x8a, 0x3f, 0x27, 0x41, 0xb2, 0xe7, 0x13, 0x87, 0x10, 0x90, 0x58, 0x7f, 0xec,
-	0xa8, 0xa8, 0x80, 0x4a, 0x0a, 0x15, 0xbf, 0x49, 0x19, 0xe4, 0xab, 0x91, 0xe3, 0x0e, 0x7d, 0x35,
-	0x59, 0x48, 0x95, 0xb2, 0x95, 0xc7, 0xe5, 0x8d, 0xfc, 0xe5, 0x33, 0x4e, 0xd3, 0xa5, 0x8a, 0x3c,
-	0x06, 0xd9, 0x63, 0x8e, 0x77, 0xe5, 0xab, 0xa9, 0x42, 0xaa, 0xa4, 0xd0, 0xa5, 0x45, 0xbe, 0x84,
-	0x3d, 0x6f, 0x12, 0x8c, 0x3c, 0xe6, 0xab, 0x92, 0x08, 0xf4, 0x64, 0x2b, 0x90, 0x29, 0x78, 0xba,
-	0xd2, 0x11, 0x1d, 0xf2, 0xeb, 0xf5, 0xaa, 0xe9, 0x02, 0x2a, 0x65, 0x2b, 0xda, 0x96, 0x67, 0x47,
-	0xc8, 0x4e, 0x43, 0x15, 0xcd, 0xf9, 0x71, 0x93, 0x1c, 0x81, 0xec, 0xcf, 0x59, 0xd0, 0xbf, 0x56,
-	0xe5, 0x02, 0x2a, 0xe5, 0x77, 0x24, 0xee, 0x08, 0x9a, 0x2e, 0x65, 0xc5, 0xdf, 0x65, 0x48, 0x8b,
-	0xa6, 0xc8, 0x11, 0x48, 0x6f, 0x47, 0x6c, 0x28, 0x06, 0x92, 0xaf, 0x3c, 0xdb, 0xdd, 0x7a, 0xf9,
-	0x7c, 0xc4, 0x86, 0x54, 0x08, 0x49, 0x03, 0xb2, 0x83, 0xfe, 0x74, 0x38, 0x62, 0x7d, 0x77, 0x14,
-	0xcc, 0xd5, 0xa4, 0xf0, 0x2b, 0xfe, 0x8b, 0xdf, 0xe9, 0x9d, 0x92, 0xc6, 0xdd, 0xf8, 0x0c, 0xd9,
-	0x6c, 0x7c, 0xe9, 0x4c, 0xd5, 0x54, 0x01, 0x95, 0xd2, 0x74, 0x69, 0x45, 0xef, 0x23, 0xc5, 0xde,
-	0xe7, 0x29, 0x64, 0xf8, 0x72, 0xf4, 0x66, 0x53, 0x57, 0xf4, 0xa7, 0xd0, 0x3d, 0x6e, 0x77, 0xa7,
-	0x2e, 0xf9, 0x0c, 0xb2, 0x62, 0xf8, 0xbd, 0x11, 0x1b, 0x3a, 0xd7, 0xea, 0x9e, 0x88, 0x05, 0x02,
-	0x6a, 0x71, 0x84, 0xe7, 0x99, 0xf4, 0x07, 0x6f, 0x9d, 0xa1, 0x9a, 0x29, 0xa0, 0x52, 0x86, 0x2e,
-	0xad, 0xf8, 0x5b, 0x29, 0xf7, 0x7c, 0xab, 0x67, 0xa0, 0xbc, 0xf1, 0x3d, 0xd6, 0x13, 0xf5, 0x81,
-	0xa8, 0x23, 0xc3, 0x01, 0x83, 0xd7, 0xf8, 0x39, 0xe4, 0x86, 0xce, 0x55, 0x7f, 0xe6, 0x06, 0xbd,
-	0xef, 0xfb, 0xee, 0xcc, 0x51, 0xb3, 0x42, 0xb0, 0xbf, 0x04, 0xbf, 0xe5, 0x58, 0xf1, 0x26, 0x09,
-	0x12, 0x9f, 0x24, 0xc1, 0xb0, 0x6f, 0x5f, 0x58, 0x7a, 0xaf, 0x6b, 0x9c, 0x1b, 0xe6, 0x4b, 0x03,
-	0x27, 0xc8, 0x01, 0x64, 0x05, 0xd2, 0x30, 0xbb, 0xf5, 0xb6, 0x8e, 0x11, 0xc9, 0x03, 0x08, 0xe0,
-	0xac, 0x6d, 0xd6, 0x6c, 0x9c, 0x8c, 0xec, 0x96, 0x61, 0x9f, 0x1c, 0xe3, 0x54, 0xe4, 0xd0, 0x0d,
-	0x01, 0x29, 0x2e, 0xa8, 0x56, 0x70, 0x3a, 0xca, 0x71, 0xd6, 0x7a, 0xa5, 0x37, 0x4e, 0x8e, 0xb1,
-	0xbc, 0x8e, 0x54, 0x2b, 0x78, 0x8f, 0xe4, 0x40, 0x11, 0x48, 0xdd, 0x34, 0xdb, 0x38, 0x13, 0xc5,
-	0xec, 0xd8, 0xb4, 0x65, 0x34, 0xb1, 0x12, 0xc5, 0x6c, 0x52, 0xb3, 0x6b, 0x61, 0x88, 0x22, 0xbc,
-	0xd0, 0x3b, 0x9d, 0x5a, 0x53, 0xc7, 0xd9, 0x48, 0x51, 0xbf, 0xb0, 0xf5, 0x0e, 0xde, 0x5f, 0x2b,
-	0xab, 0x5a, 0xc1, 0xb9, 0x28, 0x85, 0x6e, 0x74, 0x5f, 0xe0, 0x3c, 0x79, 0x00, 0xb9, 0x30, 0xc5,
-	0xaa, 0x88, 0x83, 0x0d, 0xe8, 0xe4, 0x18, 0xe3, 0xbb, 0x42, 0xc2, 0x28, 0x0f, 0xd6, 0x80, 0x93,
-	0x63, 0x4c, 0x8a, 0x01, 0x64, 0x63, 0xbb, 0x45, 0x9e, 0xc0, 0xc3, 0xd3, 0x1a, 0x6d, 0xb4, 0x8c,
-	0x5a, 0xbb, 0x65, 0x5f, 0xc4, 0xe6, 0xaa, 0xc2, 0xa3, 0x38, 0x61, 0x5a, 0x76, 0xcb, 0x34, 0x6a,
-	0x6d, 0x8c, 0x36, 0x19, 0xaa, 0x7f, 0xd3, 0x6d, 0x51, 0xbd, 0x81, 0x93, 0xdb, 0x8c, 0xa5, 0xd7,
-	0x6c, 0xbd, 0x81, 0x53, 0xc5, 0xbf, 0x11, 0x48, 0x3a, 0x9b, 0x8d, 0x77, 0x9e, 0x91, 0xaf, 0x40,
-	0x71, 0xd8, 0x6c, 0x1c, 0x3e, 0x7f, 0x78, 0x49, 0x0e, 0xb7, 0x96, 0x8a, 0x7b, 0x8b, 0x65, 0xa0,
-	0x77, 0xe2, 0xf8, 0x32, 0xa6, 0xfe, 0xf7, 0xe1, 0x90, 0x3e, 0xed, 0x70, 0xa4, 0xef, 0x77, 0x38,
-	0xde, 0x80, 0x12, 0xb5, 0xb0, 0x73, 0x0a, 0x77, 0x1f, 0x76, 0x72, 0xed, 0xc3, 0xfe, 0xef, 0x3d,
-	0x16, 0xbf, 0x06, 0x39, 0x84, 0x76, 0x26, 0x7a, 0x0e, 0xe9, 0xd5, 0xa8, 0x79, 0xe3, 0x8f, 0xb6,
-	0xc2, 0xd5, 0xd8, 0x9c, 0x86, 0x92, 0xe7, 0x65, 0x90, 0xc3, 0x3e, 0xf8, 0xb2, 0x75, 0x2e, 0x0c,
-	0xbb, 0xf6, 0xaa, 0x67, 0x51, 0xd3, 0x36, 0x2b, 0x38, 0xb1, 0x09, 0x55, 0x31, 0xaa, 0xff, 0x84,
-	0xde, 0xdd, 0x6a, 0x89, 0x3f, 0x6e, 0xb5, 0xc4, 0x87, 0x5b, 0x0d, 0x7d, 0xbc, 0xd5, 0xd0, 0x8f,
-	0x0b, 0x0d, 0xfd, 0xba, 0xd0, 0xd0, 0xcd, 0x42, 0x43, 0xef, 0x16, 0x1a, 0xfa, 0x73, 0xa1, 0xa1,
-	0xbf, 0x16, 0x5a, 0xe2, 0x03, 0xc7, 0xdf, 0x6b, 0xe8, 0xe6, 0xbd, 0x86, 0xe0, 0xe1, 0xc0, 0x1b,
-	0x6f, 0x96, 0x51, 0x57, 0xf8, 0xff, 0x8e, 0xc5, 0x2d, 0x0b, 0x7d, 0x97, 0xe6, 0x87, 0xcb, 0xff,
-	0x88, 0xd0, 0x2f, 0xc9, 0x54, 0xd3, 0xaa, 0xff, 0x96, 0xd4, 0x9a, 0xa1, 0xdc, 0x5a, 0x55, 0xfd,
-	0xd2, 0x71, 0xdd, 0x73, 0xe6, 0xfd, 0xc0, 0xb8, 0x9b, 0x7f, 0x29, 0x8b, 0x38, 0xd5, 0x7f, 0x02,
-	0x00, 0x00, 0xff, 0xff, 0x74, 0x97, 0x69, 0x12, 0x2f, 0x07, 0x00, 0x00,
-}

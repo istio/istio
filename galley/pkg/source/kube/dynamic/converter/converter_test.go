@@ -22,19 +22,18 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+
+	authn "istio.io/api/authentication/v1alpha1"
+	meshcfg "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/config/mesh"
+
 	extensions "k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	authn "istio.io/api/authentication/v1alpha1"
-	meshcfg "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestGet(t *testing.T) {
@@ -147,7 +146,7 @@ func TestIdentity(t *testing.T) {
 
 func TestIdentity_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Any")
 	s := b.Build()
 
 	info := s.Get("foo")
@@ -166,6 +165,27 @@ func TestIdentity_Error(t *testing.T) {
 	_, err := identity(nil, info, key, "", u)
 	if err == nil {
 		t.Fatal("Expected error not found")
+	}
+}
+
+func TestIdentity_IgnoreExtraValue(t *testing.T) {
+	b := resource.NewSchemaBuilder()
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	s := b.Build()
+
+	info := s.Get("foo")
+
+	u := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"extra": "value",
+		},
+	}
+
+	key := resource.FullNameFromNamespaceAndName("", "Key")
+
+	_, err := identity(nil, info, key, "", u)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
@@ -525,10 +545,10 @@ func TestKubeIngressResource(t *testing.T) {
 }
 
 func TestShouldProcessIngress(t *testing.T) {
-	istio := model.DefaultMeshConfig().IngressClass
+	istio := mesh.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   meshcfg.MeshConfig_IngressControllerMode
 		ingressClass  string
+		ingressMode   meshcfg.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
 		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
@@ -542,21 +562,21 @@ func TestShouldProcessIngress(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ing := v1beta1.Ingress{
+		ing := extensions.Ingress{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:        "test-ingress",
 				Namespace:   "default",
 				Annotations: make(map[string]string),
 			},
-			Spec: v1beta1.IngressSpec{
-				Backend: &v1beta1.IngressBackend{
+			Spec: extensions.IngressSpec{
+				Backend: &extensions.IngressBackend{
 					ServiceName: "default-http-backend",
 					ServicePort: intstr.FromInt(80),
 				},
 			},
 		}
 
-		mesh := model.DefaultMeshConfig()
+		mesh := mesh.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 		cch := meshconfig.NewInMemory()
 		cch.Set(mesh)
@@ -570,115 +590,5 @@ func TestShouldProcessIngress(t *testing.T) {
 			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v for mesh config %v",
 				c.ingressClass, !c.shouldProcess, c.shouldProcess, c.ingressMode)
 		}
-	}
-}
-
-func TestKubeServiceResource(t *testing.T) {
-	cases := []struct {
-		name string
-		from corev1.Service
-		want Entry
-	}{
-		{
-			name: "Simple",
-			from: corev1.Service{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:              "reviews",
-					Namespace:         "default",
-					CreationTimestamp: metaV1.Time{Time: fakeCreateTime},
-					Annotations: map[string]string{
-						"a1_key": "a1_value",
-						"a2_key": "a2_value",
-					},
-					Labels: map[string]string{
-						"l1_key": "l1_value",
-						"l2_key": "l2_value",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.39.241.161",
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "http",
-							Protocol:   "TCP",
-							Port:       9080,
-							TargetPort: intstr.FromInt(9080),
-						},
-						{
-							Name:       "https-web",
-							Protocol:   "TCP",
-							Port:       9081,
-							TargetPort: intstr.FromInt(9081),
-						},
-						{
-							Name:       "ssh",
-							Protocol:   "TCP",
-							Port:       9082,
-							TargetPort: intstr.FromInt(9082),
-						},
-					},
-				},
-			},
-			want: Entry{
-				Key: resource.FullNameFromNamespaceAndName("default", "reviews"),
-				Metadata: resource.Metadata{
-					Annotations: map[string]string{
-						"a1_key": "a1_value",
-						"a2_key": "a2_value",
-					},
-					Labels: map[string]string{
-						"l1_key": "l1_value",
-						"l2_key": "l2_value",
-					},
-					CreateTime: fakeCreateTime.Local(),
-				},
-				Resource: &networking.ServiceEntry{
-					Hosts:      []string{"reviews.default.svc.cluster.local"},
-					Addresses:  []string{"10.39.241.161"},
-					Resolution: networking.ServiceEntry_STATIC,
-					Location:   networking.ServiceEntry_MESH_INTERNAL,
-					Ports: []*networking.Port{
-						{
-							Name:     "http",
-							Number:   9080,
-							Protocol: "HTTP",
-						},
-						{
-							Name:     "https-web",
-							Number:   9081,
-							Protocol: "HTTPS",
-						},
-						{
-							Name:     "ssh",
-							Number:   9082,
-							Protocol: "TCP",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			var u unstructured.Unstructured
-			u.Object = make(map[string]interface{})
-			if err := convertJSON(&c.from, &u.Object); err != nil {
-				t.Fatalf("Internal test error: %v", err)
-			}
-			entries, err := kubeServiceResource(&Config{DomainSuffix: "cluster.local"}, resource.Info{}, c.want.Key, "kind", &u)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if len(entries) != 1 {
-				t.Fatalf("Expected one entry: %v", entries)
-			}
-
-			got := entries[0]
-
-			if !reflect.DeepEqual(got, c.want) {
-				t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, c.want)
-			}
-		})
 	}
 }

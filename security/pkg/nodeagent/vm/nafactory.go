@@ -39,7 +39,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 
 	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
+		cfg.CAClientConfig.CertChainFile)
 	if err != nil {
 		return nil, err
 	}

@@ -22,8 +22,9 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_v1 "istio.io/api/mixer/v1"
@@ -156,9 +157,9 @@ spec:
   template: quota
   params:
     dimensions:
-      source: source.labels["app"] | source.service | "unknown"
+      source: source.labels["app"] | source.name | "unknown"
       sourceVersion: source.labels["version"] | "unknown"
-      destination: destination.labels["app"] | destination.service | "unknown"
+      destination: destination.labels["app"] | destination.service.host | "unknown"
       destinationVersion: destination.labels["version"] | "unknown"
 ---
 `
@@ -671,7 +672,7 @@ func TestNoSessionBackend(t *testing.T) {
 						BestEffort: true,
 					},
 				},
-				Attrs: map[string]interface{}{"source.service": "foobar"},
+				Attrs: map[string]interface{}{"source.name": "foobar"},
 			}},
 			want: `
 					    		{
@@ -682,7 +683,7 @@ func TestNoSessionBackend(t *testing.T) {
 					    		    "name": "i3list.instance.istio-system",
 					    		    "value": {
                                       "Value": {
-                                        "StringValue": "defaultstr"
+                                        "StringValue": "foobar"
                                       }
                                     }
 					    		   }

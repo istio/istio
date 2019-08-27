@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiocoredns
@@ -10,6 +10,13 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: istiocoredns
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       name: istiocoredns
@@ -20,7 +27,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istiocoredns-service-account
 {{- if .Values.global.priorityClassName }}
@@ -28,8 +34,8 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: {{ .Values.coreDNSImage }}
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.coreDNSImage }}:{{ .Values.coreDNSTag }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume
@@ -63,7 +69,7 @@ spec:
         command:
         - /usr/local/bin/plugin
         image: {{ .Values.coreDNSPluginImage }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 8053
           name: dns-grpc
@@ -84,3 +90,11 @@ spec:
             path: Corefile
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}

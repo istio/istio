@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
@@ -64,32 +65,14 @@ gCojNs0xyJ77JA80HLY7iR4J6BRYsZQ/5UB/pYR55e4TGFDbI+C/6NBqLkzEfyX0
 1sT/u25qExkefck=
 -----END CERTIFICATE REQUEST-----`
 
-type mockCA struct {
-	cert      string
-	root      string
-	certChain string
-	errMsg    string
-}
-
-func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
-	if ca.errMsg != "" {
-		return nil, fmt.Errorf(ca.errMsg)
-	}
-	return []byte(ca.cert), nil
-}
-
-func (ca *mockCA) GetRootCertificate() []byte {
-	return []byte(ca.root)
-}
-
-func (ca *mockCA) GetCertChain() []byte {
-	return []byte(ca.certChain)
-}
-
 type mockAuthenticator struct {
 	authSource authenticate.AuthSource
 	identities []string
 	errMsg     string
+}
+
+func (authn *mockAuthenticator) AuthenticatorType() string {
+	return "mockAuthenticator"
 }
 
 func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
@@ -113,6 +96,55 @@ func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requested
 		return fmt.Errorf("%v", authz.errMsg)
 	}
 	return nil
+}
+
+// Test the root cert expiry timestamp can be extracted correctly.
+func TestExtractRootCertExpiryTimestamp(t *testing.T) {
+	cert, key, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
+		Host:         "citadel.testing.istio.io",
+		NotBefore:    time.Now(),
+		TTL:          time.Second * 5,
+		Org:          "MyOrg",
+		IsCA:         true,
+		IsSelfSigned: true,
+		IsServer:     true,
+		RSAKeySize:   512,
+	})
+	if err != nil {
+		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
+	}
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	if err != nil {
+		t.Errorf("failed to create key cert bundle %v", err)
+	}
+	ca := &mockca.FakeCA{
+		KeyCertBundle: kb,
+	}
+	testCases := []struct {
+		name     string
+		ttlRange []float64
+		sleep    int
+	}{
+		{
+			name:     "ttl-valid",
+			ttlRange: []float64{3, 5},
+			sleep:    3,
+		},
+		{
+			name:     "ttl-valid-3s-less",
+			ttlRange: []float64{0, 2},
+			sleep:    3,
+		},
+	}
+	for _, tc := range testCases {
+		sec := extractRootCertExpiryTimestamp(ca) - float64(time.Now().Unix())
+		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
+			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+		}
+		if tc.sleep != 0 {
+			time.Sleep(time.Duration(tc.sleep) * time.Second)
+		}
+	}
 }
 
 func TestCreateCertificate(t *testing.T) {
@@ -419,9 +451,9 @@ func TestRun(t *testing.T) {
 	for id, tc := range testCases {
 		if k8sEnv {
 			// K8s JWT authenticator is added in k8s env.
-			tc.expectedAuthenticatorsLen = tc.expectedAuthenticatorsLen + 1
+			tc.expectedAuthenticatorsLen++
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com")
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true)
 		if err == nil {
 			err = server.Run()
 		}

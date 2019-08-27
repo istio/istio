@@ -21,11 +21,12 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 type kubeComponent struct {
@@ -57,50 +58,82 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, nil
 	}
 
-	helmDir, err := ctx.CreateTmpDirectory("istio-deployment-yaml-split")
+	// Top-level work dir for Istio deployment.
+	workDir, err := ctx.CreateTmpDirectory("istio-deployment")
 	if err != nil {
 		return nil, err
 	}
 
-	generatedYaml, err := generateIstioYaml(helmDir, cfg)
+	// Create helm working dir
+	helmWorkDir := path.Join(workDir, "helm")
+	if err := os.MkdirAll(helmWorkDir, os.ModePerm); err != nil {
+		return nil, err
+	}
+
+	// First, generate CRDs.
+	crdYaml, err := generateCRDYaml(cfg.CrdsFilesDir)
 	if err != nil {
 		return nil, err
 	}
 
-	// Write out istio.yaml for debugging purposes.
-	dir, err := ctx.CreateTmpDirectory("istio-deployment-yaml")
+	// Generate rendered yaml file for Istio, including namespace.
+	istioYaml, err := generateIstioYaml(helmWorkDir, cfg)
 	if err != nil {
-		scopes.Framework.Errorf("Unable to create tmp directory to write out istio.yaml: %v", err)
-	} else {
-		p := path.Join(dir, "istio.yaml")
-		if err = ioutil.WriteFile(p, []byte(generatedYaml), os.ModePerm); err != nil {
-			scopes.Framework.Errorf("error writing istio.yaml: %v", err)
-		} else {
-			scopes.Framework.Debugf("Wrote out istio.yaml at: %s", p)
-			scopes.CI.Infof("Wrote out istio.yaml at: %s", p)
-		}
-	}
-	// split installation & configuration into two distinct steps int
-	installYaml, configureYaml := splitIstioYaml(generatedYaml)
-
-	installYamlFilePath := path.Join(helmDir, "istio-install.yaml")
-	if err = ioutil.WriteFile(installYamlFilePath, []byte(installYaml), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
+		return nil, err
 	}
 
-	configureYamlFilePath := path.Join(helmDir, "istio-configure.yaml")
-	if err = ioutil.WriteFile(configureYamlFilePath, []byte(configureYaml), os.ModePerm); err != nil {
-		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
+	// split installation & configuration into two distinct steps, so that we can submit configuration before waiting
+	// for Galley to come online.
+	installYaml, configureYaml := splitIstioYaml(istioYaml)
+
+	// Write out as files for deployment and debugging purposes.
+	crdFile := path.Join(workDir, "crd.yaml")
+	if err = ioutil.WriteFile(crdFile, []byte(crdYaml), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("unable to write %q: %v", crdFile, err)
+	}
+	istioFile := path.Join(workDir, "istio.yaml")
+	if err = ioutil.WriteFile(istioFile, []byte(istioYaml), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("unable to write %q: %v", istioFile, err)
+	}
+	istioInstallFile := path.Join(workDir, "istio-install-only.yaml")
+	if err = ioutil.WriteFile(istioInstallFile, []byte(installYaml), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("unable to write %q: %v", istioInstallFile, err)
+	}
+	istioConfigFile := path.Join(workDir, "istio-config-only.yaml")
+	if err = ioutil.WriteFile(istioConfigFile, []byte(configureYaml), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("unable to write %q: %v", istioConfigFile, err)
+	}
+	scopes.CI.Infof("Wrote out istio deployment files at: %s", workDir)
+
+	// Apply CRDs first.
+	if err = env.Accessor.Apply("", crdFile); err != nil {
+		return nil, err
 	}
 
-	scopes.CI.Infof("Created Helm-generated Yaml file(s): %s, %s", installYamlFilePath, configureYamlFilePath)
-	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, installYamlFilePath)
-
+	// Deploy Istio.
+	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, istioInstallFile)
 	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
 		return nil, err
 	}
 
-	if err = env.Accessor.Apply(cfg.SystemNamespace, configureYamlFilePath); err != nil {
+	if !cfg.SkipWaitForValidationWebhook {
+
+		// Wait for Galley & the validation webhook to come online before applying Istio configurations.
+		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+			scopes.CI.Info(err.Error())
+			return nil, err
+		}
+
+		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
+		err = waitForValidationWebhook(env.Accessor)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Then, apply Istio configuration.
+	if err = env.Accessor.Apply("", istioConfigFile); err != nil {
 		return nil, err
 	}
 
@@ -140,6 +173,7 @@ func (i *kubeComponent) Dump() {
 	}
 
 	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessor)
+	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.Accessor)
 
 	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
 	if err != nil {
@@ -149,7 +183,7 @@ func (i *kubeComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name)
+			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue

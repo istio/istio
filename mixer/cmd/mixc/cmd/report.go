@@ -84,7 +84,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 					DefaultWords: dw,
 				}
 				if rl != nil {
-					rl.Wait(context.Background())
+					_ = rl.Wait(context.Background())
 				}
 				_, err := cs.client.Report(ctx, &request)
 

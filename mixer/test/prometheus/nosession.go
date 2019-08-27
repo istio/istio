@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/mixer/adapter/prometheus"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/pkg/pool"
 )
 
 type (
@@ -71,7 +71,7 @@ var _ metric.HandleMetricServiceServer = &NoSessionServer{}
 
 func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	s.builderLock.RLock()
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		h := s.h
 		s.builderLock.RUnlock()
 		return h, nil
@@ -90,7 +90,7 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	defer s.builderLock.Unlock()
 
 	// check again if someone else beat you to this.
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		return s.h, nil
 	}
 
@@ -103,8 +103,7 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 
 	h, err := s.builder.Build(context.Background(), s.env)
 	if err != nil {
-		s.env.Logger().Errorf("could not build: %v", err)
-		return nil, err
+		return nil, s.env.Logger().Errorf("could not build: %v", err)
 	}
 	s.rawcfg = rawcfg
 	s.h = h.(metric.Handler)
@@ -152,8 +151,7 @@ func (s *NoSessionServer) HandleMetric(ctx context.Context, r *metric.HandleMetr
 	}
 
 	if err = h.HandleMetric(ctx, instances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
+		return nil, s.env.Logger().Errorf("Could not process: %v", err)
 	}
 
 	return &adptModel.ReportResult{}, nil

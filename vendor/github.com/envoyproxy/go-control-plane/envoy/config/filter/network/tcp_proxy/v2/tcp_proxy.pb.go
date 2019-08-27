@@ -5,18 +5,16 @@ package v2
 
 import (
 	fmt "fmt"
-	io "io"
-	math "math"
-	time "time"
-
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	types "github.com/gogo/protobuf/types"
-	_ "github.com/lyft/protoc-gen-validate/validate"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	io "io"
+	math "math"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -60,44 +58,7 @@ type TcpProxy struct {
 	// Configuration for :ref:`access logs <arch_overview_access_logs>`
 	// emitted by the this tcp_proxy.
 	AccessLog []*v2.AccessLog `protobuf:"bytes,5,rep,name=access_log,json=accessLog,proto3" json:"access_log,omitempty"`
-	// TCP Proxy filter configuration using deprecated V1 format. This is required for complex
-	// routing until filter chain matching in the listener is implemented.
-	//
-	// Example:
-	//
-	// .. code-block:: yaml
-	//
-	//     - name: "envoy.tcp_proxy"
-	//       config:
-	//         deprecated_v1: true
-	//         value:
-	//           stat_prefix: "prefix"
-	//           access_log:
-	//             - ...
-	//           route_config:
-	//             routes:
-	//               - cluster: "cluster"
-	//                 destination_ip_list:
-	//                   - "10.1.0.0/8"
-	//                 destination_ports: "8080"
-	//                 source_ip_list:
-	//                   - "10.1.0.0/16"
-	//                   - "2001:db8::/32"
-	//                 source_ports: "8000,9000-9999"
-	//
-	// .. attention::
-	//
-	//   Using the deprecated V1 configuration excludes the use of any V2 configuration options. Only
-	//   the V1 configuration is used. All available fields are shown in the example, although the
-	//   access log configuration is omitted for simplicity. The access log configuration uses the
-	//   :repo:`deprecated V1 access log configuration<source/common/json/config_schemas.cc>`.
-	//
-	// .. attention::
-	//
-	//   In the deprecated V1 configuration, source and destination CIDR ranges are specified as a
-	//   list of strings with each string in CIDR notation. Source and destination ports are
-	//   specified as single strings containing a comma-separated list of ports and/or port ranges.
-	//
+	// [#not-implemented-hide:] Deprecated.
 	DeprecatedV1 *TcpProxy_DeprecatedV1 `protobuf:"bytes,6,opt,name=deprecated_v1,json=deprecatedV1,proto3" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
 	// The maximum number of unsuccessful connection attempts that will be made before
 	// giving up. If the parameter is not specified, 1 connection attempt will be made.
@@ -304,9 +265,8 @@ func _TcpProxy_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// TCP Proxy filter configuration using V1 format, until Envoy gets the
-// ability to match source/destination at the listener level (called
-// :ref:`filter chain match <envoy_api_msg_listener.FilterChainMatch>`).
+// [#not-implemented-hide:] Deprecated.
+// TCP Proxy filter configuration using V1 format.
 type TcpProxy_DeprecatedV1 struct {
 	// The route table for the filter. All filter instances must have a route
 	// table, even if it is empty.

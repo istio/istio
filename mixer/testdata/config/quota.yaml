@@ -34,9 +34,9 @@ metadata:
   namespace: istio-system
 spec:
   dimensions:
-    source: source.labels["app"] | source.service | "unknown"
+    source: source.labels["app"] | "unknown"
     sourceVersion: source.labels["version"] | "unknown"
-    destination: destination.labels["app"] | destination.service | "unknown"
+    destination: destination.labels["app"] | destination.service.name | "unknown"
     destinationVersion: destination.labels["version"] | "unknown"
 
 ---

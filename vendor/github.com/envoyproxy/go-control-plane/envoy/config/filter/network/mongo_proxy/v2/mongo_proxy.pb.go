@@ -5,13 +5,11 @@ package v2
 
 import (
 	fmt "fmt"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
+	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
-
-	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
-
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

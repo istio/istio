@@ -17,14 +17,15 @@ package policybackend
 import (
 	"encoding/json"
 	"reflect"
-	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/pkg/test"
 )
 
 // ContainsReportJSON checks whether the given proto array contains the expected string
-func ContainsReportJSON(t testing.TB, reports []proto.Message, expected string) bool {
+func ContainsReportJSON(t test.Failer, reports []proto.Message, expected string) bool {
 	t.Helper()
 
 	e, err := jsonStringToMap(expected)
@@ -69,7 +70,7 @@ func jsonStringToMap(s string) (map[string]interface{}, error) {
 	return i, nil
 }
 
-func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
+func jsonStringsToMaps(t test.Failer, arr []string) []map[string]interface{} {
 	var result []map[string]interface{}
 
 	for _, a := range arr {

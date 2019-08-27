@@ -22,10 +22,11 @@ import (
 
 	api_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
+	"istio.io/pkg/attribute"
 )
 
 const (
@@ -262,7 +263,7 @@ func TestServer(t *testing.T) {
 			requestBag.Set(k, v)
 		}
 		var attrProto api_mixer_v1.CompressedAttributes
-		requestBag.ToProto(&attrProto, nil, 0)
+		attr.ToProto(requestBag, &attrProto, nil, 0)
 
 		req := &api_mixer_v1.CheckRequest{
 			Attributes: attrProto,

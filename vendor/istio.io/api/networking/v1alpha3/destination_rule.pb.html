@@ -4,7 +4,7 @@ description: Configuration affecting load balancing, outlier detection, etc.
 location: https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 15
+number_of_entries: 16
 ---
 <p><code>DestinationRule</code> defines policies that apply to traffic intended for a
 service after routing has occurred. These rules specify configuration
@@ -77,7 +77,7 @@ spec:
 <h2 id="ConnectionPoolSettings">ConnectionPoolSettings</h2>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
-each individual host in the upstream service.  See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking">circuit
+each individual host in the upstream service.  See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking">circuit
 breaker</a>
 for more details. Connection pool settings can be applied at the TCP
 level as well as at HTTP level.</p>
@@ -163,7 +163,8 @@ spec:
 <td><code>int32</code></td>
 <td>
 <p>Maximum number of requests per connection to a backend. Setting this
-parameter to 1 disables keep alive.</p>
+parameter to 1 disables keep alive. Default 0, meaning &ldquo;unlimited&rdquo;,
+up to 2^29.</p>
 
 </td>
 </tr>
@@ -172,7 +173,63 @@ parameter to 1 disables keep alive.</p>
 <td><code>int32</code></td>
 <td>
 <p>Maximum number of retries that can be outstanding to all hosts in a
-cluster at a given time. Defaults to 3.</p>
+cluster at a given time. Defaults to 1024.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-idle_timeout">
+<td><code>idleTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
+If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.
+Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-h2_upgrade_policy">
+<td><code>h2UpgradePolicy</code></td>
+<td><code><a href="#ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy">ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy</a></code></td>
+<td>
+<p>Specify if http1.1 connection should be upgraded to http2 for the associated destination.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy">ConnectionPoolSettings.HTTPSettings.H2UpgradePolicy</h2>
+<section>
+<p>Policy for upgrading http1.1 connections to http2.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Use the global default.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-DO_NOT_UPGRADE">
+<td><code>DO_NOT_UPGRADE</code></td>
+<td>
+<p>Do not upgrade the connection to http2.
+This opt-out option overrides the default.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-H2UpgradePolicy-UPGRADE">
+<td><code>UPGRADE</code></td>
+<td>
+<p>Upgrade the connection to http2.
+This opt-in option overrides the default.</p>
 
 </td>
 </tr>
@@ -196,7 +253,7 @@ cluster at a given time. Defaults to 3.</p>
 <td><code>maxConnections</code></td>
 <td><code>int32</code></td>
 <td>
-<p>Maximum number of HTTP1 /TCP connections to a destination host.</p>
+<p>Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.</p>
 
 </td>
 </tr>
@@ -283,13 +340,13 @@ Default is to use the OS level configuration
 <p>REQUIRED. The name of a service from the service registry. Service
 names are looked up from the platform&rsquo;s service registry (e.g.,
 Kubernetes services, Consul services, etc.) and from the hosts
-declared by <a href="/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntries</a>. Rules defined for
+declared by <a href="https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry">ServiceEntries</a>. Rules defined for
 services that do not exist in the service registry will be ignored.</p>
 
 <p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
 instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
 the short name based on the namespace of the rule, not the service. A
-rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews&rdquo; will be
 interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
 the actual namespace associated with the reviews service. <em>To avoid
 potential misconfigurations, it is recommended to always use fully
@@ -348,7 +405,7 @@ defines an export to all namespaces.</p>
 <section>
 <p>Load balancing policies to apply for a specific destination. See Envoy&rsquo;s
 load balancing
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing">documentation</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancing">documentation</a>
 for more details.</p>
 
 <p>For example, the following rule uses a round robin load balancing policy
@@ -565,7 +622,7 @@ TCP services.  For HTTP services, hosts that continually return 5xx
 errors for API calls are ejected from the pool for a pre-defined period
 of time. For TCP services, connection timeouts or connection
 failures to a given host counts as an error when measuring the
-consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
+consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier">outlier
 detection</a>
 for more details.</p>
 
@@ -653,7 +710,9 @@ service that can be ejected. Defaults to 10%.</p>
 pool has at least min<em>health</em>percent hosts in healthy mode. When the
 percentage of healthy hosts in the load balancing pool drops below this
 threshold, outlier detection will be disabled and the proxy will load balance
-across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
+across all hosts in the pool (healthy and unhealthy). The threshold can be
+disabled by setting it to 0%. The default is 0% as it&rsquo;s not typically
+applicable in k8s environments with few pods per service.</p>
 
 </td>
 </tr>
@@ -664,7 +723,7 @@ across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
 <section>
 <p>A subset of endpoints of a service. Subsets can be used for scenarios
 like A/B testing, or routing to a specific version of a service. Refer
-to <a href="/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService">VirtualService</a> documentation for examples of using
+to <a href="https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService">VirtualService</a> documentation for examples of using
 subsets in these scenarios. In addition, traffic policies defined at the
 service-level can be overridden at a subset-level. The following rule
 uses a round robin load balancing policy for all traffic going to a
@@ -988,13 +1047,8 @@ to fields omitted in port-level traffic policies.</p>
 <td><code>port</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port name or number of a port on the destination service
+<p>Specifies the number of a port on the destination service
 on which this policy is being applied.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form <protocol-name>-<DNS
-label>.</p>
 
 </td>
 </tr>

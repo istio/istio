@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -172,7 +172,6 @@ func StartSecretController(k8s kubernetes.Interface,
 
 func (c *Controller) runWorker() {
 	for c.processNextItem() {
-		// continue looping
 	}
 }
 

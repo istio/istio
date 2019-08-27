@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -30,15 +31,13 @@ import (
 const mockServerAddress = "localhost:0"
 
 var (
-	fakeCert            = []string{"foo", "bar"}
-	fakeCertPodIdentity = []string{"podfoo", "podbar"}
-	fakeToken           = "Bearer fakeToken"
+	fakeCert  = []string{"foo", "bar"}
+	fakeToken = "Bearer fakeToken"
 )
 
 type mockCAServer struct {
-	Certs            []string
-	CertsPodIdentity []string
-	Err              error
+	Certs []string
+	Err   error
 }
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
@@ -48,16 +47,10 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCe
 	return nil, ca.Err
 }
 
-func (ca *mockCAServer) CreatePodCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
-	if ca.Err == nil {
-		return &gcapb.IstioCertificateResponse{CertChain: ca.CertsPodIdentity}, nil
-	}
-	return nil, ca.Err
-}
-
 func TestGoogleCAClient(t *testing.T) {
+	os.Setenv("GKE_CLUSTER_URL", "https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1")
 	defer func() {
-		usePodDefaultFlag = false
+		os.Unsetenv("GKE_CLUSTER_URL")
 	}()
 
 	testCases := map[string]struct {
@@ -66,7 +59,7 @@ func TestGoogleCAClient(t *testing.T) {
 		expectedErr  string
 	}{
 		"Valid certs": {
-			server:       mockCAServer{Certs: fakeCert, CertsPodIdentity: fakeCertPodIdentity, Err: nil},
+			server:       mockCAServer{Certs: fakeCert, Err: nil},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 		},
@@ -94,7 +87,7 @@ func TestGoogleCAClient(t *testing.T) {
 		go func() {
 			gcapb.RegisterIstioCertificateServiceServer(s, &tc.server)
 			if err := s.Serve(lis); err != nil {
-				t.Fatalf("Test case [%s]: failed to serve: %v", id, err)
+				t.Logf("Test case [%s]: failed to serve: %v", id, err)
 			}
 		}()
 
@@ -117,6 +110,29 @@ func TestGoogleCAClient(t *testing.T) {
 			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
 				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
 			}
+		}
+	}
+}
+
+func TestParseZone(t *testing.T) {
+	testCases := map[string]struct {
+		clusterURL   string
+		expectedZone string
+	}{
+		"Valid URL": {
+			clusterURL:   "https://container.googleapis.com/v1/projects/testproj1/locations/us-central1-c/clusters/c1",
+			expectedZone: "us-central1-c",
+		},
+		"InValid response": {
+			clusterURL:   "aaa",
+			expectedZone: "",
+		},
+	}
+
+	for id, tc := range testCases {
+		zone := parseZone(tc.clusterURL)
+		if zone != tc.expectedZone {
+			t.Errorf("Test case [%s]: proj: got %+v, expected %v", id, zone, tc.expectedZone)
 		}
 	}
 }

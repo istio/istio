@@ -31,9 +31,9 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (

@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -54,16 +54,6 @@ type GcpClientImpl struct {
 	// Istio CA grpc server
 	caAddr  string
 	fetcher cred.TokenFetcher
-}
-
-// NewGcpClientImpl creates a new GcpClientImpl.
-func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
-	return &GcpClientImpl{
-		rootCertFile: rootCert,
-		caAddr:       ca,
-		// The expected token is independent of the URL of the server.
-		fetcher: &cred.GcpTokenFetcher{Aud: "grpc://istio-citadel:8060"},
-	}
 }
 
 // IsProperPlatform returns whether the client is on GCE.

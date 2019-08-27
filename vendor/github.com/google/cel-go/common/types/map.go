@@ -25,6 +25,7 @@ import (
 
 // baseMap is a reflection based map implementation designed to handle a variety of map-like types.
 type baseMap struct {
+	ref.TypeAdapter
 	value    interface{}
 	refValue reflect.Value
 }
@@ -37,8 +38,11 @@ type stringMap struct {
 }
 
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
-func NewDynamicMap(value interface{}) traits.Mapper {
-	return &baseMap{value, reflect.ValueOf(value)}
+func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
+	return &baseMap{
+		TypeAdapter: adapter,
+		value:       value,
+		refValue:    reflect.ValueOf(value)}
 }
 
 // NewStringStringMap returns a specialized traits.Mapper with string keys and values.
@@ -186,7 +190,7 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 	if !value.IsValid() {
 		return NewErr("no such key: '%v'", nativeKey)
 	}
-	return NativeToValue(value.Interface())
+	return m.NativeToValue(value.Interface())
 }
 
 func (m *stringMap) Get(key ref.Val) ref.Val {
@@ -205,6 +209,7 @@ func (m *baseMap) Iterator() traits.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
 		baseIterator: &baseIterator{},
+		TypeAdapter:  m.TypeAdapter,
 		mapValue:     m,
 		mapKeys:      mapKeys,
 		cursor:       0,
@@ -236,6 +241,7 @@ func (m *baseMap) Value() interface{} {
 
 type mapIterator struct {
 	*baseIterator
+	ref.TypeAdapter
 	mapValue traits.Mapper
 	mapKeys  []reflect.Value
 	cursor   int
@@ -251,7 +257,7 @@ func (it *mapIterator) Next() ref.Val {
 		index := it.cursor
 		it.cursor++
 		refKey := it.mapKeys[index]
-		return NativeToValue(refKey.Interface())
+		return it.NativeToValue(refKey.Interface())
 	}
 	return nil
 }

@@ -69,15 +69,17 @@ metadata:
 ---
 # YAML for apa
 apiVersion: "config.istio.io/v1alpha2"
-kind: sampleapa
+kind: instance
 metadata:
   name: apaInstance
   namespace: istio-system
 spec:
-  int64Primitive: "2"
-  boolPrimitive: "true"
-  doublePrimitive: "2.2"
-  stringPrimitive: "\"mysrc\""
+  compiledTemplate: sampleapa
+  params:
+    int64Primitive: "2"
+    boolPrimitive: "true"
+    doublePrimitive: "2.2"
+    stringPrimitive: "\"mysrc\""
   attribute_bindings:
     generated.string: $out.stringPrimitive
     generated.bool: $out.boolPrimitive
@@ -96,7 +98,7 @@ spec:
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
-    - apaInstance.sampleapa
+    - apaInstance
 
 ---
 # YAML for report that depend on APA output
@@ -158,7 +160,7 @@ func TestApa(t *testing.T) {
 					Name: "HandleSampleApaAttributes",
 					Instances: []interface{}{
 						&apaTmpl.Instance{
-							Name:            "apaInstance.sampleapa.istio-system",
+							Name:            "apaInstance.instance.istio-system",
 							BoolPrimitive:   true,
 							DoublePrimitive: float64(2.2),
 							Int64Primitive:  int64(2),

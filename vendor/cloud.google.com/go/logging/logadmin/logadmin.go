@@ -26,8 +26,8 @@
 package logadmin // import "cloud.google.com/go/logging/logadmin"
 
 import (
+	"context"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,17 +38,14 @@ import (
 	vkit "cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/logging/internal"
 	"github.com/golang/protobuf/ptypes"
-	gax "github.com/googleapis/gax-go"
-	"golang.org/x/net/context"
+	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	_ "google.golang.org/genproto/googleapis/appengine/logging/v1" // Import the following so EntryIterator can unmarshal log protos.
+	_ "google.golang.org/genproto/googleapis/cloud/audit"
 	logtypepb "google.golang.org/genproto/googleapis/logging/type"
 	logpb "google.golang.org/genproto/googleapis/logging/v2"
 	"google.golang.org/grpc/codes"
-
-	// Import the following so EntryIterator can unmarshal log protos.
-	_ "google.golang.org/genproto/googleapis/appengine/logging/v1"
-	_ "google.golang.org/genproto/googleapis/cloud/audit"
 )
 
 // Client is a Logging client. A Client is associated with a single Cloud project.
@@ -287,13 +284,6 @@ func (it *EntryIterator) fetch(pageSize int, pageToken string) (string, error) {
 	})
 }
 
-func trunc32(i int) int32 {
-	if i > math.MaxInt32 {
-		i = math.MaxInt32
-	}
-	return int32(i)
-}
-
 var slashUnescaper = strings.NewReplacer("%2F", "/", "%2f", "/")
 
 func fromLogEntry(le *logpb.LogEntry) (*logging.Entry, error) {
@@ -326,16 +316,17 @@ func fromLogEntry(le *logpb.LogEntry) (*logging.Entry, error) {
 		return nil, err
 	}
 	return &logging.Entry{
-		Timestamp:   time,
-		Severity:    logging.Severity(le.Severity),
-		Payload:     payload,
-		Labels:      le.Labels,
-		InsertID:    le.InsertId,
-		HTTPRequest: hr,
-		Operation:   le.Operation,
-		LogName:     slashUnescaper.Replace(le.LogName),
-		Resource:    le.Resource,
-		Trace:       le.Trace,
+		Timestamp:      time,
+		Severity:       logging.Severity(le.Severity),
+		Payload:        payload,
+		Labels:         le.Labels,
+		InsertID:       le.InsertId,
+		HTTPRequest:    hr,
+		Operation:      le.Operation,
+		LogName:        slashUnescaper.Replace(le.LogName),
+		Resource:       le.Resource,
+		Trace:          le.Trace,
+		SourceLocation: le.SourceLocation,
 	}, nil
 }
 

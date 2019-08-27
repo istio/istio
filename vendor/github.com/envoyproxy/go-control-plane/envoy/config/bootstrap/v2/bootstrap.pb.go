@@ -5,23 +5,20 @@ package v2
 
 import (
 	fmt "fmt"
-	io "io"
-	math "math"
-	time "time"
-
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
-	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
-	types "github.com/gogo/protobuf/types"
-	_ "github.com/lyft/protoc-gen-validate/validate"
-
-	v23 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v22 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2"
 	v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/overload/v2alpha"
-	v22 "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	v21 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+	types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -67,20 +64,38 @@ type Bootstrap struct {
 	// Configuration for an external tracing provider. If not specified, no
 	// tracing will be performed.
 	Tracing *v21.Tracing `protobuf:"bytes,9,opt,name=tracing,proto3" json:"tracing,omitempty"`
-	// Configuration for an external rate limit service provider. If not
-	// specified, any calls to the rate limit service will immediately return
-	// success.
-	RateLimitService *v22.RateLimitServiceConfig `protobuf:"bytes,10,opt,name=rate_limit_service,json=rateLimitService,proto3" json:"rate_limit_service,omitempty"` // Deprecated: Do not use.
-	// Configuration for the runtime configuration provider. If not specified, a
-	// “null” provider will be used which will result in all defaults being used.
-	Runtime *Runtime `protobuf:"bytes,11,opt,name=runtime,proto3" json:"runtime,omitempty"`
+	// Configuration for the runtime configuration provider (deprecated). If not
+	// specified, a “null” provider will be used which will result in all defaults
+	// being used.
+	Runtime *Runtime `protobuf:"bytes,11,opt,name=runtime,proto3" json:"runtime,omitempty"` // Deprecated: Do not use.
+	// Configuration for the runtime configuration provider. If not
+	// specified, a “null” provider will be used which will result in all defaults
+	// being used.
+	LayeredRuntime *LayeredRuntime `protobuf:"bytes,17,opt,name=layered_runtime,json=layeredRuntime,proto3" json:"layered_runtime,omitempty"`
 	// Configuration for the local administration HTTP server.
 	Admin *Admin `protobuf:"bytes,12,opt,name=admin,proto3" json:"admin,omitempty"`
 	// Optional overload manager configuration.
-	OverloadManager      *v2alpha.OverloadManager `protobuf:"bytes,15,opt,name=overload_manager,json=overloadManager,proto3" json:"overload_manager,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+	OverloadManager *v2alpha.OverloadManager `protobuf:"bytes,15,opt,name=overload_manager,json=overloadManager,proto3" json:"overload_manager,omitempty"`
+	// Enable :ref:`stats for event dispatcher <operations_performance>`, defaults to false.
+	// Note that this records a value for each iteration of the event loop on every thread. This
+	// should normally be minimal overhead, but when using
+	// :ref:`statsd <envoy_api_msg_config.metrics.v2.StatsdSink>`, it will send each observed value
+	// over the wire individually because the statsd protocol doesn't have any way to represent a
+	// histogram summary. Be aware that this can be a very large volume of data.
+	EnableDispatcherStats bool `protobuf:"varint,16,opt,name=enable_dispatcher_stats,json=enableDispatcherStats,proto3" json:"enable_dispatcher_stats,omitempty"`
+	// Optional string which will be used in lieu of x-envoy in prefixing headers.
+	//
+	// For example, if this string is present and set to X-Foo, then x-envoy-retry-on will be
+	// transformed into x-foo-retry-on etc.
+	//
+	// Note this applies to the headers Envoy will generate, the headers Envoy will sanitize, and the
+	// headers Envoy will trust for core code and core extensions only. Be VERY careful making
+	// changes to this string, especially in multi-layer Envoy deployments or deployments using
+	// extensions which are not upstream.
+	HeaderPrefix         string   `protobuf:"bytes,18,opt,name=header_prefix,json=headerPrefix,proto3" json:"header_prefix,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Bootstrap) Reset()         { *m = Bootstrap{} }
@@ -194,16 +209,16 @@ func (m *Bootstrap) GetTracing() *v21.Tracing {
 }
 
 // Deprecated: Do not use.
-func (m *Bootstrap) GetRateLimitService() *v22.RateLimitServiceConfig {
+func (m *Bootstrap) GetRuntime() *Runtime {
 	if m != nil {
-		return m.RateLimitService
+		return m.Runtime
 	}
 	return nil
 }
 
-func (m *Bootstrap) GetRuntime() *Runtime {
+func (m *Bootstrap) GetLayeredRuntime() *LayeredRuntime {
 	if m != nil {
-		return m.Runtime
+		return m.LayeredRuntime
 	}
 	return nil
 }
@@ -222,23 +237,37 @@ func (m *Bootstrap) GetOverloadManager() *v2alpha.OverloadManager {
 	return nil
 }
 
+func (m *Bootstrap) GetEnableDispatcherStats() bool {
+	if m != nil {
+		return m.EnableDispatcherStats
+	}
+	return false
+}
+
+func (m *Bootstrap) GetHeaderPrefix() string {
+	if m != nil {
+		return m.HeaderPrefix
+	}
+	return ""
+}
+
 type Bootstrap_StaticResources struct {
 	// Static :ref:`Listeners <envoy_api_msg_Listener>`. These listeners are
 	// available regardless of LDS configuration.
-	Listeners []v23.Listener `protobuf:"bytes,1,rep,name=listeners,proto3" json:"listeners"`
+	Listeners []*v22.Listener `protobuf:"bytes,1,rep,name=listeners,proto3" json:"listeners,omitempty"`
 	// If a network based configuration source is specified for :ref:`cds_config
 	// <envoy_api_field_config.bootstrap.v2.Bootstrap.DynamicResources.cds_config>`, it's necessary
 	// to have some initial cluster definitions available to allow Envoy to know
 	// how to speak to the management server. These cluster definitions may not
 	// use :ref:`EDS <arch_overview_dynamic_config_eds>` (i.e. they should be static
 	// IP or DNS-based).
-	Clusters []v23.Cluster `protobuf:"bytes,2,rep,name=clusters,proto3" json:"clusters"`
+	Clusters []*v22.Cluster `protobuf:"bytes,2,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	// These static secrets can be used by :ref:`SdsSecretConfig
 	// <envoy_api_msg_auth.SdsSecretConfig>`
-	Secrets              []auth.Secret `protobuf:"bytes,3,rep,name=secrets,proto3" json:"secrets"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	Secrets              []*auth.Secret `protobuf:"bytes,3,rep,name=secrets,proto3" json:"secrets,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *Bootstrap_StaticResources) Reset()         { *m = Bootstrap_StaticResources{} }
@@ -274,21 +303,21 @@ func (m *Bootstrap_StaticResources) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Bootstrap_StaticResources proto.InternalMessageInfo
 
-func (m *Bootstrap_StaticResources) GetListeners() []v23.Listener {
+func (m *Bootstrap_StaticResources) GetListeners() []*v22.Listener {
 	if m != nil {
 		return m.Listeners
 	}
 	return nil
 }
 
-func (m *Bootstrap_StaticResources) GetClusters() []v23.Cluster {
+func (m *Bootstrap_StaticResources) GetClusters() []*v22.Cluster {
 	if m != nil {
 		return m.Clusters
 	}
 	return nil
 }
 
-func (m *Bootstrap_StaticResources) GetSecrets() []auth.Secret {
+func (m *Bootstrap_StaticResources) GetSecrets() []*auth.Secret {
 	if m != nil {
 		return m.Secrets
 	}
@@ -382,10 +411,13 @@ type Admin struct {
 	ProfilePath string `protobuf:"bytes,2,opt,name=profile_path,json=profilePath,proto3" json:"profile_path,omitempty"`
 	// The TCP address that the administration server will listen on.
 	// If not specified, Envoy will not start an administration server.
-	Address              *core.Address `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	Address *core.Address `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	// Additional socket options that may not be present in Envoy source code or
+	// precompiled binaries.
+	SocketOptions        []*core.SocketOption `protobuf:"bytes,4,rep,name=socket_options,json=socketOptions,proto3" json:"socket_options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *Admin) Reset()         { *m = Admin{} }
@@ -438,6 +470,13 @@ func (m *Admin) GetProfilePath() string {
 func (m *Admin) GetAddress() *core.Address {
 	if m != nil {
 		return m.Address
+	}
+	return nil
+}
+
+func (m *Admin) GetSocketOptions() []*core.SocketOption {
+	if m != nil {
+		return m.SocketOptions
 	}
 	return nil
 }
@@ -662,13 +701,14 @@ func (m *Watchdog) GetMultikillTimeout() *types.Duration {
 	return nil
 }
 
-// Runtime :ref:`configuration overview <config_runtime>`.
+// Runtime :ref:`configuration overview <config_runtime>` (deprecated).
 type Runtime struct {
 	// The implementation assumes that the file system tree is accessed via a
 	// symbolic link. An atomic link swap is used when a new tree should be
 	// switched to. This parameter specifies the path to the symbolic link. Envoy
 	// will watch the location for changes and reload the file system tree when
-	// they happen.
+	// they happen. If this parameter is not set, there will be no disk based
+	// runtime.
 	SymlinkRoot string `protobuf:"bytes,1,opt,name=symlink_root,json=symlinkRoot,proto3" json:"symlink_root,omitempty"`
 	// Specifies the subdirectory to load within the root directory. This is
 	// useful if multiple systems share the same delivery mechanism. Envoy
@@ -680,10 +720,15 @@ type Runtime struct {
 	// useful when Envoy is deployed across many different types of servers.
 	// Sometimes it is useful to have a per service cluster directory for runtime
 	// configuration. See below for exactly how the override directory is used.
-	OverrideSubdirectory string   `protobuf:"bytes,3,opt,name=override_subdirectory,json=overrideSubdirectory,proto3" json:"override_subdirectory,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	OverrideSubdirectory string `protobuf:"bytes,3,opt,name=override_subdirectory,json=overrideSubdirectory,proto3" json:"override_subdirectory,omitempty"`
+	// Static base runtime. This will be :ref:`overridden
+	// <config_runtime_layering>` by other runtime layers, e.g.
+	// disk or admin. This follows the :ref:`runtime protobuf JSON representation
+	// encoding <config_runtime_proto_json>`.
+	Base                 *types.Struct `protobuf:"bytes,4,opt,name=base,proto3" json:"base,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *Runtime) Reset()         { *m = Runtime{} }
@@ -740,6 +785,463 @@ func (m *Runtime) GetOverrideSubdirectory() string {
 	return ""
 }
 
+func (m *Runtime) GetBase() *types.Struct {
+	if m != nil {
+		return m.Base
+	}
+	return nil
+}
+
+type RuntimeLayer struct {
+	// Descriptive name for the runtime layer. This is only used for the runtime
+	// :http:get:`/runtime` output.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to LayerSpecifier:
+	//	*RuntimeLayer_StaticLayer
+	//	*RuntimeLayer_DiskLayer_
+	//	*RuntimeLayer_AdminLayer_
+	//	*RuntimeLayer_RtdsLayer_
+	LayerSpecifier       isRuntimeLayer_LayerSpecifier `protobuf_oneof:"layer_specifier"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
+}
+
+func (m *RuntimeLayer) Reset()         { *m = RuntimeLayer{} }
+func (m *RuntimeLayer) String() string { return proto.CompactTextString(m) }
+func (*RuntimeLayer) ProtoMessage()    {}
+func (*RuntimeLayer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1197defdf9c5e6a, []int{5}
+}
+func (m *RuntimeLayer) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RuntimeLayer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RuntimeLayer.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RuntimeLayer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeLayer.Merge(m, src)
+}
+func (m *RuntimeLayer) XXX_Size() int {
+	return m.Size()
+}
+func (m *RuntimeLayer) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeLayer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeLayer proto.InternalMessageInfo
+
+type isRuntimeLayer_LayerSpecifier interface {
+	isRuntimeLayer_LayerSpecifier()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type RuntimeLayer_StaticLayer struct {
+	StaticLayer *types.Struct `protobuf:"bytes,2,opt,name=static_layer,json=staticLayer,proto3,oneof"`
+}
+type RuntimeLayer_DiskLayer_ struct {
+	DiskLayer *RuntimeLayer_DiskLayer `protobuf:"bytes,3,opt,name=disk_layer,json=diskLayer,proto3,oneof"`
+}
+type RuntimeLayer_AdminLayer_ struct {
+	AdminLayer *RuntimeLayer_AdminLayer `protobuf:"bytes,4,opt,name=admin_layer,json=adminLayer,proto3,oneof"`
+}
+type RuntimeLayer_RtdsLayer_ struct {
+	RtdsLayer *RuntimeLayer_RtdsLayer `protobuf:"bytes,5,opt,name=rtds_layer,json=rtdsLayer,proto3,oneof"`
+}
+
+func (*RuntimeLayer_StaticLayer) isRuntimeLayer_LayerSpecifier() {}
+func (*RuntimeLayer_DiskLayer_) isRuntimeLayer_LayerSpecifier()  {}
+func (*RuntimeLayer_AdminLayer_) isRuntimeLayer_LayerSpecifier() {}
+func (*RuntimeLayer_RtdsLayer_) isRuntimeLayer_LayerSpecifier()  {}
+
+func (m *RuntimeLayer) GetLayerSpecifier() isRuntimeLayer_LayerSpecifier {
+	if m != nil {
+		return m.LayerSpecifier
+	}
+	return nil
+}
+
+func (m *RuntimeLayer) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *RuntimeLayer) GetStaticLayer() *types.Struct {
+	if x, ok := m.GetLayerSpecifier().(*RuntimeLayer_StaticLayer); ok {
+		return x.StaticLayer
+	}
+	return nil
+}
+
+func (m *RuntimeLayer) GetDiskLayer() *RuntimeLayer_DiskLayer {
+	if x, ok := m.GetLayerSpecifier().(*RuntimeLayer_DiskLayer_); ok {
+		return x.DiskLayer
+	}
+	return nil
+}
+
+func (m *RuntimeLayer) GetAdminLayer() *RuntimeLayer_AdminLayer {
+	if x, ok := m.GetLayerSpecifier().(*RuntimeLayer_AdminLayer_); ok {
+		return x.AdminLayer
+	}
+	return nil
+}
+
+func (m *RuntimeLayer) GetRtdsLayer() *RuntimeLayer_RtdsLayer {
+	if x, ok := m.GetLayerSpecifier().(*RuntimeLayer_RtdsLayer_); ok {
+		return x.RtdsLayer
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*RuntimeLayer) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _RuntimeLayer_OneofMarshaler, _RuntimeLayer_OneofUnmarshaler, _RuntimeLayer_OneofSizer, []interface{}{
+		(*RuntimeLayer_StaticLayer)(nil),
+		(*RuntimeLayer_DiskLayer_)(nil),
+		(*RuntimeLayer_AdminLayer_)(nil),
+		(*RuntimeLayer_RtdsLayer_)(nil),
+	}
+}
+
+func _RuntimeLayer_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*RuntimeLayer)
+	// layer_specifier
+	switch x := m.LayerSpecifier.(type) {
+	case *RuntimeLayer_StaticLayer:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.StaticLayer); err != nil {
+			return err
+		}
+	case *RuntimeLayer_DiskLayer_:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.DiskLayer); err != nil {
+			return err
+		}
+	case *RuntimeLayer_AdminLayer_:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.AdminLayer); err != nil {
+			return err
+		}
+	case *RuntimeLayer_RtdsLayer_:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.RtdsLayer); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("RuntimeLayer.LayerSpecifier has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _RuntimeLayer_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*RuntimeLayer)
+	switch tag {
+	case 2: // layer_specifier.static_layer
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.LayerSpecifier = &RuntimeLayer_StaticLayer{msg}
+		return true, err
+	case 3: // layer_specifier.disk_layer
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(RuntimeLayer_DiskLayer)
+		err := b.DecodeMessage(msg)
+		m.LayerSpecifier = &RuntimeLayer_DiskLayer_{msg}
+		return true, err
+	case 4: // layer_specifier.admin_layer
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(RuntimeLayer_AdminLayer)
+		err := b.DecodeMessage(msg)
+		m.LayerSpecifier = &RuntimeLayer_AdminLayer_{msg}
+		return true, err
+	case 5: // layer_specifier.rtds_layer
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(RuntimeLayer_RtdsLayer)
+		err := b.DecodeMessage(msg)
+		m.LayerSpecifier = &RuntimeLayer_RtdsLayer_{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _RuntimeLayer_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*RuntimeLayer)
+	// layer_specifier
+	switch x := m.LayerSpecifier.(type) {
+	case *RuntimeLayer_StaticLayer:
+		s := proto.Size(x.StaticLayer)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RuntimeLayer_DiskLayer_:
+		s := proto.Size(x.DiskLayer)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RuntimeLayer_AdminLayer_:
+		s := proto.Size(x.AdminLayer)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RuntimeLayer_RtdsLayer_:
+		s := proto.Size(x.RtdsLayer)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// :ref:`Disk runtime <config_runtime_local_disk>` layer.
+type RuntimeLayer_DiskLayer struct {
+	// The implementation assumes that the file system tree is accessed via a
+	// symbolic link. An atomic link swap is used when a new tree should be
+	// switched to. This parameter specifies the path to the symbolic link.
+	// Envoy will watch the location for changes and reload the file system tree
+	// when they happen. See documentation on runtime :ref:`atomicity
+	// <config_runtime_atomicity>` for further details on how reloads are
+	// treated.
+	SymlinkRoot string `protobuf:"bytes,1,opt,name=symlink_root,json=symlinkRoot,proto3" json:"symlink_root,omitempty"`
+	// Specifies the subdirectory to load within the root directory. This is
+	// useful if multiple systems share the same delivery mechanism. Envoy
+	// configuration elements can be contained in a dedicated subdirectory.
+	Subdirectory string `protobuf:"bytes,3,opt,name=subdirectory,proto3" json:"subdirectory,omitempty"`
+	// :ref:`Append <config_runtime_local_disk_service_cluster_subdirs>` the
+	// service cluster to the path under symlink root.
+	AppendServiceCluster bool     `protobuf:"varint,2,opt,name=append_service_cluster,json=appendServiceCluster,proto3" json:"append_service_cluster,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RuntimeLayer_DiskLayer) Reset()         { *m = RuntimeLayer_DiskLayer{} }
+func (m *RuntimeLayer_DiskLayer) String() string { return proto.CompactTextString(m) }
+func (*RuntimeLayer_DiskLayer) ProtoMessage()    {}
+func (*RuntimeLayer_DiskLayer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1197defdf9c5e6a, []int{5, 0}
+}
+func (m *RuntimeLayer_DiskLayer) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RuntimeLayer_DiskLayer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RuntimeLayer_DiskLayer.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RuntimeLayer_DiskLayer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeLayer_DiskLayer.Merge(m, src)
+}
+func (m *RuntimeLayer_DiskLayer) XXX_Size() int {
+	return m.Size()
+}
+func (m *RuntimeLayer_DiskLayer) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeLayer_DiskLayer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeLayer_DiskLayer proto.InternalMessageInfo
+
+func (m *RuntimeLayer_DiskLayer) GetSymlinkRoot() string {
+	if m != nil {
+		return m.SymlinkRoot
+	}
+	return ""
+}
+
+func (m *RuntimeLayer_DiskLayer) GetSubdirectory() string {
+	if m != nil {
+		return m.Subdirectory
+	}
+	return ""
+}
+
+func (m *RuntimeLayer_DiskLayer) GetAppendServiceCluster() bool {
+	if m != nil {
+		return m.AppendServiceCluster
+	}
+	return false
+}
+
+// :ref:`Admin console runtime <config_runtime_admin>` layer.
+type RuntimeLayer_AdminLayer struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RuntimeLayer_AdminLayer) Reset()         { *m = RuntimeLayer_AdminLayer{} }
+func (m *RuntimeLayer_AdminLayer) String() string { return proto.CompactTextString(m) }
+func (*RuntimeLayer_AdminLayer) ProtoMessage()    {}
+func (*RuntimeLayer_AdminLayer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1197defdf9c5e6a, []int{5, 1}
+}
+func (m *RuntimeLayer_AdminLayer) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RuntimeLayer_AdminLayer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RuntimeLayer_AdminLayer.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RuntimeLayer_AdminLayer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeLayer_AdminLayer.Merge(m, src)
+}
+func (m *RuntimeLayer_AdminLayer) XXX_Size() int {
+	return m.Size()
+}
+func (m *RuntimeLayer_AdminLayer) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeLayer_AdminLayer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeLayer_AdminLayer proto.InternalMessageInfo
+
+// :ref:`Runtime Discovery Service (RTDS) <config_runtime_rtds>` layer.
+type RuntimeLayer_RtdsLayer struct {
+	// Resource to subscribe to at *rtds_config* for the RTDS layer.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// RTDS configuration source.
+	RtdsConfig           *core.ConfigSource `protobuf:"bytes,2,opt,name=rtds_config,json=rtdsConfig,proto3" json:"rtds_config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *RuntimeLayer_RtdsLayer) Reset()         { *m = RuntimeLayer_RtdsLayer{} }
+func (m *RuntimeLayer_RtdsLayer) String() string { return proto.CompactTextString(m) }
+func (*RuntimeLayer_RtdsLayer) ProtoMessage()    {}
+func (*RuntimeLayer_RtdsLayer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1197defdf9c5e6a, []int{5, 2}
+}
+func (m *RuntimeLayer_RtdsLayer) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RuntimeLayer_RtdsLayer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RuntimeLayer_RtdsLayer.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RuntimeLayer_RtdsLayer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeLayer_RtdsLayer.Merge(m, src)
+}
+func (m *RuntimeLayer_RtdsLayer) XXX_Size() int {
+	return m.Size()
+}
+func (m *RuntimeLayer_RtdsLayer) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeLayer_RtdsLayer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeLayer_RtdsLayer proto.InternalMessageInfo
+
+func (m *RuntimeLayer_RtdsLayer) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *RuntimeLayer_RtdsLayer) GetRtdsConfig() *core.ConfigSource {
+	if m != nil {
+		return m.RtdsConfig
+	}
+	return nil
+}
+
+// Runtime :ref:`configuration overview <config_runtime>`.
+type LayeredRuntime struct {
+	// The :ref:`layers <config_runtime_layering>` of the runtime. This is ordered
+	// such that later layers in the list overlay earlier entries.
+	Layers               []*RuntimeLayer `protobuf:"bytes,1,rep,name=layers,proto3" json:"layers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *LayeredRuntime) Reset()         { *m = LayeredRuntime{} }
+func (m *LayeredRuntime) String() string { return proto.CompactTextString(m) }
+func (*LayeredRuntime) ProtoMessage()    {}
+func (*LayeredRuntime) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f1197defdf9c5e6a, []int{6}
+}
+func (m *LayeredRuntime) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LayeredRuntime) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LayeredRuntime.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LayeredRuntime) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LayeredRuntime.Merge(m, src)
+}
+func (m *LayeredRuntime) XXX_Size() int {
+	return m.Size()
+}
+func (m *LayeredRuntime) XXX_DiscardUnknown() {
+	xxx_messageInfo_LayeredRuntime.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LayeredRuntime proto.InternalMessageInfo
+
+func (m *LayeredRuntime) GetLayers() []*RuntimeLayer {
+	if m != nil {
+		return m.Layers
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Bootstrap)(nil), "envoy.config.bootstrap.v2.Bootstrap")
 	proto.RegisterType((*Bootstrap_StaticResources)(nil), "envoy.config.bootstrap.v2.Bootstrap.StaticResources")
@@ -749,6 +1251,11 @@ func init() {
 	proto.RegisterType((*ClusterManager_OutlierDetection)(nil), "envoy.config.bootstrap.v2.ClusterManager.OutlierDetection")
 	proto.RegisterType((*Watchdog)(nil), "envoy.config.bootstrap.v2.Watchdog")
 	proto.RegisterType((*Runtime)(nil), "envoy.config.bootstrap.v2.Runtime")
+	proto.RegisterType((*RuntimeLayer)(nil), "envoy.config.bootstrap.v2.RuntimeLayer")
+	proto.RegisterType((*RuntimeLayer_DiskLayer)(nil), "envoy.config.bootstrap.v2.RuntimeLayer.DiskLayer")
+	proto.RegisterType((*RuntimeLayer_AdminLayer)(nil), "envoy.config.bootstrap.v2.RuntimeLayer.AdminLayer")
+	proto.RegisterType((*RuntimeLayer_RtdsLayer)(nil), "envoy.config.bootstrap.v2.RuntimeLayer.RtdsLayer")
+	proto.RegisterType((*LayeredRuntime)(nil), "envoy.config.bootstrap.v2.LayeredRuntime")
 }
 
 func init() {
@@ -756,83 +1263,101 @@ func init() {
 }
 
 var fileDescriptor_f1197defdf9c5e6a = []byte{
-	// 1204 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0xcf, 0x6f, 0x1b, 0xc5,
-	0x17, 0xff, 0xae, 0xed, 0x34, 0xf1, 0xb3, 0x1b, 0x3b, 0xa3, 0xb4, 0xdd, 0x46, 0xdf, 0x26, 0xa9,
-	0x5b, 0xa0, 0x15, 0xd5, 0x5a, 0xb8, 0x05, 0x4a, 0x55, 0x15, 0xc5, 0x8d, 0x8a, 0x80, 0xd2, 0x96,
-	0x4d, 0x25, 0x04, 0x97, 0xd5, 0x78, 0x77, 0xb2, 0x1e, 0x65, 0x77, 0xc7, 0x9a, 0x99, 0x5d, 0xc8,
-	0x95, 0x13, 0x47, 0x0e, 0x1c, 0xf8, 0x5b, 0x38, 0xc1, 0xad, 0x47, 0xee, 0x48, 0x80, 0x7a, 0x41,
-	0xfc, 0x17, 0x68, 0x7e, 0xec, 0xba, 0xeb, 0xba, 0x49, 0x6e, 0xb3, 0xef, 0x7d, 0x3e, 0x9f, 0x79,
-	0x33, 0xf3, 0xde, 0xc7, 0x86, 0x9b, 0x24, 0x2b, 0xd8, 0xf1, 0x30, 0x64, 0xd9, 0x21, 0x8d, 0x87,
-	0x13, 0xc6, 0xa4, 0x90, 0x1c, 0xcf, 0x86, 0xc5, 0x68, 0xfe, 0xe1, 0xcd, 0x38, 0x93, 0x0c, 0x5d,
-	0xd6, 0x50, 0xcf, 0x40, 0xbd, 0x79, 0xb6, 0x18, 0x6d, 0xed, 0x18, 0x15, 0x3c, 0xa3, 0x8a, 0x18,
-	0x32, 0x4e, 0x86, 0x38, 0x8a, 0x38, 0x11, 0xc2, 0x70, 0xb7, 0xfe, 0xff, 0x3a, 0x60, 0x82, 0x05,
-	0x59, 0x9a, 0xc5, 0xb9, 0x9c, 0x0e, 0x43, 0xc2, 0xa5, 0xcd, 0xbe, 0xf5, 0x3a, 0xd7, 0xd4, 0x10,
-	0x08, 0x96, 0xf3, 0xb0, 0x14, 0xb9, 0x58, 0x87, 0x45, 0x62, 0x69, 0x3c, 0xa9, 0xe2, 0x57, 0x6b,
-	0x27, 0x97, 0x1c, 0x87, 0x44, 0x01, 0xf4, 0xc2, 0x42, 0xae, 0xd5, 0x20, 0x29, 0x91, 0x9c, 0x86,
-	0x42, 0x81, 0x84, 0xc4, 0xb2, 0xd4, 0xb9, 0x55, 0x03, 0xb1, 0x82, 0xf0, 0x84, 0xe1, 0x68, 0x58,
-	0x8c, 0x70, 0x32, 0x9b, 0xe2, 0x2a, 0xb0, 0x54, 0x92, 0x63, 0x49, 0x12, 0x9a, 0x52, 0xa9, 0x44,
-	0x79, 0x52, 0x4a, 0x6e, 0xc7, 0x8c, 0xc5, 0x09, 0x19, 0xea, 0xaf, 0x49, 0x7e, 0x38, 0x8c, 0x72,
-	0x8e, 0x25, 0x65, 0x99, 0xcd, 0x5f, 0x2a, 0x70, 0x42, 0x23, 0x2c, 0xc9, 0xb0, 0x5c, 0xd8, 0xc4,
-	0x66, 0xcc, 0x62, 0xa6, 0x97, 0x43, 0xb5, 0x32, 0xd1, 0xc1, 0x3f, 0x1d, 0x68, 0x8f, 0xcb, 0xe7,
-	0x42, 0xef, 0x42, 0x2b, 0x63, 0x11, 0x71, 0x9d, 0x5d, 0xe7, 0x46, 0x67, 0x74, 0xc9, 0x33, 0xaf,
-	0x8a, 0x67, 0xd4, 0x2b, 0x46, 0x9e, 0xba, 0x5d, 0xef, 0x09, 0x8b, 0x88, 0xaf, 0x41, 0x28, 0x80,
-	0xbe, 0x3a, 0x2b, 0x0d, 0x03, 0x4e, 0xcc, 0x6d, 0x0b, 0xb7, 0xa1, 0x89, 0x77, 0xbc, 0x37, 0xb6,
-	0x83, 0x57, 0x6d, 0xe6, 0x1d, 0x68, 0xb2, 0x5f, 0x72, 0xfd, 0x9e, 0xa8, 0x07, 0xd0, 0x04, 0x36,
-	0xa2, 0xe3, 0x0c, 0xa7, 0xb5, 0x1d, 0x9a, 0x7a, 0x87, 0xf7, 0xcf, 0xb4, 0xc3, 0xbe, 0x61, 0xcf,
-	0xb7, 0xe8, 0x47, 0x0b, 0x11, 0xe4, 0x43, 0x2f, 0x4c, 0x72, 0x21, 0x09, 0x0f, 0x52, 0x9c, 0xe1,
-	0x98, 0x70, 0xb7, 0xa5, 0x77, 0xb8, 0x79, 0xc2, 0x0e, 0x0f, 0x0d, 0xe3, 0x0b, 0x43, 0xf0, 0xd7,
-	0xc3, 0xda, 0x37, 0xda, 0x03, 0x98, 0x46, 0x22, 0x30, 0x4c, 0x77, 0x5d, 0xcb, 0x0d, 0x96, 0xdc,
-	0xe5, 0xde, 0x8c, 0x3e, 0xd4, 0x98, 0x03, 0x5d, 0x8c, 0xdf, 0x9e, 0x46, 0xc2, 0x04, 0xd0, 0x15,
-	0x80, 0xc3, 0x04, 0xc7, 0x22, 0x98, 0x61, 0x39, 0x75, 0x57, 0x76, 0x9d, 0x1b, 0x6d, 0xbf, 0xad,
-	0x23, 0xcf, 0xb0, 0x9c, 0xa2, 0x87, 0xd0, 0xd1, 0x6d, 0x16, 0x08, 0x9a, 0x1d, 0x09, 0xf7, 0xdc,
-	0x6e, 0xf3, 0x95, 0x2d, 0x6c, 0xc5, 0xb6, 0x25, 0xd5, 0x6e, 0xea, 0xa6, 0xc5, 0x01, 0xcd, 0x8e,
-	0x7c, 0x10, 0xe5, 0x52, 0xa0, 0x4f, 0xa0, 0x6b, 0x44, 0x6c, 0xa1, 0xe7, 0x75, 0xa1, 0xd7, 0x4f,
-	0x56, 0x31, 0xf5, 0xf9, 0x66, 0x7b, 0x5b, 0xec, 0x97, 0xb0, 0x69, 0x84, 0x0e, 0x93, 0x5c, 0x4c,
-	0x03, 0x9a, 0x49, 0xc2, 0x0b, 0x9c, 0xb8, 0xab, 0x5a, 0xf0, 0xb2, 0x67, 0x3a, 0xd6, 0x2b, 0x3b,
-	0xd6, 0xdb, 0xb7, 0x1d, 0x3b, 0x6e, 0xfd, 0xfc, 0xd7, 0x8e, 0xe3, 0x23, 0x4d, 0x7e, 0xa4, 0xb8,
-	0x9f, 0x5a, 0x2a, 0xfa, 0x18, 0xd6, 0xbe, 0xc5, 0x32, 0x9c, 0x46, 0x2c, 0x76, 0xd7, 0xb4, 0xcc,
-	0xb5, 0x13, 0xde, 0xe3, 0x2b, 0x0b, 0xf5, 0x2b, 0x12, 0xba, 0x0b, 0xab, 0x6a, 0x5a, 0x69, 0x16,
-	0xbb, 0x6d, 0xcd, 0xdf, 0xae, 0xf3, 0xcd, 0x28, 0x17, 0x23, 0xef, 0xb9, 0x41, 0xf9, 0x25, 0x1c,
-	0x85, 0x80, 0xd4, 0xe8, 0x05, 0x7a, 0xf6, 0x02, 0x41, 0x78, 0x41, 0x43, 0xe2, 0x82, 0x16, 0x79,
-	0xaf, 0x2e, 0x52, 0x8d, 0xa8, 0x12, 0xf2, 0xb1, 0x24, 0x8f, 0xd5, 0xc7, 0x81, 0xa1, 0x98, 0xcb,
-	0x19, 0x37, 0x5c, 0xc7, 0xef, 0xf3, 0x85, 0x1c, 0xba, 0x0f, 0xab, 0x3c, 0xcf, 0x24, 0x4d, 0x89,
-	0xdb, 0xa9, 0xf5, 0xc7, 0xb2, 0xe3, 0xf9, 0x06, 0xe9, 0x97, 0x14, 0xf4, 0x01, 0xac, 0xe0, 0x28,
-	0xa5, 0x99, 0xdb, 0xd5, 0xdc, 0xdd, 0x13, 0xb8, 0x7b, 0x0a, 0xe7, 0x1b, 0x38, 0xfa, 0x1a, 0xfa,
-	0xa5, 0xe5, 0x54, 0xdd, 0xde, 0xd3, 0x12, 0x5e, 0x5d, 0xa2, 0x32, 0x26, 0xeb, 0x54, 0xde, 0x53,
-	0x1b, 0x28, 0x5b, 0xbe, 0xc7, 0xea, 0x81, 0xad, 0xdf, 0x1c, 0xe8, 0x2d, 0x0c, 0x34, 0xba, 0x07,
-	0xed, 0x84, 0x0a, 0x49, 0x32, 0xc2, 0x85, 0xeb, 0xe8, 0x1e, 0xbd, 0x58, 0x1f, 0x83, 0xc7, 0x36,
-	0x3d, 0x6e, 0xbd, 0xf8, 0x73, 0xe7, 0x7f, 0xfe, 0x1c, 0x8e, 0x3e, 0x84, 0x35, 0x3b, 0x55, 0xca,
-	0x54, 0x14, 0xf5, 0x42, 0x9d, 0x6a, 0x67, 0xd0, 0x32, 0x2b, 0x30, 0xfa, 0x08, 0x56, 0x05, 0x09,
-	0x39, 0x91, 0xca, 0x2a, 0x9a, 0xba, 0xff, 0x6a, 0x3c, 0xf5, 0x0b, 0xe2, 0x1d, 0x68, 0x84, 0xe5,
-	0x96, 0xf8, 0xad, 0x3f, 0x1c, 0xe8, 0x2f, 0x5a, 0x06, 0x7a, 0x00, 0x90, 0xcc, 0x87, 0xd9, 0x18,
-	0xe3, 0xce, 0x92, 0x61, 0xae, 0x4f, 0x72, 0x52, 0x4d, 0xf2, 0x03, 0x80, 0x70, 0xce, 0x6f, 0x9c,
-	0x91, 0x1f, 0x56, 0xfc, 0x3d, 0x00, 0x3c, 0xe7, 0x37, 0xcf, 0x6e, 0x26, 0xb8, 0x94, 0xf8, 0xac,
-	0xb5, 0xd6, 0xea, 0xaf, 0x0c, 0x7e, 0x70, 0x60, 0x45, 0x77, 0x03, 0x7a, 0x1b, 0x7a, 0x38, 0x0c,
-	0x89, 0x10, 0x41, 0xc2, 0x62, 0xe3, 0x30, 0x8e, 0x76, 0x98, 0xf3, 0x26, 0xfc, 0x98, 0xc5, 0xda,
-	0x65, 0xae, 0x42, 0x77, 0xc6, 0xd9, 0x21, 0x4d, 0x88, 0x01, 0x35, 0x34, 0xa8, 0x63, 0x63, 0x1a,
-	0x72, 0x07, 0x56, 0xed, 0x8f, 0xb9, 0x2d, 0x6d, 0x6b, 0x59, 0x69, 0x06, 0xe1, 0x97, 0xd0, 0xc1,
-	0xf7, 0x4d, 0x58, 0xaf, 0x7b, 0x28, 0xba, 0x05, 0x28, 0x61, 0x21, 0x4e, 0x82, 0xd2, 0x8d, 0x33,
-	0x9c, 0x12, 0x5b, 0x56, 0x5f, 0x67, 0x2c, 0xe1, 0x09, 0x4e, 0x09, 0x8a, 0x61, 0x83, 0xe5, 0x32,
-	0xa1, 0x84, 0x07, 0x11, 0x91, 0x24, 0x54, 0x6e, 0x62, 0xef, 0xf6, 0xde, 0x99, 0x7d, 0xdb, 0x7b,
-	0x6a, 0x24, 0xf6, 0x4b, 0x05, 0xbf, 0xcf, 0x16, 0x22, 0xe8, 0x29, 0x6c, 0xe6, 0x33, 0x21, 0x39,
-	0xc1, 0x69, 0x30, 0xa1, 0x59, 0x54, 0x7f, 0x87, 0x2b, 0x4b, 0x0e, 0x3b, 0xa6, 0x59, 0x64, 0x4d,
-	0x12, 0x95, 0xd4, 0x79, 0x0c, 0x3d, 0x81, 0x0d, 0x3d, 0x7e, 0x35, 0xe7, 0x6d, 0x9d, 0xf9, 0x55,
-	0x7b, 0x8a, 0xfc, 0x8a, 0x11, 0x6f, 0xdd, 0x85, 0xfe, 0xe2, 0x31, 0xd0, 0x75, 0x58, 0x27, 0x05,
-	0xc9, 0xe4, 0xe2, 0xf3, 0x76, 0x75, 0xd4, 0xbe, 0xee, 0xe0, 0xa7, 0x06, 0xac, 0x95, 0xc6, 0x89,
-	0xee, 0x43, 0x37, 0xa5, 0x42, 0x04, 0xca, 0x5e, 0x58, 0x2e, 0x6d, 0x9f, 0xbf, 0xd9, 0xba, 0xfd,
-	0x8e, 0x82, 0x3f, 0x37, 0x68, 0xb4, 0x0f, 0xfd, 0x94, 0xc4, 0xb8, 0xa6, 0xd0, 0x38, 0x4d, 0xa1,
-	0x57, 0x52, 0x4a, 0x95, 0xfb, 0xd0, 0x3d, 0xa2, 0x49, 0x52, 0x29, 0x34, 0x4f, 0xad, 0x41, 0xc1,
-	0x4b, 0xf6, 0x23, 0xd8, 0x48, 0xf3, 0x44, 0xd2, 0x9a, 0x44, 0xeb, 0x34, 0x89, 0x7e, 0xc5, 0xb1,
-	0x3a, 0x83, 0x1f, 0x1d, 0x58, 0xb5, 0x86, 0x8b, 0x6e, 0x41, 0x57, 0x1c, 0xa7, 0x09, 0xcd, 0x8e,
-	0x02, 0xce, 0x98, 0xb9, 0x95, 0xf6, 0xb8, 0xfd, 0xcb, 0xbf, 0xbf, 0x36, 0x5b, 0xbc, 0xb1, 0xeb,
-	0xf8, 0x1d, 0x9b, 0xf6, 0x19, 0x93, 0x68, 0x00, 0x5d, 0x91, 0x4f, 0x22, 0xca, 0x49, 0x28, 0x19,
-	0x3f, 0xb6, 0xe3, 0x52, 0x8b, 0xa1, 0xdb, 0x70, 0x41, 0x39, 0x27, 0xa7, 0x11, 0x09, 0x6a, 0xe0,
-	0xa6, 0x06, 0x6f, 0x96, 0xc9, 0x83, 0x57, 0x72, 0xe3, 0xcf, 0x5f, 0xbc, 0xdc, 0x76, 0x7e, 0x7f,
-	0xb9, 0xed, 0xfc, 0xfd, 0x72, 0xdb, 0x81, 0x77, 0x28, 0x33, 0x8d, 0x32, 0xe3, 0xec, 0xbb, 0xe3,
-	0x37, 0x77, 0xfb, 0x78, 0xbd, 0xfa, 0x23, 0xf4, 0x4c, 0x9d, 0xfb, 0x99, 0xf3, 0x4d, 0xa3, 0x18,
-	0x4d, 0xce, 0xe9, 0x4b, 0xb8, 0xfd, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x0f, 0x0d, 0x7a, 0x3b,
-	0xdd, 0x0b, 0x00, 0x00,
+	// 1490 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x57, 0x4d, 0x6f, 0x1b, 0xbd,
+	0x11, 0x7e, 0x57, 0x92, 0x63, 0x69, 0x24, 0x4b, 0x32, 0xe1, 0xc4, 0xfb, 0x0a, 0x8d, 0xe3, 0x28,
+	0x6f, 0x9b, 0x04, 0x09, 0x56, 0x88, 0xe2, 0x06, 0x41, 0x11, 0x24, 0xb1, 0x62, 0xa4, 0x69, 0x9a,
+	0xc6, 0x0e, 0x95, 0xa2, 0x68, 0x2f, 0x0b, 0x6a, 0x97, 0x96, 0x08, 0xaf, 0x96, 0x0b, 0x92, 0x52,
+	0xe3, 0x5b, 0xd1, 0x53, 0x7f, 0x40, 0x0f, 0xfd, 0x0f, 0x3d, 0x14, 0xe8, 0xa9, 0xe8, 0x29, 0xc7,
+	0x1e, 0x73, 0xef, 0xa1, 0x45, 0x6e, 0xf9, 0x17, 0xc5, 0x92, 0xdc, 0x95, 0xd7, 0x91, 0x3f, 0xd2,
+	0xdb, 0x72, 0xf8, 0x3c, 0x0f, 0x87, 0x33, 0xc3, 0x21, 0x17, 0xee, 0xd2, 0x78, 0xce, 0x8f, 0x7b,
+	0x01, 0x8f, 0x0f, 0xd9, 0xb8, 0x37, 0xe2, 0x5c, 0x49, 0x25, 0x48, 0xd2, 0x9b, 0xf7, 0x17, 0x03,
+	0x2f, 0x11, 0x5c, 0x71, 0xf4, 0xbd, 0x86, 0x7a, 0x06, 0xea, 0x2d, 0x66, 0xe7, 0xfd, 0xce, 0x0d,
+	0xa3, 0x42, 0x12, 0x96, 0x12, 0x03, 0x2e, 0x68, 0x8f, 0x84, 0xa1, 0xa0, 0x52, 0x1a, 0x6e, 0xe7,
+	0x47, 0x5f, 0x03, 0x46, 0x44, 0xd2, 0xa5, 0xb3, 0x64, 0xa6, 0x26, 0xbd, 0x80, 0x0a, 0x65, 0x67,
+	0x7f, 0xfc, 0x35, 0xd7, 0xf8, 0xe0, 0x4b, 0x3e, 0x13, 0x41, 0x26, 0x72, 0xad, 0x08, 0x0b, 0xe5,
+	0x52, 0x7b, 0x94, 0xdb, 0x6f, 0x16, 0x76, 0xae, 0x04, 0x09, 0x68, 0x0a, 0xd0, 0x1f, 0x16, 0x72,
+	0xab, 0x00, 0x99, 0x52, 0x25, 0x58, 0x20, 0x53, 0x90, 0x54, 0x44, 0x65, 0x3a, 0xf7, 0x0b, 0x20,
+	0x3e, 0xa7, 0x22, 0xe2, 0x24, 0xec, 0xcd, 0xfb, 0x24, 0x4a, 0x26, 0x24, 0x37, 0x58, 0xf4, 0xd6,
+	0x98, 0xf3, 0x71, 0x44, 0x7b, 0x7a, 0x34, 0x9a, 0x1d, 0xf6, 0xc2, 0x99, 0x20, 0x8a, 0xf1, 0x38,
+	0x0b, 0xc5, 0xe9, 0x79, 0xa9, 0xc4, 0x2c, 0xc8, 0x42, 0xb1, 0x39, 0x27, 0x11, 0x0b, 0x89, 0xa2,
+	0xbd, 0xec, 0xc3, 0x4e, 0x6c, 0x8c, 0xf9, 0x98, 0xeb, 0xcf, 0x5e, 0xfa, 0x65, 0xac, 0xdd, 0xbf,
+	0x36, 0xa0, 0x36, 0xc8, 0xf2, 0x84, 0xee, 0x41, 0x25, 0xe6, 0x21, 0x75, 0x9d, 0x6d, 0xe7, 0x4e,
+	0xbd, 0xbf, 0xe9, 0x99, 0x74, 0x92, 0x84, 0x79, 0xf3, 0xbe, 0x97, 0x86, 0xd5, 0x7b, 0xcb, 0x43,
+	0x8a, 0x35, 0x08, 0xf9, 0xd0, 0x4e, 0x37, 0xc9, 0x02, 0x5f, 0x50, 0x13, 0x66, 0xe9, 0x96, 0x34,
+	0x71, 0xc7, 0x3b, 0xb3, 0x0e, 0xbc, 0x7c, 0x31, 0x6f, 0xa8, 0xc9, 0x38, 0xe3, 0xe2, 0x96, 0x2c,
+	0x1a, 0xd0, 0x08, 0xd6, 0xc3, 0xe3, 0x98, 0x4c, 0x0b, 0x2b, 0x94, 0xf5, 0x0a, 0x3f, 0xbd, 0xd4,
+	0x0a, 0x7b, 0x86, 0xbd, 0x58, 0xa2, 0x1d, 0x9e, 0xb2, 0x20, 0x0c, 0xad, 0x20, 0x9a, 0x49, 0x45,
+	0x85, 0x3f, 0x25, 0x31, 0x19, 0x53, 0xe1, 0x56, 0xf4, 0x0a, 0x77, 0xcf, 0x59, 0xe1, 0x85, 0x61,
+	0xfc, 0xca, 0x10, 0x70, 0x33, 0x28, 0x8c, 0xd1, 0x2e, 0xc0, 0x24, 0x94, 0xbe, 0x61, 0xba, 0x4d,
+	0x2d, 0xd7, 0x5d, 0x12, 0xcb, 0xdd, 0x84, 0xbd, 0xd0, 0x98, 0xa1, 0x76, 0x06, 0xd7, 0x26, 0xa1,
+	0x34, 0x06, 0x74, 0x1d, 0xe0, 0x30, 0x22, 0x63, 0xe9, 0x27, 0x44, 0x4d, 0xdc, 0x95, 0x6d, 0xe7,
+	0x4e, 0x0d, 0xd7, 0xb4, 0xe5, 0x80, 0xa8, 0x09, 0x7a, 0x01, 0x75, 0x5d, 0x5f, 0xbe, 0x64, 0xf1,
+	0x91, 0x74, 0xaf, 0x6c, 0x97, 0x4f, 0x2c, 0x61, 0x3d, 0xb6, 0xb5, 0x98, 0xae, 0x96, 0x46, 0x5a,
+	0x0e, 0x59, 0x7c, 0x84, 0x41, 0x66, 0x9f, 0x12, 0xfd, 0x1c, 0x1a, 0x46, 0xc4, 0x3a, 0xba, 0xa6,
+	0x1d, 0xfd, 0xe1, 0x7c, 0x15, 0xe3, 0x1f, 0x36, 0xcb, 0x5b, 0x67, 0xdf, 0xc1, 0x86, 0x11, 0x3a,
+	0x8c, 0x66, 0x72, 0xe2, 0xb3, 0x58, 0x51, 0x31, 0x27, 0x91, 0xbb, 0xaa, 0x05, 0xbf, 0xf7, 0x4c,
+	0xbd, 0x7a, 0x59, 0xbd, 0x7a, 0x7b, 0xb6, 0x9e, 0x07, 0x95, 0xbf, 0xfc, 0xe7, 0x86, 0x83, 0x91,
+	0x26, 0xbf, 0x4c, 0xb9, 0xbf, 0xb0, 0x54, 0xf4, 0x0c, 0xaa, 0xbf, 0x27, 0x2a, 0x98, 0x84, 0x7c,
+	0xec, 0x56, 0xb5, 0xcc, 0xad, 0x73, 0xf2, 0xf1, 0x1b, 0x0b, 0xc5, 0x39, 0x09, 0x3d, 0x86, 0xd5,
+	0xf4, 0x98, 0xb2, 0x78, 0xec, 0xd6, 0x34, 0x7f, 0xab, 0xc8, 0x37, 0x67, 0x78, 0xde, 0xf7, 0xde,
+	0x1b, 0x14, 0xce, 0xe0, 0xe8, 0x39, 0xac, 0x8a, 0x59, 0xac, 0xd8, 0x94, 0xba, 0xf5, 0x42, 0xea,
+	0x96, 0xad, 0x8c, 0x0d, 0x72, 0x50, 0x72, 0x1d, 0x9c, 0xd1, 0xd2, 0x9a, 0x8a, 0xc8, 0x31, 0x15,
+	0x34, 0xf4, 0x33, 0xa5, 0xf5, 0x0b, 0x6b, 0xea, 0x8d, 0x61, 0x58, 0x41, 0xdc, 0x8c, 0x0a, 0x63,
+	0xf4, 0x08, 0x56, 0x48, 0x38, 0x65, 0xb1, 0xdb, 0xd0, 0x4a, 0xdb, 0xe7, 0x28, 0xed, 0xa6, 0x38,
+	0x6c, 0xe0, 0xe8, 0xb7, 0xd0, 0xce, 0xda, 0x4b, 0x5e, 0xe0, 0x2d, 0x2d, 0xe1, 0x15, 0x25, 0xf2,
+	0x26, 0x64, 0xbb, 0x92, 0xb7, 0x6f, 0x0d, 0x59, 0x95, 0xb7, 0x78, 0xd1, 0x80, 0x1e, 0xc1, 0x26,
+	0x8d, 0xc9, 0x28, 0xa2, 0x7e, 0xc8, 0x64, 0x92, 0x06, 0x9e, 0x0a, 0x5f, 0xe7, 0xd2, 0x6d, 0x6f,
+	0x3b, 0x77, 0xaa, 0xf8, 0xaa, 0x99, 0xde, 0xcb, 0x67, 0x75, 0x05, 0xa1, 0x5b, 0xb0, 0x36, 0xa1,
+	0x24, 0xa4, 0xc2, 0x4f, 0x04, 0x3d, 0x64, 0x1f, 0x5c, 0xa4, 0xcb, 0xbb, 0x61, 0x8c, 0x07, 0xda,
+	0xd6, 0xf9, 0x9b, 0x03, 0xad, 0x53, 0x0d, 0x02, 0xed, 0x40, 0x2d, 0x62, 0x52, 0xd1, 0x98, 0x0a,
+	0xe9, 0x3a, 0xba, 0xe6, 0xaf, 0x15, 0x8f, 0xd5, 0x1b, 0x3b, 0x8d, 0x17, 0x40, 0xf4, 0x00, 0xaa,
+	0xf6, 0x7c, 0xa6, 0xed, 0x29, 0x25, 0x5d, 0x2d, 0x92, 0xec, 0x69, 0xc6, 0x39, 0x0c, 0x3d, 0x84,
+	0x55, 0x49, 0x03, 0x41, 0x55, 0xda, 0x6e, 0xca, 0xba, 0x86, 0x0b, 0x8c, 0xf4, 0xfa, 0xf1, 0x86,
+	0x1a, 0x81, 0x33, 0x64, 0xe7, 0xdf, 0x0e, 0xb4, 0x4f, 0x37, 0x1c, 0xf4, 0x14, 0x20, 0x5a, 0xb4,
+	0x02, 0xd3, 0x56, 0x6f, 0x2c, 0x69, 0x05, 0xc5, 0x3e, 0x10, 0xe5, 0x7d, 0xe0, 0x29, 0x40, 0xb0,
+	0xe0, 0x97, 0x2e, 0xc9, 0x0f, 0x72, 0xfe, 0x2e, 0x00, 0x59, 0xf0, 0xcb, 0x97, 0x6f, 0x45, 0x24,
+	0x93, 0x78, 0x5d, 0xa9, 0x56, 0xda, 0x2b, 0xaf, 0x2b, 0x55, 0x68, 0xd7, 0xbb, 0x9f, 0x1c, 0x58,
+	0xd1, 0xe5, 0x85, 0x7e, 0x02, 0x2d, 0x12, 0x04, 0x54, 0x4a, 0x3f, 0xe2, 0x63, 0xd3, 0xa5, 0x1c,
+	0x9d, 0xc6, 0x35, 0x63, 0x7e, 0xc3, 0xc7, 0xba, 0x53, 0xdd, 0x84, 0x46, 0x22, 0xf8, 0x21, 0x8b,
+	0xa8, 0x01, 0x95, 0x34, 0xa8, 0x6e, 0x6d, 0x1a, 0xb2, 0x03, 0xab, 0xf6, 0x25, 0x60, 0x1d, 0xec,
+	0x2c, 0x73, 0xd0, 0x20, 0x70, 0x06, 0x45, 0x2f, 0xa1, 0x29, 0x79, 0x70, 0x44, 0x95, 0xcf, 0x93,
+	0xb4, 0x99, 0x48, 0xb7, 0xa2, 0x53, 0xb5, 0x2c, 0x3a, 0x43, 0x0d, 0xdc, 0xd7, 0x38, 0xbc, 0x26,
+	0x4f, 0x8c, 0x64, 0xf7, 0x8f, 0x65, 0x68, 0x16, 0xfb, 0x39, 0xba, 0x0f, 0x28, 0xe2, 0x01, 0x89,
+	0xfc, 0xec, 0x66, 0x88, 0xc9, 0x94, 0xda, 0xed, 0xb5, 0xf5, 0x8c, 0x25, 0xbc, 0x25, 0x53, 0x8a,
+	0xc6, 0xb0, 0xce, 0x67, 0x2a, 0x62, 0x54, 0xf8, 0x21, 0x55, 0x34, 0x48, 0x65, 0x6d, 0xa6, 0x7e,
+	0x76, 0xe9, 0x3b, 0xc4, 0xdb, 0x37, 0x12, 0x7b, 0x99, 0x02, 0x6e, 0xf3, 0x53, 0x16, 0xb4, 0x0f,
+	0x1b, 0xb3, 0x44, 0x2a, 0x41, 0xc9, 0xd4, 0x1f, 0xb1, 0x38, 0x2c, 0x66, 0xf5, 0xfa, 0x92, 0x7d,
+	0x0f, 0x58, 0x1c, 0xda, 0x86, 0x8d, 0x32, 0xea, 0xc2, 0x86, 0xde, 0xc2, 0xba, 0xee, 0x0b, 0x85,
+	0x5b, 0xa0, 0x72, 0xe9, 0x1a, 0x69, 0xa5, 0xe4, 0x13, 0x97, 0x42, 0xe7, 0x31, 0xb4, 0x4f, 0x6f,
+	0x03, 0xfd, 0x00, 0x4d, 0x3a, 0xa7, 0xb1, 0x3a, 0x5d, 0x26, 0x0d, 0x6d, 0xb5, 0x55, 0xd2, 0xfd,
+	0x73, 0x09, 0xaa, 0x59, 0x13, 0x47, 0x4f, 0xa0, 0x31, 0x65, 0x52, 0xfa, 0x69, 0xdf, 0xe3, 0x33,
+	0x65, 0x4f, 0xcd, 0xd9, 0xd7, 0x08, 0xae, 0xa7, 0xf0, 0xf7, 0x06, 0x8d, 0xf6, 0xa0, 0x3d, 0xa5,
+	0x63, 0x52, 0x50, 0x28, 0x5d, 0xa4, 0xd0, 0xca, 0x28, 0x99, 0xca, 0x13, 0x68, 0x1c, 0xb1, 0x28,
+	0xca, 0x15, 0xca, 0x17, 0xfa, 0x90, 0xc2, 0x33, 0xf6, 0x4b, 0x58, 0x9f, 0xce, 0x22, 0xc5, 0x0a,
+	0x12, 0x95, 0x8b, 0x24, 0xda, 0x39, 0xc7, 0xea, 0x74, 0xff, 0xee, 0xc0, 0x6a, 0x76, 0x01, 0xdc,
+	0x84, 0x86, 0x3c, 0x9e, 0x46, 0x2c, 0x3e, 0xf2, 0x05, 0xe7, 0xca, 0x86, 0xb1, 0x6e, 0x6d, 0x98,
+	0x73, 0x85, 0xba, 0xd0, 0x90, 0xb3, 0x51, 0xc8, 0x04, 0x0d, 0x14, 0x17, 0xc7, 0xf6, 0xac, 0x15,
+	0x6c, 0xe8, 0x21, 0x5c, 0x4d, 0xfb, 0xb8, 0x60, 0x21, 0xf5, 0x0b, 0xe0, 0xb2, 0x06, 0x6f, 0x64,
+	0x93, 0xc3, 0x93, 0xa4, 0x7b, 0x50, 0x49, 0x9f, 0xe2, 0x76, 0x0b, 0x9b, 0x5f, 0x6d, 0x61, 0xa8,
+	0x1f, 0xa0, 0x58, 0x83, 0xba, 0x7f, 0x58, 0x81, 0x86, 0x75, 0x5a, 0xdf, 0x69, 0xe8, 0x3a, 0x54,
+	0x16, 0x07, 0x68, 0x50, 0xfb, 0xe7, 0x97, 0x8f, 0xe5, 0x8a, 0x28, 0x6d, 0x3b, 0x58, 0x9b, 0xd3,
+	0x50, 0xdb, 0x67, 0xa4, 0xbe, 0xf2, 0x6c, 0xb2, 0xce, 0x5a, 0xe4, 0xd5, 0x77, 0xe6, 0xed, 0xc1,
+	0x02, 0x23, 0x8e, 0x01, 0x42, 0x26, 0x8f, 0x2c, 0xd7, 0xa4, 0xe9, 0xc1, 0xc5, 0x17, 0xb6, 0x26,
+	0x7b, 0x7b, 0x4c, 0x1e, 0xe9, 0xaf, 0x57, 0xdf, 0xe1, 0x5a, 0x98, 0x0d, 0xd0, 0xaf, 0xa1, 0xae,
+	0x2f, 0x4f, 0x2b, 0x6a, 0x76, 0xdd, 0xbf, 0xac, 0xa8, 0xee, 0x8f, 0x99, 0x2a, 0x90, 0x7c, 0x94,
+	0xba, 0x2a, 0x54, 0x28, 0xad, 0xea, 0xca, 0xb7, 0xb9, 0x8a, 0x55, 0x28, 0x73, 0x57, 0x45, 0x36,
+	0xe8, 0xfc, 0xc9, 0x81, 0x5a, 0xbe, 0x8b, 0xff, 0xa7, 0x46, 0xca, 0x4b, 0x6a, 0x64, 0x07, 0xae,
+	0x91, 0x24, 0xa1, 0x71, 0xe8, 0x4b, 0x2a, 0xe6, 0x2c, 0xa0, 0x59, 0x23, 0xd4, 0xb9, 0xa9, 0xe2,
+	0x0d, 0x33, 0x3b, 0x34, 0x93, 0xb6, 0x91, 0x75, 0x1a, 0x00, 0x8b, 0xad, 0x77, 0x08, 0xd4, 0x72,
+	0x97, 0x11, 0x3a, 0x59, 0x01, 0x36, 0xed, 0xcf, 0xa1, 0xae, 0xa3, 0xf1, 0x6d, 0x57, 0x9b, 0x8e,
+	0xa0, 0xb1, 0x0c, 0x5c, 0xfb, 0xcc, 0xf2, 0x65, 0x42, 0x03, 0x76, 0xc8, 0xa8, 0x40, 0x2b, 0xff,
+	0xf8, 0xf2, 0xb1, 0xec, 0x74, 0xdf, 0x41, 0xb3, 0xf8, 0x9c, 0x42, 0xcf, 0xe0, 0x8a, 0xc6, 0x66,
+	0xef, 0x86, 0xdb, 0x97, 0x8c, 0x3b, 0xb6, 0xb4, 0xc1, 0x2f, 0xff, 0xf5, 0x79, 0xcb, 0xf9, 0xf4,
+	0x79, 0xcb, 0xf9, 0xef, 0xe7, 0x2d, 0x07, 0x6e, 0x33, 0x6e, 0x04, 0x12, 0xc1, 0x3f, 0x1c, 0x9f,
+	0xad, 0x35, 0x68, 0xe6, 0x3f, 0x23, 0x07, 0x69, 0x1d, 0x1f, 0x38, 0xbf, 0x2b, 0xcd, 0xfb, 0xa3,
+	0x2b, 0xba, 0xa8, 0x1f, 0xfe, 0x2f, 0x00, 0x00, 0xff, 0xff, 0x8a, 0xa4, 0x0d, 0xd2, 0x5a, 0x0f,
+	0x00, 0x00,
 }
 
 func (m *Bootstrap) Marshal() (dAtA []byte, err error) {
@@ -938,65 +1463,87 @@ func (m *Bootstrap) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n7
 	}
-	if m.RateLimitService != nil {
-		dAtA[i] = 0x52
+	if m.Runtime != nil {
+		dAtA[i] = 0x5a
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.RateLimitService.Size()))
-		n8, err := m.RateLimitService.MarshalTo(dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.Runtime.Size()))
+		n8, err := m.Runtime.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n8
 	}
-	if m.Runtime != nil {
-		dAtA[i] = 0x5a
+	if m.Admin != nil {
+		dAtA[i] = 0x62
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.Runtime.Size()))
-		n9, err := m.Runtime.MarshalTo(dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.Admin.Size()))
+		n9, err := m.Admin.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n9
 	}
-	if m.Admin != nil {
-		dAtA[i] = 0x62
+	if m.StatsConfig != nil {
+		dAtA[i] = 0x6a
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.Admin.Size()))
-		n10, err := m.Admin.MarshalTo(dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.StatsConfig.Size()))
+		n10, err := m.StatsConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n10
 	}
-	if m.StatsConfig != nil {
-		dAtA[i] = 0x6a
+	if m.HdsConfig != nil {
+		dAtA[i] = 0x72
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.StatsConfig.Size()))
-		n11, err := m.StatsConfig.MarshalTo(dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.HdsConfig.Size()))
+		n11, err := m.HdsConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n11
 	}
-	if m.HdsConfig != nil {
-		dAtA[i] = 0x72
+	if m.OverloadManager != nil {
+		dAtA[i] = 0x7a
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.HdsConfig.Size()))
-		n12, err := m.HdsConfig.MarshalTo(dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.OverloadManager.Size()))
+		n12, err := m.OverloadManager.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n12
 	}
-	if m.OverloadManager != nil {
-		dAtA[i] = 0x7a
+	if m.EnableDispatcherStats {
+		dAtA[i] = 0x80
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(m.OverloadManager.Size()))
-		n13, err := m.OverloadManager.MarshalTo(dAtA[i:])
+		dAtA[i] = 0x1
+		i++
+		if m.EnableDispatcherStats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.LayeredRuntime != nil {
+		dAtA[i] = 0x8a
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.LayeredRuntime.Size()))
+		n13, err := m.LayeredRuntime.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n13
+	}
+	if len(m.HeaderPrefix) > 0 {
+		dAtA[i] = 0x92
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.HeaderPrefix)))
+		i += copy(dAtA[i:], m.HeaderPrefix)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1148,6 +1695,18 @@ func (m *Admin) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += n17
+	}
+	if len(m.SocketOptions) > 0 {
+		for _, msg := range m.SocketOptions {
+			dAtA[i] = 0x22
+			i++
+			i = encodeVarintBootstrap(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1333,6 +1892,240 @@ func (m *Runtime) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.OverrideSubdirectory)))
 		i += copy(dAtA[i:], m.OverrideSubdirectory)
 	}
+	if m.Base != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.Base.Size()))
+		n25, err := m.Base.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n25
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RuntimeLayer) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RuntimeLayer) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.LayerSpecifier != nil {
+		nn26, err := m.LayerSpecifier.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn26
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RuntimeLayer_StaticLayer) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.StaticLayer != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.StaticLayer.Size()))
+		n27, err := m.StaticLayer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n27
+	}
+	return i, nil
+}
+func (m *RuntimeLayer_DiskLayer_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.DiskLayer != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.DiskLayer.Size()))
+		n28, err := m.DiskLayer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n28
+	}
+	return i, nil
+}
+func (m *RuntimeLayer_AdminLayer_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.AdminLayer != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.AdminLayer.Size()))
+		n29, err := m.AdminLayer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n29
+	}
+	return i, nil
+}
+func (m *RuntimeLayer_RtdsLayer_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.RtdsLayer != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.RtdsLayer.Size()))
+		n30, err := m.RtdsLayer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n30
+	}
+	return i, nil
+}
+func (m *RuntimeLayer_DiskLayer) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RuntimeLayer_DiskLayer) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SymlinkRoot) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.SymlinkRoot)))
+		i += copy(dAtA[i:], m.SymlinkRoot)
+	}
+	if m.AppendServiceCluster {
+		dAtA[i] = 0x10
+		i++
+		if m.AppendServiceCluster {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.Subdirectory) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.Subdirectory)))
+		i += copy(dAtA[i:], m.Subdirectory)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RuntimeLayer_AdminLayer) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RuntimeLayer_AdminLayer) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RuntimeLayer_RtdsLayer) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RuntimeLayer_RtdsLayer) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.RtdsConfig != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintBootstrap(dAtA, i, uint64(m.RtdsConfig.Size()))
+		n31, err := m.RtdsConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n31
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *LayeredRuntime) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LayeredRuntime) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Layers) > 0 {
+		for _, msg := range m.Layers {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintBootstrap(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -1392,10 +2185,6 @@ func (m *Bootstrap) Size() (n int) {
 		l = m.Tracing.Size()
 		n += 1 + l + sovBootstrap(uint64(l))
 	}
-	if m.RateLimitService != nil {
-		l = m.RateLimitService.Size()
-		n += 1 + l + sovBootstrap(uint64(l))
-	}
 	if m.Runtime != nil {
 		l = m.Runtime.Size()
 		n += 1 + l + sovBootstrap(uint64(l))
@@ -1415,6 +2204,17 @@ func (m *Bootstrap) Size() (n int) {
 	if m.OverloadManager != nil {
 		l = m.OverloadManager.Size()
 		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.EnableDispatcherStats {
+		n += 3
+	}
+	if m.LayeredRuntime != nil {
+		l = m.LayeredRuntime.Size()
+		n += 2 + l + sovBootstrap(uint64(l))
+	}
+	l = len(m.HeaderPrefix)
+	if l > 0 {
+		n += 2 + l + sovBootstrap(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1493,6 +2293,12 @@ func (m *Admin) Size() (n int) {
 	if m.Address != nil {
 		l = m.Address.Size()
 		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if len(m.SocketOptions) > 0 {
+		for _, e := range m.SocketOptions {
+			l = e.Size()
+			n += 1 + l + sovBootstrap(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1589,6 +2395,150 @@ func (m *Runtime) Size() (n int) {
 	l = len(m.OverrideSubdirectory)
 	if l > 0 {
 		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.Base != nil {
+		l = m.Base.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RuntimeLayer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.LayerSpecifier != nil {
+		n += m.LayerSpecifier.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RuntimeLayer_StaticLayer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.StaticLayer != nil {
+		l = m.StaticLayer.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	return n
+}
+func (m *RuntimeLayer_DiskLayer_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.DiskLayer != nil {
+		l = m.DiskLayer.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	return n
+}
+func (m *RuntimeLayer_AdminLayer_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AdminLayer != nil {
+		l = m.AdminLayer.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	return n
+}
+func (m *RuntimeLayer_RtdsLayer_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RtdsLayer != nil {
+		l = m.RtdsLayer.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	return n
+}
+func (m *RuntimeLayer_DiskLayer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.SymlinkRoot)
+	if l > 0 {
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.AppendServiceCluster {
+		n += 2
+	}
+	l = len(m.Subdirectory)
+	if l > 0 {
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RuntimeLayer_AdminLayer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RuntimeLayer_RtdsLayer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.RtdsConfig != nil {
+		l = m.RtdsConfig.Size()
+		n += 1 + l + sovBootstrap(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *LayeredRuntime) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Layers) > 0 {
+		for _, e := range m.Layers {
+			l = e.Size()
+			n += 1 + l + sovBootstrap(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1956,42 +2906,6 @@ func (m *Bootstrap) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 10:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RateLimitService", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBootstrap
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthBootstrap
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthBootstrap
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RateLimitService == nil {
-				m.RateLimitService = &v22.RateLimitServiceConfig{}
-			}
-			if err := m.RateLimitService.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 11:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Runtime", wireType)
@@ -2172,6 +3086,94 @@ func (m *Bootstrap) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 16:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnableDispatcherStats", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.EnableDispatcherStats = bool(v != 0)
+		case 17:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LayeredRuntime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LayeredRuntime == nil {
+				m.LayeredRuntime = &LayeredRuntime{}
+			}
+			if err := m.LayeredRuntime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 18:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HeaderPrefix", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.HeaderPrefix = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipBootstrap(dAtA[iNdEx:])
@@ -2255,7 +3257,7 @@ func (m *Bootstrap_StaticResources) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Listeners = append(m.Listeners, v23.Listener{})
+			m.Listeners = append(m.Listeners, &v22.Listener{})
 			if err := m.Listeners[len(m.Listeners)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2289,7 +3291,7 @@ func (m *Bootstrap_StaticResources) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Clusters = append(m.Clusters, v23.Cluster{})
+			m.Clusters = append(m.Clusters, &v22.Cluster{})
 			if err := m.Clusters[len(m.Clusters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2323,7 +3325,7 @@ func (m *Bootstrap_StaticResources) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Secrets = append(m.Secrets, auth.Secret{})
+			m.Secrets = append(m.Secrets, &auth.Secret{})
 			if err := m.Secrets[len(m.Secrets)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2641,6 +3643,40 @@ func (m *Admin) Unmarshal(dAtA []byte) error {
 				m.Address = &core.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SocketOptions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SocketOptions = append(m.SocketOptions, &core.SocketOption{})
+			if err := m.SocketOptions[len(m.SocketOptions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3271,6 +4307,670 @@ func (m *Runtime) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.OverrideSubdirectory = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Base", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Base == nil {
+				m.Base = &types.Struct{}
+			}
+			if err := m.Base.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipBootstrap(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RuntimeLayer) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowBootstrap
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RuntimeLayer: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RuntimeLayer: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StaticLayer", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.LayerSpecifier = &RuntimeLayer_StaticLayer{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DiskLayer", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &RuntimeLayer_DiskLayer{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.LayerSpecifier = &RuntimeLayer_DiskLayer_{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdminLayer", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &RuntimeLayer_AdminLayer{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.LayerSpecifier = &RuntimeLayer_AdminLayer_{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RtdsLayer", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &RuntimeLayer_RtdsLayer{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.LayerSpecifier = &RuntimeLayer_RtdsLayer_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipBootstrap(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RuntimeLayer_DiskLayer) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowBootstrap
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DiskLayer: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DiskLayer: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SymlinkRoot", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SymlinkRoot = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AppendServiceCluster", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.AppendServiceCluster = bool(v != 0)
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Subdirectory", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Subdirectory = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipBootstrap(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RuntimeLayer_AdminLayer) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowBootstrap
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AdminLayer: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AdminLayer: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipBootstrap(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RuntimeLayer_RtdsLayer) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowBootstrap
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RtdsLayer: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RtdsLayer: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RtdsConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RtdsConfig == nil {
+				m.RtdsConfig = &core.ConfigSource{}
+			}
+			if err := m.RtdsConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipBootstrap(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LayeredRuntime) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowBootstrap
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LayeredRuntime: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LayeredRuntime: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Layers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBootstrap
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthBootstrap
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Layers = append(m.Layers, &RuntimeLayer{})
+			if err := m.Layers[len(m.Layers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

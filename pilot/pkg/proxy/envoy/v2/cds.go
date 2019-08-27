@@ -19,13 +19,12 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
+func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: ClusterType,
@@ -40,7 +39,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 
 	for _, c := range response {
 		cc, _ := types.MarshalAny(c)
-		out.Resources = append(out.Resources, *cc)
+		out.Resources = append(out.Resources, cc)
 	}
 
 	return out
@@ -48,47 +47,40 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-	rawClusters, err := s.generateRawClusters(con.modelNode, push)
-	if err != nil {
-		return err
-	}
+	rawClusters := s.generateRawClusters(con.modelNode, push)
+
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
 	response := con.clusters(rawClusters)
-	err = con.send(response)
+	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
-		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
+		recordSendError(cdsSendErrPushes, err)
 		return err
 	}
-	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
+	cdsPushes.Increment()
 
 	// The response can't be easily read due to 'any' marshaling.
-	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.ConID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
+	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
+		con.modelNode.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, node, push)
-	if err != nil {
-		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", node.ID, err)
-		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
-		return nil, err
-	}
+func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) []*xdsapi.Cluster {
+	rawClusters := s.ConfigGenerator.BuildClusters(s.Env, node, push)
 
 	for _, c := range rawClusters {
-		if err = c.Validate(); err != nil {
+		if err := c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
-			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
-			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
-			totalXDSInternalErrors.Add(1)
+			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
+			cdsBuildErrPushes.Increment()
+			totalXDSInternalErrors.Increment()
 			// Generating invalid clusters is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
 			panic(retErr.Error())
 		}
 	}
-	return rawClusters, nil
+	return rawClusters
 }

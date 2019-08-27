@@ -31,8 +31,8 @@ if [[ "${VM_DRIVER}" == "none" ]]; then
 fi
 
 $SUDO_PREFIX minikube start \
-    --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
-    --kubernetes-version=v1.10.0 \
+    --extra-config=apiserver.enable-admission-plugins="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
+    --kubernetes-version=v1.14.0 \
     --insecure-registry="localhost:5000" \
     --cpus=4 \
     --memory=8192 \

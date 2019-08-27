@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const maxDeploymentTimeout = 480 * time.Second
@@ -47,7 +47,7 @@ func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[str
 		return nil
 	}
 
-	_, err := retry.Retry(nil, retryFn)
+	_, err := retry.Retry(context.TODO(), retryFn)
 
 	return err
 }
@@ -119,19 +119,8 @@ func createAndVerifyMCMeshConfig() error {
 		return err
 	}
 
-	// Verify that the mesh contains endpoints from the primary cluster only
-	log.Infof("Before adding remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
-	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	// Add the remote cluster by creating a secret and configmap in the primary cluster
-	if err = addRemoteCluster(); err != nil {
-		return err
-	}
-
 	// Verify that the mesh contains endpoints from both the primary and the remote clusters
-	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
+	log.Infof("Verify that the mesh contains endpoints from both the primary and the remote clusters")
 	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs)
 
 	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
@@ -143,13 +132,13 @@ func createAndVerifyMCMeshConfig() error {
 		return err
 	}
 
-	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
-	// Verify that the mesh contains the primary endpoints only
+	// Verify that the mesh contains endpoints from the primary cluster only
+	log.Infof("After deleting remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
 	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, primaryAppEPs); err != nil {
 		return err
 	}
 
-	// Again, add the remote cluster by creating a secret and configmap in the primary cluster
+	// Add back the remote cluster by creating a secret and configmap in the primary cluster
 	if err = addRemoteCluster(); err != nil {
 		return err
 	}

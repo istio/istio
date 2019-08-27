@@ -134,10 +134,10 @@ func (p *parser) VisitExpr(ctx *gen.ExprContext) interface{} {
 	if ctx.GetOp() == nil {
 		return result
 	}
-
+	opID := p.helper.id(ctx.GetOp())
 	ifTrue := p.Visit(ctx.GetE1()).(*exprpb.Expr)
 	ifFalse := p.Visit(ctx.GetE2()).(*exprpb.Expr)
-	return p.globalCallOrMacro(ctx.GetOp(), operators.Conditional, result, ifTrue, ifFalse)
+	return p.globalCallOrMacro(opID, operators.Conditional, result, ifTrue, ifFalse)
 }
 
 // Visit a parse tree produced by CELParser#conditionalOr.
@@ -179,11 +179,11 @@ func (p *parser) VisitRelation(ctx *gen.RelationContext) interface{} {
 	if ctx.GetOp() != nil {
 		opText = ctx.GetOp().GetText()
 	}
-
 	if op, found := operators.Find(opText); found {
 		lhs := p.Visit(ctx.Relation(0)).(*exprpb.Expr)
+		opID := p.helper.id(ctx.GetOp())
 		rhs := p.Visit(ctx.Relation(1)).(*exprpb.Expr)
-		return p.globalCallOrMacro(ctx.GetOp(), op, lhs, rhs)
+		return p.globalCallOrMacro(opID, op, lhs, rhs)
 	}
 	return p.reportError(ctx, "operator not found")
 }
@@ -199,8 +199,9 @@ func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
 	}
 	if op, found := operators.Find(opText); found {
 		lhs := p.Visit(ctx.Calc(0)).(*exprpb.Expr)
+		opID := p.helper.id(ctx.GetOp())
 		rhs := p.Visit(ctx.Calc(1)).(*exprpb.Expr)
-		return p.globalCallOrMacro(ctx.GetOp(), op, lhs, rhs)
+		return p.globalCallOrMacro(opID, op, lhs, rhs)
 	}
 	return p.reportError(ctx, "operator not found")
 }
@@ -229,16 +230,18 @@ func (p *parser) VisitLogicalNot(ctx *gen.LogicalNotContext) interface{} {
 	if len(ctx.GetOps())%2 == 0 {
 		return p.Visit(ctx.Member())
 	}
+	opID := p.helper.id(ctx.GetOps()[0])
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
-	return p.globalCallOrMacro(ctx.GetOps()[0], operators.LogicalNot, target)
+	return p.globalCallOrMacro(opID, operators.LogicalNot, target)
 }
 
 func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
 	if len(ctx.GetOps())%2 == 0 {
 		return p.Visit(ctx.Member())
 	}
+	opID := p.helper.id(ctx.GetOps()[0])
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
-	return p.globalCallOrMacro(ctx.GetOps()[0], operators.Negate, target)
+	return p.globalCallOrMacro(opID, operators.Negate, target)
 }
 
 // Visit a parse tree produced by CELParser#SelectOrCall.
@@ -250,7 +253,8 @@ func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 	}
 	id := ctx.GetId().GetText()
 	if ctx.GetOpen() != nil {
-		return p.receiverCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
+		opID := p.helper.id(ctx.GetOpen())
+		return p.receiverCallOrMacro(opID, id, operand, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
@@ -276,18 +280,20 @@ func (p *parser) VisitPrimaryExpr(ctx *gen.PrimaryExprContext) interface{} {
 // Visit a parse tree produced by CELParser#Index.
 func (p *parser) VisitIndex(ctx *gen.IndexContext) interface{} {
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
+	opID := p.helper.id(ctx.GetOp())
 	index := p.Visit(ctx.GetIndex()).(*exprpb.Expr)
-	return p.globalCallOrMacro(ctx.GetOp(), operators.Index, target, index)
+	return p.globalCallOrMacro(opID, operators.Index, target, index)
 }
 
 // Visit a parse tree produced by CELParser#CreateMessage.
 func (p *parser) VisitCreateMessage(ctx *gen.CreateMessageContext) interface{} {
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
+	objID := p.helper.id(ctx.GetOp())
 	if messageName, found := p.extractQualifiedName(target); found {
 		entries := p.VisitIFieldInitializerList(ctx.GetEntries()).([]*exprpb.Expr_CreateStruct_Entry)
-		return p.helper.newObject(ctx, messageName, entries...)
+		return p.helper.newObject(objID, messageName, entries...)
 	}
-	return p.helper.newExpr(ctx)
+	return p.helper.newExpr(objID)
 }
 
 // Visit a parse tree of field initializers.
@@ -298,8 +304,9 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 
 	result := make([]*exprpb.Expr_CreateStruct_Entry, len(ctx.GetFields()))
 	for i, f := range ctx.GetFields() {
+		initID := p.helper.id(ctx.GetCols()[i])
 		value := p.Visit(ctx.GetValues()[i]).(*exprpb.Expr)
-		field := p.helper.newObjectField(ctx.GetCols()[i], f.GetText(), value)
+		field := p.helper.newObjectField(initID, f.GetText(), value)
 		result[i] = field
 	}
 	return result
@@ -316,9 +323,9 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 		return p.helper.newExpr(ctx)
 	}
 	identName += ctx.GetId().GetText()
-
 	if ctx.GetOp() != nil {
-		return p.globalCallOrMacro(ctx.GetOp(), identName, p.visitList(ctx.GetArgs())...)
+		opID := p.helper.id(ctx.GetOp())
+		return p.globalCallOrMacro(opID, identName, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newIdent(ctx.GetId(), identName)
 }
@@ -330,16 +337,18 @@ func (p *parser) VisitNested(ctx *gen.NestedContext) interface{} {
 
 // Visit a parse tree produced by CELParser#CreateList.
 func (p *parser) VisitCreateList(ctx *gen.CreateListContext) interface{} {
-	return p.helper.newList(ctx, p.visitList(ctx.GetElems())...)
+	listID := p.helper.id(ctx.GetOp())
+	return p.helper.newList(listID, p.visitList(ctx.GetElems())...)
 }
 
 // Visit a parse tree produced by CELParser#CreateStruct.
 func (p *parser) VisitCreateStruct(ctx *gen.CreateStructContext) interface{} {
+	structID := p.helper.id(ctx.GetOp())
 	entries := []*exprpb.Expr_CreateStruct_Entry{}
 	if ctx.GetEntries() != nil {
 		entries = p.Visit(ctx.GetEntries()).([]*exprpb.Expr_CreateStruct_Entry)
 	}
-	return p.helper.newMap(ctx.GetStart(), entries...)
+	return p.helper.newMap(structID, entries...)
 }
 
 // Visit a parse tree produced by CELParser#ConstantLiteral.
@@ -387,9 +396,10 @@ func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) int
 
 	result := make([]*exprpb.Expr_CreateStruct_Entry, len(ctx.GetCols()))
 	for i, col := range ctx.GetCols() {
+		colID := p.helper.id(col)
 		key := p.Visit(ctx.GetKeys()[i]).(*exprpb.Expr)
 		value := p.Visit(ctx.GetValues()[i]).(*exprpb.Expr)
-		entry := p.helper.newMapEntry(col, key, value)
+		entry := p.helper.newMapEntry(colID, key, value)
 		result[i] = entry
 	}
 	return result
@@ -546,21 +556,21 @@ func (p *parser) ReportContextSensitivity(recognizer antlr.Parser, dfa *antlr.DF
 	// Intentional
 }
 
-func (p *parser) globalCallOrMacro(ctx interface{}, function string, args ...*exprpb.Expr) *exprpb.Expr {
-	if expr, found := p.expandMacro(ctx, function, nil, args...); found {
+func (p *parser) globalCallOrMacro(exprID int64, function string, args ...*exprpb.Expr) *exprpb.Expr {
+	if expr, found := p.expandMacro(exprID, function, nil, args...); found {
 		return expr
 	}
-	return p.helper.newGlobalCall(ctx, function, args...)
+	return p.helper.newGlobalCall(exprID, function, args...)
 }
 
-func (p *parser) receiverCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
-	if expr, found := p.expandMacro(ctx, function, target, args...); found {
+func (p *parser) receiverCallOrMacro(exprID int64, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+	if expr, found := p.expandMacro(exprID, function, target, args...); found {
 		return expr
 	}
-	return p.helper.newReceiverCall(ctx, function, target, args...)
+	return p.helper.newReceiverCall(exprID, function, target, args...)
 }
 
-func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {
+func (p *parser) expandMacro(exprID int64, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {
 	macro, found := p.macros[makeMacroKey(function, len(args), target != nil)]
 	if !found {
 		macro, found = p.macros[makeVarArgMacroKey(function, target != nil)]
@@ -571,13 +581,13 @@ func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Ex
 	eh := exprHelperPool.Get().(*exprHelper)
 	defer exprHelperPool.Put(eh)
 	eh.parserHelper = p.helper
-	eh.ctx = ctx
+	eh.id = exprID
 	expr, err := macro.Expander()(eh, target, args)
 	if err != nil {
 		if err.Location != nil {
 			return p.reportError(err.Location, err.Message), true
 		}
-		return p.reportError(ctx, err.Message), true
+		return p.reportError(p.helper.getLocation(exprID), err.Message), true
 	}
 	return expr, true
 }

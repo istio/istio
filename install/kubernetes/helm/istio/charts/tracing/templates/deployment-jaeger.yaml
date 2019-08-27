@@ -1,6 +1,6 @@
 {{ if eq .Values.provider "jaeger" }}
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-tracing
@@ -11,6 +11,9 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
+  selector:
+    matchLabels:
+      app: jaeger
   template:
     metadata:
       labels:
@@ -20,7 +23,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
         prometheus.io/port: "16686"
 {{- if .Values.contextPath }}
@@ -40,7 +42,7 @@ spec:
 {{- end }}
       containers:
         - name: jaeger
-          image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
+          image: "{{ .Values.jaeger.hub }}/{{ .Values.jaeger.image }}:{{ .Values.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 9411
@@ -57,6 +59,16 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          {{- if eq .Values.jaeger.spanStorageType "badger" }}
+          - name: BADGER_EPHEMERAL
+            value: "false"
+          - name: SPAN_STORAGE_TYPE
+            value: "badger"
+          - name: BADGER_DIRECTORY_VALUE
+            value: "/badger/data"
+          - name: BADGER_DIRECTORY_KEY
+            value: "/badger/key"
+          {{- end }}
           - name: COLLECTOR_ZIPKIN_HTTP_PORT
             value: "9411"
           - name: MEMORY_MAX_TRACES
@@ -71,6 +83,11 @@ spec:
             httpGet:
               path: /
               port: 16686
+{{- if eq .Values.jaeger.spanStorageType "badger" }}
+          volumeMounts:
+          - name: data
+            mountPath: /badger
+{{- end }}
           resources:
 {{- if .Values.jaeger.resources }}
 {{ toYaml .Values.jaeger.resources | indent 12 }}
@@ -79,5 +96,22 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-
+      {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
+{{- if eq .Values.jaeger.spanStorageType "badger" }}
+      volumes:
+      - name: data
+{{- if .Values.jaeger.persist }}
+        persistentVolumeClaim:
+          claimName: istio-jaeger-pvc
+{{- else }}
+        emptyDir: {}
+{{- end }}
+{{- end }}
 {{ end }}

@@ -1,0 +1,22 @@
+FROM centos:7
+
+RUN yum upgrade -y && \
+    yum install -y epel-release centos-release-scl && \
+    yum install -y fedpkg sudo make which cmake3 rh-git218 \
+                   automake autoconf autogen libtool ninja-build \
+                   llvm-toolset-7 devtoolset-7-libatomic-devel && \
+    yum clean all
+
+# Install go (go package in yum repositories is too old)
+RUN curl -o /root/go.tar.gz https://dl.google.com/go/go1.12.7.linux-amd64.tar.gz && \
+    tar zxf /root/go.tar.gz -C /usr/local
+ENV GOROOT=/usr/local/go \
+    PATH=/usr/local/go/bin:${PATH}
+
+# Install bazel
+RUN curl -o /root/bazel-installer.sh -L http://github.com/bazelbuild/bazel/releases/download/0.27.1/bazel-0.27.1-installer-linux-x86_64.sh && \
+    chmod +x /root/bazel-installer.sh && \
+    /root/bazel-installer.sh
+
+RUN ln -s /usr/bin/cmake3 /usr/bin/cmake && \
+    ln -s /usr/bin/ninja-build /usr/bin/ninja

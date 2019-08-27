@@ -20,8 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
+
+	"istio.io/istio/pkg/mcp/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 )
@@ -39,12 +40,7 @@ func TestJournal(t *testing.T) {
 
 		j.RecordRequestResources(req)
 
-		want = append(want, RecentRequestInfo{Request: &JournaledRequest{
-			Collection:    req.Collection,
-			ResponseNonce: req.ResponseNonce,
-			ErrorDetail:   req.ErrorDetail,
-			SinkNode:      req.SinkNode,
-		}})
+		want = append(want, RecentRequestInfo{Request: req})
 	}
 	want = want[wrap:]
 
@@ -63,12 +59,7 @@ func TestJournal(t *testing.T) {
 	}
 	j.RecordRequestResources(req)
 
-	want = append(want, RecentRequestInfo{Request: &JournaledRequest{
-		Collection:    req.Collection,
-		ResponseNonce: req.ResponseNonce,
-		ErrorDetail:   req.ErrorDetail,
-		SinkNode:      req.SinkNode,
-	}})
+	want = append(want, RecentRequestInfo{Request: req})
 	want = want[1:]
 
 	got = j.Snapshot()

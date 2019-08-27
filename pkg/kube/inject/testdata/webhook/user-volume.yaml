@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-volume
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-volume
+      tier: backend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: user-volume
+        tier: backend
+        track: stable
+      annotations:
+        sidecar.istio.io/userVolumeMount: '{"user-volume-1":{"mountPath":"/mnt/volume-1","readOnly":true},"user-volume-2":{"mountPath":"/mnt/volume-2"}}'
+        sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
+    spec:
+      containers:
+        - name: user-volume
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+

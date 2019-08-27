@@ -19,11 +19,11 @@ import (
 	"io/ioutil"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -88,7 +88,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 		retries++
 		timer := time.NewTimer(retrialInterval)
 		// Exponentially increase the backoff time.
-		retrialInterval = retrialInterval * 2
+		retrialInterval *= 2
 		<-timer.C
 	}
 }

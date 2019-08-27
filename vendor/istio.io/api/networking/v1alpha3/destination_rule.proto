@@ -99,13 +99,13 @@ message DestinationRule {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ServiceEntries](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Rules defined for
+  // declared by [ServiceEntries](https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Rules defined for
   // services that do not exist in the service registry will be ignored.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
   // instead of "reviews.default.svc.cluster.local"), Istio will interpret
   // the short name based on the namespace of the rule, not the service. A
-  // rule in the "default" namespace containing a host "reviews will be
+  // rule in the "default" namespace containing a host "reviews" will be
   // interpreted as "reviews.default.svc.cluster.local", irrespective of
   // the actual namespace associated with the reviews service. _To avoid
   // potential misconfigurations, it is recommended to always use fully
@@ -159,13 +159,9 @@ message TrafficPolicy {
 
   // Traffic policies that apply to specific ports of the service
   message PortTrafficPolicy {
-    // Specifies the port name or number of a port on the destination service
+    // Specifies the number of a port on the destination service
     // on which this policy is being applied.
     //
-    // Names must comply with DNS label syntax (rfc1035) and therefore cannot
-    // collide with numbers. If there are multiple ports on a service with
-    // the same protocol the names should be of the form <protocol-name>-<DNS
-    // label>.
     PortSelector port = 1;
 
     // Settings controlling the load balancer algorithms.
@@ -191,7 +187,7 @@ message TrafficPolicy {
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
 // like A/B testing, or routing to a specific version of a service. Refer
-// to [VirtualService](/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService) documentation for examples of using
+// to [VirtualService](https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService) documentation for examples of using
 // subsets in these scenarios. In addition, traffic policies defined at the
 // service-level can be overridden at a subset-level. The following rule
 // uses a round robin load balancing policy for all traffic going to a
@@ -243,7 +239,7 @@ message Subset {
 
 // Load balancing policies to apply for a specific destination. See Envoy's
 // load balancing
-// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing)
+// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancing)
 // for more details.
 //
 // For example, the following rule uses a round robin load balancing policy
@@ -356,7 +352,7 @@ message LoadBalancerSettings {
 
 // Connection pool settings for an upstream host. The settings apply to
 // each individual host in the upstream service.  See Envoy's [circuit
-// breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking)
+// breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking)
 // for more details. Connection pool settings can be applied at the TCP
 // level as well as at HTTP level.
 //
@@ -400,7 +396,7 @@ message ConnectionPoolSettings {
       google.protobuf.Duration interval = 3;
     };
 
-    // Maximum number of HTTP1 /TCP connections to a destination host.
+    // Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.
     int32 max_connections = 1;
 
     // TCP connection timeout.
@@ -419,12 +415,32 @@ message ConnectionPoolSettings {
     int32 http2_max_requests = 2;
 
     // Maximum number of requests per connection to a backend. Setting this
-    // parameter to 1 disables keep alive.
+    // parameter to 1 disables keep alive. Default 0, meaning "unlimited",
+    // up to 2^29.
     int32 max_requests_per_connection = 3;
 
     // Maximum number of retries that can be outstanding to all hosts in a
-    // cluster at a given time. Defaults to 3.
+    // cluster at a given time. Defaults to 1024.
     int32 max_retries = 4;
+
+    // The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
+    // If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.
+    // Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.
+    google.protobuf.Duration idle_timeout = 5;
+
+    // Policy for upgrading http1.1 connections to http2.
+    enum H2UpgradePolicy {
+      // Use the global default.
+      DEFAULT = 0;
+      // Do not upgrade the connection to http2.
+      // This opt-out option overrides the default.
+      DO_NOT_UPGRADE = 1;
+      // Upgrade the connection to http2.
+      // This opt-in option overrides the default.
+      UPGRADE = 2;
+    };
+    // Specify if http1.1 connection should be upgraded to http2 for the associated destination.
+    H2UpgradePolicy h2_upgrade_policy = 6;
   };
 
   // Settings common to both HTTP and TCP upstream connections.
@@ -440,7 +456,7 @@ message ConnectionPoolSettings {
 // of time. For TCP services, connection timeouts or connection
 // failures to a given host counts as an error when measuring the
 // consecutive errors metric. See Envoy's [outlier
-// detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
+// detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier)
 // for more details.
 //
 // The following rule sets a connection pool size of 100 connections and
@@ -495,7 +511,9 @@ message OutlierDetection {
   // pool has at least min_health_percent hosts in healthy mode. When the
   // percentage of healthy hosts in the load balancing pool drops below this
   // threshold, outlier detection will be disabled and the proxy will load balance
-  // across all hosts in the pool (healthy and unhealthy).  The default is 50%.
+  // across all hosts in the pool (healthy and unhealthy). The threshold can be 
+  // disabled by setting it to 0%. The default is 0% as it's not typically 
+  // applicable in k8s environments with few pods per service.
   int32 min_health_percent = 5;
 }
 

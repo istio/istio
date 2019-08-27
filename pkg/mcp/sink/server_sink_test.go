@@ -21,11 +21,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+
+	"istio.io/istio/pkg/mcp/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"

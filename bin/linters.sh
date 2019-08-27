@@ -32,35 +32,24 @@ function ensure_pilot_types() {
     echo 'Pilot types generation OK'
 }
 
-function check_licenses() {
-    echo 'Checking licenses'
-    bin/check_license.sh
-    echo 'licenses OK'
-}
-
-function install_golangcilint() {
-    GOLANGCI_VERSION="v1.15.0"
-    curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-    golangci-lint --version
-}
-
 function run_adapter_lint() {
     echo 'Running adapterlinter ....'
-    go build -o bin/adapterlinter mixer/tools/adapterlinter/main.go
-    bin/adapterlinter ./mixer/adapter/...
+    go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
     echo 'adapterlinter OK'
 }
 
 function run_test_lint() {
     echo 'Running testlinter ...'
-    go build -o bin/testlinter tests/util/checker/testlinter/*.go
+    go build -o bin/testlinter tools/checker/testlinter/*.go
     bin/testlinter
     echo 'testlinter OK'
 }
 
-function run_golangcilint() {
-    echo 'Running golangci-lint ...'
-    golangci-lint run ./...
+function run_envvar_lint() {
+    echo 'Running envvarlinter ...'
+    go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
+    bin/envvarlinter mixer pilot security galley istioctl
+    echo 'envvarlinter OK'
 }
 
 function run_helm_lint() {
@@ -81,11 +70,28 @@ function check_licenses() {
     echo 'Licenses OK'
 }
 
+function check_samples() {
+    echo 'Checking documentation samples with istioctl'
+    bin/check_samples.sh
+    echo 'Samples OK'
+}
+
+function run_yaml_lint(){
+    echo 'Checking yaml files with yamllint'
+    bin/yaml_lint.sh
+    echo 'yamllint check passed'
+}
+
 ensure_pilot_types
 check_licenses
-install_golangcilint
-run_golangcilint
 run_adapter_lint
 run_test_lint
+run_envvar_lint
 run_helm_lint
+run_yaml_lint
 check_grafana_dashboards
+check_samples
+
+"${WORKSPACE}/scripts/run_golangci.sh"
+"${WORKSPACE}/scripts/check_license.sh"
+"${WORKSPACE}/scripts/check_dockerfiles.sh"

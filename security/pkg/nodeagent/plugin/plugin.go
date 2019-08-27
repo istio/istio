@@ -20,14 +20,11 @@ import (
 )
 
 const (
-	// GoogleIAM is the name of the google IAM plugin.
-	GoogleIAM = "GoogleIAM"
-
 	// GoogleTokenExchange is the name of the google token exchange plugin.
 	GoogleTokenExchange = "GoogleTokenExchange"
 )
 
 // Plugin provides common interfaces so that authentication providers could choose to implement their specific logic.
 type Plugin interface {
-	ExchangeToken(context.Context, string, string) (string, time.Time, error)
+	ExchangeToken(context.Context, string, string) (string, time.Time, int, error)
 }

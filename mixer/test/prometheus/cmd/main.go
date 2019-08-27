@@ -80,5 +80,5 @@ func runServer(args *Args) {
 	}
 
 	s.Run()
-	s.Wait()
+	_ = s.Wait()
 }

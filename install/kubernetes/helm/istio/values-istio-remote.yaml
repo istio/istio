@@ -23,8 +23,6 @@ prometheus:
 global:
   istioRemote: true
 
-  defaultPodDisruptionBudget: {}
-
   enableTracing: false
 
   # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent

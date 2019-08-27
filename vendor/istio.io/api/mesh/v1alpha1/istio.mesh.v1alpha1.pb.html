@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 20
+number_of_entries: 24
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -93,7 +93,7 @@ distribution of traffic to endpoints based on the localities of where the
 traffic originates and where it will terminate. These localities are
 specified using arbitrary labels that designate a hierarchy of localities in
 &lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality Weight</a>
 The following example shows how to setup locality weights mesh-wide.</p>
 
 <p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
@@ -150,7 +150,7 @@ and similarly us-west should failover to us-east.</p>
 <td>
 <p>Optional: only one of distribute or failover can be set.
 Explicitly specify loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight">Locality weighted load balancing</a>
 If empty, the locality weight is set according to the endpoints number within it.</p>
 
 </td>
@@ -346,6 +346,22 @@ other services.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-protocol_detection_timeout">
+<td><code>protocolDetectionTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Automatic protocol detection uses a set of heuristics to
+determine whether the connection is using TLS or not (on the
+server side), as well as the application protocol being used
+(e.g., http vs tcp). These heuristics rely on the client sending
+the first bits of data. For server first protocols like MySQL,
+MongoDB, etc., Envoy will timeout on the protocol detection after
+the specified period, defaulting to non mTLS plain TCP
+traffic. Set this field to tweak the period that Envoy will wait
+for the client to send the first bits of data. (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-tcp_keepalive">
 <td><code>tcpKeepalive</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
@@ -416,6 +432,16 @@ Default value is text.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-enable_envoy_access_log_service">
+<td><code>enableEnvoyAccessLogService</code></td>
+<td><code>bool</code></td>
+<td>
+<p>This flag enables Envoy&rsquo;s gRPC Access Log Service.
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-default_config">
 <td><code>defaultConfig</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
@@ -480,6 +506,78 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-default_service_export_to">
+<td><code>defaultServiceExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the ServiceEntry.export_to field and services
+imported through container registry integrations, e.g. this applies to
+Kubernetes Service resources. The value is a list of namespace names and
+reserved namespace aliases. The allowed namespace aliases are:</p>
+
+<ul>
+<li>- All Namespaces
+. - Current Namespace
+~ - No Namespace</li>
+</ul>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+services are exported to all namespaces.</p>
+
+<p>&lsquo;All namespaces&rsquo; is a reasonable default for implementations that don&rsquo;t
+need to restrict access or visibility of services across namespace
+boundaries. If that requirement is present it is generally good practice to
+make the default &lsquo;Current namespace&rsquo; so that services are only visible
+within their own namespaces by default. Operators can then expand the
+visibility of services to other namespaces as needed. Use of &lsquo;No Namespace&rsquo;
+is expected to be rare but can have utility for deployments where
+dependency management needs to be precise even within the scope of a single
+namespace.</p>
+
+<p>For further discussion see the reference documentation for ServiceEntry,
+Sidecar, and Gateway.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_virtual_service_export_to">
+<td><code>defaultVirtualServiceExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the VirtualService.export<em>to field. Has the same
+syntax as &lsquo;default</em>service<em>export</em>to&rsquo;.</p>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+virtual services are exported to all namespaces</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-default_destination_rule_export_to">
+<td><code>defaultDestinationRuleExportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The default value for the DestinationRule.export<em>to field. Has the same
+syntax as &lsquo;default</em>service<em>export</em>to&rsquo;.</p>
+
+<p>If not set the system will use &ldquo;*&rdquo; as the default value which implies that
+destination rules are exported to all namespaces</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-root_namespace">
+<td><code>rootNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>The namespace to treat as the administrative root namespace for
+Istio configuration. When processing a leaf namespace Istio will search for
+declarations in that namespace first and if none are found it will
+search in the root namespace. Any matching declaration found in the root
+namespace is processed as if it were declared in the leaf namespace.</p>
+
+<p>The precise semantics of this processing are documented on each resource
+type.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-locality_lb_setting">
 <td><code>localityLbSetting</code></td>
 <td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
@@ -493,6 +591,47 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Configures DNS refresh rate for Envoy clusters of type STRICT_DNS</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-disable_report_batch">
+<td><code>disableReportBatch</code></td>
+<td><code>bool</code></td>
+<td>
+<p>The flag to disable report batch.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_entries">
+<td><code>reportBatchMaxEntries</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum number
+of requests that are batched in report. If left unspecified, the default value
+of report<em>batch</em>max_entries == 0 will use the hardcoded defaults of
+istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-report_batch_max_time">
+<td><code>reportBatchMaxTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>When disable<em>report</em>batch is false, this value specifies the maximum elapsed
+time a batched report will be sent after a user request is processed. If left
+unspecified, the default report<em>batch</em>max_time == 0 will use the hardcoded
+defaults of istio::mixerclient::ReportOptions.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-h2_upgrade_policy">
+<td><code>h2UpgradePolicy</code></td>
+<td><code><a href="#MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</a></code></td>
+<td>
+<p>Specify if http1.1 connections should be upgraded to http2 by default.
+if sidecar is installed on all pods in the mesh, then this should be set to UPGRADE.
+If one or more services or namespaces do not have sidecar(s), then this should be set to DO<em>NOT</em>UPGRADE.
+It can be enabled by destination using the destinationRule.trafficPolicy.connectionPool.http.h2UpgradePolicy override.</p>
 
 </td>
 </tr>
@@ -517,6 +656,35 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-H2UpgradePolicy">MeshConfig.H2UpgradePolicy</h2>
+<section>
+<p>Default Policy for upgrading http1.1 connections to http2.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-H2UpgradePolicy-DO_NOT_UPGRADE">
+<td><code>DO_NOT_UPGRADE</code></td>
+<td>
+<p>Do not upgrade connections to http2.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-H2UpgradePolicy-UPGRADE">
+<td><code>UPGRADE</code></td>
+<td>
+<p>Upgrade the connections to http2.</p>
+
 </td>
 </tr>
 </tbody>
@@ -618,8 +786,9 @@ there are no services or ServiceEntries for the destination port</p>
 <p>MeshNetworks (config map) provides information about the set of networks
 inside a mesh and how to route to endpoints in each network. For example</p>
 
-<p>MeshNetworks(file/config map):
-networks:
+<p>MeshNetworks(file/config map):</p>
+
+<pre><code class="language-yaml">networks:
   network1:
   - endpoints:
     - fromRegistry: registry1 #must match secret name in Kubernetes
@@ -630,7 +799,8 @@ networks:
       locality: us-east-1a
     - address: 192.168.100.1
       port: 15443
-      locality: us-east-1a</p>
+      locality: us-east-1a
+</code></pre>
 
 <table class="message-fields">
 <thead>
@@ -907,16 +1077,6 @@ DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 
 </td>
 </tr>
-<tr id="ProxyConfig-envoy_metrics_service_address">
-<td><code>envoyMetricsServiceAddress</code></td>
-<td><code>string</code></td>
-<td>
-<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
-See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
-for details about Envoy&rsquo;s Metrics Service API.</p>
-
-</td>
-</tr>
 <tr id="ProxyConfig-proxy_admin_port">
 <td><code>proxyAdminPort</code></td>
 <td><code>int32</code></td>
@@ -987,6 +1147,35 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDS">SDS</a></code></td>
+<td>
+<p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_access_log_service">
+<td><code>envoyAccessLogService</code></td>
+<td><code><a href="#RemoteService">RemoteService</a></code></td>
+<td>
+<p>Address of the service to which access logs from Envoys should be
+sent. (e.g. accesslog-service:15000). See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto">Access Log
+Service</a>
+for details about Envoy&rsquo;s gRPC Access Log Service API.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_metrics_service">
+<td><code>envoyMetricsService</code></td>
+<td><code><a href="#RemoteService">RemoteService</a></code></td>
+<td>
+<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
+for details about Envoy&rsquo;s Metrics Service API.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1019,6 +1208,82 @@ source IP addresses during redirection.</p>
 source and destination IP addresses and ports, so that they can be used for advanced
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RemoteService">RemoteService</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RemoteService-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of a remove service used for various purposes (access log
+receiver, metrics receiver, etc.). Can be IP address or a fully
+qualified DNS name.</p>
+
+</td>
+</tr>
+<tr id="RemoteService-tls_settings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td>
+<p>Use the tls_settings to specify the tls mode to use. If the remote service
+uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+mode as <code>ISTIO_MUTUAL</code>.</p>
+
+</td>
+</tr>
+<tr id="RemoteService-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SDS">SDS</h2>
+<section>
+<p>SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDS-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if SDS is enabled.</p>
+
+</td>
+</tr>
+<tr id="SDS-k8s_sa_jwt_path">
+<td><code>k8sSaJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of k8s service account JWT path.</p>
 
 </td>
 </tr>
@@ -1062,6 +1327,14 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 
 </td>
 </tr>
+<tr id="Tracing-stackdriver" class="oneof">
+<td><code>stackdriver</code></td>
+<td><code><a href="#Tracing-Stackdriver">Tracing.Stackdriver (oneof)</a></code></td>
+<td>
+<p>Use a Stackdriver tracer.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1091,7 +1364,7 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 </section>
 <h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
 <section>
-<p>Lightstep defines configuration for a LightStep tracer.</p>
+<p>Defines configuration for a LightStep tracer.</p>
 
 <table class="message-fields">
 <thead>
@@ -1134,6 +1407,23 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 
 </td>
 </tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Stackdriver">Tracing.Stackdriver</h2>
+<section>
+<p>Stackdriver defines configuration for a Stackdriver tracer.
+See <a href="https://github.com/census-instrumentation/opencensus-proto/blob/master/src/opencensus/proto/trace/v1/trace_config.proto">Opencensus trace config</a> for details.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 </tbody>
 </table>
 </section>

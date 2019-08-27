@@ -23,7 +23,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestConversion(t *testing.T) {
@@ -179,10 +181,10 @@ func TestEncoding(t *testing.T) {
 }
 
 func TestIngressClass(t *testing.T) {
-	istio := model.DefaultMeshConfig().IngressClass
+	istio := mesh.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
+		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
@@ -210,7 +212,7 @@ func TestIngressClass(t *testing.T) {
 			},
 		}
 
-		mesh := model.DefaultMeshConfig()
+		mesh := mesh.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 
 		if c.ingressClass != "" {

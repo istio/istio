@@ -8,17 +8,18 @@ aliases:
   - /docs/reference/config/template/checknothing.html
 number_of_entries: 1
 ---
-<p>The <code>checknothing</code> template represents an empty block of data, which can useful
+<p>The <code>checknothing</code> template represents an empty block of data, which can be useful
 in different testing scenarios.</p>
 
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: checknothing
+kind: instance
 metadata:
   name: denyrequest
   namespace: istio-system
 spec:
+  compiledTemplate: checknothing    
 </code></pre>
 
 <h2 id="Template">Template</h2>

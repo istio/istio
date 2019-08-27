@@ -1,0 +1,314 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "This package defines the common, core types used by the Mesh Configuration Protocol.",
+    "version": "v1alpha1"
+  },
+  "components": {
+    "schemas": {
+      "istio.mcp.v1alpha1.SinkNode": {
+        "description": "Identifies a specific MCP sink node instance. The node identifier is presented to the resource source, which may use this identifier to distinguish per sink configuration for serving. This information is not authoritative. Authoritative identity should come from the underlying transport layer (e.g. rpc credentials).",
+        "type": "object",
+        "required": [
+          "annotations"
+        ],
+        "properties": {
+          "id": {
+            "description": "An opaque identifier for the MCP node.",
+            "type": "string",
+            "format": "string"
+          },
+          "annotations": {
+            "description": "Opaque annotations extending the node identifier.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.MeshConfigRequest": {
+        "description": "A MeshConfigRequest requests a set of versioned resources of the same type for a given client.",
+        "type": "object",
+        "properties": {
+          "typeUrl": {
+            "description": "Type of the resource that is being requested, e.g. \"type.googleapis.com/istio.io.networking.v1alpha3.VirtualService\".",
+            "type": "string",
+            "format": "string"
+          },
+          "versionInfo": {
+            "description": "The version_info provided in the request messages will be the version_info received with the most recent successfully processed response or empty on the first request. It is expected that no new request is sent after a response is received until the client instance is ready to ACK/NACK the new configuration. ACK/NACK takes place by returning the new API config version as applied or the previous API config version respectively. Each type_url (see below) has an independent version associated with it.",
+            "type": "string",
+            "format": "string"
+          },
+          "sinkNode": {
+            "$ref": "#/components/schemas/istio.mcp.v1alpha1.SinkNode"
+          },
+          "responseNonce": {
+            "description": "The nonce corresponding to MeshConfigResponse being ACK/NACKed. See above discussion on version_info and the MeshConfigResponse nonce comment. This may be empty if no nonce is available, e.g. at startup.",
+            "type": "string",
+            "format": "string"
+          },
+          "errorDetail": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.MeshConfigResponse": {
+        "description": "A MeshConfigResponse delivers a set of versioned resources of the same type in response to a MeshConfigRequest.",
+        "type": "object",
+        "properties": {
+          "typeUrl": {
+            "description": "Type URL for resources wrapped in the provided resources(s). This must be consistent with the type_url in the wrapper messages if resources is non-empty.",
+            "type": "string",
+            "format": "string"
+          },
+          "versionInfo": {
+            "description": "The version of the response data.",
+            "type": "string",
+            "format": "string"
+          },
+          "nonce": {
+            "description": "The nonce provides a way to explicitly ack a specific MeshConfigResponse in a following MeshConfigRequest. Additional messages may have been sent by client to the management server for the previous version on the stream prior to this MeshConfigResponse, that were unprocessed at response send time. The nonce allows the management server to ignore any further MeshConfigRequests for the previous version until a MeshConfigRequest bearing the nonce.",
+            "type": "string",
+            "format": "string"
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.IncrementalMeshConfigRequest": {
+        "description": "IncrementalMeshConfigRequest are be sent in 2 situations: 1. Initial message in a MCP bidirectional gRPC stream.",
+        "type": "object",
+        "required": [
+          "initialResourceVersions"
+        ],
+        "properties": {
+          "typeUrl": {
+            "description": "Type of the resource that is being requested, e.g. \"type.googleapis.com/istio.io.networking.v1alpha3.VirtualService\".",
+            "type": "string",
+            "format": "string"
+          },
+          "sinkNode": {
+            "$ref": "#/components/schemas/istio.mcp.v1alpha1.SinkNode"
+          },
+          "responseNonce": {
+            "description": "When the IncrementalMeshConfigRequest is a ACK or NACK message in response to a previous IncrementalMeshConfigResponse, the response_nonce must be the nonce in the IncrementalMeshConfigResponse. Otherwise response_nonce must be omitted.",
+            "type": "string",
+            "format": "string"
+          },
+          "errorDetail": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "initialResourceVersions": {
+            "description": "When the IncrementalMeshConfigRequest is the first in a stream, the initial_resource_versions must be populated. Otherwise, initial_resource_versions must be omitted. The keys are the resources names of the MCP resources known to the MCP client. The values in the map are the associated resource level version info.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.IncrementalMeshConfigResponse": {
+        "description": "IncrementalMeshConfigResponses do not need to include a full snapshot of the tracked resources. Instead they are a diff to the state of a MCP client. Per resource versions allow servers and clients to track state at the resource granularity. An MCP incremental session is always in the context of a gRPC bidirectional stream. This allows the MCP server to keep track of the state of MCP clients connected to it.",
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "description": "The nonce provides a way for IncrementalMeshConfigRequests to uniquely reference an IncrementalMeshConfigResponse. The nonce is required.",
+            "type": "string",
+            "format": "string"
+          },
+          "systemVersionInfo": {
+            "description": "The version of the response data (used for debugging).",
+            "type": "string",
+            "format": "string"
+          },
+          "removedResources": {
+            "description": "Resources names of resources that have be deleted and to be removed from the MCP Client. Removed resources for missing resources can be ignored.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.RequestResources": {
+        "description": "A RequestResource can be sent in two situations: Initial message in an MCP bidirectional change stream as an ACK or NACK response to a previous Resources. In this case the response_nonce is set to the nonce value in the Resources. ACK/NACK is determined by the presence of error_detail.",
+        "type": "object",
+        "required": [
+          "initialResourceVersions"
+        ],
+        "properties": {
+          "sinkNode": {
+            "$ref": "#/components/schemas/istio.mcp.v1alpha1.SinkNode"
+          },
+          "responseNonce": {
+            "description": "When the RequestResources is an ACK or NACK message in response to a previous RequestResources, the response_nonce must be the nonce in the RequestResources. Otherwise response_nonce must be omitted.",
+            "type": "string",
+            "format": "string"
+          },
+          "errorDetail": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "initialResourceVersions": {
+            "description": "When the RequestResources is the first in a stream, the initial_resource_versions must be populated. Otherwise, initial_resource_versions must be omitted. The keys are the resources names of the MCP resources known to the MCP client. The values in the map are the associated resource level version info.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "collection": {
+            "description": "Type of resource collection that is being requested, e.g.",
+            "type": "string",
+            "format": "string"
+          },
+          "incremental": {
+            "description": "Request an incremental update for the specified collection. The source may choose to honor this request or ignore and and provide a full-state update in the corresponding `Resource` response.",
+            "type": "boolean"
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.Resources": {
+        "description": "Resources do not need to include a full snapshot of the tracked resources. Instead they are a diff to the state of a MCP client. Per resource versions allow sources and sinks to track state at the resource granularity. An MCP incremental session is always in the context of a gRPC bidirectional stream. This allows the MCP source to keep track of the state of MCP sink connected to it.",
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "description": "Required. The nonce provides a way for RequestChange to uniquely reference a RequestResources.",
+            "type": "string",
+            "format": "string"
+          },
+          "systemVersionInfo": {
+            "description": "The version of the response data (used for debugging).",
+            "type": "string",
+            "format": "string"
+          },
+          "removedResources": {
+            "description": "Names of resources that have been deleted and to be removed from the MCP sink node. Removed resources for missing resources can be ignored.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "collection": {
+            "description": "Type of resource collection that is being requested, e.g.",
+            "type": "string",
+            "format": "string"
+          },
+          "incremental": {
+            "description": "This resource response is an incremental update. The source should only send incremental updates if the sink requested them.",
+            "type": "boolean"
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.Metadata": {
+        "description": "Metadata information that all resources within the Mesh Configuration Protocol must have.",
+        "type": "object",
+        "required": [
+          "annotations",
+          "labels"
+        ],
+        "properties": {
+          "name": {
+            "description": "Fully qualified name of the resource. Unique in context of a collection.",
+            "type": "string",
+            "format": "string"
+          },
+          "annotations": {
+            "description": "Map of string keys and values that can be used by source and sink to communicate arbitrary metadata about this resource.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "createTime": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "version": {
+            "description": "Resource version. This is used to determine when resources change across resource updates. It should be treated as opaque by consumers/sinks.",
+            "type": "string",
+            "format": "string"
+          },
+          "labels": {
+            "description": "Map of string keys and values that can be used to organize and categorize resources within a collection.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.mcp.v1alpha1.Resource": {
+        "description": "Resource as transferred via the Mesh Configuration Protocol. Each resource is made up of common metadata, and a type-specific resource payload.",
+        "type": "object",
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/google.protobuf.Any"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/istio.mcp.v1alpha1.Metadata"
+          }
+        }
+      },
+      "google.protobuf.Any": {
+        "description": "The primary payload for the resource.",
+        "type": "object",
+        "properties": {
+          "typeUrl": {
+            "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `path/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted).",
+            "type": "string",
+            "format": "string"
+          },
+          "value": {
+            "description": "Must be a valid serialized protocol buffer of the above specified type.",
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      },
+      "google.protobuf.Timestamp": {
+        "description": "The creation timestamp of the resource.",
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "description": "Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive.",
+            "type": "integer",
+            "format": "int64"
+          },
+          "nanos": {
+            "description": "Non-negative fractions of a second at nanosecond resolution. Negative second values with fractions must still have non-negative nanos values that count forward in time. Must be from 0 to 999,999,999 inclusive.",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "google.rpc.Status": {
+        "description": "This is populated when the previously received resources could not be applied The *message* field in *error_details* provides the source internal error related to the failure.",
+        "type": "object",
+        "properties": {
+          "code": {
+            "description": "The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].",
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "description": "A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.",
+            "type": "string",
+            "format": "string"
+          },
+          "details": {
+            "description": "A list of messages that carry the error details. There is a common set of message types for APIs to use.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/google.protobuf.Any"
+            }
+          }
+        }
+      }
+    }
+  }
+}

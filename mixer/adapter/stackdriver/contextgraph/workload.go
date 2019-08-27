@@ -130,10 +130,8 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		} else {
 			logger.Warningf("Couldn't parse owner into k8s obj: %s", wi.owner)
 		}
-	} else {
-		if wi.owner != "unknown" {
-			logger.Warningf("Unknown owner type: %s", wi.owner)
-		}
+	} else if wi.owner != "unknown" {
+		logger.Warningf("Unknown owner type: %s", wi.owner)
 	}
 	// TODO: Non-k8s owners.
 
@@ -148,10 +146,8 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		} else {
 			logger.Warningf("Unknown workload instance type: %s", wi.uid)
 		}
-	} else {
-		if wi.uid != "Unknown" {
-			logger.Warningf("Unknown workload instance type: %s", wi.uid)
-		}
+	} else if wi.uid != "Unknown" {
+		logger.Warningf("Unknown workload instance type: %s", wi.uid)
 	}
 	// TODO: Non-k8s workload instances
 

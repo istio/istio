@@ -1,4 +1,0 @@
-[submodule "vendor"]
-	path = vendor
-	url = https://github.com/fortio/vendor-fortio.git
-	branch = master

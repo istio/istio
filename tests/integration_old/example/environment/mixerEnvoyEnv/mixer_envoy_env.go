@@ -64,21 +64,20 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 		// Define what components this environment has
 		mixerEnvoyEnv.configDir = filepath.Join(mixerEnvoyEnv.tmpDir, "mixer_config")
 		mixerEnvoyEnv.comps = []framework.Component{}
-		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, fortioServer.NewLocalComponent("my_fortio_server",
-			fortioServer.LocalCompConfig{
-				LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_fortio"),
-			}))
-
-		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, proxy.NewLocalComponent("my_local_envoy",
-			proxy.LocalCompConfig{
-				LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_proxy"),
-			}))
-
-		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, mixer.NewLocalComponent("my_local_mixer",
-			mixer.LocalCompConfig{
-				ConfigFileDir: mixerEnvoyEnv.configDir,
-				LogFile:       fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_mixer"),
-			}))
+		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps,
+			fortioServer.NewLocalComponent("my_fortio_server",
+				fortioServer.LocalCompConfig{
+					LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_fortio"),
+				}),
+			proxy.NewLocalComponent("my_local_envoy",
+				proxy.LocalCompConfig{
+					LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_proxy"),
+				}),
+			mixer.NewLocalComponent("my_local_mixer",
+				mixer.LocalCompConfig{
+					ConfigFileDir: mixerEnvoyEnv.configDir,
+					LogFile:       fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_mixer"),
+				}))
 	}
 
 	return mixerEnvoyEnv.comps

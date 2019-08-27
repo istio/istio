@@ -33,7 +33,7 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			command := &request.Command{
-				Address: "127.0.0.1:15000",
+				Address: "localhost:15000",
 				Client: &http.Client{
 					Timeout: 60 * time.Second,
 				},

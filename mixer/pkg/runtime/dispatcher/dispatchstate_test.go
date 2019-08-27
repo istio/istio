@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/runtime/routing"
+	"istio.io/pkg/attribute"
 )
 
 func TestDispatchStatePool(t *testing.T) {

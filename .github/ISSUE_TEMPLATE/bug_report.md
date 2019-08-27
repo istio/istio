@@ -1,29 +1,37 @@
 ---
 name: Bug report
 about: Report a bug to help us improve Istio
-
 ---
+(NOTE: This is used to report product bugs:
+  To report a security vulnerability, please visit <https://istio.io/about/security-vulnerabilities/>
+  To ask questions about how to use Istio, please visit <https://discuss.istio.io>
+)
 
-**Describe the bug**
-{{ Succinctly describe the bug }}
+**Bug description**
+
+**Affected product area (please put an X in all that apply)**
+
+[ ] Configuration Infrastructure
+[ ] Docs
+[ ] Installation
+[ ] Networking
+[ ] Performance and Scalability
+[ ] Policies and Telemetry
+[ ] Security
+[ ] Test and Release
+[ ] User Experience
+[ ] Developer Infrastructure
 
 **Expected behavior**
-{{ What did you expect to happen? }}
 
 **Steps to reproduce the bug**
-{{ Minimal steps to reproduce the behavior }}
 
-**Version**
-{{ What version of Istio and Kubernetes are you using? Use `istioctl version --remote` and `kubectl version` }}
+**Version (include the output of `istioctl version --remote` and `kubectl version`)**
 
-**Installation**
-{{ Please describe how Istio was installed }}
+**How was Istio installed?**
 
-**Environment**
-{{ Which environment, cloud vendor, OS, etc are you using? }}
+**Environment where bug was observed (cloud vendor, OS, etc)**
 
-**Cluster state**
-{{ If you're running on Kubernetes, consider [following the
-instructions](http://istio.io/help/bugs/#generating-a-cluster-state-archive)
-to generate "istio-dump.tar.gz", then attach it here by dragging and dropping
-the file onto this issue. }}
+Additionally, please consider attaching a [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive) by attaching
+the dump file to this issue.
+

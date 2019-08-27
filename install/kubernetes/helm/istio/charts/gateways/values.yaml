@@ -18,6 +18,14 @@ istio-ingressgateway:
     # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
     # This server runs in the same pod as ingress gateway.
     image: node-agent-k8s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -26,13 +34,15 @@ istio-ingressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    #requests:
-    #  cpu: 1800m
-    #  memory: 256Mi
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
@@ -44,6 +54,12 @@ istio-ingressgateway:
   #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
   ports:
     ## You can add custom gateway ports
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+  - port: 15020
+    targetPort: 15020
+    name: status-port
   - port: 80
     targetPort: 80
     name: http2
@@ -73,9 +89,6 @@ istio-ingressgateway:
   - port: 15443
     targetPort: 15443
     name: tls
-  - port: 15020
-    targetPort: 15020
-    name: status-port
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -105,12 +118,43 @@ istio-ingressgateway:
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
+
+  # Ports to explicitly check for readiness. If configured, the readiness check will expect a
+  # listener on these ports. A comma separated list is expected, such as "80,443".
+  #
+  # Warning: If you do not have a gateway configured for the ports provided, this check will always
+  # fail. This is intended for use cases where you always expect to have a listener on the port,
+  # such as 80 or 443 in typical setups.
+  applicationPorts: ""
+
   env:
     # A gateway with this mode ensures that pilot generates an additional
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 istio-egressgateway:
   enabled: false
@@ -122,6 +166,15 @@ istio-egressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}
@@ -158,6 +211,28 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  tolerations: []
+  
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -172,6 +247,8 @@ istio-ilbgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   cpu:
     targetAverageUtilization: 80
   resources:
@@ -207,3 +284,4 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
   nodeSelector: {}
+  tolerations: []

@@ -19,7 +19,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/gogo/status"
+	"istio.io/istio/pkg/mcp/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/monitoring"
@@ -41,6 +41,7 @@ type Client struct {
 	reporter monitoring.Reporter
 }
 
+// NewClient returns a new instance of Client.
 func NewClient(client mcp.ResourceSourceClient, options *Options) *Client {
 	return &Client{
 		Sink:     New(options),

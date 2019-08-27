@@ -15,6 +15,7 @@
 package clusterregistry
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -65,11 +66,11 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 		testSecretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
-func mockValidateClientConfig(config clientcmdapi.Config) error {
+func mockValidateClientConfig(_ clientcmdapi.Config) error {
 	return nil
 }
 
@@ -81,11 +82,15 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 
 func Test_KubeSecretController(t *testing.T) {
+	if len(os.Getenv("RACE_TEST")) > 0 {
+		t.Skip("https://github.com/istio/istio/issues/15610")
+	}
+
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig

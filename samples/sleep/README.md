@@ -14,7 +14,8 @@ To use it:
    ```
    
    Note that if you also want to be able to directly call
-   external services, you'll need to set the `--includeIPRanges` option of `kube-inject`.
+   external services, you'll need to set the `global.proxy.includeIPRanges` variable of Helm and update the 
+   istio-sidecar-injector configmap by using kubectl apply.
    See [configuring egress](https://istio.io/docs/tasks/traffic-management/egress.html) for details.
    
 3. Start some other services, for example, the [Bookinfo sample](https://istio.io/docs/guides/bookinfo.html).

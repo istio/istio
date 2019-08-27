@@ -39,18 +39,18 @@ func main() {
 	<-finish
 }
 
-func foo8001(w http.ResponseWriter, r *http.Request) {
+func foo8001(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Listening on 8001: foo "))
 }
 
-func bar8001(w http.ResponseWriter, r *http.Request) {
+func bar8001(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Listening on 8001: bar "))
 }
 
-func foo8002(w http.ResponseWriter, r *http.Request) {
+func foo8002(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Listening on 8002: foo "))
 }
 
-func bar8002(w http.ResponseWriter, r *http.Request) {
+func bar8002(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Listening on 8002: bar "))
 }

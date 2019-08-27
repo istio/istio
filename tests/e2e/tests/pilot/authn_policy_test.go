@@ -16,8 +16,9 @@ package pilot
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
+
+	"istio.io/istio/tests/common/jwt"
 )
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
@@ -90,23 +91,17 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 	})
 }
 
-func getToken(p string, t *testing.T) string {
-	token, err := ioutil.ReadFile(p)
-	if err != nil {
-		t.Fatalf("failed to read %q", p)
-	}
-	return string(token)
-}
-
 func TestAuthNJwt(t *testing.T) {
-	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
-	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
-	// Test will fail if this service account is deleted.
-	validJwtToken := getToken("testdata/authn/v1alpha1/correct_jwt", t)
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
 
-	// JWT token used is borrowed from https://github.com/istio/istio/blob/master/security/tools/jwt/samples/demo.jwt.
-	// The Token expires in year 2118, issuer is testing@secure.istio.io.
-	validJwt2Token := getToken("testdata/authn/v1alpha1/correct_jwt2", t)
+	validJwtToken := jwt.TokenIssuer1
+	validJwt2Token := jwt.TokenIssuer2
+	invalidJwtToken := jwt.TokenInvalid
 
 	// Policy enforces JWT authn for service 'c' and 'd:80'.
 	cfgs := &deployableConfig{
@@ -141,18 +136,17 @@ func TestAuthNJwt(t *testing.T) {
 
 		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
 		{dst: "c", src: "a", port: "80", token: validJwt2Token, expect: "401"},
-		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "a", port: "8080", token: invalidJwtToken, expect: "401"},
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
 		// JWT authentication is disabled for requests at path "/health_check".
-		{dst: "c", src: "a", port: "80", path: "/health_check", token: "invalidToken", expect: "200"},
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: invalidJwtToken, expect: "200"},
 		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwtToken, expect: "200"},
 		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwt2Token, expect: "200"},
 
-		// JWT authentication is enabled for requests at path "/jwt2" only with validJwt2Token issued by
-		// testing@secure.istio.io.
-		{dst: "c", src: "a", port: "80", path: "/jwt2", token: "invalidToken", expect: "401"},
+		// JWT authentication is enabled for requests at path "/jwt2" only with validJwt2Token.
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: invalidJwtToken, expect: "401"},
 		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwtToken, expect: "401"},
 		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwt2Token, expect: "200"},
 
@@ -169,8 +163,8 @@ func TestAuthNJwt(t *testing.T) {
 			expect string
 		}{
 			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6288
-			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+			{dst: "d", src: "a", port: "", path: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", path: "", token: "foo", expect: "401"},
 		}
 		cases = append(cases, extraCases...)
 	}
@@ -178,7 +172,7 @@ func TestAuthNJwt(t *testing.T) {
 	for _, c := range cases {
 		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
 		runRetriableTest(t, testName, defaultRetryBudget, func() error {
-			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
+			extra := fmt.Sprintf("--key \"Authorization\" --val \"Bearer %s\"", c.token)
 			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s%s", c.dst, c.port, c.path), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
@@ -212,7 +206,7 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 
 	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "--key Host --val uk.bookinfo.com")
 		if len(resp.Code) > 0 && resp.Code[0] == "401" {
 			return nil
 		}

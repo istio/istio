@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 // The real node agent implementation. This implements the "Start" function
@@ -107,7 +107,7 @@ func (na *nodeAgentInternal) Start() error {
 			retries++
 			timer := time.NewTimer(retrialInterval)
 			// Exponentially increase the backoff time.
-			retrialInterval = retrialInterval * 2
+			retrialInterval *= 2
 			<-timer.C
 		}
 	}

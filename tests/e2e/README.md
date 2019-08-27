@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
+E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with kind in Prow in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
 
 Developers, on the other hand, are recommended to run the tests locally before sending out any PR.
 
@@ -111,3 +111,8 @@ E2E tests have multiple options available while running them as follows:
 * `--cluster_registry_dir <dir>` - Directory name for the cluster registry config. When provided this will trigger a multicluster test to be run across two clusters. 
 * `--installer <cmd>` - Use `helm` or `kubectl` to install Istio (default: kubectl)
 * `--kube_inject_configmap <configmap>` - Istioctl will use the specified configmap when running kube-inject (default: ""). This will normally be used with the CNI option to override the embedded initContainers insertion.
+* `--split_horizon` - Set up a split horizon EDS multi-cluster test environment (default: false)
+*
+* `--use_mcp` - If true will use MCP for configuring Istio components (default: true)
+* `--use_cni` - If true install the Istio CNI which will add the IP table rules for Envoy instead of the init container (default: false)
+* `--cniHelmRepo` - Location/name of the Istio-CNI helm (default: istio.io/istio-cni)

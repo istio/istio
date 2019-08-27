@@ -110,7 +110,8 @@ function loadBaselineFile() {
 function getColumn() {
     local ENTRY="${1}"
     local COLUMN="${2}"
-    local PARTS=( "${ENTRY}" )
+    # shellcheck disable=SC2206
+    local PARTS=( ${ENTRY} )
     echo "${PARTS[${COLUMN}]}"
 }
 
@@ -281,7 +282,6 @@ function run() {
 }
 
 
-run
 
 
 # The code below this line is for testing purposes.
@@ -383,15 +383,15 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 
     local -a FAILURE_CASES
     FAILURE_CASES[0]=$(compareBenchResults \
-"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       151 ns/op	       0 B/op	       0 allocs/op
 " \
-"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       100 ns/op	       0 B/op	       0 allocs/op
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       75 ns/op 	       0 B/op	       0 allocs/op
 ")
 
     FAILURE_CASES[1]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
-"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       181 ns/op	       0 B/op	       0 allocs/op
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       300 ns/op	       0 B/op	       0 allocs/op
 ")
 
     FAILURE_CASES[2]=$(compareBenchResults \
@@ -423,14 +423,18 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 " \
 "BenchmarkInterpreter/ExprBench/some-other-8       	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 ")
-
+    local INDEX
+    INDEX=0
     for i in "${FAILURE_CASES[@]}"; do
         if [[ -z "${i// }" ]]; then
-            echo "Failure case failures" >&2
+            echo "Failure case failed: ${INDEX}" >&2
             exit 1
         fi
+        ((INDEX++))
     done
 }
 
 test_compareMetric
 test_compareBenchResult
+
+run

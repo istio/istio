@@ -1,0 +1,20 @@
+rewriteAppHTTPProbe: true
+initContainers:
+- name: istio-init
+  image: example.com/init:latest
+containers:
+- name: istio-proxy
+  image: example.com/proxy:latest
+imagePullSecrets:
+- name: istio-image-pull-secrets
+volumes:
+- emptyDir:
+    medium: Memory
+  name: istio-envoy
+- name: istio-certs
+  secret:
+    {{ if eq .Spec.ServiceAccountName "" -}}
+    secretName: istio.default
+    {{ else -}}
+    secretName: {{ printf "istio.%s" .Spec.ServiceAccountName }}
+    {{ end -}}

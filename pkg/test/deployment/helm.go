@@ -16,20 +16,17 @@ package deployment
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
 
+/*
 const (
 	namespaceTemplate = `apiVersion: v1
 kind: Namespace
@@ -43,7 +40,7 @@ metadata:
 	twoCRDInstallFile         = "crd-12.yaml"
 	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 )
-
+*/
 // HelmConfig configuration for a Helm-based deployment.
 type HelmConfig struct {
 	Accessor     *kube.Accessor
@@ -57,6 +54,7 @@ type HelmConfig struct {
 	Values     map[string]string
 }
 
+/*
 // NewHelmDeployment creates a new Helm-based deployment instance.
 func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	// Define a deployment name for Helm.
@@ -118,6 +116,7 @@ func getCrdsYamlFiles(c HelmConfig) (string, error) {
 	}
 	return prevContent, nil
 }
+*/
 
 // HelmTemplate calls "helm template".
 func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
@@ -163,7 +162,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 
 func exec(cmd string) (string, error) {
 	scopes.CI.Infof("executing: %s", cmd)
-	str, err := shell.Execute(cmd)
+	str, err := shell.Execute(true, cmd)
 	if err != nil {
 		err = errors.Wrapf(err, "error (%s) executing command: %s", str, cmd)
 		scopes.CI.Errorf("%v", err)

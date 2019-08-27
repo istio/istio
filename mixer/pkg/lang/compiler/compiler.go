@@ -23,21 +23,22 @@ import (
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/lang/ast"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/log"
 )
 
 // Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
 // compilation of expressions.
 type Compiler struct {
 	program   *il.Program
-	finder    ast.AttributeDescriptorFinder
+	finder    attribute.AttributeDescriptorFinder
 	functions map[string]ast.FunctionMetadata
 
 	nextFnID int
 }
 
 // New returns a new compiler instance.
-func New(finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) *Compiler {
+func New(finder attribute.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) *Compiler {
 	return &Compiler{
 		finder:    finder,
 		program:   il.NewProgram(),
@@ -97,7 +98,7 @@ func (c *Compiler) Program() *il.Program {
 type generator struct {
 	program   *il.Program
 	builder   *il.Builder
-	finder    ast.AttributeDescriptorFinder
+	finder    attribute.AttributeDescriptorFinder
 	functions map[string]ast.FunctionMetadata
 	err       error
 }
@@ -119,7 +120,7 @@ const (
 )
 
 // compile converts the given expression text, into an IL based program.
-func compile(text string, finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
+func compile(text string, finder attribute.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
 	c := New(finder, functions)
 	_, _, err := c.compileExpression(text, "eval")
 

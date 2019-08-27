@@ -1,0 +1,7 @@
+constraints:
+  - collection: istio/networking/v1alpha3/synthetic/serviceentries
+    check:
+    - exactlyOne:
+      - equals: {
+        "foo": "bar"
+      }

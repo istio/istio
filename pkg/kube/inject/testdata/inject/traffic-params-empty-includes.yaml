@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: traffic
+  template:
+    metadata:
+      labels:
+        app: traffic
+    spec:
+      containers:
+        - name: traffic
+          image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80

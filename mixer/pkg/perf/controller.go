@@ -23,7 +23,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // TODO(lichuqiang): modify defaultTimeout accordingly.
@@ -81,22 +81,21 @@ func newController() (*Controller, error) {
 }
 
 func (c *Controller) initializeClients(address string, setup *Setup) error {
-	var err error
 	for i, conn := range c.clients {
 		var bytes []byte
+		var err error
 		bytes, err = marshallLoad(&setup.Loads[i])
 		if err != nil {
 			return err
 		}
 		params := ClientServerInitParams{Address: address, Load: bytes}
-		e := conn.Call("ClientServer.InitializeClient", params, nil)
-		if e != nil && err == nil {
-			// Capture the first error
-			err = e
+		err = conn.Call("ClientServer.InitializeClient", params, nil)
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 // nolinter: unparam

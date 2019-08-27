@@ -215,9 +215,6 @@ var serializedLexerAtn = []uint16{
 	336, 338, 350, 352, 363, 373, 386, 401, 408, 415, 420, 422, 3, 2, 3, 2,
 }
 
-var lexerDeserializer = antlr.NewATNDeserializer(nil)
-var lexerAtn = lexerDeserializer.DeserializeFromUInt16(serializedLexerAtn)
-
 var lexerChannelNames = []string{
 	"DEFAULT_TOKEN_CHANNEL", "HIDDEN",
 }
@@ -257,17 +254,15 @@ type CELLexer struct {
 	// TODO: EOF string
 }
 
-var lexerDecisionToDFA = make([]*antlr.DFA, len(lexerAtn.DecisionToState))
-
-func init() {
-	for index, ds := range lexerAtn.DecisionToState {
-		lexerDecisionToDFA[index] = antlr.NewDFA(ds, index)
-	}
-}
-
 func NewCELLexer(input antlr.CharStream) *CELLexer {
 
 	l := new(CELLexer)
+	lexerDeserializer := antlr.NewATNDeserializer(nil)
+	lexerAtn := lexerDeserializer.DeserializeFromUInt16(serializedLexerAtn)
+	lexerDecisionToDFA := make([]*antlr.DFA, len(lexerAtn.DecisionToState))
+	for index, ds := range lexerAtn.DecisionToState {
+		lexerDecisionToDFA[index] = antlr.NewDFA(ds, index)
+	}
 
 	l.BaseLexer = antlr.NewBaseLexer(input)
 	l.Interpreter = antlr.NewLexerATNSimulator(l, lexerAtn, lexerDecisionToDFA, antlr.NewPredictionContextCache())

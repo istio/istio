@@ -64,15 +64,15 @@ func (c *client) run(iterations int) (err error) {
 	for i := 0; i < iterations; i++ {
 
 		for _, r := range c.requests {
-			switch r.(type) {
+			switch r := r.(type) {
 			case *istio_mixer_v1.ReportRequest:
-				_, e := c.mixer.Report(context.Background(), r.(*istio_mixer_v1.ReportRequest))
+				_, e := c.mixer.Report(context.Background(), r)
 				if e != nil && err == nil {
 					err = e
 				}
 
 			case *istio_mixer_v1.CheckRequest:
-				_, e := c.mixer.Check(context.Background(), r.(*istio_mixer_v1.CheckRequest))
+				_, e := c.mixer.Check(context.Background(), r)
 				if e != nil && err == nil {
 					err = e
 				}

@@ -28,36 +28,53 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+type aggregateLiteralElementType int
+
+const (
+	dynElementType        aggregateLiteralElementType = iota
+	homogenousElementType aggregateLiteralElementType = 1 << iota
+)
+
 // Env is the environment for type checking.
 // It consists of a Packager, a Type Provider, declarations, and collection of errors encountered
 // during checking.
 type Env struct {
-	packager     packages.Packager
-	typeProvider ref.TypeProvider
-
-	declarations *decls.Scopes
+	packager       packages.Packager
+	provider       ref.TypeProvider
+	declarations   *decls.Scopes
+	aggLitElemType aggregateLiteralElementType
 }
 
 // NewEnv returns a new *Env with the given parameters.
-func NewEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider) *Env {
+func NewEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
 		packager:     packager,
-		typeProvider: typeProvider,
+		provider:     provider,
 		declarations: declarations,
 	}
 }
 
 // NewStandardEnv returns a new *Env with the given params plus standard declarations.
-func NewStandardEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider) *Env {
-	e := NewEnv(packager, typeProvider)
+func NewStandardEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
+	e := NewEnv(packager, provider)
 	if err := e.Add(StandardDeclarations()...); err != nil {
 		// The standard declaration set should never have duplicate declarations.
 		panic(err)
+	}
+	// TODO: isolate standard declarations from the custom set which may be provided layer.
+	return e
+}
+
+// EnableDynamicAggregateLiterals detmerines whether list and map literals may support mixed
+// element types at check-time. This does not preclude the presence of a dynamic list or map
+// somewhere in the CEL evaluation process.
+func (e *Env) EnableDynamicAggregateLiterals(enabled bool) *Env {
+	e.aggLitElemType = dynElementType
+	if !enabled {
+		e.aggLitElemType = homogenousElementType
 	}
 	return e
 }
@@ -88,7 +105,7 @@ func (e *Env) LookupIdent(typeName string) *exprpb.Decl {
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t, found := e.typeProvider.FindType(candidate); found {
+		if t, found := e.provider.FindType(candidate); found {
 			decl := decls.NewIdent(candidate, t, nil)
 			e.declarations.AddIdent(decl)
 			return decl
@@ -96,7 +113,7 @@ func (e *Env) LookupIdent(typeName string) *exprpb.Decl {
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
-		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
+		if enumValue := e.provider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
 				decls.Int,
 				&exprpb.Constant{
@@ -271,15 +288,26 @@ func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 	return pb.CheckedWellKnowns[t.GetMessageType()]
 }
 
-// enterScope pushes a new declaration set onto the stack, to ensure variables
-// and function identifiers are appropriately shadowed / enclosed as needed.
-func (e *Env) enterScope() {
-	e.declarations.Push()
+// enterScope creates a new Env instance with a new innermost declaration scope.
+func (e *Env) enterScope() *Env {
+	childDecls := e.declarations.Push()
+	return &Env{
+		declarations:   childDecls,
+		packager:       e.packager,
+		provider:       e.provider,
+		aggLitElemType: e.aggLitElemType,
+	}
 }
 
-// exitScope pops the local declarations of the current frame.
-func (e *Env) exitScope() {
-	e.declarations.Pop()
+// exitScope creates a new Env instance with the nearest outer declaration scope.
+func (e *Env) exitScope() *Env {
+	parentDecls := e.declarations.Pop()
+	return &Env{
+		declarations:   parentDecls,
+		packager:       e.packager,
+		provider:       e.provider,
+		aggLitElemType: e.aggLitElemType,
+	}
 }
 
 // errorMsg is a type alias meant to represent error-based return values which

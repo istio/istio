@@ -16,16 +16,18 @@ package mixer
 
 import (
 	"context"
-	"testing"
 
 	"github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/pkg/attribute"
 )
 
 const (
@@ -54,7 +56,7 @@ type client struct {
 }
 
 // Report implements DeployedMixer.Report.
-func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
+func (c *client) Report(t test.Failer, attributes map[string]interface{}) {
 	t.Helper()
 
 	req := istioMixerV1.ReportRequest{
@@ -68,7 +70,7 @@ func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
 }
 
 // Check implements DeployedMixer.Check.
-func (c *client) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
+func (c *client) Check(t test.Failer, attributes map[string]interface{}) CheckResponse {
 	t.Helper()
 
 	req := istioMixerV1.CheckRequest{
@@ -94,7 +96,7 @@ func (c *client) Close() error {
 	c.conns = make([]*grpc.ClientConn, 0)
 
 	for _, fw := range c.forwarders {
-		fw.Close()
+		_ = fw.Close()
 	}
 	c.forwarders = make([]kube.PortForwarder, 0)
 
@@ -113,43 +115,6 @@ func getAttrBag(attrs map[string]interface{}) istioMixerV1.CompressedAttributes 
 	}
 
 	var attrProto istioMixerV1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 	return attrProto
-}
-
-func expandAttributeTemplates(evalFn func(string) (string, error), value interface{}) (interface{}, error) {
-	switch t := value.(type) {
-	case string:
-		return evalFn(t)
-
-	case map[string]interface{}:
-		result := make(map[string]interface{})
-		for k, v := range t {
-			// Expand key and string values.
-			k, err := evalFn(k)
-			if err != nil {
-				return nil, err
-			}
-			o, err := expandAttributeTemplates(evalFn, v)
-			if err != nil {
-				return nil, err
-			}
-			result[k] = o
-		}
-		return result, nil
-
-	case []interface{}:
-		result := make([]interface{}, len(t))
-		for i, v := range t {
-			o, err := expandAttributeTemplates(evalFn, v)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = o
-		}
-		return result, nil
-
-	default:
-		return value, nil
-	}
 }

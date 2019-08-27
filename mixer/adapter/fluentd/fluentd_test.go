@@ -227,19 +227,19 @@ func TestHandleLogEntry(t *testing.T) {
 
 	mf := &mockFluentd{}
 
-	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
+	tm := time.Date(2017, time.August, 21, 10, 4, 0, 0, time.UTC)
 
 	cases := []struct {
 		name       string
 		instances  []*logentry.Instance
-		failWrites bool
 		expected   int
-		intDur     bool
 		maxBytes   int64
+		failWrites bool
+		intDur     bool
 	}{
 		{
-			"Basic Logs",
-			[]*logentry.Instance{
+			name: "Basic Logs",
+			instances: []*logentry.Instance{
 				{
 					Name:     "Foo",
 					Severity: "WARNING",
@@ -255,14 +255,12 @@ func TestHandleLogEntry(t *testing.T) {
 					},
 				},
 			},
-			false,
-			2,
-			false,
-			11,
+			expected: 2,
+			maxBytes: 11,
 		},
 		{
-			"Complex Log",
-			[]*logentry.Instance{
+			name: "Complex Log",
+			instances: []*logentry.Instance{
 				{
 					Name:      "Foo",
 					Severity:  "WARNING",
@@ -280,14 +278,12 @@ func TestHandleLogEntry(t *testing.T) {
 					},
 				},
 			},
-			false,
-			1,
-			false,
-			11,
+			expected: 1,
+			maxBytes: 11,
 		},
 		{
-			"Integer Duration",
-			[]*logentry.Instance{
+			name: "Integer Duration",
+			instances: []*logentry.Instance{
 				{
 					Name:     "Foo",
 					Severity: "WARNING",
@@ -297,14 +293,13 @@ func TestHandleLogEntry(t *testing.T) {
 					},
 				},
 			},
-			false,
-			1,
-			true,
-			11,
+			expected: 1,
+			intDur:   true,
+			maxBytes: 11,
 		},
 		{
-			"Too Large Log",
-			[]*logentry.Instance{
+			name: "Too Large Log",
+			instances: []*logentry.Instance{
 				{
 					Name:      "Foo",
 					Severity:  "WARNING",
@@ -324,10 +319,7 @@ func TestHandleLogEntry(t *testing.T) {
 					},
 				},
 			},
-			false,
-			0,
-			false,
-			2,
+			maxBytes: 2,
 		},
 	}
 
@@ -455,7 +447,7 @@ func (l *mockFluentd) EncodeData(tag string, ts time.Time, msg interface{}) ([]b
 func (l *mockFluentd) PostRawData(data []byte) {
 	l.bytes.Write(data)
 	l.mutex.Lock()
-	l.Batches = l.Batches + 1
+	l.Batches++
 	l.mutex.Unlock()
 }
 

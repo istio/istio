@@ -427,9 +427,7 @@ func TestBuilderErrors(t *testing.T) {
 			err:         errors.New("unable to resolve enum"),
 			compiler:    compiler,
 			res: &fakeres{
-				resolveMessage: func(name string) *descriptor.DescriptorProto {
-					return res.ResolveMessage(name)
-				},
+				resolveMessage: res.ResolveMessage,
 			},
 		},
 	} {

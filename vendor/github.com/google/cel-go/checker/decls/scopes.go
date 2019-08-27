@@ -16,83 +16,85 @@ package decls
 
 import exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
-// Scopes represents nested Decl environments.
-// A Scopes structure is a stack of Groups (the highest array index
-// is the top of stack), with the top of the stack being the "innermost"
-// scope, and the bottom being the "outermost" scope.  Each group is a mapping
-// of names to Decls in the ident and function namespaces.
-// Lookups are performed such that bindings in inner scopes shadow those
-// in outer scopes.
+// Scopes represents nested Decl sets where the Scopes value contains a Groups containing all
+// identifiers in scope and an optional parent representing outer scopes.
+// Each Groups value is a mapping of names to Decls in the ident and function namespaces.
+// Lookups are performed such that bindings in inner scopes shadow those in outer scopes.
 type Scopes struct {
-	scopes []*Group
+	parent *Scopes
+	scopes *Group
 }
 
 // NewScopes creates a new, empty Scopes.
 // Some operations can't be safely performed until a Group is added with Push.
 func NewScopes() *Scopes {
 	return &Scopes{
-		scopes: []*Group{},
+		scopes: newGroup(),
 	}
 }
 
-// Push adds an empty Group as the new innermost scope.
-func (s *Scopes) Push() {
-	g := newGroup()
-	s.scopes = append(s.scopes, g)
+// Push creates a new Scopes value which references the current Scope as its parent.
+func (s *Scopes) Push() *Scopes {
+	return &Scopes{
+		parent: s,
+		scopes: newGroup(),
+	}
 }
 
-// Pop removes the innermost Group from Scopes.
-// Scopes should have at least one Group.
-func (s *Scopes) Pop() {
-	s.scopes = s.scopes[:len(s.scopes)-1]
+// Pop returns the parent Scopes value for the current scope, or the current scope if the parent
+// is nil.
+func (s *Scopes) Pop() *Scopes {
+	if s.parent != nil {
+		return s.parent
+	}
+	// TODO: Consider whether this should be an error / panic.
+	return s
 }
 
-// AddIdent adds the ident Decl in the outermost scope.
-// Any previous entry for an ident of the same name is overwritten.
-// Scopes must have at least one group.
+// AddIdent adds the ident Decl in the current scope.
+// Note: If the name collides with an existing identifier in the scope, the Decl is overwritten.
 func (s *Scopes) AddIdent(decl *exprpb.Decl) {
-	s.scopes[0].idents[decl.Name] = decl
+	s.scopes.idents[decl.Name] = decl
 }
 
-// FindIdent finds the first ident Decl with a matching name in Scopes.
-// The search is performed from innermost to outermost.
-// Returns nil if not such ident in Scopes.
+// FindIdent finds the first ident Decl with a matching name in Scopes, or nil if one cannot be
+// found.
+// Note: The search is performed from innermost to outermost.
 func (s *Scopes) FindIdent(name string) *exprpb.Decl {
-	for i := len(s.scopes) - 1; i >= 0; i-- {
-		scope := s.scopes[i]
-		if ident, found := scope.idents[name]; found {
-			return ident
-		}
+	if ident, found := s.scopes.idents[name]; found {
+		return ident
+	}
+	if s.parent != nil {
+		return s.parent.FindIdent(name)
 	}
 	return nil
 }
 
-// FindIdentInScope returns the named ident binding in the innermost scope.
-// Returns nil if no such binding exists.
-// Scopes must have at least one group.
+// FindIdentInScope finds the first ident Decl with a matching name in the current Scopes value, or
+// nil if one does not exist.
+// Note: The search is only performed on the current scope and does not search outer scopes.
 func (s *Scopes) FindIdentInScope(name string) *exprpb.Decl {
-	if ident, found := s.scopes[len(s.scopes)-1].idents[name]; found {
+	if ident, found := s.scopes.idents[name]; found {
 		return ident
 	}
 	return nil
 }
 
-// AddFunction adds the function Decl in the outermost scope.
-// Any previous entry for a function of the same name is overwritten.
-// Scopes must have at least one group.
+// AddFunction adds the function Decl to the current scope.
+// Note: Any previous entry for a function in the current scope with the same name is overwritten.
 func (s *Scopes) AddFunction(fn *exprpb.Decl) {
-	s.scopes[0].functions[fn.Name] = fn
+	s.scopes.functions[fn.Name] = fn
 }
 
 // FindFunction finds the first function Decl with a matching name in Scopes.
 // The search is performed from innermost to outermost.
 // Returns nil if no such function in Scopes.
 func (s *Scopes) FindFunction(name string) *exprpb.Decl {
-	for i := len(s.scopes) - 1; i >= 0; i-- {
-		scope := s.scopes[i]
-		if fn, found := scope.functions[name]; found {
-			return fn
-		}
+	if fn, found := s.scopes.functions[name]; found {
+		return fn
+	}
+	if s.parent != nil {
+		return s.parent.FindFunction(name)
 	}
 	return nil
 }

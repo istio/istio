@@ -20,8 +20,8 @@ import (
 	"math"
 	"time"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/pkg/attribute"
 )
 
 #define ERR(...) tErr = errors.New(__VA_ARGS__); goto RETURN_ERR;
@@ -43,7 +43,7 @@ import (
 #define LOAD_OP_CODE2(target1, target2) \
       target1 = body[ip]; \
       target2 = body[ip + 1]; \
-      ip = ip + 2;
+      ip += 2;
 
 #define SET_REGISTER(index, value) \
       registers[index] = value
@@ -57,7 +57,7 @@ import (
       sp--;
 
 #define STACK_REMOVE2() \
-      sp = sp - 2;
+      sp -= 2;
 
 #define STACK_POP(target) \
       sp--; \
@@ -72,7 +72,7 @@ import (
 
 #define STACK_POP2(t1, t2) \
       STACK_PEEK2(t1, t2) \
-      sp = sp - 2;
+      sp -= 2;
 
 #define STACK_PUSH(value) \
       opstack[sp] = value; \
@@ -81,7 +81,7 @@ import (
 #define STACK_PUSH2(t1, t2) \
       opstack[sp] = t1; \
       opstack[sp + 1] = t2; \
-      sp = sp + 2;
+      sp += 2;
 
 #define GET_HEAP_VALUE(index, target) \
   HEAP_ACCESS_GUARD(index) \
@@ -758,7 +758,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			STACK_POP2(t1, t2)
 			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if tFound {
 				NEW_HEAP_VALUE(tStr, t3)
 				STACK_PUSH2(t3, 1)
@@ -771,7 +771,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			STACK_POP2(t1, t2)
 			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				GET_HEAP_VALUE_STRING(t1, tStr)
 				ERRF("member lookup failed: '%v'", tStr)
@@ -784,7 +784,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			STACK_POP2(t1, t2)
 			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}
@@ -797,7 +797,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tStr = strings.GetString(t1)
 			STACK_POP(t2)
 			GET_HEAP_VALUE(t2, tVal)
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				ERRF("member lookup failed: '%v'", strings.GetString(t1))
 			}
@@ -810,7 +810,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tStr = strings.GetString(t1)
 			STACK_POP(t2)
 			GET_HEAP_VALUE(t2, tVal)
-			tStr, tFound = il.MapGet(tVal, tStr)
+			tStr, tFound = tVal.(attribute.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}

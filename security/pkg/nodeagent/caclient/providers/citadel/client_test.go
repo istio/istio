@@ -46,7 +46,7 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCerti
 	return nil, ca.Err
 }
 
-func TestGoogleCAClient(t *testing.T) {
+func TestCitadelClient(t *testing.T) {
 	testCases := map[string]struct {
 		server       mockCAServer
 		expectedCert []string
@@ -81,7 +81,7 @@ func TestGoogleCAClient(t *testing.T) {
 		go func() {
 			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
 			if err := s.Serve(lis); err != nil {
-				t.Fatalf("Test case [%s]: failed to serve: %v", id, err)
+				t.Logf("Test case [%s]: failed to serve: %v", id, err)
 			}
 		}()
 

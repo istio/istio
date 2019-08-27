@@ -51,7 +51,7 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 	}
 
 	original := buf.Bytes()
-	result := make([]byte, len(original), len(original))
+	result := make([]byte, len(original))
 	copy(result, original)
 	return result, nil
 }
@@ -897,7 +897,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 				if err != nil {
 					return fmt.Errorf("/%s: '%v'", name, err)
 				}
-				buffer.EncodeRawBytes(bytes)
+				_ = buffer.EncodeRawBytes(bytes)
 			} else {
 				v, ok := data.(map[string]interface{})
 				if !ok {
@@ -1019,7 +1019,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
 		}
 	default:
-		return fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())
+		return fmt.Errorf("unrecognized field type '%s'", field.Type.String())
 	}
 
 	return nil

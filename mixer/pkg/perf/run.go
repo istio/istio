@@ -112,11 +112,9 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 			return
 		}
 		defer func() { _ = cmd.Process.Kill() }()
-	} else {
-		if _, err = NewClientServer(controller.location()); err != nil {
-			b.fatalf("agent creation failed: '%v'", err)
-			return
-		}
+	} else if _, err = NewClientServer(controller.location()); err != nil {
+		b.fatalf("agent creation failed: '%v'", err)
+		return
 	}
 
 	controller.waitForClient()

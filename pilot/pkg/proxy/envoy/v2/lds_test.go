@@ -19,9 +19,18 @@ import (
 	"testing"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/protomarshal"
+
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -55,7 +64,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
+		_, err = ldsr.Wait(5*time.Second, "lds")
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
@@ -66,11 +75,13 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 9091 (grpc-mixer), 15002 (http-proxy), 15004 (grpc-mixer-mtls)
-		if len(ldsr.HTTPListeners) != 5 {
+		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio)
+		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
+		// in the none.yaml setup
+		if len(ldsr.GetHTTPListeners()) != 4 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
-			t.Error("HTTP listeners, expecting 5 got ", len(ldsr.HTTPListeners), ldsr.HTTPListeners)
+			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -78,7 +89,7 @@ func TestLDSIsolated(t *testing.T) {
 		// :443 - https external, bind=false
 		// 10.11.0.1_7070, bind=true -> inbound|2000|s1 - on port 7070, fwd to 37070
 		// virtual
-		if len(ldsr.TCPListeners) == 0 {
+		if len(ldsr.GetTCPListeners()) == 0 {
 			t.Fatal("No response")
 		}
 
@@ -130,8 +141,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
-		if err != nil {
+		if _, err := ldsr.Wait(5*time.Second, "lds"); err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
@@ -161,8 +171,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000*time.Second)
-		if err != nil {
+		if _, err = ldsr.Wait(5*time.Second, "lds"); err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
@@ -183,6 +192,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.Mesh.MixerAddress = ""
 		args.Mesh.RdsRefreshDelay = nil
+		args.MeshConfig = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -192,14 +202,14 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "ns1",
-			model.NodeMetadataInstanceIPs:       "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "ns1",
+			model.NodeMetadataInstanceIPs:     "100.1.1.2", // as service instance of http2.ns1
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
@@ -212,38 +222,29 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait("lds", 10*time.Second)
+	upd, err := adsResponse.Wait(10*time.Second, "lds", "rds", "cds")
 	if err != nil {
-		t.Fatal("Failed to receive LDS response", err)
-		return
-	}
-	_, err = adsResponse.Wait("rds", 10*time.Second)
-	if err != nil {
-		t.Fatal("Failed to receive RDS response", err)
-		return
-	}
-	_, err = adsResponse.Wait("cds", 10*time.Second)
-	if err != nil {
-		t.Fatal("Failed to receive CDS response", err)
+		t.Fatal("Failed to receive XDS response", err, upd)
 		return
 	}
 
-	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	// plus 2 extra due to the mem registry
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
-		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	// Expect 7 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 7 {
+		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
-	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
-	// and 2 subsets of http1), 1 blackhole, 1 passthrough
-	// plus 2 extra due to the mem registry
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
-		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
+	// Expect 12 CDS clusters:
+	// 3 inbound(http, inbound passthroughipv4 and inbound passthroughipv6)
+	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
+	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
+	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 12 {
+		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
-	if len(adsResponse.Routes["8080"].VirtualHosts) != 2 {
-		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
+	// plus one extra due to mem registry
+	if len(adsResponse.GetRoutes()["8080"].VirtualHosts) != 3 {
+		t.Fatalf("Expected 3 VirtualHosts in RDS output. Got %d", len(adsResponse.GetRoutes()["8080"].VirtualHosts))
 	}
 }
 
@@ -263,14 +264,14 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(true)
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace:   "istio-system",
-			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioProxyVersion: "1.1.0",
+			model.NodeMetadataConfigNamespace: "istio-system",
+			model.NodeMetadataInstanceIPs:     "99.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
 		},
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
@@ -282,10 +283,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
-	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	_, err = adsResponse.Wait(10*time.Second, "lds")
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -293,13 +293,13 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 2 {
-		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 2 {
+		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	l := adsResponse.HTTPListeners["0.0.0.0_443"]
+	l := adsResponse.GetHTTPListeners()["0.0.0.0_443"]
 
 	if l != nil {
 		if len(l.FilterChains) != 3 {
@@ -330,7 +330,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -345,7 +345,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cancel()
-		err = sendLDSReq(gatewayID(gatewayIP), ldsr)
+		err = sendLDSReqWithLabels(gatewayID(gatewayIP), ldsr, map[string]string{"version": "v2", "app": "my-gateway-controller"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -355,7 +355,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -364,36 +364,268 @@ func TestLDS(t *testing.T) {
 		}
 	})
 
-	t.Run("ingress", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	// TODO: compare with some golden once it's stable
+	// check that each mocked service and destination rule has a corresponding resource
+
+	// TODO: dynamic checks ( see EDS )
+}
+
+// TestLDS using sidecar scoped on workload without Service
+func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
+		args.Mesh.MixerAddress = ""
+		args.Mesh.RdsRefreshDelay = nil
+		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
+		args.Service.Registries = []string{}
+	})
+	registry := memServiceDiscovery(server, t)
+	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
+
+	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
+
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	defer tearDown()
+
+	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+		Meta: map[string]string{
+			model.NodeMetadataConfigNamespace: "consumerns",
+			model.NodeMetadataInstanceIPs:     "98.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioVersion:    "1.3.0",
+		},
+		IP:        "98.1.1.1",
+		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
+		NodeType:  "sidecar",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adsResponse.Close()
+
+	adsResponse.Watch()
+
+	_, err = adsResponse.Wait(10*time.Second, "lds")
+	if err != nil {
+		t.Fatal("Failed to receive LDS response", err)
+		return
+	}
+
+	// Expect 3 HTTP listeners for outbound 8081, inbound 9080 and one virtualInbound which has the same inbound 9080
+	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
+	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
+	if len(adsResponse.GetHTTPListeners()) != 3 {
+		t.Fatalf("Expected 3 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+	}
+
+	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
+	// instead of looking at it as a listener with multiple filter chains
+	if l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
+		expected := 1
+		if features.RestrictPodIPTrafficLoops.Get() {
+			expected = 2
+		}
+		if len(l.FilterChains) != expected {
+			t.Fatalf("Expected %d filter chains, got %d", expected, len(l.FilterChains))
+		}
+	} else {
+		t.Fatal("Expected listener for 0.0.0.0_8081")
+	}
+
+	// Also check that the other two listeners are 98.1.1.1_9080, and virtualInbound
+	if l := adsResponse.GetHTTPListeners()["98.1.1.1_9080"]; l == nil {
+		t.Fatal("Expected listener for 98.1.1.1_9080")
+	}
+
+	if l := adsResponse.GetHTTPListeners()["virtualInbound"]; l == nil {
+		t.Fatal("Expected listener virtualInbound")
+	}
+
+	// Expect only one eds cluster for http1.ns1.svc.cluster.local
+	if len(adsResponse.GetEdsClusters()) != 1 {
+		t.Fatalf("Expected 1 eds cluster, got %d", len(adsResponse.GetEdsClusters()))
+	}
+	if cluster, ok := adsResponse.GetEdsClusters()["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
+		t.Fatalf("Expected eds cluster outbound|8081||http1.ns1.svc.cluster.local, got %v", cluster.Name)
+	}
+}
+
+// TestLDS using default sidecar in root namespace
+func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
+		args.Mesh.MixerAddress = ""
+		args.Mesh.RdsRefreshDelay = nil
+		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
+		args.Service.Registries = []string{}
+	})
+	registry := memServiceDiscovery(server, t)
+	// The labels of 98.1.1.1 must match the envoyfilter workload selector
+	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "envoyfilter-test-app", "some": "otherlabel"})
+	registry.AddWorkload("98.1.1.2", labels.Instance{"app": "no-envoyfilter-test-app"})
+	registry.AddWorkload("98.1.1.3", labels.Instance{})
+
+	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
+
+	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	defer tearDown()
+
+	tests := []struct {
+		name            string
+		ip              string
+		expectLuaFilter bool
+	}{
+		{
+			name:            "Add filter with matching labels to sidecar",
+			ip:              "98.1.1.1",
+			expectLuaFilter: true,
+		},
+		{
+			name:            "Ignore filter with not matching labels to sidecar",
+			ip:              "98.1.1.2",
+			expectLuaFilter: false,
+		},
+		{
+			name:            "Ignore filter with empty labels to sidecar",
+			ip:              "98.1.1.3",
+			expectLuaFilter: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+				Meta: map[string]string{
+					model.NodeMetadataConfigNamespace: "consumerns",
+					model.NodeMetadataInstanceIPs:     test.ip, // as service instance of ingress gateway
+					model.NodeMetadataIstioVersion:    "1.3.0",
+				},
+				IP:        test.ip,
+				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
+				NodeType:  "sidecar",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer adsResponse.Close()
+
+			adsResponse.Watch()
+			_, err = adsResponse.Wait(10*time.Second, "lds")
+			if err != nil {
+				t.Fatal("Failed to receive LDS response", err)
+				return
+			}
+
+			// Expect 1 HTTP listeners for 8081
+			if len(adsResponse.GetHTTPListeners()) != 1 {
+				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+			}
+			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
+			// instead of looking at it as a listener with multiple filter chains
+			l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]
+
+			expectLuaFilter(t, l, test.expectLuaFilter)
+		})
+	}
+}
+
+// TestLDSWithWorkloadLabelUpdate tests updating workload labels will trigger xDS
+func TestLDSWithWorkloadLabelUpdate(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	registry := memServiceDiscovery(server, t)
+	registry.AddWorkload(app3Ip, labels.Instance{"version": "v1"})
+
+	t.Run("workload label update", func(t *testing.T) {
+		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+			IP:        app3Ip,
+			Namespace: "default",
+			Workload:  "app3",
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer cancel()
+		defer ldsr.Close()
 
-		err = sendLDSReq(ingressID(ingressIP), ldsr)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ldsr.Watch()
 
-		res, err := ldsr.Recv()
+		_, err = ldsr.Wait(5*time.Second, "lds")
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
 
-		strResponse, _ := model.ToJSONWithIndent(res, " ")
-
-		_ = ioutil.WriteFile(env.IstioOut+"/ads_lds_ingress.json", []byte(strResponse), 0644)
-
-		if len(res.Resources) == 0 {
-			t.Fatal("No response")
+		// trigger full push
+		registry.UpdateWorkloadLabels(app3Ip, labels.Instance{"version": "v2"})
+		_, err = ldsr.Wait(5*time.Second, "lds")
+		if err != nil {
+			t.Fatal("Failed to receive LDS", err)
+			return
 		}
 	})
-	// TODO: compare with some golden once it's stable
-	// check that each mocked service and destination rule has a corresponding resource
+}
 
-	// TODO: dynamic checks ( see EDS )
+func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
+	if l != nil {
+		var chain *xdsapi_listener.FilterChain
+		for _, fc := range l.FilterChains {
+			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
+				chain = fc
+			}
+		}
+		if chain == nil {
+			t.Fatalf("Failed to find http_connection_manager")
+		}
+		if len(chain.Filters) != 1 {
+			t.Fatalf("Expected 1 filter in first filter chain, got %d", len(l.FilterChains))
+		}
+		filter := chain.Filters[0]
+		if filter.Name != "envoy.http_connection_manager" {
+			t.Fatalf("Expected HTTP connection, found %v", chain.Filters[0].Name)
+		}
+		httpCfg, ok := filter.ConfigType.(*xdsapi_listener.Filter_TypedConfig)
+		if !ok {
+			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
+		}
+		connectionManagerCfg := xdsapi_http_connection_manager.HttpConnectionManager{}
+		err := connectionManagerCfg.Unmarshal(httpCfg.TypedConfig.GetValue())
+		if err != nil {
+			t.Fatalf("Could not deserialize http connection manager config: %v", err)
+		}
+		found := false
+		for _, filter := range connectionManagerCfg.HttpFilters {
+			if filter.Name == "envoy.lua" {
+				found = true
+			}
+		}
+		if expected != found {
+			t.Fatalf("Expected Lua filter: %v, found: %v", expected, found)
+		}
+	}
+}
+
+func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceDiscovery {
+	index, found := server.ServiceController.GetRegistryIndex("v2-debug")
+	if !found {
+		t.Fatal("Could not find Mock ServiceRegistry")
+	}
+	registry, ok := server.ServiceController.GetRegistries()[index].ServiceDiscovery.(*v2.MemServiceDiscovery)
+	if !ok {
+		t.Fatal("Unexpected type of Mock ServiceRegistry")
+	}
+	return registry
 }
 
 // TODO: helper to test the http listener content

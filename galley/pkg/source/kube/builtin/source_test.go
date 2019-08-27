@@ -29,7 +29,7 @@ import (
 	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +74,7 @@ func TestNewWithUnknownSpecShouldError(t *testing.T) {
 		ListKind:  "UnknownList",
 		Singular:  "unknown",
 		Plural:    "unknowns",
-		Version:   "v1alpha1",
+		Versions:  []string{"v1alpha1"},
 		Group:     "cofig.istio.io",
 		Converter: converter.Get("identity"),
 	}
@@ -216,7 +216,7 @@ func TestNodes(t *testing.T) {
 		if err := client.CoreV1().Nodes().Delete(node.Name, nil); err != nil {
 			t.Fatalf("failed deleting node: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, node, nil)
+		expected := toEvent(resource.Deleted, spec, node, &node.Spec)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -297,7 +297,7 @@ func TestPods(t *testing.T) {
 		if err := client.CoreV1().Pods(namespace).Delete(pod.Name, nil); err != nil {
 			t.Fatalf("failed deleting pod: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, pod, nil)
+		expected := toEvent(resource.Deleted, spec, pod, pod)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -372,7 +372,7 @@ func TestServices(t *testing.T) {
 		if err := client.CoreV1().Services(namespace).Delete(svc.Name, nil); err != nil {
 			t.Fatalf("failed deleting service: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, svc, nil)
+		expected := toEvent(resource.Deleted, spec, svc, &svc.Spec)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -456,7 +456,7 @@ func TestEndpoints(t *testing.T) {
 		if err := client.CoreV1().Endpoints(namespace).Delete(eps.Name, nil); err != nil {
 			t.Fatalf("failed deleting endpoints: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, eps, nil)
+		expected := toEvent(resource.Deleted, spec, eps, eps)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})

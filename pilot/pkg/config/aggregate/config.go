@@ -19,9 +19,10 @@ import (
 	"errors"
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -29,7 +30,7 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 // Make creates an aggregate config store from several config stores and
 // unifies their descriptors
 func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
-	union := model.ConfigDescriptor{}
+	union := schema.Set{}
 	storeTypes := make(map[string][]model.ConfigStore)
 	for _, store := range stores {
 		for _, descriptor := range store.ConfigDescriptor() {
@@ -67,13 +68,13 @@ func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) 
 
 type store struct {
 	// descriptor is the unified
-	descriptor model.ConfigDescriptor
+	descriptor schema.Set
 
 	// stores is a mapping from config type to a store
 	stores map[string][]model.ConfigStore
 }
 
-func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
+func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
 }
 

@@ -63,9 +63,9 @@ metadata:
   namespace: istio-system
 spec:
   dimensions:
-    source: source.labels["app"] | source.service | "unknown"
+    source: source.labels["app"] | source.name | "unknown"
     sourceVersion: source.labels["version"] | "unknown"
-    destination: destination.labels["app"] | destination.service | "unknown"
+    destination: destination.labels["app"] | destination.service.name | "unknown"
     destinationVersion: destination.labels["version"] | "unknown"
 
 ---
@@ -162,8 +162,8 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		},
 		"Dimension override with best effort": {
 			attrs: map[string]interface{}{
-				"source.service":      "reviews",
-				"destination.service": "ratings",
+				"source.name":              "reviews",
+				"destination.service.name": "ratings",
 			},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 				"requestCount": {

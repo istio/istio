@@ -16,8 +16,6 @@ package check
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 	"time"
 
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -37,12 +35,12 @@ var (
 
 // ResourceTypesPresence verifies that all expected k8s resources types are
 // present in the k8s apiserver.
-func ResourceTypesPresence(k client.Interfaces, specs []sourceSchema.ResourceSpec) error {
+func ResourceTypesPresence(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
 	cs, err := k.APIExtensionsClientset()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return resourceTypesPresence(cs, specs)
+	return resourceTypesPresence(cs, specs, true)
 }
 
 // FindSupportedResourceSchemas returns the list of supported resource schemas supported by the k8s apiserver.
@@ -51,53 +49,24 @@ func FindSupportedResourceSchemas(k client.Interfaces, specs []sourceSchema.Reso
 	if err != nil {
 		return nil, err
 	}
-	return findSupportedResourceSchemas(cs, specs), nil
+	return resourceTypesPresence(cs, specs, false)
 }
 
-func findSupportedResourceSchemas(cs clientset.Interface, specs []sourceSchema.ResourceSpec) []sourceSchema.ResourceSpec {
-	var supportedSchemas []sourceSchema.ResourceSpec
-
-	for _, spec := range specs {
-		gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
-		list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
-		if err != nil {
-			log.Scope.Warnf("could not find %v; %v", gv, err)
-			continue
-		}
-
-		found := false
-		for _, r := range list.APIResources {
-			if r.Name == spec.Plural {
-				found = true
-				break
-			}
-		}
-		if found {
-			supportedSchemas = append(supportedSchemas, spec)
-		} else {
-			log.Scope.Infof("kubernetes resource type %q not found (collection %q)",
-				spec.CanonicalResourceName(), spec.Target.Collection)
-		}
-	}
-
-	sort.Slice(supportedSchemas, func(i, j int) bool {
-		return strings.Compare(supportedSchemas[i].CanonicalResourceName(), supportedSchemas[j].CanonicalResourceName()) < 0
-	})
-
-	return supportedSchemas
-}
-
-func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec) error {
+func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec, pollRequired bool) ([]sourceSchema.ResourceSpec, error) {
 	search := make(map[string]*sourceSchema.ResourceSpec, len(specs))
+	required := make(map[string]*sourceSchema.ResourceSpec, len(specs))
 	for i, spec := range specs {
 		search[spec.Plural] = &specs[i]
+		if pollRequired && !spec.Optional {
+			required[spec.Plural] = &specs[i]
+		}
 	}
 
 	err := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
 		var errs error
 	nextResource:
 		for plural, spec := range search {
-			gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
+			gv := schema.GroupVersion{Group: spec.Group, Version: spec.GetAPIVersion()}.String()
 			list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
 			if err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", gv, err))
@@ -107,6 +76,7 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 			for _, r := range list.APIResources {
 				if r.Name == spec.Plural {
 					delete(search, plural)
+					delete(required, plural)
 					found = true
 					break
 				}
@@ -115,7 +85,7 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 				log.Scope.Warnf("%s resource type not found", spec.CanonicalResourceName())
 			}
 		}
-		if len(search) == 0 {
+		if len(required) == 0 {
 			return true, nil
 		}
 		// entire search failed
@@ -128,15 +98,21 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 
 	if err != nil {
 		var notFound []string
-		for _, spec := range search {
+		for _, spec := range required {
 			notFound = append(notFound, spec.Kind)
 		}
 		log.Scope.Errorf("Expected resources (CRDs) not found: %v", notFound)
 		log.Scope.Error("To stop Galley from waiting for these resources (CRDs), consider using the --excludedResourceKinds flag")
 
-		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
+		return nil, fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
 	}
 
-	log.Scope.Infof("Discovered all supported resources (# = %v)", len(specs))
-	return nil
+	found := make([]sourceSchema.ResourceSpec, 0, len(specs)-len(search))
+	for _, spec := range specs {
+		if _, missing := search[spec.Plural]; !missing {
+			found = append(found, spec)
+		}
+	}
+	log.Scope.Infof("Discovered all supported resources (# = %v)", len(found))
+	return found, nil
 }

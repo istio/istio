@@ -201,7 +201,7 @@ message Gateway {
   // on which this gateway configuration should be applied. The scope of
   // label search is restricted to the configuration namespace in which the
   // the resource is present. In other words, the Gateway resource must
-  // reside in the same namespace as the gateway workload.
+  // reside in the same namespace as the gateway workload instance.
   map<string, string> selector = 2;
 }
 
@@ -319,8 +319,8 @@ message Server {
       // Secure connections with standard TLS semantics.
       SIMPLE = 1;
 
-      // Secure connections to the upstream using mutual TLS by presenting
-      // client certificates for authentication.
+      // Secure connections to the downstream using mutual TLS by presenting
+      // server certificates for authentication.
       MUTUAL = 2;
 
       // Similar to the passthrough mode, except servers with this TLS mode
@@ -334,6 +334,14 @@ message Server {
       // their respective endpoints. Use of this mode assumes that both the
       // source and the destination are using Istio mTLS to secure traffic.
       AUTO_PASSTHROUGH = 3;
+
+      // Secure connections from the downstream using mutual TLS by presenting
+      // server certificates for authentication.
+      // Compared to Mutual mode, this mode uses certificates, representing
+      // gateway workload identity, generated automatically by Istio for
+      // mTLS authentication. When this mode is used, all other fields in
+      // `TLSOptions` should be empty.
+      ISTIO_MUTUAL = 4;
     };
 
     // Optional: Indicates whether connections to this port should be
@@ -362,19 +370,34 @@ message Server {
     // as Kubernetes secrets, will be configured to retrieve the
     // serverCertificate and the privateKey using credentialName, instead
     // of using the file system paths specified above. If using mutual TLS,
-    // gateway workloads will retrieve the CaCertificates using
+    // gateway workload instances will retrieve the CaCertificates using
     // credentialName-cacert. The semantics of the name are platform
     // dependent.  In Kubernetes, the default Istio supplied credential
     // server expects the credentialName to match the name of the
     // Kubernetes secret that holds the server certificate, the private
     // key, and the CA certificate (if using mutual TLS). Set the
-    // ISTIO_META_USER_SDS metadata variable in the gateway's proxy to
+    // `ISTIO_META_USER_SDS` metadata variable in the gateway's proxy to
     // enable the dynamic credential fetching feature.
     string credential_name = 10;
 
     // A list of alternate names to verify the subject identity in the
     // certificate presented by the client.
     repeated string subject_alt_names = 6;
+    
+    // An optional list of base64-encoded SHA-256 hashes of the SKPIs of
+    // authorized client certificates.
+    // Note: When both verify_certificate_hash and verify_certificate_spki
+    // are specified, a hash matching either value will result in the
+    // certificate being accepted.
+    repeated string verify_certificate_spki = 11;
+
+    // An optional list of hex-encoded SHA-256 hashes of the
+    // authorized client certificates. Both simple and colon separated
+    // formats are acceptable.
+    // Note: When both verify_certificate_hash and verify_certificate_spki
+    // are specified, a hash matching either value will result in the
+    // certificate being accepted.
+    repeated string verify_certificate_hash = 12;
 
     // TLS protocol versions.
     enum TLSProtocol {

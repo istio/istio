@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/authplugin"
 )
 
-func returnAuth(map[string]string) ([]grpc.DialOption, error) { // nolint: unparam
+func returnAuth(_ map[string]string) ([]grpc.DialOption, error) { // nolint: unparam
 	return []grpc.DialOption{grpc.WithInsecure()}, nil
 }
 

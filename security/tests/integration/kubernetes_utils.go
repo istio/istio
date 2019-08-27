@@ -28,10 +28,10 @@ import (
 
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 var (

@@ -145,6 +145,18 @@ message TransportConfig {
   // includes the "source.ip" and "source.uid" attributes. These
   // attributes are consumed by the proxy in front of mixer.
   Attributes attributes_for_mixer_proxy = 8;
+
+  // When disable_report_batch is false, this value specifies the maximum number
+  // of requests that are batched in report. If left unspecified, the default value
+  // of report_batch_max_entries == 0 will use the hardcoded defaults of
+  // istio::mixerclient::ReportOptions.
+  uint32 report_batch_max_entries = 9;
+
+  // When disable_report_batch is false, this value specifies the maximum elapsed
+  // time a batched report will be sent after a user request is processed. If left
+  // unspecified, the default report_batch_max_time == 0 will use the hardcoded
+  // defaults of istio::mixerclient::ReportOptions.
+  google.protobuf.Duration report_batch_max_time = 10;
 }
 
 // Defines the client config for HTTP.

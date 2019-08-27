@@ -25,12 +25,14 @@ import (
 	proto "github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -38,8 +40,7 @@ import (
 // Testing the Split Horizon EDS.
 
 type expectedResults struct {
-	endpoints []string
-	weights   map[string]uint32
+	weights map[string]uint32
 }
 
 // The test will setup 3 networks with various number of endpoints for the same service within
@@ -65,6 +66,10 @@ func TestSplitHorizonEds(t *testing.T) {
 	// but without any gateway
 	initRegistry(server, 4, []string{}, 4)
 
+	// Push contexts needs to be updated
+	server.EnvoyXdsServer.ClearCache()
+	time.Sleep(time.Millisecond * 200) // give time for cache to clear
+
 	tests := []struct {
 		network   string
 		sidecarID string
@@ -76,8 +81,12 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network1",
 			sidecarID: sidecarID("10.1.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.1.0.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
+				weights: map[string]uint32{
+					"10.1.0.1":      2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -86,8 +95,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network2",
 			sidecarID: sidecarID("10.2.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.2.0.1", "10.2.0.2", "159.122.219.1", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.2.0.1":      2,
+					"10.2.0.2":      2,
+					"159.122.219.1": 2,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -96,8 +110,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network3",
 			sidecarID: sidecarID("10.3.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3", "159.122.219.1", "159.122.219.2"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
+				weights: map[string]uint32{
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"10.3.0.1":      2,
+					"10.3.0.2":      2,
+					"10.3.0.3":      2,
+				},
 			},
 		},
 		{
@@ -106,8 +125,16 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network4",
 			sidecarID: sidecarID("10.4.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4", "159.122.219.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 	}
@@ -128,8 +155,8 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	defer cancel()
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
-		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
+		"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}},
+		"NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarID, metadata, edsstr)
@@ -160,15 +187,15 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	}
 
 	lbEndpoints := eps[0].LbEndpoints
-	if len(lbEndpoints) != len(expected.endpoints) {
-		t.Fatal(fmt.Errorf("number of endpoints should be %d but got %d", len(expected.endpoints), len(lbEndpoints)))
+	if len(lbEndpoints) != len(expected.weights) {
+		t.Fatal(fmt.Errorf("number of endpoints should be %d but got %d", len(expected.weights), len(lbEndpoints)))
 	}
 
 	for addr, weight := range expected.weights {
 		var match *endpoint.LbEndpoint
 		for _, ep := range lbEndpoints {
 			if ep.GetEndpoint().Address.GetSocketAddress().Address == addr {
-				match = &ep
+				match = ep
 				break
 			}
 		}
@@ -201,15 +228,15 @@ func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc
 func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{}, 2)
+		map[host.Name]*model.Service{}, 2)
 	server.ServiceController.AddRegistry(aggregate.Registry{
 		ClusterID:        id,
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		Name:             "memAdapter",
 		ServiceDiscovery: memRegistry,
 		Controller:       &v2.MemServiceController{},
 	})
 
-	gws := []*meshconfig.Network_IstioNetworkGateway{}
+	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
 			if server.EnvoyXdsServer.Env.MeshNetworks == nil {
@@ -252,7 +279,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 				ServicePort: &model.Port{
 					Name:     "http-main",
 					Port:     1080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 				Network:  id,
 				Locality: "az",

@@ -1,0 +1,11 @@
+.DS_Store
+env.sh
+NOTES.md
+
+# codecov.io
+.codecov
+coverage.txt
+coverage.xml
+coverage.html
+
+vendor/

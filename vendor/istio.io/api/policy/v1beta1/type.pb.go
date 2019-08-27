@@ -10,9 +10,11 @@ import (
 	encoding_binary "encoding/binary"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -49,6 +51,7 @@ type Value struct {
 	//	*Value_EmailAddressValue
 	//	*Value_DnsNameValue
 	//	*Value_UriValue
+	//	*Value_StringMapValue
 	Value isValue_Value `protobuf_oneof:"value"`
 }
 
@@ -65,7 +68,7 @@ func (m *Value) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Value.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -121,6 +124,9 @@ type Value_DnsNameValue struct {
 type Value_UriValue struct {
 	UriValue *Uri `protobuf:"bytes,10,opt,name=uri_value,json=uriValue,proto3,oneof"`
 }
+type Value_StringMapValue struct {
+	StringMapValue *StringMap `protobuf:"bytes,11,opt,name=string_map_value,json=stringMapValue,proto3,oneof"`
+}
 
 func (*Value_StringValue) isValue_Value()       {}
 func (*Value_Int64Value) isValue_Value()        {}
@@ -132,6 +138,7 @@ func (*Value_DurationValue) isValue_Value()     {}
 func (*Value_EmailAddressValue) isValue_Value() {}
 func (*Value_DnsNameValue) isValue_Value()      {}
 func (*Value_UriValue) isValue_Value()          {}
+func (*Value_StringMapValue) isValue_Value()    {}
 
 func (m *Value) GetValue() isValue_Value {
 	if m != nil {
@@ -210,6 +217,13 @@ func (m *Value) GetUriValue() *Uri {
 	return nil
 }
 
+func (m *Value) GetStringMapValue() *StringMap {
+	if x, ok := m.GetValue().(*Value_StringMapValue); ok {
+		return x.StringMapValue
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Value) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _Value_OneofMarshaler, _Value_OneofUnmarshaler, _Value_OneofSizer, []interface{}{
@@ -223,6 +237,7 @@ func (*Value) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 		(*Value_EmailAddressValue)(nil),
 		(*Value_DnsNameValue)(nil),
 		(*Value_UriValue)(nil),
+		(*Value_StringMapValue)(nil),
 	}
 }
 
@@ -274,6 +289,11 @@ func _Value_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Value_UriValue:
 		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.UriValue); err != nil {
+			return err
+		}
+	case *Value_StringMapValue:
+		_ = b.EncodeVarint(11<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.StringMapValue); err != nil {
 			return err
 		}
 	case nil:
@@ -362,6 +382,14 @@ func _Value_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Value = &Value_UriValue{msg}
 		return true, err
+	case 11: // value.string_map_value
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(StringMap)
+		err := b.DecodeMessage(msg)
+		m.Value = &Value_StringMapValue{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -414,6 +442,11 @@ func _Value_OneofSizer(msg proto.Message) (n int) {
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
+	case *Value_StringMapValue:
+		s := proto.Size(x.StringMapValue)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -444,7 +477,7 @@ func (m *IPAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_IPAddress.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -493,7 +526,7 @@ func (m *Duration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Duration.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +575,7 @@ func (m *TimeStamp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_TimeStamp.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -591,7 +624,7 @@ func (m *DNSName) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_DNSName.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -617,6 +650,55 @@ func (m *DNSName) GetValue() string {
 	return ""
 }
 
+// An instance field of type StringMap denotes that the expression for the field must evaluate to
+// [ValueType.STRING_MAP][istio.policy.v1beta1.ValueType.STRING_MAP]
+//
+// Objects of type StringMap are also passed to the adapters during request-time for the instance fields of
+// type StringMap
+type StringMap struct {
+	// StringMap encoded as a map of strings
+	Value map[string]string `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *StringMap) Reset()      { *m = StringMap{} }
+func (*StringMap) ProtoMessage() {}
+func (*StringMap) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81aa672910c4f44d, []int{5}
+}
+func (m *StringMap) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *StringMap) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_StringMap.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *StringMap) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StringMap.Merge(m, src)
+}
+func (m *StringMap) XXX_Size() int {
+	return m.Size()
+}
+func (m *StringMap) XXX_DiscardUnknown() {
+	xxx_messageInfo_StringMap.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StringMap proto.InternalMessageInfo
+
+func (m *StringMap) GetValue() map[string]string {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
 // DO NOT USE !! Under Development
 // An instance field of type EmailAddress denotes that the expression for the field must evaluate to
 // [ValueType.EMAIL_ADDRESS][istio.policy.v1beta1.ValueType.EMAIL_ADDRESS]
@@ -631,7 +713,7 @@ type EmailAddress struct {
 func (m *EmailAddress) Reset()      { *m = EmailAddress{} }
 func (*EmailAddress) ProtoMessage() {}
 func (*EmailAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_81aa672910c4f44d, []int{5}
+	return fileDescriptor_81aa672910c4f44d, []int{6}
 }
 func (m *EmailAddress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -641,7 +723,7 @@ func (m *EmailAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_EmailAddress.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -681,7 +763,7 @@ type Uri struct {
 func (m *Uri) Reset()      { *m = Uri{} }
 func (*Uri) ProtoMessage() {}
 func (*Uri) Descriptor() ([]byte, []int) {
-	return fileDescriptor_81aa672910c4f44d, []int{6}
+	return fileDescriptor_81aa672910c4f44d, []int{7}
 }
 func (m *Uri) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -691,7 +773,7 @@ func (m *Uri) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Uri.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -723,6 +805,8 @@ func init() {
 	proto.RegisterType((*Duration)(nil), "istio.policy.v1beta1.Duration")
 	proto.RegisterType((*TimeStamp)(nil), "istio.policy.v1beta1.TimeStamp")
 	proto.RegisterType((*DNSName)(nil), "istio.policy.v1beta1.DNSName")
+	proto.RegisterType((*StringMap)(nil), "istio.policy.v1beta1.StringMap")
+	proto.RegisterMapType((map[string]string)(nil), "istio.policy.v1beta1.StringMap.ValueEntry")
 	proto.RegisterType((*EmailAddress)(nil), "istio.policy.v1beta1.EmailAddress")
 	proto.RegisterType((*Uri)(nil), "istio.policy.v1beta1.Uri")
 }
@@ -730,40 +814,45 @@ func init() {
 func init() { proto.RegisterFile("policy/v1beta1/type.proto", fileDescriptor_81aa672910c4f44d) }
 
 var fileDescriptor_81aa672910c4f44d = []byte{
-	// 524 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x94, 0x4f, 0x6f, 0xd3, 0x3e,
-	0x18, 0xc7, 0xed, 0x5f, 0xd7, 0xb5, 0x79, 0xda, 0x5f, 0x81, 0xb2, 0x03, 0xeb, 0x84, 0x9b, 0x15,
-	0x0e, 0x39, 0x25, 0x0c, 0x10, 0x42, 0x42, 0x1c, 0x98, 0x98, 0x08, 0x20, 0x4d, 0x90, 0x75, 0x1c,
-	0xb8, 0x54, 0x09, 0x31, 0x95, 0xa5, 0x24, 0x8e, 0xf2, 0x67, 0xd2, 0x6e, 0xbc, 0x04, 0x5e, 0x06,
-	0x2f, 0x85, 0x63, 0x6f, 0xec, 0x48, 0xd3, 0x0b, 0xc7, 0xbd, 0x04, 0x14, 0xdb, 0x09, 0xed, 0xc8,
-	0xb8, 0xd5, 0x8f, 0x3f, 0xdf, 0x4f, 0xfd, 0x3c, 0xb6, 0x02, 0xbb, 0x31, 0x0f, 0xd8, 0xa7, 0x73,
-	0xeb, 0xec, 0xc0, 0xa3, 0x99, 0x7b, 0x60, 0x65, 0xe7, 0x31, 0x35, 0xe3, 0x84, 0x67, 0x7c, 0xb8,
-	0xc3, 0xd2, 0x8c, 0x71, 0x53, 0x02, 0xa6, 0x02, 0x46, 0x64, 0xce, 0xf9, 0x3c, 0xa0, 0x96, 0x60,
-	0xbc, 0xfc, 0xb3, 0xe5, 0xe7, 0x89, 0x9b, 0x31, 0x1e, 0xc9, 0xd4, 0x68, 0x7c, 0x75, 0x3f, 0x63,
-	0x21, 0x4d, 0x33, 0x37, 0x8c, 0x25, 0x30, 0xf9, 0xb1, 0x05, 0xed, 0x0f, 0x6e, 0x90, 0xd3, 0xe1,
-	0x3d, 0xe8, 0xa7, 0x59, 0xc2, 0xa2, 0xf9, 0xec, 0xac, 0x5c, 0xdf, 0xc1, 0x3a, 0x36, 0x34, 0x1b,
-	0x39, 0x3d, 0x59, 0x95, 0xd0, 0x3e, 0xf4, 0x58, 0x94, 0x3d, 0x79, 0xac, 0x98, 0xff, 0x74, 0x6c,
-	0xb4, 0x6c, 0xe4, 0x80, 0x28, 0xd6, 0x1e, 0x9f, 0xe7, 0x5e, 0x40, 0x15, 0xd3, 0xd2, 0xb1, 0x81,
-	0x4b, 0x8f, 0xac, 0x4a, 0x68, 0x0c, 0xe0, 0x71, 0x1e, 0x28, 0x64, 0x4b, 0xc7, 0x46, 0xd7, 0x46,
-	0x8e, 0x56, 0xd6, 0x24, 0xf0, 0x16, 0x6e, 0xb2, 0x78, 0xe6, 0xfa, 0x7e, 0x42, 0xd3, 0x54, 0x61,
-	0x6d, 0x1d, 0x1b, 0xbd, 0x87, 0x63, 0xb3, 0x69, 0x12, 0xe6, 0xeb, 0x77, 0x2f, 0x24, 0x6c, 0x23,
-	0x67, 0xc0, 0x62, 0xb5, 0x90, 0xb2, 0x37, 0x70, 0xa3, 0xee, 0x5b, 0xb9, 0xb6, 0xff, 0xe5, 0x9a,
-	0xb2, 0x90, 0x9e, 0x94, 0x70, 0xe9, 0xaa, 0x93, 0xd2, 0xf5, 0x0a, 0x06, 0xd5, 0x8c, 0x95, 0xaa,
-	0x23, 0x54, 0xa4, 0x59, 0xf5, 0x52, 0xb1, 0x36, 0x72, 0xfe, 0xaf, 0x72, 0x52, 0x34, 0x85, 0xdb,
-	0x34, 0x74, 0x59, 0x70, 0xa5, 0xc9, 0xae, 0xb0, 0x4d, 0x9a, 0x6d, 0x47, 0x65, 0xe0, 0x4f, 0x9f,
-	0xb7, 0xe8, 0xda, 0x5a, 0x5a, 0x8f, 0x60, 0xe0, 0x47, 0xe9, 0x2c, 0x72, 0xc3, 0x6a, 0xfe, 0x9a,
-	0x10, 0xde, 0xbd, 0xe6, 0x78, 0xc7, 0x27, 0xc7, 0x6e, 0x48, 0x6d, 0xe4, 0xf4, 0xfd, 0x28, 0x2d,
-	0x7f, 0x4a, 0xcd, 0x53, 0xd0, 0xf2, 0x84, 0x29, 0x03, 0x08, 0xc3, 0x6e, 0xb3, 0xe1, 0x34, 0x61,
-	0x36, 0x72, 0xba, 0x79, 0xc2, 0x44, 0xf2, 0xb0, 0x03, 0x6d, 0x91, 0x9a, 0xec, 0x83, 0x56, 0xdf,
-	0xc9, 0x70, 0x47, 0x55, 0xc5, 0xab, 0xea, 0x3b, 0x0a, 0x79, 0x06, 0xdd, 0x6a, 0x3e, 0x43, 0x6b,
-	0x9d, 0x28, 0xff, 0x4d, 0xbe, 0x5c, 0xb3, 0x7a, 0xb9, 0xf5, 0x24, 0xab, 0xf0, 0x73, 0xd0, 0xea,
-	0x7b, 0x1a, 0x3e, 0xd8, 0x4c, 0x8f, 0xfe, 0x4a, 0x4f, 0xab, 0x5b, 0xac, 0xe2, 0x63, 0xe8, 0xa8,
-	0xe6, 0x37, 0x0f, 0xa7, 0x55, 0xc0, 0x7d, 0xe8, 0xaf, 0x8f, 0xfb, 0x1a, 0x6a, 0x0f, 0x5a, 0xa7,
-	0x09, 0x6b, 0xde, 0x3c, 0x7c, 0xbf, 0x58, 0x12, 0x74, 0xb1, 0x24, 0xe8, 0x72, 0x49, 0xf0, 0x97,
-	0x82, 0xe0, 0x6f, 0x05, 0xc1, 0xdf, 0x0b, 0x82, 0x17, 0x05, 0xc1, 0x3f, 0x0b, 0x82, 0x7f, 0x15,
-	0x04, 0x5d, 0x16, 0x04, 0x7f, 0x5d, 0x11, 0xb4, 0x58, 0x11, 0x74, 0xb1, 0x22, 0xe8, 0xe3, 0x9e,
-	0x9c, 0x33, 0xe3, 0x96, 0x1b, 0x33, 0x6b, 0xf3, 0x8b, 0xe0, 0x6d, 0x8b, 0x8e, 0x1e, 0xfd, 0x0e,
-	0x00, 0x00, 0xff, 0xff, 0x61, 0x78, 0xcb, 0x26, 0x2a, 0x04, 0x00, 0x00,
+	// 598 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x94, 0x3f, 0x6f, 0xd3, 0x4e,
+	0x18, 0xc7, 0xef, 0x9a, 0x5f, 0xda, 0xf8, 0x49, 0x7e, 0xa5, 0x98, 0x0e, 0x34, 0x15, 0x97, 0x34,
+	0x30, 0x58, 0x0c, 0x36, 0x2d, 0x08, 0x55, 0x20, 0x24, 0xa8, 0x88, 0x30, 0x20, 0x2a, 0x70, 0x52,
+	0x06, 0x96, 0xc8, 0xc1, 0x47, 0x74, 0xc2, 0xff, 0xe4, 0x3f, 0x95, 0xb2, 0xb1, 0xb1, 0xf2, 0x22,
+	0x18, 0x78, 0x29, 0x8c, 0x19, 0x3b, 0x12, 0x67, 0x61, 0xec, 0x4b, 0x40, 0xbe, 0x3b, 0x3b, 0x49,
+	0x49, 0xcb, 0xe6, 0x7b, 0xfc, 0x79, 0x3e, 0x79, 0xee, 0x7b, 0xe7, 0xc0, 0x4e, 0x18, 0xb8, 0xec,
+	0xe3, 0xd8, 0x38, 0xdd, 0x1f, 0xd2, 0xc4, 0xde, 0x37, 0x92, 0x71, 0x48, 0xf5, 0x30, 0x0a, 0x92,
+	0x40, 0xdd, 0x66, 0x71, 0xc2, 0x02, 0x5d, 0x00, 0xba, 0x04, 0x9a, 0x64, 0x14, 0x04, 0x23, 0x97,
+	0x1a, 0x9c, 0x19, 0xa6, 0x9f, 0x0c, 0x27, 0x8d, 0xec, 0x84, 0x05, 0xbe, 0xe8, 0x6a, 0xb6, 0x2e,
+	0xbe, 0x4f, 0x98, 0x47, 0xe3, 0xc4, 0xf6, 0x42, 0x01, 0x74, 0xbe, 0x57, 0xa1, 0xfa, 0xde, 0x76,
+	0x53, 0xaa, 0xde, 0x86, 0x46, 0x9c, 0x44, 0xcc, 0x1f, 0x0d, 0x4e, 0xf3, 0xf5, 0x4d, 0xdc, 0xc6,
+	0x9a, 0x62, 0x22, 0xab, 0x2e, 0xaa, 0x02, 0xda, 0x83, 0x3a, 0xf3, 0x93, 0x87, 0x0f, 0x24, 0xb3,
+	0xd6, 0xc6, 0x5a, 0xc5, 0x44, 0x16, 0xf0, 0x62, 0xe9, 0x71, 0x82, 0x74, 0xe8, 0x52, 0xc9, 0x54,
+	0xda, 0x58, 0xc3, 0xb9, 0x47, 0x54, 0x05, 0xd4, 0x02, 0x18, 0x06, 0x81, 0x2b, 0x91, 0xff, 0xda,
+	0x58, 0xab, 0x99, 0xc8, 0x52, 0xf2, 0x9a, 0x00, 0x5e, 0xc3, 0x16, 0x0b, 0x07, 0xb6, 0xe3, 0x44,
+	0x34, 0x8e, 0x25, 0x56, 0x6d, 0x63, 0xad, 0x7e, 0xd0, 0xd2, 0x57, 0x25, 0xa1, 0xbf, 0x7c, 0xfb,
+	0x4c, 0xc0, 0x26, 0xb2, 0x36, 0x59, 0x28, 0x17, 0x42, 0xf6, 0x0a, 0xae, 0x95, 0xfb, 0x96, 0xae,
+	0xf5, 0xab, 0x5c, 0x7d, 0xe6, 0xd1, 0x5e, 0x0e, 0xe7, 0xae, 0xb2, 0x53, 0xb8, 0x5e, 0xc0, 0x66,
+	0x91, 0xb1, 0x54, 0x6d, 0x70, 0x15, 0x59, 0xad, 0x7a, 0x2e, 0x59, 0x13, 0x59, 0xff, 0x17, 0x7d,
+	0x42, 0xd4, 0x87, 0x1b, 0xd4, 0xb3, 0x99, 0x7b, 0x61, 0x93, 0x35, 0x6e, 0xeb, 0xac, 0xb6, 0x75,
+	0xf3, 0x86, 0xf9, 0x3e, 0xaf, 0xd3, 0x85, 0xb5, 0xb0, 0x76, 0x61, 0xd3, 0xf1, 0xe3, 0x81, 0x6f,
+	0x7b, 0x45, 0xfe, 0x0a, 0x17, 0xde, 0xba, 0x64, 0xbc, 0xe3, 0xde, 0xb1, 0xed, 0x51, 0x13, 0x59,
+	0x0d, 0xc7, 0x8f, 0xf3, 0x47, 0xa1, 0x39, 0x04, 0x25, 0x8d, 0x98, 0x34, 0x00, 0x37, 0xec, 0xac,
+	0x36, 0x9c, 0x44, 0xcc, 0x44, 0x56, 0x2d, 0x8d, 0x58, 0x79, 0x70, 0xf2, 0x1a, 0x79, 0x76, 0x11,
+	0x76, 0xfd, 0xaa, 0xb0, 0x7b, 0x9c, 0x7e, 0x63, 0xf3, 0xb0, 0xe3, 0x62, 0xc1, 0x65, 0x47, 0x1b,
+	0x50, 0xe5, 0x86, 0xce, 0x1e, 0x28, 0xe5, 0x01, 0xab, 0xdb, 0xb2, 0xca, 0xaf, 0x68, 0xc3, 0x92,
+	0xc8, 0x63, 0xa8, 0x15, 0x61, 0xab, 0xc6, 0x22, 0x91, 0x8f, 0x2e, 0x3e, 0x03, 0xbd, 0xf8, 0x0c,
+	0xca, 0x63, 0x29, 0x9a, 0x9f, 0x80, 0x52, 0x1e, 0xba, 0x7a, 0x6f, 0xb9, 0xbb, 0xf9, 0x57, 0x77,
+	0xbf, 0xb8, 0x12, 0x45, 0x7b, 0x0b, 0x36, 0x64, 0x92, 0xcb, 0xc3, 0x29, 0x05, 0xf0, 0x15, 0x83,
+	0x52, 0x6e, 0x54, 0x7d, 0x3a, 0x67, 0x2a, 0x5a, 0xfd, 0xe0, 0xee, 0x3f, 0x82, 0xd1, 0x79, 0x18,
+	0x5d, 0x3f, 0x89, 0xc6, 0xd2, 0xd7, 0x3c, 0x04, 0x98, 0x17, 0xd5, 0x2d, 0xa8, 0x7c, 0xa6, 0x63,
+	0xf9, 0x8b, 0xf9, 0xe3, 0x7c, 0x8a, 0xb5, 0x85, 0x29, 0x1e, 0xad, 0x1d, 0xe2, 0xce, 0x1d, 0x68,
+	0x2c, 0xde, 0xa2, 0x4b, 0xe6, 0xdd, 0x85, 0xca, 0x49, 0xc4, 0x56, 0xbf, 0x3c, 0x7a, 0x37, 0x99,
+	0x12, 0x74, 0x36, 0x25, 0xe8, 0x7c, 0x4a, 0xf0, 0x97, 0x8c, 0xe0, 0x1f, 0x19, 0xc1, 0x3f, 0x33,
+	0x82, 0x27, 0x19, 0xc1, 0xbf, 0x32, 0x82, 0x7f, 0x67, 0x04, 0x9d, 0x67, 0x04, 0x7f, 0x9b, 0x11,
+	0x34, 0x99, 0x11, 0x74, 0x36, 0x23, 0xe8, 0xc3, 0xae, 0xd8, 0x24, 0x0b, 0x0c, 0x3b, 0x64, 0xc6,
+	0xf2, 0x1f, 0xdd, 0x70, 0x9d, 0x67, 0x7b, 0xff, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xe1, 0x50,
+	0x49, 0xab, 0x01, 0x05, 0x00, 0x00,
 }
 
 func (this *Value) Equal(that interface{}) bool {
@@ -1036,6 +1125,30 @@ func (this *Value_UriValue) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Value_StringMapValue) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Value_StringMapValue)
+	if !ok {
+		that2, ok := that.(Value_StringMapValue)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.StringMapValue.Equal(that1.StringMapValue) {
+		return false
+	}
+	return true
+}
 func (this *IPAddress) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -1132,6 +1245,35 @@ func (this *DNSName) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *StringMap) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*StringMap)
+	if !ok {
+		that2, ok := that.(StringMap)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.Value) != len(that1.Value) {
+		return false
+	}
+	for i := range this.Value {
+		if this.Value[i] != that1.Value[i] {
+			return false
+		}
+	}
+	return true
+}
 func (this *EmailAddress) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -1184,7 +1326,7 @@ func (this *Value) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 14)
+	s := make([]string, 0, 15)
 	s = append(s, "&v1beta1.Value{")
 	if this.Value != nil {
 		s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
@@ -1272,6 +1414,14 @@ func (this *Value_UriValue) GoString() string {
 		`UriValue:` + fmt.Sprintf("%#v", this.UriValue) + `}`}, ", ")
 	return s
 }
+func (this *Value_StringMapValue) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Value_StringMapValue{` +
+		`StringMapValue:` + fmt.Sprintf("%#v", this.StringMapValue) + `}`}, ", ")
+	return s
+}
 func (this *IPAddress) GoString() string {
 	if this == nil {
 		return "nil"
@@ -1316,6 +1466,28 @@ func (this *DNSName) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *StringMap) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&v1beta1.StringMap{")
+	keysForValue := make([]string, 0, len(this.Value))
+	for k, _ := range this.Value {
+		keysForValue = append(keysForValue, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForValue)
+	mapStringForValue := "map[string]string{"
+	for _, k := range keysForValue {
+		mapStringForValue += fmt.Sprintf("%#v: %#v,", k, this.Value[k])
+	}
+	mapStringForValue += "}"
+	if this.Value != nil {
+		s = append(s, "Value: "+mapStringForValue+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *EmailAddress) GoString() string {
 	if this == nil {
 		return "nil"
@@ -1347,7 +1519,7 @@ func valueToGoStringType(v interface{}, typ string) string {
 func (m *Value) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1355,143 +1527,223 @@ func (m *Value) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Value) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Value) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Value != nil {
-		nn1, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size := m.Value.Size()
+			i -= size
+			if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
 		}
-		i += nn1
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Value_StringValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0xa
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_StringValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.StringValue)
+	copy(dAtA[i:], m.StringValue)
 	i = encodeVarintType(dAtA, i, uint64(len(m.StringValue)))
-	i += copy(dAtA[i:], m.StringValue)
-	return i, nil
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 func (m *Value_Int64Value) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x10
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_Int64Value) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	i = encodeVarintType(dAtA, i, uint64(m.Int64Value))
-	return i, nil
+	i--
+	dAtA[i] = 0x10
+	return len(dAtA) - i, nil
 }
 func (m *Value_DoubleValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x19
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_DoubleValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= 8
 	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoubleValue))))
-	i += 8
-	return i, nil
+	i--
+	dAtA[i] = 0x19
+	return len(dAtA) - i, nil
 }
 func (m *Value_BoolValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x20
-	i++
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_BoolValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i--
 	if m.BoolValue {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	return i, nil
+	i--
+	dAtA[i] = 0x20
+	return len(dAtA) - i, nil
 }
 func (m *Value_IpAddressValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_IpAddressValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.IpAddressValue != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.IpAddressValue.Size()))
-		n2, err := m.IpAddressValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.IpAddressValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Value_TimestampValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_TimestampValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.TimestampValue != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.TimestampValue.Size()))
-		n3, err := m.TimestampValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.TimestampValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x32
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Value_DurationValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_DurationValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.DurationValue != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.DurationValue.Size()))
-		n4, err := m.DurationValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.DurationValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n4
+		i--
+		dAtA[i] = 0x3a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Value_EmailAddressValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_EmailAddressValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.EmailAddressValue != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.EmailAddressValue.Size()))
-		n5, err := m.EmailAddressValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.EmailAddressValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x42
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Value_DnsNameValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_DnsNameValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.DnsNameValue != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.DnsNameValue.Size()))
-		n6, err := m.DnsNameValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.DnsNameValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n6
+		i--
+		dAtA[i] = 0x4a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *Value_UriValue) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_UriValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.UriValue != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.UriValue.Size()))
-		n7, err := m.UriValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.UriValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n7
+		i--
+		dAtA[i] = 0x52
 	}
-	return i, nil
+	return len(dAtA) - i, nil
+}
+func (m *Value_StringMapValue) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Value_StringMapValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.StringMapValue != nil {
+		{
+			size, err := m.StringMapValue.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	return len(dAtA) - i, nil
 }
 func (m *IPAddress) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1499,23 +1751,29 @@ func (m *IPAddress) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IPAddress) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IPAddress) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
 		i = encodeVarintType(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Duration) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1523,27 +1781,34 @@ func (m *Duration) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Duration) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Duration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Value != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Value.Size()))
-		n8, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n8
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimeStamp) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1551,27 +1816,34 @@ func (m *TimeStamp) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimeStamp) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeStamp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Value != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintType(dAtA, i, uint64(m.Value.Size()))
-		n9, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintType(dAtA, i, uint64(size))
 		}
-		i += n9
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DNSName) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1579,23 +1851,71 @@ func (m *DNSName) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DNSName) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DNSName) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
 		i = encodeVarintType(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
+}
+
+func (m *StringMap) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *StringMap) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StringMap) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Value) > 0 {
+		for k := range m.Value {
+			v := m.Value[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintType(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintType(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintType(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EmailAddress) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1603,23 +1923,29 @@ func (m *EmailAddress) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EmailAddress) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EmailAddress) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
 		i = encodeVarintType(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Uri) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1627,27 +1953,35 @@ func (m *Uri) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Uri) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Uri) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.Value) > 0 {
-		dAtA[i] = 0xa
-		i++
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
 		i = encodeVarintType(dAtA, i, uint64(len(m.Value)))
-		i += copy(dAtA[i:], m.Value)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintType(dAtA []byte, offset int, v uint64) int {
+	offset -= sovType(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Value) Size() (n int) {
 	if m == nil {
@@ -1770,6 +2104,18 @@ func (m *Value_UriValue) Size() (n int) {
 	}
 	return n
 }
+func (m *Value_StringMapValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.StringMapValue != nil {
+		l = m.StringMapValue.Size()
+		n += 1 + l + sovType(uint64(l))
+	}
+	return n
+}
 func (m *IPAddress) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1822,6 +2168,23 @@ func (m *DNSName) Size() (n int) {
 	return n
 }
 
+func (m *StringMap) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Value) > 0 {
+		for k, v := range m.Value {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovType(uint64(len(k))) + 1 + len(v) + sovType(uint64(len(v)))
+			n += mapEntrySize + 1 + sovType(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
 func (m *EmailAddress) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1849,14 +2212,7 @@ func (m *Uri) Size() (n int) {
 }
 
 func sovType(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozType(x uint64) (n int) {
 	return sovType(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -1971,6 +2327,16 @@ func (this *Value_UriValue) String() string {
 	}, "")
 	return s
 }
+func (this *Value_StringMapValue) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Value_StringMapValue{`,
+		`StringMapValue:` + strings.Replace(fmt.Sprintf("%v", this.StringMapValue), "StringMap", "StringMap", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *IPAddress) String() string {
 	if this == nil {
 		return "nil"
@@ -2007,6 +2373,26 @@ func (this *DNSName) String() string {
 	}
 	s := strings.Join([]string{`&DNSName{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *StringMap) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForValue := make([]string, 0, len(this.Value))
+	for k, _ := range this.Value {
+		keysForValue = append(keysForValue, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForValue)
+	mapStringForValue := "map[string]string{"
+	for _, k := range keysForValue {
+		mapStringForValue += fmt.Sprintf("%v: %v,", k, this.Value[k])
+	}
+	mapStringForValue += "}"
+	s := strings.Join([]string{`&StringMap{`,
+		`Value:` + mapStringForValue + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2362,6 +2748,41 @@ func (m *Value) Unmarshal(dAtA []byte) error {
 			}
 			m.Value = &Value_UriValue{v}
 			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringMapValue", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowType
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthType
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &StringMap{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Value = &Value_StringMapValue{v}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipType(dAtA[iNdEx:])
@@ -2711,6 +3132,186 @@ func (m *DNSName) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Value = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipType(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthType
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *StringMap) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowType
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: StringMap: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: StringMap: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowType
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthType
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthType
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Value == nil {
+				m.Value = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowType
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowType
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthType
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthType
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowType
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthType
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthType
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipType(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthType
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Value[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

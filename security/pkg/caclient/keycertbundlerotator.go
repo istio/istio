@@ -19,11 +19,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 )
 
 // NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
@@ -31,7 +31,7 @@ func NewKeyCertBundleRotator(cfg *Config, keyCertBundle pkiutil.KeyCertBundle) (
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
-	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
+	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile)
 	if err != nil {
 		return nil, err
 	}

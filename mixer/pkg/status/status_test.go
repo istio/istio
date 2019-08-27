@@ -19,8 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/policy/v1beta1"
 )
@@ -162,7 +163,7 @@ func TestErrorDetail(t *testing.T) {
 
 	s := rpc.Status{Code: int32(rpc.UNAUTHENTICATED), Details: []*types.Any{
 		nil,
-		&types.Any{TypeUrl: "types.google.com/istio.policy.v1beta1.DirectHttpResponse", Value: []byte{1}},
+		{TypeUrl: "types.google.com/istio.policy.v1beta1.DirectHttpResponse", Value: []byte{1}},
 		any,
 	}}
 

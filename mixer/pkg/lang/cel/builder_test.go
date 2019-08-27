@@ -30,16 +30,16 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
-	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/pkg/attribute"
 )
 
 func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
-		finder := ast.NewFinder(test.Conf())
+		finder := attribute.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
 		mutex.Lock()
 		ex, typ, err := builder.Compile(test.E)
@@ -122,7 +122,7 @@ func BenchmarkInterpreter(b *testing.B) {
 			continue
 		}
 
-		finder := ast.NewFinder(test.Conf())
+		finder := attribute.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
 		ex, _, _ := builder.Compile(test.E)
 		bg := ilt.NewFakeBag(test.I)
@@ -132,6 +132,93 @@ func BenchmarkInterpreter(b *testing.B) {
 				_, _ = ex.Evaluate(bg)
 			}
 		})
+	}
+}
+
+var accessLog = map[string]string{
+	"connectionEvent":        `connection.event | ""`,
+	"sourceIp":               `source.ip | ip("0.0.0.0")`,
+	"sourceApp":              `source.labels["app"] | ""`,
+	"sourcePrincipal":        `source.principal | ""`,
+	"sourceName":             `source.name | ""`,
+	"sourceWorkload":         `source.workload.name | ""`,
+	"sourceNamespace":        `source.namespace | ""`,
+	"sourceOwner":            `source.owner | ""`,
+	"destinationApp":         `destination.labels["app"] | ""`,
+	"destinationIp":          `destination.ip | ip("0.0.0.0")`,
+	"destinationServiceHost": `destination.service.host | ""`,
+	"destinationWorkload":    `destination.workload.name | ""`,
+	"destinationName":        `destination.name | ""`,
+	"destinationNamespace":   `destination.namespace | ""`,
+	"destinationOwner":       `destination.owner | ""`,
+	"destinationPrincipal":   `destination.principal | ""`,
+	"protocol":               `context.protocol | "tcp"`,
+	"connectionDuration":     `connection.duration | "0ms"`,
+	// nolint: lll
+	"connection_security_policy": `conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))`,
+	"requestedServerName":        `connection.requested_server_name | ""`,
+	"receivedBytes":              `connection.received.bytes | 0`,
+	"sentBytes":                  `connection.sent.bytes | 0`,
+	"totalReceivedBytes":         `connection.received.bytes_total | 0`,
+	"totalSentBytes":             `connection.sent.bytes_total | 0`,
+	"reporter":                   `conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")`,
+	"responseFlags":              `context.proxy_error_code | ""`,
+}
+
+var attributes = map[string]*v1beta1.AttributeManifest_AttributeInfo{
+	"connection.event":                 {ValueType: v1beta1.STRING},
+	"source.ip":                        {ValueType: v1beta1.IP_ADDRESS},
+	"source.labels":                    {ValueType: v1beta1.STRING_MAP},
+	"source.principal":                 {ValueType: v1beta1.STRING},
+	"source.name":                      {ValueType: v1beta1.STRING},
+	"source.workload.name":             {ValueType: v1beta1.STRING},
+	"source.namespace":                 {ValueType: v1beta1.STRING},
+	"source.owner":                     {ValueType: v1beta1.STRING},
+	"destination.ip":                   {ValueType: v1beta1.IP_ADDRESS},
+	"destination.labels":               {ValueType: v1beta1.STRING_MAP},
+	"destination.principal":            {ValueType: v1beta1.STRING},
+	"destination.name":                 {ValueType: v1beta1.STRING},
+	"destination.workload.name":        {ValueType: v1beta1.STRING},
+	"destination.namespace":            {ValueType: v1beta1.STRING},
+	"destination.owner":                {ValueType: v1beta1.STRING},
+	"destination.service.host":         {ValueType: v1beta1.STRING},
+	"context.protocol":                 {ValueType: v1beta1.STRING},
+	"connection.duration":              {ValueType: v1beta1.DURATION},
+	"context.reporter.kind":            {ValueType: v1beta1.STRING},
+	"context.proxy_error_code":         {ValueType: v1beta1.STRING},
+	"connection.mtls":                  {ValueType: v1beta1.BOOL},
+	"connection.requested_server_name": {ValueType: v1beta1.STRING},
+	"connection.received.bytes":        {ValueType: v1beta1.INT64},
+	"connection.sent.bytes":            {ValueType: v1beta1.INT64},
+	"connection.received.bytes_total":  {ValueType: v1beta1.INT64},
+	"connection.sent.bytes_total":      {ValueType: v1beta1.INT64},
+}
+
+func BenchmarkAccessLogCEL(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		finder := attribute.NewFinder(attributes)
+		builder := NewBuilder(finder, LegacySyntaxCEL)
+		for _, expr := range accessLog {
+			_, _, err := builder.Compile(expr)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+func BenchmarkAccessLogCEXL(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		finder := attribute.NewFinder(attributes)
+		builder := compiled.NewBuilder(finder)
+		for _, expr := range accessLog {
+			_, _, err := builder.Compile(expr)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
 	}
 }
 
@@ -280,7 +367,7 @@ var (
 			text: `request.time > context.time`,
 			bag: map[string]interface{}{
 				"request.time": time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC),
-				"context.time": time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC),
+				"context.time": time.Date(1977, time.February, 4, 12, 0, 0, 0, time.UTC),
 			},
 			result:     true,
 			referenced: []string{"context.time", "request.time"},
@@ -586,14 +673,15 @@ func testExpression(env celgo.Env, provider *attributeProvider, test testCase, m
 		// expressions must parse
 		mutex.Lock()
 		expr, iss := env.Parse(test.text)
-		mutex.Unlock()
 		if iss != nil && iss.Err() != nil {
+			mutex.Unlock()
 			t.Fatalf("unexpected parsing error: %v", iss.Err())
 		}
 		t.Log(debug.ToDebugString(expr.Expr()))
 
 		// expressions may fail type checking
 		checked, iss := env.Check(expr)
+		mutex.Unlock()
 		if iss != nil {
 			if test.checkErr == "" {
 				t.Fatalf("unexpected check error: %v", iss)

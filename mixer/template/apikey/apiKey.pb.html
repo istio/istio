@@ -13,16 +13,18 @@ number_of_entries: 1
 <p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: apikey
+kind: instance
 metadata:
   name: validate-apikey
   namespace: istio-system
 spec:
-  api: api.service | &quot;&quot;
-  api_version: api.version | &quot;&quot;
-  api_operation: api.operation | &quot;&quot;
-  api_key: api.key | &quot;&quot;
-  timestamp: request.time
+  compiledTemplate: apikey
+  params:
+    api: api.service | &quot;&quot;
+    api_version: api.version | &quot;&quot;
+    api_operation: api.operation | &quot;&quot;
+    api_key: api.key | &quot;&quot;
+    timestamp: request.time
 </code></pre>
 
 <h2 id="Template">Template</h2>

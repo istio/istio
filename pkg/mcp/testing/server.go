@@ -66,7 +66,6 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 	}
 
 	checker := server.NewAllowAllChecker()
-	s := server.New(options, checker)
 	srcServer := source.NewServer(options, &source.ServerOptions{
 		AuthChecker: checker,
 		RateLimiter: rate.NewRateLimiter(time.Second, 100).Create(),
@@ -88,7 +87,6 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 
 	gs := grpc.NewServer()
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
 	mcp.RegisterResourceSourceServer(gs, srcServer)
 	go func() { _ = gs.Serve(l) }()
 

@@ -15,7 +15,7 @@ the following command:
 gcloud container clusters \
   create ${CLUSTER_NAME} \
   --zone ${ZONE} \
-  --project ${PROJECT_NAME} \
+  --project ${PROJECT_ID} \
   --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} \
   --num-nodes ${NUM_NODES} \
@@ -25,7 +25,7 @@ gcloud container clusters \
 
  - `CLUSTER_NAME`: Whatever suits your fancy, 'istio-e2e' is a good choice.
  - `ZONE`: 'us-central1-f' is a good value to use.
- - `PROJECT_NAME`: is the name of the GCP project that will house the cluster. You get a project by visiting [GCP](https://console.cloud.google.com).
+ - `PROJECT_ID`: is the ID of the GCP project that will house the cluster. You get a project by visiting [GCP](https://console.cloud.google.com).
  - `CLUSTER_VERSION`: 1.7.3 or later.
  - `MACHINE_TYPE`: Use 'n1-standard-4'
  - `NUM_NODES`: Use 3.
@@ -42,7 +42,7 @@ Engine Admin. The Roles listing for your account will change to Multiple.
 
 ## Step 2: Get cluster credentials
 ```
-gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME}
+gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_ID}
 ```
 
 ## Step 3: Create Clusterrolebinding

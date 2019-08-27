@@ -71,7 +71,7 @@ func TestClusterInfoCache_Workload_ReplicationController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "test-pod",
-				OwnerReferences: []metav1.OwnerReference{metav1.OwnerReference{
+				OwnerReferences: []metav1.OwnerReference{{
 					Controller: &controller,
 					Kind:       "ReplicationController",
 					Name:       "test-rc",
@@ -83,7 +83,7 @@ func TestClusterInfoCache_Workload_ReplicationController(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "test-rc",
-				OwnerReferences: []metav1.OwnerReference{metav1.OwnerReference{
+				OwnerReferences: []metav1.OwnerReference{{
 					Controller: &controller,
 					Kind:       "DeploymentConfig",
 					Name:       "test-dc",

@@ -17,12 +17,21 @@ package namespace
 import (
 	"fmt"
 	"io"
-
-	"github.com/google/uuid"
+	"math/rand"
+	"sync"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	k "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
+)
+
+var (
+	idctr int64
+	rnd   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu    sync.Mutex
 )
 
 // kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
@@ -45,20 +54,32 @@ func (n *kubeNamespace) ID() resource.ID {
 }
 
 // Close implements io.Closer
-func (n *kubeNamespace) Close() error {
+func (n *kubeNamespace) Close() (err error) {
 	if n.name != "" {
+		scopes.Framework.Debugf("%s deleting namespace", n.id)
 		ns := n.name
 		n.name = ""
-		return n.a.DeleteNamespace(ns)
+		err = n.a.DeleteNamespace(ns)
 	}
 
-	return nil
+	scopes.Framework.Debugf("%s close complete (err:%v)", n.id, err)
+	return
 }
 
 func claimKube(ctx resource.Context, name string) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
+	cfg, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if !env.Accessor.NamespaceExists(name) {
-		if err := env.CreateNamespace(name, "istio-test", true); err != nil {
+		nsConfig := Config{
+			Inject:                  true,
+			CustomInjectorNamespace: cfg.CustomSidecarInjectorNamespace,
+		}
+		nsLabels := createNamespaceLabels(&nsConfig)
+		if err := env.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
 			return nil, err
 		}
 
@@ -67,10 +88,18 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 }
 
 // NewNamespace allocates a new testing namespace.
-func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error) {
+func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
+	mu.Lock()
+	idctr++
+	nsid := idctr
+	r := rnd.Intn(99999)
+	mu.Unlock()
+
 	env := ctx.Environment().(*kube.Environment)
-	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
-	if err := env.CreateNamespace(ns, "istio-test", inject); err != nil {
+	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
+
+	nsLabels := createNamespaceLabels(nsConfig)
+	if err := env.CreateNamespaceWithLabels(ns, "istio-test", nsLabels); err != nil {
 		return nil, err
 	}
 
@@ -79,4 +108,21 @@ func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error)
 	n.id = id
 
 	return n, nil
+}
+
+// createNamespaceLabels will take a namespace config and generate the proper k8s labels
+func createNamespaceLabels(cfg *Config) map[string]string {
+	l := make(map[string]string)
+	if cfg.Inject {
+		l["istio-injection"] = "enabled"
+		if cfg.CustomInjectorNamespace != "" {
+			l["istio-env"] = cfg.CustomInjectorNamespace
+		}
+	}
+
+	// bring over supplied labels
+	for k, v := range cfg.Labels {
+		l[k] = v
+	}
+	return l
 }

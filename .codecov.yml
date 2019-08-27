@@ -15,4 +15,3 @@ coverage:
     - "release/"
     - "samples/"
     - "**/prow/"
-

@@ -89,7 +89,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 
 	cancel := c.Watch(req, func(response *source.WatchResponse) {
 		responseC <- response
-	})
+	}, "192.168.1.1:1234")
 
 	if wantResponse {
 		select {
@@ -114,7 +114,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 		}
 	} else {
 		if cancel != nil {
-			return nil, nil, fmt.Errorf("wanted no cancel() function, got %v", cancel)
+			return nil, nil, fmt.Errorf("wanted no cancel() function, got %p", cancel)
 		}
 	}
 

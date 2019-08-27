@@ -16,6 +16,7 @@ package helm
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -28,7 +29,7 @@ func Init(homeDir string, clientOnly bool) error {
 		clientSuffix = " --client-only"
 	}
 
-	out, err := shell.Execute("helm --home %s init %s", homeDir, clientSuffix)
+	out, err := shell.Execute(true, "helm --home %s init %s", homeDir, clientSuffix)
 	if err != nil {
 		scopes.Framework.Errorf("helm init: %v, out:%q", err, out)
 	} else {
@@ -38,47 +39,27 @@ func Init(homeDir string, clientOnly bool) error {
 	return err
 }
 
-// RepoAdd calls "helm repo add"
-func RepoAdd(homeDir, name, url string) error {
-	out, err := shell.Execute("helm --home %s repo add %s %s", homeDir, name, url)
-	if err != nil {
-		scopes.Framework.Errorf("helm repo add: %v, out:%q", err, out)
-	} else {
-		scopes.CI.Infof("helm repo add:\n%s\n", out)
-	}
-
-	return err
-}
-
-func DepUpdate(homeDir, chart string, skipRefresh bool) error {
-	skipRefreshSuffix := ""
-	if skipRefresh {
-		skipRefreshSuffix = " --skip-refresh"
-	}
-	out, err := shell.Execute("helm --home %s dep update %s %s", homeDir, chart, skipRefreshSuffix)
-	if err != nil {
-		scopes.Framework.Errorf("helm dep update: %v, out:%q", err, out)
-	} else {
-		scopes.CI.Infof("helm dep update:\n%s\n", out)
-	}
-
-	return err
-}
-
 func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
-	// Apply the overrides for the values file.
-	valuesString := ""
-	for k, v := range values {
-		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
-	}
-
-	valuesFileString := ""
+	p := []string{"helm", "--home", homeDir, "template", template, "--name", name, "--namespace", namespace}
 	if valuesFile != "" {
-		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
+		p = append(p, "--values", valuesFile)
 	}
 
-	out, err := shell.Execute("helm --home %s template %s --name %s --namespace %s %s %s",
-		homeDir, template, name, namespace, valuesFileString, valuesString)
+	// Override the values in the helm value file.
+	for k, v := range values {
+		if k == "" {
+			continue
+		}
+
+		setCmd := "--set"
+		if strings.Contains(k, "tag") {
+			// Use --set-string for tag so that tags like '20190826' are not interpreted as 2.0190826e+07 (float) by helm
+			setCmd = "--set-string"
+		}
+
+		p = append(p, setCmd, fmt.Sprintf("%s=%s", k, v))
+	}
+	out, err := shell.ExecuteArgs(nil, true, "helm", p[1:]...)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)
 	}

@@ -15,13 +15,11 @@
 package prometheus
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework/components/environment"
-
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
 
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -33,12 +31,15 @@ type Instance interface {
 
 	// WaitForQuiesce runs the provided query periodically until the result gets stable.
 	WaitForQuiesce(fmt string, args ...interface{}) (prom.Value, error)
+	WaitForQuiesceOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
 	WaitForOneOrMore(fmt string, args ...interface{}) error
+	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{})
 
 	// Sum all the samples that has the given labels in the given vector value.
 	Sum(val prom.Value, labels map[string]string) (float64, error)
+	SumOrFail(t test.Failer, val prom.Value, labels map[string]string) float64
 }
 
 // New returns a new instance of echo.
@@ -51,7 +52,7 @@ func New(ctx resource.Context) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Prometheus instance or fails test.
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context) Instance {
 	t.Helper()
 	i, err := New(ctx)
 	if err != nil {

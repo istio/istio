@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/pkg/test"
@@ -368,7 +368,7 @@ type stats struct {
 
 // WaitEnvoyReady waits until envoy receives and applies all config
 func (s *TestSetup) WaitEnvoyReady() {
-	// Sometimes on circle CI, connection is refused even when envoy reports warm clusters and listeners...
+	// Sometimes on CI, connection is refused even when envoy reports warm clusters and listeners...
 	// Inject a 1 second delay to force readiness
 	time.Sleep(1 * time.Second)
 

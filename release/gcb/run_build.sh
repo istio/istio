@@ -35,5 +35,5 @@ cd /workspace/go/src/istio.io/istio || exit 2
 cd /workspace || exit 3
 /workspace/store_artifacts.sh
 /workspace/rel_push_docker_build_version.sh
-/workspace/helm_charts.sh
 /workspace/helm_values.sh
+/workspace/helm_charts.sh

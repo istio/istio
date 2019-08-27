@@ -16,12 +16,15 @@ package contextgraph
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
-	gax "github.com/googleapis/gax-go"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+	"istio.io/istio/mixer/pkg/adapter"
 
+	"github.com/googleapis/gax-go"
+
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	env "istio.io/istio/mixer/pkg/adapter/test"
 )
 
@@ -41,42 +44,37 @@ func (m *mockBatchClient) fakeAssertBatch(
 	return nil, nil
 }
 
-func TestSendBatch(t *testing.T) {
-	const (
-		numEntities = 20000
-		numEdges    = 20000
-	)
+func BenchmarkSendBatch(b *testing.B) {
 
 	m := &mockBatchClient{
 		ABCalled:    0,
 		NumEntities: 0,
 		NumEdges:    0,
 	}
-	h := &handler{
-		env:         env.NewEnv(t),
-		assertBatch: m.fakeAssertBatch,
-	}
+	for _, size := range []int{2, 200, 20000} {
+		h, entities, edges := setupSendBatch(env.NewEnv(nil), m.fakeAssertBatch, size)
 
-	entities := make([]entity, 0)
-	edges := make([]edge, 0)
-
-	for ii := 0; ii < numEntities; ii++ {
-		entities = append(entities, entity{
-			containerFullName: "asdf",
-			typeName:          "asdf",
-			fullName:          "asdf",
-			location:          "asdf",
-			shortNames:        [4]string{"asdf", "", "", ""},
+		b.Run(fmt.Sprintf("Size%d", size), func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_ = h.send(
+					context.Background(),
+					time.Unix(1337, 0),
+					entities,
+					edges,
+				)
+			}
 		})
 	}
+}
 
-	for ii := 0; ii < numEdges; ii++ {
-		edges = append(edges, edge{
-			sourceFullName:      "asdf",
-			destinationFullName: "asdf",
-			typeName:            "asdf",
-		})
+func TestSendBatch(t *testing.T) {
+	testSize := 21000
+	m := &mockBatchClient{
+		ABCalled:    0,
+		NumEntities: 0,
+		NumEdges:    0,
 	}
+	h, entities, edges := setupSendBatch(env.NewEnv(t), m.fakeAssertBatch, testSize)
 
 	h.send(
 		context.Background(),
@@ -88,10 +86,40 @@ func TestSendBatch(t *testing.T) {
 	if m.ABCalled != 4 {
 		t.Fatalf("AssertBatch expected to be called 4 times. Called %v times", m.ABCalled)
 	}
-	if m.NumEntities != numEntities {
-		t.Fatalf("%v entities expected to be sent, got %v:", numEntities, m.NumEntities)
+	if m.NumEntities != testSize {
+		t.Fatalf("%v entities expected to be sent, got %v:", testSize, m.NumEntities)
 	}
-	if m.NumEdges != numEdges {
-		t.Fatalf("%v edges expected to be sent, got %v:", numEdges, m.NumEdges)
+	if m.NumEdges != testSize {
+		t.Fatalf("%v edges expected to be sent, got %v:", testSize, m.NumEdges)
 	}
+}
+
+func setupSendBatch(env adapter.Env, assert assertBatchFn, size int) (*handler, []entity, []edge) {
+
+	h := &handler{
+		env:         env,
+		assertBatch: assert,
+	}
+
+	entities := make([]entity, 0)
+	edges := make([]edge, 0)
+
+	for ii := 0; ii < size; ii++ {
+		entities = append(entities, entity{
+			containerFullName: "asdf",
+			typeName:          "asdf",
+			fullName:          "asdf",
+			location:          "asdf",
+			shortNames:        [4]string{"asdf", "", "", ""},
+		})
+	}
+
+	for ii := 0; ii < size; ii++ {
+		edges = append(edges, edge{
+			sourceFullName:      "asdf",
+			destinationFullName: "asdf",
+			typeName:            "asdf",
+		})
+	}
+	return h, entities, edges
 }

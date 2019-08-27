@@ -24,6 +24,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/opa/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -121,10 +122,8 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	if len(b.configErrors) >= 0 {
-		for _, err := range b.configErrors {
-			_ = env.Logger().Errorf("%v", err)
-		}
+	for _, err := range b.configErrors {
+		_ = env.Logger().Errorf("%v", err)
 	}
 
 	return &handler{
@@ -178,15 +177,6 @@ func convertSubjectObjectToMap(subject *authorization.Subject) map[string]interf
 	if len(subject.Groups) > 0 {
 		result["groups"] = []interface{}{subject.Groups}
 	}
-	/*
-		if subject.Groups != nil && len(subject.Groups) > 0 {
-			groups := []interface{}{}
-			for _, group := range subject.Groups {
-				groups = append(groups, group)
-			}
-			result["groups"] = groups
-		}
-	*/
 
 	if subject.Properties != nil {
 		properties := map[string]interface{}{}
@@ -264,14 +254,7 @@ func (h *handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "opa",
-		Impl:        "istio.io/istio/mixer/adapter/opa",
-		Description: "Istio Authorization with Open Policy Agent engine",
-		SupportedTemplates: []string{
-			authorization.TemplateName,
-		},
-		DefaultConfig: &config.Params{},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("opa")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }

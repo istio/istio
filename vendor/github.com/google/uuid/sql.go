@@ -13,35 +13,36 @@ import (
 // Currently, database types that map to string and []byte are supported. Please
 // consult database-specific driver documentation for matching types.
 func (uuid *UUID) Scan(src interface{}) error {
-	switch src.(type) {
+	switch src := src.(type) {
+	case nil:
+		return nil
+
 	case string:
 		// if an empty UUID comes from a table, we return a null UUID
-		if src.(string) == "" {
+		if src == "" {
 			return nil
 		}
 
 		// see Parse for required string format
-		u, err := Parse(src.(string))
-
+		u, err := Parse(src)
 		if err != nil {
 			return fmt.Errorf("Scan: %v", err)
 		}
 
 		*uuid = u
-	case []byte:
-		b := src.([]byte)
 
+	case []byte:
 		// if an empty UUID comes from a table, we return a null UUID
-		if len(b) == 0 {
+		if len(src) == 0 {
 			return nil
 		}
 
 		// assumes a simple slice of bytes if 16 bytes
 		// otherwise attempts to parse
-		if len(b) != 16 {
-			return uuid.Scan(string(b))
+		if len(src) != 16 {
+			return uuid.Scan(string(src))
 		}
-		copy((*uuid)[:], b)
+		copy((*uuid)[:], src)
 
 	default:
 		return fmt.Errorf("Scan: unable to scan type %T into UUID", src)

@@ -58,23 +58,27 @@ func TestReport(t *testing.T) {
 			name: "Basic Report",
 			cfg: `
 apiVersion: "config.istio.io/v1alpha2"
-kind: fakeHandler
+kind: handler
 metadata:
   name: fakeHandlerConfig
   namespace: istio-system
+spec:
+  compiledAdapter: fakeHandler
 
 ---
 
 apiVersion: "config.istio.io/v1alpha2"
-kind: samplereport
+kind: instance
 metadata:
   name: reportInstance
   namespace: istio-system
 spec:
-  value: response.count | 0
-  dimensions:
-    source: source.name | "mysrc"
-    target_ip: target.name | "mytarget"
+  compiledTemplate: samplereport
+  params:
+    value: response.count | 0
+    dimensions:
+      source: source.name | "mysrc"
+      target_ip: target.name | "mytarget"
 
 ---
 
@@ -84,11 +88,11 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: match(target.name, "*")
+  match: match(target.name, "*")
   actions:
-  - handler: fakeHandlerConfig.fakeHandler
+  - handler: fakeHandlerConfig.handler
     instances:
-    - reportInstance.samplereport
+    - reportInstance.instance
 
 ---
 `,
@@ -98,7 +102,7 @@ spec:
 			},
 
 			expectSetTypes: map[string]interface{}{
-				"reportInstance.samplereport.istio-system": &reportTmpl.Type{
+				"reportInstance.instance.istio-system": &reportTmpl.Type{
 					Value:      pb.INT64,
 					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
 				},
@@ -109,7 +113,7 @@ spec:
 					Name: "HandleSampleReport",
 					Instances: []interface{}{
 						&reportTmpl.Instance{
-							Name:       "reportInstance.samplereport.istio-system",
+							Name:       "reportInstance.instance.istio-system",
 							Value:      int64(2),
 							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
@@ -161,7 +165,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: match(target.name, "*")
+  match: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
@@ -234,7 +238,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: match(target.name, "some unknown thing")
+  match: match(target.name, "some unknown thing")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:

@@ -40,7 +40,7 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	found := false
 	for i, w := range config.Webhooks {
 		if w.Name == webhookName {
-			config.Webhooks[i].ClientConfig.CABundle = caBundle[:]
+			config.Webhooks[i].ClientConfig.CABundle = caBundle
 			found = true
 			break
 		}

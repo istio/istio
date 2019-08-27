@@ -7,7 +7,7 @@ metadata:
   name: mixerdenyuser
   namespace: istio-system
 spec:
-  match: destination.service == "bar.default.svc.cluster.local" && source.user != "tcp-test-user" && context.protocol == "tcp"
+  match: destination.service.host == "bar.default.svc.cluster.local" && source.user != "tcp-test-user" && context.protocol == "tcp"
   actions:
   - handler: denyall
     instances:

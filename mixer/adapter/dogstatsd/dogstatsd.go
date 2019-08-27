@@ -29,6 +29,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/dogstatsd/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
@@ -201,18 +202,7 @@ func (h *handler) Close() error { return h.client.Close() }
 
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "dogstatsd",
-		Description: "Produces dogstatsd metrics",
-		SupportedTemplates: []string{
-			metric.TemplateName,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{
-			Address:      "localhost:8125",
-			Prefix:       "istio.",
-			BufferLength: 0,
-			GlobalTags:   map[string]string{},
-		},
-	}
+	info := metadata.GetInfo("dogstatsd")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }

@@ -4,6 +4,7 @@ description: Authentication policy for Istio services.
 location: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+weight: 29
 number_of_entries: 11
 ---
 <p>This package defines user-facing authentication policy.</p>
@@ -142,7 +143,7 @@ See https://auth0.com/docs/jwks.</p>
 header name.</p>
 
 <p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
-format will be x-goog-iap-jwt-assertion: <JWT>.</p>
+format will be x-goog-iap-jwt-assertion: &lt;JWT&gt;.</p>
 
 </td>
 </tr>
@@ -625,7 +626,7 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 <td><code>ports</code></td>
 <td><code><a href="#PortSelector">PortSelector[]</a></code></td>
 <td>
-<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload instance ports.
 For example, if a service is defined as below, then <code>8000</code> should be used, not <code>9000</code>.</p>
 
 <pre><code class="language-yaml">kind: Service

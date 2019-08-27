@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package loadbalancer
 
 import (
@@ -12,8 +26,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -48,8 +65,8 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
-				weights := []int{}
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
 				}
@@ -64,7 +81,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -90,7 +107,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -111,6 +128,33 @@ func TestApplyLocalitySetting(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildSmallClusterWithNilLocalities()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality == nil {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+			} else if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						t.Errorf("Should not exist")
+						continue
+					}
+					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+					continue
+				}
+				t.Errorf("Should not exist")
+				continue
+			} else if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+			} else {
+				t.Errorf("Should not exist")
+			}
+		}
+	})
 }
 
 func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
@@ -125,7 +169,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -151,11 +195,11 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -183,7 +227,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -214,11 +258,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -239,7 +283,7 @@ func buildFakeCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -300,7 +344,7 @@ func buildSmallCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -315,6 +359,32 @@ func buildSmallCluster() *apiv2.Cluster {
 						SubZone: "subzone2",
 					},
 				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
+	return &apiv2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &apiv2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+				{},
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region2",

@@ -21,12 +21,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"testing"
+	"syscall"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -47,7 +49,7 @@ const (
 	meshConfigFile = "meshconfig.yaml"
 )
 
-// NewNativeComponent factory function for the component
+// newNative returns the native implementation of galley.Instance.
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	n := &nativeComponent{
@@ -57,7 +59,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n, n.Reset()
+	return n, n.reset()
 }
 
 type nativeComponent struct {
@@ -82,6 +84,8 @@ type nativeComponent struct {
 	meshConfigFile string
 
 	server *server.Server
+
+	cache *yml.Cache
 }
 
 var _ Instance = &nativeComponent{}
@@ -98,15 +102,8 @@ func (c *nativeComponent) Address() string {
 
 // ClearConfig implements Galley.ClearConfig.
 func (c *nativeComponent) ClearConfig() (err error) {
-	infos, err := ioutil.ReadDir(c.configDir)
-	if err != nil {
+	if err := c.cache.Clear(); err != nil {
 		return err
-	}
-	for _, i := range infos {
-		err := os.Remove(path.Join(c.configDir, i.Name()))
-		if err != nil {
-			return err
-		}
 	}
 
 	err = c.applyAttributeManifest()
@@ -114,30 +111,26 @@ func (c *nativeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) (err error) {
+func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
+	defer appsignals.Notify("galley.native.ApplyConfig", syscall.SIGUSR1)
 
+	var err error
 	for _, y := range yamlText {
-		if ns != nil {
-			y, err = yml.ApplyNamespace(y, ns.Name())
-			if err != nil {
-				return
-			}
+		y, err = applyNamespace(ns, y)
+		if err != nil {
+			return err
 		}
 
-		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-		fn = path.Join(c.configDir, fn)
-
-		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, y)
-		if err = ioutil.WriteFile(fn, []byte(y), os.ModePerm); err != nil {
-			return err
+		if _, err = c.cache.Apply(y); err != nil {
+			return nil
 		}
 	}
 
-	return
+	return nil
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+func (c *nativeComponent) ApplyConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -145,9 +138,42 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance,
 	}
 }
 
+// DeleteConfig implements Galley.DeleteConfig.
+func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) error {
+	defer appsignals.Notify("galley.native.DeleteConfig", syscall.SIGUSR1)
+
+	var err error
+	for _, y := range yamlText {
+		y, err = applyNamespace(ns, y)
+		if err != nil {
+			return err
+		}
+
+		if err = c.cache.Delete(y); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
+func (c *nativeComponent) DeleteConfigOrFail(t test.Failer, ns namespace.Instance, yamlText ...string) {
+	t.Helper()
+	err := c.DeleteConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("Galley.DeleteConfigOrFail: %v", err)
+	}
+}
+
 // ApplyConfigDir implements Galley.ApplyConfigDir.
 func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
+	defer appsignals.Notify("galley.native.ApplyConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {
 			scopes.Framework.Debugf("Making dir: %v", targetPath)
@@ -161,14 +187,33 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 
 		yamlText := string(contents)
 		if ns != nil {
+			var err error
 			yamlText, err = yml.ApplyNamespace(yamlText, ns.Name())
 			if err != nil {
 				return err
 			}
 		}
 
-		return ioutil.WriteFile(targetPath, []byte(yamlText), os.ModePerm)
+		_, err = c.cache.Apply(yamlText)
+		return err
 	})
+}
+
+// SetMeshConfig implements Instance
+func (c *nativeComponent) SetMeshConfig(meshCfg string) error {
+	if err := ioutil.WriteFile(c.meshConfigFile, []byte(meshCfg), os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetMeshConfigOrFail implements Instance
+func (c *nativeComponent) SetMeshConfigOrFail(t test.Failer, meshCfg string) {
+	t.Helper()
+	if err := c.SetMeshConfig(meshCfg); err != nil {
+		t.Fatalf("galley.SetMeshConfigOrFail: %v", err)
+	}
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
@@ -176,8 +221,15 @@ func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotV
 	return c.client.waitForSnapshot(collection, validator)
 }
 
-// Reset implements Resettable.Reset.
-func (c *nativeComponent) Reset() error {
+// WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
+func (c *nativeComponent) WaitForSnapshotOrFail(t test.Failer, collection string, validator SnapshotValidatorFunc) {
+	t.Helper()
+	if err := c.WaitForSnapshot(collection, validator); err != nil {
+		t.Fatalf("WaitForSnapshotOrFail: %v", err)
+	}
+}
+
+func (c *nativeComponent) reset() error {
 	_ = c.Close()
 
 	var err error
@@ -192,6 +244,8 @@ func (c *nativeComponent) Reset() error {
 		return err
 	}
 	scopes.Framework.Debugf("Galley config dir: %v", c.configDir)
+
+	c.cache = yml.NewCache(c.configDir)
 
 	c.meshConfigDir = path.Join(c.homeDir, meshConfigDir)
 	if err = os.MkdirAll(c.meshConfigDir, os.ModePerm); err != nil {
@@ -214,7 +268,7 @@ func (c *nativeComponent) Reset() error {
 }
 
 func (c *nativeComponent) restart() error {
-	a := server.DefaultArgs()
+	a := settings.DefaultArgs()
 	a.Insecure = true
 	a.EnableServer = true
 	a.DisableResourceReadyCheck = true
@@ -222,26 +276,37 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
-	a.ExcludedResourceKinds = make([]string, 0)
+	a.MonitoringPort = 0
+	a.ExcludedResourceKinds = nil
+	a.EnableServiceDiscovery = true
+	a.ValidationArgs.EnableValidation = false
+	a.ValidationArgs.EnableReconcileWebhookConfiguration = false
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"
 
-	s, err := server.New(a)
-	if err != nil {
+	if c.cfg.SinkAddress != "" {
+		a.SinkAddress = c.cfg.SinkAddress
+		a.SinkAuthMode = "NONE"
+	}
+
+	s := server.New(a)
+	if err := s.Start(); err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
 		return err
 	}
 
 	c.server = s
 
-	go s.Run()
+	// TODO: This is due to Galley start-up being racy. We should go back to the "Start" based model where
+	// return from s.Start() guarantees that all the setup is complete.
+	time.Sleep(time.Second)
 
 	c.client = &client{
 		address: fmt.Sprintf("tcp://%s", s.Address().String()),
 	}
 
-	if err = c.client.waitForStartup(); err != nil {
+	if err := c.client.waitForStartup(); err != nil {
 		return err
 	}
 
@@ -257,10 +322,7 @@ func (c *nativeComponent) Close() (err error) {
 	}
 	if c.server != nil {
 		scopes.Framework.Debugf("%s closing server", c.id)
-		err = multierror.Append(c.server.Close()).ErrorOrNil()
-		if err != nil {
-			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
-		}
+		c.server.Stop()
 		c.server = nil
 	}
 
@@ -280,4 +342,12 @@ func (c *nativeComponent) applyAttributeManifest() error {
 	}
 
 	return c.ApplyConfig(nil, m)
+}
+
+func applyNamespace(ns namespace.Instance, yamlText string) (out string, err error) {
+	out = yamlText
+	if ns != nil {
+		out, err = yml.ApplyNamespace(yamlText, ns.Name())
+	}
+	return
 }

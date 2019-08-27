@@ -25,16 +25,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal/test"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/pkg/log"
 )
 
 func init() {
@@ -60,11 +60,11 @@ type sourceTestHarness struct {
 	recvErr           error
 	ctx               context.Context
 	nonce             int
-	closeWatch        bool
 	watchResponses    map[string]*WatchResponse
 	pushResponseFuncs map[string][]PushResponseFunc
 	watchCreated      map[string]int
 	client            bool
+	closeWatch        bool
 }
 
 func newSourceTestHarness(t *testing.T) *sourceTestHarness {
@@ -169,10 +169,10 @@ func (h *sourceTestHarness) setRecvError(err error) {
 	h.recvErr = err
 }
 
-func (h *sourceTestHarness) setCloseWatch(close bool) {
+func (h *sourceTestHarness) setCloseWatch(closeWatch bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.closeWatch = close
+	h.closeWatch = closeWatch
 }
 
 func (h *sourceTestHarness) watchesCreated(typeURL string) int {
@@ -181,7 +181,7 @@ func (h *sourceTestHarness) watchesCreated(typeURL string) int {
 	return h.watchCreated[typeURL]
 }
 
-func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc) CancelWatchFunc {
+func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc, peerAddr string) CancelWatchFunc {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -770,15 +770,6 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	}
 	s := New(options)
 
-	//s := makeSourceUnderTest(h)
-	/*
-		options := &Options{
-			Watcher:           h,
-			CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-			Reporter:          monitoring.NewInMemoryStatsContext(),
-			//ConnRateLimiter:    NewFakePerConnLimiter(),
-		}
-	*/
 	for _, v := range s.collections {
 		v.Incremental = true
 	}

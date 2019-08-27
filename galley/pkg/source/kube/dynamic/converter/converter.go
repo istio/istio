@@ -22,14 +22,15 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 
-	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+const (
+	kubeIngressClassAnotations = "kubernetes.io/ingress.class"
 )
 
 var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
@@ -53,7 +54,6 @@ var converters = func() map[string]Fn {
 	m["nil"] = nilConverter
 	m["auth-policy-resource"] = authPolicyResource
 	m["kube-ingress-resource"] = kubeIngressResource
-	m["kube-service-resource"] = kubeServiceResource
 
 	return m
 }()
@@ -192,42 +192,13 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	return []Entry{e}, nil
 }
 
-func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
-	var service corev1.Service
-	if err := convertJSON(u, &service); err != nil {
-		return nil, err
-	}
-	se := networking.ServiceEntry{
-		Hosts:      []string{fmt.Sprintf("%s.%s.svc.%s", service.Name, service.Namespace, cfg.DomainSuffix)},
-		Addresses:  append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
-		Resolution: networking.ServiceEntry_STATIC,
-		Location:   networking.ServiceEntry_MESH_INTERNAL,
-	}
-	for _, kubePort := range service.Spec.Ports {
-		se.Ports = append(se.Ports, &networking.Port{
-			Name:     kubePort.Name,
-			Number:   uint32(kubePort.Port),
-			Protocol: string(kube.ConvertProtocol(kubePort.Name, kubePort.Protocol)),
-		})
-	}
-	return []Entry{{
-		Key: name,
-		Metadata: resource.Metadata{
-			Labels:      service.Labels,
-			Annotations: service.Annotations,
-			CreateTime:  service.CreationTimestamp.Time,
-		},
-		Resource: &se,
-	}}, nil
-}
-
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
 func shouldProcessIngress(cfg *Config, i *extensions.Ingress) bool {
 	class, exists := "", false
 	if i.Annotations != nil {
-		class, exists = i.Annotations[kube.IngressClassAnnotation]
+		class, exists = i.Annotations[kubeIngressClassAnotations]
 	}
 
 	mesh := cfg.Mesh.Get()

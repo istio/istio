@@ -21,15 +21,15 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/rate"
+	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -82,7 +82,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*Request, PushResponseFunc) CancelWatchFunc
+	Watch(*Request, PushResponseFunc, string) CancelWatchFunc
 }
 
 // CollectionOptions configures the per-collection updates.
@@ -200,7 +200,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	var collections []string
+	collections := make([]string, 0, len(s.collections))
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
@@ -262,9 +262,6 @@ func (s *Source) ProcessStream(stream Stream) error {
 		case <-con.queue.Done():
 			scope.Debugf("MCP: connection %v: stream done", con)
 			return status.Error(codes.Unavailable, "server canceled watch")
-		case <-stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
-			return stream.Context().Err()
 		}
 	}
 }
@@ -347,7 +344,7 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 	}
 
 	// increment nonce
-	con.streamNonce = con.streamNonce + 1
+	con.streamNonce++
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
 		con.reporter.RecordSendError(err, status.Code(err))
@@ -364,12 +361,11 @@ func (con *connection) receive() {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			code := status.Code(err)
-			if code == codes.Canceled || err == io.EOF {
+			if err == io.EOF {
 				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			con.reporter.RecordRecvError(err, code)
+			con.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
@@ -399,6 +395,10 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.RequestResources) error {
+	if isTriggerResponse(req) {
+		return nil
+	}
+
 	collection := req.Collection
 
 	con.reporter.RecordRequestSize(collection, con.id, internal.ProtoSize(req))
@@ -442,7 +442,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 			VersionInfo: versionInfo,
 			incremental: req.Incremental,
 		}
-		w.cancel = con.watcher.Watch(sr, con.queueResponse)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse, con.peerAddr)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce. These could be dup requests or out-of-order

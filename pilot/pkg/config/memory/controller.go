@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 type controller struct {
@@ -36,16 +37,6 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
-// NewBufferedController return an implementation of model.ConfigStoreCache. This differs from NewController in that it
-// allows for specifying the size of the internal event buffer.
-func NewBufferedController(cs model.ConfigStore, bufferSize int) model.ConfigStoreCache {
-	out := &controller{
-		configStore: cs,
-		monitor:     NewBufferedMonitor(cs, bufferSize),
-	}
-	return out
-}
-
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(typ, f)
 }
@@ -59,7 +50,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }
 
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *controller) ConfigDescriptor() schema.Set {
 	return c.configStore.ConfigDescriptor()
 }
 

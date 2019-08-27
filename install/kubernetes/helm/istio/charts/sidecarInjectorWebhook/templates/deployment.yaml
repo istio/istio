@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -11,10 +11,13 @@ metadata:
     istio: sidecar-injector
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: sidecar-injector
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -25,7 +28,6 @@ spec:
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
 {{- if .Values.global.priorityClassName }}
@@ -94,5 +96,15 @@ spec:
           items:
           - key: config
             path: config
+          - key: values
+            path: values
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}

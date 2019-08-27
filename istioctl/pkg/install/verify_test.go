@@ -18,48 +18,48 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 var (
-	availableDeployment = v1beta1.Deployment{
-		Status: v1beta1.DeploymentStatus{
-			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentAvailable,
+	availableDeployment = appsv1.Deployment{
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type: appsv1.DeploymentAvailable,
 				},
 			},
 		},
 	}
 
-	scaleUpRollingDeployment = v1beta1.Deployment{
-		Spec: v1beta1.DeploymentSpec{
+	scaleUpRollingDeployment = appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &[]int32{3}[0],
 		},
-		Status: v1beta1.DeploymentStatus{
-			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentProgressing,
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type: appsv1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentAvailable,
+				{
+					Type: appsv1.DeploymentAvailable,
 				},
 			},
 			UpdatedReplicas: 2,
 		},
 	}
 
-	deletingOldRollingDeployment = v1beta1.Deployment{
-		Spec: v1beta1.DeploymentSpec{
+	deletingOldRollingDeployment = appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &[]int32{2}[0],
 		},
-		Status: v1beta1.DeploymentStatus{
-			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentProgressing,
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type: appsv1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentAvailable,
+				{
+					Type: appsv1.DeploymentAvailable,
 				},
 			},
 			UpdatedReplicas:   2,
@@ -68,14 +68,14 @@ var (
 		},
 	}
 
-	failedDeployment = v1beta1.Deployment{
-		Spec: v1beta1.DeploymentSpec{
+	failedDeployment = appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &[]int32{2}[0],
 		},
-		Status: v1beta1.DeploymentStatus{
-			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
-					Type: v1beta1.DeploymentReplicaFailure,
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type: appsv1.DeploymentReplicaFailure,
 				},
 			},
 			UpdatedReplicas:   2,
@@ -84,11 +84,11 @@ var (
 		},
 	}
 
-	deadlineExceededDeployment = v1beta1.Deployment{
-		Status: v1beta1.DeploymentStatus{
-			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
-					Type:   v1beta1.DeploymentProgressing,
+	deadlineExceededDeployment = appsv1.Deployment{
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentProgressing,
 					Reason: "ProgressDeadlineExceeded",
 				},
 			},
@@ -97,7 +97,7 @@ var (
 )
 
 func TestGetDeploymentStatus(t *testing.T) {
-	errCases := []*v1beta1.Deployment{
+	errCases := []*appsv1.Deployment{
 		&scaleUpRollingDeployment,
 		&deletingOldRollingDeployment,
 		&failedDeployment,
@@ -105,18 +105,18 @@ func TestGetDeploymentStatus(t *testing.T) {
 	}
 	for i, c := range errCases {
 		t.Run(fmt.Sprintf("[err-%v] ", i), func(tt *testing.T) {
-			if err := getDeploymentStatus(c, "fooDeploy"); err == nil {
+			if err := getDeploymentStatus(c, "fooDeploy", ""); err == nil {
 				tt.Fatalf("unexpected nil error")
 			}
 		})
 	}
 
-	okCases := []*v1beta1.Deployment{
+	okCases := []*appsv1.Deployment{
 		&availableDeployment,
 	}
 	for i, c := range okCases {
 		t.Run(fmt.Sprintf("[ok-%v] ", i), func(tt *testing.T) {
-			if err := getDeploymentStatus(c, "fooDeploy"); err != nil {
+			if err := getDeploymentStatus(c, "fooDeploy", ""); err != nil {
 				tt.Fatalf("unexpected error: %v", err)
 			}
 		})
@@ -125,27 +125,27 @@ func TestGetDeploymentStatus(t *testing.T) {
 
 func TestGetDeploymentCondition(t *testing.T) {
 	cases := []struct {
-		status     v1beta1.DeploymentStatus
-		condType   v1beta1.DeploymentConditionType
+		status     appsv1.DeploymentStatus
+		condType   appsv1.DeploymentConditionType
 		shouldFind bool
 	}{
 		{
 			// Simple "find Available in Available"
 			status:     availableDeployment.Status,
-			condType:   v1beta1.DeploymentAvailable,
+			condType:   appsv1.DeploymentAvailable,
 			shouldFind: true,
 		},
 		{
 			// find Available in Progressing,Available
 			// valid in e.g. RollingUpdate
 			status:     scaleUpRollingDeployment.Status,
-			condType:   v1beta1.DeploymentAvailable,
+			condType:   appsv1.DeploymentAvailable,
 			shouldFind: true,
 		},
 		{
 			// find Available in ReplicaFailure
 			status:     failedDeployment.Status,
-			condType:   v1beta1.DeploymentAvailable,
+			condType:   appsv1.DeploymentAvailable,
 			shouldFind: false,
 		},
 	}

@@ -15,7 +15,6 @@
 package consul
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -26,7 +25,7 @@ import (
 
 const (
 	resync          = 5 * time.Millisecond
-	notifyThreshold = resync * 10
+	notifyThreshold = resync * 100
 )
 
 func TestController(t *testing.T) {
@@ -40,30 +39,16 @@ func TestController(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	countMutex := sync.Mutex{}
-	count := 0
-
-	incrementCount := func() {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		count++
-	}
-	getCountAndReset := func() int {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		i := count
-		count = 0
-		return i
-	}
+	updateChannel := make(chan struct{}, 10)
 
 	ctl := NewConsulMonitor(cl, resync)
 	ctl.AppendInstanceHandler(func(instance *api.CatalogService, event model.Event) error {
-		incrementCount()
+		updateChannel <- struct{}{}
 		return nil
 	})
 
 	ctl.AppendServiceHandler(func(instances []*api.CatalogService, event model.Event) error {
-		incrementCount()
+		updateChannel <- struct{}{}
 		return nil
 	})
 
@@ -71,50 +56,58 @@ func TestController(t *testing.T) {
 	go ctl.Start(stop)
 	defer close(stop)
 
-	time.Sleep(notifyThreshold)
-	getCountAndReset()
-
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 0 {
-		t.Errorf("got %d notifications from controller, want %d", i, 0)
+	drain := func(c chan struct{}) int {
+		found := 0
+		for {
+			select {
+			case <-c:
+				found++
+			case <-time.After(notifyThreshold):
+				return found
+			}
+		}
 	}
+	expectNotify := func(t *testing.T, times int) {
+		t.Helper()
+		for i := 0; i < times; i++ {
+			select {
+			case <-updateChannel:
+				continue
+			case <-time.After(notifyThreshold):
+				t.Fatalf("got %d notifications from controller, want %d", i, times)
+			}
+		}
+		if left := drain(updateChannel); left != 0 {
+			t.Fatalf("got %d notifications, want %d", times+left, times)
+		}
+	}
+
+	// Ignore initial updates
+	drain(updateChannel)
+
+	expectNotify(t, 0)
 
 	// re-ordering of service instances -> does not trigger update
 	ts.Lock.Lock()
-	tmpReview := reviews[0]
-	reviews[0] = reviews[len(reviews)-1]
-	reviews[len(reviews)-1] = tmpReview
+	reviews[0], reviews[len(reviews)-1] = reviews[len(reviews)-1], reviews[0]
 	ts.Lock.Unlock()
-
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 0 {
-		t.Errorf("got %d notifications from controller, want %d", i, 0)
-	}
+	expectNotify(t, 0)
 
 	// same service, new tag -> triggers instance update
 	ts.Lock.Lock()
 	ts.Productpage[0].ServiceTags = append(ts.Productpage[0].ServiceTags, "new|tag")
 	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 1 {
-		t.Errorf("got %d notifications from controller, want %d", i, 2)
-	}
+	expectNotify(t, 1)
 
 	// delete a service instance -> trigger instance update
 	ts.Lock.Lock()
 	ts.Reviews = reviews[0:1]
 	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 1 {
-		t.Errorf("got %d notifications from controller, want %d", i, 1)
-	}
+	expectNotify(t, 1)
 
 	// delete a service -> trigger service and instance update
 	ts.Lock.Lock()
 	delete(ts.Services, "productpage")
 	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 2 {
-		t.Errorf("got %d notifications from controller, want %d", i, 2)
-	}
+	expectNotify(t, 2)
 }

@@ -11,7 +11,6 @@ metadata:
     heritage: {{ .Release.Service }}
     istio: kiali
   annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
     helm.sh/hook: test-success
 spec:
@@ -20,11 +19,19 @@ spec:
 {{- end }}
   containers:
     - name: "{{ template "kiali.fullname" . }}-test"
-      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      image: pstauffer/curl:v1.0.3
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
       args: ['http://kiali:20001']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "podAntiAffinity" . | indent 4 }}
+  {{- if .Values.tolerations }}
+  tolerations:
+{{ toYaml .Values.tolerations | indent 2 }}
+  {{- else if .Values.global.defaultTolerations }}
+  tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 2 }}
+  {{- end }}
 {{- end }}

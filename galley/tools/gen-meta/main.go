@@ -45,17 +45,18 @@ type metadata struct {
 
 // entry in a metadata file
 type entry struct {
-	Kind           string `json:"kind"`
-	ListKind       string `json:"listKind"`
-	Singular       string `json:"singular"`
-	Plural         string `json:"plural"`
-	Group          string `json:"group"`
-	Version        string `json:"version"`
-	Proto          string `json:"proto"`
-	Converter      string `json:"converter"`
-	ProtoGoPackage string `json:"protoPackage"`
-	Collection     string `json:"collection"`
-	Generated      string `json:"generated"`
+	Kind           string   `json:"kind"`
+	ListKind       string   `json:"listKind"`
+	Singular       string   `json:"singular"`
+	Plural         string   `json:"plural"`
+	Group          string   `json:"group"`
+	Versions       []string `json:"versions"`
+	Proto          string   `json:"proto"`
+	Converter      string   `json:"converter"`
+	ProtoGoPackage string   `json:"protoPackage"`
+	Collection     string   `json:"collection"`
+	Generated      string   `json:"generated"`
+	Optional       bool     `json:"optional"`
 }
 
 // collection related metadata
@@ -205,7 +206,7 @@ func readMetadata(path string) (*metadata, error) {
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.gen.go
 //
 
 package metadata
@@ -261,17 +262,27 @@ var Types *schema.Instance
 
 func init() {
 	b := schema.NewBuilder()
+	var versions []string
 {{range .Resources}}
 	{{ if ne .Generated "true" }}
+	  {{if gt (len .Versions) 0}}
+		versions = make([]string,0)
+        {{range $i, $v := .Versions}}
+	      versions =  append(versions,"{{$v}}")
+	    {{end}}
+      {{end}}
 	b.Add(schema.ResourceSpec{
 		Kind:       "{{.Kind}}",
 		ListKind:   "{{.ListKind}}",
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
-		Version:    "{{.Version}}",
+		Versions:   versions,
 		Group:      "{{.Group}}",
 		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
+		{{ if .Optional }}
+		Optional:   true,
+		{{end}}
     })
 	{{end}}
 {{end}}

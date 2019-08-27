@@ -19,11 +19,13 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	attr "istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestAttributeHandling(t *testing.T) {
@@ -45,7 +47,7 @@ func TestAttributeHandling(t *testing.T) {
 	}
 
 	var b attribute.Bag
-	if b, err = attribute.GetBagFromProto(a, dw); err != nil {
+	if b, err = attr.GetBagFromProto(a, dw); err != nil {
 		t.Errorf("Expected to get proto bag, got failure %v", err)
 	}
 
