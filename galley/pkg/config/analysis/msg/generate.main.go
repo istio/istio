@@ -89,12 +89,20 @@ func {{.FuncName}}(entry *resource.Entry{{range .Args}}, {{.Name}} {{.Type}}{{en
 	return diag.NewMessage(
 		diag.{{.Level}},
 		diag.Code({{.Code}}),
-		entry.Origin,
+		originOrNil(entry),
 		"{{.Template}}",{{range .Args}}
 		{{.Name}},
 {{end}}	)
 }
 {{end}}
+
+func originOrNil(e *resource.Entry) resource.Origin {
+	var o resource.Origin
+	if e != nil {
+		o = e.Origin
+	}
+	return o
+}
 `
 
 func generate(m *messages) (string, error) {

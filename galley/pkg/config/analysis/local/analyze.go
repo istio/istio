@@ -19,47 +19,50 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/galley/pkg/source/kube/client"
 )
 
-// AnalyzeFiles loads yaml files from given paths, parses and analyzes them.
-func AnalyzeFiles(domainSuffix string, cancel chan struct{}, files ...string) (diag.Messages, error) {
-	o := log.DefaultOptions()
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("source", log.ErrorLevel)
-	err := log.Configure(o)
-	if err != nil {
-		return nil, fmt.Errorf("unable to configure logging: %v", err)
+const domainSuffix = "svc.local"
+
+// SourceAnalyzer handles local analysis of k8s and file based event sources
+type SourceAnalyzer struct {
+	m        *schema.Metadata
+	sources  []event.Source
+	analyzer analysis.Analyzer
+}
+
+// NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
+// then execute Analyze to perform the analysis
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
+	return &SourceAnalyzer{
+		m:        m,
+		sources:  make([]event.Source, 0),
+		analyzer: analyzer,
 	}
+}
 
-	m := metadata.MustGet()
-
-	src := inmemory.NewKubeSource(m.KubeSource().Resources())
-	for _, file := range files {
-		by, err := ioutil.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		if err = src.ApplyContent(file, string(by)); err != nil {
-			return nil, err
-		}
-	}
-
+// Analyze loads the sources and executes the analysis
+func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	meshsrc := meshcfg.NewInmemory()
 	meshsrc.Set(meshcfg.Default())
 
+	if len(sa.sources) == 0 {
+		return nil, fmt.Errorf("at least one file and/or kubernetes source must be provided")
+	}
+	src := newPrecedenceSource(sa.sources)
+
 	updater := &snapshotter.InMemoryStatusUpdater{}
-	distributor := snapshotter.NewAnalyzingDistributor(updater, analyzers.All(), snapshotter.NewInMemoryDistributor())
-	rt, err := processor.Initialize(m, domainSuffix, event.CombineSources(src, meshsrc), distributor)
+	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
+	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), distributor)
 	if err != nil {
 		return nil, err
 	}
@@ -71,4 +74,33 @@ func AnalyzeFiles(domainSuffix string, cancel chan struct{}, files ...string) (d
 	}
 
 	return nil, errors.New("cancelled")
+}
+
+// AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
+func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
+	src := inmemory.NewKubeSource(sa.m.KubeSource().Resources())
+
+	for _, file := range files {
+		by, err := ioutil.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		if err = src.ApplyContent(file, string(by)); err != nil {
+			return err
+		}
+	}
+
+	sa.sources = append(sa.sources, src)
+	return nil
+}
+
+// AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
+func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
+	o := apiserver.Options{
+		Client:    k,
+		Resources: sa.m.KubeSource().Resources(),
+	}
+	src := apiserver.New(o)
+
+	sa.sources = append(sa.sources, src)
 }

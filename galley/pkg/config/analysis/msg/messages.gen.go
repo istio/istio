@@ -15,7 +15,7 @@ func InternalError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
 		diag.Code(1),
-		entry.Origin,
+		originOrNil(entry),
 		"Internal error: %v",
 		detail,
 	)
@@ -28,7 +28,7 @@ func NotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
 		diag.Code(2),
-		entry.Origin,
+		originOrNil(entry),
 		"Not yet implemented: %s",
 		detail,
 	)
@@ -41,7 +41,7 @@ func ParseError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
 		diag.Code(3),
-		entry.Origin,
+		originOrNil(entry),
 		"Parse error: %s",
 		detail,
 	)
@@ -54,7 +54,7 @@ func Deprecated(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
 		diag.Code(4),
-		entry.Origin,
+		originOrNil(entry),
 		"Deprecated: %s",
 		detail,
 	)
@@ -67,8 +67,16 @@ func GatewayNotFound(entry *resource.Entry, gateway string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
 		diag.Code(20),
-		entry.Origin,
+		originOrNil(entry),
 		"Referenced Gateway not found: %q",
 		gateway,
 	)
+}
+
+func originOrNil(e *resource.Entry) resource.Origin {
+	var o resource.Origin
+	if e != nil {
+		o = e.Origin
+	}
+	return o
 }
