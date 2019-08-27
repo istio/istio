@@ -838,7 +838,7 @@ message PrometheusServiceNodePortConfig {
   uint32 port = 2;
 }
 
-// ProxyConfig specifies how proxies are configured within Istio.
+// ProxyConfig is a set of configuration parameters for Proxy.
 message ProxyConfig {
   // Specifies the path to write the sidecar access log file.
   string accessLogFile = 1;
@@ -846,33 +846,47 @@ message ProxyConfig {
   // Configures how and what fields are displayed in sidecar access log.
   string accessLogFormat = 2;
 
-  // Configure the access log for sidecar to JSON or TEXT
+  // Configures the access log for sidecar to JSON or TEXT
   enum accessLogEncoding {
     JSON = 0;
     TEXT = 1;
   }
 
+  // Controls whether automatic sidecar injection is enabled.
   enum autoInject {
     ENABLED = 0;
     DISABLED = 1;
   }
 
-  // Domain for the cluster - defaults to .cluster.local, but k8s allows this to be customized, can be prod.example.com
+  // Domain for the cluster, default: "cluster.local".
+  //
+  // K8s allows this to be customized, see https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
   string clusterDomain = 5;
 
+  // Per Component log level for proxy, applies to gateways and sidecars.
+  //
+  // If a component level is not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
   string componentLogLevel = 6;
 
   // Controls number of proxy worker threads.
+  //
+  // If set to 0 (default), then start worker thread for each CPU thread/core.
   uint32 concurrency = 7;
 
   // Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.
+  //
+  // This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
   google.protobuf.Duration dnsRefreshRate = 8;
 
   // Enables core dumps for newly injected sidecars.
+  //
+  // If set, newly injected sidecars will have core dumps enabled.
   bool enableCoreDump = 9;
 
+  // Configures Envoy Metrics Service.
   EnvoyMetricsConfig envoyMetricsService = 10;
 
+  // Configures statsd export in Envoy.
   EnvoyMetricsConfig envoyStatsd = 11;
 
   // Specifies the Istio ingress ports not to capture.
@@ -881,19 +895,36 @@ message ProxyConfig {
   // Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.
   string excludeIPRanges = 13;
 
-  // Image name or path for the proxy.
+  // Image name or path for the proxy, default: "proxyv2".
+  //
+  // If registry or tag are not specified, global.hub and global.tag are used.
+  //
+  // Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0
   string image = 14;
 
   // Specifies the Istio ingress ports to capture.
+  //
+  // Examples:
+  // "":          Redirect no inbound traffic to Envoy.
+  // "*":         Redirect all inbound traffic to Envoy.
+  // "80,8080":   Redirect only selected ports.
   string includeInboundPorts = 15;
 
   // Lists the IP ranges of Istio egress traffic that the sidecar captures.
+  //
+  // Example: "172.30.0.0/16,172.20.0.0/16"
+  // This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar."
   string includeIPRanges = 16;
 
+  // Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.
   string kubevirtInterfaces = 17;
 
+  // Log level for proxy, applies to gateways and sidecars. If left empty, "warning" is used. Expected values are: trace\|debug\|info\|warning\|error\|critical\|off
   string logLevel = 18;
 
+  // Enables privileged securityContext for the istio-proxy container.
+  //
+  // See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
   bool privileged = 19;
 
   // Sets the initial delay for readiness probes in seconds.
@@ -908,6 +939,9 @@ message ProxyConfig {
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
 
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 24;
 
   // Specifies which tracer to use.
