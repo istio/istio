@@ -86,3 +86,7 @@ func (l *logger) logAndFatal(v ...interface{}) {
 func (l *logger) print(s string) {
 	_, _ = l.stdOut.Write([]byte(s))
 }
+
+func refreshGoldenFiles() bool {
+	return os.Getenv("REFRESH_GOLDEN") == "true"
+}
