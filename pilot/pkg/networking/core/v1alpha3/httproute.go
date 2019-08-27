@@ -294,7 +294,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
-	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
+	domains := []string{fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
 	if len(service.Address) > 0 && service.Address != constants.UnspecifiedIP {
@@ -302,7 +302,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr, fmt.Sprintf("%s:%d", svcAddr, port))
+			domains = append(domains, fmt.Sprintf("%s:%d", svcAddr, port))
 		}
 	}
 	return domains
@@ -316,7 +316,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // we should only generate foo.local, foo.local.campus, etc (and never just "foo").
 //
 // - Given foo.local.campus.net on proxy domain local.campus.net, this function generates
-// foo:80, foo.local:80, foo.local.campus:80, with and without ports. It will not generate
+// foo:80, foo.local:80, foo.local.campus:80. It will not generate
 // foo.local.campus.net (full hostname) since its already added elsewhere.
 //
 // - Given foo.local.campus.net on proxy domain remote.campus.net, this function generates
@@ -334,15 +334,15 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
-	// adds the uniq piece foo, foo:80
-	vhosts = append(vhosts, uniqHostname, fmt.Sprintf("%s:%d", uniqHostname, port))
+	// adds the uniq piece foo:80
+	vhosts = append(vhosts, fmt.Sprintf("%s:%d", uniqHostname, port))
 
-	// adds all the other variants (foo.local, foo.local:80)
+	// adds all the other variants (foo.local:80)
 	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
 		if sharedDNSDomain[i] == '.' {
 			variant := fmt.Sprintf("%s.%s", uniqHostname, sharedDNSDomain[:i])
 			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
-			vhosts = append(vhosts, variant, variantWithPort)
+			vhosts = append(vhosts, variantWithPort)
 		}
 	}
 	return vhosts
@@ -354,7 +354,17 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 	var virtualHosts []*route.VirtualHost
 	for p, vhosts := range vHostPortMap {
 		if p == 80 {
-			virtualHosts = append(virtualHosts, vhosts...)
+			for _, vhost := range vhosts {
+				var newDomains []string
+				for _, domain := range vhost.Domains {
+					// with and without port 80
+					newDomains = append(newDomains, domain[:strings.LastIndex(domain, ":")], domain)
+				}
+				if len(newDomains) > 0 {
+					vhost.Domains = newDomains
+					virtualHosts = append(virtualHosts, vhost)
+				}
+			}
 		} else {
 			for _, vhost := range vhosts {
 				var newDomains []string

@@ -51,8 +51,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -64,8 +63,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "remote.campus.net",
 			},
-			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			want: []string{"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -77,7 +75,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want: []string{"foo.local.campus.net:80"},
 		},
 	}
 
