@@ -216,14 +216,17 @@ This can run in any cluster. A mesh should have at least one cluster should run 
 and it is recommended to have Pilot running in each region and in multiple availability zones for multi cluster.
 
 ```bash
-    iop istio-control istio-discovery $IBASE/istio-control/istio-discovery
-
+    iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
+                --set global.istioNamespace=istio-system \
+                --set global.configNamespace=istio-control \
+                --set global.telemetryNamespace=istio-telemetry \
+                --set global.policyNamespace=istio-policy
     TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
                 --set policy.enable=false \
-               --set global.istioNamespace=istio-master \
-               --set global.configNamespace=istio-master \
-               --set global.telemetryNamespace=istio-telemetry-master \
-               --set global.policyNamespace=istio-policy-master
+                --set global.istioNamespace=istio-master \
+                --set global.configNamespace=istio-master \
+                --set global.telemetryNamespace=istio-telemetry-master \
+                --set global.policyNamespace=istio-policy-master
 
 ```
 
