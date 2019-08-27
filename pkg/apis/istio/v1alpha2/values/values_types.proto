@@ -1010,21 +1010,70 @@ message ServiceConfig {
 
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
-  // 	AlwaysInjectSelector             []map[string]interface{} `json:"alwaysInjectSelector,omitempty"`
+  // Controls whether Sidecar Injector is enabled.
   bool enabled = 1;
 
+  // Enables sidecar auto-injection in namespaces by default.
   bool enableNamespacesByDefault = 2;
 
+  // Image name used for Sidecar Injector.
+  //
+  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+  //
+  // Examples: custom-sidecar_injector, docker.io/someuser:custom-sidecar_injector
   string image = 3;
 
+  // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   // 	NodeSelector                     map[string]interface{}   `json:"nodeSelector,omitempty"`
+
+  // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
+  //
+  // Annotations in the pods have higher precedence than the label selectors.
+  // Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
+  // See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
   // 	NeverInjectSelector              []map[string]interface{} `json:"neverInjectSelector,omitempty"`
-  // 	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector"`
-  // 	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector"`
+
+  // See NeverInjectSelector
+  //  AlwaysInjectSelector             []map[string]interface{} `json:"alwaysInjectSelector,omitempty"`
+
+  // Pod anti-affinity label selector.
+  //
+  // Specify the pod anti-affinity that allows you to constrain which nodes
+  // your pod is eligible to be scheduled based on labels on pods that are
+  // already running on the node rather than based on labels on nodes.
+  // There are currently two types of anti-affinity:
+  //    "requiredDuringSchedulingIgnoredDuringExecution"
+  //    "preferredDuringSchedulingIgnoredDuringExecution"
+  // which denote “hard” vs. “soft” requirements, you can define your values
+  // in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  // correspondingly.
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  //
+  // Examples:
+  // podAntiAffinityLabelSelector:
+  //  - key: security
+  //    operator: In
+  //    values: S1,S2
+  //    topologyKey: "kubernetes.io/hostname"
+  //  This pod anti-affinity rule says that the pod requires not to be scheduled
+  //  onto a node if that node is already running a pod with label having key
+  //  “security” and value “S1”.
+  //  PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+
+  // See PodAntiAffinityLabelSelector.
+  //  PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+
+  // Number of replicas in the Sidecar Injector Deployment.
   uint32 replicaCount = 4;
 
+  //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   bool rewriteAppHTTPProbe = 5;
 
+  // Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.
+  //
+  // Setting to false if you want to use your own root CA.
   bool selfSigned = 6;
 }
 
