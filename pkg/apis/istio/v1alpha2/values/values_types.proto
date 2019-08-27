@@ -503,73 +503,159 @@ message OutboundTrafficPolicyConfig {
   }
 }
 
-// PilotConfig is described in istio.io documentation.
+// PilotConfig is a set of configuration parameters for Pilot.
 message PilotConfig {
+  // Controls whether Pilot is enabled.
   bool enabled = 1;
 
+  // Controls whether a HorizontalPodAutoscaler is installed for Pilot.
   bool autoscaleEnabled = 2;
 
+  // Minimum number of replicas in the HorizontalPodAutoscaler for Pilot.
   uint32 autoscaleMin = 3;
 
+  // Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
   uint32 autoscaleMax = 4;
 
+  // Number of replicas in the Pilot Deployment.
   uint32 replicaCount = 5;
 
+  // Image name used for Pilot.
+  //
+  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+  //
+  // Examples: custom-pilot, docker.io/someuser:custom-pilot
   string image = 6;
 
+  // Controls whether a sidecar proxy is installed in the Pilot pod.
+  //
+  // Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.
   bool sidecar = 7;
 
+  // Trace sampling fraction.
+  //
+  // Used to set the fraction of time that traces are sampled. Higher values are more accurate but add CPU overhead.
+  //
+  // Allowed values: 0.0 to 1.0
   double traceSampling = 8;
 
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 9;
 
+  // Namespace that the configuration management feature is installed into, if different from Pilot namespace.
   string configNamespace = 10;
 
+  // Target CPU utilization used in HorizontalPodAutoscaler.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 11;
 
-  // 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  // NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
+
+  // Maximum duration that a sidecar can be connected to a pilot.
+  //
+  // This setting balances out load across pilot instances, but adds some resource overhead.
+  //
+  // Examples: 300s, 30m, 1h
   google.protobuf.Duration keepaliveMaxServerConnectionAge = 12;
 
+  // Labels that are added to Pilot pods.
+  //
+  // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   map<string, string> deploymentLabels = 13;
 
+  // Used to override control plane networks.
   // 	MeshNetworks                     map[string]interface{}      `json:"meshNetworks,omitempty"`
+
+  // Pod anti-affinity label selector.
+  //
+  // Specify the pod anti-affinity that allows you to constrain which nodes
+  // your pod is eligible to be scheduled based on labels on pods that are
+  // already running on the node rather than based on labels on nodes.
+  // There are currently two types of anti-affinity:
+  //    "requiredDuringSchedulingIgnoredDuringExecution"
+  //    "preferredDuringSchedulingIgnoredDuringExecution"
+  // which denote “hard” vs. “soft” requirements, you can define your values
+  // in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  // correspondingly.
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  //
+  // Examples:
+  // podAntiAffinityLabelSelector:
+  //  - key: security
+  //    operator: In
+  //    values: S1,S2
+  //    topologyKey: "kubernetes.io/hostname"
+  //  This pod anti-affinity rule says that the pod requires not to be scheduled
+  //  onto a node if that node is already running a pod with label having key
+  //  “security” and value “S1”.
   // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+
+  // See PodAntiAffinityLabelSelector.
   // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+
+  // Configuration settings passed to Pilot as a ConfigMap.
+  //
+  // This controls whether the mesh config map, generated from values.yaml is generated.
+  // If false, pilot wil use default values or user-supplied values, in that order of preference.
   bool configMap = 14;
 
+  // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
   PilotIngressConfig ingress = 15;
 
+  // Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
+  //
+  // If set to true, Pilot requires an MCP server (like Galley) to be installed.
   bool useMCP = 16;
 
+  // Environment variables passed to the Pilot container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
   map<string, string> env = 17;
 
+  // Controls whether Istio policy is applied to Pilot.
   PilotPolicyConfig policy = 18;
 
+  // Controls whether telemetry is exported for Pilot.
   PilotTelemetryConfig telemetry = 19;
 }
 
-// PilotIngressConfig is described in istio.io documentation.
+// Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
 message PilotIngressConfig {
+  // Sets the type ingress service for Pilot.
+  //
+  // If empty, node-port is assumed.
+  //
+  // Allowed values: node-port, istio-ingressgateway, ingress
   string ingressService = 1;
 
+  // Mode for the ingress controller.
   enum ingressControllerMode {
-    //all Ingress resources without annotation or with istio annotation.
+    // Selects all Ingress resources, with or without Istio annotation.
     DEFAULT = 0;
-    //only with istio annotation.
+    // Selects only resources with istio annotation.
     STRICT = 1;
-    //no ingress or sync.
+    // No ingress or sync.
     OFF = 2;
   }
-  //Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
+  // If mode is STRICT, this value must be set on "kubernetes.io/ingress.class" annotation to activate.
   string ingressClass = 3;
 }
 
-// PilotPolicyConfig is described in istio.io documentation.
+// Controls whether Istio policy is applied to Pilot.
 message PilotPolicyConfig {
   bool enabled = 1;
 }
 
-// PilotTelemetryConfig is described in istio.io documentation.
+// Controls whether telemetry is exported for Pilot.
 message PilotTelemetryConfig {
   bool enabled = 1;
 }
