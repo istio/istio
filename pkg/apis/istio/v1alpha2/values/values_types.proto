@@ -248,7 +248,7 @@ message GlobalConfig {
   // Namespace of telemetry components
   string telemetryNamespace = 26;
 
-  // test
+  // TracerConfig is a set of configuration parameters for different tracer.
   TracerConfig tracer = 27;
 
   // Specifies the trust domain that corresponds to the root cert of CA.
@@ -892,23 +892,27 @@ message StdioMixerAdapterConfig {
   bool outputAsJson = 2;
 }
 
-// TracerConfig is described in istio.io documentation.
+// Configuration parameters for different tracing system.
 message TracerConfig {
+  // TracerDatadogConfig defines configuration for datadog tracer.
   TracerDatadogConfig datadog = 1;
 
+  // TracerLightStepConfig defines configuration for LightStep tracer
   TracerLightStepConfig lightstep = 2;
 
+  // TracerZipkinConfig defines configuration for existing zipkin tracer
   TracerZipkinConfig zipkin = 3;
 }
 
-// TracerDatadogConfig is described in istio.io documentation.
+// TracerDatadogConfig defines configuration for datadog tracing.
 message TracerDatadogConfig {
+  // Specifies address of datadog instance in host:port format for reporting trace data.
   string address = 1;
 }
 
-// TracerLightStepConfig is described in istio.io documentation.
+// TracerLightStepConfig defines configuration for LightStep tracer
 message TracerLightStepConfig {
-  // Sets the lightstep satellite pool address.
+  // Sets the lightstep satellite pool address in host:port format for reporting trace data.
   string address = 1;
 
   // Sets the lightstep access token.
@@ -921,68 +925,98 @@ message TracerLightStepConfig {
   bool secure = 4;
 }
 
-// TracerZipkinConfig is described in istio.io documentation.
+// TracerZipkinConfig defines configuration for existing zipkin tracer
 message TracerZipkinConfig {
-  // Specifies address in host:port format for reporting trace data in zipkin format.
+  // Specifies address of zipkin instance in host:port format for reporting trace data.
+  //
+  // Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941
   string address = 1;
 }
 
-// TracingConfig is described in istio.io documentation.
+// TracingConfig defines configurations for different tracing system to be installed.
 message TracingConfig {
+  // Enables tracing systems to be installed.
   bool enabled = 1;
 
+  // Controls legacy k8s ingress for addon tracing components.
   TracingIngressConfig ingress = 2;
 
+  // Defines configuration for addon jaeger tracing.
   TracingJaegerConfig jaeger = 3;
 
-  // 	NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+
+  // Configures which tracing system to be installed.
   string provider = 4;
 
+  // Controls K8s service for addon tracing components.
   ServiceConfig service = 5;
 
+  // Defines configuration for addon zipkin tracing.
   TracingZipkinConfig zipkin = 6;
 }
 
-// TracingIngressConfig is described in istio.io documentation.
+// Controls legacy k8s ingress for addon tracing components.
 message TracingIngressConfig {
+  // Enables k8s ingress for addon tracing components.
   bool enabled = 1;
 }
 
-// TracingJaegerConfig is described in istio.io documentation.
+// Defines configuration for addon jaeger tracing.
 message TracingJaegerConfig {
+  // Image hub for jaeger tracing deployment.
   string hub = 1;
 
+  // Image tag for jaeger tracing deployment.
   string tag = 2;
 
+  // Configures jaeger in-memory storage setting.
   TracingJaegerMemoryConfig memory = 3;
 }
 
-// TracingJaegerMemoryConfig is described in istio.io documentation.
+// Configures jaeger in-memory storage setting.
 message TracingJaegerMemoryConfig {
+  // Set limit of the amount of traces stored in memory for jaeger
   uint32 max_traces = 1;
 }
 
 // TracingZipkinConfig is described in istio.io documentation.
 message TracingZipkinConfig {
+  // Image hub for zipkin tracing deployment.
   string hub = 1;
 
+  // Image tag for zipkin tracing deployment.
   string tag = 2;
 
+  // InitialDelaySeconds of livenessProbe for zipkin deployment
   uint32 probeStartupDelay = 3;
 
+  // Container port for zipkin deployment
   uint32 queryPort = 4;
 
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 5;
 
+  // Configure java heap opts for zipkin deployment
   string javaOptsHeap = 6;
 
+  // Configures number of max spans to keep in zipkin memory storage.
+  //
+  // Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer
   uint32 maxSpans = 7;
 
+  // Configures GC values of JAVA_OPTS for zipkin deployment
   TracingZipkinNodeConfig node = 8;
 }
 
-// TracingZipkinNodeConfig is described in istio.io documentation.
+// Configures GC values of JAVA_OPTS for zipkin deployment
 message TracingZipkinNodeConfig {
+  // Configures -XX:ConcGCThreads value of JAVA_OPTS for zipkin deployment
   uint32 cpus = 1;
 }
 
