@@ -177,7 +177,7 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	builder := NewListenerBuilder(&proxy)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
 		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualInboundListener(&env, &proxy).
+		buildVirtualInboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
 		getListeners()
 }
 

@@ -15,24 +15,24 @@
 package v1alpha3
 
 import (
-	"fmt"
+	"sync"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/config/protocol"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -285,7 +285,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 // TProxy uses only the virtual outbound listener on 15001 for both directions
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
-func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
+func (builder *ListenerBuilder) buildVirtualInboundListener(
+	configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	var isTransparentProxy *types.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -295,7 +297,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains := newInboundPassthroughFilterChains(env, node)
 	if util.IsProtocolSniffingEnabledForNode(node) {
-		filterChains = append(filterChains, newHTTPPassThroughFilterChain(env, node)...)
+		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:           VirtualInboundListenerName,
@@ -435,7 +437,8 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 	return filterChains
 }
 
-func newHTTPPassThroughFilterChain(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
+func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.Environment,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	filterChains := make([]*listener.FilterChain, 0, 2)
 
 	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
@@ -446,52 +449,27 @@ func newHTTPPassThroughFilterChain(env *model.Environment, node *model.Proxy) []
 			matchingIP = "::0/0"
 		}
 
-		filterChainMatch := listener.FilterChainMatch{
-			// Port : EMPTY to match all ports
-			PrefixRanges: []*core.CidrRange{
-				util.ConvertAddressToCidr(matchingIP),
-			},
-			ApplicationProtocols: applicationProtocols,
+		port := &model.Port{
+			Name:     "virtual inbound",
+			Port:     15006,
+			Protocol: protocol.HTTP,
 		}
 
-		traceOperation := matchingIP
-
-		defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
-		inboundVHost := &route.VirtualHost{
-			Name:    fmt.Sprintf("%s|http|15006", model.TrafficDirectionInbound),
-			Domains: []string{"*"},
-			Routes:  []*route.Route{defaultRoute},
+		plugin := &plugin.InputParams{
+			ListenerProtocol:           plugin.ListenerProtocolHTTP,
+			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
+			Env:                        env,
+			Node:                       node,
+			ServiceInstance:            dummyServiceInstance(),
+			Port:                       port,
+			Push:                       push,
+			Bind:                       matchingIP,
+			ClusterName:                clusterName,
 		}
 
-		r := &xdsapi.RouteConfiguration{
-			Name:             clusterName,
-			VirtualHosts:     []*route.VirtualHost{inboundVHost},
-			ValidateClusters: proto.BoolFalse,
-		}
-
-		httpOpts := &httpListenerOpts{
-			routeConfig:      r,
-			rds:              "", // no RDS for inbound traffic
-			useRemoteAddress: false,
-			direction:        http_conn.INGRESS,
-			connectionManager: &http_conn.HttpConnectionManager{
-				// Append and forward client cert to backend.
-				ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-					Subject: &google_protobuf.BoolValue{Value: true},
-					Uri:     true,
-					Dns:     true,
-				},
-				ServerName: EnvoyServerName,
-				HttpProtocolOptions: &core.Http1ProtocolOptions{
-					AcceptHttp_10: true,
-				},
-			},
-			statPrefix: clusterName,
-		}
-
-		var httpFilters []*http_conn.HttpFilter
-		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, httpFilters)
+		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
+		httpOpts.statPrefix = clusterName
+		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, []*http_conn.HttpFilter{})
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
@@ -500,6 +478,14 @@ func newHTTPPassThroughFilterChain(env *model.Environment, node *model.Proxy) []
 			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
 		} else {
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)}
+		}
+
+		filterChainMatch := listener.FilterChainMatch{
+			// Port : EMPTY to match all ports
+			PrefixRanges: []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIP),
+			},
+			ApplicationProtocols: applicationProtocols,
 		}
 
 		filterChain := &listener.FilterChain{
@@ -544,4 +530,37 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 
 func isAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
+}
+
+func dummyServiceInstance() *model.ServiceInstance {
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Family:  0,
+			Address: "",
+			Port:    15006,
+			ServicePort: &model.Port{
+				Name:     "",
+				Port:     0,
+				Protocol: "",
+			},
+			UID:      "",
+			Network:  "",
+			Locality: "",
+			LbWeight: 0,
+		},
+		Service: &model.Service{
+			Hostname:        "",
+			Address:         "",
+			Mutex:           sync.RWMutex{},
+			ClusterVIPs:     nil,
+			Ports:           nil,
+			ServiceAccounts: nil,
+			MeshExternal:    false,
+			Resolution:      0,
+			CreationTime:    time.Time{},
+			Attributes:      model.ServiceAttributes{},
+		},
+		Labels:         nil,
+		ServiceAccount: "",
+	}
 }
