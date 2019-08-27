@@ -49,7 +49,7 @@ func (s *SampleAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Con
 	for _, gwName := range vs.Gateways {
 		gw := c.Find(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName))
 		if gw == nil {
-			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, r, msg.GatewayNotFound(r, gwName))
+			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.GatewayNotFound(r, gwName))
 		}
 	}
 }

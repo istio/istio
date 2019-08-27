@@ -45,7 +45,7 @@ func (c *combinedAnalyzers) Analyze(ctx Context) {
 	for _, a := range c.analyzers {
 		scope.Analysis.Debugf("Started analyzer %q...", a.Name())
 		if ctx.Canceled() {
-			scope.Analysis.Debugf("Analysis has been cancelled...")
+			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Name())
 			return
 		}
 		a.Analyze(ctx)
