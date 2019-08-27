@@ -88,9 +88,6 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	for valKey, outVal := range ts.APIMapping {
 		t.APIMapping[outVal.outPath] = &Translation{valKey, nil}
 	}
-	// Override for special mapping
-	t.APIMapping["global.controlPlaneSecurityEnabled"] = &Translation{"Security.ControlPlaneMtls", nil}
-	t.APIMapping["global.mtls.enabled"] = &Translation{"Security.DataPlaneMtlsStrict", nil}
 
 	for cn, cm := range ts.ComponentMaps {
 		if cn != name.IstioBaseComponentName {
@@ -236,6 +233,10 @@ func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[st
 				return err
 			}
 		}
+		//vep := util.ToYAMLPath(cnv + ".enabled")
+		//if _, err := tpath.DeleteFromTree(valueSpec, vep, vep); err != nil {
+		//	return err
+		//}
 	}
 
 	// set namespace
@@ -449,18 +450,22 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 		case []interface{}:
 			errs := util.Errors{}
 			for _, newNode := range node {
-				newMap, ok := newNode.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("fail to convert node to map[string] interface")
+				if newMap, ok := newNode.(map[string]interface{}); ok {
+					errs = util.AppendErr(errs, t.translateRemainingPaths(newMap, cpSpecTree, newPath))
+					continue
 				}
-				errs = util.AppendErr(errs, t.translateRemainingPaths(newMap, cpSpecTree, newPath))
+				if _, ok := newNode.(string); ok {
+					errs = util.AppendErr(errs,
+						tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), node))
+					break
+				}
 			}
 			if err := errs.ToError(); err != nil {
 				return err
 			}
 		// remaining leaf need to be put into root.values
 		default:
-			if newPath[len(newPath)-1] == "enabled" {
+			if t.isEnablementPath(newPath) {
 				continue
 			}
 			if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), val); err != nil {
@@ -507,6 +512,17 @@ func (t *ReverseTranslator) translateTree(valueTree map[string]interface{},
 		}
 	}
 	return nil
+}
+
+// isEnablementPath is helper function to check whether paths represent enablement of components in values.yaml
+func (t *ReverseTranslator) isEnablementPath(path util.Path) bool {
+	if len(path) < 2 || path[len(path)-1] != "enabled" {
+		return false
+	}
+	pf := path[:len(path)-1].String()
+	_, exist := t.ValuesToComponentName[pf]
+
+	return exist || path[0] == "gateways" || path[0] == "mixer"
 }
 
 // renderComponentName renders a template of the form <path>{{.ComponentName}}<path> with

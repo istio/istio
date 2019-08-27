@@ -118,16 +118,9 @@ var (
 				"Values.Proxy": {"global.proxy", nil},
 
 				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
-
-				"Policy.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
-				"Policy.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
-				"Policy.Components.Namespace":      {"global.policyNamespace", nil},
-
-				"Telemetry.Components.Namespace": {"global.telemetryNamespace", nil},
-
-				"Security.ControlPlaneMtls.Value":    {"global.controlPlaneSecurityEnabled", nil},
-				"Security.DataPlaneMtlsStrict.Value": {"global.mtls.enabled", nil},
-				"Security.Components.Namespace":      {"global.securityNamespace", nil},
+				"Policy.Components.Namespace":           {"global.policyNamespace", nil},
+				"Telemetry.Components.Namespace":        {"global.telemetryNamespace", nil},
+				"Security.Components.Namespace":         {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity": {
