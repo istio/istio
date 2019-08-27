@@ -50,7 +50,7 @@ podAntiAffinityTermLabelSelector: []
 # This parameter sets the CLI parameter append-dns-names of
 # Citadel, which:
 # - If true, Citadel will generate webhook certificates.
-# - If true, Citadel will not generate webhook certificates.
+# - If false, Citadel will not generate webhook certificates.
 # If there is another component generate webhook certificates,
 # this parameter should be set as false.
 enableGenerateWebhookCerts: true
