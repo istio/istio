@@ -49,7 +49,9 @@ istioctl experimental analyze -k -c $HOME/.kube/config a.yaml b.yaml
 		RunE: func(cmd *cobra.Command, args []string) error {
 			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
 			loggingOptions.SetOutputLevel("source", log.ErrorLevel)
-			log.Configure(loggingOptions)
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 
 			files, err := gatherFiles(args)
 			if err != nil {
