@@ -59,6 +59,8 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		{
 			Name:     "http",
 			Protocol: protocol.HTTP,
+			// We use a port > 1024 to not require root
+			InstancePort: 8090,
 		},
 		{
 			Name:     "tcp",
