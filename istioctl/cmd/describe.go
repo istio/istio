@@ -39,14 +39,13 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
-	"istio.io/istio/pkg/kube/inject"
 )
 
 type myGogoValue struct {
@@ -164,7 +163,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 					drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 					var dr *model.Config
 					if err == nil && drName != "" && drNamespace != "" {
-						dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+						dr = configClient.Get(model.DestinationRule.Type, drName, drNamespace)
 						if dr != nil {
 							if len(svc.Spec.Ports) > 1 {
 								// If there is more than one port, prefix each DR by the port it applies to
@@ -183,7 +182,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 					vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 					if err == nil && vsName != "" && vsNamespace != "" {
-						vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+						vs := configClient.Get(model.VirtualService.Type, vsName, vsNamespace)
 						if vs != nil {
 							if len(svc.Spec.Ports) > 1 {
 								// If there is more than one port, prefix each DR by the port it applies to

@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -56,9 +55,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "ratings",
 				Namespace: "bookinfo",
-				Type:      schemas.DestinationRule.Type,
-				Group:     schemas.DestinationRule.Group,
-				Version:   schemas.DestinationRule.Version,
+				Type:      model.DestinationRule.Type,
+				Group:     model.DestinationRule.Group,
+				Version:   model.DestinationRule.Version,
 			},
 			Spec: &networking.DestinationRule{
 				Host: "ratings",
