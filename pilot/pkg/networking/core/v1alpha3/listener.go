@@ -473,8 +473,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *httpListenerOpts {
-	clusterName := pluginParams.ClusterName
-	if pluginParams.ClusterName == "" {
+	clusterName := pluginParams.InboundClusterName
+	if clusterName == "" {
 		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.Endpoint.ServicePort.Name,
 			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.Endpoint.ServicePort.Port)
 	}

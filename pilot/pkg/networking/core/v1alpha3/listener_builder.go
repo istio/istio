@@ -455,7 +455,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		}
 
 		port := &model.Port{
-			Name:     "virtual inbound",
+			Name:     "virtualInbound",
 			Port:     15006,
 			Protocol: protocol.HTTP,
 		}
@@ -469,7 +469,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			Port:                       port,
 			Push:                       push,
 			Bind:                       matchingIP,
-			ClusterName:                clusterName,
+			InboundClusterName:         clusterName,
 		}
 
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
