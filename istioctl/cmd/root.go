@@ -121,8 +121,13 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 
-	experimentalCmd.AddCommand(mesh.ManifestCmd())
-	experimentalCmd.AddCommand(mesh.ProfileCmd())
+	manifestCmd := mesh.ManifestCmd()
+	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(manifestCmd)
+
+	profileCmd := mesh.ProfileCmd()
+	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(profileCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -140,6 +145,17 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
 	return rootCmd
+}
+
+func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
+	orig.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		for _, hidden := range hidden {
+			cmd.Flags().MarkHidden(hidden)
+		}
+
+		orig.SetHelpFunc(nil)
+		orig.HelpFunc()(cmd, args)
+	})
 }
 
 func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
