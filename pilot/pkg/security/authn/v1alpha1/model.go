@@ -43,7 +43,7 @@ func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceIns
 type MutualTLSMode int
 
 const (
-	// MTLSUnknown is initial value when it hasn't been check with the authentication policy.
+	// MTLSUnknown is used to indicate the variable hasn't been initialized correctly (with the authentication policy).
 	MTLSUnknown MutualTLSMode = iota
 
 	// MTLSDisable if authentication policy disable mTLS.
