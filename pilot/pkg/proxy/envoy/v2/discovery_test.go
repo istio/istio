@@ -323,6 +323,7 @@ func TestDebounceSyncPush(t *testing.T) {
 			stopCh := make(chan struct{})
 			updateCh := make(chan *model.PushRequest, 10)
 			pushingCh := make(chan struct{}, 1)
+			errCh := make(chan error, 1)
 
 			var partialPushes int32
 			var fullPushes int32
@@ -331,8 +332,8 @@ func TestDebounceSyncPush(t *testing.T) {
 				select {
 				case pushingCh <- struct{}{}:
 				default:
-					t.Logf("multiple pushes happen simultaneously")
-					t.FailNow()
+					errCh <- fmt.Errorf("multiple pushes happen simultaneously")
+					return
 				}
 				if req.Full {
 					atomic.AddInt32(&fullPushes, 1)
@@ -350,12 +351,17 @@ func TestDebounceSyncPush(t *testing.T) {
 			expect := func(expectedPartial, expectedFull int32) {
 				t.Helper()
 				err := retry.UntilSuccess(func() error {
-					partial := atomic.LoadInt32(&partialPushes)
-					full := atomic.LoadInt32(&fullPushes)
-					if partial != expectedPartial || full != expectedFull {
-						return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+					select {
+					case err := <-errCh:
+						return err
+					default:
+						partial := atomic.LoadInt32(&partialPushes)
+						full := atomic.LoadInt32(&fullPushes)
+						if partial != expectedPartial || full != expectedFull {
+							return fmt.Errorf("got %v full and %v partial, expected %v full and %v partial", full, partial, expectedFull, expectedPartial)
+						}
+						return nil
 					}
-					return nil
 				}, retry.Timeout(DebounceAfter*8), retry.Delay(DebounceAfter/2))
 				if err != nil {
 					t.Error(err)
