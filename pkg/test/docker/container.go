@@ -168,7 +168,7 @@ func (c *Container) Exec(ctx context.Context, cmd ...string) (ExecResult, error)
 
 	// read the output
 	var stdout, stderr bytes.Buffer
-	outputDone := make(chan error)
+	outputDone := make(chan error, 1)
 
 	go func() {
 		// StdCopy demultiplexes the stream into two buffers
