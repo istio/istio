@@ -65,12 +65,6 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
-
-	// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
-	// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
-	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
-	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
-	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
