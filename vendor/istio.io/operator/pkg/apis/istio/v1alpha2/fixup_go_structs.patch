@@ -1,27 +1,16 @@
 --- pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go.orig	2019-07-16 23:54:05.946555219 -0700
 +++ pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go	2019-07-17 00:29:40.578006785 -0700
-@@ -248,9 +248,9 @@
-	ConfigManagement  *ConfigManagementFeatureSpec  `protobuf:"bytes,29,opt,name=config_management,json=configManagement,proto3" json:"config_management,omitempty"`
-	AutoInjection     *AutoInjectionFeatureSpec     `protobuf:"bytes,30,opt,name=auto_injection,json=autoInjection,proto3" json:"auto_injection,omitempty"`
-	Gateways          *GatewayFeatureSpec           `protobuf:"bytes,31,opt,name=gateways,proto3" json:"gateways,omitempty"`
-	// Overrides for default global values.yaml.
+@@ -222,8 +223,8 @@
+ 	AutoInjection     *AutoInjectionFeatureSpec     `protobuf:"bytes,30,opt,name=auto_injection,json=autoInjection,proto3" json:"auto_injection,omitempty"`
+ 	Gateways          *GatewayFeatureSpec           `protobuf:"bytes,31,opt,name=gateways,proto3" json:"gateways,omitempty"`
+ 	// Overrides for default global values.yaml.
 -	// Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-+	Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-	// Path or name for the profile e.g.
-	//   minimal (looks in profiles dir for a file called minimal.yaml)
-	//   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
-	// default profile is used if this field is unset.
-@@ -1726,8 +1726,10 @@
- 	Namespace string                       `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
- 	Debug     CommonComponentSpec_LogLevel `protobuf:"varint,3,opt,name=debug,proto3,enum=v1alpha2.CommonComponentSpec_LogLevel" json:"debug,omitempty"`
- 	// Kubernetes resource spec.
- 	K8S                  *KubernetesResourcesSpec `protobuf:"bytes,80,opt,name=k8s,proto3" json:"k8s,omitempty"`
-+	Values               map[string]interface{}   `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-+	UnvalidatedValues    map[string]interface{}   `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
- 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
- 	XXX_unrecognized     []byte                   `json:"-"`
- 	XXX_sizecache        int32                    `json:"-"`
- }
+-	// UnvalidatedValues map[string]interface{} `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
++	Values            map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
++	UnvalidatedValues map[string]interface{} `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
+ 	// Path or name for the profile e.g.
+ 	//   minimal (looks in profiles dir for a file called minimal.yaml)
+ 	//   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
 @@ -2439,8 +2441,9 @@
  	// Path of the form a.b:c.e.:f
  	// Where b:c is a list element selector of the form key:value and :f is a list selector of the form :value.
