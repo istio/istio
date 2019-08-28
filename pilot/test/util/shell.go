@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 
@@ -34,4 +35,10 @@ func Shell(command string) (string, error) {
 		return "", fmt.Errorf("command %q failed: %q %v", command, string(bytes), err)
 	}
 	return string(bytes), nil
+}
+
+// IsHTTPURL checks whether the given URL is a HTTP URL, empty path or relative URLs would be rejected.
+func IsHTTPURL(path string) bool {
+	u, err := url.Parse(path)
+	return err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https")
 }
