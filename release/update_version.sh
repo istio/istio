@@ -15,13 +15,13 @@
 # limitations under the License.
 
 function update_version() {
-    local REALASE_DIR="$1"
+    local RELEASE_DIR="$1"
     local DOCKER_HUB="$2"
     local DOCKER_TAG="$3"
     # Update version string in profiles.
-    sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ${REALASE_DIR}/profiles/*.yaml
-    sed -i "s|tag: .*-latest-daily|tag: ${DOCKER_TAG}|g"      ${REALASE_DIR}/profiles/*.yaml
+    sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ${RELEASE_DIR}/profiles/*.yaml
+    sed -i "s|tag: .*-latest-daily|tag: ${DOCKER_TAG}|g"      ${RELEASE_DIR}/profiles/*.yaml
     # Update version string in global.yaml.
-    sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ${REALASE_DIR}/charts/global.yaml
-    sed -i "s|tag: .*-latest-daily|tag: ${DOCKER_TAG}|g"      ${REALASE_DIR}/charts/global.yaml
+    sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ${RELEASE_DIR}/charts/global.yaml
+    sed -i "s|tag: .*-latest-daily|tag: ${DOCKER_TAG}|g"      ${RELEASE_DIR}/charts/global.yaml
 }
