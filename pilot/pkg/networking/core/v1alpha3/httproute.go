@@ -348,8 +348,8 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	return vhosts
 }
 
-// mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
-// virtual hosts without an explicit port suffix (IP:PORT) should not be added
+// mergeAllVirtualHosts across all ports. On routes for port 80,
+// virtual hosts with an explicit port suffix (IP:PORT) should be added
 func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.VirtualHost {
 	var virtualHosts []*route.VirtualHost
 	for p, vhosts := range vHostPortMap {
@@ -366,18 +366,7 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 				}
 			}
 		} else {
-			for _, vhost := range vhosts {
-				var newDomains []string
-				for _, domain := range vhost.Domains {
-					if strings.Contains(domain, ":") {
-						newDomains = append(newDomains, domain)
-					}
-				}
-				if len(newDomains) > 0 {
-					vhost.Domains = newDomains
-					virtualHosts = append(virtualHosts, vhost)
-				}
-			}
+			virtualHosts = append(virtualHosts, vhosts...)
 		}
 	}
 	return virtualHosts

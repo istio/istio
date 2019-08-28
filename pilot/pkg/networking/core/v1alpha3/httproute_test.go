@@ -21,6 +21,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -85,6 +86,52 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {
 			t.Errorf("buildVirtualHostDomains(%s): \ngot %v\n want %v", c.name, out, c.want)
+		}
+	}
+}
+
+func TestMergeAllVirtualHosts(t *testing.T) {
+	cases := []struct {
+		name         string
+		vHostPortMap map[int][]*route.VirtualHost
+		want         []*route.VirtualHost
+	}{
+		{
+			name: "port equal 80",
+			vHostPortMap: map[int][]*route.VirtualHost{
+				80: {
+					&route.VirtualHost{
+						Domains: []string{"::80:80", "foo:80", "foo.local:80"},
+					},
+				},
+			},
+			want: []*route.VirtualHost{
+				{
+					Domains: []string{"::80", "::80:80", "foo", "foo:80", "foo.local", "foo.local:80"},
+				},
+			},
+		},
+		{
+			name: "port not equal 80",
+			vHostPortMap: map[int][]*route.VirtualHost{
+				8080: {
+					&route.VirtualHost{
+						Domains: []string{"::8080:8080", "foo:8080", "foo.local:8080"},
+					},
+				},
+			},
+			want: []*route.VirtualHost{
+				{
+					Domains: []string{"::8080:8080", "foo:8080", "foo.local:8080"},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		out := mergeAllVirtualHosts(c.vHostPortMap)
+		if !reflect.DeepEqual(out, c.want) {
+			t.Errorf("mergeAllVirtualHosts(%s): \ngot %v\n want %v", c.name, out, c.want)
 		}
 	}
 }
