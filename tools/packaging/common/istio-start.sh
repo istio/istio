@@ -35,6 +35,8 @@ ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
+  # Make sure the documented configuration variables are exported
+  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS
 fi
 
 # Set defaults
