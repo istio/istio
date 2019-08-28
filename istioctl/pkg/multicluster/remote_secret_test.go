@@ -163,21 +163,24 @@ stringData:
 			wantErrStr:        badStartingConfigErrStr,
 		},
 		{
-			testName: "fail to find cluster server in local kubeconfig",
+			testName: "fail to find cluster in local kubeconfig",
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
 				CurrentContext: "current",
 				Clusters:       map[string]*api.Cluster{ /* missing cluster */ },
 			},
-			wantErrStr: `could not find server for context "current"`,
+			wantErrStr: `could not find cluster for context "current"`,
 		},
 		{
 			testName: "fail to create remote secret token",
 			objs:     []runtime.Object{sa, saSecretMissingToken},
 			config: &api.Config{
 				CurrentContext: "current",
+				Contexts: map[string]*api.Context{
+					"current": {Cluster: "cluster"},
+				},
 				Clusters: map[string]*api.Cluster{
-					"current": {Server: "server"},
+					"cluster": {Server: "server"},
 				},
 			},
 			wantErrStr: `no "token" data found`,
@@ -187,8 +190,11 @@ stringData:
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
 				CurrentContext: "current",
+				Contexts: map[string]*api.Context{
+					"current": {Cluster: "cluster"},
+				},
 				Clusters: map[string]*api.Cluster{
-					"current": {Server: "server"},
+					"cluster": {Server: "server"},
 				},
 			},
 			outputWriterError: errors.New("injected encode error"),
@@ -199,8 +205,11 @@ stringData:
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
 				CurrentContext: "current",
+				Contexts: map[string]*api.Context{
+					"current": {Cluster: "cluster"},
+				},
 				Clusters: map[string]*api.Cluster{
-					"current": {Server: "server"},
+					"cluster": {Server: "server"},
 				},
 			},
 			name: "cluster-foo",
@@ -334,6 +343,7 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 
 	wantServer := "server0"
 	context := "context0"
+	cluster := "cluster0"
 
 	cases := []struct {
 		name              string
@@ -353,10 +363,22 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 			wantErrStr: "bad starting config",
 		},
 		{
+			name: "missing cluster",
+			config: &api.Config{
+				CurrentContext: context,
+				Contexts:       map[string]*api.Context{},
+				Clusters:       map[string]*api.Cluster{},
+			},
+			wantErrStr: "could not find cluster for context",
+		},
+		{
 			name: "missing server",
 			config: &api.Config{
 				CurrentContext: context,
-				Clusters:       map[string]*api.Cluster{},
+				Contexts: map[string]*api.Context{
+					context: {Cluster: cluster},
+				},
+				Clusters: map[string]*api.Cluster{},
 			},
 			wantErrStr: "could not find server for context",
 		},
@@ -364,8 +386,11 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 			name: "success",
 			config: &api.Config{
 				CurrentContext: context,
+				Contexts: map[string]*api.Context{
+					context: {Cluster: cluster},
+				},
 				Clusters: map[string]*api.Cluster{
-					context: {Server: wantServer},
+					cluster: {Server: wantServer},
 				},
 			},
 		},
