@@ -140,6 +140,37 @@ message DestinationRule {
   // NOTE: in the current release, the `exportTo` value is restricted to
   // "." or "*" (i.e., the current namespace or all namespaces).
   repeated string export_to = 4;
+
+  // Name to be used while emitting statistics for inbound traffic. 
+  // By default, Istio emits statistics with the pattern inbound|<port>|<port-name>|<service-FQDN>.
+  // For example inbound|7443|grpc-reviews|reviews.prod.svc.cluster.local. This can be used to override that pattern.
+  //
+  // A Pattern can be composed of various pre-defined variables. The following variables are supported.
+  // %SERVICE% - Will be substituted with name of the service.
+  // %SERVICE_FQDN% - Will be substituted with FQDN of the service.
+  // %SERVICE_PORT% - Will be substituted with port of the service.
+  // %SERVICE_PORT_NAME% - Will be substituted with port name of the service.
+  //  
+  // Following are some examples of supported patterns for reviews.
+  // %SERVICE_FQDN%_%SERVICE_PORT% will use reviews.prod.svc.cluster.local_7443 as the stats name.
+  // %SERVICE% will use reviews.prod as the stats name.
+  string inbound_stat_name = 5;
+
+  // Name to be used while emitting statistics for outbound traffic. 
+  // By default, Istio emits statistics with the pattern outbound|<port>|<subsetname>|<service-FQDN>.
+  // For example outbound|8080|v2|reviews.prod.svc.cluster.local. This can be used to override that pattern.
+  //
+  // A Pattern can be composed of various pre-defined variables. The following variables are supported.
+  // %SERVICE% - Will be substituted with name of the service.
+  // %SERVICE_FQDN% - Will be substituted with FQDN of the service.
+  // %SERVICE_PORT% - Will be substituted with port of the service.
+  // %SERVICE_PORT_NAME% - Will be substituted with port name of the service.
+  // %SUBSET_NAME% - Will be substituted with subset.
+  //  
+  // Following are some examples of supported patterns for reviews.
+  // %SERVICE_FQDN%_%SERVICE_PORT% will use reviews.prod.svc.cluster.local_7443 as the stats name.
+  // %SERVICE% will use reviews.prod as the stats name.
+  string outbound_stat_name = 6;
 }
 
 // Traffic policies to apply for a specific destination, across all
