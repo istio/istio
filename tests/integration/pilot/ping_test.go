@@ -120,6 +120,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		{inoutSplitApp0, inoutSplitApp0},
 	}
 
+	// TODO(yxue): support sending raw TCP traffic instead of HTTP
 	callOptions := []callOptions{
 		{"http", scheme.HTTP},
 		{"foo", scheme.HTTP},
