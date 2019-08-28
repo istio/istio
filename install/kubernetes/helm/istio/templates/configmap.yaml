@@ -11,8 +11,8 @@ metadata:
     release: {{ .Release.Name }}
 data:
   mesh: |-
-    # Set the following variable to true to disable policy checks by the Mixer.
-    # Note that metrics will still be reported to the Mixer.
+    # Set the following variable to true to disable policy checks by Mixer.
+    # Note that metrics will still be reported to Mixer.
     {{- if .Values.mixer.policy.enabled }}
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
     {{- else }}
