@@ -47,13 +47,19 @@ func (console) Run(c *exec.Cmd) error {
 }
 
 // Apply runs the kubectl apply with the provided manifest argument
-func (c *Client) Apply(dryRun, verbose bool, namespace string, manifest string, extraArgs ...string) (string, string, error) {
+func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace string, manifest string, extraArgs ...string) (string, string, error) {
 	if strings.TrimSpace(manifest) == "" {
 		log.Infof("Empty manifest, not applying.")
 		return "", "", nil
 	}
 
 	args := []string{"apply"}
+	if kubeconfig != "" {
+		args = append(args, "--kubeconfig", kubeconfig)
+	}
+	if context != "" {
+		args = append(args, "--context", context)
+	}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}

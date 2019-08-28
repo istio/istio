@@ -66,7 +66,7 @@ func TestKubectlApply(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			_, _, err := kubectl.Apply(false, false, test.namespace, test.manifest, test.args...)
+			_, _, err := kubectl.Apply(false, false, "", "", test.namespace, test.manifest, test.args...)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")
