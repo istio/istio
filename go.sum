@@ -355,7 +355,6 @@ github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22
 github.com/json-iterator/go v1.1.6 h1:MrUvLMLTMxbqFJ9kzlvat/rYZqZnW3u4wkLzWTaFwKs=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
-github.com/jteeuwen/go-bindata v0.0.0-20180305030458-6025e8de665b/go.mod h1:JVvhzYOiGBnFSYRyV00iY8q7/0PThjIYav1p9h5dmKs=
 github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7C0MuV77Wo=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 h1:dMIPRDg6gi7CUp0Kj2+HxqJ5kTr1iAdzsXYIrLCNSmU=
@@ -514,8 +513,6 @@ github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 h1:nn5Wsu0esKSJiIVhscUt
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 h1:nZdAthMCwjEnQNMZDxhEVWPWAxeBMvHRka6A8oFPk78=
 github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317/go.mod h1:Ad7IjTpvzZO8Fl0vh9AzQ+j/jYZfyp2diGwI8m5q+ns=
-github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749/go.mod h1:ZY1cvUeJuFPAdZ/B6v7RHavJWZn2YPVFQ1OSXhCGOkg=
-github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd/go.mod h1:TrYk7fJVaAttu97ZZKrO9UbRa8izdowaMIZcxYMbVaw=
 github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43 h1:JRmIUcy6IKEDUV0SHg7393Fh8DomnKRfz6qDto43hx8=
 github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43/go.mod h1:muYA2clvwCdj7nzAJ5vJIXYpJsUumhAl4Uu1wUNpWzA=
 github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 h1:WsShHmu12ZztYPfh9b+I+VjYD1o8iOHhB67WZCMEEE8=
@@ -763,10 +760,8 @@ istio.io/api v0.0.0-20190827203453-55bf99d69a1f h1:hdbHcdj0Hmsjdqu8mNQFuNe/KY3EI
 istio.io/api v0.0.0-20190827203453-55bf99d69a1f/go.mod h1:42cBjnu/rTJcCaKi8nLdIvq0n71RcLrkgZ9IQSvDdSQ=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P+Wr2dOdPriJu09cU8wGMG+/M=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
-istio.io/operator v0.0.0-20190813061052-3b21fa19e418 h1:Qbm6mVyr2VswO7bS2fS7ouoZTl+gARRds+dsBeulPH8=
-istio.io/operator v0.0.0-20190813061052-3b21fa19e418/go.mod h1:WudeDwe5Tdj+6dSLiK8gDQJr07vJgyNM2DVRGOWbn8M=
-istio.io/operator v0.0.0-20190827173952-af847b66d2f9 h1:lXYXdziz/jPdLue45aGwStjKR1hxU1ufCVT4v7adJPk=
-istio.io/operator v0.0.0-20190827173952-af847b66d2f9/go.mod h1:ENQMBbrqipefx/BuRqZirIiMDfkdVa2l562+kWDY3Gs=
+istio.io/operator v0.0.0-20190828174053-4fe1db618676 h1:G8BrA9eDwQ8mxDaR2nc9izSNnap4Jcm/sGA0uf0YLbw=
+istio.io/operator v0.0.0-20190828174053-4fe1db618676/go.mod h1:/M7Sbn3gQdka/sEnpitOD6F93UcgBOJ+ctSD9FwMr7A=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
 istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e h1:8RI4/zsMtrjkvyUqvy5CTGyVQPL86rERoWdm1npYU2A=
 istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=

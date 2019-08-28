@@ -122,8 +122,6 @@ require (
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
-	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
-	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
 	github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
 	github.com/signalfx/golib v1.1.6
@@ -159,7 +157,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20190827203453-55bf99d69a1f
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
-	istio.io/operator v0.0.0-20190827173952-af847b66d2f9
+	istio.io/operator v0.0.0-20190828174053-4fe1db618676
 	istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
@@ -167,5 +165,6 @@ require (
 	k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/helm v2.13.1+incompatible
+	k8s.io/kubernetes v1.13.1
 	sigs.k8s.io/yaml v1.1.0
 )

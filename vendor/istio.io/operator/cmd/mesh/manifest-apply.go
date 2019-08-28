@@ -31,6 +31,8 @@ type manifestApplyArgs struct {
 	inFilename string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
+	// context is the cluster context in the kube config
+	context string
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
 	readinessTimeout time.Duration
 	// wait is flag that indicates whether to wait resources ready before exiting.
@@ -43,6 +45,7 @@ type manifestApplyArgs struct {
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum time to wait for all Istio resources to be ready."+
 		"--wait must be set for this flag to apply.")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
@@ -57,12 +60,12 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Long:  "The apply subcommand is used to generate an Istio install manifest and apply it to a cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			manifestApply(rootArgs, maArgs)
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			manifestApply(rootArgs, maArgs, l)
 		}}
-
 }
 
-func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
+func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 	if err := configLogs(args); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -70,32 +73,39 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 
 	overlayFromSet, err := makeTreeFromSetList(maArgs.set)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	manifests, err := genManifests(maArgs.inFilename, overlayFromSet)
 	if err != nil {
-		logAndFatalf(args, "Could not generate manifest: %v", err)
+		l.logAndFatal("Could not generate manifest: ", err)
 	}
 
-	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, args.dryRun, args.verbose, maArgs.wait, maArgs.readinessTimeout)
+	opts := &manifest.InstallOptions{
+		DryRun:      args.dryRun,
+		Verbose:     args.verbose,
+		WaitTimeout: maArgs.readinessTimeout,
+		Kubeconfig:  maArgs.kubeConfigPath,
+		Context:     maArgs.context,
+	}
+	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, opts)
 	if err != nil {
-		logAndFatalf(args, "Failed to apply manifest with kubectl client: %v", err)
+		l.logAndFatal("Failed to apply manifest with kubectl client: ", err)
 	}
 
 	for cn := range manifests {
 		cs := fmt.Sprintf("Output for component %s:", cn)
-		logAndPrintf(args, "\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
 		if out[cn].Err != nil {
-			logAndPrintf(args, "Error: %s\n", out[cn].Err)
+			l.logAndPrint("Error: ", out[cn].Err, "\n")
 		}
 		if strings.TrimSpace(out[cn].Stderr) != "" {
-			logAndPrintf(args, "Error detail:\n%s\n", out[cn].Stderr)
+			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
 		}
 		if strings.TrimSpace(out[cn].Stdout) != "" {
-			logAndPrintf(args, "Stdout:\n%s\n", out[cn].Stdout)
+			l.logAndPrint("Stdout:\n", out[cn].Stdout, "\n")
 		}
 		if args.verbose {
-			logAndPrintf(args, "Manifest:\n\n%s\n", out[cn].Manifest)
+			l.logAndPrint("Manifest:\n\n", out[cn].Manifest, "\n")
 		}
 	}
 }

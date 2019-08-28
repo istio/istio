@@ -155,7 +155,7 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 		return false, nil
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Common.Enabled")
+	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for feature=%s, component=%s: %s",
 			featureName, componentName, err)
@@ -282,7 +282,7 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 		}
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Common.Namespace")
+	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Namespace")
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for feature=%s, component=%s: %s", featureName, componentName, err)
 	}
