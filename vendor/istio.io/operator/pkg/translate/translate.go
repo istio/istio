@@ -34,6 +34,10 @@ import (
 )
 
 const (
+	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
+	K8sDeploymentResourceType = "Deployment"
+	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
+	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -77,6 +81,8 @@ type FeatureMap struct {
 
 // ComponentMaps is a set of mappings for an Istio component.
 type ComponentMaps struct {
+	// ResourceType maps a ComponentName to the type of the rendered k8s resource.
+	ResourceType string
 	// ResourceName maps a ComponentName to the name of the rendered k8s resource.
 	ResourceName string
 	// ContainerName maps a ComponentName to the name of the container in a Deployment.
@@ -109,63 +115,60 @@ var (
 				"K8SDefaults":      {"global.resources", nil},
 				"DefaultNamespace": {"global.istioNamespace", nil},
 
-				"TrafficManagement.Components.Proxy.Common.Values": {"global.proxy", nil},
+				"Values.Proxy": {"global.proxy", nil},
 
 				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
-
-				"Policy.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
-				"Policy.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
-				"Policy.Components.Namespace":      {"global.policyNamespace", nil},
-
-				"Telemetry.Components.Namespace": {"global.telemetryNamespace", nil},
-
-				"Security.ControlPlaneMtls.Value":    {"global.controlPlaneSecurityEnabled", nil},
-				"Security.DataPlaneMtlsStrict.Value": {"global.mtls.enabled", nil},
-				"Security.Components.Namespace":      {"global.securityNamespace", nil},
+				"Policy.Components.Namespace":           {"global.policyNamespace", nil},
+				"Telemetry.Components.Namespace":        {"global.telemetryNamespace", nil},
+				"Security.Components.Namespace":         {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Affinity": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Env": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.HpaSpec": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec": {
 					"[HorizontalPodAutoscaler:{{.ResourceName}}].spec",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ImagePullPolicy": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.NodeSelector": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodDisruptionBudget": {
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {
 					"[PodDisruptionBudget:{{.ResourceName}}].spec",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PodAnnotations": {
-					"[Deployment:{{.ResourceName}}].spec.template.metadata.annotations",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.PriorityClassName": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.priorityClassName.",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName.",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReadinessProbe": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.ReplicaCount": {
-					"[Deployment:{{.ResourceName}}].spec.replicas",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.replicas",
 					nil,
 				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8S.Resources": {
-					"[Deployment:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.strategy",
 					nil,
 				},
 			},
@@ -234,60 +237,70 @@ var (
 					AlwaysEnabled:        true,
 				},
 				name.PilotComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-pilot",
 					ContainerName:        "discovery",
 					HelmSubdir:           "istio-control/istio-discovery",
 					ToHelmValuesTreeRoot: "pilot",
 				},
 				name.GalleyComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-galley",
 					ContainerName:        "galley",
 					HelmSubdir:           "istio-control/istio-config",
 					ToHelmValuesTreeRoot: "galley",
 				},
 				name.SidecarInjectorComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-sidecar-injector",
 					ContainerName:        "sidecar-injector-webhook",
 					HelmSubdir:           "istio-control/istio-autoinject",
 					ToHelmValuesTreeRoot: "sidecarInjectorWebhook",
 				},
 				name.PolicyComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-policy",
 					ContainerName:        "mixer",
 					HelmSubdir:           "istio-policy",
 					ToHelmValuesTreeRoot: "mixer.policy",
 				},
 				name.TelemetryComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-telemetry",
 					ContainerName:        "mixer",
 					HelmSubdir:           "istio-telemetry/mixer-telemetry",
 					ToHelmValuesTreeRoot: "mixer.telemetry",
 				},
 				name.CitadelComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-citadel",
 					ContainerName:        "citadel",
 					HelmSubdir:           "security/citadel",
-					ToHelmValuesTreeRoot: "citadel",
+					ToHelmValuesTreeRoot: "security",
 				},
 				name.NodeAgentComponentName: {
+					ResourceType:         K8sDaemonSetResourceType,
 					ResourceName:         "istio-nodeagent",
 					ContainerName:        "nodeagent",
 					HelmSubdir:           "security/nodeagent",
 					ToHelmValuesTreeRoot: "nodeagent",
 				},
 				name.CertManagerComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "certmanager",
 					ContainerName:        "certmanager",
 					HelmSubdir:           "security/certmanager",
 					ToHelmValuesTreeRoot: "certmanager",
 				},
 				name.IngressComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-ingressgateway",
 					ContainerName:        "istio-proxy",
 					HelmSubdir:           "gateways/istio-ingress",
 					ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
 				},
 				name.EgressComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
 					ResourceName:         "istio-egressgateway",
 					ContainerName:        "istio-proxy",
 					HelmSubdir:           "gateways/istio-egress",
@@ -367,7 +380,9 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		pe, _ = util.RemoveBrackets(pe)
 		oo, ok := om[pe]
 		if !ok {
-			return "", fmt.Errorf("resource Kind:name %s doesn't exist in the output manifest:\n%s", pe, yml)
+			// skip to overlay the K8s settings if the corresponding resource doesn't exist.
+			log.Infof("resource Kind:name %s doesn't exist in the output manifest, skip overlay.", pe)
+			continue
 		}
 
 		baseYAML, err := oo.YAML()
@@ -637,9 +652,11 @@ func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureNam
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
 	ts := struct {
+		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
+		ResourceType:  t.ComponentMaps[componentName].ResourceType,
 		ResourceName:  t.ComponentMaps[componentName].ResourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
