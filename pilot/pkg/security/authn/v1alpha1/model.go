@@ -58,7 +58,7 @@ const (
 
 // GetServiceMutualTLSMode returns the mTLS mode for given service-port.
 func GetServiceMutualTLSMode(store model.IstioConfigStore, service *model.Service, port *model.Port) MutualTLSMode {
-	// TODO: when authentication poicy changes to workload-selector model, this should be changed to
+	// TODO(diemtvu) when authentication poicy changes to workload-selector model, this should be changed to
 	// iterate over all service instances to examine the mTLS mode. May also cache this to avoid
 	// querying config store and process policy everytime.
 	if config := store.AuthenticationPolicyForWorkload(service, nil, port); config != nil {
