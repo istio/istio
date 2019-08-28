@@ -21,16 +21,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
 	"github.com/ghodss/yaml"
 )
 
+const codeRegex = `^IST-\d\d\d\d$`
+
 // Utility for generating staticinit.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Printf("Invalid args: %v", os.Args)
+		fmt.Println("Invalid args:", os.Args)
 		os.Exit(-1)
 	}
 
@@ -39,19 +42,25 @@ func main() {
 
 	m, err := read(input)
 	if err != nil {
-		fmt.Printf("Error reading metadata: %v", err)
+		fmt.Println("Error reading metadata:", err)
 		os.Exit(-2)
+	}
+
+	err = validate(m)
+	if err != nil {
+		fmt.Println("Error validating messages:", err)
+		os.Exit(-3)
 	}
 
 	code, err := generate(m)
 	if err != nil {
-		fmt.Printf("Error generating code: %v", err)
-		os.Exit(-3)
+		fmt.Println("Error generating code:", err)
+		os.Exit(-4)
 	}
 
 	if err = ioutil.WriteFile(output, []byte(code), os.ModePerm); err != nil {
-		fmt.Printf("Error writing output file: %v", err)
-		os.Exit(-4)
+		fmt.Println("Error writing output file:", err)
+		os.Exit(-5)
 	}
 }
 
@@ -68,6 +77,19 @@ func read(path string) (*messages, error) {
 	}
 
 	return m, nil
+}
+
+func validate(ms *messages) error {
+	for _, m := range ms.Messages {
+		matched, err := regexp.MatchString(codeRegex, m.Code)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return fmt.Errorf("Error code for message %q must follow the regex %s", m.Name, codeRegex)
+		}
+	}
+	return nil
 }
 
 var tmpl = `
@@ -88,7 +110,7 @@ import (
 func {{.FuncName}}(entry *resource.Entry{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
 	return diag.NewMessage(
 		diag.{{.Level}},
-		diag.Code({{.Code}}),
+		"{{.Code}}",
 		originOrNil(entry),
 		"{{.Template}}",{{range .Args}}
 		{{.Name}},
@@ -121,7 +143,7 @@ type messages struct {
 
 type message struct {
 	Name        string `json:"name"`
-	Code        int    `json:"code"`
+	Code        string `json:"code"`
 	Level       string `json:"level"`
 	Description string `json:"description"`
 	Template    string `json:"template"`
