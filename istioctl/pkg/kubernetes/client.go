@@ -403,7 +403,7 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
 
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		errCh <- fw.Forwarder.ForwardPorts()
 	}()
