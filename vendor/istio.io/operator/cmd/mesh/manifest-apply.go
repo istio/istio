@@ -57,12 +57,12 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Long:  "The apply subcommand is used to generate an Istio install manifest and apply it to a cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			manifestApply(rootArgs, maArgs)
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			manifestApply(rootArgs, maArgs, l)
 		}}
-
 }
 
-func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
+func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 	if err := configLogs(args); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -70,32 +70,32 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs) {
 
 	overlayFromSet, err := makeTreeFromSetList(maArgs.set)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	manifests, err := genManifests(maArgs.inFilename, overlayFromSet)
 	if err != nil {
-		logAndFatalf(args, "Could not generate manifest: %v", err)
+		l.logAndFatal("Could not generate manifest: ", err)
 	}
 
 	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, args.dryRun, args.verbose, maArgs.wait, maArgs.readinessTimeout)
 	if err != nil {
-		logAndFatalf(args, "Failed to apply manifest with kubectl client: %v", err)
+		l.logAndFatal("Failed to apply manifest with kubectl client: ", err)
 	}
 
 	for cn := range manifests {
 		cs := fmt.Sprintf("Output for component %s:", cn)
-		logAndPrintf(args, "\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		l.logAndPrint("\n", cs, "\n", strings.Repeat("=", len(cs)))
 		if out[cn].Err != nil {
-			logAndPrintf(args, "Error: %s\n", out[cn].Err)
+			l.logAndPrint("Error: ", out[cn].Err, "\n")
 		}
 		if strings.TrimSpace(out[cn].Stderr) != "" {
-			logAndPrintf(args, "Error detail:\n%s\n", out[cn].Stderr)
+			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
 		}
 		if strings.TrimSpace(out[cn].Stdout) != "" {
-			logAndPrintf(args, "Stdout:\n%s\n", out[cn].Stdout)
+			l.logAndPrint("Stdout:\n", out[cn].Stdout, "\n")
 		}
 		if args.verbose {
-			logAndPrintf(args, "Manifest:\n\n%s\n", out[cn].Manifest)
+			l.logAndPrint("Manifest:\n\n", out[cn].Manifest, "\n")
 		}
 	}
 }

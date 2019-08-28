@@ -1,0 +1,2059 @@
+---
+title: v1alpha2
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 48
+---
+<h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>
+<section>
+<p>Configuration options for auto injection feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AutoInjectionFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether auto injection feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+</tr>
+<tr id="AutoInjectionFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#AutoInjectionFeatureSpec-Components">AutoInjectionFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="AutoInjectionFeatureSpec-Components">AutoInjectionFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AutoInjectionFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that auto injections components are installed into.</p>
+
+</td>
+</tr>
+<tr id="AutoInjectionFeatureSpec-Components-injector">
+<td><code>injector</code></td>
+<td><code><a href="#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CertManagerComponentSpec">CertManagerComponentSpec</h2>
+<section>
+<p>Configuration options for certificate manager component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CertManagerComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="CertManagerComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CertManagerComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CitadelComponentSpec">CitadelComponentSpec</h2>
+<section>
+<p>Configuration options for Citadel component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CitadelComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="CitadelComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CitadelComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigManagementFeatureSpec">ConfigManagementFeatureSpec</h2>
+<section>
+<p>Configuration options for configuration management feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigManagementFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether config management feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+</tr>
+<tr id="ConfigManagementFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#ConfigManagementFeatureSpec-Components">ConfigManagementFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigManagementFeatureSpec-Components">ConfigManagementFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigManagementFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that security components are installed into.</p>
+
+</td>
+</tr>
+<tr id="ConfigManagementFeatureSpec-Components-galley">
+<td><code>galley</code></td>
+<td><code><a href="#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EgressGatewayComponentSpec">EgressGatewayComponentSpec</h2>
+<section>
+<p>Configuration options for egress gateways.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EgressGatewayComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="EgressGatewayComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ExecAction">ExecAction</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.ExecAction for unmarshaling</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ExecAction-command">
+<td><code>command</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GalleyComponentSpec">GalleyComponentSpec</h2>
+<section>
+<p>Configuration options for node agent component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GalleyComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="GalleyComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="GalleyComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GatewayFeatureSpec">GatewayFeatureSpec</h2>
+<section>
+<p>Configuration options for gateway feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GatewayFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+</tr>
+<tr id="GatewayFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#GatewayFeatureSpec-Components">GatewayFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GatewayFeatureSpec-Components">GatewayFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GatewayFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that auto injections components are installed into.</p>
+
+</td>
+</tr>
+<tr id="GatewayFeatureSpec-Components-ingress_gateway">
+<td><code>ingressGateway</code></td>
+<td><code><a href="#IngressGatewayComponentSpec">IngressGatewayComponentSpec</a></code></td>
+<td>
+<p>Ingress/egress gateway configuration.</p>
+
+</td>
+</tr>
+<tr id="GatewayFeatureSpec-Components-egress_gateway">
+<td><code>egressGateway</code></td>
+<td><code><a href="#EgressGatewayComponentSpec">EgressGatewayComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPGetAction">HTTPGetAction</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPGetAction-path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="HTTPGetAction-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="HTTPGetAction-scheme">
+<td><code>scheme</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="HTTPGetAction-httpHeaders">
+<td><code>httpHeaders</code></td>
+<td><code><a href="#HTTPHeader">HTTPHeader[]</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="HTTPHeader">HTTPHeader</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.HTTPHeader for unmarshaling</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPHeader-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="HTTPHeader-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IngressGatewayComponentSpec">IngressGatewayComponentSpec</h2>
+<section>
+<p>Configuration options for ingress gateways.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IngressGatewayComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="IngressGatewayComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="InstallStatus">InstallStatus</h2>
+<section>
+<p>Observed state of IstioControlPlane.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstallStatus-traffic_management">
+<td><code>trafficManagement</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-policy_telemetry">
+<td><code>policyTelemetry</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-security">
+<td><code>security</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-config_management">
+<td><code>configManagement</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-ingress_gateway">
+<td><code>ingressGateway</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-egress_gateway">
+<td><code>egressGateway</code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="InstallStatus-Status">InstallStatus.Status</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstallStatus-Status-NONE">
+<td><code>NONE</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-Status-UPDATING">
+<td><code>UPDATING</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-Status-HEALTHY">
+<td><code>HEALTHY</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-Status-ERROR">
+<td><code>ERROR</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="InstallStatus-VersionStatus">InstallStatus.VersionStatus</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstallStatus-VersionStatus-version">
+<td><code>version</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-VersionStatus-status">
+<td><code>status</code></td>
+<td><code><a href="#InstallStatus-Status">InstallStatus.Status</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioControlPlane">IstioControlPlane</h2>
+<section>
+<p>IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioControlPlane-spec">
+<td><code>spec</code></td>
+<td><code><a href="#IstioControlPlaneSpec">IstioControlPlaneSpec</a></code></td>
+<td>
+<p>Spec defines the desired state of IstioControlPlane.</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlane-status">
+<td><code>status</code></td>
+<td><code><a href="#InstallStatus">InstallStatus</a></code></td>
+<td>
+<p>Status reports the status of the Istio control plane.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioControlPlaneSpec">IstioControlPlaneSpec</h2>
+<section>
+<p>IstioControlPlaneSpec defines the desired state of IstioControlPlane.
+The spec is a used to define a customization of the default profile values that are supplied with each Istio release.
+It is grouped at the top level by feature, where behavior of Istio functional areas is specified.
+Each feature contains components, where k8s resource level defaults can be overridden.
+Because the spec is a customization API, specifying an empty InstallSpec results in a default Istio control plane.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioControlPlaneSpec-default_namespace">
+<td><code>defaultNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Default namespace if feature or component namespaces are not set.</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-traffic_management">
+<td><code>trafficManagement</code></td>
+<td><code><a href="#TrafficManagementFeatureSpec">TrafficManagementFeatureSpec</a></code></td>
+<td>
+<p>Selection and configuration of core Istio features.</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-policy">
+<td><code>policy</code></td>
+<td><code><a href="#PolicyFeatureSpec">PolicyFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#TelemetryFeatureSpec">TelemetryFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-security">
+<td><code>security</code></td>
+<td><code><a href="#SecurityFeatureSpec">SecurityFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-config_management">
+<td><code>configManagement</code></td>
+<td><code><a href="#ConfigManagementFeatureSpec">ConfigManagementFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-auto_injection">
+<td><code>autoInjection</code></td>
+<td><code><a href="#AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-gateways">
+<td><code>gateways</code></td>
+<td><code><a href="#GatewayFeatureSpec">GatewayFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-profile">
+<td><code>profile</code></td>
+<td><code>string</code></td>
+<td>
+<p>Overrides for default global values.yaml.
+Values map[string]interface&lbrace;} <code>protobuf:&quot;bytes,6,opt,name=values&quot; json:&quot;values,omitempty&quot;</code>
+UnvalidatedValues map[string]interface&lbrace;} <code>protobuf:&quot;bytes,6,opt,name=unvalidatedValues&quot; json:&quot;unvalidatedValues,omitempty&quot;</code>
+Path or name for the profile e.g.
+  minimal (looks in profiles dir for a file called minimal.yaml)
+  /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+default profile is used if this field is unset.</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-install_package_path">
+<td><code>installPackagePath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path for the install package. e.g.
+  /tmp/istio-installer/nightly (local file path)</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+<p>Root for docker image paths e.g. docker.io/istio-release.
+Releases are published to docker hub under &lsquo;istio&rsquo; project.
+Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-tag">
+<td><code>tag</code></td>
+<td><code>string</code></td>
+<td>
+<p>Version tag for docker images e.g. 1.0.6</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KubernetesResourcesSpec">KubernetesResourcesSpec</h2>
+<section>
+<p>KubernetesResourcesConfig is a common set of k8s resource configs for components.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KubernetesResourcesSpec-affinity">
+<td><code>affinity</code></td>
+<td><code><a href="#k8s-io-api-core-v1-Affinity">k8s.io.api.core.v1.Affinity</a></code></td>
+<td>
+<p>k8s affinity.
+https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-env">
+<td><code>env</code></td>
+<td><code><a href="#k8s-io-api-core-v1-EnvVar">k8s.io.api.core.v1.EnvVar[]</a></code></td>
+<td>
+<p>Deployment environment variables.
+https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-hpa_spec">
+<td><code>hpaSpec</code></td>
+<td><code><a href="#k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec">k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec</a></code></td>
+<td>
+<p>k8s HorizontalPodAutoscaler settings.
+https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-image_pull_policy">
+<td><code>imagePullPolicy</code></td>
+<td><code>string</code></td>
+<td>
+<p>k8s imagePullPolicy.
+https://kubernetes.io/docs/concepts/containers/images/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-node_selector">
+<td><code>nodeSelector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>k8s nodeSelector.
+https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-pod_disruption_budget">
+<td><code>podDisruptionBudget</code></td>
+<td><code><a href="#PodDisruptionBudgetSpec">PodDisruptionBudgetSpec</a></code></td>
+<td>
+<p>k8s PodDisruptionBudget settings.
+https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-pod_annotations">
+<td><code>podAnnotations</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>k8s pod annotations.
+https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-priority_class_name">
+<td><code>priorityClassName</code></td>
+<td><code>string</code></td>
+<td>
+<p>k8s priority<em>class</em>name. Default for all resources unless overridden.
+https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-readiness_probe">
+<td><code>readinessProbe</code></td>
+<td><code><a href="#ReadinessProbe">ReadinessProbe</a></code></td>
+<td>
+<p>k8s readinessProbe settings.
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+k8s.io.api.core.v1.Probe readiness_probe = 9;</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-replica_count">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>k8s Deployment replicas setting.
+https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>k8s resources settings.
+https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-service">
+<td><code>service</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ServiceSpec">k8s.io.api.core.v1.ServiceSpec</a></code></td>
+<td>
+<p>k8s Service settings.
+https://kubernetes.io/docs/concepts/services-networking/service/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-strategy">
+<td><code>strategy</code></td>
+<td><code><a href="#k8s-io-api-apps-v1-DeploymentStrategy">k8s.io.api.apps.v1.DeploymentStrategy</a></code></td>
+<td>
+<p>k8s deployment strategy.
+https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-overlays">
+<td><code>overlays</code></td>
+<td><code><a href="#k8sObjectOverlay">k8sObjectOverlay[]</a></code></td>
+<td>
+<p>Overlays for k8s resources in rendered manifests.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NodeAgentComponentSpec">NodeAgentComponentSpec</h2>
+<section>
+<p>Configuration options for node agent component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NodeAgentComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="NodeAgentComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="NodeAgentComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ObjectMeta">ObjectMeta</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ObjectMeta-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>From k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta</p>
+
+</td>
+</tr>
+<tr id="ObjectMeta-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PilotComponentSpec">PilotComponentSpec</h2>
+<section>
+<p>Configuration options for the pilot component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PilotComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PodDisruptionBudgetSpec">PodDisruptionBudgetSpec</h2>
+<section>
+<p>Mirrors k8s.io.api.policy.v1beta1.PodDisruptionBudget for unmarshaling.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PodDisruptionBudgetSpec-min_available">
+<td><code>minAvailable</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+<tr id="PodDisruptionBudgetSpec-selector">
+<td><code>selector</code></td>
+<td><code><a href="#k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector">k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PodDisruptionBudgetSpec-max_unavailable">
+<td><code>maxUnavailable</code></td>
+<td><code>uint32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PolicyComponentSpec">PolicyComponentSpec</h2>
+<section>
+<p>Configuration options for the policy enforcement component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PolicyComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="PolicyComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="PolicyComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PolicyFeatureSpec">PolicyFeatureSpec</h2>
+<section>
+<p>Configuration options for the policy feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PolicyFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether policy is installed.
+Must be enabled to enable any sub-component.</p>
+
+</td>
+</tr>
+<tr id="PolicyFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#PolicyFeatureSpec-Components">PolicyFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PolicyFeatureSpec-Components">PolicyFeatureSpec.Components</h2>
+<section>
+<p>Component specific config.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PolicyFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that all policy components are installed into.</p>
+
+</td>
+</tr>
+<tr id="PolicyFeatureSpec-Components-policy">
+<td><code>policy</code></td>
+<td><code><a href="#PolicyComponentSpec">PolicyComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyComponentSpec">ProxyComponentSpec</h2>
+<section>
+<p>Configuration options for the proxy.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ProxyComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ProxyComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ReadinessProbe">ReadinessProbe</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.Probe for unmarshaling</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReadinessProbe-exec">
+<td><code>exec</code></td>
+<td><code><a href="#ExecAction">ExecAction</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-httpGet">
+<td><code>httpGet</code></td>
+<td><code><a href="#HTTPGetAction">HTTPGetAction</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-tcpSocket">
+<td><code>tcpSocket</code></td>
+<td><code><a href="#TCPSocketAction">TCPSocketAction</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-initialDelaySeconds">
+<td><code>initialDelaySeconds</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-timeoutSeconds">
+<td><code>timeoutSeconds</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-periodSeconds">
+<td><code>periodSeconds</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-successThreshold">
+<td><code>successThreshold</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="ReadinessProbe-failureThreshold">
+<td><code>failureThreshold</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Resources">Resources</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.ResourceRequirements for unmarshaling.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resources-limits">
+<td><code>limits</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resources-requests">
+<td><code>requests</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SecurityFeatureSpec">SecurityFeatureSpec</h2>
+<section>
+<p>Configuration options for security feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SecurityFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether security feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+</tr>
+<tr id="SecurityFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#SecurityFeatureSpec-Components">SecurityFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SecurityFeatureSpec-Components">SecurityFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SecurityFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that security components are installed into.</p>
+
+</td>
+</tr>
+<tr id="SecurityFeatureSpec-Components-citadel">
+<td><code>citadel</code></td>
+<td><code><a href="#CitadelComponentSpec">CitadelComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityFeatureSpec-Components-cert_manager">
+<td><code>certManager</code></td>
+<td><code><a href="#CertManagerComponentSpec">CertManagerComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="SecurityFeatureSpec-Components-node_agent">
+<td><code>nodeAgent</code></td>
+<td><code><a href="#NodeAgentComponentSpec">NodeAgentComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</h2>
+<section>
+<p>Configuration options for the sidecar injector component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SidecarInjectorComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="SidecarInjectorComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="SidecarInjectorComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TCPSocketAction">TCPSocketAction</h2>
+<section>
+<p>Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TCPSocketAction-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryComponentSpec">TelemetryComponentSpec</h2>
+<section>
+<p>Configuration options for the telemetry component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TelemetryComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="TelemetryComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryFeatureSpec">TelemetryFeatureSpec</h2>
+<section>
+<p>Configuration options for the telemetry feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether telemetry is installed.
+Must be enabled to enable any sub-component.</p>
+
+</td>
+</tr>
+<tr id="TelemetryFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#TelemetryFeatureSpec-Components">TelemetryFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryFeatureSpec-Components">TelemetryFeatureSpec.Components</h2>
+<section>
+<p>Component specific config.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that all telemetry components are installed into.</p>
+
+</td>
+</tr>
+<tr id="TelemetryFeatureSpec-Components-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#TelemetryComponentSpec">TelemetryComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TestKube">TestKube</h2>
+<section>
+<p>TESTING ONLY</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TestKube-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-readiness_probe">
+<td><code>readinessProbe</code></td>
+<td><code><a href="#ReadinessProbe">ReadinessProbe</a></code></td>
+<td>
+<p>k8s.io.api.core.v1.Probe readiness_probe = 81;</p>
+
+</td>
+</tr>
+<tr id="TestKube-hpa_spec">
+<td><code>hpaSpec</code></td>
+<td><code><a href="#k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec">k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-pod_disruption_budget">
+<td><code>podDisruptionBudget</code></td>
+<td><code><a href="#PodDisruptionBudgetSpec">PodDisruptionBudgetSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-affinity">
+<td><code>affinity</code></td>
+<td><code><a href="#k8s-io-api-core-v1-Affinity">k8s.io.api.core.v1.Affinity</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-pod_annotations">
+<td><code>podAnnotations</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-node_selector">
+<td><code>nodeSelector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="TestKube-overlays">
+<td><code>overlays</code></td>
+<td><code><a href="#k8sObjectOverlay">k8sObjectOverlay[]</a></code></td>
+<td>
+<p>Kustomize style overrides for k8s resources in rendered manifests.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TrafficManagementFeatureSpec">TrafficManagementFeatureSpec</h2>
+<section>
+<p>Configuration options for traffic management.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TrafficManagementFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether traffic management is installed.
+Must be enabled to enable any sub-component.</p>
+
+</td>
+</tr>
+<tr id="TrafficManagementFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#TrafficManagementFeatureSpec-Components">TrafficManagementFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TrafficManagementFeatureSpec-Components">TrafficManagementFeatureSpec.Components</h2>
+<section>
+<p>Component specific config.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TrafficManagementFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that all traffic management components are installed into.</p>
+
+</td>
+</tr>
+<tr id="TrafficManagementFeatureSpec-Components-pilot">
+<td><code>pilot</code></td>
+<td><code><a href="#PilotComponentSpec">PilotComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="TrafficManagementFeatureSpec-Components-proxy">
+<td><code>proxy</code></td>
+<td><code><a href="#ProxyComponentSpec">ProxyComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-apps-v1-DeploymentStrategy">k8s.io.api.apps.v1.DeploymentStrategy</h2>
+<section>
+<p>DeploymentStrategy describes how to replace existing pods with new ones.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-apps-v1-DeploymentStrategy-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type of deployment. Can be &ldquo;Recreate&rdquo; or &ldquo;RollingUpdate&rdquo;. Default is RollingUpdate.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-apps-v1-DeploymentStrategy-rollingUpdate">
+<td><code>rollingUpdate</code></td>
+<td><code><a href="#k8s-io-api-apps-v1-RollingUpdateDeployment">k8s.io.api.apps.v1.RollingUpdateDeployment</a></code></td>
+<td>
+<p>Rolling update config params. Present only if DeploymentStrategyType =</p>
+
+<h2 id="rollingupdate">RollingUpdate.</h2>
+
+<p>TODO: Update this to follow our convention for oneOf, whatever we decide it
+to be.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec">k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec</h2>
+<section>
+<p>HorizontalPodAutoscalerSpec describes the desired functionality of the HorizontalPodAutoscaler.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-scaleTargetRef">
+<td><code>scaleTargetRef</code></td>
+<td><code><a href="#k8s-io-api-autoscaling-v2beta1-CrossVersionObjectReference">k8s.io.api.autoscaling.v2beta1.CrossVersionObjectReference</a></code></td>
+<td>
+<p>scaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
+should be collected, as well as to actually change the replica count.</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-minReplicas">
+<td><code>minReplicas</code></td>
+<td><code>int32</code></td>
+<td>
+<p>minReplicas is the lower limit for the number of replicas to which the autoscaler
+can scale down.  It defaults to 1 pod.  minReplicas is allowed to be 0 if the
+alpha feature gate HPAScaleToZero is enabled and at least one Object or External
+metric is configured.  Scaling is active as long as at least one metric value is
+available.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-maxReplicas">
+<td><code>maxReplicas</code></td>
+<td><code>int32</code></td>
+<td>
+<p>maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
+It cannot be less that minReplicas.</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-metrics">
+<td><code>metrics</code></td>
+<td><code><a href="#k8s-io-api-autoscaling-v2beta1-MetricSpec">k8s.io.api.autoscaling.v2beta1.MetricSpec[]</a></code></td>
+<td>
+<p>metrics contains the specifications for which to use to calculate the
+desired replica count (the maximum replica count across all metrics will
+be used).  The desired replica count is calculated multiplying the
+ratio between the target value and the current value by the current
+number of pods.  Ergo, metrics used must decrease as the pod count is
+increased, and vice-versa.  See the individual metric source types for
+more information about how each type of metric must respond.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-core-v1-Affinity">k8s.io.api.core.v1.Affinity</h2>
+<section>
+<p>Affinity is a group of affinity scheduling rules.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-core-v1-Affinity-nodeAffinity">
+<td><code>nodeAffinity</code></td>
+<td><code><a href="#k8s-io-api-core-v1-NodeAffinity">k8s.io.api.core.v1.NodeAffinity</a></code></td>
+<td>
+<p>Describes node affinity scheduling rules for the pod.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Affinity-podAffinity">
+<td><code>podAffinity</code></td>
+<td><code><a href="#k8s-io-api-core-v1-PodAffinity">k8s.io.api.core.v1.PodAffinity</a></code></td>
+<td>
+<p>Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Affinity-podAntiAffinity">
+<td><code>podAntiAffinity</code></td>
+<td><code><a href="#k8s-io-api-core-v1-PodAntiAffinity">k8s.io.api.core.v1.PodAntiAffinity</a></code></td>
+<td>
+<p>Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-core-v1-EnvVar">k8s.io.api.core.v1.EnvVar</h2>
+<section>
+<p>EnvVar represents an environment variable present in a Container.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-core-v1-EnvVar-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the environment variable. Must be a C_IDENTIFIER.</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-EnvVar-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Variable references $(VAR<em>NAME) are expanded
+using the previous defined environment variables in the container and
+any service environment variables. If a variable cannot be resolved,
+the reference in the input string will be unchanged. The $(VAR</em>NAME)
+syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped
+references will never be expanded, regardless of whether the variable
+exists or not.
+Defaults to &ldquo;&rdquo;.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-EnvVar-valueFrom">
+<td><code>valueFrom</code></td>
+<td><code><a href="#k8s-io-api-core-v1-EnvVarSource">k8s.io.api.core.v1.EnvVarSource</a></code></td>
+<td>
+<p>Source for the environment variable&rsquo;s value. Cannot be used if value is not empty.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-core-v1-ServiceSpec">k8s.io.api.core.v1.ServiceSpec</h2>
+<section>
+<p>ServiceSpec describes the attributes that a user creates on a service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-core-v1-ServiceSpec-ports">
+<td><code>ports</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ServicePort">k8s.io.api.core.v1.ServicePort[]</a></code></td>
+<td>
+<p>The list of ports that are exposed by this service.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
++patchMergeKey=port
++patchStrategy=merge
++listType=map
++listMapKey=port
++listMapKey=protocol</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-selector">
+<td><code>selector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Route service traffic to pods with label keys and values matching this
+selector. If empty or not present, the service is assumed to have an
+external process managing its endpoints, which Kubernetes will not
+modify. Only applies to types ClusterIP, NodePort, and LoadBalancer.
+Ignored if type is ExternalName.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-clusterIP">
+<td><code>clusterIP</code></td>
+<td><code>string</code></td>
+<td>
+<p>clusterIP is the IP address of the service and is usually assigned
+randomly by the master. If an address is specified manually and is not in
+use by others, it will be allocated to the service; otherwise, creation
+of the service will fail. This field can not be changed through updates.
+Valid values are &ldquo;None&rdquo;, empty string (&ldquo;&rdquo;), or a valid IP address. &ldquo;None&rdquo;
+can be specified for headless services when proxying is not required.
+Only applies to types ClusterIP, NodePort, and LoadBalancer. Ignored if
+type is ExternalName.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>type determines how the Service is exposed. Defaults to ClusterIP. Valid
+options are ExternalName, ClusterIP, NodePort, and LoadBalancer.
+&ldquo;ExternalName&rdquo; maps to the specified externalName.
+&ldquo;ClusterIP&rdquo; allocates a cluster-internal IP address for load-balancing to
+endpoints. Endpoints are determined by the selector or if that is not
+specified, by manual construction of an Endpoints object. If clusterIP is
+&ldquo;None&rdquo;, no virtual IP is allocated and the endpoints are published as a
+set of endpoints rather than a stable IP.
+&ldquo;NodePort&rdquo; builds on ClusterIP and allocates a port on every node which
+routes to the clusterIP.
+&ldquo;LoadBalancer&rdquo; builds on NodePort and creates an
+external load-balancer (if supported in the current cloud) which routes
+to the clusterIP.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-externalIPs">
+<td><code>externalIPs</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>externalIPs is a list of IP addresses for which nodes in the cluster
+will also accept traffic for this service.  These IPs are not managed by
+Kubernetes.  The user is responsible for ensuring that traffic arrives
+at a node with this IP.  A common example is external load-balancers
+that are not part of the Kubernetes system.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-sessionAffinity">
+<td><code>sessionAffinity</code></td>
+<td><code>string</code></td>
+<td>
+<p>Supports &ldquo;ClientIP&rdquo; and &ldquo;None&rdquo;. Used to maintain session affinity.
+Enable client IP based session affinity.
+Must be ClientIP or None.
+Defaults to None.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-loadBalancerIP">
+<td><code>loadBalancerIP</code></td>
+<td><code>string</code></td>
+<td>
+<p>Only applies to Service Type: LoadBalancer
+LoadBalancer will get created with the IP specified in this field.
+This feature depends on whether the underlying cloud-provider supports specifying
+the loadBalancerIP when a load balancer is created.
+This field will be ignored if the cloud-provider does not support the feature.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-loadBalancerSourceRanges">
+<td><code>loadBalancerSourceRanges</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>If specified and supported by the platform, this will restrict traffic through the cloud-provider
+load-balancer will be restricted to the specified client IPs. This field will be ignored if the
+cloud-provider does not support the feature.&rdquo;
+More info: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-externalName">
+<td><code>externalName</code></td>
+<td><code>string</code></td>
+<td>
+<p>externalName is the external reference that kubedns or equivalent will
+return as a CNAME record for this service. No proxying will be involved.
+Must be a valid RFC-1123 hostname (https://tools.ietf.org/html/rfc1123)
+and requires Type to be ExternalName.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-externalTrafficPolicy">
+<td><code>externalTrafficPolicy</code></td>
+<td><code>string</code></td>
+<td>
+<p>externalTrafficPolicy denotes if this Service desires to route external
+traffic to node-local or cluster-wide endpoints. &ldquo;Local&rdquo; preserves the
+client source IP and avoids a second hop for LoadBalancer and Nodeport
+type services, but risks potentially imbalanced traffic spreading.
+&ldquo;Cluster&rdquo; obscures the client source IP and may cause a second hop to
+another node, but should have good overall load-spreading.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-healthCheckNodePort">
+<td><code>healthCheckNodePort</code></td>
+<td><code>int32</code></td>
+<td>
+<p>healthCheckNodePort specifies the healthcheck nodePort for the service.
+If not specified, HealthCheckNodePort is created by the service api
+backend with the allocated nodePort. Will use user-specified nodePort value
+if specified by the client. Only effects when Type is set to LoadBalancer
+and ExternalTrafficPolicy is set to Local.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-publishNotReadyAddresses">
+<td><code>publishNotReadyAddresses</code></td>
+<td><code>bool</code></td>
+<td>
+<p>publishNotReadyAddresses, when set to true, indicates that DNS implementations
+must publish the notReadyAddresses of subsets for the Endpoints associated with
+the Service. The default value is false.
+The primary use case for setting this field is to use a StatefulSet&rsquo;s Headless Service
+to propagate SRV records for its Pods without respect to their readiness for purpose
+of peer discovery.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-ServiceSpec-sessionAffinityConfig">
+<td><code>sessionAffinityConfig</code></td>
+<td><code><a href="#k8s-io-api-core-v1-SessionAffinityConfig">k8s.io.api.core.v1.SessionAffinityConfig</a></code></td>
+<td>
+<p>sessionAffinityConfig contains the configurations of session affinity.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector">k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector</h2>
+<section>
+<p>A label selector is a label query over a set of resources. The result of matchLabels and
+matchExpressions are ANDed. An empty label selector matches all objects. A null
+label selector matches no objects.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector-matchLabels">
+<td><code>matchLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>matchLabels is a map of &lbrace;key,value} pairs. A single &lbrace;key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector-matchExpressions">
+<td><code>matchExpressions</code></td>
+<td><code><a href="#k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelectorRequirement">k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement[]</a></code></td>
+<td>
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8sObjectOverlay">k8sObjectOverlay</h2>
+<section>
+<p>Patch for an existing k8s resource.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8sObjectOverlay-api_version">
+<td><code>apiVersion</code></td>
+<td><code>string</code></td>
+<td>
+<p>Resource API version.</p>
+
+</td>
+</tr>
+<tr id="k8sObjectOverlay-kind">
+<td><code>kind</code></td>
+<td><code>string</code></td>
+<td>
+<p>Resource kind.</p>
+
+</td>
+</tr>
+<tr id="k8sObjectOverlay-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of resource.
+Namespace is always the component namespace.</p>
+
+</td>
+</tr>
+<tr id="k8sObjectOverlay-patches">
+<td><code>patches</code></td>
+<td><code><a href="#k8sObjectOverlay-PathValue">k8sObjectOverlay.PathValue[]</a></code></td>
+<td>
+<p>List of patches to apply to resource.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8sObjectOverlay-PathValue">k8sObjectOverlay.PathValue</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8sObjectOverlay-PathValue-path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of the form a.b:c.e.:f
+Where b:c is a list element selector of the form key:value and :f is a list selector of the form :value.
+All path intermediate nodes must exist.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
