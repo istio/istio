@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -28,8 +30,11 @@ var (
 		Short: "De-registers a service instance",
 		Example: `# de-register an endpoint 172.17.0.2 from service my-svc:
 istioctl deregister my-svc 172.17.0.2`,
-		Args: cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) < 2 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("deregister requires service name and endpoint")
+			}
 			svcName := args[0]
 			ip := args[1]
 			log.Infof("De-registering for service '%s' ip '%s'",

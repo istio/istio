@@ -60,7 +60,6 @@ istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
 		// nolint: goimports
 		Aliases:               []string{"m"},
-		Args:                  cobra.MinimumNArgs(1),
 		RunE:                  run,
 		DisableFlagsInUseLine: true,
 	}
@@ -81,6 +80,11 @@ type workloadMetrics struct {
 
 func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
+
+	if len(args) < 1 {
+		c.Println(c.UsageString())
+		return fmt.Errorf("metrics requires workload name")
+	}
 
 	client, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
