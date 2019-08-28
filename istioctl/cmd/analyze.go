@@ -27,10 +27,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	useKube bool
-)
-
 // Analyze command
 func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
@@ -41,10 +37,10 @@ func Analyze() *cobra.Command {
 istioctl experimental analyze a.yaml b.yaml
 
 # Analyze the current live cluster
-istioctl experimental analyze -k -c $HOME/.kube/config
+istioctl experimental analyze -c $HOME/.kube/config
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl experimental analyze -k -c $HOME/.kube/config a.yaml b.yaml
+istioctl experimental analyze -c $HOME/.kube/config a.yaml b.yaml
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
@@ -62,7 +58,7 @@ istioctl experimental analyze -k -c $HOME/.kube/config a.yaml b.yaml
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All())
 
 			// If we're using kube, use that as a base source.
-			if useKube {
+			if kubeconfig != "" {
 				k, err := client.NewKubeFromConfigFile(kubeconfig)
 				if err != nil {
 					return err
@@ -90,9 +86,6 @@ istioctl experimental analyze -k -c $HOME/.kube/config a.yaml b.yaml
 			return nil
 		},
 	}
-
-	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
-		"Use live kubernetes cluster for analysis")
 
 	return analysisCmd
 }
