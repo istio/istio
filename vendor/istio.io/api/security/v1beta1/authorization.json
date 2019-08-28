@@ -99,7 +99,7 @@
             }
           },
           "requestPrincipals": {
-            "description": "Optional. A list of request identities (i.e. “iss/sub” claims), which matches to the “request.auth.principal” attribute.",
+            "description": "Optional. A list of request identities (i.e. \"iss/sub\" claims), which matches to the \"request.auth.principal\" attribute.",
             "type": "array",
             "items": {
               "type": "string",
@@ -107,7 +107,7 @@
             }
           },
           "namespaces": {
-            "description": "Optional. A list of namespaces, which matches to the “source.namespace” attribute.",
+            "description": "Optional. A list of namespaces, which matches to the \"source.namespace\" attribute.",
             "type": "array",
             "items": {
               "type": "string",
@@ -115,7 +115,7 @@
             }
           },
           "ipBlocks": {
-            "description": "Optional. A list of IP blocks, which matches to the “source.ip” attribute. Single IP (e.g. \"1.2.3.4\") and CIDR (e.g. \"1.2.3.0/24\") are supported.",
+            "description": "Optional. A list of IP blocks, which matches to the \"source.ip\" attribute. Single IP (e.g. \"1.2.3.4\") and CIDR (e.g. \"1.2.3.0/24\") are supported.",
             "type": "array",
             "items": {
               "type": "string",
@@ -129,7 +129,7 @@
         "type": "object",
         "properties": {
           "hosts": {
-            "description": "Optional. A list of hosts, which matches to the “request.host” attribute.",
+            "description": "Optional. A list of hosts, which matches to the \"request.host\" attribute.",
             "type": "array",
             "items": {
               "type": "string",
@@ -137,7 +137,7 @@
             }
           },
           "ports": {
-            "description": "Optional. A list of ports, which matches to the “destination.port” attribute.",
+            "description": "Optional. A list of ports, which matches to the \"destination.port\" attribute.",
             "type": "array",
             "items": {
               "type": "string",
@@ -145,7 +145,7 @@
             }
           },
           "methods": {
-            "description": "Optional. A list of methods, which matches to the “request.method” attribute. For gRPC service, this should be the fully-qualified name in the form of \"/package.service/method\"",
+            "description": "Optional. A list of methods, which matches to the \"request.method\" attribute. For gRPC service, this should be the fully-qualified name in the form of \"/package.service/method\"",
             "type": "array",
             "items": {
               "type": "string",
@@ -153,7 +153,7 @@
             }
           },
           "paths": {
-            "description": "Optional. A list of paths, which matches to the “request.url_path” attribute.",
+            "description": "Optional. A list of paths, which matches to the \"request.url_path\" attribute.",
             "type": "array",
             "items": {
               "type": "string",

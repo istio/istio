@@ -30,19 +30,19 @@
 //  rules:
 //  - from:
 //    - source:
-//        principals: [“cluster.local/ns/default/sa/sleep"]
+//        principals: ["cluster.local/ns/default/sa/sleep"]
 //    - source:
-//        namespaces: [“test”]
+//        namespaces: ["test"]
 //    to:
 //    - operation:
-//        methods: [“GET”]
+//        methods: ["GET"]
 //        paths: ["/info*"]
 //    - operation:
 //        methods: ["POST"]
 //        paths: ["/data"]
 //    when:
 //    - key: request.auth.claims[iss]
-//      values: [“https://accounts.google.com”]
+//      values: ["https://accounts.google.com"]
 // ```
 //
 // Access control is enabled on a workload if there is any authorization policies selecting
@@ -54,7 +54,7 @@
 // if multiple authorization policies apply to the same workload, the effect is additive.
 //
 // Authorization Policy scope (target) is determined by "metadata/namespace" and
-// an optional “selector”.
+// an optional "selector".
 // - "metadata/namespace" tells which namespace the policy applies. If set to root
 // namespace, the policy applies to all namespaces in a mesh.
 // - workload "selector" can be used to further restrict where a policy applies.
@@ -398,17 +398,17 @@ type Source struct {
 	//
 	// If not set, any principal is allowed.
 	Principals []string `protobuf:"bytes,1,rep,name=principals,proto3" json:"principals,omitempty"`
-	// Optional. A list of request identities (i.e. “iss/sub” claims), which
-	// matches to the “request.auth.principal” attribute.
+	// Optional. A list of request identities (i.e. "iss/sub" claims), which
+	// matches to the "request.auth.principal" attribute.
 	//
 	// If not set, any request principal is allowed.
 	RequestPrincipals []string `protobuf:"bytes,2,rep,name=request_principals,json=requestPrincipals,proto3" json:"request_principals,omitempty"`
-	// Optional. A list of namespaces, which matches to the “source.namespace”
+	// Optional. A list of namespaces, which matches to the "source.namespace"
 	// attribute.
 	//
 	// If not set, any namespace is allowed.
 	Namespaces []string `protobuf:"bytes,3,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
-	// Optional. A list of IP blocks, which matches to the “source.ip” attribute.
+	// Optional. A list of IP blocks, which matches to the "source.ip" attribute.
 	// Single IP (e.g. "1.2.3.4") and CIDR (e.g. "1.2.3.0/24") are supported.
 	//
 	// If not set, any IP is allowed.
@@ -481,21 +481,21 @@ func (m *Source) GetIpBlocks() []string {
 
 // Operation specifies the operations of a request.
 type Operation struct {
-	// Optional. A list of hosts, which matches to the “request.host” attribute.
+	// Optional. A list of hosts, which matches to the "request.host" attribute.
 	//
 	// If not set, any host is allowed. Must be used only with HTTP.
 	Hosts []string `protobuf:"bytes,1,rep,name=hosts,proto3" json:"hosts,omitempty"`
-	// Optional. A list of ports, which matches to the “destination.port” attribute.
+	// Optional. A list of ports, which matches to the "destination.port" attribute.
 	//
 	// If not set, any port is allowed.
 	Ports []string `protobuf:"bytes,2,rep,name=ports,proto3" json:"ports,omitempty"`
-	// Optional. A list of methods, which matches to the “request.method” attribute.
+	// Optional. A list of methods, which matches to the "request.method" attribute.
 	// For gRPC service, this should be the fully-qualified name in the form of
 	// "/package.service/method"
 	//
 	// If not set, any method is allowed. Must be used only with HTTP or gRPC.
 	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
-	// Optional. A list of paths, which matches to the “request.url_path” attribute.
+	// Optional. A list of paths, which matches to the "request.url_path" attribute.
 	//
 	// If not set, any path is allowed. Must be used only with HTTP.
 	Paths                []string `protobuf:"bytes,4,rep,name=paths,proto3" json:"paths,omitempty"`
