@@ -18,9 +18,10 @@ package v1alpha2
 
 import (
 	"github.com/gogo/protobuf/jsonpb"
-
 	corev1 "k8s.io/api/core/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/operator/pkg/util"
 )
 
 // Values is described in istio.io documentation.
@@ -643,4 +644,22 @@ func FromInt(val int) IntOrStringForPB {
 // FromString creates an IntOrStringForPB object with a string value.
 func FromString(val string) IntOrStringForPB {
 	return IntOrStringForPB{intstr.FromString(val)}
+}
+
+// Validate checks
+func (t *PilotConfig) Validate(failOnMissingValidation bool, values *Values, icpls *IstioControlPlaneSpec) util.Errors {
+	var validationErrors util.Errors
+	// Exmple
+	// validationErrors = util.AppendErr(validationErrors, fmt.Errorf("pilotconfig has not been yet implemented"))
+
+	return validationErrors
+}
+
+// Validate checks CNIConfig confiugration
+func (t *CNIConfig) Validate(failOnMissingValidation bool, values *Values, icpls *IstioControlPlaneSpec) util.Errors {
+	var validationErrors util.Errors
+	// Example
+	// validationErrors = util.AppendErr(validationErrors, fmt.Errorf("cniconfig has not been yet implemented"))
+
+	return validationErrors
 }

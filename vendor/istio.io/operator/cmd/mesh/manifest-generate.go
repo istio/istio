@@ -19,11 +19,10 @@ import (
 	"os"
 	"sort"
 
-	"istio.io/operator/pkg/name"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/name"
 )
 
 type manifestGenerateArgs struct {
@@ -49,12 +48,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Long:  "The generate subcommand is used to generate an Istio install manifest.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			manifestGenerate(rootArgs, mgArgs)
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			manifestGenerate(rootArgs, mgArgs, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs) {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 	if err := configLogs(args); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -62,23 +62,23 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs) {
 
 	overlayFromSet, err := makeTreeFromSetList(mgArgs.set)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		l.logAndFatal(err.Error())
 	}
 	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet)
 	if err != nil {
-		logAndFatalf(args, err.Error())
+		l.logAndFatal(err.Error())
 	}
 
 	if mgArgs.outFilename == "" {
 		for _, m := range orderedManifests(manifests) {
-			fmt.Println(m)
+			l.print(m + "\n")
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
-			logAndFatalf(args, err.Error())
+			l.logAndFatal(err.Error())
 		}
 		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun, args.verbose); err != nil {
-			logAndFatalf(args, err.Error())
+			l.logAndFatal(err.Error())
 		}
 	}
 }
