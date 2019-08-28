@@ -38,3 +38,41 @@ func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceIns
 
 	return nil
 }
+
+// MutualTLSMode is the mutule TLS mode specified by authentication policy.
+type MutualTLSMode int
+
+const (
+	// MTLSUnknown is initial value when it hasn't been check with the authentication policy.
+	MTLSUnknown MutualTLSMode = iota
+
+	// MTLSDisable if authentication policy disable mTLS.
+	MTLSDisable
+
+	// MTLSPermissive if authentication policy enable mTLS in permissive mode.
+	MTLSPermissive
+
+	// MTLSStrict if authentication policy enable mTLS in strict mode.
+	MTLSStrict
+)
+
+// GetServiceMutualTLSMode returns the mTLS mode for given service-port.
+func GetServiceMutualTLSMode(store model.IstioConfigStore, service *model.Service, port *model.Port) MutualTLSMode {
+	// TODO: when authentication poicy changes to workload-selector model, this should be changed to
+	// iterate over all service instances to examine the mTLS mode. May also cache this to avoid
+	// querying config store and process policy everytime.
+	if config := store.AuthenticationPolicyForWorkload(service, nil, port); config != nil {
+		return getMutualTLSMode(config.Spec.(*authn.Policy))
+	}
+	return MTLSDisable
+}
+
+func getMutualTLSMode(policy *authn.Policy) MutualTLSMode {
+	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
+		if mTLSSetting.GetMode() == authn.MutualTls_STRICT {
+			return MTLSStrict
+		}
+		return MTLSPermissive
+	}
+	return MTLSDisable
+}
