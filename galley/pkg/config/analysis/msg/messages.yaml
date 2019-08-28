@@ -1,6 +1,6 @@
 messages:
   - name: "Internal Error"
-    code: IST-0001
+    code: IST0001
     level: Error
     description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
     template: "Internal error: %v"
@@ -9,7 +9,7 @@ messages:
         type: string
 
   - name: "Not Yet Implemented"
-    code: IST-0002
+    code: IST0002
     level: Error
     description: "A feature that the configuration is depending on is not implemented yet."
     template: "Not yet implemented: %s"
@@ -18,7 +18,7 @@ messages:
         type: string
 
   - name: "Parse Error"
-    code: IST-0003
+    code: IST0003
     level: Warning
     description: "There was a parse error during the parsing of the configuration text"
     template: "Parse error: %s"
@@ -27,7 +27,7 @@ messages:
         type: string
 
   - name: "Deprecated"
-    code: IST-0004
+    code: IST0004
     level: Warning
     description: "A feature that the configuration is depending on is now deprecated."
     template: "Deprecated: %s"
@@ -36,7 +36,7 @@ messages:
         type: string
 
   - name: "Referenced Resource Not Found"
-    code: IST-0101
+    code: IST0101
     level: Error
     description: "A resource being referenced does not exist."
     template: "Referenced %s not found: %q"
