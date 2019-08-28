@@ -1,0 +1,27 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  hub: docker.io/istio
+  tag: 1.1.4
+  defaultNamespace: istio-control
+  trafficManagement:
+    enabled: false
+  policy:
+    enabled: false
+  security:
+    enabled: false
+  configManagement:
+    enabled: false
+  autoInjection:
+    enabled: false
+  gateways:
+    enabled: false
+  telemetry:
+    enabled: true
+  values:
+    mixer:
+      adapters:
+        prometheus:
+          metricsExpiryDuration: 123m
+
+

@@ -1,0 +1,36 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  hub: docker.io/istio
+  tag: 1.1.4
+  defaultNamespace: istio-control
+  trafficManagement:
+    enabled: false
+  policy:
+    enabled: false
+  security:
+    enabled: false
+  configManagement:
+    enabled: false
+  autoInjection:
+    enabled: false
+  gateways:
+    enabled: false
+  telemetry:
+    enabled: true
+    components:
+      namespace: istio-telemetry
+      telemetry:
+        k8s:
+          overlays:
+            - kind: handler
+              name: prometheus
+              patches:
+                - path: spec.params.metrics.[name:requests_total].label_names.[reporter]
+                  value: new_metric # OVERRIDDEN
+            - kind: Deployment
+              name: istio-telemetry
+              patches:
+                - path: spec.template.spec.containers.[name:mixer].args.[--trace_zipkin_url]
+                  value: --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans # OVERRIDDEN
+

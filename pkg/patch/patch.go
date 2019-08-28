@@ -84,16 +84,15 @@ that way in the object being patched.
 package patch
 
 import (
+	"fmt"
 	"strings"
-
-	"istio.io/operator/pkg/object"
-
-	"istio.io/operator/pkg/tpath"
 
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/object"
+	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -116,6 +115,7 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 
 	var ret strings.Builder
 
+	var errs util.Errors
 	// Try to apply the defined overlays.
 	for k, oo := range oom {
 		bo := bom[k]
@@ -125,21 +125,20 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 			for k2 := range bom {
 				os += k2 + "\n"
 			}
-			log.Errorf("Overlay for %s does not match any object in output manifest:\n%s\n\nAvailable objects are:\n%s\n",
-				k, pretty.Sprint(oo), os)
+			errs = util.AppendErr(errs, fmt.Errorf("overlay for %s does not match any object in output manifest:\n%s\n\nAvailable objects are:\n%s",
+				k, pretty.Sprint(oo), os))
 			continue
 		}
 		patched, err := applyPatches(bo, oo)
 		if err != nil {
-			log.Errorf("patch error: %s", err)
+			errs = util.AppendErr(errs, fmt.Errorf("patch error: %s", err))
 			continue
 		}
 		if _, err := ret.Write(patched); err != nil {
-			log.Errorf("write: %s", err)
+			errs = util.AppendErr(errs, fmt.Errorf("write: %s", err))
 		}
 		if _, err := ret.WriteString("\n---\n"); err != nil {
-			log.Errorf("patch WriteString error: %s", err)
-			continue
+			errs = util.AppendErr(errs, fmt.Errorf("patch WriteString error: %s", err))
 		}
 	}
 	// Render the remaining objects with no overlays.
@@ -150,17 +149,17 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 		}
 		oy, err := oo.YAML()
 		if err != nil {
-			log.Errorf("Object to YAML error (%s) for base object: \n%v", err, oo)
+			errs = util.AppendErr(errs, fmt.Errorf("object to YAML error (%s) for base object: \n%v", err, oo))
 			continue
 		}
 		if _, err := ret.Write(oy); err != nil {
-			log.Errorf("write: %s", err)
+			errs = util.AppendErr(errs, fmt.Errorf("write: %s", err))
 		}
 		if _, err := ret.WriteString("\n---\n"); err != nil {
-			log.Errorf("writeString: %s", err)
+			errs = util.AppendErr(errs, fmt.Errorf("writeString: %s", err))
 		}
 	}
-	return ret.String(), nil
+	return ret.String(), errs.ToError()
 }
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
