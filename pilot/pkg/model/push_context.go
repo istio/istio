@@ -601,7 +601,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// construct a fake service without setting Attributes at all.
 	if service.Attributes.Namespace == "" {
 		for _, svc := range ps.Services(proxy) {
-			if service.Hostname == svc.Hostname {
+			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
 				service.Attributes.Namespace = svc.Attributes.Namespace
 				break
 			}
