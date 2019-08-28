@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v1beta1
 
 import (
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -21,7 +21,6 @@ import (
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
@@ -29,24 +28,17 @@ var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
-type v2Generator struct {
-	serviceMetadata           *authz_model.ServiceMetadata
-	authzPolicies             *model.AuthorizationPolicies
-	isGlobalPermissiveEnabled bool
+type v1beta1Generator struct {
+	policies []model.Config
 }
 
-func NewGenerator(
-	serviceMetadata *authz_model.ServiceMetadata,
-	authzPolicies *model.AuthorizationPolicies,
-	isGlobalPermissiveEnabled bool) policy.Generator {
-	return &v2Generator{
-		serviceMetadata:           serviceMetadata,
-		authzPolicies:             authzPolicies,
-		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
+func NewGenerator(policies []model.Config) policy.Generator {
+	return &v1beta1Generator{
+		policies: policies,
 	}
 }
 
-func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
+func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	rbacLog.Debugf("building v1beta1 policy")
 
 	rbac := &envoy_rbac.RBAC{
@@ -54,6 +46,9 @@ func (b *v2Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		Policies: map[string]*envoy_rbac.Policy{},
 	}
 
-	// TODO(yangminzhu): Implement the new authorization v1beta1 policy.
+	for _, config := range g.policies {
+		// TODO(yangminzhu): Implement the full authorization v1beta1 policy.
+		rbac.Policies[config.Name] = &envoy_rbac.Policy{}
+	}
 	return &http_config.RBAC{Rules: rbac}
 }

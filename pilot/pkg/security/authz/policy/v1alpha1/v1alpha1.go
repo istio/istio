@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package v1alpha1
 
 import (
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -29,7 +29,7 @@ var (
 	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
-type v1Generator struct {
+type v1alpha1Generator struct {
 	serviceMetadata           *authz_model.ServiceMetadata
 	authzPolicies             *model.AuthorizationPolicies
 	isGlobalPermissiveEnabled bool
@@ -39,15 +39,15 @@ func NewGenerator(
 	serviceMetadata *authz_model.ServiceMetadata,
 	authzPolicies *model.AuthorizationPolicies,
 	isGlobalPermissiveEnabled bool) policy.Generator {
-	return &v1Generator{
+	return &v1alpha1Generator{
 		serviceMetadata:           serviceMetadata,
 		authzPolicies:             authzPolicies,
 		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
 	}
 }
 
-func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
-	rbacLog.Debugf("building v1 policy")
+func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
+	rbacLog.Debugf("building v1alpha1 policy")
 
 	enforcedConfig := &envoy_rbac.RBAC{
 		Action:   envoy_rbac.RBAC_ALLOW,
@@ -58,19 +58,19 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		Policies: map[string]*envoy_rbac.Policy{},
 	}
 
-	serviceMetadata := b.serviceMetadata
-	authzPolicies := b.authzPolicies
+	serviceMetadata := g.serviceMetadata
+	authzPolicies := g.authzPolicies
 
 	namespace := serviceMetadata.GetNamespace()
-	bindings := authzPolicies.GetBindingsInNamespace(namespace)
-	for _, roleConfig := range authzPolicies.GetRolesInNamespace(namespace) {
+	bindings := authzPolicies.ListServiceRoleBindings(namespace)
+	for _, roleConfig := range authzPolicies.ListServiceRoles(namespace) {
 		roleName := roleConfig.Name
 		rbacLog.Debugf("checking role %v", roleName)
 
 		var enforcedBindings []*istio_rbac.ServiceRoleBinding
 		var permissiveBindings []*istio_rbac.ServiceRoleBinding
 		for _, binding := range bindings[roleName] {
-			if binding.Mode == istio_rbac.EnforcementMode_PERMISSIVE || b.isGlobalPermissiveEnabled {
+			if binding.Mode == istio_rbac.EnforcementMode_PERMISSIVE || g.isGlobalPermissiveEnabled {
 				// If RBAC Config is set to permissive mode globally, all policies will be in
 				// permissive mode regardless its own mode.
 				permissiveBindings = append(permissiveBindings, binding)
@@ -80,11 +80,11 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		}
 
 		role := roleConfig.Spec.(*istio_rbac.ServiceRole)
-		if p := b.generatePolicy(role, enforcedBindings, forTCPFilter); p != nil {
+		if p := g.generatePolicy(role, enforcedBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated policy for role: %s", roleName)
 			enforcedConfig.Policies[roleName] = p
 		}
-		if p := b.generatePolicy(role, permissiveBindings, forTCPFilter); p != nil {
+		if p := g.generatePolicy(role, permissiveBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated permissive policy for role: %s", roleName)
 			permissiveConfig.Policies[roleName] = p
 		}
@@ -92,7 +92,7 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 
 	// If RBAC Config is set to permissive mode globally, RBAC is transparent to users;
 	// when mapping to rbac filter config, there is only shadow rules (no normal rules).
-	if b.isGlobalPermissiveEnabled {
+	if g.isGlobalPermissiveEnabled {
 		return &http_config.RBAC{ShadowRules: permissiveConfig}
 	}
 
@@ -105,11 +105,11 @@ func (b *v1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	return ret
 }
 
-func (b *v1Generator) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
+func (g *v1alpha1Generator) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
 	if role == nil || len(bindings) == 0 {
 		return nil
 	}
 
 	m := authz_model.NewModel(role, bindings)
-	return m.Generate(b.serviceMetadata, forTCPFilter)
+	return m.Generate(g.serviceMetadata, forTCPFilter)
 }
