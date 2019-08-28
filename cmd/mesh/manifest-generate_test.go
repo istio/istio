@@ -22,19 +22,36 @@ import (
 	"istio.io/operator/pkg/object"
 )
 
-func TestManifestGenerate(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	tests := []struct {
-		desc       string
-		diffSelect string
-		diffIgnore string
-	}{
+type testGroup []struct {
+	desc       string
+	flags      string
+	diffSelect string
+	diffIgnore string
+}
+
+func TestManifestGenerateFlags(t *testing.T) {
+	runTestGroup(t, testGroup{
 		{
 			desc: "all_off",
 		},
 		{
+			desc:       "all_on",
+			diffIgnore: "ConfigMap:*:istio",
+		},
+		{
+			desc:       "flag_set_values",
+			diffIgnore: "ConfigMap:*:istio",
+			flags:      "-s values.global.proxy.image=myproxy",
+		},
+		// TODO: test output flag
+	})
+}
+
+func TestManifestGeneratePilot(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
 			desc: "pilot_default",
-			// TODO: remove istio-control
+			// TODO: remove istio ConfigMap
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{
@@ -49,13 +66,41 @@ func TestManifestGenerate(t *testing.T) {
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istio-pilot, Service:*:istio-pilot",
 		},
-	}
+	})
+}
+
+func TestManifestGenerateTelemetry(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "all_off",
+		},
+		{
+			desc:       "telemetry_default",
+			diffIgnore: "",
+		},
+		{
+			desc:       "telemetry_k8s_settings",
+			diffSelect: "Deployment:*:istio-telemetry, HorizontalPodAutoscaler:*:istio-telemetry",
+		},
+		{
+			desc:       "telemetry_override_values",
+			diffSelect: "handler:*:prometheus",
+		},
+		{
+			desc:       "telemetry_override_kubernetes",
+			diffSelect: "Deployment:*:istio-telemetry, handler:*:prometheus",
+		},
+	})
+}
+
+func runTestGroup(t *testing.T, tests testGroup) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outPath := filepath.Join(testDataDir, "output", tt.desc+".yaml")
 
-			got, err := runManifestGenerate(inPath)
+			got, err := runManifestGenerate(inPath, tt.flags)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,6 +133,12 @@ func TestManifestGenerate(t *testing.T) {
 	}
 }
 
-func runManifestGenerate(path string) (string, error) {
-	return runCommand("manifest generate -f " + path)
+// runManifestGenerate runs the manifest generate command. If flags is not set, passes the given path as a -f flag,
+// otherwise flags is passed to the command verbatim. Both path and flags should not be simultaneously set.
+func runManifestGenerate(path, flags string) (string, error) {
+	args := "manifest generate " + flags
+	if flags == "" {
+		args += " -f " + path
+	}
+	return runCommand(args)
 }

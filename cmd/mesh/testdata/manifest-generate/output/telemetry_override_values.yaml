@@ -1,0 +1,204 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: prometheus
+  namespace: istio-control
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledAdapter: prometheus
+  params:
+    metricsExpirationPolicy:
+      metricsExpiryDuration: "123m"
+    metrics:
+      - name: requests_total
+        instance_name: requestcount.instance.istio-control
+        kind: COUNTER
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - request_protocol
+          - response_code
+          - response_flags
+          - permissive_response_code
+          - permissive_response_policyid
+          - connection_security_policy
+      - name: request_duration_seconds
+        instance_name: requestduration.instance.istio-control
+        kind: DISTRIBUTION
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - request_protocol
+          - response_code
+          - response_flags
+          - permissive_response_code
+          - permissive_response_policyid
+          - connection_security_policy
+        buckets:
+          explicit_buckets:
+            bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+      - name: request_bytes
+        instance_name: requestsize.instance.istio-control
+        kind: DISTRIBUTION
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - request_protocol
+          - response_code
+          - response_flags
+          - permissive_response_code
+          - permissive_response_policyid
+          - connection_security_policy
+        buckets:
+          exponentialBuckets:
+            numFiniteBuckets: 8
+            scale: 1
+            growthFactor: 10
+      - name: response_bytes
+        instance_name: responsesize.instance.istio-control
+        kind: DISTRIBUTION
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - request_protocol
+          - response_code
+          - response_flags
+          - permissive_response_code
+          - permissive_response_policyid
+          - connection_security_policy
+        buckets:
+          exponentialBuckets:
+            numFiniteBuckets: 8
+            scale: 1
+            growthFactor: 10
+      - name: tcp_sent_bytes_total
+        instance_name: tcpbytesent.instance.istio-control
+        kind: COUNTER
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - connection_security_policy
+          - response_flags
+      - name: tcp_received_bytes_total
+        instance_name: tcpbytereceived.instance.istio-control
+        kind: COUNTER
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - connection_security_policy
+          - response_flags
+      - name: tcp_connections_opened_total
+        instance_name: tcpconnectionsopened.instance.istio-control
+        kind: COUNTER
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - connection_security_policy
+          - response_flags
+      - name: tcp_connections_closed_total
+        instance_name: tcpconnectionsclosed.instance.istio-control
+        kind: COUNTER
+        label_names:
+          - reporter
+          - source_app
+          - source_principal
+          - source_workload
+          - source_workload_namespace
+          - source_version
+          - destination_app
+          - destination_principal
+          - destination_workload
+          - destination_workload_namespace
+          - destination_version
+          - destination_service
+          - destination_service_name
+          - destination_service_namespace
+          - connection_security_policy
+          - response_flags
+---
