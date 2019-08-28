@@ -50,6 +50,8 @@ type cacheHandler struct {
 	handler  *kube.ChainHandler
 }
 
+type ValidateFunc func(interface{}) error
+
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
 	eventTag = monitoring.MustCreateLabel("event")
@@ -128,6 +130,32 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 				req = req.Namespace(namespace)
 			}
 			return req.Watch()
+		},
+		func(obj interface{}) error {
+			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
+			if !ok {
+				return fmt.Errorf("client not initialized %s", schema.Type)
+			}
+			s, exists := rc.descriptor.GetByType(schema.Type)
+			if !exists {
+				return fmt.Errorf("unrecognized type %q", schema.Type)
+			}
+
+			item, ok := obj.(crd.IstioObject)
+			if !ok {
+				return fmt.Errorf("error convert %v to istio CRD", obj)
+			}
+
+			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+			if err != nil {
+				return fmt.Errorf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, obj)
+			}
+
+			if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+				return fmt.Errorf("failed to validate CRD %v, error: %v", config, err)
+			}
+
+			return nil
 		})
 }
 
@@ -149,7 +177,8 @@ func (c *controller) createInformer(
 	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
-	wf cache.WatchFunc) cacheHandler {
+	wf cache.WatchFunc,
+	vf ValidateFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
@@ -162,10 +191,18 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				if err := vf(obj); err != nil {
+					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
+					return
+				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
+				if err := vf(cur); err != nil {
+					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
+					return
+				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
