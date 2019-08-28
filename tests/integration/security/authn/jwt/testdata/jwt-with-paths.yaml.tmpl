@@ -11,8 +11,8 @@ spec:
   - jwt:
       issuer: "test-issuer-1@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-      trigger_rules:
-      - excluded_paths:
+      triggerRules:
+      - excludedPaths:
         - exact: /health_check
         - prefix: /guest
   principalBinding: USE_ORIGIN
@@ -31,7 +31,7 @@ spec:
   - jwt:
       issuer: "test-issuer-1@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-      trigger_rules:
-      - included_paths:
+      triggerRules:
+      - includedPaths:
         - suffix: confidential
   principalBinding: USE_ORIGIN

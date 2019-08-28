@@ -52,7 +52,7 @@ spec:
       - headers:
           version:
             exact: v2
-        source_labels:
+        sourceLabels:
           version: v1
       route:
       - destination:
