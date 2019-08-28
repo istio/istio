@@ -12,14 +12,14 @@ spec:
   - jwt:
       issuer: "test-issuer-1@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-      trigger_rules:
-      - excluded_paths:
+      triggerRules:
+      - excludedPaths:
         - exact: /health_check
         - exact: /jwt2
   - jwt:
       issuer: "test-issuer-2@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-      trigger_rules:
-      - included_paths:
+      triggerRules:
+      - includedPaths:
         - exact: /jwt2
   principalBinding: USE_ORIGIN
