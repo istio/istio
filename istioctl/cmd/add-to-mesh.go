@@ -471,7 +471,7 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
 	sName := strings.Join([]string{svc.Name, svc.Namespace}, ".")
-	fmt.Fprintf(writer, "Service %q has been created in the Istio service mesh"+
+	fmt.Fprintf(writer, "Kubernetes Service %q has been created in the Istio service mesh"+
 		" for the external service %q\n", sName, svc.Name)
 	return nil
 }
