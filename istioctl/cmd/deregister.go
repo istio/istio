@@ -30,11 +30,14 @@ var (
 		Short: "De-registers a service instance",
 		Example: `# de-register an endpoint 172.17.0.2 from service my-svc:
 istioctl deregister my-svc 172.17.0.2`,
-		RunE: func(c *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				c.Println(c.UsageString())
+				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("deregister requires service name and endpoint")
 			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]
 			log.Infof("De-registering for service '%s' ip '%s'",

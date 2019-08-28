@@ -42,11 +42,14 @@ istioctl authn tls-check foo-656bd7df7c-5zp4s.default
 service "bar" :
 istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("tls-check requires pod name")
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
