@@ -135,11 +135,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// end shady logic
 
 		var si *model.ServiceInstance
+		serviceInstances := make([]*model.ServiceInstance, 0, len(node.ServiceInstances))
 		for _, w := range node.ServiceInstances {
 			if w.Endpoint.Port == int(portNumber) {
-				si = w
-				break
+				serviceInstances = append(serviceInstances, w)
 			}
+		}
+		if len(serviceInstances) == 1 {
+			si = serviceInstances[0]
+		} else {
+			names := make([]host.Name, 0, len(serviceInstances))
+			for _, s := range serviceInstances {
+				names = append(names, s.Service.Hostname)
+			}
+			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
+				len(serviceInstances), portNumber, names)
 		}
 
 		pluginParams := &plugin.InputParams{
