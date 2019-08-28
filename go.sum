@@ -355,6 +355,7 @@ github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22
 github.com/json-iterator/go v1.1.6 h1:MrUvLMLTMxbqFJ9kzlvat/rYZqZnW3u4wkLzWTaFwKs=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
+github.com/jteeuwen/go-bindata v0.0.0-20180305030458-6025e8de665b/go.mod h1:JVvhzYOiGBnFSYRyV00iY8q7/0PThjIYav1p9h5dmKs=
 github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7C0MuV77Wo=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 h1:dMIPRDg6gi7CUp0Kj2+HxqJ5kTr1iAdzsXYIrLCNSmU=
@@ -764,6 +765,8 @@ istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
 istio.io/operator v0.0.0-20190813061052-3b21fa19e418 h1:Qbm6mVyr2VswO7bS2fS7ouoZTl+gARRds+dsBeulPH8=
 istio.io/operator v0.0.0-20190813061052-3b21fa19e418/go.mod h1:WudeDwe5Tdj+6dSLiK8gDQJr07vJgyNM2DVRGOWbn8M=
+istio.io/operator v0.0.0-20190827173952-af847b66d2f9 h1:lXYXdziz/jPdLue45aGwStjKR1hxU1ufCVT4v7adJPk=
+istio.io/operator v0.0.0-20190827173952-af847b66d2f9/go.mod h1:ENQMBbrqipefx/BuRqZirIiMDfkdVa2l562+kWDY3Gs=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
 istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e h1:8RI4/zsMtrjkvyUqvy5CTGyVQPL86rERoWdm1npYU2A=
 istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
