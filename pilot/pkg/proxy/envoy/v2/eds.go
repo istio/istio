@@ -445,7 +445,6 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 			Labels: workloadLabels,
 		}
 
-		fullPush := false
 		adsClientsMutex.RLock()
 		for _, connection := range adsClients {
 			// if the workload has envoy proxy and connected to server,
@@ -455,21 +454,15 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 			//   case 2: the workload xDS connection has not been established,
 			//           also no need to trigger a full push here.
 			if connection.modelNode.IPAddresses[0] == id {
-				fullPush = true
+				// There is a possibility that the pod comes up later than endpoint.
+				// So no endpoints add/update events after this, we should request
+				// full push immediately to speed up sidecar startup.
+				s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
+				break
 			}
 		}
 		adsClientsMutex.RUnlock()
 
-		if fullPush {
-			// First time this workload has been seen. Maybe after the first connect,
-			// do a full push for this proxy in the next push epoch.
-			s.proxyUpdatesMutex.Lock()
-			if s.proxyUpdates == nil {
-				s.proxyUpdates = make(map[string]struct{})
-			}
-			s.proxyUpdates[id] = struct{}{}
-			s.proxyUpdatesMutex.Unlock()
-		}
 		return
 	}
 	if reflect.DeepEqual(w.Labels, workloadLabels) {
