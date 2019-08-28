@@ -23,7 +23,7 @@ import (
 // Message is a diagnostic message
 type Message struct {
 	// The error code of the message
-	Code Code
+	Code string
 
 	// The level of the message.
 	Level Level
@@ -40,21 +40,25 @@ type Message struct {
 
 // String implements io.Stringer
 func (m *Message) String() string {
-	origin := ""
-	if m.Origin != nil {
-		origin = "(" + m.Origin.FriendlyName() + ")"
-	}
-	return fmt.Sprintf("[%v%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.template, m.Parameters...))
+	return m.toString(true)
 }
 
 // StatusString creates a short-form string version of this message, suitable for putting in status fields of
 // individual objects.
 func (m *Message) StatusString() string {
-	return fmt.Sprintf("[%v%v] %s", m.Level, m.Code, fmt.Sprintf(m.template, m.Parameters...))
+	return m.toString(false)
+}
+
+func (m *Message) toString(includeOrigin bool) string {
+	origin := ""
+	if includeOrigin && m.Origin != nil {
+		origin = "(" + m.Origin.FriendlyName() + ")"
+	}
+	return fmt.Sprintf("%v [%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.template, m.Parameters...))
 }
 
 // NewMessage returns a new Message instance.
-func NewMessage(l Level, c Code, o resource.Origin, template string, p ...interface{}) Message {
+func NewMessage(l Level, c string, o resource.Origin, template string, p ...interface{}) Message {
 	return Message{
 		Level:      l,
 		Code:       c,

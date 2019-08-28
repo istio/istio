@@ -1,6 +1,6 @@
 messages:
   - name: "Internal Error"
-    code: 1
+    code: IST-0001
     level: Error
     description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
     template: "Internal error: %v"
@@ -9,7 +9,7 @@ messages:
         type: string
 
   - name: "Not Yet Implemented"
-    code: 2
+    code: IST-0002
     level: Error
     description: "A feature that the configuration is depending on is not implemented yet."
     template: "Not yet implemented: %s"
@@ -18,7 +18,7 @@ messages:
         type: string
 
   - name: "Parse Error"
-    code: 3
+    code: IST-0003
     level: Warning
     description: "There was a parse error during the parsing of the configuration text"
     template: "Parse error: %s"
@@ -27,7 +27,7 @@ messages:
         type: string
 
   - name: "Deprecated"
-    code: 4
+    code: IST-0004
     level: Warning
     description: "A feature that the configuration is depending on is now deprecated."
     template: "Deprecated: %s"
@@ -35,11 +35,13 @@ messages:
       - name: detail
         type: string
 
-  - name: "Gateway Not Found"
-    code: 20
+  - name: "Referenced Resource Not Found"
+    code: IST-0101
     level: Error
-    description: "The Gateway resource that the Virtual Service is referencing does not exist."
-    template: "Referenced Gateway not found: %q"
+    description: "A resource being referenced does not exist."
+    template: "Referenced %s not found: %q"
     args:
-      - name: gateway
+      - name: reftype
+        type: string
+      - name: refval
         type: string

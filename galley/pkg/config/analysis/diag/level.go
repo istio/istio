@@ -15,20 +15,15 @@
 package diag
 
 // Level is the severity level of a message.
-type Level rune
+type Level string
 
 const (
 	// Info level is for informational messages
-	Info Level = 'I'
+	Info Level = "Info"
 
 	// Warning level is for warning messages
-	Warning Level = 'W'
+	Warning Level = "Warn"
 
 	// Error level is for error messages
-	Error Level = 'E'
+	Error Level = "Error"
 )
-
-// String implements io.Stringer
-func (l Level) String() string {
-	return string(l)
-}

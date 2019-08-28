@@ -14,7 +14,7 @@ import (
 func InternalError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		diag.Code(1),
+		"IST-0001",
 		originOrNil(entry),
 		"Internal error: %v",
 		detail,
@@ -27,7 +27,7 @@ func InternalError(entry *resource.Entry, detail string) diag.Message {
 func NotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		diag.Code(2),
+		"IST-0002",
 		originOrNil(entry),
 		"Not yet implemented: %s",
 		detail,
@@ -40,7 +40,7 @@ func NotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 func ParseError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
-		diag.Code(3),
+		"IST-0003",
 		originOrNil(entry),
 		"Parse error: %s",
 		detail,
@@ -53,23 +53,25 @@ func ParseError(entry *resource.Entry, detail string) diag.Message {
 func Deprecated(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
-		diag.Code(4),
+		"IST-0004",
 		originOrNil(entry),
 		"Deprecated: %s",
 		detail,
 	)
 }
 
-// GatewayNotFound returns a new diag.Message for message "Gateway Not Found".
+// ReferencedResourceNotFound returns a new diag.Message for message "Referenced Resource Not Found".
 //
-// The Gateway resource that the Virtual Service is referencing does not exist.
-func GatewayNotFound(entry *resource.Entry, gateway string) diag.Message {
+// A resource being referenced does not exist.
+func ReferencedResourceNotFound(entry *resource.Entry, reftype string, refval string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		diag.Code(20),
+		"IST-0101",
 		originOrNil(entry),
-		"Referenced Gateway not found: %q",
-		gateway,
+		"Referenced %s not found: %q",
+		reftype,
+
+		refval,
 	)
 }
 
