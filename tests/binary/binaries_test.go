@@ -17,6 +17,7 @@ package binary
 import (
 	"encoding/json"
 	"flag"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -30,11 +31,11 @@ var (
 	releasedir *string
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	releasedir = flag.String("base-dir", "", "directory for binaries")
 	binaries = flag.String("binaries", "", "space separated binaries to test")
 	flag.Parse()
-
+	os.Exit(m.Run())
 }
 
 func TestVersion(t *testing.T) {
