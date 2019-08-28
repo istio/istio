@@ -28,7 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-const codeRegex = `^IST-\d\d\d\d$`
+const codeRegex = `^IST\d\d\d\d$`
 
 // Utility for generating staticinit.gen.go. Called from gen.go
 func main() {

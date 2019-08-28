@@ -14,7 +14,7 @@ import (
 func InternalError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		"IST-0001",
+		"IST0001",
 		originOrNil(entry),
 		"Internal error: %v",
 		detail,
@@ -27,7 +27,7 @@ func InternalError(entry *resource.Entry, detail string) diag.Message {
 func NotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		"IST-0002",
+		"IST0002",
 		originOrNil(entry),
 		"Not yet implemented: %s",
 		detail,
@@ -40,7 +40,7 @@ func NotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 func ParseError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
-		"IST-0003",
+		"IST0003",
 		originOrNil(entry),
 		"Parse error: %s",
 		detail,
@@ -53,7 +53,7 @@ func ParseError(entry *resource.Entry, detail string) diag.Message {
 func Deprecated(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		diag.Warning,
-		"IST-0004",
+		"IST0004",
 		originOrNil(entry),
 		"Deprecated: %s",
 		detail,
@@ -66,7 +66,7 @@ func Deprecated(entry *resource.Entry, detail string) diag.Message {
 func ReferencedResourceNotFound(entry *resource.Entry, reftype string, refval string) diag.Message {
 	return diag.NewMessage(
 		diag.Error,
-		"IST-0101",
+		"IST0101",
 		originOrNil(entry),
 		"Referenced %s not found: %q",
 		reftype,
