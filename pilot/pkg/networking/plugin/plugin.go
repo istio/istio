@@ -110,6 +110,10 @@ type InputParams struct {
 
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
+
+	// Inbound cluster name. It's only used by newHTTPPassThroughFilterChain.
+	// For other scenarios, the field is empty.
+	InboundClusterName string
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
