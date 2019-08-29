@@ -190,6 +190,16 @@
           "reportBatchMaxTime": {
             "description": "When disable_report_batch is false, this value specifies the maximum elapsed time a batched report will be sent after a user request is processed. If left unspecified, the default report_batch_max_time == 0 will use the hardcoded defaults of istio::mixerclient::ReportOptions.",
             "type": "string"
+          },
+          "inboundClusterStatName": {
+            "description": "Name to be used while emitting statistics for inbound clusters. By default, Istio emits statistics with the pattern inbound|\u003cport\u003e|\u003cport-name\u003e|\u003cservice-FQDN\u003e. For example inbound|7443|grpc-reviews|reviews.prod.svc.cluster.local. This can be used to override that pattern.",
+            "type": "string",
+            "format": "string"
+          },
+          "outboundClusterStatName": {
+            "description": "Name to be used while emitting statistics for outbound clusters. By default, Istio emits statistics with the pattern outbound|\u003cport\u003e|\u003csubsetname\u003e|\u003cservice-FQDN\u003e. For example outbound|8080|v2|reviews.prod.svc.cluster.local. This can be used to override that pattern.",
+            "type": "string",
+            "format": "string"
           }
         }
       },

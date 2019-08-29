@@ -31,16 +31,6 @@
               "type": "string",
               "format": "string"
             }
-          },
-          "inboundStatName": {
-            "description": "Name to be used while emitting statistics for inbound traffic. By default, Istio emits statistics with the pattern inbound|\u003cport\u003e|\u003cport-name\u003e|\u003cservice-FQDN\u003e. For example inbound|7443|grpc-reviews|reviews.prod.svc.cluster.local. This can be used to override that pattern.",
-            "type": "string",
-            "format": "string"
-          },
-          "outboundStatName": {
-            "description": "Name to be used while emitting statistics for outbound traffic. By default, Istio emits statistics with the pattern outbound|\u003cport\u003e|\u003csubsetname\u003e|\u003cservice-FQDN\u003e. For example outbound|8080|v2|reviews.prod.svc.cluster.local. This can be used to override that pattern.",
-            "type": "string",
-            "format": "string"
           }
         }
       },

@@ -773,18 +773,23 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 func TestStatNamePattern(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	inboundStatName := service + "_" + servicePort
-	outboundStatName := serviceFQDN + "_" + servicePort
+	statConfigMesh := meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		InboundClusterStatName:  "LocalService_%SERVICE%",
+		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+	}
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{}, testMesh,
+		&core.Locality{}, statConfigMesh,
 		&networking.DestinationRule{
-			Host:               "*.example.org",
-			inbound_stat_name:  inboundStatName,
-			outbound_stat_name: outboundStatName,
+			Host: "*.example.org",
 		})
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].AltStatName).To("")
+	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
+	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestLocalityLB(t *testing.T) {
@@ -1165,6 +1170,15 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
+			"Service FQDN With Empty Subset, Port and Port Name pattern",
+			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local_grpc-svc_7443",
+		},
+		{
 			"Service FQDN With Subset, Port and Port Name pattern",
 			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
@@ -1172,6 +1186,15 @@ func TestAltStatName(t *testing.T) {
 			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Unknown Pattern",
+			"%SERVICE_FQDN%.%DUMMY%",
+			"reviews.default.svc.cluster.local",
+			"v1",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local.%DUMMY%",
 		},
 	}
 

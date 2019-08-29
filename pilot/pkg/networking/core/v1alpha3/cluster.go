@@ -173,8 +173,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
-			statName := altStatName("", fmt.Sprintf("%s", service.Hostname), "", proxy.DNSDomain, port)
-			defaultCluster.AltStatName = statName
+			// If stat name is configured, build the alternate stats name.
+			if len(env.Mesh.OutboundClusterStatName) != 0 {
+				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, fmt.Sprintf("%s", service.Hostname), "", proxy.DNSDomain, port)
+			}
 
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
@@ -198,7 +200,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					subsetClusterStatName := altStatName("", fmt.Sprintf("%s", service.Hostname), subset.Name, proxy.DNSDomain, port)
 					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
@@ -207,7 +208,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
-					subsetCluster.AltStatName = subsetClusterStatName
+					if len(env.Mesh.OutboundClusterStatName) != 0 {
+						subsetCluster.AltStatName = altStatName("", fmt.Sprintf("%s", service.Hostname), subset.Name, proxy.DNSDomain, port)
+					}
 					setUpstreamProtocol(subsetCluster, port)
 
 					opts := buildClusterOpts{
@@ -611,8 +614,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
 	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, pluginParams.Node, nil)
-	statName := altStatName("", fmt.Sprintf("%s", instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
-	localCluster.AltStatName = statName
+	// If stat name is configured, build the alt statname.
+	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
+		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName, fmt.Sprintf("%s", instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
+	}
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 	// call plugins
 	for _, p := range configgen.Plugins {
@@ -1184,19 +1189,20 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 }
 
 func altStatName(statPattern string, host string, subset string, dnsDomain string, port *model.Port) string {
-	newStatName := strings.ReplaceAll(statPattern, service, shortHostName(host, dnsDomain))
-	newStatName = strings.ReplaceAll(newStatName, serviceFQDN, host)
-	newStatName = strings.ReplaceAll(newStatName, subsetName, subset)
-	newStatName = strings.ReplaceAll(newStatName, servicePort, strconv.Itoa(port.Port))
-	newStatName = strings.ReplaceAll(newStatName, servicePortName, port.Name)
-	return newStatName
+	name := strings.ReplaceAll(statPattern, service, shortHostName(host, dnsDomain))
+	name = strings.ReplaceAll(name, serviceFQDN, host)
+	name = strings.ReplaceAll(name, subsetName, subset)
+	name = strings.ReplaceAll(name, servicePort, strconv.Itoa(port.Port))
+	name = strings.ReplaceAll(name, servicePortName, port.Name)
+	return name
 }
 
 func shortHostName(host string, dnsDomain string) string {
 	shortHost := strings.TrimSuffix(host, dnsDomain)
-	parts := strings.Split(dnsDomain, ".")
-	if len(parts) > 1 { // k8s will have namespace.<domain>
-		shortHost = shortHost + parts[0]
+	if parts := strings.Split(dnsDomain, "."); len(parts) > 0 {
+		shortHost = shortHost + parts[0] // k8s will have namespace.<domain>
+	} else {
+		shortHost = host
 	}
 	return shortHost
 }
