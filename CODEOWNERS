@@ -10,6 +10,11 @@
 /pilot/pkg/networking/plugin/authn/                              @istio/wg-security-maintainers
 /pilot/pkg/networking/plugin/authz/                              @istio/wg-security-maintainers
 /pilot/pkg/networking/plugin/mixer/                              @istio/wg-policies-and-telemetry-maintainers
+/pilot/pkg/config/                                               @istio/wg-networking-maintainers-pilot
+/pilot/pkg/serviceregistry/                                      @istio/wg-networking-maintainers-pilot
+/pilot/pkg/model/                                                @istio/wg-networking-maintainers-pilot
+/pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot
+/pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
 /pkg/bootstrap/                                                  @istio/wg-environments-maintainers
 /pkg/mcp/                                                        @istio/wg-config-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
