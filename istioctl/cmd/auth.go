@@ -61,7 +61,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
   # Check the TLS/JWT/RBAC policy status from a config dump file:
   istioctl experimental auth check -f httpbin_config_dump.txt`,
-		Args: cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("check requires only pod name")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var configDump *configdump.Wrapper
 			var err error
