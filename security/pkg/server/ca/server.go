@@ -270,6 +270,8 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(config))
 }
 
+// applyServerCertificate returns a valid server TLS certificate and the intermediate CA certificates,
+// signed by the current CA root.
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
 		RSAKeySize: 2048,
@@ -289,6 +291,8 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Attach the intermediate certificates.
 	certChainPEM := s.ca.GetCAKeyCertBundle().GetCertChainPem()
 	var certChainDER *pem.Block
 	certChainDER, _ = pem.Decode(certChainPEM)
