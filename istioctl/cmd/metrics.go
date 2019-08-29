@@ -59,8 +59,14 @@ istioctl experimental metrics productpage-v1
 istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
 		// nolint: goimports
-		Aliases:               []string{"m"},
-		Args:                  cobra.MinimumNArgs(1),
+		Aliases: []string{"m"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("metrics requires workload name")
+			}
+			return nil
+		},
 		RunE:                  run,
 		DisableFlagsInUseLine: true,
 	}

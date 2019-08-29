@@ -107,7 +107,13 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config clusters <pod-name[.namespace]> --fqdn details.default.svc.cluster.local --direction inbound -o json
 `,
 		Aliases: []string{"clusters", "c"},
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("cluster requires pod name")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
@@ -150,7 +156,13 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config listeners <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
 `,
 		Aliases: []string{"listeners", "l"},
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("listener requires pod name")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
@@ -192,7 +204,13 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config route <pod-name[.namespace]> --name 9080 -o json
 `,
 		Aliases: []string{"routes", "r"},
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("route requires pod name")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
@@ -234,7 +252,13 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config endpoint <pod-name[.namespace]> --status healthy -ojson
 `,
 		Aliases: []string{"endpoints", "ep"},
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("endpoint requires pod name")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
@@ -273,7 +297,13 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config bootstrap <pod-name[.namespace]>
 `,
 		Aliases: []string{"b"},
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("bootstrap requires pod name")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
