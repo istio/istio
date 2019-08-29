@@ -1200,7 +1200,7 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 
 func shortHostName(host string, dnsDomain string) string {
 	shortHost := strings.TrimSuffix(host, dnsDomain)
-	if parts := strings.Split(dnsDomain, "."); len(parts) > 0 {
+	if parts := strings.Split(dnsDomain, "."); len(parts) > 1 {
 		shortHost += parts[0] // k8s will have namespace.<domain>
 	} else {
 		shortHost = host
