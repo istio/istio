@@ -23,11 +23,15 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -47,7 +51,33 @@ type execAndK8sConfigTestCase struct {
 }
 
 var (
-	cannedIstioConfig = []model.Config{}
+	cannedIstioConfig = []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "ratings",
+				Namespace: "bookinfo",
+				Type:      schemas.DestinationRule.Type,
+				Group:     schemas.DestinationRule.Group,
+				Version:   schemas.DestinationRule.Version,
+			},
+			Spec: &networking.DestinationRule{
+				Host: "ratings",
+				Subsets: []*networking.Subset{
+					{
+						Name: "v1",
+						Labels: map[string]string{
+							"version": "v1",
+						},
+					},
+				},
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		},
+	}
 
 	cannedK8sEnv = []runtime.Object{
 		&coreV1.PodList{Items: []coreV1.Pod{
@@ -62,6 +92,43 @@ var (
 				Spec: coreV1.PodSpec{
 					NodeName: "foo_node",
 					Containers: []coreV1.Container{
+						{
+							Name: "istio-proxy",
+							Ports: []coreV1.ContainerPort{
+								{
+									Name:          "http-envoy-prom",
+									ContainerPort: 15090,
+									Protocol:      "TCP",
+								},
+							},
+						},
+					},
+				},
+				Status: coreV1.PodStatus{
+					Phase: coreV1.PodRunning,
+				},
+			},
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "ratings-v1-f745cf57b-vfwcv",
+					Namespace: "bookinfo",
+					Labels: map[string]string{
+						"app":     "ratings",
+						"version": "v1",
+					},
+				},
+				Spec: coreV1.PodSpec{
+					NodeName: "foo_node",
+					Containers: []coreV1.Container{
+						{
+							Name: "ratings",
+							Ports: []coreV1.ContainerPort{
+								{
+									ContainerPort: 9080,
+									Protocol:      "TCP",
+								},
+							},
+						},
 						{
 							Name: "istio-proxy",
 							Ports: []coreV1.ContainerPort{
@@ -95,6 +162,26 @@ var (
 					Selector: map[string]string{"app": "details"},
 				},
 			},
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "ratings",
+					Namespace: "bookinfo",
+				},
+				Spec: coreV1.ServiceSpec{
+					Ports: []coreV1.ServicePort{
+						{
+							Port: 9080,
+							TargetPort: intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 9080,
+							},
+							Name:     "http",
+							Protocol: "TCP",
+						},
+					},
+					Selector: map[string]string{"app": "ratings"},
+				},
+			},
 		}},
 	}
 )
@@ -102,6 +189,7 @@ var (
 func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+		"ratings-v1-f745cf57b-vfwcv":  util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
 		"istio-pilot-7f9796fc98-99bp7": []byte(`[
 {
     "host": "details.default.svc.cluster.local",
@@ -110,6 +198,15 @@ func TestDescribe(t *testing.T) {
     "destination_rule_name": "details/default",
     "server_protocol": "HTTP/mTLS",
     "client_protocol": "HTTP",
+    "TLS_conflict_status": "OK"
+},
+{
+    "host": "ratings.bookinfo.svc.cluster.local",
+    "port": 9080,
+    "authentication_policy_name": "default/",
+    "destination_rule_name": "details/default",
+    "server_protocol": "HTTP/mTLS",
+    "client_protocol": "mTLS",
     "TLS_conflict_status": "OK"
 }
 ]`),
@@ -144,6 +241,23 @@ Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
 Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
+`,
+		},
+		{ // case 5 has recent data including RBAC
+			execClientConfig: cannedConfig,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv,
+			args:             strings.Split("-n bookinfo experimental describe pod ratings-v1-f745cf57b-vfwcv", " "),
+			expectedOutput: `Pod: ratings-v1-f745cf57b-vfwcv
+   Pod Ports: 9080 (ratings), 15090 (istio-proxy)
+--------------------
+Service: ratings
+   Port: http 9080/HTTP
+DestinationRule: ratings for "ratings"
+   Matching subsets: v1
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
+Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+RBAC policies: ratings-reader
 `,
 		},
 	}

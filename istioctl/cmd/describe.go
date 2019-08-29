@@ -24,6 +24,8 @@ import (
 
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	gogo_types "github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 
@@ -39,6 +41,7 @@ import (
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -188,6 +191,16 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 							}
 							printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 						}
+					}
+
+					policies, _ := getIstioRBACPolicies(&cd, port.Port)
+					if len(policies) > 0 {
+						if len(svc.Spec.Ports) > 1 {
+							// If there is more than one port, prefix each DR by the port it applies to
+							fmt.Fprintf(writer, "%d ", port.Port)
+						}
+
+						fmt.Fprintf(writer, "RBAC policies: %s\n", strings.Join(policies, ", "))
 					}
 				}
 			}
@@ -671,6 +684,64 @@ func (v *myGogoValue) keyAsString(key string) string {
 	return s.GetStringValue()
 }
 
+func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) {
+	hcm, err := getInboundHTTPConnectionManager(cd, port)
+	if err != nil || hcm == nil {
+		return []string{}, err
+	}
+
+	// Identify RBAC policies.  Currently there are no "breadcrumbs" so we only
+	// return the policy names, not the ServiceRole and ServiceRoleBinding names.
+	for _, httpFilter := range hcm.HttpFilters {
+		if httpFilter.Name == authz_model.RBACHTTPFilterName {
+			rbac := &rbac_http_filter.RBAC{}
+			if err := gogo_types.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
+				policies := []string{}
+				for polName := range rbac.Rules.Policies {
+					policies = append(policies, polName)
+				}
+				return policies, nil
+			}
+		}
+	}
+
+	return []string{}, nil
+}
+
+// Return the first HTTP Connection Manager config for the inbound port
+func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_conn.HttpConnectionManager, error) {
+	filter := istio_envoy_configdump.ListenerFilter{
+		Port: uint32(port),
+	}
+	listeners, err := cd.GetListenerConfigDump()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, listener := range listeners.DynamicActiveListeners {
+		if filter.Verify(listener.Listener) {
+			sockAddr := listener.Listener.Address.GetSocketAddress()
+			if sockAddr != nil {
+				// Skip outbound listeners
+				if sockAddr.Address == "0.0.0.0" {
+					continue
+				}
+			}
+
+			for _, filterChain := range listener.Listener.FilterChains {
+				for _, filter := range filterChain.Filters {
+					hcm := &http_conn.HttpConnectionManager{}
+					if err := gogo_types.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+						return hcm, nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
 // getIstioConfigNameForSvc returns name, namespace
 func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioVirtualServicePathForSvcFromRoute(cd, svc, port)
@@ -709,7 +780,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 
 		for _, vh := range rcd.RouteConfig.VirtualHosts {
 			for _, route := range vh.Routes {
-				if routeDestinationMatchesSvc(route, svc) {
+				if routeDestinationMatchesSvc(route, svc, vh) {
 					return getIstioConfig(route.Metadata)
 				}
 			}
@@ -719,7 +790,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
-func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service) bool {
+func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh *envoy_api_route.VirtualHost) bool {
 	if route == nil {
 		return false
 	}
@@ -742,6 +813,17 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service) bo
 						return true
 					}
 				}
+			}
+		}
+	}
+
+	// No mixer config, infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
+	re := regexp.MustCompile(`(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`)
+	for _, domain := range vh.Domains {
+		ss := re.FindStringSubmatch(domain)
+		if ss != nil {
+			if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
+				return true
 			}
 		}
 	}
@@ -911,6 +993,7 @@ func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.Authentic
 		return
 	}
 
+	count := 0
 	matchingAuthns := []envoy_v2.AuthenticationDebug{}
 	for _, authn := range *debug {
 		if authnMatchSvc(authn, svc, port) {
@@ -919,8 +1002,12 @@ func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.Authentic
 	}
 	for _, matchingAuthn := range matchingAuthns {
 		printAuthn(writer, pod, matchingAuthn)
+		count++
 	}
 
+	if count == 0 {
+		fmt.Fprintf(writer, "None\n")
+	}
 }
 
 // getIstioVirtualServicePathForSvcFromListener returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"

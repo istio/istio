@@ -48,13 +48,13 @@ func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs)
 		Long:  "List the version of Istio recommended for and supported by this version of the operator binary.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			manifestVersions(rootArgs, versionsArgs)
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			manifestVersions(rootArgs, versionsArgs, l)
 		}}
-
 }
 
-func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs) {
-	checkLogsOrExit(args)
+func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) {
+	initLogsOrExit(args)
 
 	var b []byte
 	var err error
@@ -63,17 +63,17 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs) {
 	if strings.HasPrefix(uri, "http") {
 		b, err = httprequest.Get(uri)
 		if err != nil {
-			logAndFatalf(args, err.Error())
+			l.logAndFatal(err.Error())
 		}
 	} else {
 		b, err = ioutil.ReadFile(uri)
 		if err != nil {
-			logAndFatalf(args, err.Error())
+			l.logAndFatal(err.Error())
 		}
 	}
 	var versions []*version.CompatibilityMapping
 	if err = yaml.Unmarshal(b, &versions); err != nil {
-		logAndFatalf(args, err.Error())
+		l.logAndFatal(err.Error())
 	}
 
 	var myVersionMap *version.CompatibilityMapping
@@ -84,10 +84,10 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs) {
 	}
 
 	if myVersionMap == nil {
-		logAndFatalf(args, "This operator version (%s) was not found in the global manifestVersions map.", binversion.OperatorBinaryGoVersion.String())
+		l.logAndFatal("This operator version ", binversion.OperatorBinaryGoVersion.String(), " was not found in the global manifestVersions map.")
 	}
 
-	fmt.Printf("\nOperator version is %s.\n\n", binversion.OperatorBinaryGoVersion.String())
+	fmt.Print("\nOperator version is ", binversion.OperatorBinaryGoVersion.String(), ".\n\n")
 	fmt.Println("The following installation package versions are recommended for use with this version of the operator:")
 	for _, v := range myVersionMap.RecommendedIstioVersions {
 		fmt.Printf("  %s\n", v.String())

@@ -155,9 +155,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20190813194754-2745b7cd4150
+	istio.io/api v0.0.0-20190827203453-55bf99d69a1f
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
-	istio.io/operator v0.0.0-20190813061052-3b21fa19e418
+	istio.io/operator v0.0.0-20190827173952-af847b66d2f9
 	istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
@@ -165,5 +165,6 @@ require (
 	k8s.io/cli-runtime v0.0.0-20190221101700-11047e25a94a
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/helm v2.13.1+incompatible
+	k8s.io/kubernetes v1.13.1
 	sigs.k8s.io/yaml v1.1.0
 )

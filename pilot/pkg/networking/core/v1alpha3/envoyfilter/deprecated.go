@@ -259,7 +259,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 		filterStruct.ConfigType = &xdslistener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	}
 	filterChain.Filters[len(filterChain.Filters)-1] = &filterStruct
-	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }
 
@@ -300,6 +300,6 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 			}
 		}
 	}
-	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(filterChain.Filters))
 }

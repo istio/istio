@@ -74,7 +74,7 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 
 //compareManifestsFromFiles compares two manifest files
 func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResources, ignoreResources string) {
-	checkLogsOrExit(rootArgs)
+	initLogsOrExit(rootArgs)
 
 	a, err := ioutil.ReadFile(args[0])
 	if err != nil {
@@ -106,14 +106,14 @@ func yamlFileFilter(path string) bool {
 
 //compareManifestsFromDirs compares manifests from two directories
 func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2, selectResources, ignoreResources string) {
-	checkLogsOrExit(rootArgs)
+	initLogsOrExit(rootArgs)
 
-	mf1, err := util.ReadFiles(dirName1, yamlFileFilter)
+	mf1, err := util.ReadFilesWithFilter(dirName1, yamlFileFilter)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	mf2, err := util.ReadFiles(dirName2, yamlFileFilter)
+	mf2, err := util.ReadFilesWithFilter(dirName2, yamlFileFilter)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

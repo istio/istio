@@ -24,9 +24,12 @@
       },
       "istio.mixer.v1.Attributes.AttributeValue": {
         "description": "Specifies one attribute value with different type.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "stringValue"
+            ],
             "properties": {
               "stringValue": {
                 "description": "Used for values of type STRING, DNS_NAME, EMAIL_ADDRESS, and URI",
@@ -36,7 +39,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "int64Value"
+            ],
             "properties": {
               "int64Value": {
                 "description": "Used for values of type INT64",
@@ -46,7 +51,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "doubleValue"
+            ],
             "properties": {
               "doubleValue": {
                 "description": "Used for values of type DOUBLE",
@@ -56,7 +63,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "boolValue"
+            ],
             "properties": {
               "boolValue": {
                 "description": "Used for values of type BOOL",
@@ -65,33 +74,44 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "bytesValue"
+            ],
             "properties": {
               "bytesValue": {
                 "description": "Used for values of type BYTES",
                 "type": "string",
-                "format": "byte"
+                "format": "binary"
               }
             }
           },
           {
-            "type": "object",
+            "required": [
+              "timestampValue"
+            ],
             "properties": {
               "timestampValue": {
-                "$ref": "#/components/schemas/google.protobuf.Timestamp"
+                "description": "Used for values of type TIMESTAMP",
+                "type": "string",
+                "format": "dateTime"
               }
             }
           },
           {
-            "type": "object",
+            "required": [
+              "durationValue"
+            ],
             "properties": {
               "durationValue": {
-                "$ref": "#/components/schemas/google.protobuf.Duration"
+                "description": "Used for values of type DURATION",
+                "type": "string"
               }
             }
           },
           {
-            "type": "object",
+            "required": [
+              "stringMapValue"
+            ],
             "properties": {
               "stringMapValue": {
                 "$ref": "#/components/schemas/istio.mixer.v1.Attributes.StringMap"
@@ -143,7 +163,8 @@
             "description": "Holds attributes of type BYTES",
             "type": "object",
             "additionalProperties": {
-              "type": "object"
+              "type": "string",
+              "format": "binary"
             }
           },
           "words": {
@@ -181,14 +202,15 @@
             "description": "Holds attributes of type TIMESTAMP",
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/google.protobuf.Timestamp"
+              "type": "string",
+              "format": "dateTime"
             }
           },
           "durations": {
             "description": "Holds attributes of type DURATION",
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/google.protobuf.Duration"
+              "type": "string"
             }
           },
           "stringMaps": {
@@ -224,6 +246,9 @@
           "quotas"
         ],
         "properties": {
+          "attributes": {
+            "$ref": "#/components/schemas/istio.mixer.v1.CompressedAttributes"
+          },
           "globalWordCount": {
             "description": "The number of words in the global dictionary, used with to populate the attributes. This value is used as a quick way to determine whether the client is using a dictionary that the server understands.",
             "type": "integer"
@@ -270,17 +295,9 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/istio.mixer.v1.CheckResponse.QuotaResult"
             }
-          }
-        }
-      },
-      "istio.mixer.v1.CheckResponse.QuotaResult": {
-        "description": "Expresses the result of a quota allocation.",
-        "type": "object",
-        "properties": {
-          "grantedAmount": {
-            "description": "The amount of granted quota. When `QuotaParams.best_effort` is true, this will be \u003e= 0. If `QuotaParams.best_effort` is false, this will be either 0 or \u003e= `QuotaParams.amount`.",
-            "type": "integer",
-            "format": "int64"
+          },
+          "precondition": {
+            "$ref": "#/components/schemas/istio.mixer.v1.CheckResponse.PreconditionResult"
           }
         }
       },
@@ -288,6 +305,13 @@
         "description": "Expresses the result of a precondition check.",
         "type": "object",
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "validDuration": {
+            "description": "The amount of time for which this result can be considered valid.",
+            "type": "string"
+          },
           "validUseCount": {
             "description": "The number of uses for which this result can be considered valid.",
             "type": "integer",
@@ -298,6 +322,27 @@
           },
           "routeDirective": {
             "$ref": "#/components/schemas/istio.mixer.v1.RouteDirective"
+          }
+        }
+      },
+      "istio.mixer.v1.CheckResponse.QuotaResult": {
+        "description": "Expresses the result of a quota allocation.",
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "validDuration": {
+            "description": "The amount of time for which this result can be considered valid.",
+            "type": "string"
+          },
+          "referencedAttributes": {
+            "$ref": "#/components/schemas/istio.mixer.v1.ReferencedAttributes"
+          },
+          "grantedAmount": {
+            "description": "The amount of granted quota. When `QuotaParams.best_effort` is true, this will be \u003e= 0. If `QuotaParams.best_effort` is false, this will be either 0 or \u003e= `QuotaParams.amount`.",
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -312,6 +357,13 @@
               "type": "string",
               "format": "string"
             }
+          },
+          "attributeMatches": {
+            "description": "Describes a set of attributes.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.mixer.v1.ReferencedAttributes.AttributeMatch"
+            }
           }
         }
       },
@@ -319,6 +371,20 @@
         "description": "Expresses the routing manipulation actions to be performed on behalf of Mixer in response to a precondition check.",
         "type": "object",
         "properties": {
+          "requestHeaderOperations": {
+            "description": "Operations on the request headers.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.mixer.v1.HeaderOperation"
+            }
+          },
+          "responseHeaderOperations": {
+            "description": "Operations on the response headers.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.mixer.v1.HeaderOperation"
+            }
+          },
           "directResponseCode": {
             "description": "If set, enables a direct response without proxying the request to the routing destination. Required to be a value in the 2xx or 3xx range.",
             "type": "integer"
@@ -329,16 +395,6 @@
             "format": "string"
           }
         }
-      },
-      "istio.mixer.v1.ReferencedAttributes.Condition": {
-        "description": "How an attribute's value was matched",
-        "enum": [
-          "CONDITION_UNSPECIFIED",
-          "ABSENCE",
-          "EXACT",
-          "REGEX"
-        ],
-        "default": "CONDITION_UNSPECIFIED"
       },
       "istio.mixer.v1.ReferencedAttributes.AttributeMatch": {
         "description": "Describes a single attribute match.",
@@ -364,6 +420,17 @@
           }
         }
       },
+      "istio.mixer.v1.ReferencedAttributes.Condition": {
+        "description": "How an attribute's value was matched",
+        "type": "string",
+        "enum": [
+          "CONDITION_UNSPECIFIED",
+          "ABSENCE",
+          "EXACT",
+          "REGEX"
+        ],
+        "default": "CONDITION_UNSPECIFIED"
+      },
       "istio.mixer.v1.HeaderOperation": {
         "description": "Operation on HTTP headers to replace, append, or remove a header. Header names are normalized to lower-case with dashes, e.g. \"x-request-id\". Pseudo-headers \":path\", \":authority\", and \":method\" are supported to modify the request headers.",
         "type": "object",
@@ -385,6 +452,7 @@
       },
       "istio.mixer.v1.HeaderOperation.Operation": {
         "description": "Operation type.",
+        "type": "string",
         "enum": [
           "REPLACE",
           "REMOVE",
@@ -396,6 +464,13 @@
         "description": "Used to report telemetry after performing one or more actions.",
         "type": "object",
         "properties": {
+          "attributes": {
+            "description": "The attributes to use for this request.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.mixer.v1.CompressedAttributes"
+            }
+          },
           "globalWordCount": {
             "description": "The number of words in the global dictionary. To detect global dictionary out of sync between client and server.",
             "type": "integer"
@@ -415,6 +490,7 @@
       },
       "istio.mixer.v1.ReportRequest.RepeatedAttributesSemantics": {
         "description": "Used to signal how the sets of compressed attributes should be reconstitued server-side.",
+        "type": "string",
         "enum": [
           "DELTA_ENCODING",
           "INDEPENDENT_ENCODING"
@@ -425,33 +501,36 @@
         "description": "Used to carry responses to telemetry reports",
         "type": "object"
       },
-      "google.protobuf.Duration": {
+      "google.rpc.Status": {
+        "description": "A status code of OK indicates quota was fetched successfully. Any other code indicates error in fetching quota.",
         "type": "object",
         "properties": {
-          "seconds": {
-            "description": "Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years",
-            "type": "integer",
-            "format": "int64"
-          },
-          "nanos": {
-            "description": "Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.",
+          "code": {
+            "description": "The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].",
             "type": "integer",
             "format": "int32"
-          }
-        }
-      },
-      "google.protobuf.Timestamp": {
-        "type": "object",
-        "properties": {
-          "seconds": {
-            "description": "Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive.",
-            "type": "integer",
-            "format": "int64"
           },
-          "nanos": {
-            "description": "Non-negative fractions of a second at nanosecond resolution. Negative second values with fractions must still have non-negative nanos values that count forward in time. Must be from 0 to 999,999,999 inclusive.",
-            "type": "integer",
-            "format": "int32"
+          "message": {
+            "description": "A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.",
+            "type": "string",
+            "format": "string"
+          },
+          "details": {
+            "description": "A list of messages that carry the error details. There is a common set of message types for APIs to use.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "@type"
+              ],
+              "properties": {
+                "@type": {
+                  "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                  "type": "string",
+                  "format": "string"
+                }
+              }
+            }
           }
         }
       }

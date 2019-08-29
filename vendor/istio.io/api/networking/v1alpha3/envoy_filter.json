@@ -21,7 +21,6 @@
             }
           },
           "filters": {
-            "description": "$hide_from_docs",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/istio.networking.v1alpha3.EnvoyFilter.Filter"
@@ -58,7 +57,8 @@
             "format": "string"
           },
           "filterConfig": {
-            "$ref": "#/components/schemas/google.protobuf.Struct"
+            "description": "REQUIRED: Filter specific configuration which depends on the filter being instantiated.",
+            "type": "object"
           }
         }
       },
@@ -124,6 +124,7 @@
         }
       },
       "istio.networking.v1alpha3.EnvoyFilter.DeprecatedListenerMatch.ListenerType": {
+        "type": "string",
         "enum": [
           "ANY",
           "SIDECAR_INBOUND",
@@ -133,6 +134,7 @@
         "default": "ANY"
       },
       "istio.networking.v1alpha3.EnvoyFilter.DeprecatedListenerMatch.ListenerProtocol": {
+        "type": "string",
         "enum": [
           "ALL",
           "HTTP",
@@ -156,6 +158,7 @@
       },
       "istio.networking.v1alpha3.EnvoyFilter.InsertPosition.Index": {
         "description": "Index/position in the filter chain.",
+        "type": "string",
         "enum": [
           "FIRST",
           "LAST",
@@ -165,6 +168,7 @@
         "default": "FIRST"
       },
       "istio.networking.v1alpha3.EnvoyFilter.Filter.FilterType": {
+        "type": "string",
         "enum": [
           "INVALID",
           "HTTP",
@@ -174,6 +178,7 @@
       },
       "istio.networking.v1alpha3.EnvoyFilter.ApplyTo": {
         "description": "ApplyTo specifies where in the Envoy configuration, the given patch should be applied.",
+        "type": "string",
         "enum": [
           "INVALID",
           "LISTENER",
@@ -189,6 +194,7 @@
       },
       "istio.networking.v1alpha3.EnvoyFilter.PatchContext": {
         "description": "PatchContext selects a class of configurations based on the traffic flow direction and workload type.",
+        "type": "string",
         "enum": [
           "ANY",
           "SIDECAR_INBOUND",
@@ -302,6 +308,7 @@
       },
       "istio.networking.v1alpha3.EnvoyFilter.RouteConfigurationMatch.RouteMatch.Action": {
         "description": "Action refers to the route action taken by Envoy when a http route matches.",
+        "type": "string",
         "enum": [
           "ANY",
           "ROUTE",
@@ -395,12 +402,14 @@
             "$ref": "#/components/schemas/istio.networking.v1alpha3.EnvoyFilter.Patch.Operation"
           },
           "value": {
-            "$ref": "#/components/schemas/google.protobuf.Struct"
+            "description": "The JSON config of the object being patched. This will be merged using json merge semantics with the existing proto in the path.",
+            "type": "object"
           }
         }
       },
       "istio.networking.v1alpha3.EnvoyFilter.Patch.Operation": {
         "description": "Operation denotes how the patch should be applied to the selected configuration.",
+        "type": "string",
         "enum": [
           "INVALID",
           "MERGE",
@@ -413,9 +422,12 @@
       },
       "istio.networking.v1alpha3.EnvoyFilter.EnvoyConfigObjectMatch": {
         "description": "One or more match conditions to be met before a patch is applied to the generated configuration for a given proxy.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "listener"
+            ],
             "properties": {
               "context": {
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.EnvoyFilter.PatchContext"
@@ -429,7 +441,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "routeConfiguration"
+            ],
             "properties": {
               "context": {
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.EnvoyFilter.PatchContext"
@@ -443,7 +457,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "cluster"
+            ],
             "properties": {
               "context": {
                 "$ref": "#/components/schemas/istio.networking.v1alpha3.EnvoyFilter.PatchContext"
@@ -456,99 +472,6 @@
               }
             }
           }
-        ]
-      },
-      "google.protobuf.Struct": {
-        "description": "Represents a structured value.",
-        "type": "object",
-        "required": [
-          "fields"
-        ],
-        "properties": {
-          "fields": {
-            "description": "Unordered map of dynamically typed values.",
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/google.protobuf.Value"
-            }
-          }
-        }
-      },
-      "google.protobuf.Value": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "nullValue": {
-                "$ref": "#/components/schemas/google.protobuf.NullValue"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "properties": {
-              "numberValue": {
-                "description": "Represents a double value.",
-                "type": "number",
-                "format": "double"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "properties": {
-              "stringValue": {
-                "description": "Represents a string value.",
-                "type": "string",
-                "format": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "properties": {
-              "boolValue": {
-                "description": "Represents a boolean value.",
-                "type": "boolean"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "properties": {
-              "structValue": {
-                "$ref": "#/components/schemas/google.protobuf.Struct"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "properties": {
-              "listValue": {
-                "$ref": "#/components/schemas/google.protobuf.ListValue"
-              }
-            }
-          }
-        ]
-      },
-      "google.protobuf.ListValue": {
-        "description": "Represents a repeated `Value`.",
-        "type": "object",
-        "properties": {
-          "values": {
-            "description": "Repeated field of dynamically typed values.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/google.protobuf.Value"
-            }
-          }
-        }
-      },
-      "google.protobuf.NullValue": {
-        "description": "Represents a null value.",
-        "type": "string",
-        "enum": [
-          "NULL_VALUE"
         ]
       }
     }

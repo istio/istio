@@ -52,6 +52,8 @@ spec:
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
+        securityContext:
+          runAsUser: 0
         imagePullPolicy: {{.ImagePullPolicy}}
         args:
           - --port

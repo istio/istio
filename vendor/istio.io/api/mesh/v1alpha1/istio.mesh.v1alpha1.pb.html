@@ -496,6 +496,24 @@ can be configured for a single control plane.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-enable_auto_mtls">
+<td><code>enableAutoMtls</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>This flag is used to enable mutual TLS automatically for service to service communication
+within the mesh, default false.
+If set to true, and a given service does not have a corresponding DestinationRule configured,
+or its DestinationRule does not have TLSSettings specified, Istio configures client side
+TLS configuration appropriately. More specifically,
+If the upstream authentication policy is in STRICT mode, use Istio provisioned certificate
+for mutual TLS to connect to upstream.
+If upstream service is in plain text mode, use plain text.
+If the upstream authentication policy is in PERMISSIVE mode, Istio configures clients to use
+mutual TLS when server sides are capable of accepting mutual TLS traffic.
+If service DestinationRule exists and has TLSSettings specified, that is always used instead.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-trust_domain">
 <td><code>trustDomain</code></td>
 <td><code>string</code></td>

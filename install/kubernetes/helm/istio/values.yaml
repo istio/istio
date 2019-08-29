@@ -31,7 +31,7 @@ galley:
 #
 # mixer configuration
 #
-# @see charts/mixer/values.yaml, it takes precedence
+# @see charts/mixer/values.yaml for all values
 mixer:
   policy:
     # if policy is enabled the global.disablePolicyChecks has affect.

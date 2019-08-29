@@ -69,8 +69,6 @@ type ADSC struct {
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
 
-	done chan error
-
 	certDir string
 	url     string
 
@@ -130,7 +128,6 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		done:        make(chan error),
 		Updates:     make(chan string, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,

@@ -542,7 +542,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
-	if spec.DNSPolicy != corev1.DNSClusterFirst {
+	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
 		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
 			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
 	}

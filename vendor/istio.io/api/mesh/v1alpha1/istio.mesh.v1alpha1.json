@@ -11,7 +11,8 @@
         "type": "object",
         "properties": {
           "connectTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Connection timeout used by Envoy. (MUST BE \u003e=1ms)",
+            "type": "string"
           },
           "tcpKeepalive": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive"
@@ -55,7 +56,8 @@
             "format": "int32"
           },
           "protocolDetectionTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Automatic protocol detection uses a set of heuristics to determine whether the connection is using TLS or not (on the server side), as well as the application protocol being used (e.g., http vs tcp). These heuristics rely on the client sending the first bits of data. For server first protocols like MySQL, MongoDB, etc., Envoy will timeout on the protocol detection after the specified period, defaulting to non mTLS plain TCP traffic. Set this field to tweak the period that Envoy will wait for the client to send the first bits of data. (MUST BE \u003e=1ms)",
+            "type": "string"
           },
           "ingressClass": {
             "description": "Class of ingress resources to be processed by Istio ingress controller. This corresponds to the value of \"kubernetes.io/ingress.class\" annotation.",
@@ -74,7 +76,7 @@
             "$ref": "#/components/schemas/istio.mesh.v1alpha1.MeshConfig.AuthPolicy"
           },
           "rdsRefreshDelay": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "type": "string"
           },
           "enableTracing": {
             "description": "Flag to control generation of trace spans and request IDs. Requires a trace span collector defined in the proxy configuration.",
@@ -101,7 +103,6 @@
             "$ref": "#/components/schemas/istio.mesh.v1alpha1.ProxyConfig"
           },
           "mixerAddress": {
-            "description": "$hide_from_docs",
             "type": "string",
             "format": "string"
           },
@@ -115,7 +116,7 @@
             "format": "string"
           },
           "sdsRefreshDelay": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "type": "string"
           },
           "configSources": {
             "description": "ConfigSource describes a source of configuration data for networking rules, and other Istio configuration artifacts. Multiple data sources can be configured for a single control plane.",
@@ -123,6 +124,11 @@
             "items": {
               "$ref": "#/components/schemas/istio.mesh.v1alpha1.ConfigSource"
             }
+          },
+          "enableAutoMtls": {
+            "description": "This flag is used to enable mutual TLS automatically for service to service communication within the mesh, default false. If set to true, and a given service does not have a corresponding DestinationRule configured, or its DestinationRule does not have TLSSettings specified, Istio configures client side TLS configuration appropriately. More specifically, If the upstream authentication policy is in STRICT mode, use Istio provisioned certificate for mutual TLS to connect to upstream. If upstream service is in plain text mode, use plain text. If the upstream authentication policy is in PERMISSIVE mode, Istio configures clients to use mutual TLS when server sides are capable of accepting mutual TLS traffic. If service DestinationRule exists and has TLSSettings specified, that is always used instead.",
+            "type": "boolean",
+            "nullable": true
           },
           "enableSdsTokenMount": {
             "description": "This flag is used by secret discovery service(SDS). If set to true ([prerequisite](https://kubernetes.io/docs/concepts/storage/volumes/#projected)), Istio will inject volumes mount for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually. This isn't supported for non-Kubernetes cases.",
@@ -170,7 +176,8 @@
             "$ref": "#/components/schemas/istio.mesh.v1alpha1.LocalityLoadBalancerSetting"
           },
           "dnsRefreshRate": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Configures DNS refresh rate for Envoy clusters of type STRICT_DNS",
+            "type": "string"
           },
           "disableReportBatch": {
             "description": "The flag to disable report batch.",
@@ -181,11 +188,13 @@
             "type": "integer"
           },
           "reportBatchMaxTime": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "When disable_report_batch is false, this value specifies the maximum elapsed time a batched report will be sent after a user request is processed. If left unspecified, the default report_batch_max_time == 0 will use the hardcoded defaults of istio::mixerclient::ReportOptions.",
+            "type": "string"
           }
         }
       },
       "istio.mesh.v1alpha1.MeshConfig.IngressControllerMode": {
+        "type": "string",
         "enum": [
           "OFF",
           "DEFAULT",
@@ -194,7 +203,7 @@
         "default": "OFF"
       },
       "istio.mesh.v1alpha1.MeshConfig.AuthPolicy": {
-        "description": "$hide_from_docs",
+        "type": "string",
         "enum": [
           "NONE",
           "MUTUAL_TLS"
@@ -202,6 +211,7 @@
         "default": "NONE"
       },
       "istio.mesh.v1alpha1.MeshConfig.AccessLogEncoding": {
+        "type": "string",
         "enum": [
           "TEXT",
           "JSON"
@@ -213,7 +223,8 @@
         "type": "object",
         "properties": {
           "connectTimeout": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "Connection timeout used by Envoy for supporting services. (MUST BE \u003e=1ms)",
+            "type": "string"
           },
           "configPath": {
             "description": "Path to the generated configuration file directory. Proxy agent generates the actual configuration and stores it in this directory.",
@@ -231,10 +242,12 @@
             "format": "string"
           },
           "drainDuration": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time in seconds that Envoy will drain connections during a hot restart. MUST be \u003e=1s (e.g., _1s/1m/1h_)",
+            "type": "string"
           },
           "parentShutdownDuration": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time in seconds that Envoy will wait before shutting down the parent process during a hot restart. MUST be \u003e=1s (e.g., _1s/1m/1h_). MUST BE greater than _drain_duration_ parameter.",
+            "type": "string"
           },
           "discoveryAddress": {
             "description": "Address of the discovery service exposing xDS with mTLS connection.",
@@ -242,7 +255,7 @@
             "format": "string"
           },
           "discoveryRefreshDelay": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "type": "string"
           },
           "zipkinAddress": {
             "description": "Address of the Zipkin service (e.g. _zipkin:9411_). DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.",
@@ -255,7 +268,6 @@
             "format": "string"
           },
           "envoyMetricsServiceAddress": {
-            "description": "$hide_from_docs",
             "type": "string",
             "format": "string"
           },
@@ -265,7 +277,6 @@
             "format": "int32"
           },
           "availabilityZone": {
-            "description": "$hide_from_docs",
             "type": "string",
             "format": "string"
           },
@@ -353,6 +364,7 @@
       },
       "istio.mesh.v1alpha1.MeshConfig.H2UpgradePolicy": {
         "description": "Default Policy for upgrading http1.1 connections to http2.",
+        "type": "string",
         "enum": [
           "DO_NOT_UPGRADE",
           "UPGRADE"
@@ -360,6 +372,7 @@
         "default": "DO_NOT_UPGRADE"
       },
       "istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy.Mode": {
+        "type": "string",
         "enum": [
           "REGISTRY_ONLY",
           "ALLOW_ANY"
@@ -425,9 +438,12 @@
       },
       "istio.mesh.v1alpha1.Network.NetworkEndpoints": {
         "description": "NetworkEndpoints describes how the network associated with an endpoint should be inferred. An endpoint will be assigned to a network based on the following rules: 1. Implicitly: If the registry explicitly provides information about the network to which the endpoint belongs to. In some cases, its possible to indicate the network associated with the endpoint by adding the `ISTIO_META_NETWORK` environment variable to the sidecar.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "fromCidr"
+            ],
             "properties": {
               "fromCidr": {
                 "description": "A CIDR range for the set of endpoints in this network. The CIDR ranges for endpoints from different networks must not overlap.",
@@ -437,7 +453,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "fromRegistry"
+            ],
             "properties": {
               "fromRegistry": {
                 "description": "Add all endpoints from the specified registry into this network. The names of the registries should correspond to the secret name that was used to configure the registry (Kubernetes multicluster) or supplied by MCP server.",
@@ -450,9 +468,12 @@
       },
       "istio.mesh.v1alpha1.Network.IstioNetworkGateway": {
         "description": "The gateway associated with this network. Traffic from remote networks will arrive at the specified gateway:port. All incoming traffic must use mTLS.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "registryServiceName"
+            ],
             "properties": {
               "port": {
                 "description": "REQUIRED: The port associated with the gateway.",
@@ -471,7 +492,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "address"
+            ],
             "properties": {
               "port": {
                 "description": "REQUIRED: The port associated with the gateway.",
@@ -509,6 +532,7 @@
       },
       "istio.mesh.v1alpha1.AuthenticationPolicy": {
         "description": "AuthenticationPolicy defines authentication policy. It can be set for different scopes (mesh, service …), and the most narrow scope with non-INHERIT value will be used. Mesh policy cannot be INHERIT.",
+        "type": "string",
         "enum": [
           "NONE",
           "MUTUAL_TLS",
@@ -518,9 +542,12 @@
       },
       "istio.mesh.v1alpha1.Tracing": {
         "description": "Tracing defines configuration for the tracing performed by Envoy instances.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "zipkin"
+            ],
             "properties": {
               "zipkin": {
                 "$ref": "#/components/schemas/istio.mesh.v1alpha1.Tracing.Zipkin"
@@ -528,7 +555,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "lightstep"
+            ],
             "properties": {
               "lightstep": {
                 "$ref": "#/components/schemas/istio.mesh.v1alpha1.Tracing.Lightstep"
@@ -536,7 +565,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "datadog"
+            ],
             "properties": {
               "datadog": {
                 "$ref": "#/components/schemas/istio.mesh.v1alpha1.Tracing.Datadog"
@@ -544,7 +575,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "stackdriver"
+            ],
             "properties": {
               "stackdriver": {
                 "$ref": "#/components/schemas/istio.mesh.v1alpha1.Tracing.Stackdriver"
@@ -609,13 +642,19 @@
             "type": "boolean"
           },
           "maxNumberOfAttributes": {
-            "$ref": "#/components/schemas/google.protobuf.Int64Value"
+            "description": "The global default max number of attributes per span. default is 200. $hide_from_docs",
+            "type": "integer",
+            "nullable": true
           },
           "maxNumberOfAnnotations": {
-            "$ref": "#/components/schemas/google.protobuf.Int64Value"
+            "description": "The global default max number of annotation events per span. default is 200. $hide_from_docs",
+            "type": "integer",
+            "nullable": true
           },
           "maxNumberOfMessageEvents": {
-            "$ref": "#/components/schemas/google.protobuf.Int64Value"
+            "description": "The global default max number of message events per span. default is 200. $hide_from_docs",
+            "type": "integer",
+            "nullable": true
           }
         }
       },
@@ -636,6 +675,7 @@
       },
       "istio.mesh.v1alpha1.ProxyConfig.InboundInterceptionMode": {
         "description": "The mode used to redirect inbound traffic to Envoy. This setting has no effect on outbound traffic: iptables REDIRECT is always used for outbound connections.",
+        "type": "string",
         "enum": [
           "REDIRECT",
           "TPROXY"
@@ -658,46 +698,21 @@
           }
         }
       },
-      "google.protobuf.Duration": {
-        "description": "The time duration between keep-alive probes. Default is to use the OS level configuration (unless overridden, Linux defaults to 75s.)",
-        "type": "object",
-        "properties": {
-          "seconds": {
-            "description": "Signed seconds of the span of time. Must be from -315,576,000,000 to +315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years",
-            "type": "integer",
-            "format": "int64"
-          },
-          "nanos": {
-            "description": "Signed fractions of a second at nanosecond resolution of the span of time. Durations less than one second are represented with a 0 `seconds` field and a positive or negative `nanos` field. For durations of one second or more, a non-zero value for the `nanos` field must be of the same sign as the `seconds` field. Must be from -999,999,999 to +999,999,999 inclusive.",
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "google.protobuf.Int64Value": {
-        "description": "The global default max number of message events per span. default is 200. $hide_from_docs",
-        "type": "object",
-        "properties": {
-          "value": {
-            "description": "The int64 value.",
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
       "istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive": {
         "description": "If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.",
         "type": "object",
         "properties": {
           "time": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time duration a connection needs to be idle before keep-alive probes start being sent. Default is to use the OS level configuration (unless overridden, Linux defaults to 7200s (ie 2 hours.)",
+            "type": "string"
           },
           "probes": {
             "description": "Maximum number of keepalive probes to send without response before deciding the connection is dead. Default is to use the OS level configuration (unless overridden, Linux defaults to 9.)",
             "type": "integer"
           },
           "interval": {
-            "$ref": "#/components/schemas/google.protobuf.Duration"
+            "description": "The time duration between keep-alive probes. Default is to use the OS level configuration (unless overridden, Linux defaults to 75s.)",
+            "type": "string"
           }
         }
       },
@@ -740,6 +755,7 @@
       },
       "istio.networking.v1alpha3.TLSSettings.TLSmode": {
         "description": "REQUIRED: Indicates whether connections to this port should be secured using TLS. The value of this field determines how TLS is enforced.",
+        "type": "string",
         "enum": [
           "DISABLE",
           "SIMPLE",

@@ -340,9 +340,14 @@ A host is specified as a <code>dnsName</code> with an optional <code>namespace/<
 The <code>dnsName</code> should be specified using FQDN format, optionally including
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all <code>VirtualService</code> hosts from the
-specified namespace (e.g.,<code>prod/*</code>). If no <code>namespace/</code> is specified,
-the <code>VirtualService</code> hosts will be selected from any available namespace.
-Any associated <code>DestinationRule</code> in the same namespace will also be used.</p>
+specified namespace (e.g.,<code>prod/*</code>).</p>
+
+<p>The <code>namespace</code> can be set to <code>*</code> or <code>.</code>, representing any or the current
+namespace, respectively. For example, <code>*/foo.example.com</code> selects the
+service from any available namespace while <code>./foo.example.com</code> only selects
+the service from the namespace of the sidecar. The default, if no <code>namespace/</code>
+is specified, is <code>*/</code>, that is, select services from any namespace.
+Any associated <code>DestinationRule</code> in the selected namespace will also be used.</p>
 
 <p>A <code>VirtualService</code> must be bound to the gateway and must have one or
 more hosts that match the hosts specified in a server. The match

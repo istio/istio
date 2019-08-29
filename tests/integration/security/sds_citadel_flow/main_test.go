@@ -61,5 +61,4 @@ func setupConfig(cfg *istio.Config) {
 
 	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth.yaml
 	cfg.ValuesFile = "values-istio-sds-auth.yaml"
-	cfg.Values["global.mtls.enabled"] = "true"
 }
