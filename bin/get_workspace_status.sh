@@ -15,9 +15,9 @@
 # limitations under the License.
 
 if BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null); then
-    if ! git diff-index --quiet HEAD; then
-        BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
-    fi
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
+  fi
 else
     BUILD_GIT_REVISION=unknown
 fi
