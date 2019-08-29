@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -745,6 +746,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		sans  []string
 		sni   string
 		proxy *model.Proxy
+                serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
 		want  *networking.TLSSettings
 	}{
 		{
@@ -753,6 +755,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
+                        authn_v1alpha1_applier.MTLSUnknown,
 			tlsSettings,
 		},
 		{
@@ -768,7 +771,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			&networking.TLSSettings{
+			authn_v1alpha1_applier.MTLSUnknown,
+                        &networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
@@ -787,13 +791,57 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			&networking.TLSSettings{
+			authn_v1alpha1_applier.MTLSUnknown,
+                        &networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
 				ClientCertificate: "/custom/chain.pem",
 				PrivateKey:        "/custom/key.pem",
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
+			},
+		},
+		{
+			"Ignore nil settings when mTLS Unknown",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{{}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			nil,
+		},
+		{
+			"Ignore nil settings when mTLS Disable",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{{}},
+			authn_v1alpha1_applier.MTLSDisable,
+			nil,
+		},
+		{
+			"Ignore nil settings when mTLS Permissive",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{{}},
+			authn_v1alpha1_applier.MTLSPermissive,
+			nil,
+		},
+		{
+			"Auto fill nil settings when mTLS Strict",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{{}},
+			authn_v1alpha1_applier.MTLSStrict,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
 			},
 		},
 	}
@@ -854,10 +902,10 @@ func TestStatNamePattern(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
-func TestSidecarLocalityLB(t *testing.T) {
+func TestLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
@@ -1193,7 +1241,7 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy := &model.Proxy{}
 
 	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
@@ -1214,7 +1262,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy := &model.Proxy{}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1252,7 +1300,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy := &model.Proxy{}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
