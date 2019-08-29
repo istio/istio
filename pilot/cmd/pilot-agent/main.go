@@ -449,9 +449,8 @@ func setSpiffeTrustDomain(domain string) {
 			} else {
 				pilotTrustDomain = domain
 			}
-
-			spiffe.SetTrustDomain(pilotTrustDomain)
 		}
+		spiffe.SetTrustDomain(pilotTrustDomain)
 	}
 
 }

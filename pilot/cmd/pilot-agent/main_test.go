@@ -88,6 +88,9 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
 	trustDomain = "secured"
+	defer func() {
+		trustDomain = ""
+	}()
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -102,6 +105,9 @@ func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
 	trustDomain = "secured"
+	defer func() {
+		trustDomain = ""
+	}()
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
