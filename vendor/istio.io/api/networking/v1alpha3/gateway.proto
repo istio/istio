@@ -285,9 +285,14 @@ message Server {
   // The `dnsName` should be specified using FQDN format, optionally including
   // a wildcard character in the left-most component (e.g., `prod/*.example.com`).
   // Set the `dnsName` to `*` to select all `VirtualService` hosts from the
-  // specified namespace (e.g.,`prod/*`). If no `namespace/` is specified,
-  // the `VirtualService` hosts will be selected from any available namespace.
-  // Any associated `DestinationRule` in the same namespace will also be used.
+  // specified namespace (e.g.,`prod/*`).
+  //
+  // The `namespace` can be set to `*` or `.`, representing any or the current
+  // namespace, respectively. For example, `*/foo.example.com` selects the
+  // service from any available namespace while `./foo.example.com` only selects
+  // the service from the namespace of the sidecar. The default, if no `namespace/`
+  // is specified, is `*/`, that is, select services from any namespace.
+  // Any associated `DestinationRule` in the selected namespace will also be used.
   //
   // A `VirtualService` must be bound to the gateway and must have one or
   // more hosts that match the hosts specified in a server. The match

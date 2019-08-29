@@ -382,23 +382,21 @@ func (m *Sidecar) GetOutboundTrafficPolicy() *OutboundTrafficPolicy {
 // IstioIngressListener specifies the properties of an inbound
 // traffic listener on the sidecar proxy attached to a workload instance.
 type IstioIngressListener struct {
-	// REQUIRED. The port associated with the listener. If using
-	// Unix domain socket, use 0 as the port number, with a valid
-	// protocol.
+	// REQUIRED. The port associated with the listener.
 	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
-	// The ip or the Unix domain socket to which the listener should be bound
-	// to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux
-	// abstract namespace). If omitted, Istio will automatically configure the defaults
-	// based on imported services and the workload instances to which this
-	// configuration is applied to.
+	// The ip to which the listener should be bound. Must be in the
+	// format `x.x.x.x`. Unix domain socket addresses are not allowed in
+	// the bind field for ingress listeners. If omitted, Istio will
+	// automatically configure the defaults based on imported services
+	// and the workload instances to which this configuration is applied
+	// to.
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
-	// When the bind address is an IP, the captureMode option dictates
-	// how traffic to the listener is expected to be captured (or not).
-	// captureMode must be DEFAULT or NONE for Unix domain socket binds.
+	// The captureMode option dictates how traffic to the listener is
+	// expected to be captured (or not).
 	CaptureMode CaptureMode `protobuf:"varint,3,opt,name=capture_mode,json=captureMode,proto3,enum=istio.networking.v1alpha3.CaptureMode" json:"capture_mode,omitempty"`
 	// REQUIRED: The loopback IP endpoint or Unix domain socket to which
 	// traffic should be forwarded to. This configuration can be used to
-	// redirect traffic arriving at the bind point on the sidecar to a port
+	// redirect traffic arriving at the bind IP:Port on the sidecar to a localhost:port
 	// or Unix domain socket where the application workload instance is listening for
 	// connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`
 	DefaultEndpoint      string   `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
@@ -504,10 +502,16 @@ type IstioEgressListener struct {
 	// The `dnsName` should be specified using FQDN format, optionally including
 	// a wildcard character in the left-most component (e.g., `prod/*.example.com`).
 	// Set the `dnsName` to `*` to select all services from the specified namespace
-	// (e.g., `prod/*`). The `namespace` can also be set to `*` to select a particular
-	// service from any available namespace (e.g., `*/foo.example.com`).
-	// If a host is set to `*/*`,  Istio will automatically configure the sidecar to
-	// be able to reach every service in the mesh that is visible to this namespace.
+	// (e.g., `prod/*`).
+	//
+	// The `namespace` can be set to `*`, `.`, or `~`, representing any, the current,
+	// or no namespace, respectively. For example, `*/foo.example.com` selects the
+	// service from any available namespace while `./foo.example.com` only selects
+	// the service from the namespace of the sidecar. If a host is set to `*/*`,
+	// Istio will configure the sidecar to be able to reach every service in the
+	// mesh that is exported to the sidecar's namespace. The value `~/*` can be used
+	// to completely trim the configuration for sidecars that simply receive traffic
+	// and respond, but make no outbound connections of their own.
 	//
 	// NOTE: Only services and configuration artifacts exported to the sidecar's
 	// namespace (e.g., `exportTo` value of `*`) can be referenced.

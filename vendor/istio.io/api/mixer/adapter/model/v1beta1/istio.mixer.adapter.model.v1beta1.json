@@ -10,6 +10,13 @@
         "description": "Expresses the result of a precondition check.",
         "type": "object",
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "validDuration": {
+            "description": "The amount of time for which this result can be considered valid.",
+            "type": "string"
+          },
           "validUseCount": {
             "description": "The number of uses for which this result can be considered valid.",
             "type": "integer",
@@ -19,6 +26,7 @@
       },
       "istio.mixer.adapter.model.v1beta1.TemplateVariety": {
         "description": "The available varieties of templates, controlling the semantics of what an adapter does with each instance.",
+        "type": "string",
         "enum": [
           "TEMPLATE_VARIETY_CHECK",
           "TEMPLATE_VARIETY_REPORT",
@@ -69,13 +77,34 @@
         ],
         "properties": {
           "adapterConfig": {
-            "$ref": "#/components/schemas/google.protobuf.Any"
+            "description": "Adapter specific configuration.",
+            "type": "object",
+            "required": [
+              "@type"
+            ],
+            "properties": {
+              "@type": {
+                "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                "type": "string",
+                "format": "string"
+              }
+            }
           },
           "inferredTypes": {
             "description": "Map of instance names to their template-specific inferred type.",
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/google.protobuf.Any"
+              "type": "object",
+              "required": [
+                "@type"
+              ],
+              "properties": {
+                "@type": {
+                  "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                  "type": "string",
+                  "format": "string"
+                }
+              }
             }
           }
         }
@@ -102,13 +131,34 @@
         ],
         "properties": {
           "adapterConfig": {
-            "$ref": "#/components/schemas/google.protobuf.Any"
+            "description": "Adapter specific configuration.",
+            "type": "object",
+            "required": [
+              "@type"
+            ],
+            "properties": {
+              "@type": {
+                "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                "type": "string",
+                "format": "string"
+              }
+            }
           },
           "inferredTypes": {
             "description": "Map of instance names to their template-specific inferred type.",
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/google.protobuf.Any"
+              "type": "object",
+              "required": [
+                "@type"
+              ],
+              "properties": {
+                "@type": {
+                  "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                  "type": "string",
+                  "format": "string"
+                }
+              }
             }
           }
         }
@@ -193,6 +243,13 @@
         "description": "Expresses the result of a quota allocation.",
         "type": "object",
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/google.rpc.Status"
+          },
+          "validDuration": {
+            "description": "The amount of time for which this result can be considered valid.",
+            "type": "string"
+          },
           "grantedAmount": {
             "description": "The amount of granted quota. When `QuotaParams.best_effort` is true, this will be \u003e= 0. If `QuotaParams.best_effort` is false, this will be either 0 or \u003e= `QuotaParams.amount`.",
             "type": "integer",
@@ -215,23 +272,8 @@
           }
         }
       },
-      "google.protobuf.Any": {
-        "type": "object",
-        "properties": {
-          "typeUrl": {
-            "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `path/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted).",
-            "type": "string",
-            "format": "string"
-          },
-          "value": {
-            "description": "Must be a valid serialized protocol buffer of the above specified type.",
-            "type": "string",
-            "format": "byte"
-          }
-        }
-      },
       "google.rpc.Status": {
-        "description": "The success/failure status of close session call.",
+        "description": "A status code of OK indicates quota was fetched successfully. Any other code indicates error in fetching quota.",
         "type": "object",
         "properties": {
           "code": {
@@ -248,7 +290,17 @@
             "description": "A list of messages that carry the error details. There is a common set of message types for APIs to use.",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/google.protobuf.Any"
+              "type": "object",
+              "required": [
+                "@type"
+              ],
+              "properties": {
+                "@type": {
+                  "description": "A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one \"/\" character. The last segment of the URL's path must represent the fully qualified name of the type (as in `type.googleapis.com/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading \".\" is not accepted). The remaining fields of this object correspond to fields of the proto messsage. If the embedded message is well-known and has a custom JSON representation, that representation is assigned to the 'value' field.",
+                  "type": "string",
+                  "format": "string"
+                }
+              }
             }
           }
         }

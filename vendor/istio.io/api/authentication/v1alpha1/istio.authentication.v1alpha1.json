@@ -8,9 +8,12 @@
     "schemas": {
       "istio.authentication.v1alpha1.StringMatch": {
         "description": "Describes how to match a given string. Match is case-sensitive.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "exact"
+            ],
             "properties": {
               "exact": {
                 "description": "exact string match.",
@@ -20,7 +23,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "prefix"
+            ],
             "properties": {
               "prefix": {
                 "description": "prefix-based match.",
@@ -30,7 +35,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "suffix"
+            ],
             "properties": {
               "suffix": {
                 "description": "suffix-based match.",
@@ -40,7 +47,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "regex"
+            ],
             "properties": {
               "regex": {
                 "description": "ECMAscript style regex-based match as defined by [EDCA-262]( http://en.cppreference.com/w/cpp/regex/ecmascript). Example: \"^/pets/(.*?)?\"",
@@ -66,6 +75,7 @@
       },
       "istio.authentication.v1alpha1.MutualTls.Mode": {
         "description": "Defines the acceptable connection TLS mode.",
+        "type": "string",
         "enum": [
           "STRICT",
           "PERMISSIVE"
@@ -146,9 +156,12 @@
       },
       "istio.authentication.v1alpha1.PeerAuthenticationMethod": {
         "description": "PeerAuthenticationMethod defines one particular type of authentication, e.g mutual TLS, JWT etc, (no authentication is one type by itself) that can be used for peer authentication. The type can be progammatically determine by checking the type of the \"params\" field.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "mtls"
+            ],
             "properties": {
               "mtls": {
                 "$ref": "#/components/schemas/istio.authentication.v1alpha1.MutualTls"
@@ -156,7 +169,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "jwt"
+            ],
             "properties": {
               "jwt": {
                 "$ref": "#/components/schemas/istio.authentication.v1alpha1.Jwt"
@@ -176,6 +191,7 @@
       },
       "istio.authentication.v1alpha1.PrincipalBinding": {
         "description": "Associates authentication with request principal.",
+        "type": "string",
         "enum": [
           "USE_PEER",
           "USE_ORIGIN"
@@ -251,9 +267,12 @@
       },
       "istio.authentication.v1alpha1.PortSelector": {
         "description": "PortSelector specifies the name or number of a port to be used for matching targets for authentication policy. This is copied from networking API to avoid dependency.",
+        "type": "object",
         "oneOf": [
           {
-            "type": "object",
+            "required": [
+              "number"
+            ],
             "properties": {
               "number": {
                 "description": "Valid port number",
@@ -262,7 +281,9 @@
             }
           },
           {
-            "type": "object",
+            "required": [
+              "name"
+            ],
             "properties": {
               "name": {
                 "description": "Port name",
