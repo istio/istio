@@ -31,7 +31,7 @@ import (
 const (
 	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
-	defaultAudience = "spiffe://cluster.local/ns/istio-system/sa/istio-citadel-service-account"
+	defaultAudience = "istio-ca"
 )
 
 type specForSaValidationRequest struct {
