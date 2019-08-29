@@ -584,6 +584,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request resource name",
 			conIDresourceNamePrefix, err)
+		cacheLog.Warnf("the failed jwt above is: %s", token)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{
