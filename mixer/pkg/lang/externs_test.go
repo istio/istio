@@ -501,3 +501,12 @@ func TestExternReplaceAllString(t *testing.T) {
 		t.Errorf("replaceAllString(\"gg\", \"aa\", \"aaggaa\") => %s, wanted: aaaaaa", got)
 	}
 }
+
+func TestExternTimeToString(t *testing.T) {
+	ti, _ := externTimestamp("2015-01-02T15:04:35Z")
+
+	got := ExternTimeToString(ti)
+	if got != "2015-01-02 15:04:35 +0000 UTC" {
+		t.Errorf("externTimestamp(\"2015-01-02T15:04:35Z\") => %s, wanted: 2015-01-02 15:04:35 +0000 UTC", got)
+	}
+}

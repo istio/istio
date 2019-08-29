@@ -51,6 +51,7 @@ var Externs = map[string]interpreter.Extern{
 	"match":             interpreter.ExternFromFn("match", ExternMatch),
 	"matches":           interpreter.ExternFromFn("matches", externMatches),
 	"replaceAll":        interpreter.ExternFromFn("replaceAll", ExternReplaceAllString),
+	"timeToString":      interpreter.ExternFromFn("timeToString", ExternTimeToString),
 	"startsWith":        interpreter.ExternFromFn("startsWith", ExternStartsWith),
 	"endsWith":          interpreter.ExternFromFn("endsWith", ExternEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
@@ -89,6 +90,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "replaceAll",
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.STRING, config.STRING, config.STRING},
+	},
+	{
+		Name:          "timeToString",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.TIMESTAMP},
 	},
 	{
 		Name:          "match",
@@ -245,6 +251,10 @@ func ExternEmail(in string) (string, error) {
 	}
 
 	return in, nil
+}
+
+func ExternTimeToString(t time.Time) string {
+	return string(t.String())
 }
 
 // ExternEmailEqual compares two email addresses for equality
