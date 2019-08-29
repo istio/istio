@@ -561,6 +561,15 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
+	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod) regardless if the token
+	// is for a CA or Kubernetes secret fetch.
+	isTrustworthyJwt, err := isTrustworthyJwt(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
+	}
+	if !isTrustworthyJwt {
+		return nil, fmt.Errorf("the provided JWT is not trustworthy")
+	}
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
@@ -584,6 +593,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request resource name",
 			conIDresourceNamePrefix, err)
+		cacheLog.Warnf("the failed jwt above is: %s", token)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{

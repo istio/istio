@@ -223,7 +223,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 
 	conID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, "jwtToken1")
+	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -232,10 +232,12 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
 	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "nonexisttoken", gotSecret.Version), false)
 
-	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -243,7 +245,8 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecretRoot.Version), true)
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false)
 
 	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
@@ -264,7 +267,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 
 	sc.configOptions.SkipValidateCert = false
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GenerateSecret(ctx, conID, testResourceName, "newToken")
+	gotSecret, err = sc.GenerateSecret(ctx, conID, testResourceName, getJwtFromFile("testdata/trustworthy-jwt-2.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -316,14 +319,14 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	}()
 
 	testConnID := "proxy1-id"
-	_, err := sc.GenerateSecret(context.Background(), testConnID, testResourceName, "jwtToken1")
+	_, err := sc.GenerateSecret(context.Background(), testConnID, testResourceName, getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets for %q: %v", testConnID, err)
 	}
 
 	for i := 0; i < 10; i++ {
 		id := "proxy-id" + strconv.Itoa(i)
-		sc.GenerateSecret(context.Background(), id, testResourceName, "jwtToken1")
+		sc.GenerateSecret(context.Background(), id, testResourceName, getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	}
 
 	// Wait until key rotation job run to update cached secret.
@@ -430,7 +433,8 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	for _, c := range cases {
 		fetcher.AddSecret(c.addSecret)
 		for _, es := range c.expectedSecrets {
-			gotSecret, err := sc.GenerateSecret(ctx, c.connID, es.secret.ResourceName, "")
+			gotSecret, err := sc.GenerateSecret(ctx, c.connID, es.secret.ResourceName,
+				getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 			if es.exist {
 				if err != nil {
 					t.Fatalf("Failed to get secrets: %v", err)
@@ -438,8 +442,10 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 				if err := verifySecret(gotSecret, es.secret); err != nil {
 					t.Errorf("Secret verification failed: %v", err)
 				}
-				checkBool(t, "SecretExist", sc.SecretExist(c.connID, es.secret.ResourceName, "", gotSecret.Version), true)
-				checkBool(t, "SecretExist", sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false)
+				checkBool(t, "SecretExist", sc.SecretExist(c.connID, es.secret.ResourceName,
+					getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
+				checkBool(t, "SecretExist", sc.SecretExist(c.connID, "nonexistsecret",
+					getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
 			}
 			key := ConnKey{
 				ConnectionID: c.connID,
@@ -454,7 +460,8 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 					t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
 				}
 			}
-			if _, err := sc.GenerateSecret(ctx, c.connID, "nonexistk8ssecret", ""); err == nil {
+			if _, err := sc.GenerateSecret(ctx, c.connID, "nonexistk8ssecret",
+				getJwtFromFile("testdata/trustworthy-jwt.jwt", t)); err == nil {
 				t.Error("Generating secret using a non existing kubernetes secret should fail")
 			}
 		}
@@ -580,21 +587,25 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 
 	fetcher.AddSecret(k8sTestTLSFallbackSecret)
 	for _, c := range cases {
-		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName,
+			getJwtFromFile("testdata/trustworthy-jwt.jwt", t)) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 		// Verify that fallback secret is returned
-		gotSecret, err := sc.GenerateSecret(ctx, c.connID, c.expectedFbSecret.secret.ResourceName, "")
+		gotSecret, err := sc.GenerateSecret(ctx, c.connID, c.expectedFbSecret.secret.ResourceName,
+			getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 		if err != nil {
 			t.Fatalf("Failed to get fallback secrets: %v", err)
 		}
 		if err := verifySecret(gotSecret, c.expectedFbSecret.secret); err != nil {
 			t.Errorf("Secret verification failed: %v", err)
 		}
-		if got, want := sc.SecretExist(c.connID, c.expectedFbSecret.secret.ResourceName, "", gotSecret.Version), true; got != want {
+		if got, want := sc.SecretExist(c.connID, c.expectedFbSecret.secret.ResourceName,
+			getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true; got != want {
 			t.Errorf("SecretExist: got: %v, want: %v", got, want)
 		}
-		if got, want := sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+		if got, want := sc.SecretExist(c.connID, "nonexistsecret",
+			getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false; got != want {
 			t.Errorf("SecretExist: got: %v, want: %v", got, want)
 		}
 
@@ -614,7 +625,8 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 		// When real secret is added, verify that real secret is returned.
 		fetcher.AddSecret(c.addSecret)
 		for _, es := range c.expectedSecrets {
-			gotSecret, err := sc.GenerateSecret(ctx, c.connID, es.secret.ResourceName, "")
+			gotSecret, err := sc.GenerateSecret(ctx, c.connID, es.secret.ResourceName,
+				getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 			if es.exist {
 				if err != nil {
 					t.Fatalf("Failed to get secrets: %v", err)
@@ -622,10 +634,12 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 				if err := verifySecret(gotSecret, es.secret); err != nil {
 					t.Errorf("Secret verification failed: %v", err)
 				}
-				if got, want := sc.SecretExist(c.connID, es.secret.ResourceName, "", gotSecret.Version), true; got != want {
+				if got, want := sc.SecretExist(c.connID, es.secret.ResourceName,
+					getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true; got != want {
 					t.Errorf("SecretExist: got: %v, want: %v", got, want)
 				}
-				if got, want := sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+				if got, want := sc.SecretExist(c.connID, "nonexistsecret",
+					getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false; got != want {
 					t.Errorf("SecretExist: got: %v, want: %v", got, want)
 				}
 			}
@@ -709,36 +723,47 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 	fetcher.AddSecret(k8sTestTLSSecret)
 	connID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, connID, k8sGenericSecretName, "")
+	gotSecret, err := sc.GenerateSecret(ctx, connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
 
-	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert", "")
+	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
 
-	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName, "")
+	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
 
-	_, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName+"-cacert", "")
+	_, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err == nil {
 		t.Fatalf("Get unexpected secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName+"-cacert", "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
 
 	sc.DeleteK8sSecret(k8sGenericSecretName)
 	sc.DeleteK8sSecret(k8sGenericSecretName + "-cacert")
 	sc.DeleteK8sSecret(k8sTLSSecretName)
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false)
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
 }
 
 // TestGatewayAgentUpdateSecret verifies that ingress gateway agent updates secret cache correctly.
@@ -754,16 +779,20 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	fetcher.AddSecret(k8sTestGenericSecret)
 	connID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, connID, k8sGenericSecretName, "")
+	gotSecret, err := sc.GenerateSecret(ctx, connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true)
-	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert", "")
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
+	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), true)
 	newTime := gotSecret.CreatedTime.Add(time.Duration(10) * time.Second)
 	newK8sTestSecret := model.SecretItem{
 		CertificateChain: []byte("new cert chain"),
@@ -775,9 +804,11 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 		Version:          newTime.String(),
 	}
 	sc.UpdateK8sSecret(k8sGenericSecretName, newK8sTestSecret)
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
 	sc.UpdateK8sSecret(k8sGenericSecretName+"-cacert", newK8sTestSecret)
-	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert",
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t), gotSecret.Version), false)
 }
 
 func TestConstructCSRHostName(t *testing.T) {
@@ -855,7 +886,8 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	}()
 
 	checkBool(t, "isTokenExpired", sc.isTokenExpired(), false)
-	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
+	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName,
+		getJwtFromFile("testdata/trustworthy-jwt.jwt", t))
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -875,6 +907,37 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	}
 	if retries == 5 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
+	}
+}
+
+func TestTrustworthyJWT(t *testing.T) {
+	sc := createSecretCache()
+	testCases := map[string]struct {
+		jwtPath     string
+		expectedErr string
+	}{
+		"legacy JWT": {
+			jwtPath:     "testdata/legacy-jwt.jwt",
+			expectedErr: "the provided JWT is not trustworthy",
+		},
+		// For simplicity, trustworthy JWTs will pass the trustworthy test but fail to generate the secrets.
+		"trustworthy JWT 1": {
+			jwtPath:     "testdata/trustworthy-jwt.jwt",
+			expectedErr: "cannot find secret for ingress gateway SDS request {ConnectionID:proxy1-id ResourceName:default}",
+		},
+		"trustworthy JWT 2": {
+			jwtPath:     "testdata/trustworthy-jwt-2.jwt",
+			expectedErr: "cannot find secret for ingress gateway SDS request {ConnectionID:proxy1-id ResourceName:default}",
+		},
+	}
+
+	for testName, tc := range testCases {
+		_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, getJwtFromFile(tc.jwtPath, t))
+		if tc.expectedErr == "" {
+			if err != nil {
+				t.Errorf("test case %s expected error message: %s, got: %s", testName, tc.expectedErr, err.Error())
+			}
+		}
 	}
 }
 
