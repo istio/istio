@@ -136,9 +136,13 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 		}
 		provider.FromParams = policyJwt.JwtParams
 
-		jwtPubKey, err := authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
+		jwtPubKey := policyJwt.Jwks
+		if jwtPubKey == "" {
+			var err error
+			jwtPubKey, err = authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+			if err != nil {
+				log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
+			}
 		}
 		provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
 			LocalJwks: &core.DataSource{
@@ -191,9 +195,13 @@ func convertToIstioJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *istio_jwt.JwtAut
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		jwtPubKey, err := authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
+		jwtPubKey := policyJwt.Jwks
+		if jwtPubKey == "" {
+			var err error
+			jwtPubKey, err = authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+			if err != nil {
+				log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
+			}
 		}
 
 		// Put empty string in config even if above ResolveJwtPubKey fails.
