@@ -151,6 +151,9 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
+	// Route
+	RouterOnly bool
+
 	// TargetNamespaces contains a list of namespaces that were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
@@ -187,6 +190,8 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 		// If either is full we need a full push
 		Full: first.Full || other.Full,
+
+		RouterOnly: first.RouterOnly && other.RouterOnly,
 
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,

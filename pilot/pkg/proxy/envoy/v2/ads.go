@@ -667,9 +667,11 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	pending := []*XdsConnection{}
+	var pending []*XdsConnection
 	for _, v := range adsClients {
-		pending = append(pending, v)
+		if v.modelNode.Type == model.Router || !req.RouterOnly {
+			pending = append(pending, v)
+		}
 	}
 	adsClientsMutex.RUnlock()
 

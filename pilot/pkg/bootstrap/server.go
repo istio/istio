@@ -524,8 +524,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+		ClearDiscoveryServerCache: func(routerOnly bool) {
+			s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true, RouterOnly: routerOnly})
 		},
 	}
 
