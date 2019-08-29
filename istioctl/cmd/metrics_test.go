@@ -48,13 +48,8 @@ func TestMetricsNoPrometheus(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-<<<<<<< HEAD
-			args:           strings.Split("experimental metrics", " "),
-			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
-=======
 			args:           strings.Split("metrics", " "),
-			expectedOutput: "Error: requires at least 1 arg(s), only received 0\n",
->>>>>>> Point tests to new locations for commands
+			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
