@@ -166,18 +166,18 @@ stringData:
 			testName: "fail to find cluster in local kubeconfig",
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
-				CurrentContext: "current",
+				CurrentContext: testContext,
 				Clusters:       map[string]*api.Cluster{ /* missing cluster */ },
 			},
-			wantErrStr: `could not find cluster for context "current"`,
+			wantErrStr: fmt.Sprintf(`could not find cluster for context %q`, testContext),
 		},
 		{
 			testName: "fail to create remote secret token",
 			objs:     []runtime.Object{sa, saSecretMissingToken},
 			config: &api.Config{
-				CurrentContext: "current",
+				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
-					"current": {Cluster: "cluster"},
+					testContext: {Cluster: "cluster"},
 				},
 				Clusters: map[string]*api.Cluster{
 					"cluster": {Server: "server"},
@@ -189,9 +189,9 @@ stringData:
 			testName: "fail to encode secret",
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
-				CurrentContext: "current",
+				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
-					"current": {Cluster: "cluster"},
+					testContext: {Cluster: "cluster"},
 				},
 				Clusters: map[string]*api.Cluster{
 					"cluster": {Server: "server"},
@@ -204,9 +204,9 @@ stringData:
 			testName: "success",
 			objs:     []runtime.Object{sa, saSecret},
 			config: &api.Config{
-				CurrentContext: "current",
+				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
-					"current": {Cluster: "cluster"},
+					testContext: {Cluster: "cluster"},
 				},
 				Clusters: map[string]*api.Cluster{
 					"cluster": {Server: "server"},
