@@ -209,30 +209,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
-	go s.periodicRefresh(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
-}
-
-// Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
-// ( will be removed after change detection is implemented, to double check all changes are
-// captured)
-func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
-	periodicRefreshDuration := features.RefreshDuration
-	if periodicRefreshDuration == 0 {
-		return
-	}
-	ticker := time.NewTicker(periodicRefreshDuration)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			adsLog.Debugf("ADS: Periodic push of envoy configs version:%s", versionInfo())
-			s.AdsPushAll(versionInfo(), &model.PushRequest{Full: true, Push: s.globalPushContext()})
-		case <-stopCh:
-			return
-		}
-	}
 }
 
 // Push metrics are updated periodically (10s default)
