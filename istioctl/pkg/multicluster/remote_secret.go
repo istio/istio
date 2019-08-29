@@ -198,13 +198,18 @@ func getClusterServerFromKubeconfig(kubeconfig, context string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	configContext, ok := config.Contexts[config.CurrentContext]
+
+	if context == "" {
+		context = config.CurrentContext
+	}
+
+	configContext, ok := config.Contexts[context]
 	if !ok {
-		return "", fmt.Errorf("could not find cluster for context %q", config.CurrentContext)
+		return "", fmt.Errorf("could not find cluster for context %q", context)
 	}
 	cluster, ok := config.Clusters[configContext.Cluster]
 	if !ok {
-		return "", fmt.Errorf("could not find server for context %q", config.CurrentContext)
+		return "", fmt.Errorf("could not find server for context %q", context)
 	}
 	return cluster.Server, nil
 }

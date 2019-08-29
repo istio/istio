@@ -349,10 +349,12 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 		name              string
 		badStartingConfig bool
 		config            *api.Config
+		context           string
 		wantErrStr        string
 	}{
 		{
 			name:              "bad starting config",
+			context:           context,
 			badStartingConfig: true,
 			config: &api.Config{
 				CurrentContext: context,
@@ -363,7 +365,8 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 			wantErrStr: "bad starting config",
 		},
 		{
-			name: "missing cluster",
+			name:    "missing cluster",
+			context: context,
 			config: &api.Config{
 				CurrentContext: context,
 				Contexts:       map[string]*api.Context{},
@@ -372,7 +375,8 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 			wantErrStr: "could not find cluster for context",
 		},
 		{
-			name: "missing server",
+			name:    "missing server",
+			context: context,
 			config: &api.Config{
 				CurrentContext: context,
 				Contexts: map[string]*api.Context{
@@ -383,9 +387,23 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 			wantErrStr: "could not find server for context",
 		},
 		{
-			name: "success",
+			name:    "success",
+			context: context,
 			config: &api.Config{
 				CurrentContext: context,
+				Contexts: map[string]*api.Context{
+					context: {Cluster: cluster},
+				},
+				Clusters: map[string]*api.Cluster{
+					cluster: {Server: wantServer},
+				},
+			},
+		},
+		{
+			name:    "use explicit context different from current-context",
+			context: context,
+			config: &api.Config{
+				CurrentContext: "ignored-context", // verify context override is used
 				Contexts: map[string]*api.Context{
 					context: {Cluster: cluster},
 				},
@@ -406,7 +424,7 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 				return c.config, nil
 			}
 
-			gotServer, err := getClusterServerFromKubeconfig("foo", "bar")
+			gotServer, err := getClusterServerFromKubeconfig("foo", c.context)
 
 			if c.wantErrStr != "" {
 				if err == nil {
