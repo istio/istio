@@ -172,6 +172,7 @@ func TestDebounce(t *testing.T) {
 	// For now, this seems to work well
 	DebounceAfter = time.Millisecond * 50
 	DebounceMax = DebounceAfter * 2
+	syncPushTime := 2 * DebounceMax
 	if err := os.Setenv(features.EnableEDSDebounce.Name, "false"); err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +275,7 @@ func TestDebounce(t *testing.T) {
 						return
 					}
 					atomic.AddInt32(&fullPushes, 1)
-					time.Sleep(2 * DebounceMax)
+					time.Sleep(syncPushTime)
 					<-pushingCh
 				} else {
 					atomic.AddInt32(&partialPushes, 1)
