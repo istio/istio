@@ -52,11 +52,6 @@ var (
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
 
-	// RefreshDuration is the duration of periodic refresh, in case events or cache invalidation fail.
-	// Example: "300ms", "10s" or "2h45m".
-	// Default is 0 (disabled).
-	RefreshDuration = env.RegisterDurationVar("V2_REFRESH", 0, "").Get()
-
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
