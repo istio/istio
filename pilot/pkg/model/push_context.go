@@ -596,12 +596,26 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
+	svcNs := service.Attributes.Namespace
+
+	// This can happen when finding the subset labels for a proxy in root namespace.
+	// Because based on a pure cluster name, we do not know the service and
+	// construct a fake service without setting Attributes at all.
+	if svcNs == "" {
+		for _, svc := range ps.Services(proxy) {
+			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
+				svcNs = svc.Attributes.Namespace
+				break
+			}
+		}
+	}
+
 	// if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
-	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
+	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
-			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[hostname].config
+			ps.namespaceExportedDestRules[svcNs].hosts); ok {
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
 		}
 	}
 
