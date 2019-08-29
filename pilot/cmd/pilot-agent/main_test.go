@@ -59,6 +59,7 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
+	trustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 

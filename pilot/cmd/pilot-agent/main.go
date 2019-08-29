@@ -437,9 +437,8 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 //explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
 //and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(domain string) {
-
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotTrustDomain := spiffe.GetTrustDomain()
+		pilotTrustDomain := trustDomain
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == podNamespaceVar.Get()+".svc.cluster.local" || domain == "") {
@@ -450,6 +449,7 @@ func setSpiffeTrustDomain(domain string) {
 			} else {
 				pilotTrustDomain = domain
 			}
+
 			spiffe.SetTrustDomain(pilotTrustDomain)
 		}
 	}
