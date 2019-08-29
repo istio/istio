@@ -175,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, fmt.Sprintf("%s", service.Hostname), "", proxy.DNSDomain, port)
+				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", proxy.DNSDomain, port)
 			}
 
 			setUpstreamProtocol(defaultCluster, port)
@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					if len(env.Mesh.OutboundClusterStatName) != 0 {
-						subsetCluster.AltStatName = altStatName("", fmt.Sprintf("%s", service.Hostname), subset.Name, proxy.DNSDomain, port)
+						subsetCluster.AltStatName = altStatName("", string(service.Hostname), subset.Name, proxy.DNSDomain, port)
 					}
 					setUpstreamProtocol(subsetCluster, port)
 
@@ -616,7 +616,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		model.TrafficDirectionInbound, pluginParams.Node, nil)
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
-		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName, fmt.Sprintf("%s", instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
+		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
+			string(instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
 	}
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 	// call plugins
@@ -1200,7 +1201,7 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 func shortHostName(host string, dnsDomain string) string {
 	shortHost := strings.TrimSuffix(host, dnsDomain)
 	if parts := strings.Split(dnsDomain, "."); len(parts) > 0 {
-		shortHost = shortHost + parts[0] // k8s will have namespace.<domain>
+		shortHost += parts[0] // k8s will have namespace.<domain>
 	} else {
 		shortHost = host
 	}
