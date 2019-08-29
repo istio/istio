@@ -60,6 +60,7 @@ var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
+	trustDomain      string
 	pilotIdentity    string
 	mixerIdentity    string
 	statusPort       uint16
@@ -174,8 +175,8 @@ var (
 				}
 			}
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
-			role.TrustDomain = spiffe.GetTrustDomain()
+			trustDomain = spiffe.DetermineTrustDomain(trustDomain, true)
+			spiffe.SetTrustDomain(trustDomain)
 			log.Infof("Proxy role: %#v", role)
 
 			tlsCertsToWatch = []string{
@@ -438,7 +439,7 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 func setSpiffeTrustDomain(domain string) {
 
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotTrustDomain := role.TrustDomain
+		pilotTrustDomain := spiffe.GetTrustDomain()
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == podNamespaceVar.Get()+".svc.cluster.local" || domain == "") {
@@ -449,8 +450,8 @@ func setSpiffeTrustDomain(domain string) {
 			} else {
 				pilotTrustDomain = domain
 			}
+			spiffe.SetTrustDomain(pilotTrustDomain)
 		}
-		spiffe.SetTrustDomain(pilotTrustDomain)
 	}
 
 }
@@ -573,7 +574,7 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
+	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
 	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
 		"The identity used as the suffix for pilot's spiffe SAN ")

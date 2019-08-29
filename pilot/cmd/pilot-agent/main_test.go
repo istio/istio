@@ -34,7 +34,6 @@ func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
@@ -47,7 +46,6 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -61,7 +59,6 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
-	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -76,7 +73,6 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -90,7 +86,7 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "secured"
+	trustDomain = "secured"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -104,7 +100,7 @@ func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
-	role.TrustDomain = "secured"
+	trustDomain = "secured"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -247,7 +243,6 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ".svc.cluster.local"
-	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -263,7 +258,7 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "service.consul"
-	role.TrustDomain = ""
+	trustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -291,7 +286,7 @@ func TestCustomPilotSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "mesh.com"
+	trustDomain = "mesh.com"
 	pilotIdentity = "pilot-identity"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
@@ -306,7 +301,7 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "mesh.com"
+	trustDomain = "mesh.com"
 	mixerIdentity = "mixer-identity"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
