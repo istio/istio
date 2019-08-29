@@ -882,11 +882,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 					// Minor optimization for Kubernetes stateful sets/headless services
 					// Instead of generating a single 0.0.0.0:Port listener, generate N listeners
-					// (where N <= 5 at most) one for each podIP.
+					// one for each podIP.
 					if bind == "" && service.Resolution == model.Passthrough &&
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
 						instances, err := env.InstancesByPort(service, servicePort.Port, nil)
-						if err != nil || len(instances) == 0 || len(instances) > 5 {
+						if err != nil {
 							// we can't do anything. Fallback to the usual way of constructing listeners
 							// for headless services that use 0.0.0.0:Port listener
 							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
