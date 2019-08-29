@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/pkg/log"
 )
 
@@ -55,13 +56,6 @@ const (
 
 	// The Istio webhook secret annotation type
 	IstioWebhookSecretType = "istio.io/webhook-key-and-cert"
-
-	// The ID/name for the certificate chain file.
-	CertChainID = "cert-chain.pem"
-	// The ID/name for the private key file.
-	PrivateKeyID = "key.pem"
-	// The ID/name for the CA root certificate file.
-	RootCertID = "root-cert.pem"
 
 	// For debugging, set the resync period to be a shorter period.
 	secretResyncPeriod = 10 * time.Second
@@ -311,9 +305,9 @@ func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) er
 		return err
 	}
 	secret.Data = map[string][]byte{
-		CertChainID:  chain,
-		PrivateKeyID: key,
-		RootCertID:   caCert,
+		ca.CertChainID:  chain,
+		ca.PrivateKeyID: key,
+		ca.RootCertID:   caCert,
 	}
 
 	// We retry several times when create secret to mitigate transient network failures.

@@ -49,8 +49,7 @@ func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	// 1. Generate a CSR
 	// Construct the dns id from service name and name space.
 	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
-	id := fmt.Sprintf("%s.%s.svc", svcName, secretNamespace)
-	id += "," + fmt.Sprintf("%s.%s", svcName, secretNamespace)
+	id := fmt.Sprintf("%s.%s.svc,%s.%s", svcName, secretNamespace, svcName, secretNamespace)
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
@@ -390,15 +389,14 @@ func updateMutatingWebhookConfig(wc *WebhookController) error {
 	// Rebuild the webhook configuration and reconcile with the
 	// existing mutatingwebhookconfiguration.
 	err := wc.rebuildMutatingWebhookConfig()
-	if err == nil {
-		updateErr := createOrUpdateMutatingWebhookConfig(wc)
-		if updateErr != nil {
-			log.Errorf("error when updating mutatingwebhookconfiguration: %v", updateErr)
-			return updateErr
-		}
-	} else {
+	if err != nil {
 		log.Errorf("error when building mutatingwebhookconfiguration: %v", err)
 		return err
+	}
+	updateErr := createOrUpdateMutatingWebhookConfig(wc)
+	if updateErr != nil {
+		log.Errorf("error when updating mutatingwebhookconfiguration: %v", updateErr)
+		return updateErr
 	}
 	return nil
 }
@@ -408,15 +406,14 @@ func updateValidatingWebhookConfig(wc *WebhookController) error {
 	// Rebuild the webhook configuration and reconcile with the
 	// existing validatingwebhookconfiguration.
 	err := wc.rebuildValidatingWebhookConfig()
-	if err == nil {
-		updateErr := createOrUpdateValidatingWebhookConfig(wc)
-		if updateErr != nil {
-			log.Errorf("error when updating validatingwebhookconfiguration: %v", updateErr)
-			return updateErr
-		}
-	} else {
+	if err != nil {
 		log.Errorf("error when building validatingwebhookconfiguration: %v", err)
 		return err
+	}
+	updateErr := createOrUpdateValidatingWebhookConfig(wc)
+	if updateErr != nil {
+		log.Errorf("error when updating validatingwebhookconfiguration: %v", updateErr)
+		return updateErr
 	}
 	return nil
 }
@@ -435,6 +432,7 @@ func updateCertAndWebhookConfig(wc *WebhookController) error {
 		if err != nil {
 			log.Errorf("error returns when updating the secret for mutating webhook service (%v) in namespace (%v)",
 				name, wc.namespace)
+			return err
 		}
 	}
 	for _, name := range wc.validatingWebhookServiceNames {
@@ -442,34 +440,28 @@ func updateCertAndWebhookConfig(wc *WebhookController) error {
 		if err != nil {
 			log.Errorf("error returns when updating the secret for validating webhook service (%v) in namespace (%v)",
 				name, wc.namespace)
+			return err
 		}
 	}
 
-	var errMutate, errValidate, errUpdateMutate, errUpdateValidate error
 	// Rebuild the webhook configuration and reconcile with the
 	// existing mutatingwebhookconfiguration.
-	if errMutate = wc.rebuildMutatingWebhookConfig(); errMutate == nil {
-		errUpdateMutate = createOrUpdateMutatingWebhookConfig(wc)
-		if errUpdateMutate != nil {
-			log.Errorf("error when updating mutatingwebhookconfiguration: %v", errUpdateMutate)
-		}
+	if err = wc.rebuildMutatingWebhookConfig(); err != nil {
+		log.Errorf("error returns when rebuilding mutating webhook config: %v", err)
+		return err
+	}
+	if err = createOrUpdateMutatingWebhookConfig(wc); err != nil {
+		log.Errorf("error when updating mutatingwebhookconfiguration: %v", err)
 	}
 	// Rebuild the webhook configuration and reconcile with the
 	// existing mutatingwebhookconfiguration.
-	if errValidate = wc.rebuildValidatingWebhookConfig(); errValidate == nil {
-		errUpdateValidate = createOrUpdateValidatingWebhookConfig(wc)
-		if errUpdateValidate != nil {
-			log.Errorf("error when updating validatingwebhookconfiguration: %v", errUpdateValidate)
-		}
+	if err = wc.rebuildValidatingWebhookConfig(); err != nil {
+		log.Errorf("error returns when rebuilding validating webhook config: %v", err)
+		return err
 	}
-
-	if errMutate != nil || errValidate != nil || errUpdateMutate != nil || errUpdateValidate != nil {
-		log.Errorf("err mutate: %v. err validate: %v."+
-			"err update mutate: %v. err update validate: %v", errMutate, errValidate,
-			errUpdateMutate, errUpdateValidate)
-		return fmt.Errorf("err mutate: %v. err validate: %v."+
-			"err update mutate: %v. err update validate: %v", errMutate, errValidate,
-			errUpdateMutate, errUpdateValidate)
+	if err = createOrUpdateValidatingWebhookConfig(wc); err != nil {
+		log.Errorf("error when updating validatingwebhookconfiguration: %v", err)
+		return err
 	}
 	return nil
 }
