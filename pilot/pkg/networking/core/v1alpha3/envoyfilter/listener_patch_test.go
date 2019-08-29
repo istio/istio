@@ -502,10 +502,10 @@ func TestApplyListenerPatches(t *testing.T) {
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops: 4,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: "http-filter3"},
 										{Name: xdsutil.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
+										{Name: "http-filter3"},
 										{Name: "http-filter2"},
 									},
 								}),
