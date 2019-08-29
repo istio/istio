@@ -9,6 +9,8 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
+    token:
+      aud: "spiffe://cluster.local/ns/istio-system/sa/istio-citadel-service-account"
 
   proxy:
     enableCoreDump: true
