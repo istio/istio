@@ -60,6 +60,8 @@ var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
+	pilotIdentity    string
+	mixerIdentity    string
 	statusPort       uint16
 	applicationPorts []string
 
@@ -238,7 +240,7 @@ var (
 			setSpiffeTrustDomain(role.DNSDomain)
 
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, role.PilotIdentity)
+			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, pilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// resolve statsd address
@@ -330,7 +332,7 @@ var (
 						opts["wildcard"] = "::"
 						opts["dns_lookup_family"] = "AUTO"
 					}
-					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, role.MixerIdentity)
+					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, mixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
 					if len(mixerSAN) > 1 {
 						opts["MixerSubjectAltName"] = mixerSAN[0]
@@ -573,9 +575,9 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&role.PilotIdentity, "pilotIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
 		"The identity used as the suffix for pilot's spiffe SAN ")
-	proxyCmd.PersistentFlags().StringVar(&role.MixerIdentity, "mixerIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,

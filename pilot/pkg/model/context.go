@@ -94,15 +94,6 @@ type Proxy struct {
 	// TrustDomain defines the trust domain of the certificate
 	TrustDomain string
 
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
-	//spiffe://{TrustDomain}/{PilotIdentity}
-	PilotIdentity string
-
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
-	//spiffe://{TrustDomain}/{MixerIdentity}
-	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
-	MixerIdentity string
-
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
