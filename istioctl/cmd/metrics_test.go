@@ -48,13 +48,18 @@ func TestMetricsNoPrometheus(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("experimental metrics", " "),
+			args:           strings.Split("metrics", " "),
 			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("experimental metrics details", " "),
+			args:           strings.Split("metrics details", " "),
 			expectedOutput: "Error: no Prometheus pods found\n",
+			wantException:  true,
+		},
+		{ // case 2
+			args:           strings.Split("experimental metrics details", " "),
+			expectedOutput: "Error: (metrics has graduated.  Use `istioctl metrics`)\n",
 			wantException:  true,
 		},
 	}
