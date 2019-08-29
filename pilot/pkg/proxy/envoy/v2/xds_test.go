@@ -15,14 +15,12 @@ package v2_test
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -449,10 +447,4 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServiceAccount:  account,
 		},
 	}
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	// Run all tests.
-	os.Exit(m.Run())
 }
