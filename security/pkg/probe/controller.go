@@ -82,6 +82,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 	}, nil
 }
 
+// TODO: decouple the cert generation and probing procedures.
 func (c *LivenessCheckController) checkGrpcServer() error {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
@@ -98,6 +99,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if signErr != nil {
 		return signErr.(ca.Error)
 	}
+	// Append the intermediate certs to the certificate to form a cert chain.
 	certChainPEM := c.ca.GetCAKeyCertBundle().GetCertChainPem()
 	if len(certChainPEM) > 0 {
 		certPEM = append(certPEM, certChainPEM...)
