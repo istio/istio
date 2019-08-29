@@ -6,7 +6,9 @@
 /mixer/                                                          @istio/wg-policy-and-telemetry-maintainers
 /pilot/                                                          @istio/wg-networking-maintainers
 /pilot/pkg/security/                                             @istio/wg-security-maintainers
-/pilot/pkg/config/                                               @istio/wg-config-maintainers
+/pilot/pkg/config/                                               @istio/wg-config-maintainers @istio/wg-networking-maintainers
+/pilot/pkg/networking/plugin/authn/                              @istio/wg-security-maintainers
+/pilot/pkg/networking/plugin/authz/                              @istio/wg-security-maintainers
 /pilot/pkg/networking/plugin/mixer/                              @istio/wg-policies-and-telemetry-maintainers
 /pkg/bootstrap/                                                  @istio/wg-environments-maintainers
 /pkg/mcp/                                                        @istio/wg-config-maintainers
@@ -17,7 +19,7 @@
 /tests/e2e/local/                                                @istio/wg-test-and-release-maintainers
 /tests/e2e/tests/mixer/                                          @istio/wg-policies-and-telemetry-maintainers
 /tests/e2e/tests/pilot/                                          @istio/wg-networking-maintainers
-/tests/integration/conformance/                                  @istio/wg-config-maintainers
+/tests/integration/conformance/                                  @istio/wg-test-and-release--maintainers
 /tests/integration/framework/                                    @istio/wg-test-and-release-maintainers
 /tests/integration/galley/                                       @istio/wg-config-maintainers
 /tests/integration/mixer/                                        @istio/wg-policy-and-telemetry-maintainers
@@ -26,3 +28,5 @@
 /tests/integration/security/                                     @istio/wg-security-maintainers
 /tests/istio.io/                                                 @istio/wg-docs-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
+/tools/istio-iptables/                                           @istio/wg-networking-maintainers
+/tools/packaging/common/istio-iptables.sh                        @istio/wg-networking-maintainers
