@@ -98,7 +98,10 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if signErr != nil {
 		return signErr.(ca.Error)
 	}
-
+	certChainPEM := c.ca.GetCAKeyCertBundle().GetCertChainPem()
+	if len(certChainPEM) > 0 {
+		certPEM = append(certPEM, certChainPEM...)
+	}
 	// Store certificate chain and private key to generate CSR
 	tempDir, err := ioutil.TempDir("/tmp", "caprobe")
 	if err != nil {
