@@ -42,16 +42,12 @@ type Environment struct {
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
 
-	// Mixer subject alternate name for mutual TLS
-	MixerSAN []string
-
 	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	// Deprecated - a local config for ads will be used instead
 	PushContext *PushContext
 
 	// MeshNetworks (loaded from a config map) provides information about the
@@ -94,18 +90,6 @@ type Proxy struct {
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	DNSDomain string
-
-	// TrustDomain defines the trust domain of the certificate
-	TrustDomain string
-
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
-	//spiffe://{TrustDomain}/{PilotIdentity}
-	PilotIdentity string
-
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
-	//spiffe://{TrustDomain}/{MixerIdentity}
-	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
-	MixerIdentity string
 
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
