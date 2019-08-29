@@ -88,6 +88,8 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
+
+		SetError SetErrorFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -140,6 +142,9 @@ type (
 	GetStateFn func(ctx interface{}) (interface{}, error)
 	// GetConfigFn returns configuration that is generated
 	GetConfigFn func(ctx interface{}) ([]string, error)
+	// SetErrorFn function will be called just before test begins and setup and config is done. This can be used to
+	// introduce errors in the test
+	SetErrorFn func(ctx interface{}) error
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
@@ -214,6 +219,13 @@ func RunTest(
 	}
 	client := istio_mixer_v1.NewMixerClient(conn)
 	defer closeHelper(conn)
+
+	if scenario.SetError != nil {
+		err = scenario.SetError(ctx)
+		if err != nil {
+			t.Fatalf("calling SetError Failed: %v", err)
+		}
+	}
 
 	// Invoke calls async
 	var wg sync.WaitGroup
@@ -302,6 +314,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 			for k := range c.Quotas {
 				ret.Quota[k] = adapter.QuotaResult{
 					Amount: result.Quotas[k].GrantedAmount, ValidDuration: result.Quotas[k].ValidDuration,
+					Status: result.Quotas[k].Status,
 				}
 			}
 		} else {
