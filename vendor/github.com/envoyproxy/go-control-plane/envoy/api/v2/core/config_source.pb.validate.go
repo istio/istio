@@ -112,6 +112,8 @@ func (m *ApiConfigSource) Validate() error {
 		}
 	}
 
+	// no validation rules for SetNodeOnFirstMessageOnly
+
 	return nil
 }
 

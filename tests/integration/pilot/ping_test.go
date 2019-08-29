@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +34,11 @@ type appConnectionPair struct {
 	src, dst echo.Instance
 }
 
+type callOptions struct {
+	portName string
+	scheme   scheme.Instance
+}
+
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		doTest(t, ctx)
@@ -42,9 +46,16 @@ func TestReachability(t *testing.T) {
 }
 
 func doTest(t *testing.T, ctx framework.TestContext) {
-	ns := namespace.NewOrFail(t, ctx, "inboundsplit", true)
+	ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "inboundsplit",
+		Inject: true,
+	})
 
 	ports := []echo.Port{
+		{
+			Name:     "foo",
+			Protocol: protocol.HTTP,
+		},
 		{
 			Name:     "http",
 			Protocol: protocol.HTTP,
@@ -109,27 +120,35 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		{inoutSplitApp0, inoutSplitApp0},
 	}
 
-	for _, pair := range connectivityPairs {
-		connChecker := connection.Checker{
-			From: pair.src,
-			Options: echo.CallOptions{
-				Target:   pair.dst,
-				PortName: strings.ToLower(string(scheme.HTTP)),
-				Scheme:   scheme.HTTP,
-			},
-			ExpectSuccess: true,
-		}
-		subTestName := fmt.Sprintf(
-			"%s->%s:%s",
-			pair.src.Config().Service,
-			pair.dst.Config().Service,
-			connChecker.Options.PortName)
+	// TODO(yxue): support sending raw TCP traffic instead of HTTP
+	callOptions := []callOptions{
+		{"http", scheme.HTTP},
+		{"foo", scheme.HTTP},
+	}
 
-		t.Run(subTestName,
-			func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, connChecker.Check,
-					retry.Delay(time.Second),
-					retry.Timeout(10*time.Second))
-			})
+	for _, pair := range connectivityPairs {
+		for _, opt := range callOptions {
+			connChecker := connection.Checker{
+				From: pair.src,
+				Options: echo.CallOptions{
+					Target:   pair.dst,
+					PortName: opt.portName,
+					Scheme:   opt.scheme,
+				},
+				ExpectSuccess: true,
+			}
+			subTestName := fmt.Sprintf(
+				"%s->%s:%s",
+				pair.src.Config().Service,
+				pair.dst.Config().Service,
+				connChecker.Options.PortName)
+
+			t.Run(subTestName,
+				func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, connChecker.Check,
+						retry.Delay(time.Second),
+						retry.Timeout(10*time.Second))
+				})
+		}
 	}
 }

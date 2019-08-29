@@ -80,6 +80,10 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -88,6 +92,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: SDS_ENABLED
+            value: "false"
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -95,6 +101,10 @@ items:
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"backend","track":"stable","version":"v1"}
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: hello-v1
+          - name: ISTIO_META_OWNER
+            value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v1
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -140,7 +150,7 @@ items:
           - -x
           - ""
           - -b
-          - "80"
+          - '*'
           - -d
           - "15020"
           image: docker.io/istio/proxy_init:unittest
@@ -248,6 +258,10 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -256,6 +270,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: SDS_ENABLED
+            value: "false"
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -263,6 +279,10 @@ items:
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"backend","track":"stable","version":"v2"}
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: hello-v2
+          - name: ISTIO_META_OWNER
+            value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v2
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -308,7 +328,7 @@ items:
           - -x
           - ""
           - -b
-          - "81"
+          - '*'
           - -d
           - "15020"
           image: docker.io/istio/proxy_init:unittest

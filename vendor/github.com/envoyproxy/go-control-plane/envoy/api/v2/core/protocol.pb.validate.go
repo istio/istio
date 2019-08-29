@@ -328,6 +328,71 @@ func (m *Http2ProtocolOptions) Validate() error {
 
 	// no validation rules for AllowMetadata
 
+	if wrapper := m.GetMaxOutboundFrames(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return Http2ProtocolOptionsValidationError{
+				field:  "MaxOutboundFrames",
+				reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	if wrapper := m.GetMaxOutboundControlFrames(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return Http2ProtocolOptionsValidationError{
+				field:  "MaxOutboundControlFrames",
+				reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	{
+		tmp := m.GetMaxConsecutiveInboundFramesWithEmptyPayload()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Http2ProtocolOptionsValidationError{
+					field:  "MaxConsecutiveInboundFramesWithEmptyPayload",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	{
+		tmp := m.GetMaxInboundPriorityFramesPerStream()
+
+		if v, ok := interface{}(tmp).(interface{ Validate() error }); ok {
+
+			if err := v.Validate(); err != nil {
+				return Http2ProtocolOptionsValidationError{
+					field:  "MaxInboundPriorityFramesPerStream",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+	}
+
+	if wrapper := m.GetMaxInboundWindowUpdateFramesPerDataFrameSent(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return Http2ProtocolOptionsValidationError{
+				field:  "MaxInboundWindowUpdateFramesPerDataFrameSent",
+				reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	// no validation rules for StreamErrorOnInvalidHttpMessaging
+
 	return nil
 }
 

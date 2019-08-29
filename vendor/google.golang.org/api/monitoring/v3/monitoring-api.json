@@ -1457,7 +1457,7 @@
       }
     }
   },
-  "revision": "20190622",
+  "revision": "20190805",
   "rootUrl": "https://monitoring.googleapis.com/",
   "schemas": {
     "Aggregation": {
@@ -1625,6 +1625,10 @@
           },
           "description": "User-supplied key/value data to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter.",
           "type": "object"
+        },
+        "validity": {
+          "$ref": "Status",
+          "description": "Read-only description of how the alert policy is invalid. OK if the alert policy is valid. If not OK, the alert policy will not generate incidents."
         }
       },
       "type": "object"
@@ -1811,6 +1815,24 @@
       "properties": {
         "content": {
           "description": "String or regex content to match (max 1024 bytes)",
+          "type": "string"
+        },
+        "matcher": {
+          "description": "The matcher representing content match options which the check will run with. If the field is not specified (in previous versions), the option is set to be CONTAINS_STRING which performs content substring matching.",
+          "enum": [
+            "CONTENT_MATCHER_OPTION_UNSPECIFIED",
+            "CONTAINS_STRING",
+            "NOT_CONTAINS_STRING",
+            "MATCHES_REGEX",
+            "NOT_MATCHES_REGEX"
+          ],
+          "enumDescriptions": [
+            "No content macher option specified. Treated as CONTAINS_STRING.",
+            "Allows checking substring matching. Default value for previous versions without option.",
+            "Allows checking negation of substring matching (doesn't contain the substring).",
+            "Allows checking regular expression matching.",
+            "Allows checking negation of regular expression matching."
+          ],
           "type": "string"
         }
       },
@@ -2202,6 +2224,10 @@
         },
         "useSsl": {
           "description": "If true, use HTTPS instead of HTTP to run the check.",
+          "type": "boolean"
+        },
+        "validateSsl": {
+          "description": "Boolean specifying whether to validate SSL certificates. Only applies to uptime_url checks. If use_ssl is false, setting this to true has no effect.",
           "type": "boolean"
         }
       },

@@ -69,6 +69,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -77,6 +81,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -84,6 +90,10 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"traffic"}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: traffic
+        - name: ISTIO_META_OWNER
+          value: kubernetes://api/apps/v1/namespaces/default/deployments/traffic
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -122,7 +132,7 @@ spec:
         - -x
         - 10.96.0.2/24,10.96.0.3/24
         - -b
-        - "80"
+        - '*'
         - -d
         - 4,5,6
         image: docker.io/istio/proxy_init:unittest

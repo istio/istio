@@ -2,7 +2,7 @@ syntax = "proto2";
 package validate;
 
 option go_package = "github.com/envoyproxy/protoc-gen-validate/validate";
-option java_package = "com.lyft.pgv.validate";
+option java_package = "io.envoyproxy.pgv.validate";
 
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/duration.proto";
@@ -540,6 +540,11 @@ message StringRules {
         // UriRef specifies that the field must be a valid URI as defined by RFC
         // 3986 and may be relative or absolute.
         bool uri_ref  = 18;
+
+        // Address specifies that the field must be either a valid hostname as
+        // defined by RFC 1034 (which does not support internationalized domain
+        // names or IDNs), or it can be a valid IP (v4 or v6).
+        bool address  = 21;
     }
 }
 

@@ -76,12 +76,12 @@
             "$ref": "#/components/schemas/istio.networking.v1alpha3.Port"
           },
           "bind": {
-            "description": "The ip or the Unix domain socket to which the listener should be bound to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux abstract namespace). If omitted, Istio will automatically configure the defaults based on imported services and the workload instances to which this configuration is applied to.",
+            "description": "The ip to which the listener should be bound. Must be in the format `x.x.x.x`. Unix domain socket addresses are not allowed in the bind field for ingress listeners. If omitted, Istio will automatically configure the defaults based on imported services and the workload instances to which this configuration is applied to.",
             "type": "string",
             "format": "string"
           },
           "defaultEndpoint": {
-            "description": "REQUIRED: The loopback IP endpoint or Unix domain socket to which traffic should be forwarded to. This configuration can be used to redirect traffic arriving at the bind point on the sidecar to a port or Unix domain socket where the application workload instance is listening for connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`",
+            "description": "REQUIRED: The loopback IP endpoint or Unix domain socket to which traffic should be forwarded to. This configuration can be used to redirect traffic arriving at the bind IP:Port on the sidecar to a localhost:port or Unix domain socket where the application workload instance is listening for connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`",
             "type": "string",
             "format": "string"
           },

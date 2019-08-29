@@ -31,21 +31,21 @@ import (
 
 func TestParseJwksURI(t *testing.T) {
 	cases := []struct {
-		in                   string
-		expected             security.JwksInfo
-		expectedErrorMessage string
+		in            string
+		expected      security.JwksInfo
+		expectedError bool
 	}{
 		{
-			in:                   "foo.bar.com",
-			expectedErrorMessage: `URI scheme "" is not supported`,
+			in:            "foo.bar.com",
+			expectedError: true,
 		},
 		{
-			in:                   "tcp://foo.bar.com:abc",
-			expectedErrorMessage: `URI scheme "tcp" is not supported`,
+			in:            "tcp://foo.bar.com:abc",
+			expectedError: true,
 		},
 		{
-			in:                   "http://foo.bar.com:abc",
-			expectedErrorMessage: `strconv.Atoi: parsing "abc": invalid syntax`,
+			in:            "http://foo.bar.com:abc",
+			expectedError: true,
 		},
 		{
 			in: "http://foo.bar.com",
@@ -86,17 +86,11 @@ func TestParseJwksURI(t *testing.T) {
 	}
 	for _, c := range cases {
 		actual, err := security.ParseJwksURI(c.in)
-		if err != nil {
-			if c.expectedErrorMessage != err.Error() {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
-			}
-		} else {
-			if c.expectedErrorMessage != "" {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got no error", c.in, c.expectedErrorMessage)
-			}
-			if !reflect.DeepEqual(c.expected, actual) {
-				t.Errorf("expected %+v, got %+v", c.expected, actual)
-			}
+		if c.expectedError == (err == nil) {
+			t.Fatalf("ParseJwksURI(%s): expected error (%v), got (%v)", c.in, c.expectedError, err)
+		}
+		if !reflect.DeepEqual(c.expected, actual) {
+			t.Fatalf("expected %+v, got %+v", c.expected, actual)
 		}
 	}
 }

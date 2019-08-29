@@ -162,7 +162,9 @@ func (m *CommandLineOptions) Validate() error {
 
 	// no validation rules for ConfigYaml
 
-	// no validation rules for AllowUnknownFields
+	// no validation rules for AllowUnknownStaticFields
+
+	// no validation rules for RejectUnknownDynamicFields
 
 	// no validation rules for AdminAddressPath
 

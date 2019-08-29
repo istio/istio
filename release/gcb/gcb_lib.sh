@@ -180,8 +180,8 @@ function update_helm() {
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
   # Update version string in yaml files.
-  sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
+  sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
   if [ "${current_tag}" != "${VERSION}" ]; then
     find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
@@ -217,17 +217,11 @@ function create_charts() {
   mkdir -vp "${OUTPUT}/istio"
   cp -R "./istio-${VERSION}/install" "${OUTPUT}/istio/install"
 
-  pushd "$OUTPUT"
-      git clone -b "${BRANCH}" https://github.com/istio/cni.git
-      sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-      sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g" cni/deployments/kubernetes/install/helm/istio-cni/values.yaml
-  popd
-
   # Charts to extract from repos
   CHARTS=(
     "${OUTPUT}/istio/install/kubernetes/helm/istio"
+    "${OUTPUT}/istio/install/kubernetes/helm/istio-cni"
     "${OUTPUT}/istio/install/kubernetes/helm/istio-init"
-    "${OUTPUT}/cni/deployments/kubernetes/install/helm/istio-cni"
   )
 
   # Prepare helm setup

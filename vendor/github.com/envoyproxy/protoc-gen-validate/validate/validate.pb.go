@@ -21,6 +21,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+// FieldRules encapsulates the rules for each type of field. Depending on the
+// field, the correct set should be used to ensure proper validations.
 type FieldRules struct {
 	// Types that are valid to be assigned to Type:
 	//	*FieldRules_Float
@@ -55,7 +57,7 @@ func (m *FieldRules) Reset()         { *m = FieldRules{} }
 func (m *FieldRules) String() string { return proto.CompactTextString(m) }
 func (*FieldRules) ProtoMessage()    {}
 func (*FieldRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{0}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{0}
 }
 func (m *FieldRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FieldRules.Unmarshal(m, b)
@@ -82,91 +84,133 @@ type isFieldRules_Type interface {
 type FieldRules_Float struct {
 	Float *FloatRules `protobuf:"bytes,1,opt,name=float,oneof"`
 }
+
 type FieldRules_Double struct {
 	Double *DoubleRules `protobuf:"bytes,2,opt,name=double,oneof"`
 }
+
 type FieldRules_Int32 struct {
 	Int32 *Int32Rules `protobuf:"bytes,3,opt,name=int32,oneof"`
 }
+
 type FieldRules_Int64 struct {
 	Int64 *Int64Rules `protobuf:"bytes,4,opt,name=int64,oneof"`
 }
+
 type FieldRules_Uint32 struct {
 	Uint32 *UInt32Rules `protobuf:"bytes,5,opt,name=uint32,oneof"`
 }
+
 type FieldRules_Uint64 struct {
 	Uint64 *UInt64Rules `protobuf:"bytes,6,opt,name=uint64,oneof"`
 }
+
 type FieldRules_Sint32 struct {
 	Sint32 *SInt32Rules `protobuf:"bytes,7,opt,name=sint32,oneof"`
 }
+
 type FieldRules_Sint64 struct {
 	Sint64 *SInt64Rules `protobuf:"bytes,8,opt,name=sint64,oneof"`
 }
+
 type FieldRules_Fixed32 struct {
 	Fixed32 *Fixed32Rules `protobuf:"bytes,9,opt,name=fixed32,oneof"`
 }
+
 type FieldRules_Fixed64 struct {
 	Fixed64 *Fixed64Rules `protobuf:"bytes,10,opt,name=fixed64,oneof"`
 }
+
 type FieldRules_Sfixed32 struct {
 	Sfixed32 *SFixed32Rules `protobuf:"bytes,11,opt,name=sfixed32,oneof"`
 }
+
 type FieldRules_Sfixed64 struct {
 	Sfixed64 *SFixed64Rules `protobuf:"bytes,12,opt,name=sfixed64,oneof"`
 }
+
 type FieldRules_Bool struct {
 	Bool *BoolRules `protobuf:"bytes,13,opt,name=bool,oneof"`
 }
+
 type FieldRules_String_ struct {
 	String_ *StringRules `protobuf:"bytes,14,opt,name=string,oneof"`
 }
+
 type FieldRules_Bytes struct {
 	Bytes *BytesRules `protobuf:"bytes,15,opt,name=bytes,oneof"`
 }
+
 type FieldRules_Enum struct {
 	Enum *EnumRules `protobuf:"bytes,16,opt,name=enum,oneof"`
 }
+
 type FieldRules_Message struct {
 	Message *MessageRules `protobuf:"bytes,17,opt,name=message,oneof"`
 }
+
 type FieldRules_Repeated struct {
 	Repeated *RepeatedRules `protobuf:"bytes,18,opt,name=repeated,oneof"`
 }
+
 type FieldRules_Map struct {
 	Map *MapRules `protobuf:"bytes,19,opt,name=map,oneof"`
 }
+
 type FieldRules_Any struct {
 	Any *AnyRules `protobuf:"bytes,20,opt,name=any,oneof"`
 }
+
 type FieldRules_Duration struct {
 	Duration *DurationRules `protobuf:"bytes,21,opt,name=duration,oneof"`
 }
+
 type FieldRules_Timestamp struct {
 	Timestamp *TimestampRules `protobuf:"bytes,22,opt,name=timestamp,oneof"`
 }
 
-func (*FieldRules_Float) isFieldRules_Type()     {}
-func (*FieldRules_Double) isFieldRules_Type()    {}
-func (*FieldRules_Int32) isFieldRules_Type()     {}
-func (*FieldRules_Int64) isFieldRules_Type()     {}
-func (*FieldRules_Uint32) isFieldRules_Type()    {}
-func (*FieldRules_Uint64) isFieldRules_Type()    {}
-func (*FieldRules_Sint32) isFieldRules_Type()    {}
-func (*FieldRules_Sint64) isFieldRules_Type()    {}
-func (*FieldRules_Fixed32) isFieldRules_Type()   {}
-func (*FieldRules_Fixed64) isFieldRules_Type()   {}
-func (*FieldRules_Sfixed32) isFieldRules_Type()  {}
-func (*FieldRules_Sfixed64) isFieldRules_Type()  {}
-func (*FieldRules_Bool) isFieldRules_Type()      {}
-func (*FieldRules_String_) isFieldRules_Type()   {}
-func (*FieldRules_Bytes) isFieldRules_Type()     {}
-func (*FieldRules_Enum) isFieldRules_Type()      {}
-func (*FieldRules_Message) isFieldRules_Type()   {}
-func (*FieldRules_Repeated) isFieldRules_Type()  {}
-func (*FieldRules_Map) isFieldRules_Type()       {}
-func (*FieldRules_Any) isFieldRules_Type()       {}
-func (*FieldRules_Duration) isFieldRules_Type()  {}
+func (*FieldRules_Float) isFieldRules_Type() {}
+
+func (*FieldRules_Double) isFieldRules_Type() {}
+
+func (*FieldRules_Int32) isFieldRules_Type() {}
+
+func (*FieldRules_Int64) isFieldRules_Type() {}
+
+func (*FieldRules_Uint32) isFieldRules_Type() {}
+
+func (*FieldRules_Uint64) isFieldRules_Type() {}
+
+func (*FieldRules_Sint32) isFieldRules_Type() {}
+
+func (*FieldRules_Sint64) isFieldRules_Type() {}
+
+func (*FieldRules_Fixed32) isFieldRules_Type() {}
+
+func (*FieldRules_Fixed64) isFieldRules_Type() {}
+
+func (*FieldRules_Sfixed32) isFieldRules_Type() {}
+
+func (*FieldRules_Sfixed64) isFieldRules_Type() {}
+
+func (*FieldRules_Bool) isFieldRules_Type() {}
+
+func (*FieldRules_String_) isFieldRules_Type() {}
+
+func (*FieldRules_Bytes) isFieldRules_Type() {}
+
+func (*FieldRules_Enum) isFieldRules_Type() {}
+
+func (*FieldRules_Message) isFieldRules_Type() {}
+
+func (*FieldRules_Repeated) isFieldRules_Type() {}
+
+func (*FieldRules_Map) isFieldRules_Type() {}
+
+func (*FieldRules_Any) isFieldRules_Type() {}
+
+func (*FieldRules_Duration) isFieldRules_Type() {}
+
 func (*FieldRules_Timestamp) isFieldRules_Type() {}
 
 func (m *FieldRules) GetType() isFieldRules_Type {
@@ -784,13 +828,29 @@ func _FieldRules_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// FloatRules describes the constraints applied to `float` values
 type FloatRules struct {
-	Const                *float32  `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *float32  `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *float32  `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *float32  `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *float32  `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []float32 `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *float32 `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *float32 `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *float32 `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *float32 `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *float32 `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []float32 `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []float32 `protobuf:"fixed32,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
@@ -801,7 +861,7 @@ func (m *FloatRules) Reset()         { *m = FloatRules{} }
 func (m *FloatRules) String() string { return proto.CompactTextString(m) }
 func (*FloatRules) ProtoMessage()    {}
 func (*FloatRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{1}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{1}
 }
 func (m *FloatRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FloatRules.Unmarshal(m, b)
@@ -870,13 +930,29 @@ func (m *FloatRules) GetNotIn() []float32 {
 	return nil
 }
 
+// DoubleRules describes the constraints applied to `double` values
 type DoubleRules struct {
-	Const                *float64  `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *float64  `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *float64  `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *float64  `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *float64  `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []float64 `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *float64 `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *float64 `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *float64 `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *float64 `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *float64 `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []float64 `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []float64 `protobuf:"fixed64,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
@@ -887,7 +963,7 @@ func (m *DoubleRules) Reset()         { *m = DoubleRules{} }
 func (m *DoubleRules) String() string { return proto.CompactTextString(m) }
 func (*DoubleRules) ProtoMessage()    {}
 func (*DoubleRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{2}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{2}
 }
 func (m *DoubleRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DoubleRules.Unmarshal(m, b)
@@ -956,13 +1032,29 @@ func (m *DoubleRules) GetNotIn() []float64 {
 	return nil
 }
 
+// Int32Rules describes the constraints applied to `int32` values
 type Int32Rules struct {
-	Const                *int32   `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int32   `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int32   `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int32   `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int32   `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int32  `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int32 `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int32 `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int32 `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int32 `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int32 `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int32 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int32  `protobuf:"varint,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -973,7 +1065,7 @@ func (m *Int32Rules) Reset()         { *m = Int32Rules{} }
 func (m *Int32Rules) String() string { return proto.CompactTextString(m) }
 func (*Int32Rules) ProtoMessage()    {}
 func (*Int32Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{3}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{3}
 }
 func (m *Int32Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Int32Rules.Unmarshal(m, b)
@@ -1042,13 +1134,29 @@ func (m *Int32Rules) GetNotIn() []int32 {
 	return nil
 }
 
+// Int64Rules describes the constraints applied to `int64` values
 type Int64Rules struct {
-	Const                *int64   `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int64   `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int64   `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int64   `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int64   `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int64  `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int64 `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int64 `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int64 `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int64 `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int64 `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int64 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int64  `protobuf:"varint,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1059,7 +1167,7 @@ func (m *Int64Rules) Reset()         { *m = Int64Rules{} }
 func (m *Int64Rules) String() string { return proto.CompactTextString(m) }
 func (*Int64Rules) ProtoMessage()    {}
 func (*Int64Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{4}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{4}
 }
 func (m *Int64Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Int64Rules.Unmarshal(m, b)
@@ -1128,13 +1236,29 @@ func (m *Int64Rules) GetNotIn() []int64 {
 	return nil
 }
 
+// UInt32Rules describes the constraints applied to `uint32` values
 type UInt32Rules struct {
-	Const                *uint32  `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *uint32  `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *uint32  `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *uint32  `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *uint32  `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []uint32 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *uint32 `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *uint32 `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *uint32 `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *uint32 `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *uint32 `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []uint32 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []uint32 `protobuf:"varint,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1145,7 +1269,7 @@ func (m *UInt32Rules) Reset()         { *m = UInt32Rules{} }
 func (m *UInt32Rules) String() string { return proto.CompactTextString(m) }
 func (*UInt32Rules) ProtoMessage()    {}
 func (*UInt32Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{5}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{5}
 }
 func (m *UInt32Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UInt32Rules.Unmarshal(m, b)
@@ -1214,13 +1338,29 @@ func (m *UInt32Rules) GetNotIn() []uint32 {
 	return nil
 }
 
+// UInt64Rules describes the constraints applied to `uint64` values
 type UInt64Rules struct {
-	Const                *uint64  `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *uint64  `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *uint64  `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *uint64  `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *uint64  `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []uint64 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *uint64 `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *uint64 `protobuf:"varint,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *uint64 `protobuf:"varint,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *uint64 `protobuf:"varint,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *uint64 `protobuf:"varint,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []uint64 `protobuf:"varint,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []uint64 `protobuf:"varint,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1231,7 +1371,7 @@ func (m *UInt64Rules) Reset()         { *m = UInt64Rules{} }
 func (m *UInt64Rules) String() string { return proto.CompactTextString(m) }
 func (*UInt64Rules) ProtoMessage()    {}
 func (*UInt64Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{6}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{6}
 }
 func (m *UInt64Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UInt64Rules.Unmarshal(m, b)
@@ -1300,13 +1440,29 @@ func (m *UInt64Rules) GetNotIn() []uint64 {
 	return nil
 }
 
+// SInt32Rules describes the constraints applied to `sint32` values
 type SInt32Rules struct {
-	Const                *int32   `protobuf:"zigzag32,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int32   `protobuf:"zigzag32,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int32   `protobuf:"zigzag32,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int32   `protobuf:"zigzag32,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int32   `protobuf:"zigzag32,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int32  `protobuf:"zigzag32,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int32 `protobuf:"zigzag32,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int32 `protobuf:"zigzag32,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int32 `protobuf:"zigzag32,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int32 `protobuf:"zigzag32,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int32 `protobuf:"zigzag32,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int32 `protobuf:"zigzag32,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int32  `protobuf:"zigzag32,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1317,7 +1473,7 @@ func (m *SInt32Rules) Reset()         { *m = SInt32Rules{} }
 func (m *SInt32Rules) String() string { return proto.CompactTextString(m) }
 func (*SInt32Rules) ProtoMessage()    {}
 func (*SInt32Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{7}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{7}
 }
 func (m *SInt32Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SInt32Rules.Unmarshal(m, b)
@@ -1386,13 +1542,29 @@ func (m *SInt32Rules) GetNotIn() []int32 {
 	return nil
 }
 
+// SInt64Rules describes the constraints applied to `sint64` values
 type SInt64Rules struct {
-	Const                *int64   `protobuf:"zigzag64,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int64   `protobuf:"zigzag64,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int64   `protobuf:"zigzag64,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int64   `protobuf:"zigzag64,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int64   `protobuf:"zigzag64,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int64  `protobuf:"zigzag64,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int64 `protobuf:"zigzag64,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int64 `protobuf:"zigzag64,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int64 `protobuf:"zigzag64,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int64 `protobuf:"zigzag64,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int64 `protobuf:"zigzag64,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int64 `protobuf:"zigzag64,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int64  `protobuf:"zigzag64,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1403,7 +1575,7 @@ func (m *SInt64Rules) Reset()         { *m = SInt64Rules{} }
 func (m *SInt64Rules) String() string { return proto.CompactTextString(m) }
 func (*SInt64Rules) ProtoMessage()    {}
 func (*SInt64Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{8}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{8}
 }
 func (m *SInt64Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SInt64Rules.Unmarshal(m, b)
@@ -1472,13 +1644,29 @@ func (m *SInt64Rules) GetNotIn() []int64 {
 	return nil
 }
 
+// Fixed32Rules describes the constraints applied to `fixed32` values
 type Fixed32Rules struct {
-	Const                *uint32  `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *uint32  `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *uint32  `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *uint32  `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *uint32  `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []uint32 `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *uint32 `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *uint32 `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *uint32 `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *uint32 `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *uint32 `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []uint32 `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []uint32 `protobuf:"fixed32,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1489,7 +1677,7 @@ func (m *Fixed32Rules) Reset()         { *m = Fixed32Rules{} }
 func (m *Fixed32Rules) String() string { return proto.CompactTextString(m) }
 func (*Fixed32Rules) ProtoMessage()    {}
 func (*Fixed32Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{9}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{9}
 }
 func (m *Fixed32Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Fixed32Rules.Unmarshal(m, b)
@@ -1558,13 +1746,29 @@ func (m *Fixed32Rules) GetNotIn() []uint32 {
 	return nil
 }
 
+// Fixed64Rules describes the constraints applied to `fixed64` values
 type Fixed64Rules struct {
-	Const                *uint64  `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *uint64  `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *uint64  `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *uint64  `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *uint64  `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []uint64 `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *uint64 `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *uint64 `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *uint64 `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *uint64 `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *uint64 `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []uint64 `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []uint64 `protobuf:"fixed64,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1575,7 +1779,7 @@ func (m *Fixed64Rules) Reset()         { *m = Fixed64Rules{} }
 func (m *Fixed64Rules) String() string { return proto.CompactTextString(m) }
 func (*Fixed64Rules) ProtoMessage()    {}
 func (*Fixed64Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{10}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{10}
 }
 func (m *Fixed64Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Fixed64Rules.Unmarshal(m, b)
@@ -1644,13 +1848,29 @@ func (m *Fixed64Rules) GetNotIn() []uint64 {
 	return nil
 }
 
+// SFixed32Rules describes the constraints applied to `sfixed32` values
 type SFixed32Rules struct {
-	Const                *int32   `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int32   `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int32   `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int32   `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int32   `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int32  `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int32 `protobuf:"fixed32,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int32 `protobuf:"fixed32,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int32 `protobuf:"fixed32,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int32 `protobuf:"fixed32,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int32 `protobuf:"fixed32,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int32 `protobuf:"fixed32,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int32  `protobuf:"fixed32,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1661,7 +1881,7 @@ func (m *SFixed32Rules) Reset()         { *m = SFixed32Rules{} }
 func (m *SFixed32Rules) String() string { return proto.CompactTextString(m) }
 func (*SFixed32Rules) ProtoMessage()    {}
 func (*SFixed32Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{11}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{11}
 }
 func (m *SFixed32Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SFixed32Rules.Unmarshal(m, b)
@@ -1730,13 +1950,29 @@ func (m *SFixed32Rules) GetNotIn() []int32 {
 	return nil
 }
 
+// SFixed64Rules describes the constraints applied to `sfixed64` values
 type SFixed64Rules struct {
-	Const                *int64   `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
-	Lt                   *int64   `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *int64   `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *int64   `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *int64   `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
-	In                   []int64  `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int64 `protobuf:"fixed64,1,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *int64 `protobuf:"fixed64,2,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than or equal to the
+	// specified value, inclusive
+	Lte *int64 `protobuf:"fixed64,3,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive. If the value of Gt is larger than a specified Lt or Lte, the
+	// range is reversed.
+	Gt *int64 `protobuf:"fixed64,4,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than or equal to the
+	// specified value, inclusive. If the value of Gte is larger than a
+	// specified Lt or Lte, the range is reversed.
+	Gte *int64 `protobuf:"fixed64,5,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int64 `protobuf:"fixed64,6,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int64  `protobuf:"fixed64,7,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1747,7 +1983,7 @@ func (m *SFixed64Rules) Reset()         { *m = SFixed64Rules{} }
 func (m *SFixed64Rules) String() string { return proto.CompactTextString(m) }
 func (*SFixed64Rules) ProtoMessage()    {}
 func (*SFixed64Rules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{12}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{12}
 }
 func (m *SFixed64Rules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SFixed64Rules.Unmarshal(m, b)
@@ -1816,7 +2052,9 @@ func (m *SFixed64Rules) GetNotIn() []int64 {
 	return nil
 }
 
+// BoolRules describes the constraints applied to `bool` values
 type BoolRules struct {
+	// Const specifies that this field must be exactly the specified value
 	Const                *bool    `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1827,7 +2065,7 @@ func (m *BoolRules) Reset()         { *m = BoolRules{} }
 func (m *BoolRules) String() string { return proto.CompactTextString(m) }
 func (*BoolRules) ProtoMessage()    {}
 func (*BoolRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{13}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{13}
 }
 func (m *BoolRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BoolRules.Unmarshal(m, b)
@@ -1854,20 +2092,53 @@ func (m *BoolRules) GetConst() bool {
 	return false
 }
 
+// StringRules describe the constraints applied to `string` values
 type StringRules struct {
-	Const    *string  `protobuf:"bytes,1,opt,name=const" json:"const,omitempty"`
-	Len      *uint64  `protobuf:"varint,19,opt,name=len" json:"len,omitempty"`
-	MinLen   *uint64  `protobuf:"varint,2,opt,name=min_len,json=minLen" json:"min_len,omitempty"`
-	MaxLen   *uint64  `protobuf:"varint,3,opt,name=max_len,json=maxLen" json:"max_len,omitempty"`
-	LenBytes *uint64  `protobuf:"varint,20,opt,name=len_bytes,json=lenBytes" json:"len_bytes,omitempty"`
-	MinBytes *uint64  `protobuf:"varint,4,opt,name=min_bytes,json=minBytes" json:"min_bytes,omitempty"`
-	MaxBytes *uint64  `protobuf:"varint,5,opt,name=max_bytes,json=maxBytes" json:"max_bytes,omitempty"`
-	Pattern  *string  `protobuf:"bytes,6,opt,name=pattern" json:"pattern,omitempty"`
-	Prefix   *string  `protobuf:"bytes,7,opt,name=prefix" json:"prefix,omitempty"`
-	Suffix   *string  `protobuf:"bytes,8,opt,name=suffix" json:"suffix,omitempty"`
-	Contains *string  `protobuf:"bytes,9,opt,name=contains" json:"contains,omitempty"`
-	In       []string `protobuf:"bytes,10,rep,name=in" json:"in,omitempty"`
-	NotIn    []string `protobuf:"bytes,11,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *string `protobuf:"bytes,1,opt,name=const" json:"const,omitempty"`
+	// Len specifies that this field must be the specified number of
+	// characters (Unicode code points). Note that the number of
+	// characters may differ from the number of bytes in the string.
+	Len *uint64 `protobuf:"varint,19,opt,name=len" json:"len,omitempty"`
+	// MinLen specifies that this field must be the specified number of
+	// characters (Unicode code points) at a minimum. Note that the number of
+	// characters may differ from the number of bytes in the string.
+	MinLen *uint64 `protobuf:"varint,2,opt,name=min_len,json=minLen" json:"min_len,omitempty"`
+	// MaxLen specifies that this field must be the specified number of
+	// characters (Unicode code points) at a maximum. Note that the number of
+	// characters may differ from the number of bytes in the string.
+	MaxLen *uint64 `protobuf:"varint,3,opt,name=max_len,json=maxLen" json:"max_len,omitempty"`
+	// LenBytes specifies that this field must be the specified number of bytes
+	// at a minimum
+	LenBytes *uint64 `protobuf:"varint,20,opt,name=len_bytes,json=lenBytes" json:"len_bytes,omitempty"`
+	// MinBytes specifies that this field must be the specified number of bytes
+	// at a minimum
+	MinBytes *uint64 `protobuf:"varint,4,opt,name=min_bytes,json=minBytes" json:"min_bytes,omitempty"`
+	// MaxBytes specifies that this field must be the specified number of bytes
+	// at a maximum
+	MaxBytes *uint64 `protobuf:"varint,5,opt,name=max_bytes,json=maxBytes" json:"max_bytes,omitempty"`
+	// Pattern specifes that this field must match against the specified
+	// regular expression (RE2 syntax). The included expression should elide
+	// any delimiters.
+	Pattern *string `protobuf:"bytes,6,opt,name=pattern" json:"pattern,omitempty"`
+	// Prefix specifies that this field must have the specified substring at
+	// the beginning of the string.
+	Prefix *string `protobuf:"bytes,7,opt,name=prefix" json:"prefix,omitempty"`
+	// Suffix specifies that this field must have the specified substring at
+	// the end of the string.
+	Suffix *string `protobuf:"bytes,8,opt,name=suffix" json:"suffix,omitempty"`
+	// Contains specifies that this field must have the specified substring
+	// anywhere in the string.
+	Contains *string `protobuf:"bytes,9,opt,name=contains" json:"contains,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []string `protobuf:"bytes,10,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
+	NotIn []string `protobuf:"bytes,11,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
+	// WellKnown rules provide advanced constraints against common string
+	// patterns
+	//
 	// Types that are valid to be assigned to WellKnown:
 	//	*StringRules_Email
 	//	*StringRules_Hostname
@@ -1876,6 +2147,7 @@ type StringRules struct {
 	//	*StringRules_Ipv6
 	//	*StringRules_Uri
 	//	*StringRules_UriRef
+	//	*StringRules_Address
 	WellKnown            isStringRules_WellKnown `protobuf_oneof:"well_known"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
@@ -1886,7 +2158,7 @@ func (m *StringRules) Reset()         { *m = StringRules{} }
 func (m *StringRules) String() string { return proto.CompactTextString(m) }
 func (*StringRules) ProtoMessage()    {}
 func (*StringRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{14}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{14}
 }
 func (m *StringRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StringRules.Unmarshal(m, b)
@@ -1905,47 +2177,6 @@ func (m *StringRules) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_StringRules proto.InternalMessageInfo
-
-type isStringRules_WellKnown interface {
-	isStringRules_WellKnown()
-}
-
-type StringRules_Email struct {
-	Email bool `protobuf:"varint,12,opt,name=email,oneof"`
-}
-type StringRules_Hostname struct {
-	Hostname bool `protobuf:"varint,13,opt,name=hostname,oneof"`
-}
-type StringRules_Ip struct {
-	Ip bool `protobuf:"varint,14,opt,name=ip,oneof"`
-}
-type StringRules_Ipv4 struct {
-	Ipv4 bool `protobuf:"varint,15,opt,name=ipv4,oneof"`
-}
-type StringRules_Ipv6 struct {
-	Ipv6 bool `protobuf:"varint,16,opt,name=ipv6,oneof"`
-}
-type StringRules_Uri struct {
-	Uri bool `protobuf:"varint,17,opt,name=uri,oneof"`
-}
-type StringRules_UriRef struct {
-	UriRef bool `protobuf:"varint,18,opt,name=uri_ref,json=uriRef,oneof"`
-}
-
-func (*StringRules_Email) isStringRules_WellKnown()    {}
-func (*StringRules_Hostname) isStringRules_WellKnown() {}
-func (*StringRules_Ip) isStringRules_WellKnown()       {}
-func (*StringRules_Ipv4) isStringRules_WellKnown()     {}
-func (*StringRules_Ipv6) isStringRules_WellKnown()     {}
-func (*StringRules_Uri) isStringRules_WellKnown()      {}
-func (*StringRules_UriRef) isStringRules_WellKnown()   {}
-
-func (m *StringRules) GetWellKnown() isStringRules_WellKnown {
-	if m != nil {
-		return m.WellKnown
-	}
-	return nil
-}
 
 func (m *StringRules) GetConst() string {
 	if m != nil && m.Const != nil {
@@ -2038,6 +2269,65 @@ func (m *StringRules) GetNotIn() []string {
 	return nil
 }
 
+type isStringRules_WellKnown interface {
+	isStringRules_WellKnown()
+}
+
+type StringRules_Email struct {
+	Email bool `protobuf:"varint,12,opt,name=email,oneof"`
+}
+
+type StringRules_Hostname struct {
+	Hostname bool `protobuf:"varint,13,opt,name=hostname,oneof"`
+}
+
+type StringRules_Ip struct {
+	Ip bool `protobuf:"varint,14,opt,name=ip,oneof"`
+}
+
+type StringRules_Ipv4 struct {
+	Ipv4 bool `protobuf:"varint,15,opt,name=ipv4,oneof"`
+}
+
+type StringRules_Ipv6 struct {
+	Ipv6 bool `protobuf:"varint,16,opt,name=ipv6,oneof"`
+}
+
+type StringRules_Uri struct {
+	Uri bool `protobuf:"varint,17,opt,name=uri,oneof"`
+}
+
+type StringRules_UriRef struct {
+	UriRef bool `protobuf:"varint,18,opt,name=uri_ref,json=uriRef,oneof"`
+}
+
+type StringRules_Address struct {
+	Address bool `protobuf:"varint,21,opt,name=address,oneof"`
+}
+
+func (*StringRules_Email) isStringRules_WellKnown() {}
+
+func (*StringRules_Hostname) isStringRules_WellKnown() {}
+
+func (*StringRules_Ip) isStringRules_WellKnown() {}
+
+func (*StringRules_Ipv4) isStringRules_WellKnown() {}
+
+func (*StringRules_Ipv6) isStringRules_WellKnown() {}
+
+func (*StringRules_Uri) isStringRules_WellKnown() {}
+
+func (*StringRules_UriRef) isStringRules_WellKnown() {}
+
+func (*StringRules_Address) isStringRules_WellKnown() {}
+
+func (m *StringRules) GetWellKnown() isStringRules_WellKnown {
+	if m != nil {
+		return m.WellKnown
+	}
+	return nil
+}
+
 func (m *StringRules) GetEmail() bool {
 	if x, ok := m.GetWellKnown().(*StringRules_Email); ok {
 		return x.Email
@@ -2087,6 +2377,13 @@ func (m *StringRules) GetUriRef() bool {
 	return false
 }
 
+func (m *StringRules) GetAddress() bool {
+	if x, ok := m.GetWellKnown().(*StringRules_Address); ok {
+		return x.Address
+	}
+	return false
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*StringRules) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _StringRules_OneofMarshaler, _StringRules_OneofUnmarshaler, _StringRules_OneofSizer, []interface{}{
@@ -2097,6 +2394,7 @@ func (*StringRules) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) e
 		(*StringRules_Ipv6)(nil),
 		(*StringRules_Uri)(nil),
 		(*StringRules_UriRef)(nil),
+		(*StringRules_Address)(nil),
 	}
 }
 
@@ -2152,6 +2450,13 @@ func _StringRules_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 			t = 1
 		}
 		b.EncodeVarint(18<<3 | proto.WireVarint)
+		b.EncodeVarint(t)
+	case *StringRules_Address:
+		t := uint64(0)
+		if x.Address {
+			t = 1
+		}
+		b.EncodeVarint(21<<3 | proto.WireVarint)
 		b.EncodeVarint(t)
 	case nil:
 	default:
@@ -2212,6 +2517,13 @@ func _StringRules_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Bu
 		x, err := b.DecodeVarint()
 		m.WellKnown = &StringRules_UriRef{x != 0}
 		return true, err
+	case 21: // well_known.address
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.WellKnown = &StringRules_Address{x != 0}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -2242,6 +2554,9 @@ func _StringRules_OneofSizer(msg proto.Message) (n int) {
 	case *StringRules_UriRef:
 		n += 2 // tag and wire
 		n += 1
+	case *StringRules_Address:
+		n += 2 // tag and wire
+		n += 1
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -2249,17 +2564,40 @@ func _StringRules_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// BytesRules describe the constraints applied to `bytes` values
 type BytesRules struct {
-	Const    []byte   `protobuf:"bytes,1,opt,name=const" json:"const,omitempty"`
-	Len      *uint64  `protobuf:"varint,13,opt,name=len" json:"len,omitempty"`
-	MinLen   *uint64  `protobuf:"varint,2,opt,name=min_len,json=minLen" json:"min_len,omitempty"`
-	MaxLen   *uint64  `protobuf:"varint,3,opt,name=max_len,json=maxLen" json:"max_len,omitempty"`
-	Pattern  *string  `protobuf:"bytes,4,opt,name=pattern" json:"pattern,omitempty"`
-	Prefix   []byte   `protobuf:"bytes,5,opt,name=prefix" json:"prefix,omitempty"`
-	Suffix   []byte   `protobuf:"bytes,6,opt,name=suffix" json:"suffix,omitempty"`
-	Contains []byte   `protobuf:"bytes,7,opt,name=contains" json:"contains,omitempty"`
-	In       [][]byte `protobuf:"bytes,8,rep,name=in" json:"in,omitempty"`
-	NotIn    [][]byte `protobuf:"bytes,9,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const []byte `protobuf:"bytes,1,opt,name=const" json:"const,omitempty"`
+	// Len specifies that this field must be the specified number of bytes
+	Len *uint64 `protobuf:"varint,13,opt,name=len" json:"len,omitempty"`
+	// MinLen specifies that this field must be the specified number of bytes
+	// at a minimum
+	MinLen *uint64 `protobuf:"varint,2,opt,name=min_len,json=minLen" json:"min_len,omitempty"`
+	// MaxLen specifies that this field must be the specified number of bytes
+	// at a maximum
+	MaxLen *uint64 `protobuf:"varint,3,opt,name=max_len,json=maxLen" json:"max_len,omitempty"`
+	// Pattern specifes that this field must match against the specified
+	// regular expression (RE2 syntax). The included expression should elide
+	// any delimiters.
+	Pattern *string `protobuf:"bytes,4,opt,name=pattern" json:"pattern,omitempty"`
+	// Prefix specifies that this field must have the specified bytes at the
+	// beginning of the string.
+	Prefix []byte `protobuf:"bytes,5,opt,name=prefix" json:"prefix,omitempty"`
+	// Suffix specifies that this field must have the specified bytes at the
+	// end of the string.
+	Suffix []byte `protobuf:"bytes,6,opt,name=suffix" json:"suffix,omitempty"`
+	// Contains specifies that this field must have the specified bytes
+	// anywhere in the string.
+	Contains []byte `protobuf:"bytes,7,opt,name=contains" json:"contains,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In [][]byte `protobuf:"bytes,8,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
+	NotIn [][]byte `protobuf:"bytes,9,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
+	// WellKnown rules provide advanced constraints against common byte
+	// patterns
+	//
 	// Types that are valid to be assigned to WellKnown:
 	//	*BytesRules_Ip
 	//	*BytesRules_Ipv4
@@ -2274,7 +2612,7 @@ func (m *BytesRules) Reset()         { *m = BytesRules{} }
 func (m *BytesRules) String() string { return proto.CompactTextString(m) }
 func (*BytesRules) ProtoMessage()    {}
 func (*BytesRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{15}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{15}
 }
 func (m *BytesRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BytesRules.Unmarshal(m, b)
@@ -2293,31 +2631,6 @@ func (m *BytesRules) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_BytesRules proto.InternalMessageInfo
-
-type isBytesRules_WellKnown interface {
-	isBytesRules_WellKnown()
-}
-
-type BytesRules_Ip struct {
-	Ip bool `protobuf:"varint,10,opt,name=ip,oneof"`
-}
-type BytesRules_Ipv4 struct {
-	Ipv4 bool `protobuf:"varint,11,opt,name=ipv4,oneof"`
-}
-type BytesRules_Ipv6 struct {
-	Ipv6 bool `protobuf:"varint,12,opt,name=ipv6,oneof"`
-}
-
-func (*BytesRules_Ip) isBytesRules_WellKnown()   {}
-func (*BytesRules_Ipv4) isBytesRules_WellKnown() {}
-func (*BytesRules_Ipv6) isBytesRules_WellKnown() {}
-
-func (m *BytesRules) GetWellKnown() isBytesRules_WellKnown {
-	if m != nil {
-		return m.WellKnown
-	}
-	return nil
-}
 
 func (m *BytesRules) GetConst() []byte {
 	if m != nil {
@@ -2385,6 +2698,35 @@ func (m *BytesRules) GetIn() [][]byte {
 func (m *BytesRules) GetNotIn() [][]byte {
 	if m != nil {
 		return m.NotIn
+	}
+	return nil
+}
+
+type isBytesRules_WellKnown interface {
+	isBytesRules_WellKnown()
+}
+
+type BytesRules_Ip struct {
+	Ip bool `protobuf:"varint,10,opt,name=ip,oneof"`
+}
+
+type BytesRules_Ipv4 struct {
+	Ipv4 bool `protobuf:"varint,11,opt,name=ipv4,oneof"`
+}
+
+type BytesRules_Ipv6 struct {
+	Ipv6 bool `protobuf:"varint,12,opt,name=ipv6,oneof"`
+}
+
+func (*BytesRules_Ip) isBytesRules_WellKnown() {}
+
+func (*BytesRules_Ipv4) isBytesRules_WellKnown() {}
+
+func (*BytesRules_Ipv6) isBytesRules_WellKnown() {}
+
+func (m *BytesRules) GetWellKnown() isBytesRules_WellKnown {
+	if m != nil {
+		return m.WellKnown
 	}
 	return nil
 }
@@ -2500,10 +2842,18 @@ func _BytesRules_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// EnumRules describe the constraints applied to enum values
 type EnumRules struct {
-	Const                *int32   `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
-	DefinedOnly          *bool    `protobuf:"varint,2,opt,name=defined_only,json=definedOnly" json:"defined_only,omitempty"`
-	In                   []int32  `protobuf:"varint,3,rep,name=in" json:"in,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *int32 `protobuf:"varint,1,opt,name=const" json:"const,omitempty"`
+	// DefinedOnly specifies that this field must be only one of the defined
+	// values for this enum, failing on any undefined value.
+	DefinedOnly *bool `protobuf:"varint,2,opt,name=defined_only,json=definedOnly" json:"defined_only,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []int32 `protobuf:"varint,3,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []int32  `protobuf:"varint,4,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2514,7 +2864,7 @@ func (m *EnumRules) Reset()         { *m = EnumRules{} }
 func (m *EnumRules) String() string { return proto.CompactTextString(m) }
 func (*EnumRules) ProtoMessage()    {}
 func (*EnumRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{16}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{16}
 }
 func (m *EnumRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EnumRules.Unmarshal(m, b)
@@ -2562,8 +2912,13 @@ func (m *EnumRules) GetNotIn() []int32 {
 	return nil
 }
 
+// MessageRules describe the constraints applied to embedded message values.
+// For message-type fields, validation is performed recursively.
 type MessageRules struct {
-	Skip                 *bool    `protobuf:"varint,1,opt,name=skip" json:"skip,omitempty"`
+	// Skip specifies that the validation rules of this field should not be
+	// evaluated
+	Skip *bool `protobuf:"varint,1,opt,name=skip" json:"skip,omitempty"`
+	// Required specifies that this field must be set
 	Required             *bool    `protobuf:"varint,2,opt,name=required" json:"required,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2574,7 +2929,7 @@ func (m *MessageRules) Reset()         { *m = MessageRules{} }
 func (m *MessageRules) String() string { return proto.CompactTextString(m) }
 func (*MessageRules) ProtoMessage()    {}
 func (*MessageRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{17}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{17}
 }
 func (m *MessageRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MessageRules.Unmarshal(m, b)
@@ -2608,10 +2963,21 @@ func (m *MessageRules) GetRequired() bool {
 	return false
 }
 
+// RepeatedRules describe the constraints applied to `repeated` values
 type RepeatedRules struct {
-	MinItems             *uint64     `protobuf:"varint,1,opt,name=min_items,json=minItems" json:"min_items,omitempty"`
-	MaxItems             *uint64     `protobuf:"varint,2,opt,name=max_items,json=maxItems" json:"max_items,omitempty"`
-	Unique               *bool       `protobuf:"varint,3,opt,name=unique" json:"unique,omitempty"`
+	// MinItems specifies that this field must have the specified number of
+	// items at a minimum
+	MinItems *uint64 `protobuf:"varint,1,opt,name=min_items,json=minItems" json:"min_items,omitempty"`
+	// MaxItems specifies that this field must have the specified number of
+	// items at a maximum
+	MaxItems *uint64 `protobuf:"varint,2,opt,name=max_items,json=maxItems" json:"max_items,omitempty"`
+	// Unique specifies that all elements in this field must be unique. This
+	// contraint is only applicable to scalar and enum types (messages are not
+	// supported).
+	Unique *bool `protobuf:"varint,3,opt,name=unique" json:"unique,omitempty"`
+	// Items specifies the contraints to be applied to each item in the field.
+	// Repeated message fields will still execute validation against each item
+	// unless skip is specified here.
 	Items                *FieldRules `protobuf:"bytes,4,opt,name=items" json:"items,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -2622,7 +2988,7 @@ func (m *RepeatedRules) Reset()         { *m = RepeatedRules{} }
 func (m *RepeatedRules) String() string { return proto.CompactTextString(m) }
 func (*RepeatedRules) ProtoMessage()    {}
 func (*RepeatedRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{18}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{18}
 }
 func (m *RepeatedRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepeatedRules.Unmarshal(m, b)
@@ -2670,11 +3036,22 @@ func (m *RepeatedRules) GetItems() *FieldRules {
 	return nil
 }
 
+// MapRules describe the constraints applied to `map` values
 type MapRules struct {
-	MinPairs             *uint64     `protobuf:"varint,1,opt,name=min_pairs,json=minPairs" json:"min_pairs,omitempty"`
-	MaxPairs             *uint64     `protobuf:"varint,2,opt,name=max_pairs,json=maxPairs" json:"max_pairs,omitempty"`
-	NoSparse             *bool       `protobuf:"varint,3,opt,name=no_sparse,json=noSparse" json:"no_sparse,omitempty"`
-	Keys                 *FieldRules `protobuf:"bytes,4,opt,name=keys" json:"keys,omitempty"`
+	// MinPairs specifies that this field must have the specified number of
+	// KVs at a minimum
+	MinPairs *uint64 `protobuf:"varint,1,opt,name=min_pairs,json=minPairs" json:"min_pairs,omitempty"`
+	// MaxPairs specifies that this field must have the specified number of
+	// KVs at a maximum
+	MaxPairs *uint64 `protobuf:"varint,2,opt,name=max_pairs,json=maxPairs" json:"max_pairs,omitempty"`
+	// NoSparse specifies values in this field cannot be unset. This only
+	// applies to map's with message value types.
+	NoSparse *bool `protobuf:"varint,3,opt,name=no_sparse,json=noSparse" json:"no_sparse,omitempty"`
+	// Keys specifies the constraints to be applied to each key in the field.
+	Keys *FieldRules `protobuf:"bytes,4,opt,name=keys" json:"keys,omitempty"`
+	// Values specifies the constraints to be applied to the value of each key
+	// in the field. Message values will still have their validations evaluated
+	// unless skip is specified here.
 	Values               *FieldRules `protobuf:"bytes,5,opt,name=values" json:"values,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -2685,7 +3062,7 @@ func (m *MapRules) Reset()         { *m = MapRules{} }
 func (m *MapRules) String() string { return proto.CompactTextString(m) }
 func (*MapRules) ProtoMessage()    {}
 func (*MapRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{19}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{19}
 }
 func (m *MapRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MapRules.Unmarshal(m, b)
@@ -2740,9 +3117,16 @@ func (m *MapRules) GetValues() *FieldRules {
 	return nil
 }
 
+// AnyRules describe constraints applied exclusively to the
+// `google.protobuf.Any` well-known type
 type AnyRules struct {
-	Required             *bool    `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
-	In                   []string `protobuf:"bytes,2,rep,name=in" json:"in,omitempty"`
+	// Required specifies that this field must be set
+	Required *bool `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
+	// In specifies that this field's `type_url` must be equal to one of the
+	// specified values.
+	In []string `protobuf:"bytes,2,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field's `type_url` must not be equal to any of
+	// the specified values.
 	NotIn                []string `protobuf:"bytes,3,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2753,7 +3137,7 @@ func (m *AnyRules) Reset()         { *m = AnyRules{} }
 func (m *AnyRules) String() string { return proto.CompactTextString(m) }
 func (*AnyRules) ProtoMessage()    {}
 func (*AnyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{20}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{20}
 }
 func (m *AnyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AnyRules.Unmarshal(m, b)
@@ -2794,14 +3178,30 @@ func (m *AnyRules) GetNotIn() []string {
 	return nil
 }
 
+// DurationRules describe the constraints applied exclusively to the
+// `google.protobuf.Duration` well-known type
 type DurationRules struct {
-	Required             *bool                `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
-	Const                *duration.Duration   `protobuf:"bytes,2,opt,name=const" json:"const,omitempty"`
-	Lt                   *duration.Duration   `protobuf:"bytes,3,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *duration.Duration   `protobuf:"bytes,4,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *duration.Duration   `protobuf:"bytes,5,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *duration.Duration   `protobuf:"bytes,6,opt,name=gte" json:"gte,omitempty"`
-	In                   []*duration.Duration `protobuf:"bytes,7,rep,name=in" json:"in,omitempty"`
+	// Required specifies that this field must be set
+	Required *bool `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *duration.Duration `protobuf:"bytes,2,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *duration.Duration `protobuf:"bytes,3,opt,name=lt" json:"lt,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// inclusive
+	Lte *duration.Duration `protobuf:"bytes,4,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive
+	Gt *duration.Duration `protobuf:"bytes,5,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than the specified value,
+	// inclusive
+	Gte *duration.Duration `protobuf:"bytes,6,opt,name=gte" json:"gte,omitempty"`
+	// In specifies that this field must be equal to one of the specified
+	// values
+	In []*duration.Duration `protobuf:"bytes,7,rep,name=in" json:"in,omitempty"`
+	// NotIn specifies that this field cannot be equal to one of the specified
+	// values
 	NotIn                []*duration.Duration `protobuf:"bytes,8,rep,name=not_in,json=notIn" json:"not_in,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
@@ -2812,7 +3212,7 @@ func (m *DurationRules) Reset()         { *m = DurationRules{} }
 func (m *DurationRules) String() string { return proto.CompactTextString(m) }
 func (*DurationRules) ProtoMessage()    {}
 func (*DurationRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{21}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{21}
 }
 func (m *DurationRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DurationRules.Unmarshal(m, b)
@@ -2888,26 +3288,45 @@ func (m *DurationRules) GetNotIn() []*duration.Duration {
 	return nil
 }
 
+// TimestampRules describe the constraints applied exclusively to the
+// `google.protobuf.Timestamp` well-known type
 type TimestampRules struct {
-	Required             *bool                `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
-	Const                *timestamp.Timestamp `protobuf:"bytes,2,opt,name=const" json:"const,omitempty"`
-	Lt                   *timestamp.Timestamp `protobuf:"bytes,3,opt,name=lt" json:"lt,omitempty"`
-	Lte                  *timestamp.Timestamp `protobuf:"bytes,4,opt,name=lte" json:"lte,omitempty"`
-	Gt                   *timestamp.Timestamp `protobuf:"bytes,5,opt,name=gt" json:"gt,omitempty"`
-	Gte                  *timestamp.Timestamp `protobuf:"bytes,6,opt,name=gte" json:"gte,omitempty"`
-	LtNow                *bool                `protobuf:"varint,7,opt,name=lt_now,json=ltNow" json:"lt_now,omitempty"`
-	GtNow                *bool                `protobuf:"varint,8,opt,name=gt_now,json=gtNow" json:"gt_now,omitempty"`
-	Within               *duration.Duration   `protobuf:"bytes,9,opt,name=within" json:"within,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	// Required specifies that this field must be set
+	Required *bool `protobuf:"varint,1,opt,name=required" json:"required,omitempty"`
+	// Const specifies that this field must be exactly the specified value
+	Const *timestamp.Timestamp `protobuf:"bytes,2,opt,name=const" json:"const,omitempty"`
+	// Lt specifies that this field must be less than the specified value,
+	// exclusive
+	Lt *timestamp.Timestamp `protobuf:"bytes,3,opt,name=lt" json:"lt,omitempty"`
+	// Lte specifies that this field must be less than the specified value,
+	// inclusive
+	Lte *timestamp.Timestamp `protobuf:"bytes,4,opt,name=lte" json:"lte,omitempty"`
+	// Gt specifies that this field must be greater than the specified value,
+	// exclusive
+	Gt *timestamp.Timestamp `protobuf:"bytes,5,opt,name=gt" json:"gt,omitempty"`
+	// Gte specifies that this field must be greater than the specified value,
+	// inclusive
+	Gte *timestamp.Timestamp `protobuf:"bytes,6,opt,name=gte" json:"gte,omitempty"`
+	// LtNow specifies that this must be less than the current time. LtNow
+	// can only be used with the Within rule.
+	LtNow *bool `protobuf:"varint,7,opt,name=lt_now,json=ltNow" json:"lt_now,omitempty"`
+	// GtNow specifies that this must be greater than the current time. GtNow
+	// can only be used with the Within rule.
+	GtNow *bool `protobuf:"varint,8,opt,name=gt_now,json=gtNow" json:"gt_now,omitempty"`
+	// Within specifies that this field must be within this duration of the
+	// current time. This constraint can be used alone or with the LtNow and
+	// GtNow rules.
+	Within               *duration.Duration `protobuf:"bytes,9,opt,name=within" json:"within,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
 func (m *TimestampRules) Reset()         { *m = TimestampRules{} }
 func (m *TimestampRules) String() string { return proto.CompactTextString(m) }
 func (*TimestampRules) ProtoMessage()    {}
 func (*TimestampRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_validate_42a9c75c83428773, []int{22}
+	return fileDescriptor_validate_c8f5e113dd6422a8, []int{22}
 }
 func (m *TimestampRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TimestampRules.Unmarshal(m, b)
@@ -3046,109 +3465,111 @@ func init() {
 	proto.RegisterExtension(E_Rules)
 }
 
-func init() { proto.RegisterFile("validate/validate.proto", fileDescriptor_validate_42a9c75c83428773) }
+func init() { proto.RegisterFile("validate/validate.proto", fileDescriptor_validate_c8f5e113dd6422a8) }
 
-var fileDescriptor_validate_42a9c75c83428773 = []byte{
-	// 1609 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x98, 0xcb, 0x6e, 0xdb, 0x46,
-	0x17, 0xc7, 0x3f, 0xf1, 0x26, 0x6a, 0x2c, 0x45, 0xd2, 0xc4, 0x76, 0x18, 0x7f, 0x97, 0x38, 0x5a,
-	0x7c, 0x70, 0x52, 0xc7, 0x4e, 0x1d, 0x57, 0x08, 0x52, 0xb4, 0x40, 0x8d, 0x34, 0x68, 0xd0, 0xa6,
-	0x29, 0xe8, 0x66, 0xd3, 0x8d, 0x40, 0x5b, 0x23, 0x65, 0x60, 0x6a, 0xc8, 0x90, 0x54, 0x6c, 0x3d,
-	0x44, 0xda, 0xee, 0xfa, 0x2c, 0x5d, 0x75, 0xdf, 0x37, 0xe9, 0xba, 0xdb, 0x2e, 0x8a, 0xb9, 0xf1,
-	0x72, 0x48, 0xcb, 0x8b, 0xee, 0x34, 0xe7, 0xfc, 0xcf, 0xcc, 0x0f, 0xff, 0x11, 0x67, 0x0e, 0x89,
-	0xee, 0xbc, 0x0f, 0x42, 0x3a, 0x0d, 0x32, 0x72, 0xa8, 0x7f, 0x1c, 0xc4, 0x49, 0x94, 0x45, 0xd8,
-	0xd5, 0xe3, 0x9d, 0xdd, 0x79, 0x14, 0xcd, 0x43, 0x72, 0x28, 0xe2, 0x67, 0xcb, 0xd9, 0xe1, 0x94,
-	0xa4, 0xe7, 0x09, 0x8d, 0xb3, 0x28, 0x91, 0xda, 0x9d, 0xff, 0xd5, 0x14, 0xcb, 0x24, 0xc8, 0x68,
-	0xc4, 0x54, 0xfe, 0x1e, 0xcc, 0x67, 0x74, 0x41, 0xd2, 0x2c, 0x58, 0xc4, 0x52, 0x30, 0xfa, 0xdd,
-	0x45, 0xe8, 0x05, 0x25, 0xe1, 0xd4, 0x5f, 0x86, 0x24, 0xc5, 0xfb, 0xc8, 0x9e, 0x85, 0x51, 0x90,
-	0x79, 0xad, 0xdd, 0xd6, 0xde, 0xc6, 0xd1, 0xe6, 0x41, 0xce, 0xf6, 0x82, 0x87, 0x85, 0xe8, 0xab,
-	0x7f, 0xf9, 0x52, 0x84, 0x0f, 0x91, 0x33, 0x8d, 0x96, 0x67, 0x21, 0xf1, 0x0c, 0x21, 0xdf, 0x2a,
-	0xe4, 0xcf, 0x45, 0x5c, 0xeb, 0x95, 0x8c, 0x4f, 0x4f, 0x59, 0xf6, 0xe4, 0xc8, 0x33, 0xe1, 0xf4,
-	0x2f, 0x79, 0x38, 0x9f, 0x5e, 0x88, 0x94, 0x7a, 0x7c, 0xec, 0x59, 0x0d, 0xea, 0xf1, 0x71, 0x59,
-	0x3d, 0x3e, 0xe6, 0x30, 0x4b, 0x39, 0xb9, 0x0d, 0x61, 0xde, 0x54, 0x66, 0x57, 0x32, 0x5d, 0x30,
-	0x3e, 0xf6, 0x9c, 0xa6, 0x82, 0x62, 0x01, 0x25, 0xe3, 0x05, 0xa9, 0x5c, 0xa1, 0x0d, 0x0b, 0x4e,
-	0xab, 0x2b, 0xa4, 0xf9, 0x0a, 0xa9, 0x5c, 0xc1, 0x6d, 0x2a, 0x28, 0xad, 0x20, 0x65, 0xf8, 0x08,
-	0xb5, 0x67, 0xf4, 0x8a, 0x4c, 0x9f, 0x1c, 0x79, 0x1d, 0x51, 0xb1, 0x5d, 0xda, 0x00, 0x99, 0xd0,
-	0x25, 0x5a, 0x98, 0xd7, 0x8c, 0x8f, 0x3d, 0xd4, 0x58, 0x53, 0x2c, 0xa3, 0x85, 0xf8, 0x13, 0xe4,
-	0xa6, 0x7a, 0xa1, 0x0d, 0x51, 0x74, 0xa7, 0x84, 0x06, 0x56, 0xca, 0xa5, 0x45, 0xd9, 0xf8, 0xd8,
-	0xeb, 0x36, 0x97, 0x15, 0x8b, 0xe5, 0x52, 0xfc, 0x00, 0x59, 0x67, 0x51, 0x14, 0x7a, 0x3d, 0x51,
-	0x72, 0xbb, 0x28, 0x39, 0x89, 0xa2, 0x50, 0xcb, 0x85, 0x44, 0x38, 0x96, 0x25, 0x94, 0xcd, 0xbd,
-	0x5b, 0x35, 0xc7, 0x44, 0xbc, 0x70, 0x4c, 0x0c, 0xf9, 0x7f, 0xe4, 0x6c, 0x95, 0x91, 0xd4, 0xeb,
-	0xc3, 0xff, 0xc8, 0x09, 0x0f, 0xe7, 0xff, 0x11, 0x21, 0xe2, 0x24, 0x84, 0x2d, 0x17, 0xde, 0x00,
+var fileDescriptor_validate_c8f5e113dd6422a8 = []byte{
+	// 1640 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x98, 0xcd, 0x6e, 0xdb, 0xc6,
+	0x16, 0xc7, 0xaf, 0xf8, 0x25, 0x6a, 0x2c, 0x45, 0xd2, 0xc4, 0x76, 0x18, 0xdf, 0x8f, 0x38, 0x5a,
+	0x5c, 0x38, 0xb9, 0x89, 0x9d, 0xeb, 0xb8, 0x42, 0x90, 0xa2, 0x05, 0x6a, 0xa4, 0x41, 0x83, 0x36,
+	0x4d, 0x40, 0x37, 0x9b, 0x6e, 0x04, 0xda, 0x1a, 0x29, 0x03, 0x53, 0x43, 0x86, 0xa4, 0x6c, 0xeb,
+	0x21, 0xd2, 0x76, 0xd7, 0xbe, 0x4a, 0x57, 0xdd, 0xf7, 0x4d, 0xba, 0xee, 0x0b, 0x14, 0xf3, 0xc5,
+	0x8f, 0x43, 0x5a, 0x5e, 0x74, 0xa7, 0x39, 0xe7, 0x7f, 0x66, 0x7e, 0xf8, 0x0f, 0x39, 0x73, 0x28,
+	0x74, 0xe7, 0x22, 0x08, 0xe9, 0x34, 0xc8, 0xc8, 0x81, 0xfe, 0xb1, 0x1f, 0x27, 0x51, 0x16, 0x61,
+	0x57, 0x8f, 0x77, 0x76, 0xe7, 0x51, 0x34, 0x0f, 0xc9, 0x81, 0x88, 0x9f, 0x2e, 0x67, 0x07, 0x53,
+	0x92, 0x9e, 0x25, 0x34, 0xce, 0xa2, 0x44, 0x6a, 0x77, 0xfe, 0x53, 0x53, 0x2c, 0x93, 0x20, 0xa3,
+	0x11, 0x53, 0xf9, 0x7b, 0x30, 0x9f, 0xd1, 0x05, 0x49, 0xb3, 0x60, 0x11, 0x4b, 0xc1, 0xe8, 0x77,
+	0x17, 0xa1, 0x97, 0x94, 0x84, 0x53, 0x7f, 0x19, 0x92, 0x14, 0x3f, 0x42, 0xf6, 0x2c, 0x8c, 0x82,
+	0xcc, 0x6b, 0xed, 0xb6, 0xf6, 0x36, 0x0e, 0x37, 0xf7, 0x73, 0xb6, 0x97, 0x3c, 0x2c, 0x44, 0x5f,
+	0xfd, 0xc3, 0x97, 0x22, 0x7c, 0x80, 0x9c, 0x69, 0xb4, 0x3c, 0x0d, 0x89, 0x67, 0x08, 0xf9, 0x56,
+	0x21, 0x7f, 0x21, 0xe2, 0x5a, 0xaf, 0x64, 0x7c, 0x7a, 0xca, 0xb2, 0xa7, 0x87, 0x9e, 0x09, 0xa7,
+	0x7f, 0xc5, 0xc3, 0xf9, 0xf4, 0x42, 0xa4, 0xd4, 0xe3, 0x23, 0xcf, 0x6a, 0x50, 0x8f, 0x8f, 0xca,
+	0xea, 0xf1, 0x11, 0x87, 0x59, 0xca, 0xc9, 0x6d, 0x08, 0xf3, 0xae, 0x32, 0xbb, 0x92, 0xe9, 0x82,
+	0xf1, 0x91, 0xe7, 0x34, 0x15, 0x14, 0x0b, 0x28, 0x19, 0x2f, 0x48, 0xe5, 0x0a, 0x6d, 0x58, 0x70,
+	0x52, 0x5d, 0x21, 0xcd, 0x57, 0x48, 0xe5, 0x0a, 0x6e, 0x53, 0x41, 0x69, 0x05, 0x29, 0xc3, 0x87,
+	0xa8, 0x3d, 0xa3, 0x57, 0x64, 0xfa, 0xf4, 0xd0, 0xeb, 0x88, 0x8a, 0xed, 0xd2, 0x06, 0xc8, 0x84,
+	0x2e, 0xd1, 0xc2, 0xbc, 0x66, 0x7c, 0xe4, 0xa1, 0xc6, 0x9a, 0x62, 0x19, 0x2d, 0xc4, 0x9f, 0x20,
+	0x37, 0xd5, 0x0b, 0x6d, 0x88, 0xa2, 0x3b, 0x25, 0x34, 0xb0, 0x52, 0x2e, 0x2d, 0xca, 0xc6, 0x47,
+	0x5e, 0xb7, 0xb9, 0xac, 0x58, 0x2c, 0x97, 0xe2, 0x07, 0xc8, 0x3a, 0x8d, 0xa2, 0xd0, 0xeb, 0x89,
+	0x92, 0xdb, 0x45, 0xc9, 0x71, 0x14, 0x85, 0x5a, 0x2e, 0x24, 0xc2, 0xb1, 0x2c, 0xa1, 0x6c, 0xee,
+	0xdd, 0xaa, 0x39, 0x26, 0xe2, 0x85, 0x63, 0x62, 0xc8, 0x9f, 0x91, 0xd3, 0x55, 0x46, 0x52, 0xaf,
+	0x0f, 0x9f, 0x91, 0x63, 0x1e, 0xce, 0x9f, 0x11, 0x21, 0xe2, 0x24, 0x84, 0x2d, 0x17, 0xde, 0x00,
 	0x92, 0x7c, 0xc9, 0x96, 0x8b, 0x9c, 0x84, 0x4b, 0xb8, 0xad, 0x0b, 0x92, 0xa6, 0xc1, 0x9c, 0x78,
-	0x43, 0x68, 0xeb, 0x2b, 0x99, 0xc8, 0x6d, 0x55, 0x42, 0xee, 0x4f, 0x42, 0x62, 0x12, 0x64, 0x64,
-	0xea, 0x61, 0xe8, 0x8f, 0xaf, 0x32, 0xb9, 0x3f, 0x5a, 0x8a, 0xff, 0x8f, 0xcc, 0x45, 0x10, 0x7b,
+	0x43, 0x68, 0xeb, 0x6b, 0x99, 0xc8, 0x6d, 0x55, 0x42, 0xee, 0x4f, 0x42, 0x62, 0x12, 0x64, 0x64,
+	0xea, 0x61, 0xe8, 0x8f, 0xaf, 0x32, 0xb9, 0x3f, 0x5a, 0x8a, 0xff, 0x8b, 0xcc, 0x45, 0x10, 0x7b,
 	0xb7, 0x45, 0x05, 0x2e, 0x2d, 0x13, 0xc4, 0x5a, 0xcc, 0x05, 0x5c, 0x17, 0xb0, 0x95, 0xb7, 0x09,
-	0x75, 0x5f, 0xb0, 0x55, 0xae, 0x0b, 0xd8, 0x8a, 0x63, 0xe8, 0x63, 0xc0, 0xdb, 0x82, 0x18, 0xcf,
-	0x55, 0x26, 0xc7, 0xd0, 0x52, 0xfc, 0x14, 0x75, 0xf2, 0xd3, 0xc1, 0xdb, 0x16, 0x75, 0x5e, 0x51,
-	0xf7, 0xbd, 0x4e, 0xe9, 0xc2, 0x42, 0x7c, 0xe2, 0x20, 0x2b, 0x5b, 0xc5, 0x64, 0xf4, 0xa1, 0x85,
-	0x50, 0x71, 0x4e, 0xe0, 0x4d, 0x64, 0x9f, 0x47, 0x2c, 0x95, 0x87, 0x89, 0xe1, 0xcb, 0x01, 0xbe,
+	0x75, 0x5f, 0xb0, 0x55, 0xae, 0x0b, 0xd8, 0x8a, 0x63, 0xe8, 0x63, 0xc0, 0xdb, 0x82, 0x18, 0x2f,
+	0x54, 0x26, 0xc7, 0xd0, 0x52, 0xfc, 0x0c, 0x75, 0xf2, 0xd3, 0xc1, 0xdb, 0x16, 0x75, 0x5e, 0x51,
+	0xf7, 0x9d, 0x4e, 0xe9, 0xc2, 0x42, 0x7c, 0xec, 0x20, 0x2b, 0x5b, 0xc5, 0x64, 0xf4, 0xb1, 0x85,
+	0x50, 0x71, 0x4e, 0xe0, 0x4d, 0x64, 0x9f, 0x45, 0x2c, 0x95, 0x87, 0x89, 0xe1, 0xcb, 0x01, 0xbe,
 	0x85, 0x8c, 0x30, 0x13, 0x07, 0x86, 0xe1, 0x1b, 0x61, 0x86, 0x07, 0xc8, 0x0c, 0x33, 0x22, 0x4e,
-	0x04, 0xc3, 0xe7, 0x3f, 0xb9, 0x62, 0x9e, 0x89, 0x87, 0xde, 0xf0, 0x8d, 0xb9, 0x50, 0xcc, 0x33,
-	0x22, 0x1e, 0x6b, 0xc3, 0xe7, 0x3f, 0xb9, 0x82, 0x32, 0xcf, 0xd9, 0x35, 0xb9, 0x82, 0x32, 0xbc,
-	0x85, 0x1c, 0x16, 0x65, 0x13, 0xca, 0xbc, 0xb6, 0x88, 0xd9, 0x2c, 0xca, 0x5e, 0xb2, 0xd1, 0x8f,
+	0x04, 0xc3, 0xe7, 0x3f, 0xb9, 0x62, 0x9e, 0x89, 0x97, 0xde, 0xf0, 0x8d, 0xb9, 0x50, 0xcc, 0x33,
+	0x22, 0x5e, 0x6b, 0xc3, 0xe7, 0x3f, 0xb9, 0x82, 0x32, 0xcf, 0xd9, 0x35, 0xb9, 0x82, 0x32, 0xbc,
+	0x85, 0x1c, 0x16, 0x65, 0x13, 0xca, 0xbc, 0xb6, 0x88, 0xd9, 0x2c, 0xca, 0x5e, 0xb1, 0xd1, 0x0f,
 	0x2d, 0xb4, 0x51, 0x3a, 0x88, 0xaa, 0x40, 0xad, 0x3a, 0x50, 0x0b, 0x02, 0xb5, 0x20, 0x50, 0x0b,
 	0x02, 0xb5, 0x20, 0x50, 0xab, 0x01, 0xa8, 0xa5, 0x81, 0xb8, 0x41, 0xc5, 0x49, 0x51, 0xe5, 0xb1,
 	0xeb, 0x3c, 0x36, 0xe4, 0xb1, 0x21, 0x8f, 0x0d, 0x79, 0x6c, 0xc8, 0x63, 0x37, 0xf0, 0xd8, 0x80,
-	0x47, 0x3d, 0xb4, 0x55, 0x1e, 0xb3, 0xce, 0x63, 0x42, 0x1e, 0x13, 0xf2, 0x98, 0x90, 0xc7, 0x84,
-	0x3c, 0x66, 0x03, 0x8f, 0x59, 0xde, 0xb0, 0x37, 0xd7, 0x19, 0xd4, 0xab, 0x03, 0xf5, 0x20, 0x50,
+	0x47, 0xbd, 0xb4, 0x55, 0x1e, 0xb3, 0xce, 0x63, 0x42, 0x1e, 0x13, 0xf2, 0x98, 0x90, 0xc7, 0x84,
+	0x3c, 0x66, 0x03, 0x8f, 0x59, 0xde, 0xb0, 0x77, 0xd7, 0x19, 0xd4, 0xab, 0x03, 0xf5, 0x20, 0x50,
 	0x0f, 0x02, 0xf5, 0x20, 0x50, 0x0f, 0x02, 0xf5, 0x1a, 0x80, 0x7a, 0x10, 0xa8, 0xd1, 0x21, 0xab,
 	0x0e, 0x64, 0x41, 0x20, 0x0b, 0x02, 0x59, 0x10, 0xc8, 0x82, 0x40, 0x56, 0x03, 0x90, 0x55, 0x06,
-	0x3a, 0xbd, 0xce, 0xa1, 0x61, 0x1d, 0x68, 0x08, 0x81, 0x86, 0x10, 0x68, 0x08, 0x81, 0x86, 0x10,
+	0x3a, 0xb9, 0xce, 0xa1, 0x61, 0x1d, 0x68, 0x08, 0x81, 0x86, 0x10, 0x68, 0x08, 0x81, 0x86, 0x10,
 	0x68, 0xd8, 0x00, 0x34, 0x84, 0x40, 0x8d, 0x0e, 0xe1, 0x3a, 0x10, 0x86, 0x40, 0x18, 0x02, 0x61,
-	0x08, 0x84, 0x21, 0x10, 0x6e, 0x00, 0xc2, 0x1a, 0xe8, 0xa7, 0x16, 0xea, 0x96, 0x6f, 0xb0, 0x2a,
+	0x08, 0x84, 0x21, 0x10, 0x6e, 0x00, 0xc2, 0x1a, 0xe8, 0xc7, 0x16, 0xea, 0x96, 0x6f, 0xb0, 0x2a,
 	0x51, 0xbb, 0x4e, 0xd4, 0x86, 0x44, 0x6d, 0x48, 0xd4, 0x86, 0x44, 0x6d, 0x48, 0xd4, 0x6e, 0x20,
 	0x6a, 0xd7, 0x88, 0x1a, 0x3d, 0x72, 0xea, 0x44, 0x0e, 0x24, 0x72, 0x20, 0x91, 0x03, 0x89, 0x1c,
-	0x48, 0xe4, 0x34, 0x10, 0x39, 0x9a, 0xe8, 0xe7, 0x16, 0xea, 0x9d, 0x5e, 0x6f, 0x52, 0xbf, 0x8e,
+	0x48, 0xe4, 0x34, 0x10, 0x39, 0x9a, 0xe8, 0xa7, 0x16, 0xea, 0x9d, 0x5c, 0x6f, 0x52, 0xbf, 0x8e,
 	0xd4, 0x87, 0x48, 0x7d, 0x88, 0xd4, 0x87, 0x48, 0x7d, 0x88, 0xd4, 0x6f, 0x40, 0xea, 0xd7, 0x91,
 	0x1a, 0x5d, 0x1a, 0xd4, 0x91, 0x06, 0x10, 0x69, 0x00, 0x91, 0x06, 0x10, 0x69, 0x00, 0x91, 0x06,
-	0x0d, 0x48, 0x03, 0x8d, 0x74, 0x1f, 0x75, 0xf2, 0x0e, 0xa5, 0x4a, 0xe3, 0x2a, 0x9a, 0xd1, 0x5f,
-	0x26, 0xda, 0x28, 0x35, 0x26, 0x55, 0x55, 0x47, 0x33, 0x73, 0x46, 0xc2, 0xc4, 0x05, 0xcf, 0xcf,
+	0x0d, 0x48, 0x03, 0x8d, 0x74, 0x1f, 0x75, 0xf2, 0x0e, 0xa5, 0x4a, 0xe3, 0x2a, 0x9a, 0xd1, 0x2f,
+	0x16, 0xda, 0x28, 0x35, 0x26, 0x55, 0x55, 0x47, 0x33, 0x73, 0x46, 0xc2, 0xc4, 0x05, 0xcf, 0xcf,
 	0x03, 0xc2, 0xf0, 0x1d, 0xd4, 0x5e, 0x50, 0x36, 0xe1, 0x51, 0x79, 0x6c, 0x38, 0x0b, 0xca, 0xbe,
-	0x51, 0x89, 0xe0, 0x4a, 0x24, 0x4c, 0x95, 0x08, 0xae, 0x78, 0xe2, 0xdf, 0xa8, 0x13, 0x12, 0x36,
+	0x51, 0x89, 0xe0, 0x4a, 0x24, 0x4c, 0x95, 0x08, 0xae, 0x78, 0xe2, 0x9f, 0xa8, 0x13, 0x12, 0x36,
 	0x91, 0xcd, 0xce, 0xa6, 0x48, 0xb9, 0x21, 0x61, 0xa2, 0xcb, 0xe1, 0x49, 0x3e, 0x9d, 0x4c, 0xca,
 	0x53, 0xc6, 0x5d, 0xd0, 0x52, 0x32, 0xb8, 0x52, 0x49, 0x5b, 0x25, 0x83, 0x2b, 0x99, 0xf4, 0x50,
 	0x3b, 0x0e, 0xb2, 0x8c, 0x24, 0x4c, 0x74, 0xc1, 0x1d, 0x5f, 0x0f, 0xf1, 0x36, 0x72, 0xe2, 0x84,
 	0xcc, 0xe8, 0x95, 0xe8, 0x76, 0x3b, 0xbe, 0x1a, 0xf1, 0x78, 0xba, 0x9c, 0xf1, 0xb8, 0x2b, 0xe3,
-	0x72, 0x84, 0x77, 0x90, 0x7b, 0x1e, 0xb1, 0x2c, 0xa0, 0x2c, 0x15, 0xcd, 0x6b, 0xc7, 0xcf, 0xc7,
+	0x72, 0x84, 0x77, 0x90, 0x7b, 0x16, 0xb1, 0x2c, 0xa0, 0x2c, 0x15, 0xcd, 0x6b, 0xc7, 0xcf, 0xc7,
 	0xca, 0x70, 0xb4, 0x6b, 0xee, 0x75, 0x80, 0xe1, 0x1b, 0x22, 0x26, 0x0d, 0xc7, 0xdb, 0xc8, 0x26,
-	0x8b, 0x80, 0x86, 0xa2, 0xb9, 0x74, 0x79, 0xdb, 0x26, 0x86, 0xf8, 0x3f, 0xc8, 0x7d, 0x1b, 0xa5,
+	0x8b, 0x80, 0x86, 0xa2, 0xb9, 0x74, 0x79, 0xdb, 0x26, 0x86, 0xf8, 0x5f, 0xc8, 0x7d, 0x1f, 0xa5,
 	0x19, 0x0b, 0x16, 0x44, 0x34, 0x91, 0x3c, 0x95, 0x47, 0xf0, 0x00, 0x19, 0x34, 0x16, 0xfd, 0x22,
-	0x8f, 0x1b, 0x34, 0xc6, 0x9b, 0xc8, 0xa2, 0xf1, 0xfb, 0x63, 0xd1, 0x13, 0xf2, 0x98, 0x18, 0xa9,
-	0xe8, 0x58, 0x34, 0x7f, 0x3a, 0x3a, 0xc6, 0x18, 0x99, 0xcb, 0x84, 0x8a, 0x1e, 0x8f, 0x07, 0xf9,
-	0x00, 0xdf, 0x45, 0xed, 0x65, 0x42, 0x27, 0x09, 0x99, 0x89, 0x36, 0xce, 0x15, 0xef, 0x00, 0x09,
-	0xf5, 0xc9, 0xec, 0xa4, 0x8b, 0xd0, 0x25, 0x09, 0xc3, 0xc9, 0x05, 0x8b, 0x2e, 0xd9, 0xe8, 0x37,
-	0x03, 0xa1, 0xa2, 0xcf, 0xac, 0xee, 0x7e, 0x17, 0xec, 0x7e, 0xef, 0x9f, 0xec, 0x7e, 0x69, 0x9b,
-	0xac, 0xeb, 0xb6, 0xc9, 0x16, 0x8b, 0xd6, 0xb7, 0xc9, 0x91, 0xf1, 0x86, 0x6d, 0x6a, 0x8b, 0x0c,
-	0xdc, 0x26, 0x77, 0xd7, 0xdc, 0xeb, 0x82, 0x6d, 0xea, 0x88, 0x98, 0xda, 0x26, 0x69, 0x38, 0x6a,
-	0x30, 0x7c, 0xa3, 0xd1, 0xf0, 0x6e, 0xd9, 0x70, 0xe0, 0xe0, 0x05, 0xea, 0xe4, 0xbd, 0xf7, 0x35,
-	0xfd, 0xd0, 0x7d, 0xd4, 0x9d, 0x92, 0x19, 0x65, 0x64, 0x3a, 0x89, 0x58, 0xb8, 0x12, 0x96, 0xb9,
-	0xfe, 0x86, 0x8a, 0xbd, 0x66, 0xe1, 0x4a, 0x81, 0x9b, 0x0d, 0xed, 0x8e, 0x55, 0x6e, 0x77, 0x3e,
-	0x47, 0xdd, 0x72, 0xeb, 0x8e, 0x31, 0xb2, 0xd2, 0x0b, 0x1a, 0xab, 0x47, 0x5a, 0xfc, 0xe6, 0xfe,
-	0x24, 0xe4, 0xdd, 0x92, 0x26, 0x64, 0xaa, 0x56, 0xca, 0xc7, 0xbc, 0x5d, 0xea, 0x55, 0xda, 0x78,
-	0xfd, 0xe0, 0xd1, 0x8c, 0x2c, 0x52, 0xd5, 0x13, 0xf0, 0x07, 0xef, 0x25, 0x1f, 0xeb, 0x07, 0x4f,
-	0x26, 0x8d, 0xfc, 0xc1, 0x93, 0xc9, 0x6d, 0xe4, 0x2c, 0x19, 0x7d, 0xb7, 0x94, 0x47, 0x97, 0xeb,
-	0xab, 0x11, 0x7e, 0x88, 0x6c, 0x59, 0x50, 0x7b, 0xe9, 0x2d, 0x5e, 0xd3, 0x7d, 0x29, 0x19, 0xfd,
-	0xda, 0x42, 0xae, 0x7e, 0x49, 0xd0, 0x28, 0x71, 0x40, 0x93, 0x32, 0xca, 0x77, 0x7c, 0xac, 0x51,
-	0x64, 0xb2, 0x40, 0xc9, 0x93, 0x2c, 0x9a, 0xa4, 0x71, 0x90, 0xa4, 0x9a, 0xc6, 0x65, 0xd1, 0xa9,
-	0x18, 0xe3, 0x3d, 0x64, 0x5d, 0x90, 0xd5, 0x7a, 0x1c, 0xa1, 0xc0, 0xfb, 0xc8, 0x79, 0x1f, 0x84,
-	0x4b, 0x75, 0xc8, 0x5c, 0xa7, 0x55, 0x9a, 0xd1, 0x2b, 0xe4, 0xea, 0xf7, 0x96, 0x8a, 0xe7, 0xad,
-	0xaa, 0xe7, 0x6a, 0x6b, 0x8d, 0x86, 0xa3, 0xc3, 0x2c, 0x1d, 0x1d, 0xa3, 0x3f, 0x0c, 0xd4, 0xab,
-	0xbc, 0xda, 0xac, 0x9d, 0xf4, 0x50, 0xff, 0xd1, 0xe4, 0x77, 0x8b, 0xbb, 0x07, 0xf2, 0x33, 0xc9,
-	0x81, 0xfe, 0x4c, 0x52, 0xbc, 0x25, 0xa9, 0xff, 0xe0, 0x03, 0x71, 0xeb, 0x98, 0x37, 0xa9, 0xf9,
-	0x85, 0xf4, 0x91, 0xbc, 0x90, 0xac, 0x9b, 0xb4, 0xe2, 0xae, 0x7a, 0x20, 0xee, 0x2a, 0xfb, 0xc6,
-	0x79, 0xe7, 0x62, 0x5e, 0x7e, 0x8d, 0x39, 0x37, 0xce, 0x3b, 0x97, 0xf3, 0xaa, 0xdb, 0x6c, 0xfd,
-	0xbc, 0x94, 0xe1, 0xc7, 0xb9, 0xa1, 0xee, 0x4d, 0x72, 0xe5, 0xf5, 0x9f, 0x06, 0xba, 0x55, 0x7d,
-	0x1d, 0x5c, 0x6b, 0xf6, 0xe3, 0xaa, 0xd9, 0x3b, 0xb5, 0xf9, 0x8b, 0xb9, 0x94, 0xdb, 0x0f, 0x4b,
-	0x6e, 0xaf, 0x93, 0x73, 0xbb, 0xf7, 0xcb, 0x76, 0xaf, 0x13, 0x0b, 0xbf, 0x1f, 0x96, 0xfc, 0x5e,
-	0x3b, 0xf3, 0x5c, 0xcc, 0x5c, 0x18, 0xbe, 0x76, 0x66, 0xee, 0xf8, 0x16, 0x72, 0xc2, 0x6c, 0xc2,
-	0xa2, 0x4b, 0x71, 0xaa, 0xba, 0xbe, 0x1d, 0x66, 0xdf, 0x46, 0x97, 0x3c, 0x3c, 0x97, 0x61, 0x57,
-	0x86, 0xe7, 0x22, 0xfc, 0x31, 0x72, 0x2e, 0x69, 0xf6, 0x56, 0x9c, 0xac, 0x37, 0xec, 0xa7, 0x12,
-	0x3e, 0xfb, 0x0c, 0xb9, 0x53, 0x9a, 0x06, 0x67, 0x21, 0x99, 0xe2, 0x7b, 0x35, 0xb9, 0x3a, 0xd7,
-	0x5e, 0xc7, 0xbc, 0x26, 0xf5, 0x7e, 0xf9, 0xf0, 0x54, 0xee, 0x82, 0x2e, 0x79, 0xf6, 0x69, 0xb1,
-	0x43, 0xf8, 0xbf, 0xb5, 0xf2, 0xd7, 0x8c, 0x44, 0xb3, 0x5a, 0xb1, 0x2e, 0x78, 0xf6, 0x35, 0xb2,
-	0x13, 0xb1, 0xcf, 0xf5, 0x4a, 0xf1, 0x68, 0x57, 0x2b, 0xaf, 0x3d, 0xb5, 0xc4, 0x1c, 0x27, 0x07,
-	0x3f, 0xec, 0xcf, 0x69, 0xf6, 0x76, 0x79, 0x76, 0x70, 0x1e, 0x2d, 0x0e, 0xc3, 0xd5, 0x2c, 0x93,
-	0x9f, 0x27, 0xcf, 0x1f, 0xcd, 0x09, 0x7b, 0x54, 0xfb, 0x2a, 0xfa, 0x77, 0x00, 0x00, 0x00, 0xff,
-	0xff, 0xe1, 0xd8, 0xec, 0xea, 0x29, 0x15, 0x00, 0x00,
+	0x8f, 0x1b, 0x34, 0xc6, 0x9b, 0xc8, 0xa2, 0xf1, 0xc5, 0x91, 0xe8, 0x09, 0x79, 0x4c, 0x8c, 0x54,
+	0x74, 0x2c, 0x9a, 0x3f, 0x1d, 0x1d, 0x63, 0x8c, 0xcc, 0x65, 0x42, 0x45, 0x8f, 0xc7, 0x83, 0x7c,
+	0x80, 0xef, 0xa2, 0xf6, 0x32, 0xa1, 0x93, 0x84, 0xcc, 0x44, 0x1b, 0xe7, 0x8a, 0x6f, 0x80, 0x84,
+	0xfa, 0x64, 0x86, 0x77, 0x50, 0x3b, 0x98, 0x4e, 0x13, 0x92, 0xa6, 0xa2, 0xb5, 0xe2, 0x29, 0x1d,
+	0x38, 0xee, 0x22, 0x74, 0x49, 0xc2, 0x70, 0x72, 0xce, 0xa2, 0x4b, 0x36, 0xfa, 0xcd, 0x40, 0xa8,
+	0xe8, 0x41, 0xab, 0x4f, 0x46, 0x17, 0x3c, 0x19, 0xbd, 0xbf, 0xf3, 0x64, 0x94, 0xb6, 0xd0, 0xba,
+	0x6e, 0x0b, 0x6d, 0xb1, 0x68, 0x7d, 0x0b, 0x1d, 0x19, 0x6f, 0xd8, 0xc2, 0xb6, 0xc8, 0xc0, 0x2d,
+	0x74, 0x77, 0xcd, 0xbd, 0x2e, 0xd8, 0xc2, 0x8e, 0x88, 0xa9, 0x2d, 0x94, 0x9b, 0x81, 0x1a, 0x36,
+	0x63, 0xa3, 0x71, 0x33, 0xba, 0xe5, 0xcd, 0x00, 0x0e, 0x9e, 0xa3, 0x4e, 0xde, 0x97, 0x5f, 0xd3,
+	0x2b, 0xdd, 0x47, 0xdd, 0x29, 0x99, 0x51, 0x46, 0xa6, 0x93, 0x88, 0x85, 0x2b, 0x61, 0x99, 0xeb,
+	0x6f, 0xa8, 0xd8, 0x1b, 0x16, 0xae, 0x14, 0xb8, 0xd9, 0xd0, 0x0a, 0x59, 0xe5, 0x56, 0xe8, 0x73,
+	0xd4, 0x2d, 0xb7, 0xf5, 0x18, 0x23, 0x2b, 0x3d, 0xa7, 0xb1, 0x7a, 0xdd, 0xc5, 0x6f, 0xee, 0x4f,
+	0x42, 0x3e, 0x2c, 0x69, 0x42, 0xa6, 0x6a, 0xa5, 0x7c, 0xcc, 0x5b, 0xa9, 0x5e, 0xa5, 0xc5, 0xd7,
+	0x2f, 0x25, 0xcd, 0xc8, 0x22, 0x55, 0xfd, 0x02, 0x7f, 0x29, 0x5f, 0xf1, 0xb1, 0x7e, 0x29, 0x65,
+	0xd2, 0xc8, 0x5f, 0x4a, 0x99, 0xdc, 0x46, 0xce, 0x92, 0xd1, 0x0f, 0x4b, 0x79, 0xac, 0xb9, 0xbe,
+	0x1a, 0xe1, 0x87, 0xc8, 0x96, 0x05, 0xb5, 0x0f, 0xe2, 0xe2, 0x13, 0xde, 0x97, 0x92, 0xd1, 0xaf,
+	0x2d, 0xe4, 0xea, 0x0f, 0x08, 0x8d, 0x12, 0x07, 0x34, 0x29, 0xa3, 0xbc, 0xe5, 0x63, 0x8d, 0x22,
+	0x93, 0x05, 0x4a, 0x9e, 0x64, 0xd1, 0x24, 0x8d, 0x83, 0x24, 0xd5, 0x34, 0x2e, 0x8b, 0x4e, 0xc4,
+	0x18, 0xef, 0x21, 0xeb, 0x9c, 0xac, 0xd6, 0xe3, 0x08, 0x05, 0x7e, 0x84, 0x9c, 0x8b, 0x20, 0x5c,
+	0xaa, 0x03, 0xe8, 0x3a, 0xad, 0xd2, 0x8c, 0x5e, 0x23, 0x57, 0x7f, 0xd3, 0x54, 0x3c, 0x6f, 0x55,
+	0x3d, 0x57, 0x5b, 0x6b, 0x34, 0x1c, 0x2b, 0x66, 0xe9, 0x58, 0x19, 0xfd, 0x61, 0xa0, 0x5e, 0xe5,
+	0xb3, 0x67, 0xed, 0xa4, 0x07, 0xfa, 0x41, 0x93, 0xff, 0x69, 0xdc, 0xdd, 0x97, 0x7f, 0xa1, 0xec,
+	0xeb, 0xbf, 0x50, 0x8a, 0x2f, 0x28, 0xf5, 0x0c, 0x3e, 0x10, 0x37, 0x92, 0x79, 0x93, 0x9a, 0x5f,
+	0x56, 0xff, 0x93, 0x97, 0x95, 0x75, 0x93, 0x56, 0xdc, 0x63, 0x0f, 0xc4, 0x3d, 0x66, 0xdf, 0x38,
+	0xef, 0x5c, 0xcc, 0xcb, 0xaf, 0x38, 0xe7, 0xc6, 0x79, 0xe7, 0x72, 0x5e, 0x75, 0xd3, 0xad, 0x9f,
+	0x97, 0x32, 0xfc, 0x24, 0x37, 0xd4, 0xbd, 0x49, 0xae, 0xbc, 0xfe, 0xd3, 0x40, 0xb7, 0xaa, 0x9f,
+	0x8a, 0x6b, 0xcd, 0x7e, 0x52, 0x35, 0x7b, 0xa7, 0x36, 0x7f, 0x31, 0x97, 0x72, 0xfb, 0x61, 0xc9,
+	0xed, 0x75, 0x72, 0x6e, 0xf7, 0xa3, 0xb2, 0xdd, 0xeb, 0xc4, 0xc2, 0xef, 0x87, 0x25, 0xbf, 0xd7,
+	0xce, 0x3c, 0x17, 0x33, 0x17, 0x86, 0xaf, 0x9d, 0x99, 0x3b, 0xbe, 0x85, 0x9c, 0x30, 0x9b, 0xb0,
+	0xe8, 0x52, 0x9c, 0xaa, 0xae, 0x6f, 0x87, 0xd9, 0xb7, 0xd1, 0x25, 0x0f, 0xcf, 0x65, 0xd8, 0x95,
+	0xe1, 0xb9, 0x08, 0xff, 0x1f, 0x39, 0x97, 0x34, 0x7b, 0x2f, 0x4e, 0xd6, 0x1b, 0xf6, 0x53, 0x09,
+	0x9f, 0x7f, 0x86, 0xdc, 0x29, 0x4d, 0x83, 0xd3, 0x90, 0x4c, 0xf1, 0xbd, 0x9a, 0x5c, 0x9d, 0x6b,
+	0x6f, 0x62, 0x5e, 0x93, 0x7a, 0x3f, 0x7f, 0x7c, 0x26, 0x77, 0x41, 0x97, 0x3c, 0xff, 0xb4, 0xd8,
+	0x21, 0xfc, 0xef, 0x5a, 0xf9, 0x1b, 0x46, 0xa2, 0x59, 0xad, 0x58, 0x17, 0x3c, 0xff, 0x1a, 0xd9,
+	0x89, 0xd8, 0xe7, 0x7a, 0xa5, 0x78, 0xb5, 0xab, 0x95, 0xd7, 0x9e, 0x5a, 0x62, 0x8e, 0xe3, 0xb7,
+	0x68, 0x87, 0x46, 0xfb, 0x84, 0x5d, 0x44, 0xab, 0x38, 0x89, 0xae, 0x56, 0xfb, 0xf1, 0xfc, 0x22,
+	0xd7, 0x7f, 0x7f, 0x38, 0xa7, 0xd9, 0xfb, 0xe5, 0xe9, 0xfe, 0x59, 0xb4, 0x38, 0x28, 0x34, 0xf2,
+	0xcf, 0xcd, 0xb3, 0xc7, 0x73, 0xc2, 0x1e, 0xd7, 0xfe, 0x53, 0xfd, 0x2b, 0x00, 0x00, 0xff, 0xff,
+	0xca, 0xcb, 0x15, 0xa8, 0x67, 0x15, 0x00, 0x00,
 }

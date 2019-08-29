@@ -87,7 +87,10 @@ func TestTrafficShifting(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "traffic-shifting", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "traffic-shifting",
+				Inject: true,
+			})
 
 			var instances [5]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).

@@ -25,6 +25,7 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/log"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 )
 
 // HTTPGateway is a custom implementation of [gRPC gateway](https://github.com/grpc-ecosystem/grpc-gateway)
@@ -80,9 +81,13 @@ func (h *HTTPGateway) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// fetch results
 	res, err := h.Server.Fetch(req.Context(), out)
 	if err != nil {
-		// Note that this is treated as internal error. We may want to use another code for
-		// the latest version fetch request.
-		http.Error(resp, "fetch error: "+err.Error(), http.StatusInternalServerError)
+		// SkipFetchErrors will return a 304 which will signify to the envoy client that
+		// it is already at the latest version; all other errors will 500 with a message.
+		if _, ok := err.(*util.SkipFetchError); ok {
+			resp.WriteHeader(http.StatusNotModified)
+		} else {
+			http.Error(resp, "fetch error: "+err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 

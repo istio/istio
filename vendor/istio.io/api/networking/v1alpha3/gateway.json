@@ -45,7 +45,7 @@
             "format": "string"
           },
           "hosts": {
-            "description": "REQUIRED. One or more hosts exposed by this gateway. While typically applicable to HTTP services, it can also be used for TCP services using TLS with SNI. A host is specified as a `dnsName` with an optional `namespace/` prefix. The `dnsName` should be specified using FQDN format, optionally including a wildcard character in the left-most component (e.g., `prod/*.example.com`). Set the `dnsName` to `*` to select all `VirtualService` hosts from the specified namespace (e.g.,`prod/*`). If no `namespace/` is specified, the `VirtualService` hosts will be selected from any available namespace. Any associated `DestinationRule` in the same namespace will also be used.",
+            "description": "REQUIRED. One or more hosts exposed by this gateway. While typically applicable to HTTP services, it can also be used for TCP services using TLS with SNI. A host is specified as a `dnsName` with an optional `namespace/` prefix. The `dnsName` should be specified using FQDN format, optionally including a wildcard character in the left-most component (e.g., `prod/*.example.com`). Set the `dnsName` to `*` to select all `VirtualService` hosts from the specified namespace (e.g.,`prod/*`).",
             "type": "array",
             "items": {
               "type": "string",

@@ -134,7 +134,7 @@ status:
       sizeBytes: 368758526
     - names:
         - gcr.io/istio-release/proxyv2@sha256:dec972eab4f46c974feec1563ea484ad4995edf55ea91d42e148c5db04b3d4d2
-        - gcr.io/istio-release/proxyv2:master-latest-daily
+        - gcr.io/istio-release/proxyv2:release-1.3-latest-daily
       sizeBytes: 353271308
     - names:
         - gcr.io/nathanmittler-istio-test/proxyv2@sha256:cb4a29362ff9014bf1d96e0ce2bb6337bf034908bb4a8d48af0628a4d8d64413

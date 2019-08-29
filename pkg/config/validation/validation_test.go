@@ -1448,6 +1448,30 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
+		{"istio_mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			""},
+		{"istio_mutual with server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard"},
+			"cannot have associated server cert"},
+		{"istio_mutual with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker"},
+			"cannot have associated"},
+		{"istio_mutual with private key",
+			&networking.Server_TLSOptions{
+				Mode:       networking.Server_TLSOptions_ISTIO_MUTUAL,
+				PrivateKey: "Khan Noonien Singh"},
+			"cannot have associated private key"},
 	}
 
 	for _, tt := range tests {
@@ -3537,6 +3561,16 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "empty protocol", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: true},
 	}
 
 	for _, c := range cases {
@@ -4249,7 +4283,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind", &networking.Sidecar{
+		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -4264,7 +4298,20 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind 2", &networking.Sidecar{
+		{"UDS bind in inbound", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Bind:            "unix:///@foo/bar/com",
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+		}, false},
+		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -4488,6 +4535,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"empty protocol", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number: 90,
+						Name:   "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
 	}
 
 	for _, tt := range tests {

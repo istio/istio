@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,6 +156,7 @@ type SidecarInjectionSpec struct {
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
+	TypeMeta       *metav1.TypeMeta
 	DeploymentMeta *metav1.ObjectMeta
 	ObjectMeta     *metav1.ObjectMeta
 	Spec           *corev1.PodSpec
@@ -535,12 +537,12 @@ func flippedContains(needle, haystack string) bool {
 }
 
 // InjectionData renders sidecarTemplate with valuesConfig.
-func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
-	if spec.DNSPolicy != corev1.DNSClusterFirst {
+	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
 		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
 			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
 	}
@@ -557,6 +559,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 	}
 
 	data := SidecarTemplateData{
+		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
 		ObjectMeta:     metadata,
 		Spec:           spec,
@@ -582,6 +585,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 		"indent":              indent,
 		"directory":           directory,
 		"contains":            flippedContains,
+		"toLower":             strings.ToLower,
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context
@@ -712,6 +716,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	var deploymentMetadata *metav1.ObjectMeta
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
+	var typeMeta *metav1.TypeMeta
 
 	// Handle Lists
 	if list, ok := out.(*corev1.List); ok {
@@ -743,17 +748,27 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	switch v := out.(type) {
 	case *v2alpha1.CronJob:
 		job := v
+		typeMeta = &job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
+		typeMeta = &pod.TypeMeta
 		metadata = &pod.ObjectMeta
 		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
+	case *appsv1.Deployment: // Added to be explicit about the most expected case
+		deploy := v
+		typeMeta = &deploy.TypeMeta
+		deploymentMetadata = &deploy.ObjectMeta
+		metadata = &deploy.Spec.Template.ObjectMeta
+		podSpec = &deploy.Spec.Template.Spec
 	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
+
+		typeMeta = outValue.FieldByName("TypeMeta").Addr().Interface().(*metav1.TypeMeta)
 
 		deploymentMetadata = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 
@@ -797,6 +812,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		sidecarTemplate,
 		valuesConfig,
 		sidecarTemplateVersionHash(sidecarTemplate),
+		typeMeta,
 		deploymentMetadata,
 		podSpec,
 		metadata,

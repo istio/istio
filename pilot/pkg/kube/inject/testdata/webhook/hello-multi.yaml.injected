@@ -76,6 +76,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -84,11 +88,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
           value: "80"
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-release/proxyv2:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -133,10 +139,10 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-release/proxy_init:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -241,6 +247,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -249,11 +259,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
           value: "81"
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-release/proxyv2:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -298,10 +310,10 @@ spec:
         - -x
         - ""
         - -b
-        - "81"
+        - '*'
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-release/proxy_init:release-1.3-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:

@@ -106,7 +106,10 @@ func runCaseFn(p pilot.Instance, gal galley.Instance, ca *conformance.Test) func
 			}
 		}
 
-		ns := namespace.NewOrFail(ctx, ctx, "conf", true)
+		ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+			Prefix: "conf",
+			Inject: true,
+		})
 
 		if len(ca.Stages) == 1 {
 			runStage(ctx, p, gal, ns, ca.Stages[0])
