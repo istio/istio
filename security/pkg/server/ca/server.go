@@ -17,6 +17,7 @@ package ca
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"time"
@@ -218,7 +219,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			authenticators = append(authenticators, authenticator)
 			log.Info("added K8s JWT authenticator")
 		} else {
-			log.Warnf("failed to add create JWT authenticator: %v", err)
+			log.Warnf("failed to add JWT authenticator: %v", err)
 		}
 	}
 
@@ -292,6 +293,12 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	cert, err := tls.X509KeyPair(certPEM, privPEM)
 	if err != nil {
 		return nil, err
+	}
+	certChainPEM := s.ca.GetCAKeyCertBundle().GetCertChainPem()
+	var certChainDER *pem.Block
+	certChainDER, _ = pem.Decode(certChainPEM)
+	if certChainDER != nil {
+		cert.Certificate = append(cert.Certificate, certChainDER.Bytes)
 	}
 	return &cert, nil
 }
