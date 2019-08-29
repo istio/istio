@@ -785,7 +785,6 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             &m,
-		MixerSAN:         []string{},
 	}
 
 	if err := env.PushContext.InitContext(&env); err != nil {

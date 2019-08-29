@@ -191,7 +191,6 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
@@ -254,7 +253,6 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
