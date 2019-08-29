@@ -32,6 +32,85 @@ func TestNewName_NoNamespace(t *testing.T) {
 	}
 }
 
+func TestNewFullName_Empty(t *testing.T) {
+	n, err := NewFullName("")
+	if n.String() != "" {
+		t.Fatalf("unexpected name: %v", n)
+	}
+	if err == nil {
+		t.Fatalf("expected err but got: %v", err)
+	}
+	errMsg := "invalid name: can not be empty"
+	if err.Error() != errMsg {
+		t.Fatalf("expected err \"%s\" but got: %v", errMsg, err.Error())
+	}
+}
+
+func TestNewFullName_Segments(t *testing.T) {
+	steps := []struct {
+		description string
+		name        string
+		want        string
+		err         string
+		valid       bool
+	}{
+		{
+			description: "namespace with emapty name",
+			name:        "testNamespace/",
+			want:        "",
+			err:         "invalid name testNamespace/: name must not be empty",
+			valid:       false,
+		},
+		{
+			description: "name with empty namespace",
+			name:        "/testName",
+			want:        "",
+			err:         "invalid name /testName: namespace must not be empty",
+			valid:       false,
+		},
+		{
+			description: "all empty",
+			name:        "/",
+			want:        "",
+			err:         "invalid name /: namespace must not be empty",
+			valid:       false,
+		},
+		{
+			description: "multiple segments",
+			name:        "testName//someotherStuff",
+			want:        "",
+			err:         "invalid name testName//someotherStuff: namespace must not be empty",
+			valid:       false,
+		},
+		{
+			description: "valid name with namespace",
+			name:        "testNamespace/testName",
+			want:        "testNamespace/testName",
+			valid:       true,
+		},
+	}
+	for _, s := range steps {
+		t.Run(s.description, func(tt *testing.T) {
+			n, err := NewFullName(s.name)
+			if n.String() != s.want {
+				tt.Fatalf("unexpected name: %v", n)
+			}
+			if s.valid {
+				if err != nil {
+					tt.Fatalf("expected no err but got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				tt.Fatalf("expected err but got: %v", err)
+			}
+			if err.Error() != s.err {
+				tt.Fatalf("expected err \"%s\" but got: %v", s.err, err.Error())
+			}
+		})
+	}
+}
+
 func TestName_String(t *testing.T) {
 	n := NewName("ns1", "l1")
 	if n.String() != "ns1/l1" {

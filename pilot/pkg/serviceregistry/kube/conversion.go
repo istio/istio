@@ -122,7 +122,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				lbAddrs = append(lbAddrs, ingress.IP)
 			} else if len(ingress.Hostname) > 0 {
 				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-				if err != nil {
+				if err == nil {
 					lbAddrs = append(lbAddrs, addrs...)
 				}
 			}

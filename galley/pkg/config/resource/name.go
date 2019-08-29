@@ -14,7 +14,11 @@
 
 package resource
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 // Name of the resource. It is unique within a given set of resource of the same collection.
 type Name struct{ string }
@@ -28,7 +32,27 @@ func NewName(namespace, local string) Name {
 	return Name{string: namespace + "/" + local}
 }
 
-// String inteface implementation.
+// NewFullName returns a given name as a resource Name
+func NewFullName(name string) (Name, error) {
+	if name == "" {
+		return Name{string: ""}, errors.New("invalid name: can not be empty")
+	}
+	begin := 0
+	for i, r := range name {
+		if r == '/' {
+			if begin == i {
+				return Name{string: ""}, fmt.Errorf("invalid name %s: namespace must not be empty", name)
+			}
+			begin = i + 1
+		}
+	}
+	if begin == len(name) {
+		return Name{string: ""}, fmt.Errorf("invalid name %s: name must not be empty", name)
+	}
+	return Name{string: name}, nil
+}
+
+// String interface implementation.
 func (n Name) String() string {
 	return n.string
 }

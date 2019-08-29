@@ -18,15 +18,19 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
@@ -35,6 +39,14 @@ var (
 	// Precompute these filters as an optimization
 	blackholeAnyMarshalling    = newBlackholeFilter(true)
 	blackholeStructMarshalling = newBlackholeFilter(false)
+
+	dummyServiceInstance = &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Port:        15006,
+			ServicePort: &model.Port{},
+		},
+		Service: &model.Service{},
+	}
 )
 
 // A stateful listener builder
@@ -104,7 +116,7 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 			continue
 		}
 		for _, c := range l.FilterChains {
-			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(c, l, needTLS)
+			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(gogoproto.Clone(c).(*listener.FilterChain), l, needTLS)
 			chains = append(chains, newChain)
 			needTLS = needTLS || needTLSLocal
 		}
@@ -123,6 +135,8 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 			Name: xdsutil.OriginalDestination,
 		},
 	)
+	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
+	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
 
 	builder.virtualInboundListener.FilterChains =
@@ -134,6 +148,17 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 				Name: xdsutil.TlsInspector,
 			})
 	}
+
+	// Note: the HTTP inspector should be after TLS inspector.
+	// If TLS inspector sets transport protocol to tls, the http inspector
+	// won't inspect the packet.
+	if util.IsProtocolSniffingEnabledForNode(builder.node) {
+		builder.virtualInboundListener.ListenerFilters =
+			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+				Name: envoyListenerHTTPInspector,
+			})
+	}
+
 	return builder
 }
 
@@ -197,7 +222,7 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 		addressString := m.Address.String()
 		existingListener, ok := addresses[addressString]
 		if ok {
-			log.Warnf("Omitting listener for management address %s due to collision with service listener (%s)",
+			log.Debugf("Omitting listener for management address %s due to collision with service listener (%s)",
 				m.Name, existingListener.Name)
 			continue
 		} else {
@@ -265,7 +290,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 // TProxy uses only the virtual outbound listener on 15001 for both directions
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
-func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environment, node *model.Proxy) *ListenerBuilder {
+func (builder *ListenerBuilder) buildVirtualInboundListener(
+	configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	var isTransparentProxy *types.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -273,12 +300,16 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(env *model.Environme
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
+	filterChains := newInboundPassthroughFilterChains(env, node)
+	if util.IsProtocolSniffingEnabledForNode(node) {
+		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
+	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:           VirtualInboundListenerName,
 		Address:        util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   newInboundPassthroughFilterChains(env, node),
+		FilterChains:   filterChains,
 	}
 	if builder.useInboundFilterChain {
 		builder.aggregateVirtualInboundListener()
@@ -377,9 +408,9 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 
 		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
-			matchingIP = util.InboundPassthroughBindIpv4
+			matchingIP = "0.0.0.0/0"
 		} else if clusterName == util.InboundPassthroughClusterIpv6 {
-			matchingIP = util.InboundPassthroughBindIpv6
+			matchingIP = "::0/0"
 		}
 
 		filterChainMatch := listener.FilterChainMatch{
@@ -404,6 +435,71 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 				filter,
 			},
 		}
+		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
+		filterChains = append(filterChains, filterChain)
+	}
+
+	return filterChains
+}
+
+func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.Environment,
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	filterChains := make([]*listener.FilterChain, 0, 2)
+
+	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
+		matchingIP := ""
+		if clusterName == util.InboundPassthroughClusterIpv4 {
+			matchingIP = "0.0.0.0/0"
+		} else if clusterName == util.InboundPassthroughClusterIpv6 {
+			matchingIP = "::0/0"
+		}
+
+		port := &model.Port{
+			Name:     "virtualInbound",
+			Port:     15006,
+			Protocol: protocol.HTTP,
+		}
+
+		plugin := &plugin.InputParams{
+			ListenerProtocol:           plugin.ListenerProtocolHTTP,
+			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
+			Env:                        env,
+			Node:                       node,
+			ServiceInstance:            dummyServiceInstance,
+			Port:                       port,
+			Push:                       push,
+			Bind:                       matchingIP,
+			InboundClusterName:         clusterName,
+		}
+
+		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
+		httpOpts.statPrefix = clusterName
+		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, []*http_conn.HttpFilter{})
+
+		filter := &listener.Filter{
+			Name: xdsutil.HTTPConnectionManager,
+		}
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)}
+		}
+
+		filterChainMatch := listener.FilterChainMatch{
+			// Port : EMPTY to match all ports
+			PrefixRanges: []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIP),
+			},
+			ApplicationProtocols: applicationProtocols,
+		}
+
+		filterChain := &listener.FilterChain{
+			FilterChainMatch: &filterChainMatch,
+			Filters: []*listener.Filter{
+				filter,
+			},
+		}
+
 		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}

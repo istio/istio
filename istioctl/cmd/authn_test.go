@@ -31,7 +31,7 @@ func TestAuthnTlsCheck(t *testing.T) {
 		{ // case 0
 			configs:        []model.Config{},
 			args:           strings.Split("authn tls-check", " "),
-			expectedOutput: "Error: requires at least 1 arg(s), only received 0\n",
+			expectedRegexp: regexp.MustCompile("Error: tls-check requires pod name\n"),
 			wantException:  true,
 		},
 		{ // case 1

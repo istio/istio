@@ -17,6 +17,7 @@ package sds
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -160,16 +161,21 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 func (s *sdsservice) DebugInfo() (string, error) {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-
 	clientDebug := make([]sdsclientdebug, 0)
 	for connKey, conn := range sdsClients {
+		// it's possible for the connection to be established without an instantiated secret
+		if conn.secret == nil {
+			continue
+		}
+
 		conn.mutex.RLock()
 		c := sdsclientdebug{
-			ConnectionID:     connKey.ConnectionID,
-			ProxyID:          conn.proxyID,
-			ResourceName:     conn.ResourceName,
-			CertificateChain: string(conn.secret.CertificateChain),
-			RootCert:         string(conn.secret.RootCert),
+			ConnectionID: connKey.ConnectionID,
+			ProxyID:      conn.proxyID,
+			ResourceName: conn.ResourceName,
+			// should be base64 encoded for straightforward comparison with Envoy SDS config dump format
+			CertificateChain: base64.StdEncoding.EncodeToString(conn.secret.CertificateChain),
+			RootCert:         base64.StdEncoding.EncodeToString(conn.secret.RootCert),
 			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
 			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
 		}

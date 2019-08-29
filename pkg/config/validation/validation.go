@@ -36,6 +36,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -377,6 +378,22 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		return
 	}
 
+	if tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
+		// therefore, we should fail validation if other TLS fields are set
+		if tls.ServerCertificate != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+		}
+		if tls.PrivateKey != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+		}
+		if tls.CaCertificates != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+		}
+
+		return
+	}
+
 	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
@@ -636,7 +653,6 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap := make(map[uint32]struct{})
-	udsMap := make(map[string]struct{})
 	for _, i := range rule.Ingress {
 		if i.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
@@ -644,20 +660,12 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		}
 
 		bind := i.GetBind()
-		captureMode := i.GetCaptureMode()
-		errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+		errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-		if i.Port.Number == 0 {
-			if _, found := udsMap[bind]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
-			}
-			udsMap[bind] = struct{}{}
-		} else {
-			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
-			}
-			portMap[i.Port.Number] = struct{}{}
+		if _, found := portMap[i.Port.Number]; found {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 		}
+		portMap[i.Port.Number] = struct{}{}
 
 		if len(i.DefaultEndpoint) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
@@ -686,7 +694,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap = make(map[uint32]struct{})
-	udsMap = make(map[string]struct{})
+	udsMap := make(map[string]struct{})
 	catchAllEgressListenerFound := false
 	for index, i := range rule.Egress {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.
@@ -704,7 +712,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		} else {
 			bind := i.GetBind()
 			captureMode := i.GetCaptureMode()
-			errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+			errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
 
 			if i.Port.Number == 0 {
 				if _, found := udsMap[bind]; found {
@@ -733,7 +741,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	return
 }
 
-func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
 	// Port name is optional. Validate if exists.
@@ -764,6 +772,24 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 		if len(bind) != 0 {
 			errs = appendErrors(errs, ValidateIPv4Address(bind))
 		}
+	}
+
+	return
+}
+
+func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
+	errs = appendErrors(errs,
+		validateProtocol(port.Protocol),
+		ValidatePort(int(port.Number)))
+
+	if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPv4Address(bind))
 	}
 
 	return
@@ -1456,6 +1482,24 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	}
 
 	return errs
+}
+
+// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
+func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*authz.AuthorizationPolicy)
+	if !ok {
+		return fmt.Errorf("cannot cast to AuthorizationPolicy")
+	}
+
+	// TODO(yangminzhu): Add more validation.
+	for _, rule := range in.GetRules() {
+		for _, condition := range rule.GetWhen() {
+			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
+				return fmt.Errorf("condition has empty key or values")
+			}
+		}
+	}
+	return nil
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -2430,7 +2474,8 @@ func validatePortName(name string) error {
 }
 
 func validateProtocol(protocolStr string) error {
-	if protocol.Parse(protocolStr) == protocol.Unsupported {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil

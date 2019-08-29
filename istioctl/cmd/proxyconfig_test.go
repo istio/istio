@@ -125,6 +125,36 @@ inbound|9080||productpage.default.svc.cluster.local     1
 172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
+		{ // case 12 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config bootstrap", " "),
+			expectedString:   `Error: bootstrap requires pod name`,
+			wantException:    true,
+		},
+		{ // case 13 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config cluster", " "),
+			expectedString:   `Error: cluster requires pod name`,
+			wantException:    true,
+		},
+		{ // case 14 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint", " "),
+			expectedString:   `Error: endpoint requires pod name`,
+			wantException:    true,
+		},
+		{ // case 15 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config listener", " "),
+			expectedString:   `Error: listener requires pod name`,
+			wantException:    true,
+		},
+		{ // case 16 no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config route", " "),
+			expectedString:   `Error: route requires pod name`,
+			wantException:    true,
+		},
 	}
 
 	for i, c := range cases {

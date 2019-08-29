@@ -88,14 +88,14 @@ const (
 
 	// LoadTypes adds type information for package-level
 	// declarations in the packages matching the patterns.
-	// Package fields added: Types, Fset, and IllTyped.
+	// Package fields added: Types, TypesSizes, Fset, and IllTyped.
 	// This mode uses type information provided by the build system when
 	// possible, and may fill in the ExportFile field.
-	LoadTypes = LoadImports | NeedTypes
+	LoadTypes = LoadImports | NeedTypes | NeedTypesSizes
 
 	// LoadSyntax adds typed syntax trees for the packages matching the patterns.
 	// Package fields added: Syntax, and TypesInfo, for direct pattern matches only.
-	LoadSyntax = LoadTypes | NeedSyntax | NeedTypesInfo | NeedTypesSizes
+	LoadSyntax = LoadTypes | NeedSyntax | NeedTypesInfo
 
 	// LoadAllSyntax adds typed syntax trees for the packages matching the patterns
 	// and all dependencies.
@@ -137,7 +137,7 @@ type Config struct {
 	BuildFlags []string
 
 	// Fset provides source position information for syntax trees and types.
-	// If Fset is nil, the loader will create a new FileSet.
+	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
 	// ParseFile is called to read and parse each file
@@ -418,12 +418,28 @@ type loaderPackage struct {
 type loader struct {
 	pkgs map[string]*loaderPackage
 	Config
-	sizes    types.Sizes
-	exportMu sync.Mutex // enforces mutual exclusion of exportdata operations
+	sizes        types.Sizes
+	parseCache   map[string]*parseValue
+	parseCacheMu sync.Mutex
+	exportMu     sync.Mutex // enforces mutual exclusion of exportdata operations
+
+	// TODO(matloob): Add an implied mode here and use that instead of mode.
+	// Implied mode would contain all the fields we need the data for so we can
+	// get the actually requested fields. We'll zero them out before returning
+	// packages to the user. This will make it easier for us to get the conditions
+	// where we need certain modes right.
+}
+
+type parseValue struct {
+	f     *ast.File
+	err   error
+	ready chan struct{}
 }
 
 func newLoader(cfg *Config) *loader {
-	ld := &loader{}
+	ld := &loader{
+		parseCache: map[string]*parseValue{},
+	}
 	if cfg != nil {
 		ld.Config = *cfg
 	}
@@ -451,12 +467,8 @@ func newLoader(cfg *Config) *loader {
 		// because we load source if export data is missing.
 		if ld.ParseFile == nil {
 			ld.ParseFile = func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
-				var isrc interface{}
-				if src != nil {
-					isrc = src
-				}
 				const mode = parser.AllErrors | parser.ParseComments
-				return parser.ParseFile(fset, filename, isrc, mode)
+				return parser.ParseFile(fset, filename, src, mode)
 			}
 		}
 	}
@@ -554,13 +566,16 @@ func (ld *loader) refine(roots []string, list ...*Package) ([]*Package, error) {
 		if lpkg.needsrc {
 			srcPkgs = append(srcPkgs, lpkg)
 		}
+		if ld.Mode&NeedTypesSizes != 0 {
+			lpkg.TypesSizes = ld.sizes
+		}
 		stack = stack[:len(stack)-1] // pop
 		lpkg.color = black
 
 		return lpkg.needsrc
 	}
 
-	if ld.Mode&NeedImports == 0 {
+	if ld.Mode&(NeedImports|NeedDeps) == 0 {
 		// We do this to drop the stub import packages that we are not even going to try to resolve.
 		for _, lpkg := range initial {
 			lpkg.Imports = nil
@@ -571,7 +586,7 @@ func (ld *loader) refine(roots []string, list ...*Package) ([]*Package, error) {
 			visit(lpkg)
 		}
 	}
-	if ld.Mode&NeedDeps != 0 {
+	if ld.Mode&NeedDeps != 0 { // TODO(matloob): This is only the case if NeedTypes is also set, right?
 		for _, lpkg := range srcPkgs {
 			// Complete type information is required for the
 			// immediate dependencies of each source package.
@@ -599,46 +614,48 @@ func (ld *loader) refine(roots []string, list ...*Package) ([]*Package, error) {
 	importPlaceholders := make(map[string]*Package)
 	for i, lpkg := range initial {
 		result[i] = lpkg.Package
+	}
+	for i := range ld.pkgs {
 		// Clear all unrequested fields, for extra de-Hyrum-ization.
 		if ld.Mode&NeedName == 0 {
-			result[i].Name = ""
-			result[i].PkgPath = ""
+			ld.pkgs[i].Name = ""
+			ld.pkgs[i].PkgPath = ""
 		}
 		if ld.Mode&NeedFiles == 0 {
-			result[i].GoFiles = nil
-			result[i].OtherFiles = nil
+			ld.pkgs[i].GoFiles = nil
+			ld.pkgs[i].OtherFiles = nil
 		}
 		if ld.Mode&NeedCompiledGoFiles == 0 {
-			result[i].CompiledGoFiles = nil
+			ld.pkgs[i].CompiledGoFiles = nil
 		}
 		if ld.Mode&NeedImports == 0 {
-			result[i].Imports = nil
+			ld.pkgs[i].Imports = nil
 		}
 		if ld.Mode&NeedExportsFile == 0 {
-			result[i].ExportFile = ""
+			ld.pkgs[i].ExportFile = ""
 		}
 		if ld.Mode&NeedTypes == 0 {
-			result[i].Types = nil
-			result[i].Fset = nil
-			result[i].IllTyped = false
+			ld.pkgs[i].Types = nil
+			ld.pkgs[i].Fset = nil
+			ld.pkgs[i].IllTyped = false
 		}
 		if ld.Mode&NeedSyntax == 0 {
-			result[i].Syntax = nil
+			ld.pkgs[i].Syntax = nil
 		}
 		if ld.Mode&NeedTypesInfo == 0 {
-			result[i].TypesInfo = nil
+			ld.pkgs[i].TypesInfo = nil
 		}
 		if ld.Mode&NeedTypesSizes == 0 {
-			result[i].TypesSizes = nil
+			ld.pkgs[i].TypesSizes = nil
 		}
 		if ld.Mode&NeedDeps == 0 {
-			for j, pkg := range result[i].Imports {
+			for j, pkg := range ld.pkgs[i].Imports {
 				ph, ok := importPlaceholders[pkg.ID]
 				if !ok {
 					ph = &Package{ID: pkg.ID}
 					importPlaceholders[pkg.ID] = ph
 				}
-				result[i].Imports[j] = ph
+				ld.pkgs[i].Imports[j] = ph
 			}
 		}
 	}
@@ -853,6 +870,42 @@ func (f importerFunc) Import(path string) (*types.Package, error) { return f(pat
 // the number of parallel I/O calls per process.
 var ioLimit = make(chan bool, 20)
 
+func (ld *loader) parseFile(filename string) (*ast.File, error) {
+	ld.parseCacheMu.Lock()
+	v, ok := ld.parseCache[filename]
+	if ok {
+		// cache hit
+		ld.parseCacheMu.Unlock()
+		<-v.ready
+	} else {
+		// cache miss
+		v = &parseValue{ready: make(chan struct{})}
+		ld.parseCache[filename] = v
+		ld.parseCacheMu.Unlock()
+
+		var src []byte
+		for f, contents := range ld.Config.Overlay {
+			if sameFile(f, filename) {
+				src = contents
+			}
+		}
+		var err error
+		if src == nil {
+			ioLimit <- true // wait
+			src, err = ioutil.ReadFile(filename)
+			<-ioLimit // signal
+		}
+		if err != nil {
+			v.err = err
+		} else {
+			v.f, v.err = ld.ParseFile(ld.Fset, filename, src)
+		}
+
+		close(v.ready)
+	}
+	return v.f, v.err
+}
+
 // parseFiles reads and parses the Go source files and returns the ASTs
 // of the ones that could be at least partially parsed, along with a
 // list of I/O and parse errors encountered.
@@ -873,24 +926,7 @@ func (ld *loader) parseFiles(filenames []string) ([]*ast.File, []error) {
 		}
 		wg.Add(1)
 		go func(i int, filename string) {
-			ioLimit <- true // wait
-			// ParseFile may return both an AST and an error.
-			var src []byte
-			for f, contents := range ld.Config.Overlay {
-				if sameFile(f, filename) {
-					src = contents
-				}
-			}
-			var err error
-			if src == nil {
-				src, err = ioutil.ReadFile(filename)
-			}
-			if err != nil {
-				parsed[i], errors[i] = nil, err
-			} else {
-				parsed[i], errors[i] = ld.ParseFile(ld.Fset, filename, src)
-			}
-			<-ioLimit // signal
+			parsed[i], errors[i] = ld.parseFile(filename)
 			wg.Done()
 		}(i, file)
 	}

@@ -28,18 +28,8 @@ import (
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schemas"
 )
-
-func newAuthzPolicyWithRbacConfig(mode istio_rbac.RbacConfig_Mode, include *istio_rbac.RbacConfig_Target,
-	exclude *istio_rbac.RbacConfig_Target) *model.AuthorizationPolicies {
-	return &model.AuthorizationPolicies{
-		RbacConfig: &istio_rbac.RbacConfig{
-			Mode:      mode,
-			Inclusion: include,
-			Exclusion: exclude,
-		},
-	}
-}
 
 func newService(hostname string, labels map[string]string, t *testing.T) *model.ServiceInstance {
 	t.Helper()
@@ -64,7 +54,7 @@ func newService(hostname string, labels map[string]string, t *testing.T) *model.
 func simpleGlobalPermissiveMode() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ClusterRbacConfig.Type,
+			Type:      schemas.ClusterRbacConfig.Type,
 			Name:      "default",
 			Namespace: "default",
 		},
@@ -74,74 +64,6 @@ func simpleGlobalPermissiveMode() *model.Config {
 		},
 	}
 	return cfg
-}
-
-func TestIsRbacEnabled(t *testing.T) {
-	target := &istio_rbac.RbacConfig_Target{
-		Services:   []string{"review.default.svc", "product.default.svc"},
-		Namespaces: []string{"special"},
-	}
-	cfg1 := newAuthzPolicyWithRbacConfig(istio_rbac.RbacConfig_ON, nil, nil)
-	cfg2 := newAuthzPolicyWithRbacConfig(istio_rbac.RbacConfig_OFF, nil, nil)
-	cfg3 := newAuthzPolicyWithRbacConfig(istio_rbac.RbacConfig_ON_WITH_INCLUSION, target, nil)
-	cfg4 := newAuthzPolicyWithRbacConfig(istio_rbac.RbacConfig_ON_WITH_EXCLUSION, nil, target)
-	cfg5 := newAuthzPolicyWithRbacConfig(istio_rbac.RbacConfig_ON, nil, nil)
-
-	testCases := []struct {
-		Name          string
-		AuthzPolicies *model.AuthorizationPolicies
-		Service       string
-		Namespace     string
-		want          bool
-	}{
-		{
-			Name:          "rbac plugin enabled",
-			AuthzPolicies: cfg1,
-			want:          true,
-		},
-		{
-			Name:          "rbac plugin disabled",
-			AuthzPolicies: cfg2,
-		},
-		{
-			Name:          "rbac plugin enabled by inclusion.service",
-			AuthzPolicies: cfg3,
-			Service:       "product.default.svc",
-			Namespace:     "default",
-			want:          true,
-		},
-		{
-			Name:          "rbac plugin enabled by inclusion.namespace",
-			AuthzPolicies: cfg3,
-			Service:       "other.special.svc",
-			Namespace:     "special",
-			want:          true,
-		},
-		{
-			Name:          "rbac plugin disabled by exclusion.service",
-			AuthzPolicies: cfg4,
-			Service:       "product.default.svc",
-			Namespace:     "default",
-		},
-		{
-			Name:          "rbac plugin disabled by exclusion.namespace",
-			AuthzPolicies: cfg4,
-			Service:       "other.special.svc",
-			Namespace:     "special",
-		},
-		{
-			Name:          "rbac plugin enabled with permissive",
-			AuthzPolicies: cfg5,
-			want:          true,
-		},
-	}
-
-	for _, tc := range testCases {
-		got := isRbacEnabled(tc.Service, tc.Namespace, tc.AuthzPolicies)
-		if tc.want != got {
-			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.want, got)
-		}
-	}
 }
 
 func TestBuilder_BuildHTTPFilter(t *testing.T) {

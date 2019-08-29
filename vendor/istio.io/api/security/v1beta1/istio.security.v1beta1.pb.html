@@ -1,0 +1,450 @@
+---
+title: Authorization Policy
+description: Configuration for access control on workloads.
+location: https://istio.io/docs/reference/config/security/v1beta1/authorization-policy.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 8
+---
+<p>Istio Authorization Policy enables access control on workloads in the mesh.</p>
+
+<p>For example, the following authorization policy applies to workloads matched with
+label selector &ldquo;app: httpbin, version: v1&rdquo;.</p>
+
+<p>It allows requests from:
+- service account &ldquo;cluster.local/ns/default/sa/sleep&rdquo; or
+- namespace &ldquo;test&rdquo;
+to access the workload with:
+- &ldquo;GET&rdquo; method at paths of prefix &ldquo;/info&rdquo; or,
+- &ldquo;POST&rdquo; method at path &ldquo;/data&rdquo;.
+when the request has a valid JWT token issued by &ldquo;https://accounts.google.com&rdquo;.</p>
+
+<p>Any other requests will be rejected.</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: httpbin
+ namespace: foo
+spec:
+ selector:
+   matchLabels:
+     app: httpbin
+     version: v1
+ rules:
+ - from:
+   - source:
+       principals: [&quot;cluster.local/ns/default/sa/sleep&quot;]
+   - source:
+       namespaces: [&quot;test&quot;]
+   to:
+   - operation:
+       methods: [&quot;GET&quot;]
+       paths: [&quot;/info*&quot;]
+   - operation:
+       methods: [&quot;POST&quot;]
+       paths: [&quot;/data&quot;]
+   when:
+   - key: request.auth.claims[iss]
+     values: [&quot;https://accounts.google.com&quot;]
+</code></pre>
+
+<p>Access control is enabled on a workload if there is any authorization policies selecting
+the workload. When access control is enabled, the default behavior is deny (deny-by-default)
+which means requests to the workload will be rejected if the request is not allowed by any of
+the authorization policies selecting the workload.</p>
+
+<p>Currently AuthorizationPolicy only supports &ldquo;ALLOW&rdquo; action. This means that
+if multiple authorization policies apply to the same workload, the effect is additive.</p>
+
+<p>Authorization Policy scope (target) is determined by &ldquo;metadata/namespace&rdquo; and
+an optional &ldquo;selector&rdquo;.
+- &ldquo;metadata/namespace&rdquo; tells which namespace the policy applies. If set to root
+namespace, the policy applies to all namespaces in a mesh.
+- workload &ldquo;selector&rdquo; can be used to further restrict where a policy applies.</p>
+
+<p>For example,</p>
+
+<p>The following authorization policy applies to workloads containing label
+&ldquo;app: httpbin&rdquo; in namespace bar.</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: policy
+ namespace: bar
+spec:
+ selector:
+   matchLabels:
+     app: httpbin
+</code></pre>
+
+<p>The following authorization policy applies to all workloads in namespace foo.</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: policy
+ namespace: foo
+spec:
+</code></pre>
+
+<p>The following authorization policy applies to workloads containing label
+&ldquo;version: v1&rdquo; in all namespaces in the mesh. (Assuming the root namespace is
+configured to &ldquo;istio-config&rdquo;).</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: policy
+ namespace: istio-config
+spec:
+ selector:
+   matchLabels:
+     version: v1
+</code></pre>
+
+<h2 id="AuthorizationPolicy">AuthorizationPolicy</h2>
+<section>
+<p>AuthorizationPolicy enables access control on workloads.</p>
+
+<p>For example, the following authorization policy denies all requests to workloads
+in namespace foo.</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: deny-all
+ namespace: foo
+spec:
+</code></pre>
+
+<p>The following authorization policy allows all requests to workloads in namespace
+foo.</p>
+
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-all
+ namespace: foo
+spec:
+ rules:
+ - &lbrace;}
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AuthorizationPolicy-selector">
+<td><code>selector</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/type/v1beta1/workload-selector.html#WorkloadSelector">istio.type.v1beta1.WorkloadSelector</a></code></td>
+<td>
+<p>Optional. Workload selector decides where to apply the authorization policy.
+If not set, the authorization policy will be applied to all workloads in the
+same namespace as the authorization policy.</p>
+
+</td>
+</tr>
+<tr id="AuthorizationPolicy-rules">
+<td><code>rules</code></td>
+<td><code><a href="#Rule">Rule[]</a></code></td>
+<td>
+<p>Optional. A list of rules to specify the allowed access to the workload.</p>
+
+<p>If not set, access is denied unless explicitly allowed by other authorization policy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Condition">Condition</h2>
+<section>
+<p>Condition specifies additional required attributes.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Condition-key">
+<td><code>key</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of an Istio attribute.
+Note: Check https://istio.io/docs/reference/config/ for the list of supported
+attribute name.</p>
+
+</td>
+</tr>
+<tr id="Condition-values">
+<td><code>values</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Required. The allowed values for the attribute.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Operation">Operation</h2>
+<section>
+<p>Operation specifies the operations of a request.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Operation-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of hosts, which matches to the &ldquo;request.host&rdquo; attribute.</p>
+
+<p>If not set, any host is allowed. Must be used only with HTTP.</p>
+
+</td>
+</tr>
+<tr id="Operation-ports">
+<td><code>ports</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of ports, which matches to the &ldquo;destination.port&rdquo; attribute.</p>
+
+<p>If not set, any port is allowed.</p>
+
+</td>
+</tr>
+<tr id="Operation-methods">
+<td><code>methods</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of methods, which matches to the &ldquo;request.method&rdquo; attribute.
+For gRPC service, this should be the fully-qualified name in the form of
+&ldquo;/package.service/method&rdquo;</p>
+
+<p>If not set, any method is allowed. Must be used only with HTTP or gRPC.</p>
+
+</td>
+</tr>
+<tr id="Operation-paths">
+<td><code>paths</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of paths, which matches to the &ldquo;request.url_path&rdquo; attribute.</p>
+
+<p>If not set, any path is allowed. Must be used only with HTTP.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule">Rule</h2>
+<section>
+<p>Rule allows access from a list of sources to perform a list of operations when
+the condition is matched.</p>
+
+<p>Any string field in the rule supports Exact, Prefix, Suffix and Presence match:
+- Exact match: &ldquo;abc&rdquo; will match on value &ldquo;abc&rdquo;.
+- Prefix match: &ldquo;abc<em>&rdquo; will match on value &ldquo;abc&rdquo; and &ldquo;abcd&rdquo;.
+- Suffix match: &ldquo;</em>abc&rdquo; will match on value &ldquo;abc&rdquo; and &ldquo;xabc&rdquo;.
+- Presence match: &ldquo;*&rdquo; will match when value is not empty.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-from">
+<td><code>from</code></td>
+<td><code><a href="#Rule-From">Rule.From[]</a></code></td>
+<td>
+<p>Optional. from specifies the source of a request.</p>
+
+<p>If not set, any source is allowed.</p>
+
+</td>
+</tr>
+<tr id="Rule-to">
+<td><code>to</code></td>
+<td><code><a href="#Rule-To">Rule.To[]</a></code></td>
+<td>
+<p>Optional. to specifies the operation of a request.</p>
+
+<p>If not set, any operation is allowed.</p>
+
+</td>
+</tr>
+<tr id="Rule-when">
+<td><code>when</code></td>
+<td><code><a href="#Condition">Condition[]</a></code></td>
+<td>
+<p>Optional. when specifies a list of additional conditions of a request.</p>
+
+<p>If not set, any condition is allowed.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule-From">Rule.From</h2>
+<section>
+<p>From includes a list or sources.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-From-source">
+<td><code>source</code></td>
+<td><code><a href="#Source">Source</a></code></td>
+<td>
+<p>Source specifies the source of a request.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule-To">Rule.To</h2>
+<section>
+<p>To includes a list or operations.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-To-operation">
+<td><code>operation</code></td>
+<td><code><a href="#Operation">Operation</a></code></td>
+<td>
+<p>Operation specifies the operation of a request.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Source">Source</h2>
+<section>
+<p>Source specifies the source identities of a request.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Source-principals">
+<td><code>principals</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of source peer identities (i.e. service account), which
+matches to the &ldquo;source.principal&rdquo; attribute.</p>
+
+<p>If not set, any principal is allowed.</p>
+
+</td>
+</tr>
+<tr id="Source-request_principals">
+<td><code>requestPrincipals</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of request identities (i.e. &ldquo;iss/sub&rdquo; claims), which
+matches to the &ldquo;request.auth.principal&rdquo; attribute.</p>
+
+<p>If not set, any request principal is allowed.</p>
+
+</td>
+</tr>
+<tr id="Source-namespaces">
+<td><code>namespaces</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of namespaces, which matches to the &ldquo;source.namespace&rdquo;
+attribute.</p>
+
+<p>If not set, any namespace is allowed.</p>
+
+</td>
+</tr>
+<tr id="Source-ip_blocks">
+<td><code>ipBlocks</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. A list of IP blocks, which matches to the &ldquo;source.ip&rdquo; attribute.
+Single IP (e.g. &ldquo;1.2.3.4&rdquo;) and CIDR (e.g. &ldquo;1.2.3.0/24&rdquo;) are supported.</p>
+
+<p>If not set, any IP is allowed.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio-type-v1beta1-WorkloadSelector">istio.type.v1beta1.WorkloadSelector</h2>
+<section>
+<p>WorkloadSelector specifies the criteria used to determine if a policy can be applied
+to a proxy. The matching criteria includes the metadata associated with a proxy,
+workload instance info such as labels attached to the pod/VM, or any other info
+that the proxy provides to Istio during the initial handshake. If multiple conditions are
+specified, all conditions need to match in order for the workload instance to be
+selected. Currently, only label based selection mechanism is supported.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio-type-v1beta1-WorkloadSelector-match_labels">
+<td><code>matchLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
+on which a policy should be applied. The scope of label search is restricted to
+the configuration namespace in which the resource is present.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

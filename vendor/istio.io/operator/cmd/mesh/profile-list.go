@@ -36,7 +36,7 @@ func profileListCmd(rootArgs *rootArgs) *cobra.Command {
 
 // profileList list all the builtin profiles.
 func profileList(args *rootArgs) {
-	checkLogsOrExit(args)
+	initLogsOrExit(args)
 	profiles := helm.ListBuiltinProfiles()
 	if len(profiles) == 0 {
 		fmt.Println("No profiles available.")

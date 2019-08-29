@@ -23,7 +23,7 @@ initContainers:
   - "-x"
   - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
   - "-b"
-  - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
+  - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
   - "-d"
   - "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
   {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") -}}
@@ -168,12 +168,22 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
-{{ if eq .Values.global.proxy.tracer "datadog" }}
+  - name: SERVICE_ACCOUNT
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.serviceAccountName
+{{- if eq .Values.global.proxy.tracer "datadog" }}
   - name: HOST_IP
     valueFrom:
       fieldRef:
         fieldPath: status.hostIP
-{{ end }}
+{{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
+{{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
+  - name: {{ $key }}
+    value: "{{ $value }}"
+{{- end }}
+{{- end }}
+{{- end }}
   - name: ISTIO_META_POD_NAME
     valueFrom:
       fieldRef:
@@ -182,6 +192,8 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: metadata.namespace
+  - name: SDS_ENABLED
+    value: {{ $.Values.global.sds.enabled }}
   - name: ISTIO_META_INTERCEPTION_MODE
     value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
   - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -200,6 +212,14 @@ containers:
     value: |
            {{ toJSON .ObjectMeta.Labels }}
   {{ end }}
+  {{- if .DeploymentMeta.Name }}
+  - name: ISTIO_META_WORKLOAD_NAME
+    value: {{ .DeploymentMeta.Name }}
+  {{ end }}
+  {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
+  - name: ISTIO_META_OWNER
+    value: kubernetes://api/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+   {{- end}}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: ISTIO_BOOTSTRAP_OVERRIDE
     value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
@@ -207,6 +227,13 @@ containers:
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: ISTIO_META_SDS_TOKEN_PATH
     value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
+  {{- end }}
+  {{- if .Values.global.meshID }}
+  - name: ISTIO_META_MESH_ID
+    value: "{{ .Values.global.meshID }}"
+  {{- else if .Values.global.trustDomain }}
+  - name: ISTIO_META_MESH_ID
+    value: "{{ .Values.global.trustDomain }}"
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}

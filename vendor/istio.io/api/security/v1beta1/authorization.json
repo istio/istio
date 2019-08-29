@@ -1,0 +1,184 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Configuration for access control on workloads.",
+    "version": "v1beta1"
+  },
+  "components": {
+    "schemas": {
+      "istio.security.v1beta1.AuthorizationPolicy": {
+        "description": "AuthorizationPolicy enables access control on workloads.",
+        "type": "object",
+        "properties": {
+          "selector": {
+            "$ref": "#/components/schemas/istio.type.v1beta1.WorkloadSelector"
+          },
+          "rules": {
+            "description": "Optional. A list of rules to specify the allowed access to the workload.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.security.v1beta1.Rule"
+            }
+          }
+        }
+      },
+      "istio.security.v1beta1.Rule": {
+        "description": "Rule allows access from a list of sources to perform a list of operations when the condition is matched.",
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Optional. from specifies the source of a request.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.security.v1beta1.Rule.From"
+            }
+          },
+          "to": {
+            "description": "Optional. to specifies the operation of a request.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.security.v1beta1.Rule.To"
+            }
+          },
+          "when": {
+            "description": "Optional. when specifies a list of additional conditions of a request.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/istio.security.v1beta1.Condition"
+            }
+          }
+        }
+      },
+      "istio.security.v1beta1.Rule.From": {
+        "description": "From includes a list or sources.",
+        "type": "object",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/istio.security.v1beta1.Source"
+          }
+        }
+      },
+      "istio.security.v1beta1.Rule.To": {
+        "description": "To includes a list or operations.",
+        "type": "object",
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/istio.security.v1beta1.Operation"
+          }
+        }
+      },
+      "istio.security.v1beta1.Condition": {
+        "description": "Condition specifies additional required attributes.",
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Required. The name of an Istio attribute. Note: Check https://istio.io/docs/reference/config/ for the list of supported attribute name.",
+            "type": "string",
+            "format": "string"
+          },
+          "values": {
+            "description": "Required. The allowed values for the attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.security.v1beta1.Source": {
+        "description": "Source specifies the source identities of a request.",
+        "type": "object",
+        "properties": {
+          "principals": {
+            "description": "Optional. A list of source peer identities (i.e. service account), which matches to the \"source.principal\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "requestPrincipals": {
+            "description": "Optional. A list of request identities (i.e. \"iss/sub\" claims), which matches to the \"request.auth.principal\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "namespaces": {
+            "description": "Optional. A list of namespaces, which matches to the \"source.namespace\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "ipBlocks": {
+            "description": "Optional. A list of IP blocks, which matches to the \"source.ip\" attribute. Single IP (e.g. \"1.2.3.4\") and CIDR (e.g. \"1.2.3.0/24\") are supported.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.security.v1beta1.Operation": {
+        "description": "Operation specifies the operations of a request.",
+        "type": "object",
+        "properties": {
+          "hosts": {
+            "description": "Optional. A list of hosts, which matches to the \"request.host\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "ports": {
+            "description": "Optional. A list of ports, which matches to the \"destination.port\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "methods": {
+            "description": "Optional. A list of methods, which matches to the \"request.method\" attribute. For gRPC service, this should be the fully-qualified name in the form of \"/package.service/method\"",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          },
+          "paths": {
+            "description": "Optional. A list of paths, which matches to the \"request.url_path\" attribute.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      },
+      "istio.type.v1beta1.WorkloadSelector": {
+        "description": "Optional. Workload selector decides where to apply the authorization policy. If not set, the authorization policy will be applied to all workloads in the same namespace as the authorization policy.",
+        "type": "object",
+        "required": [
+          "matchLabels"
+        ],
+        "properties": {
+          "matchLabels": {
+            "description": "REQUIRED: One or more labels that indicate a specific set of pods/VMs on which a policy should be applied. The scope of label search is restricted to the configuration namespace in which the resource is present.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "format": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -18,34 +18,26 @@ package mesh
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"istio.io/pkg/log"
 )
 
 const (
-	logFilePath = "./mesh-cli.log"
+	logFilePath = "./.mesh-cli.log"
 )
 
-func getWriter(outFilename string) (*os.File, error) {
-	writer := os.Stdout
-	if outFilename != "" {
-		file, err := os.Create(outFilename)
-		if err != nil {
-			return nil, err
-		}
-
-		writer = file
-	}
-	return writer, nil
-}
-
-func checkLogsOrExit(args *rootArgs) {
+func initLogsOrExit(args *rootArgs) {
+	// Only the logs for the last command are of interest.
+	// Remove any previous log to avoid indefinite accumulation.
+	_ = os.Remove(logFilePath)
 	if err := configLogs(args); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
 }
+
 func configLogs(args *rootArgs) error {
 	opt := log.DefaultOptions()
 	if !args.logToStdErr {
@@ -55,16 +47,42 @@ func configLogs(args *rootArgs) error {
 	return log.Configure(opt)
 }
 
+type logger struct {
+	logToStdErr bool
+	stdOut      io.Writer
+	stdErr      io.Writer
+}
+
+func newLogger(logToStdErr bool, stdOut, stdErr io.Writer) *logger {
+	return &logger{
+		logToStdErr: logToStdErr,
+		stdOut:      stdOut,
+		stdErr:      stdErr,
+	}
+}
+
 // TODO: this really doesn't belong here. Figure out if it's generally needed and possibly move to istio.io/pkg/log.
-func logAndPrintf(args *rootArgs, v ...interface{}) {
-	s := fmt.Sprintf(v[0].(string), v[1:]...)
-	if !args.logToStdErr {
-		fmt.Println(s)
+func (l *logger) logAndPrint(v ...interface{}) {
+	if len(v) == 0 {
+		return
+	}
+	s := ""
+	if fmtStr, ok := v[0].(string); ok {
+		s = fmt.Sprintf(fmtStr, v[1:]...)
+	} else {
+		s = fmt.Sprint(v...)
+	}
+	if !l.logToStdErr {
+		l.print(s)
 	}
 	log.Infof(s)
 }
 
-func logAndFatalf(args *rootArgs, v ...interface{}) {
-	logAndPrintf(args, v...)
+func (l *logger) logAndFatal(v ...interface{}) {
+	l.logAndPrint(v...)
 	os.Exit(-1)
+}
+
+func (l *logger) print(s string) {
+	_, _ = l.stdOut.Write([]byte(s))
 }

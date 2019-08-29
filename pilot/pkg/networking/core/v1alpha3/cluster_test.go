@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type ConfigType int
@@ -177,12 +178,26 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string))
+	return buildTestClustersWithProxyMetadata(
+		serviceHostname,
+		serviceResolution,
+		nodeType,
+		locality,
+		mesh,
+		destRule,
+		make(map[string]string),
+		model.MaxIstioVersion)
+}
+
+func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
+	destRule proto.Message, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string), istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -239,11 +254,11 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 
 	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
-			if typ == model.DestinationRule.Type {
+			if typ == schemas.DestinationRule.Type {
 				return []model.Config{
 					{ConfigMeta: model.ConfigMeta{
-						Type:    model.DestinationRule.Type,
-						Version: model.DestinationRule.Version,
+						Type:    schemas.DestinationRule.Type,
+						Version: schemas.DestinationRule.Version,
 						Name:    "acme",
 					},
 						Spec: destRule,
@@ -258,21 +273,23 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	switch nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
-			ClusterID:   "some-cluster-id",
-			Type:        model.SidecarProxy,
-			IPAddresses: []string{"6.6.6.6"},
-			Locality:    locality,
-			DNSDomain:   "com",
-			Metadata:    meta,
+			ClusterID:    "some-cluster-id",
+			Type:         model.SidecarProxy,
+			IPAddresses:  []string{"6.6.6.6"},
+			Locality:     locality,
+			DNSDomain:    "com",
+			Metadata:     meta,
+			IstioVersion: istioVersion,
 		}
 	case model.Router:
 		proxy = &model.Proxy{
-			ClusterID:   "some-cluster-id",
-			Type:        model.Router,
-			IPAddresses: []string{"6.6.6.6"},
-			Locality:    locality,
-			DNSDomain:   "default.example.org",
-			Metadata:    meta,
+			ClusterID:    "some-cluster-id",
+			Type:         model.Router,
+			IPAddresses:  []string{"6.6.6.6"},
+			Locality:     locality,
+			DNSDomain:    "default.example.org",
+			Metadata:     meta,
+			IstioVersion: istioVersion,
 		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
@@ -427,7 +444,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
-		nil, testMesh, destRule, envoyMetadata)
+		nil, testMesh, destRule, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(7))
@@ -485,6 +502,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) (
 			},
 		},
 		meta,
+		model.MaxIstioVersion,
 	)
 }
 
@@ -892,7 +910,7 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 		})
 
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 }
 
@@ -914,6 +932,31 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 			},
 		})
 
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+}
+
+func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClustersWithIstioVersion("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		}, &model.IstioVersion{Major: 1, Minor: 2})
+
+	fmt.Printf("%+v\n", clusters[0])
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
@@ -973,7 +1016,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
 			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 		}
 	}

@@ -107,6 +107,27 @@ var (
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName]string
 
+// IsFeatureEnabledInSpec reports whether the given feature is enabled in the given spec.
+// This follows the logic description in IstioControlPlane proto.
+// IsFeatureEnabledInSpec assumes that controlPlaneSpec has been validated.
+func IsFeatureEnabledInSpec(featureName FeatureName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (bool, error) {
+	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
+	if err != nil {
+		return false, fmt.Errorf("error in IsFeatureEnabledInSpec GetFromStructPath featureEnabled for feature=%s: %s", featureName, err)
+	}
+	if !found || featureNodeI == nil {
+		return false, nil
+	}
+	featureNode, ok := featureNodeI.(*protobuf.BoolValue)
+	if !ok {
+		return false, fmt.Errorf("feature %s enabled has bad type %T, expect *protobuf.BoolValue", featureName, featureNodeI)
+	}
+	if featureNode == nil || !featureNode.Value {
+		return false, nil
+	}
+	return featureNode.Value, nil
+}
+
 // IsComponentEnabledInSpec reports whether the given feature and component are enabled in the given spec. The logic is, in
 // order of evaluation:
 // 1. if the feature is not defined, the component is disabled, else
@@ -134,7 +155,7 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 		return false, nil
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Common.Enabled")
+	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for feature=%s, component=%s: %s",
 			featureName, componentName, err)
@@ -223,8 +244,8 @@ func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interfac
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
-// 1. If CustomPackagePath is unset, log and error and return the empty string.
-// 2. If the feature and component namespaces are unset, return CustomPackagePath.
+// 1. If DefaultNamespace is unset, log and error and return the empty string.
+// 2. If the feature and component namespaces are unset, return DefaultNamespace.
 // 3. If the feature namespace is set but component name is unset, return the feature namespace.
 // 4. Otherwise return the component namespace.
 // Namespace assumes that controlPlaneSpec has been validated.
@@ -261,7 +282,7 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 		}
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Common.Namespace")
+	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Namespace")
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for feature=%s, component=%s: %s", featureName, componentName, err)
 	}

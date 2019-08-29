@@ -56,7 +56,7 @@ func (x MetricDescriptor_MetricKind) String() string {
 	return proto.EnumName(MetricDescriptor_MetricKind_name, int32(x))
 }
 func (MetricDescriptor_MetricKind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_metric_70b5b8d2d060c7ba, []int{0, 0}
+	return fileDescriptor_metric_6e51d2a4cf4adf4d, []int{0, 0}
 }
 
 // The value type of a metric.
@@ -104,7 +104,7 @@ func (x MetricDescriptor_ValueType) String() string {
 	return proto.EnumName(MetricDescriptor_ValueType_name, int32(x))
 }
 func (MetricDescriptor_ValueType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_metric_70b5b8d2d060c7ba, []int{0, 1}
+	return fileDescriptor_metric_6e51d2a4cf4adf4d, []int{0, 1}
 }
 
 // Defines a metric type and its schema. Once a metric descriptor is created,
@@ -219,7 +219,7 @@ func (m *MetricDescriptor) Reset()         { *m = MetricDescriptor{} }
 func (m *MetricDescriptor) String() string { return proto.CompactTextString(m) }
 func (*MetricDescriptor) ProtoMessage()    {}
 func (*MetricDescriptor) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metric_70b5b8d2d060c7ba, []int{0}
+	return fileDescriptor_metric_6e51d2a4cf4adf4d, []int{0}
 }
 func (m *MetricDescriptor) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetricDescriptor.Unmarshal(m, b)
@@ -326,7 +326,7 @@ func (m *MetricDescriptor_MetricDescriptorMetadata) Reset() {
 func (m *MetricDescriptor_MetricDescriptorMetadata) String() string { return proto.CompactTextString(m) }
 func (*MetricDescriptor_MetricDescriptorMetadata) ProtoMessage()    {}
 func (*MetricDescriptor_MetricDescriptorMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metric_70b5b8d2d060c7ba, []int{0, 0}
+	return fileDescriptor_metric_6e51d2a4cf4adf4d, []int{0, 0}
 }
 func (m *MetricDescriptor_MetricDescriptorMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetricDescriptor_MetricDescriptorMetadata.Unmarshal(m, b)
@@ -370,9 +370,8 @@ func (m *MetricDescriptor_MetricDescriptorMetadata) GetIngestDelay() *duration.D
 // A specific metric, identified by specifying values for all of the
 // labels of a [`MetricDescriptor`][google.api.MetricDescriptor].
 type Metric struct {
-	// An existing metric type, see
-	// [google.api.MetricDescriptor][google.api.MetricDescriptor]. For example,
-	// `custom.googleapis.com/invoice/paid/amount`.
+	// An existing metric type, see [google.api.MetricDescriptor][google.api.MetricDescriptor].
+	// For example, `custom.googleapis.com/invoice/paid/amount`.
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	// The set of label values that uniquely identify this metric. All
 	// labels listed in the `MetricDescriptor` must be assigned values.
@@ -386,7 +385,7 @@ func (m *Metric) Reset()         { *m = Metric{} }
 func (m *Metric) String() string { return proto.CompactTextString(m) }
 func (*Metric) ProtoMessage()    {}
 func (*Metric) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metric_70b5b8d2d060c7ba, []int{1}
+	return fileDescriptor_metric_6e51d2a4cf4adf4d, []int{1}
 }
 func (m *Metric) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Metric.Unmarshal(m, b)
@@ -429,9 +428,9 @@ func init() {
 	proto.RegisterEnum("google.api.MetricDescriptor_ValueType", MetricDescriptor_ValueType_name, MetricDescriptor_ValueType_value)
 }
 
-func init() { proto.RegisterFile("google/api/metric.proto", fileDescriptor_metric_70b5b8d2d060c7ba) }
+func init() { proto.RegisterFile("google/api/metric.proto", fileDescriptor_metric_6e51d2a4cf4adf4d) }
 
-var fileDescriptor_metric_70b5b8d2d060c7ba = []byte{
+var fileDescriptor_metric_6e51d2a4cf4adf4d = []byte{
 	// 648 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0x5d, 0x6e, 0xd3, 0x40,
 	0x10, 0xc6, 0xf9, 0x31, 0xcd, 0x38, 0x44, 0xd6, 0x0a, 0xb5, 0x26, 0x15, 0x55, 0xc8, 0x03, 0xe4,

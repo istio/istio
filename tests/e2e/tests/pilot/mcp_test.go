@@ -27,10 +27,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
@@ -67,12 +68,12 @@ func TestPilotMCPClient(t *testing.T) {
 	defer mcpServer.Close()
 
 	sn := snapshot.NewInMemoryBuilder()
-	for _, m := range model.IstioConfigTypes {
+	for _, m := range schemas.Istio {
 		sn.SetVersion(m.Collection, "v0")
 	}
 
-	sn.SetEntry(model.Gateway.Collection, "some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
-	sn.SetEntry(model.Gateway.Collection, "some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
+	sn.SetEntry(schemas.Gateway.Collection, "some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
+	sn.SetEntry(schemas.Gateway.Collection, "some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
 
 	mcpServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
@@ -96,8 +97,8 @@ func TestPilotMCPClient(t *testing.T) {
 }
 
 func runMcpServer() (*mcptesting.Server, error) {
-	collections := make([]string, len(model.IstioConfigTypes))
-	for i, m := range model.IstioConfigTypes {
+	collections := make([]string, len(schemas.Istio))
+	for i, m := range schemas.Istio {
 		collections[i] = m.Collection
 	}
 	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))

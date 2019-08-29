@@ -62,7 +62,7 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		acc := &accesslog.AccessLog{
 			Name: xdsutil.FileAccessLog,
 		}
-		buildAccessLog(fl, env)
+		buildAccessLog(node, fl, env)
 
 		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
@@ -240,7 +240,9 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
 		},
 		PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
-			CatchAllCluster: clusterName,
+			CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+				Cluster: clusterName,
+			},
 		},
 	}
 

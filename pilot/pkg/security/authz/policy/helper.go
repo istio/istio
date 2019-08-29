@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
@@ -69,7 +70,7 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 
 	hasClusterRbacConfig := false
 	for _, p := range policies {
-		if p.Type == model.ClusterRbacConfig.Type {
+		if p.Type == schemas.ClusterRbacConfig.Type {
 			hasClusterRbacConfig = true
 			break
 		}
@@ -78,14 +79,14 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 		policies = append(policies, simpleClusterRbacConfig())
 	}
 
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	store := model.MakeIstioStore(memory.Make(schemas.Istio))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("failed to initilize authz policies: %s", err)
 		}
 	}
 
-	authzPolicies, err := model.NewAuthzPolicies(&model.Environment{
+	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
 		IstioConfigStore: store,
 	})
 	if err != nil {
@@ -98,7 +99,7 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 func simpleClusterRbacConfig() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ClusterRbacConfig.Type,
+			Type:      schemas.ClusterRbacConfig.Type,
 			Name:      "default",
 			Namespace: "default",
 		},
@@ -126,7 +127,7 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ServiceRole.Type,
+			Type:      schemas.ServiceRole.Type,
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -141,7 +142,7 @@ func BindingTag(name string) string {
 func SimpleBinding(name string, namespace string, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ServiceRoleBinding.Type,
+			Type:      schemas.ServiceRoleBinding.Type,
 			Name:      name,
 			Namespace: namespace,
 		},

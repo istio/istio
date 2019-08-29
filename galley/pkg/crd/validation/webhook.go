@@ -38,7 +38,8 @@ import (
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -73,7 +74,7 @@ type WebhookParameters struct {
 	MixerValidator store.BackendValidator
 
 	// PilotDescriptor provides a description of all pilot configuration resources.
-	PilotDescriptor model.ConfigDescriptor
+	PilotDescriptor schema.Set
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,
 	// e.g. cluster.local.
@@ -158,9 +159,9 @@ func (p *WebhookParameters) String() string {
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
 		Port:                                443,
-		CertFile:                            "/etc/certs/cert-chain.pem",
-		KeyFile:                             "/etc/certs/key.pem",
-		CACertFile:                          "/etc/certs/root-cert.pem",
+		CertFile:                            constants.DefaultCertChain,
+		KeyFile:                             constants.DefaultKey,
+		CACertFile:                          constants.DefaultRootCert,
 		DeploymentAndServiceNamespace:       "istio-system",
 		DeploymentName:                      "istio-galley",
 		ServiceName:                         "istio-galley",
@@ -176,7 +177,7 @@ type Webhook struct {
 	cert *tls.Certificate
 
 	// pilot
-	descriptor   model.ConfigDescriptor
+	descriptor   schema.Set
 	domainSuffix string
 
 	// mixer
@@ -344,21 +345,21 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
+	s, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := crd.ConvertObject(schema, &obj, wh.domainSuffix)
+	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+	if err := s.Validate(out.Name, out.Namespace, out.Spec); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))

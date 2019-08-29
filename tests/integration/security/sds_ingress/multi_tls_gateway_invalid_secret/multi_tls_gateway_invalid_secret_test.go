@@ -15,15 +15,13 @@
 package multitlsgatewayinvalidsecret
 
 import (
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-
-	"testing"
 )
 
 // TestMultiTlsGateway_InvalidSecret tests a single TLS ingress gateway with SDS enabled. Creates kubernetes secret
@@ -33,12 +31,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			// TODO(JimmyCYJ): Add support into ingress package to test TLS/mTLS ingress gateway in Minikube
-			//  environment https://github.com/istio/istio/issues/14180.
-			if ctx.Environment().(*kube.Environment).Settings().Minikube {
-				t.Skip("https://github.com/istio/istio/issues/14180")
-			}
-
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 			testCase := []struct {

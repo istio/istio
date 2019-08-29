@@ -498,6 +498,75 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 }
 
+func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
+	pod1 := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+	testCases := []struct {
+		name    string
+		pods    []*coreV1.Pod
+		ips     []string
+		ports   []int32
+		wantNum int
+	}{
+		{
+			name:    "multiple proxy ips single port",
+			pods:    []*coreV1.Pod{pod1},
+			ips:     []string{"128.0.0.1", "192.168.2.6"},
+			ports:   []int32{8080},
+			wantNum: 2,
+		},
+		{
+			name:    "single proxy ip single port",
+			pods:    []*coreV1.Pod{pod1},
+			ips:     []string{"128.0.0.1"},
+			ports:   []int32{8080},
+			wantNum: 1,
+		},
+		{
+			name:    "multiple proxy ips multiple ports",
+			pods:    []*coreV1.Pod{pod1},
+			ips:     []string{"128.0.0.1", "192.168.2.6"},
+			ports:   []int32{8080, 9090},
+			wantNum: 4,
+		},
+		{
+			name:    "single proxy ip multiple ports",
+			pods:    []*coreV1.Pod{pod1},
+			ips:     []string{"128.0.0.1"},
+			ports:   []int32{8080, 9090},
+			wantNum: 2,
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			// Setup kube caches
+			controller, fx := newFakeController(t)
+			defer controller.Stop()
+			addPods(t, controller, c.pods...)
+			for range c.pods {
+				fx.Wait("workload")
+			}
+
+			createService(controller, "svc1", "nsa",
+				map[string]string{
+					annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
+					annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com"},
+				c.ports, map[string]string{"app": "test-app"}, t)
+			ev := fx.Wait("service")
+			if ev == nil {
+				t.Error("Timeout creating service")
+			}
+			serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: c.ips})
+			if err != nil {
+				t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
+			}
+			if len(serviceInstances) != c.wantNum {
+				t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want %q", len(serviceInstances), c.wantNum)
+			}
+		})
+	}
+}
+
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	oldTrustDomain := spiffe.GetTrustDomain()
 	spiffe.SetTrustDomain(domainSuffix)

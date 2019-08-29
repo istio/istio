@@ -15,29 +15,34 @@
 package helm
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/mholt/archiver"
 
+	"istio.io/operator/pkg/httprequest"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
-// FileDownloader is wrapper of HTTP client to download files
-type FileDownloader struct {
-	// client is a HTTP/HTTPS client.
-	client *http.Client
-}
+const (
+	// installationPathTemplate is used to construct installation url based on version
+	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
+	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
+	InstallationDirectory = "istio-install-packages"
+	// ChartsFilePath is file path of installation packages to helm charts.
+	ChartsFilePath = "install/kubernetes/operator/charts"
+	// SHAFileSuffix is the default SHA file suffix
+	SHAFileSuffix = ".sha256"
+)
 
 // URLFetcher is used to fetch and manipulate charts from remote url
 type URLFetcher struct {
@@ -45,53 +50,55 @@ type URLFetcher struct {
 	url string
 	// verifyURL is url to download the verification file
 	verifyURL string
-	// versionsURL is url to download version file
-	versionsURL string
 	// verify indicates whether the downloaded tar should be verified
 	verify bool
 	// destDir is path of charts downloaded to, empty as default to temp dir
 	destDir string
-	// downloader downloads files from remote url
-	downloader *FileDownloader
 }
 
-// NewURLFetcher creates an URLFetcher pointing to urls and destination
-func NewURLFetcher(repoURL string, destDir string, chartName string, shaName string) *URLFetcher {
+// NewURLFetcher creates an URLFetcher pointing to installation package URL and destination,
+// and returns a pointer to it.
+func NewURLFetcher(insPackageURL string, destDir string) (*URLFetcher, error) {
 	if destDir == "" {
-		destDir = filepath.Join(os.TempDir(), ChartsTempFilePrefix)
+		destDir = filepath.Join(os.TempDir(), InstallationDirectory)
+	}
+	if _, err := os.Stat(destDir); os.IsNotExist(err) {
+		err := os.Mkdir(destDir, os.ModeDir|os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
 	}
 	uf := &URLFetcher{
-		url:         repoURL + "/" + chartName,
-		verifyURL:   repoURL + "/" + shaName,
-		versionsURL: repoURL + "/" + VersionsFileName,
-		verify:      true,
-		destDir:     destDir,
-		downloader:  NewFileDownloader(),
+		url:       insPackageURL,
+		verifyURL: insPackageURL + SHAFileSuffix,
+		verify:    true,
+		destDir:   destDir,
 	}
-	return uf
+	return uf, nil
+}
+
+// DestDir returns path of destination dir.
+func (f *URLFetcher) DestDir() string {
+	return f.destDir
 }
 
 // FetchBundles fetches the charts, sha and version file
-func (f *URLFetcher) FetchBundles() error {
+func (f *URLFetcher) FetchBundles() util.Errors {
 	errs := util.Errors{}
-
+	// check whether install package already cached locally at destDir, skip downloading if yes.
+	fn := path.Base(f.url)
+	_, err := os.Stat(filepath.Join(f.destDir, fn))
+	if err == nil {
+		return errs
+	}
 	shaF, err := f.fetchSha()
 	errs = util.AppendErr(errs, err)
-
-	err = f.fetchChart(shaF)
-	errs = util.AppendErr(errs, err)
-
-	_, err = f.fetchVersion()
-	errs = util.AppendErr(errs, err)
-
-	return errs
+	return util.AppendErr(errs, f.fetchChart(shaF))
 }
 
 // fetchChart fetches the charts and verifies charts against SHA file if required
 func (f *URLFetcher) fetchChart(shaF string) error {
-	c := f.downloader
-
-	saved, err := c.DownloadTo(f.url, f.destDir)
+	saved, err := DownloadTo(f.url, f.destDir)
 	if err != nil {
 		return err
 	}
@@ -113,7 +120,8 @@ func (f *URLFetcher) fetchChart(shaF string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read sha file: %s", err)
 		}
-		hash := string(hashAll)
+		// SHA file has structure of "sha_value filename"
+		hash := strings.Split(string(hashAll), " ")[0]
 		h := sha256.New()
 		if _, err := io.Copy(h, file); err != nil {
 			log.Error(err.Error())
@@ -124,8 +132,8 @@ func (f *URLFetcher) fetchChart(shaF string) error {
 			return fmt.Errorf("checksum of charts file located at: %s does not match expected SHA file: %s", saved, shaF)
 		}
 	}
-
-	return archiver.Unarchive(saved, f.destDir)
+	targz := archiver.TarGz{Tar: &archiver.Tar{OverwriteExisting: true}}
+	return targz.Unarchive(saved, f.destDir)
 }
 
 // fetchsha downloads the SHA file from url
@@ -133,72 +141,34 @@ func (f *URLFetcher) fetchSha() (string, error) {
 	if f.verifyURL == "" {
 		return "", fmt.Errorf("SHA file url is empty")
 	}
-	shaF, err := f.downloader.DownloadTo(f.verifyURL, f.destDir)
+	shaF, err := DownloadTo(f.verifyURL, f.destDir)
 	if err != nil {
 		return "", err
 	}
 	return shaF, nil
 }
 
-func (f *URLFetcher) fetchVersion() (string, error) {
-	if f.versionsURL == "" {
-		return "", fmt.Errorf("SHA file url is empty")
-	}
-	vF, err := f.downloader.DownloadTo(f.versionsURL, f.destDir)
-	if err != nil {
-		return "", err
-	}
-	return vF, nil
-}
-
-// NewFileDownloader creates a wrapper for download files.
-func NewFileDownloader() *FileDownloader {
-	return &FileDownloader{
-		client: &http.Client{
-			Transport: &http.Transport{
-				DisableCompression: true,
-				Proxy:              http.ProxyFromEnvironment,
-			}},
-	}
-}
-
-// SendGet sends an HTTP GET request to href.
-func (c *FileDownloader) SendGet(url string) (*bytes.Buffer, error) {
-	buf := bytes.NewBuffer(nil)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch URL %s : %s", url, resp.Status)
-	}
-
-	_, err = io.Copy(buf, resp.Body)
-	return buf, err
-}
-
 // DownloadTo downloads from remote url to dest local file path
-func (c *FileDownloader) DownloadTo(ref, dest string) (string, error) {
+func DownloadTo(ref, dest string) (string, error) {
 	u, err := url.Parse(ref)
 	if err != nil {
 		return "", fmt.Errorf("invalid chart URL: %s", ref)
 	}
-	data, err := c.SendGet(u.String())
+	data, err := httprequest.Get(u.String())
 	if err != nil {
 		return "", err
 	}
 
 	name := filepath.Base(u.Path)
 	destFile := filepath.Join(dest, name)
-	if err := ioutil.WriteFile(destFile, data.Bytes(), 0644); err != nil {
+	if err := ioutil.WriteFile(destFile, data, 0666); err != nil {
 		return destFile, err
 	}
 
 	return destFile, nil
+}
+
+// InstallURLFromVersion generates default installation url from version number.
+func InstallURLFromVersion(version string) string {
+	return fmt.Sprintf(installationPathTemplate, version, version)
 }

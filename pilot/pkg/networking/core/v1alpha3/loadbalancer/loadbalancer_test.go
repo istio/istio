@@ -26,9 +26,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -189,15 +191,14 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -252,15 +253,14 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
