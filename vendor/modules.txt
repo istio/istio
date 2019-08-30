@@ -157,18 +157,18 @@ github.com/dsnet/compress
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a
+github.com/envoyproxy/go-control-plane/envoy/api/v2/core
+github.com/envoyproxy/go-control-plane/envoy/api/v2/route
+github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2
+github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2
 github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha
 github.com/envoyproxy/go-control-plane/envoy/api/v2
 github.com/envoyproxy/go-control-plane/envoy/api/v2/auth
 github.com/envoyproxy/go-control-plane/envoy/api/v2/listener
-github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2
-github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2
 github.com/envoyproxy/go-control-plane/pkg/util
-github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint
 github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster
-github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2
 github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2
@@ -786,7 +786,7 @@ istio.io/api/mixer/v1
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/operator v0.0.0-20190813061052-3b21fa19e418
+# istio.io/operator v0.0.0-20190830172131-647a5416137b
 istio.io/operator/cmd/mesh
 istio.io/operator/pkg/apis/istio/v1alpha2
 istio.io/operator/pkg/component/component
@@ -806,7 +806,8 @@ istio.io/operator/version
 istio.io/operator/pkg/patch
 istio.io/operator/pkg/component/feature
 istio.io/operator/pkg/util/fswatch
-istio.io/operator/pkg/vfsgen
+istio.io/operator/pkg/vfs
+istio.io/operator/pkg/compare
 # istio.io/pkg v0.0.0-20190731230704-fcbac27d69d5
 istio.io/pkg/collateral
 istio.io/pkg/log
@@ -883,8 +884,8 @@ k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/types
-k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/labels
+k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/strategicpatch
 k8s.io/apimachinery/pkg/api/meta
