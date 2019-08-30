@@ -653,6 +653,47 @@ It can be enabled by destination using the destinationRule.trafficPolicy.connect
 
 </td>
 </tr>
+<tr id="MeshConfig-inbound_cluster_stat_name">
+<td><code>inboundClusterStatName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name to be used while emitting statistics for inbound clusters.
+By default, Istio emits statistics with the pattern inbound|&lt;port&gt;|&lt;port-name&gt;|&lt;service-FQDN&gt;.
+For example inbound|7443|grpc-reviews|reviews.prod.svc.cluster.local. This can be used to override that pattern.</p>
+
+<p>A Pattern can be composed of various pre-defined variables. The following variables are supported.
+%SERVICE% - Will be substituted with name of the service.
+%SERVICE<em>FQDN% - Will be substituted with FQDN of the service.
+%SERVICE</em>PORT% - Will be substituted with port of the service.
+%SERVICE<em>PORT</em>NAME% - Will be substituted with port name of the service.</p>
+
+<p>Following are some examples of supported patterns for reviews.
+%SERVICE<em>FQDN%</em>%SERVICE<em>PORT% will use reviews.prod.svc.cluster.local</em>7443 as the stats name.
+%SERVICE% will use reviews.prod as the stats name.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-outbound_cluster_stat_name">
+<td><code>outboundClusterStatName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name to be used while emitting statistics for outbound clusters.
+By default, Istio emits statistics with the pattern outbound|&lt;port&gt;|&lt;subsetname&gt;|&lt;service-FQDN&gt;.
+For example outbound|8080|v2|reviews.prod.svc.cluster.local. This can be used to override that pattern.</p>
+
+<p>A Pattern can be composed of various pre-defined variables. The following variables are supported.
+%SERVICE% - Will be substituted with name of the service.
+%SERVICE<em>FQDN% - Will be substituted with FQDN of the service.
+%SERVICE</em>PORT% - Will be substituted with port of the service.
+%SERVICE<em>PORT</em>NAME% - Will be substituted with port name of the service.
+%SUBSET_NAME% - Will be substituted with subset.</p>
+
+<p>Following are some examples of supported patterns for reviews.
+%SERVICE<em>FQDN%</em>%SERVICE<em>PORT% will use reviews.prod.svc.cluster.local</em>7443 as the stats name.
+%SERVICE% will use reviews.prod as the stats name.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
