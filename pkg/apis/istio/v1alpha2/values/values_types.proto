@@ -23,8 +23,9 @@ package values;
 // Package-wide variables from generator "generated".
 option go_package = "v1alpha2";
 
-// AddonIngressConfig is described in istio.io documentation.
+// Configuration for the addon ingress.
 message AddonIngressConfig {
+  // Controls whether addon ingress is enabled.
   bool enabled = 1;
 
   repeated string hosts = 2;
@@ -42,17 +43,21 @@ message ArchConfig {
   uint32 s390x = 3;
 }
 
-// CNIConfig is described in istio.io documentation.
+// Configuration for CNI.
 message CNIConfig {
+  // Controls whether CNI is enabled.
   bool enabled = 1;
 }
 
-// CPUTargetUtilizationConfig is described in istio.io documentation.
+// Configuration for CPU target utilization for HorizontalPodAutoscaler target.
 message CPUTargetUtilizationConfig {
+  // K8s utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   int32 targetAverageUtilization = 1;
 }
 
-// CertManagerConfig is a set of configuration parameters for CertManager.
+// Configuration for CertManager.
 message CertManagerConfig {
   // Controls whether CertManager is enabled.
   bool enabled = 1;
@@ -60,37 +65,44 @@ message CertManagerConfig {
   // Image hub for the CertManager Deployment.
   string hub = 2;
 
+  // Image tag for the CertManager Deployment.
+  string tag = 3;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // 	NodeSelector map[string]interface{} `json:"nodeSelector"`
+  TypeMapStringInterface nodeSelector = 4;
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  k8s.io.api.core.v1.ResourceRequirements resources = 3;
-
-  // Image tag for the CertManager Deployment.
-  string tag = 4;
+  k8s.io.api.core.v1.ResourceRequirements resources = 5;
 }
 
-// CoreDNSConfig is described in istio.io documentation.
+// Configuration for Core DNS.
 message CoreDNSConfig {
-  string coreDNSImage = 1;
+  // Controls whether CoreDNS is enabled.
+  bool enabled = 1;
 
-  string coreDNSPluginImage = 2;
+  // Image for Core DNS.
+  string coreDNSImage = 2;
 
-  bool enabled = 3;
+  string coreDNSPluginImage = 3;
 
-  // 	NodeSelector       map[string]interface{} `json:"nodeSelector,omitempty"`
-  uint32 replicaCount = 4;
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 4;
+
+  // Number of replicas for Core DNS.
+  uint32 replicaCount = 5;
 }
 
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
-// 
+//
 // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 message DefaultPodDisruptionBudgetConfig {
-  // k8s PodDisruptionBudget settings.
+  // Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.
   bool enabled = 1;
 }
 
@@ -102,68 +114,39 @@ message DefaultResourcesConfig {
   ResourcesRequestsConfig requests = 1;
 }
 
-// EgressGatewayConfig is described in istio.io documentation.
+// Configuration for an egress gateway.
 message EgressGatewayConfig {
+  // Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
   bool autoscaleEnabled = 1;
 
+  // maxReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMax = 2;
 
+  // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
-  string connectTimeout = 4;
-
+  // K8s utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5;
 
-  google.protobuf.Duration drainDuration = 6;
-
+  // Controls whether an egress gateway is enabled.
   bool enabled = 7;
 
+  // Environment variables passed to the proxy container.
   map<string, string> env = 8;
 
   GatewayLabelsConfig labels = 9;
 
-  map<string, string> nodeSelector = 10;
-
-  // 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
-  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
-  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
-  repeated PortsConfig ports = 11;
-
-  k8s.io.api.core.v1.ResourceRequirements resources = 12;
-
-  repeated SecretVolume secretVolumes = 13;
-
-  // 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-  //    Type                             v1.ServiceType          `json:"type,omitempty"`
-  ZeroVPNConfig zvpn = 14;
-}
-
-// EnvoyMetricsConfig is described in istio.io documentation.
-message EnvoyMetricsConfig {
-  // Enables the Envoy Metrics Service.
-  bool enabled = 1;
-
-  // Sets the destination Envoy Metrics Service address in Envoy.
-  string host = 2;
-
-  // Sets the destination Envoy Metrics Service port in Envoy.
-  int32 port = 3;
-}
-
-// GalleyConfig is a set of configuration parameters for Galley.
-message GalleyConfig {
-  // Controls whether Galley is enabled.
-  bool enabled = 1;
-
-  // Image name used for Galley.
+  // K8s node selector.
   //
-  // This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.
-  //
-  // Examples: custom-galley, docker.io/someuser:custom-galley
-  string image = 2;
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 10;
 
-  // TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
-  map<string, string> mesh = 3;
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 11;
 
   // Pod anti-affinity label selector.
   //
@@ -187,91 +170,148 @@ message GalleyConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  //  PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12;
 
   // See PodAntiAffinityLabelSelector.
-  //  PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13;
 
-  // Number of replicas in the Galley Deployment.
-  uint32 replicaCount = 4;
+  // Ports Configuration for the egress gateway service.
+  repeated PortsConfig ports = 14;
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  k8s.io.api.core.v1.ResourceRequirements resources = 5;
+  k8s.io.api.core.v1.ResourceRequirements resources = 15;
+
+  // Config for secret volume mounts.
+  repeated SecretVolume secretVolumes = 16;
+
+  // Annotations to add to the egress gateway service.
+  TypeMapStringInterface serviceAnnotations = 17;
+
+  // Service type.
+  //
+  // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  string type = 18;
+
+  // Enables cross-cluster access using SNI matching.
+  ZeroVPNConfig zvpn = 19;
 }
 
-// GatewayLabelsConfig is described in istio.io documentation.
+// EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
+message EnvoyMetricsConfig {
+  // Enables the Envoy Metrics Service.
+  bool enabled = 1;
+
+  // Sets the destination Envoy Metrics Service address in Envoy.
+  string host = 2;
+
+  // Sets the destination Envoy Metrics Service port in Envoy.
+  int32 port = 3;
+}
+
+// GalleyConfig is a set of Configuration for Galley.
+message GalleyConfig {
+  // Controls whether Galley is enabled.
+  bool enabled = 1;
+
+  // Image name used for Galley.
+  //
+  // This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.
+  //
+  // Examples: custom-galley, docker.io/someuser:custom-galley
+  string image = 2;
+
+  // TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
+  map<string, string> mesh = 3;
+
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 4;
+
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 5;
+
+  // Number of replicas in the Galley Deployment.
+  uint32 replicaCount = 6;
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  k8s.io.api.core.v1.ResourceRequirements resources = 7;
+}
+
+// GatewayLabelsConfig is a set of Configuration for gateway labels.
 message GatewayLabelsConfig {
   string app = 1;
-
   string istio = 2;
 }
 
-// GatewaysConfig is described in istio.io documentation.
+// Configuration for gateways.
 message GatewaysConfig {
-  EgressGatewayConfig istio_egressgateway = 1;
+  // Configuration for an egress gateway.
+  EgressGatewayConfig istioEgressgateway = 1;
 
+  // Controls whether any gateways are enabled.
   bool enabled = 2;
 
-  ILBGatewayConfig istio_ilbgateway = 3;
-
-  IngressGatewayConfig istio_ingressgateway = 4;
+  // Configuration for an ingress gateway.
+  IngressGatewayConfig istioIngressgateway = 4;
 }
 
-// GlobalConfig is a set of configuration parameters for all Istio components.
+// Global Configuration for Istio components.
 message GlobalConfig {
   // Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   //   0 - Never scheduled
   //   1 - Least preferred
   //   2 - No preference
   //   3 - Most preferred
-  ArchConfig arch = 30;
+  ArchConfig arch = 1;
 
   // Specifies the namespace for the configuration and validation component.
-  string configNamespace = 1;
+  string configNamespace = 2;
 
-  // Controls whether the server-side validation is enabled or not.
-  bool configValidation = 2;
+  // Controls whether the server-side validation is enabled.
+  bool configValidation = 3;
 
-  // Controls whether the MTLS for communication between the control plane components is enabled or not.
-  bool controlPlaneSecurityEnabled = 3;
+  // Controls whether the MTLS for communication between the control plane components is enabled.
+  bool controlPlaneSecurityEnabled = 4;
 
   // Default k8s node selector for all the Istio control plane components
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  map<string, string> defaultNodeSelector = 31;
+  TypeMapStringInterface defaultNodeSelector = 6;
 
   // Specifies the default pod disruption budget configuration.
-  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 4;
+  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7;
 
-  // Controls whether the policy enforcement is enabled or not.
-  bool disablePolicyChecks = 5;
+  // Controls whether the policy enforcement is enabled.
+  bool disablePolicyChecks = 8;
 
   // Default k8s resources settings for all Istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  DefaultResourcesConfig defaultResources = 6;
+  DefaultResourcesConfig defaultResources = 9;
 
-  // Controls whether the helm test templates are enabled or not.
-  bool enableHelmTest = 7;
+  // Controls whether the helm test templates are enabled.
+  bool enableHelmTest = 10;
 
-  // Controls whether the distributed tracing for the applications is enabled or not.
+  // Controls whether the distributed tracing for the applications is enabled.
   //
   // See https://opentracing.io/docs/overview/what-is-tracing/
-  bool enableTracing = 8;
+  bool enableTracing = 11;
 
-  // Specifies the docker hub for the Istio images.
-  string hub = 9;
+  // Specifies the docker hub for Istio images.
+  string hub = 12;
 
   // Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
   // Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
   //
   // More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+  string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
   // Specifies the default namespace for the Istio control plane components.
-  string istioNamespace = 10;
+  string istioNamespace = 14;
 
   // Specifies the global locality load balancing settings.
   // Locality-weighted load balancing allows administrators to control the distribution of traffic to
@@ -291,16 +331,17 @@ message GlobalConfig {
   //     to: eu-west
   //   - from: us-west
   //     to: us-east
-  map<string, string> localityLbSetting = 32;
+  map<string, string> localityLbSetting = 15;
+  // 	LocalityLbSetting map[string]interface{}    `json:"localityLbSetting"`
 
-  // Specifies the configuration for the legacy kubernetes Ingress.
-  KubernetesIngressConfig k8sIngress = 11;
+  // Specifies the Configuration for the legacy kubernetes Ingress.
+  KubernetesIngressConfig k8sIngress = 16;
 
   // Specifies the global logging level settings for the Istio control plane components.
-  GlobalLoggingConfig logging = 12;
+  GlobalLoggingConfig logging = 17;
 
-  // Specifies the configuration for Istio mesh expansion to bare mental.
-  MeshExpansionConfig meshExpansion = 13;
+  // Specifies the Configuration for Istio mesh expansion to bare metal.
+  MeshExpansionConfig meshExpansion = 18;
 
   // Configure the mesh networks to be used by the Split Horizon EDS.
   //
@@ -329,58 +370,58 @@ message GlobalConfig {
   //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   //       port: 443
   //
-  map<string, string> meshNetworks = 33;
+  TypeMapStringInterface meshNetworks = 19;
 
   // Specifies the monitor port number for all Istio control plane components.
-  uint32 monitoringPort = 14;
+  uint32 monitoringPort = 20;
 
   // Specifies the MTLS settings for the applications that Istio manages.
-  MTLSConfig mtls = 15;
+  MTLSConfig mtls = 21;
 
-  // Specifies the configuration for Istio mesh across multiple clusters through the istio gateways.
-  MultiClusterConfig multiCluster = 16;
+  // Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
+  MultiClusterConfig multiCluster = 22;
 
-  // Whether to restrict the applications namespace the controller manages;
+  // Controls whether to restrict the applications namespace the controller manages;
   // If set it to false, the controller watches all namespaces.
-  bool oneNamespace = 17;
+  bool oneNamespace = 23;
 
   // Controls the default behavior of the sidecar for handling outbound traffic from the application.
-  OutboundTrafficPolicyConfig outboundTrafficPolicy = 18;
+  OutboundTrafficPolicyConfig outboundTrafficPolicy = 24;
 
   // Controls whether to allow traffic in cases when the mixer policy service cannot be reached.
-  bool policyCheckFailOpen = 19;
+  bool policyCheckFailOpen = 25;
 
   // Specifies the namespace for the policy component.
-  string policyNamespace = 20;
+  string policyNamespace = 26;
 
   // Specifies the k8s priorityClassName for the istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-  string priorityClassName = 21;
+  string priorityClassName = 27;
 
   // Specifies how proxies are configured within Istio.
-  ProxyConfig proxy = 22;
+  ProxyConfig proxy = 28;
 
-  // Specifies the configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
-  ProxyInitConfig proxy_init = 23;
+  // Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
+  ProxyInitConfig proxyInit = 29;
 
-  // Specifies the configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
-  SDSConfig sds = 24;
+  // Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+  SDSConfig sds = 30;
 
   // Specifies the tag for the Istio docker images.
-  string tag = 25;
+  string tag = 31;
 
   // Specifies the namespace for the telemetry component.
-  string telemetryNamespace = 26;
+  string telemetryNamespace = 32;
 
-  // Specifies the configuration for each of the supported tracers.
-  TracerConfig tracer = 27;
+  // Specifies the Configuration for each of the supported tracers.
+  TracerConfig tracer = 33;
 
   // Specifies the trust domain that corresponds to the root cert of CA.
-  string trustDomain = 28;
+  string trustDomain = 34;
 
-  // Controls whether to use of Mesh Configuration Protocol to distribute configuration. 
-  bool useMCP = 29;
+  // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
+  bool useMCP = 35;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -391,43 +432,20 @@ message GlobalLoggingConfig {
   string level = 1;
 }
 
-// ILBGatewayConfig is described in istio.io documentation.
-message ILBGatewayConfig {
-  bool autoscaleEnabled = 1;
-
-  uint32 autoscaleMax = 2;
-
-  uint32 autoscaleMin = 3;
-
-  bool enabled = 4;
-
-  CPUTargetUtilizationConfig cpu = 5;
-
-  GatewayLabelsConfig labels = 6;
-
-  string loadBalancerIP = 7;
-
-  // 	NodeSelector       map[string]interface{}      `json:"nodeSelector,omitempty"`
-  // 	PodAnnotations     map[string]interface{}      `json:"podAnnotations,omitempty"`
-  repeated PortsConfig ports = 8;
-
-  k8s.io.api.core.v1.ResourceRequirements resources = 9;
-
-  repeated SecretVolume secretVolumes = 10;
-  //    ServiceAnnotations map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-//      Type               v1.ServiceType          `json:"type,omitempty"`
-}
-
-// IngressGatewayConfig is described in istio.io documentation.
+// Configuration for an ingress gateway.
 message IngressGatewayConfig {
+  // Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
   bool autoscaleEnabled = 1;
 
+  // maxReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMax = 2;
 
+  // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
-  string connectTimeout = 4;
-
+  // K8s utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5;
 
   bool customService = 6;
@@ -436,10 +454,10 @@ message IngressGatewayConfig {
 
   string domain = 8;
 
-  google.protobuf.Duration drainDuration = 9;
-
+  // Controls whether an ingress gateway is enabled.
   bool enabled = 10;
 
+  // Environment variables passed to the proxy container.
   map<string, string> env = 11;
 
   repeated string externalIPs = 12;
@@ -456,39 +474,70 @@ message IngressGatewayConfig {
 
   repeated PortsConfig meshExpansionPorts = 18;
 
-  // 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
-  // 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
-  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
-  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
-  repeated PortsConfig ports = 19;
+  // K8s node selector.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+  TypeMapStringInterface nodeSelector = 19;
 
-  uint32 replicaCount = 20;
+  // K8s annotations for pods.
+  //
+  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  TypeMapStringInterface podAnnotations = 20;
 
-  // 	Resources                        map[string]interface{}      `json:"resources,omitempty"`
-  IngressGatewaySdsConfig sds = 21;
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 21;
 
-  repeated SecretVolume secretVolumes = 22;
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 22;
 
-  // 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-  //    Type                             v1.ServiceType          `json:"type,omitempty"`
-  IngressGatewayZvpnConfig zvpn = 23;
+  // Port Configuration for the ingress gateway.
+  repeated PortsConfig ports = 23;
+
+  // Number of replicas for the ingress gateway Deployment.
+  uint32 replicaCount = 24;
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  TypeMapStringInterface resources = 25;
+
+  // Secret Discovery Service (SDS) Configuration for ingress gateway.
+  IngressGatewaySdsConfig sds = 26;
+
+  // Config for secret volume mounts.
+  repeated SecretVolume secretVolumes = 27;
+
+  // Annotations to add to the egress gateway service.
+  TypeMapStringInterface serviceAnnotations = 28;
+
+  // Service type.
+  //
+  // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  string type = 29;
+
+ // Enables cross-cluster access using SNI matching.
+ IngressGatewayZvpnConfig zvpn = 30;
 }
 
-// IngressGatewaySdsConfig is described in istio.io documentation.
+// Secret Discovery Service (SDS) Configuration for ingress gateway.
 message IngressGatewaySdsConfig {
+  // If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
   bool enabled = 1;
 
+  // SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+  // This server runs in the same pod as ingress gateway.
   string image = 2;
 }
 
-// IngressGatewayZvpnConfig is described in istio.io documentation.
+// IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
 message IngressGatewayZvpnConfig {
+  // Controls whether ZeroVPN is enabled.
   bool enabled = 1;
 
   string suffix = 2;
 }
 
-// Configuration parameters for Kubernetes environment adapter in mixer.
+// Configuration for Kubernetes environment adapter in mixer.
 message KubernetesEnvMixerAdapterConfig {
   // Enables the Kubernetes env adapter in Mixer.
   //
@@ -496,23 +545,23 @@ message KubernetesEnvMixerAdapterConfig {
   bool enabled = 1;
 }
 
-// KubernetesIngressConfig specifies the configuration for the legacy kubernetes Ingress.
+// Configuration for the legacy kubernetes Ingress.
 message KubernetesIngressConfig {
   // Enables gateway for legacy k8s Ingress.
   bool enabled = 1;
 
-  // Enables gateway for legacy k8s Ingress.
+  // Enables HTTPS legacy k8s Ingress.
   bool enableHttps = 2;
 
   // Sets the gateway name for legacy k8s Ingress.
   string gatewayName = 3;
 }
 
-// LoadSheddingConfig configs when mixer starts rejecting grpc requests.
+// Configuration for when mixer starts rejecting grpc requests.
 message LoadSheddingConfig {
   string latencyThreshold = 1;
 
-  // Different throttling behavior for mixer.
+  // Throttling behavior for mixer.
   enum mode {
     // Removes throttling behavior for mixer.
     DISABLED = 0;
@@ -523,13 +572,13 @@ message LoadSheddingConfig {
   }
 }
 
-// MTLSConfig specifies the MTLS settings for the applications that Istio manages.
+// MTLS settings for the applications that Istio manages.
 message MTLSConfig {
   // Enables MTLS for service to service traffic.
   bool enabled = 1;
 }
 
-// MeshExpansionConfig specifies the configuration for Istio mesh expansion to bare mental.
+// Configuration for Istio mesh expansion to bare metal.
 message MeshExpansionConfig {
   // Exposes Pilot and Citadel mTLS on the ingress gateway.
   bool enabled = 1;
@@ -538,22 +587,22 @@ message MeshExpansionConfig {
   bool useILB = 2;
 }
 
-// MixerAdaptersConfig is a set of configuration parameters for different mixer adapters.
+// Configuration for Mixer adapters.
 message MixerAdaptersConfig {
-  // Configuration parameters for Kubernetes environment adapter in mixer.
+  // Configuration for Kubernetes environment adapter in mixer.
   KubernetesEnvMixerAdapterConfig kubernetesenv = 1;
 
-  // Configuration parameters for Prometheus adapter in mixer.
+  // Configuration for Prometheus adapter in mixer.
   PrometheusMixerAdapterConfig prometheus = 2;
 
-  // Configuration parameters for stdio adapter in mixer, recommended for debug usage only.
+  // Configuration for stdio adapter in mixer, recommended for debug usage only.
   StdioMixerAdapterConfig stdio = 3;
 
   // Sets the --useAdapterCRDs mixer startup argument.
   bool useAdapterCRDs = 4;
 }
 
-// MixerConfig is described in istio.io documentation.
+// Configuration for Mixer.
 message MixerConfig {
   // MixerPolicyConfig is set of configurations for Mixer Policy
   MixerPolicyConfig policy = 1;
@@ -562,7 +611,7 @@ message MixerConfig {
   MixerTelemetryConfig telemetry = 2;
 }
 
-// MixerPolicyConfig is set of configurations for Mixer Policy
+// Configuration for Mixer Policy.
 message MixerPolicyConfig {
   // Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.
   bool autoscaleEnabled = 1;
@@ -591,15 +640,15 @@ message MixerPolicyConfig {
   // K8s annotations to attach to mixer policy deployment
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  // PodAnnotations   map[string]interface{}      `json:"podAnnotations,omitempty"`
+  TypeMapStringInterface podAnnotations = 7;
 
   // Number of replicas in the Mixer Policy Deployment
-  uint32 replicaCount = 7;
+  uint32 replicaCount = 8;
 }
 
-// MixerTelemetryConfig is a set of configuration parameters for Mixer Telemetry
+// Configuration for Mixer Telemetry.
 message MixerTelemetryConfig {
-  // MixerAdaptersConfig is a set of configuration parameters for different mixer adapters.
+  // Configuration for different mixer adapters.
   MixerAdaptersConfig adapters = 1;
 
   // Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.
@@ -616,7 +665,7 @@ message MixerTelemetryConfig {
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5;
 
-  // Controls whether Mixer Telemetry is enabled
+  // Controls whether Mixer Telemetry is enabled.
   bool enabled = 6;
 
   // Environment variables passed to the Mixer container.
@@ -636,35 +685,37 @@ message MixerTelemetryConfig {
 
   // LoadSheddingConfig configs when mixer starts rejecting grpc requests.
   LoadSheddingConfig loadshedding = 9;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // NodeSelector           map[string]interface{}     `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 10;
 
   // K8s annotations to attach to mixer telemetry deployment
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  // PodAnnotations         map[string]interface{}     `json:"podAnnotations,omitempty"`
+  TypeMapStringInterface podAnnotations = 11;
 
   // Number of replicas in the Mixer Telemetry Deployment.
-  uint32 replicaCount = 10;
+  uint32 replicaCount = 12;
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  k8s.io.api.core.v1.ResourceRequirements resources = 11;
+  k8s.io.api.core.v1.ResourceRequirements resources = 13;
 
   // Controls whether to enable the sticky session setting when choosing backend pods.
-  bool sessionAffinityEnabled = 12;
+  bool sessionAffinityEnabled = 14;
 }
 
-// MultiClusterConfig specifies the configuration for Istio mesh across multiple clusters through the istio gateways.
+// MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
 message MultiClusterConfig {
-  // Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.
+  // Enables the connection between two kubernetes clusters via their respective ingressgateway services.
+  // Use if the pods in each cluster cannot directly talk to one another.
   bool enabled = 1;
 }
 
-// NodeAgentConfig is a set of configuration parameters for Node Agent Daemonset.
+// Configuration for Node Agent Daemonset.
 message NodeAgentConfig {
   // Controls whether Node Agent is enabled.
   bool enabled = 1;
@@ -675,29 +726,29 @@ message NodeAgentConfig {
   // env:
   //   ENV_VAR_1: value1
   //   ENV_VAR_2: value2
-  // 	Env          map[string]interface{} `json:"env,omitempty"`
+  TypeMapStringInterface env = 2;
 
   // Image name for the Node Agent DaemonSet.
-  string image = 2;
+  string image = 3;
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 4;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
 message OutboundTrafficPolicyConfig {
   // Specifies the sidecar's default behavior when handling outbound traffic from the application.
   enum mode {
-    //outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
+    // Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
     ALLOW_ANY = 0;
-    //restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries
+    // Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries
     REGISTRY_ONLY = 1;
   }
 }
 
-// PilotConfig is a set of configuration parameters for Pilot.
+// Configuration for Pilot.
 message PilotConfig {
   // Controls whether Pilot is enabled.
   bool enabled = 1;
@@ -749,63 +800,42 @@ message PilotConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 12;
 
   // Maximum duration that a sidecar can be connected to a pilot.
   //
   // This setting balances out load across pilot instances, but adds some resource overhead.
   //
   // Examples: 300s, 30m, 1h
-  google.protobuf.Duration keepaliveMaxServerConnectionAge = 12;
+  google.protobuf.Duration keepaliveMaxServerConnectionAge = 13;
 
   // Labels that are added to Pilot pods.
   //
   // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-  map<string, string> deploymentLabels = 13;
+  TypeMapStringInterface deploymentLabels = 14;
 
   // Used to override control plane networks.
-  // 	MeshNetworks                     map[string]interface{}      `json:"meshNetworks,omitempty"`
+  TypeMapStringInterface meshNetworks = 15;
 
-  // Pod anti-affinity label selector.
-  //
-  // Specify the pod anti-affinity that allows you to constrain which nodes
-  // your pod is eligible to be scheduled based on labels on pods that are
-  // already running on the node rather than based on labels on nodes.
-  // There are currently two types of anti-affinity:
-  //    "requiredDuringSchedulingIgnoredDuringExecution"
-  //    "preferredDuringSchedulingIgnoredDuringExecution"
-  // which denote “hard” vs. “soft” requirements, you can define your values
-  // in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  // correspondingly.
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-  //
-  // Examples:
-  // podAntiAffinityLabelSelector:
-  //  - key: security
-  //    operator: In
-  //    values: S1,S2
-  //    topologyKey: "kubernetes.io/hostname"
-  //  This pod anti-affinity rule says that the pod requires not to be scheduled
-  //  onto a node if that node is already running a pod with label having key
-  //  “security” and value “S1”.
-  // 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 16;
 
-  // See PodAntiAffinityLabelSelector.
-  // 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 17;
 
   // Configuration settings passed to Pilot as a ConfigMap.
   //
   // This controls whether the mesh config map, generated from values.yaml is generated.
   // If false, pilot wil use default values or user-supplied values, in that order of preference.
-  bool configMap = 14;
+  bool configMap = 18;
 
   // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
-  PilotIngressConfig ingress = 15;
+  PilotIngressConfig ingress = 19;
 
   // Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
   //
   // If set to true, Pilot requires an MCP server (like Galley) to be installed.
-  bool useMCP = 16;
+  bool useMCP = 20;
 
   // Environment variables passed to the Pilot container.
   //
@@ -813,13 +843,13 @@ message PilotConfig {
   // env:
   //   ENV_VAR_1: value1
   //   ENV_VAR_2: value2
-  map<string, string> env = 17;
+  map<string, string> env = 21;
 
   // Controls whether Istio policy is applied to Pilot.
-  PilotPolicyConfig policy = 18;
+  PilotPolicyConfig policy = 22;
 
   // Controls whether telemetry is exported for Pilot.
-  PilotTelemetryConfig telemetry = 19;
+  PilotTelemetryConfig telemetry = 23;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -846,26 +876,32 @@ message PilotIngressConfig {
 
 // Controls whether Istio policy is applied to Pilot.
 message PilotPolicyConfig {
+  // Controls whether Istio policy is applied to Pilot.
   bool enabled = 1;
 }
 
 // Controls whether telemetry is exported for Pilot.
 message PilotTelemetryConfig {
+  // Controls whether telemetry is exported for Pilot.
   bool enabled = 1;
 }
 
-// PortsConfig is described in istio.io documentation.
+// Configuration for a port.
 message PortsConfig {
+  // Port name.
   string name = 1;
 
+  // Port number.
   int32 port = 2;
 
+  // NodePort number.
   int32 nodePort = 3;
 
+  // Target port number.
   int32 targetPort = 4;
 }
 
-// PrometheusConfig is described in istio.io documentation.
+// Configuration for Prometheus.
 message PrometheusConfig {
   bool createPrometheusResource = 1;
 
@@ -879,19 +915,21 @@ message PrometheusConfig {
 
   string retention = 6;
 
-  // 	NodeSelector             map[string]interface{}    `json:"nodeSelector,omitempty"`
-  google.protobuf.Duration scrapeInterval = 7;
+  TypeMapStringInterface nodeSelector = 7;
+  // GOSTRUCT: NodeSelector             map[string]interface{}    `json:"nodeSelector,omitempty"`
 
-  string contextPath = 8;
+  google.protobuf.Duration scrapeInterval = 8;
 
-  AddonIngressConfig ingress = 9;
+  string contextPath = 9;
 
-  PrometheusServiceConfig service = 10;
+  AddonIngressConfig ingress = 10;
 
-  PrometheusSecurityConfig security = 11;
+  PrometheusServiceConfig service = 11;
+
+  PrometheusSecurityConfig security = 12;
 }
 
-// Configuration parameters for Prometheus adapter in mixer
+// Configuration for Prometheus adapter in mixer.
 message PrometheusMixerAdapterConfig {
   // Enables the Prometheus adapter in Mixer.
   bool enabled = 1;
@@ -902,25 +940,27 @@ message PrometheusMixerAdapterConfig {
   google.protobuf.Duration metricsExpiryDuration = 2;
 }
 
-// PrometheusSecurityConfig is described in istio.io documentation.
+// Configuration for Prometheus adapter security.
 message PrometheusSecurityConfig {
+  // Controls whether Prometheus security is enabled.
   bool enabled = 1;
 }
 
-// PrometheusServiceConfig is described in istio.io documentation.
+// Configuration for Prometheus adapter service.
 message PrometheusServiceConfig {
-  // 	Annotations map[string]interface{}           `json:"annotations,omitempty"`
-  PrometheusServiceNodePortConfig nodePort = 1;
+  TypeMapStringInterface annotations = 1;
+  PrometheusServiceNodePortConfig nodePort = 2;
 }
 
-// PrometheusServiceNodePortConfig is described in istio.io documentation.
+// Configuration for Prometheus Service NodePort.
 message PrometheusServiceNodePortConfig {
+  // Controls whether Prometheus NodePort config is enabled.
   bool enabled = 1;
 
   uint32 port = 2;
 }
 
-// ProxyConfig is a set of configuration parameters for Proxy.
+// Configuration for Proxy.
 message ProxyConfig {
   // Specifies the path to write the sidecar access log file.
   string accessLogFile = 1;
@@ -1034,35 +1074,37 @@ message ProxyConfig {
   }
 }
 
-// ProxyInitConfig specifies the configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
+// Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
 message ProxyInitConfig {
   // Specifies the image for the proxy_init container.
   string image = 1;
 }
 
-// ResourcesRequestsConfig is described in istio.io documentation.
+// Configuration for K8s resource requests.
 message ResourcesRequestsConfig {
   string cpu = 1;
 
   string memory = 2;
 }
 
-// SDSConfig specifies the configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+// Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
-  // Specifies whether the SecretDiscoveryService is enabled or not.
+  // Controls whether the SecretDiscoveryService is enabled.
   bool enabled = 1;
 
   // Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
   string udsPath = 2;
 
-  // Enables SDS use of k8s sa normal JWT to request for certificates.
+  // Enables SDS use of k8s normal JWT to request for certificates.
   bool useNormalJwt = 3;
 
   // Enables SDS use of trustworthy JWT to request for certificates.
   bool useTrustworthyJwt = 4;
 }
 
-// SecretVolume is described in istio.io documentation.
+// Configuration for secret volume mounts.
+//
+// See https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets.
 message SecretVolume {
   string mountPath = 1;
 
@@ -1071,7 +1113,7 @@ message SecretVolume {
   string secretName = 3;
 }
 
-// SecurityConfig is a set of configuration parameters for Citadel.
+// Configuration for Citadel.
 message SecurityConfig {
   // Controls whether Citadel is enabled.
   bool enabled = 1;
@@ -1114,16 +1156,18 @@ message SecurityConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // NodeSelector     map[string]interface{} `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 8;
 }
 
 // ServiceConfig is described in istio.io documentation.
 message ServiceConfig {
-  // 	Annotations  map[string]interface{} `json:"annotations,omitempty"`
-  uint32 externalPort = 1;
+  TypeMapStringInterface annotations = 1;
 
-  string name = 2;
-  // Type         v1.ServiceType     `json:"type,omitempty"`
+  uint32 externalPort = 2;
+
+  string name = 3;
+
+  string type = 18;
 }
 
 // SidecarInjectorConfig is described in istio.io documentation.
@@ -1144,58 +1188,37 @@ message SidecarInjectorConfig {
   // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // 	NodeSelector                     map[string]interface{}   `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 10;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //
   // Annotations in the pods have higher precedence than the label selectors.
   // Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
   // See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-  // 	NeverInjectSelector              []map[string]interface{} `json:"neverInjectSelector,omitempty"`
+  TypeSliceOfMapStringInterface neverInjectSelector = 11;
 
-  // See NeverInjectSelector
-  //  AlwaysInjectSelector             []map[string]interface{} `json:"alwaysInjectSelector,omitempty"`
+  // See NeverInjectSelector.
+  TypeSliceOfMapStringInterface alwaysInjectSelector = 12;
 
-  // Pod anti-affinity label selector.
-  //
-  // Specify the pod anti-affinity that allows you to constrain which nodes
-  // your pod is eligible to be scheduled based on labels on pods that are
-  // already running on the node rather than based on labels on nodes.
-  // There are currently two types of anti-affinity:
-  //    "requiredDuringSchedulingIgnoredDuringExecution"
-  //    "preferredDuringSchedulingIgnoredDuringExecution"
-  // which denote “hard” vs. “soft” requirements, you can define your values
-  // in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  // correspondingly.
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-  //
-  // Examples:
-  // podAntiAffinityLabelSelector:
-  //  - key: security
-  //    operator: In
-  //    values: S1,S2
-  //    topologyKey: "kubernetes.io/hostname"
-  //  This pod anti-affinity rule says that the pod requires not to be scheduled
-  //  onto a node if that node is already running a pod with label having key
-  //  “security” and value “S1”.
-  //  PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13;
 
-  // See PodAntiAffinityLabelSelector.
-  //  PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
+  // See EgressGatewayConfig.
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14;
 
   // Number of replicas in the Sidecar Injector Deployment.
-  uint32 replicaCount = 4;
+  uint32 replicaCount = 15;
 
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
-  bool rewriteAppHTTPProbe = 5;
+  bool rewriteAppHTTPProbe = 16;
 
   // Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.
   //
   // Setting to false if you want to use your own root CA.
-  bool selfSigned = 6;
+  bool selfSigned = 17;
 }
 
-// Configuration parameters for stdio adapter in mixer, recommended for debug usage only.
+// Configuration for stdio adapter in mixer, recommended for debug usage only.
 message StdioMixerAdapterConfig {
   // Enable stdio adapter to output logs and metrics to local machine.
   bool enabled = 1;
@@ -1205,25 +1228,25 @@ message StdioMixerAdapterConfig {
 }
 
 
-// TracerConfig specifies the configuration for each of the supported tracers.
+// Configuration for each of the supported tracers.
 message TracerConfig {
-  // Specifies the configuration for the datadog tracing service.
+  // Configuration for the datadog tracing service.
   TracerDatadogConfig datadog = 1;
 
-  // Specifies the configuration for the lightstep tracing service.
+  // Configuration for the lightstep tracing service.
   TracerLightStepConfig lightstep = 2;
 
-  // Specifies the configuration for the zipkin tracing service.
+  // Configuration for the zipkin tracing service.
   TracerZipkinConfig zipkin = 3;
 }
 
-// TracerDatadogConfig specifies the configuration for the datadog tracing service.
+// Configuration for the datadog tracing service.
 message TracerDatadogConfig {
-  // Specifies address in host:port format for reporting trace data to the Datadog agent.
+  // Address in host:port format for reporting trace data to the Datadog agent.
   string address = 1;
 }
 
-// TracerLightStepConfig specifies the configuration for the lightstep tracing service.
+// Configuration for the lightstep tracing service.
 message TracerLightStepConfig {
   // Sets the lightstep satellite pool address in host:port format for reporting trace data.
   string address = 1;
@@ -1238,38 +1261,38 @@ message TracerLightStepConfig {
   bool secure = 4;
 }
 
-// TracerZipkinConfig specifies the configuration for the zipkin tracing service.
+// Configuration for the zipkin tracing service.
 message TracerZipkinConfig {
-  // Specifies address of zipkin instance in host:port format for reporting trace data.
+  // Address of zipkin instance in host:port format for reporting trace data.
   //
   // Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941
   string address = 1;
 }
 
-// TracingConfig defines configurations for different tracing system to be installed.
+// Configurations for different tracing system to be installed.
 message TracingConfig {
-  // Enables tracing systems to be installed.
+  // Enables tracing systems installation.
   bool enabled = 1;
 
   // Controls legacy k8s ingress for addon tracing components.
   TracingIngressConfig ingress = 2;
 
-  // Defines configuration for addon jaeger tracing.
+  // Defines Configuration for addon Jaeger tracing.
   TracingJaegerConfig jaeger = 3;
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  // NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+  TypeMapStringInterface nodeSelector = 4;
 
   // Configures which tracing system to be installed.
-  string provider = 4;
+  string provider = 5;
 
   // Controls K8s service for addon tracing components.
-  ServiceConfig service = 5;
+  ServiceConfig service = 6;
 
-  // Defines configuration for addon zipkin tracing.
-  TracingZipkinConfig zipkin = 6;
+  // Defines Configuration for addon Zipkin tracing.
+  TracingZipkinConfig zipkin = 7;
 }
 
 // Controls legacy k8s ingress for addon tracing components.
@@ -1278,36 +1301,36 @@ message TracingIngressConfig {
   bool enabled = 1;
 }
 
-// Defines configuration for addon jaeger tracing.
+// Configuration for addon Jaeger tracing.
 message TracingJaegerConfig {
-  // Image hub for jaeger tracing deployment.
+  // Image hub for Jaeger tracing deployment.
   string hub = 1;
 
-  // Image tag for jaeger tracing deployment.
+  // Image tag for Jaeger tracing deployment.
   string tag = 2;
 
-  // Configures jaeger in-memory storage setting.
+  // Configures Jaeger in-memory storage setting.
   TracingJaegerMemoryConfig memory = 3;
 }
 
-// Configures jaeger in-memory storage setting.
+// Configuration for Jaeger in-memory storage setting.
 message TracingJaegerMemoryConfig {
-  // Set limit of the amount of traces stored in memory for jaeger
+  // Set limit of the amount of traces stored in memory for Jaeger
   uint32 max_traces = 1;
 }
 
-// TracingZipkinConfig is described in istio.io documentation.
+// Configuration for Zipkin.
 message TracingZipkinConfig {
-  // Image hub for zipkin tracing deployment.
+  // Image hub for Zipkin tracing deployment.
   string hub = 1;
 
-  // Image tag for zipkin tracing deployment.
+  // Image tag for Zipkin tracing deployment.
   string tag = 2;
 
-  // InitialDelaySeconds of livenessProbe for zipkin deployment
+  // InitialDelaySeconds of livenessProbe for Zipkin deployment
   uint32 probeStartupDelay = 3;
 
-  // Container port for zipkin deployment
+  // Container port for Zipkin deployment
   uint32 queryPort = 4;
 
   // K8s resources settings.
@@ -1315,21 +1338,21 @@ message TracingZipkinConfig {
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   k8s.io.api.core.v1.ResourceRequirements resources = 5;
 
-  // Configure java heap opts for zipkin deployment
+  // Configure java heap opts for Zipkin deployment
   string javaOptsHeap = 6;
 
-  // Configures number of max spans to keep in zipkin memory storage.
+  // Configures number of max spans to keep in Zipkin memory storage.
   //
   // Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer
   uint32 maxSpans = 7;
 
-  // Configures GC values of JAVA_OPTS for zipkin deployment
+  // Configures GC values of JAVA_OPTS for Zipkin deployment
   TracingZipkinNodeConfig node = 8;
 }
 
-// Configures GC values of JAVA_OPTS for zipkin deployment
+// Configuration for GC values of JAVA_OPTS for Zipkin deployment
 message TracingZipkinNodeConfig {
-  // Configures -XX:ConcGCThreads value of JAVA_OPTS for zipkin deployment
+  // Configures -XX:ConcGCThreads value of JAVA_OPTS for Zipkin deployment
   uint32 cpus = 1;
 }
 
@@ -1346,24 +1369,32 @@ message Values {
 
   GlobalConfig global = 6;
 
-  // 	Grafana         map[string]interface{} `json:"grafana,omitempty"`
-  MixerConfig mixer = 7;
+  TypeMapStringInterface grafana = 7;
 
-  NodeAgentConfig nodeagent = 8;
+  MixerConfig mixer = 8;
 
-  PilotConfig pilot = 9;
+  NodeAgentConfig nodeagent = 9;
 
-  PrometheusConfig prometheus = 10;
+  PilotConfig pilot = 10;
 
-  SecurityConfig security = 11;
+  PrometheusConfig prometheus = 11;
 
-  SidecarInjectorConfig sidecarInjectorWebhook = 12;
+  SecurityConfig security = 12;
 
-  TracingConfig tracing = 13;
+  SidecarInjectorConfig sidecarInjectorWebhook = 13;
+
+  TracingConfig tracing = 14;
 }
 
-// ZeroVPNConfig is described in istio.io documentation.
+// GOTYPE: map[string]interface{}
+message TypeMapStringInterface {}
+
+// GOTYPE: []map[string]interface{}
+message TypeSliceOfMapStringInterface {}
+
+// ZeroVPNConfig enables cross-cluster access using SNI matching.
 message ZeroVPNConfig {
+  // Controls whether ZeroVPN is enabled.
   bool enabled = 1;
 
   string suffix = 2;
