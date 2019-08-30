@@ -1387,7 +1387,7 @@ end
 		I: map[string]interface{}{
 			"as": "barfoo",
 		},
-		Err: `error converting 'barfoo' to e-mail: 'mail: no angle-addr'`,
+		Err: `error converting 'barfoo' to e-mail:`,
 	},
 
 	{
@@ -5253,7 +5253,7 @@ type TestInfo struct {
 	// ReferencedCEL overrides Referenced field for CEL-specific differences
 	ReferencedCEL []string
 
-	// Err contains the expected error message of a failed evaluation.
+	// Err contains the expected error message prefix of a failed evaluation.
 	Err string
 
 	// AstErr contains the expected error message of a failed evaluation, during AST evaluation.
