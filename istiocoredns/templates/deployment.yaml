@@ -30,7 +30,7 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: {{ .Values.istiocoredns.coreDNSImage }}
+        image: {{ .Values.istiocoredns.coreDNSImage }}:{{ .Values.istiocoredns.coreDNSTag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
