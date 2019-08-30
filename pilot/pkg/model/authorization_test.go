@@ -433,7 +433,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func TestAuthorizationPolicies_IsV1RbacEnabled(t *testing.T) {
+func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 	target := &rbacproto.RbacConfig_Target{
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
@@ -554,7 +554,7 @@ func TestAuthorizationPolicies_IsV1RbacEnabled(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.config, t)
-			got := authzPolicies.IsV1alpha1RBACEnabled(tc.service, tc.namespace)
+			got := authzPolicies.IsRBACEnabled(tc.service, tc.namespace)
 			if tc.want != got {
 				t.Errorf("want %v but got %v", tc.want, got)
 			}

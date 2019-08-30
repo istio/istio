@@ -83,8 +83,8 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	return policy, nil
 }
 
-// IsV1alpha1RBACEnabled returns true if RBAC is enabled for the service in the given namespace.
-func (policy *AuthorizationPolicies) IsV1alpha1RBACEnabled(service string, namespace string) bool {
+// IsRBACEnabled returns true if RBAC is enabled for the service in the given namespace.
+func (policy *AuthorizationPolicies) IsRBACEnabled(service string, namespace string) bool {
 	if policy == nil || policy.rbacConfig == nil {
 		return false
 	}
@@ -145,12 +145,8 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(ns string, worklo
 	workload := labels.Instance(workloadLabels)
 	for _, config := range policy.namespaceToV1beta1Policies[ns] {
 		spec := config.Spec.(*authpb.AuthorizationPolicy)
-		matched := true
-		if len(spec.GetSelector().GetMatchLabels()) > 0 {
-			selector := labels.Instance(spec.Selector.MatchLabels)
-			matched = selector.SubsetOf(workload)
-		}
-		if matched {
+		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+		if selector.SubsetOf(workload) {
 			ret = append(ret, config)
 		}
 	}

@@ -65,7 +65,7 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
 	}
 
-	if policies.IsV1alpha1RBACEnabled(serviceHostname, serviceNamespace) {
+	if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
 		builder.v1alpha1Generator = v1alpha1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
 	} else {
 		rbacLog.Debugf("v1alpha1 RBAC policy disabled for service %s", serviceHostname)
