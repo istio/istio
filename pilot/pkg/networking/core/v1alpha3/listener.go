@@ -307,13 +307,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	var listeners []*xdsapi.Listener
 	listenerMap := make(map[string]*inboundListenerEntry)
 
-	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
-	// and not the ones from the proxyInstances
-	var proxyLabels labels.Collection
-	for _, w := range node.ServiceInstances {
-		proxyLabels = append(proxyLabels, w.Labels)
-	}
-
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
@@ -363,7 +356,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				env:            env,
 				proxy:          node,
 				proxyInstances: node.ServiceInstances,
-				proxyLabels:    proxyLabels,
+				proxyLabels:    node.WorkloadLabels,
 				bind:           bind,
 				port:           endpoint.Port,
 				bindToPort:     false,
@@ -439,7 +432,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				env:            env,
 				proxy:          node,
 				proxyInstances: node.ServiceInstances,
-				proxyLabels:    proxyLabels,
+				proxyLabels:    node.WorkloadLabels,
 				bind:           bind,
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
@@ -722,11 +715,6 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
-	var proxyLabels labels.Collection
-	for _, w := range node.ServiceInstances {
-		proxyLabels = append(proxyLabels, w.Labels)
-	}
-
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
@@ -811,7 +799,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					env:            env,
 					proxy:          node,
 					proxyInstances: node.ServiceInstances,
-					proxyLabels:    proxyLabels,
+					proxyLabels:    node.WorkloadLabels,
 					bind:           bind,
 					port:           listenPort.Port,
 					bindToPort:     bindToPort,
@@ -870,7 +858,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						env:            env,
 						proxy:          node,
 						proxyInstances: node.ServiceInstances,
-						proxyLabels:    proxyLabels,
+						proxyLabels:    node.WorkloadLabels,
 						port:           servicePort.Port,
 						bind:           bind,
 						bindToPort:     bindToPort,
@@ -1182,7 +1170,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	return true, buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 		pluginParams.Push, virtualServices,
 		*destinationCIDR, pluginParams.Service,
-		pluginParams.Port, listenerOpts.proxyLabels, meshGateway)
+		pluginParams.Port, meshGateway)
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1651,9 +1639,11 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env               *model.Environment
-	proxy             *model.Proxy
-	proxyInstances    []*model.ServiceInstance
+	env   *model.Environment
+	proxy *model.Proxy
+	// TODO: Remove this variable and make sure consumers use proxy.ServiceInstances
+	proxyInstances []*model.ServiceInstance
+	// TODO: Remove this variable as it is not used anywhere.
 	proxyLabels       labels.Collection
 	bind              string
 	port              int

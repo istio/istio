@@ -90,7 +90,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
@@ -126,7 +126,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTLS(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -195,7 +195,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
@@ -230,7 +230,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTCP(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
@@ -298,7 +298,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
-	proxyLabels labels.Collection, gateways map[string]bool) []*filterChainOpts {
+	gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []model.Config
@@ -308,9 +308,9 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *mod
 		svcConfigs = configs
 	}
 
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
 	return out
 }
