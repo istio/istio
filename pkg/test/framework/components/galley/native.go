@@ -277,7 +277,7 @@ func (c *nativeComponent) restart() error {
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 0
 	a.MonitoringPort = 0
-	a.ExcludedResourceKinds = make([]string, 0) // empty list, as opposed to nil (unset) which triggers defaults
+	a.ExcludedResourceKinds = nil
 	a.EnableServiceDiscovery = true
 	a.ValidationArgs.EnableValidation = false
 	a.ValidationArgs.EnableReconcileWebhookConfiguration = false

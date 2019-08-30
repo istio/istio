@@ -32,7 +32,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -213,29 +213,27 @@ func (p *Processing2) Start() (err error) {
 }
 
 func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-	// If service discovery is off, disable any resources that are *only* used in the context of service discovery.
 
-	// This is deprecated, but print a notice in case it's being set.
-	if len(p.args.ExcludedResourceKinds) != 0 {
-		scope.Warnf("ExcludedResourceKinds is not supported in the new processing component and will be ignored")
-	}
-
-	// Get the set of all collections used at least once in snapshot groups we care about
-	cols := make(map[collection.Name]bool)
-	for _, sg := range m.Snapshots() {
-		if p.args.EnableServiceDiscovery && sg.Name == "syntheticServiceEntry" {
-			continue
-		}
-		for _, c := range sg.Collections {
-			cols[c] = true
-		}
-	}
+	// Behave in the same way as existing logic:
+	// - Builtin types are excluded by default.
+	// - If ServiceDiscovery is enabled, any built-in type should be readded.
 
 	var result schema.KubeResources
 	for _, r := range m.KubeSource().Resources() {
-		// Disable a resource that isn't in any snapshot groups we care about
-		if !cols[r.Collection.Name] {
+
+		if p.isKindExcluded(r.Kind) {
+			// Found a matching exclude directive for this KubeResource. Disable the resource.
 			r.Disabled = true
+
+			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
+			if p.args.EnableServiceDiscovery {
+				// IsBuiltIn is a proxy for types needed for service discovery
+				a := rt.DefaultProvider().GetAdapter(r)
+				if a.IsBuiltIn() {
+					// This is needed for service discovery. Re-enable.
+					r.Disabled = false
+				}
+			}
 		}
 
 		result = append(result, r)
@@ -305,6 +303,16 @@ func (p *Processing2) createSource(resources schema.KubeResources) (src event.So
 		src = apiserver.New(o)
 	}
 	return
+}
+
+func (p *Processing2) isKindExcluded(kind string) bool {
+	for _, excludedKind := range p.args.ExcludedResourceKinds {
+		if kind == excludedKind {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Stop implements process.Component
