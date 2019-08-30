@@ -405,6 +405,10 @@ global:
     # have a shared root CA for this model to work.
     enabled: false
 
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
+
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
   # Each component can overwrite these default values by adding its own resources
