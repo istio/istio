@@ -196,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	_ []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 

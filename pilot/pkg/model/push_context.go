@@ -77,7 +77,7 @@ type PushContext struct {
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	// gateways for each namespace
 	gatewaysByNamespace map[string][]Config
-	allGateways []Config
+	allGateways         []Config
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -393,10 +393,10 @@ func NewPushContext() *PushContext {
 			hosts:    make([]host.Name, 0),
 			destRule: map[host.Name]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace:     map[string][]*SidecarScope{},
-		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
-		gatewaysByNamespace:     map[string][]Config{},
-		allGateways: []Config{},
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:       map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:           map[string][]Config{},
+		allGateways:                   []Config{},
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
