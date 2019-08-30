@@ -26,6 +26,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
@@ -403,12 +404,12 @@ func TestRun(t *testing.T) {
 		}
 	}
 	testCases := map[string]struct {
-		ca                          *mockca.FakeCA
-		hostname                    []string
-		port                        int
-		expectedErr                 string
-		applyServerCertificateError string
-		expectedAuthenticatorsLen   int
+		ca                        *mockca.FakeCA
+		hostname                  []string
+		port                      int
+		expectedErr               string
+		getServerCertificateError string
+		expectedAuthenticatorsLen int
 	}{
 		"Invalid listening port number": {
 			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
@@ -417,12 +418,12 @@ func TestRun(t *testing.T) {
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
-			ca:                          &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
-			hostname:                    []string{"localhost"},
-			port:                        0,
-			expectedErr:                 "",
-			expectedAuthenticatorsLen:   1, // 2 when ID token authenticators are enabled.
-			applyServerCertificateError: "cannot sign",
+			ca:                        &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			hostname:                  []string{"localhost"},
+			port:                      0,
+			expectedErr:               "",
+			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			getServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
@@ -430,7 +431,7 @@ func TestRun(t *testing.T) {
 			port:                      0,
 			expectedErr:               "",
 			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
-			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
+			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
@@ -438,7 +439,7 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost", "fancyhost"},
 			port:                      0,
 			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
-			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
+			getServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Empty hostnames": {
@@ -483,17 +484,56 @@ func TestRun(t *testing.T) {
 			}
 		}
 
-		_, err = server.applyServerCertificate()
-		if len(tc.applyServerCertificateError) > 0 {
+		_, err = server.getServerCertificate()
+		if len(tc.getServerCertificateError) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != tc.applyServerCertificateError {
+			} else if err.Error() != tc.getServerCertificateError {
 				t.Errorf("%s: incorrect error message: %s VS %s",
-					id, err.Error(), tc.applyServerCertificateError)
+					id, err.Error(), tc.getServerCertificateError)
 			}
 			continue
 		} else if err != nil {
 			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
+	}
+}
+
+func TestGetServerCertificate(t *testing.T) {
+	rootCertFile := "../../pki/testdata/multilevelpki/root-cert.pem"
+	certChainFile := "../../pki/testdata/multilevelpki/int2-cert-chain.pem"
+	signingCertFile := "../../pki/testdata/multilevelpki/int2-cert.pem"
+	signingKeyFile := "../../pki/testdata/multilevelpki/int2-key.pem"
+	caNamespace := "default"
+
+	defaultWorkloadCertTTL := 30 * time.Minute
+	maxWorkloadCertTTL := time.Hour
+
+	client := fake.NewSimpleClientset()
+
+	caopts, err := ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+	if err != nil {
+		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
+	}
+
+	ca, err := ca.NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a plugged-cert CA.")
+	}
+
+	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0, "testdomain.com", true)
+	if err != nil {
+		t.Errorf("Cannot crete server: %v", err)
+	}
+	cert, err := server.getServerCertificate()
+	if err != nil {
+		t.Errorf("getServerCertificate error: %v", err)
+	}
+	if len(cert.Certificate) != 4 {
+		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
 	}
 }
