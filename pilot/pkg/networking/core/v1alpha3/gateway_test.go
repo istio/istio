@@ -778,6 +778,9 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		if typ == "virtual-service" {
 			return virtualServices, nil
 		}
+		if typ == "gateway" {
+			return gateways, nil
+		}
 		return nil, nil
 	}
 	m := mesh.DefaultMeshConfig()

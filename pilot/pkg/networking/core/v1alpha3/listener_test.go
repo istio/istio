@@ -107,6 +107,7 @@ var (
 			"ISTIO_VERSION":                   "1.3",
 		},
 		ConfigNamespace: "not-default",
+		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
 	}
 	proxyInstances = []*model.ServiceInstance{
 		{

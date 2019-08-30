@@ -693,10 +693,8 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	if features.ScopeGatewayToNamespace.Get() {
-		if err = ps.initGateways(env); err != nil {
-			return err
-		}
+	if err = ps.initGateways(env); err != nil {
+		return err
 	}
 
 	// Must be initialized in the end
@@ -1137,7 +1135,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.IstioConfigStore.List(schemas.Gateway.Type, NamespaceAll)
+	gatewayConfigs, err := env.List(schemas.Gateway.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
