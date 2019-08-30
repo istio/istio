@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -50,19 +49,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	push *model.PushContext,
 	builder *ListenerBuilder) *ListenerBuilder {
 
-	var gatewaysForWorkload []model.Config
-	if features.ScopeGatewayToNamespace.Get() {
-		gatewaysForWorkload = push.Gateways(node)
-	} else {
-		gatewaysForWorkload = env.Gateways(node.WorkloadLabels)
-	}
-
-	if len(gatewaysForWorkload) == 0 {
+	if node.MergedGateway == nil {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
 		return builder
 	}
 
-	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
+	mergedGateway := node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
@@ -204,23 +196,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	_ []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 
-	// collect workload labels
-	var workloadLabels labels.Collection
-	for _, w := range proxyInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	gateways := env.Gateways(workloadLabels)
-	if len(gateways) == 0 {
+	if node.MergedGateway == nil {
 		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil
 	}
 
-	merged := model.MergeGateways(gateways...)
+	merged := node.MergedGateway
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
 	// make sure that there is some server listening on this port

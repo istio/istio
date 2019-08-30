@@ -24,6 +24,10 @@ VERSION ?= 1.4-dev
 # Base version of Istio image to use
 BASE_VERSION ?= 1.4
 
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
+export GOSUMDB ?= sum.golang.org
+
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
