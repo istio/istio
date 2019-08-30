@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -94,4 +95,19 @@ func ReadFiles(dirName string, filter FileFilter) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+// ParseValue parses string into a value
+func ParseValue(valueStr string) interface{} {
+	var value interface{}
+	if v, err := strconv.Atoi(valueStr); err == nil {
+		value = v
+	} else if v, err := strconv.ParseFloat(valueStr, 64); err == nil {
+		value = v
+	} else if v, err := strconv.ParseBool(valueStr); err == nil {
+		value = v
+	} else {
+		value = valueStr
+	}
+	return value
 }
