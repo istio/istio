@@ -21,6 +21,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -115,7 +116,7 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 			continue
 		}
 		for _, c := range l.FilterChains {
-			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(c, l, needTLS)
+			newChain, needTLSLocal := amendFilterChainMatchFromInboundListener(gogoproto.Clone(c).(*listener.FilterChain), l, needTLS)
 			chains = append(chains, newChain)
 			needTLS = needTLS || needTLSLocal
 		}
@@ -134,6 +135,8 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 			Name: xdsutil.OriginalDestination,
 		},
 	)
+	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
+	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
 
 	builder.virtualInboundListener.FilterChains =
