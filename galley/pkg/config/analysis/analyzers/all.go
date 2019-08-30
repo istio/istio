@@ -16,11 +16,13 @@ package analyzers
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
 
 // All returns all analyzers
 func All() analysis.Analyzer {
 	return analysis.Combine("all",
-		&SampleAnalyzer{},
+		&virtualservice.GatewayAnalyzer{},
+		&virtualservice.DestinationAnalyzer{},
 	)
 }
