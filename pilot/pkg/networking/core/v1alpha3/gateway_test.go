@@ -752,7 +752,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			merged := pilot_model.MergeGateways(tt.gateways...)
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, merged, tt.routeName)
 			if route == nil {
 				t.Error("got an empty route configuration")
 			}

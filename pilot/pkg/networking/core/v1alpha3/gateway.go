@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -204,25 +203,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	merged *model.MergedGateway, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
-
-	// collect workload labels
-	var workloadLabels labels.Collection
-	for _, w := range proxyInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	gateways := env.Gateways(workloadLabels)
-	if len(gateways) == 0 {
-		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
-		return nil
-	}
-
-	merged := model.MergeGateways(gateways...)
-	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
-
 	// make sure that there is some server listening on this port
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
 		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)

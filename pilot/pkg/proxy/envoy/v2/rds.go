@@ -22,8 +22,10 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/log"
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
@@ -53,10 +55,24 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
+	// collect workload labels
+	var workloadLabels labels.Collection
+	for _, w := range con.modelNode.ServiceInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	gateways := s.Env.Gateways(workloadLabels)
+	if len(gateways) == 0 {
+		log.Debuga("buildGatewayRoutes: no gateways for router ", con.modelNode.ID)
+		return nil
+	}
+
+	merged := model.MergeGateways(gateways...)
+	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 	// TODO: Follow this logic for other xDS resources as well
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		r := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
+		r := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, merged, routeName)
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
