@@ -49,20 +49,20 @@ var (
 		version.NewMinorVersion(1, 3): {
 			APIMapping: map[string]*Translation{},
 			KubernetesPatternMapping: map[string]string{
-				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
+				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s." +
 					"Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
+				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s." +
 					"Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.env":                 "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
-				"{{.ValueComponentName}}.autoscaleEnabled":    "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
-				"{{.ValueComponentName}}.imagePullPolicy":     "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
-				"{{.ValueComponentName}}.nodeSelector":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.NodeSelector",
-				"{{.ValueComponentName}}.podDisruptionBudget": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodDisruptionBudget",
-				"{{.ValueComponentName}}.podAnnotations":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PodAnnotations",
-				"{{.ValueComponentName}}.priorityClassName":   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.PriorityClassName",
-				"{{.ValueComponentName}}.readinessProbe":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReadinessProbe",
-				"{{.ValueComponentName}}.replicaCount":        "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ReplicaCount",
-				"{{.ValueComponentName}}.resources":           "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Resources",
+				"{{.ValueComponentName}}.env":                 "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.Env",
+				"{{.ValueComponentName}}.autoscaleEnabled":    "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.HpaSpec",
+				"{{.ValueComponentName}}.imagePullPolicy":     "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ImagePullPolicy",
+				"{{.ValueComponentName}}.nodeSelector":        "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.NodeSelector",
+				"{{.ValueComponentName}}.podDisruptionBudget": "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PodDisruptionBudget",
+				"{{.ValueComponentName}}.podAnnotations":      "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PodAnnotations",
+				"{{.ValueComponentName}}.priorityClassName":   "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.PriorityClassName",
+				"{{.ValueComponentName}}.readinessProbe":      "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ReadinessProbe",
+				"{{.ValueComponentName}}.replicaCount":        "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.ReplicaCount",
+				"{{.ValueComponentName}}.resources":           "{{.FeatureName}}.Components.{{.ComponentName}}.Common.K8s.Resources",
 			},
 			KubernetesMapping:     map[string]*Translation{},
 			ValuesToComponentName: map[string]name.ComponentName{},
@@ -74,9 +74,10 @@ var (
 			},
 		},
 	}
-	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.Components.{{.ComponentName}}.enabled}", nil},
+	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.Components.{{.ComponentName}}.Common.enabled}", nil},
 	// Feature enablement mapping. Ex: "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.enabled}", nil},
-	componentEnablementPattern = "{{.FeatureName}}.Components.{{.ComponentName}}.Enabled"
+	componentEnablementPattern = "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Enabled"
+	componentValuesPattern     = "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Values"
 )
 
 // initAPIMapping generate the reverse mapping from original translator apiMapping.
@@ -88,9 +89,6 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	for valKey, outVal := range ts.APIMapping {
 		t.APIMapping[outVal.outPath] = &Translation{valKey, nil}
 	}
-	// Override for special mapping
-	t.APIMapping["global.controlPlaneSecurityEnabled"] = &Translation{"Security.ControlPlaneMtls", nil}
-	t.APIMapping["global.mtls.enabled"] = &Translation{"Security.DataPlaneMtlsStrict", nil}
 
 	for cn, cm := range ts.ComponentMaps {
 		if cn != name.IstioBaseComponentName {
@@ -144,11 +142,15 @@ func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator
 	return t, nil
 }
 
-// TranslateFromValueToSpec translates from values.yaml value to IstioControlPlaneSpec.
-func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlaneSpec *v1alpha2.IstioControlPlaneSpec, err error) {
+// TranslateFromValueToSpec translates from values struct to IstioControlPlaneSpec.
+func (t *ReverseTranslator) TranslateFromValueToSpec(values *v1alpha2.Values) (controlPlaneSpec *v1alpha2.IstioControlPlaneSpec, err error) {
+	valueYaml, err := yaml.Marshal(values)
+	if err != nil {
+		return nil, fmt.Errorf("error when marshalling value struct %v", err)
+	}
 
 	var yamlTree = make(map[string]interface{})
-	err = yaml.Unmarshal(values, &yamlTree)
+	err = yaml.Unmarshal(valueYaml, &yamlTree)
 	if err != nil {
 		return nil, fmt.Errorf("error when unmarshalling into untype tree %v", err)
 	}
@@ -167,7 +169,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte) (controlPlan
 	err = util.UnmarshalWithJSONPB(string(outputVal), cpSpec)
 
 	if err != nil {
-		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml:\n %s", err, outputVal)
+		return nil, fmt.Errorf("error when unmarshalling into control plane spec %v, \nyaml: %s", err, outputVal)
 	}
 
 	return cpSpec, nil
@@ -262,70 +264,26 @@ func translateHPASpec(inPath string, outPath string, value interface{}, valueTre
 	if !asEnabled {
 		return nil
 	}
-
-	newP := util.PathFromString(inPath)
-	// last path element is k8s setting name
-	newPS := newP[:len(newP)-1].String()
-	valMap := map[string]string{
-		".autoscaleMin": ".minReplicas",
-		".autoscaleMax": ".maxReplicas",
-	}
-	for key, newVal := range valMap {
-		valPath := newPS + key
-		asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
-		if found && err == nil {
-			if err := setOutputAndClean(valPath, outPath+newVal, asVal, valueTree, cpSpecTree, true); err != nil {
-				return err
-			}
-		}
-	}
-	valPath := newPS + ".cpu.targetAverageUtilization"
-	asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+	newP := util.PathFromString(inPath)[0]
+	minPath := newP + ".autoscaleMin"
+	asMin, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(minPath))
 	if found && err == nil {
-		rs := make([]interface{}, 1)
-		rsVal := `
-- type: Resource
-  resource:
-    name: cpu
-    targetAverageUtilization: %f`
-
-		rsString := fmt.Sprintf(rsVal, asVal)
-		if err = yaml.Unmarshal([]byte(rsString), &rs); err != nil {
-			return err
-		}
-		if err := setOutputAndClean(valPath, outPath+".metrics", rs, valueTree, cpSpecTree, true); err != nil {
+		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath+".minReplicas"), asMin); err != nil {
 			return err
 		}
 	}
-
-	// There is no direct source from value.yaml for scaleTargetRef value, we need to construct from component name
-	st := make(map[string]interface{})
-	stVal := `
-apiVersion: apps/v1
-kind: Deployment
-name: istio-%s`
-
-	stString := fmt.Sprintf(stVal, newPS)
-	if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
+	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(minPath), util.ToYAMLPath(minPath)); err != nil {
 		return err
 	}
-	if err := setOutputAndClean(valPath, outPath+".scaleTargetRef", st, valueTree, cpSpecTree, false); err != nil {
-		return err
+	maxPath := newP + ".autoscaleMax"
+	asMax, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(maxPath))
+	if found && err == nil {
+		log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
+		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath+".maxReplicas"), asMax); err != nil {
+			return err
+		}
 	}
-	return nil
-}
-
-// setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
-func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, cpSpecTree map[string]interface{}, clean bool) error {
-	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
-		return err
-	}
-	if !clean {
-		return nil
-	}
-	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(valPath), util.ToYAMLPath(valPath)); err != nil {
+	if _, err := tpath.DeleteFromTree(valueTree, util.ToYAMLPath(maxPath), util.ToYAMLPath(maxPath)); err != nil {
 		return err
 	}
 	return nil
@@ -431,7 +389,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 	return nil
 }
 
-// translateRemainingPaths translates remaining paths that are not available in existing mappings.
+// translateRemainingPaths translates remaining paths that are not availing in existing mappings.
 func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}, path util.Path) error {
 	for key, val := range valueTree {
@@ -455,20 +413,52 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 				}
 				errs = util.AppendErr(errs, t.translateRemainingPaths(newMap, cpSpecTree, newPath))
 			}
-			if err := errs.ToError(); err != nil {
-				return err
+			if errs != nil {
+				return errs
 			}
-		// remaining leaf need to be put into root.values
+		// remaining leaf need to be put into common.values
 		default:
-			if newPath[len(newPath)-1] == "enabled" {
-				continue
-			}
-			if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), val); err != nil {
+			err := t.translateToCommonValues(cpSpecTree, newPath, val)
+			if err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// translateToCommonValues translates paths to common.values
+func (t *ReverseTranslator) translateToCommonValues(root map[string]interface{}, path util.Path, value interface{}) error {
+	if len(path) < 2 {
+		log.Warn("path is empty or only contains root component node when translating to common.values")
+		return nil
+	}
+	// path starts with ValueComponent name or global
+	cn := path[0]
+	// get rid of component name at the root
+	vp := path[1:]
+	newCN := t.ValuesToComponentName[cn]
+	if newCN == "" {
+		// some components path len is 2, e.g. mixer.policy
+		if len(path) > 1 {
+			cn = path[:2].String()
+			newCN = t.ValuesToComponentName[cn]
+			vp = path[2:]
+		}
+		if newCN == "" {
+			return nil
+		}
+	}
+	// enabled node value should not be added to common.values path
+	if path[len(path)-1] == "enabled" {
+		return nil
+	}
+	fn := name.ComponentNameToFeatureName[newCN]
+	outPath, err := renderCommonComponentValues(componentValuesPattern, string(newCN), string(fn))
+	if err != nil {
+		return err
+	}
+	return tpath.WriteNode(root, append(util.ToYAMLPath(outPath), vp...), value)
 }
 
 // translateTree is internal method for translating value.yaml tree
@@ -516,4 +506,14 @@ func renderComponentName(tmpl string, componentName string) (string, error) {
 		ValueComponentName string
 	}
 	return renderTemplate(tmpl, temp{componentName})
+}
+
+// renderCommonComponentValues renders a template of the form "{{.FeatureName}}.Components.{{.ComponentName}}.Common.Values" with
+// the supplied parameters.
+func renderCommonComponentValues(tmpl string, componentName string, featureName string) (string, error) {
+	type temp struct {
+		FeatureName   string
+		ComponentName string
+	}
+	return renderTemplate(tmpl, temp{FeatureName: featureName, ComponentName: componentName})
 }

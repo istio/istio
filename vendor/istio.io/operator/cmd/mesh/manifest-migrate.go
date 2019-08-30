@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -49,11 +50,10 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 		Short: "Migrates a file containing Helm values to IstioControlPlane format.",
 		Long:  "The migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.",
 		Run: func(cmd *cobra.Command, args []string) {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if len(args) == 0 {
-				migrateFromClusterConfig(rootArgs, mmArgs, l)
+				migrateFromClusterConfig(rootArgs, mmArgs)
 			} else {
-				migrateFromFiles(rootArgs, args, l)
+				migrateFromFiles(rootArgs, args)
 			}
 		}}
 }
@@ -63,56 +63,59 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) {
-	initLogsOrExit(rootArgs)
+func migrateFromFiles(rootArgs *rootArgs, args []string) {
+	checkLogsOrExit(rootArgs)
+
+	logAndPrintf(rootArgs, "translating input values.yaml file at: %s to new API", args[0])
 	value, err := util.ReadFiles(args[0], valueFileFilter)
 	if err != nil {
-		l.logAndFatal(err.Error())
+		logAndFatalf(rootArgs, err.Error())
 	}
-	if value == "" {
-		l.logAndPrint("no valid value.yaml file specified")
-		return
-	}
-	l.logAndPrint("translating input values.yaml file at: ", args[0], " to new API")
-	translateFunc([]byte(value), l)
+	translateFunc(rootArgs, []byte(value))
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(values []byte, l *logger) {
+func translateFunc(rootArgs *rootArgs, values []byte) {
 	ts, err := translate.NewReverseTranslator(version.NewMinorVersion(1, 3))
 	if err != nil {
-		l.logAndFatal("error creating values.yaml translator: ", err.Error())
+		logAndFatalf(rootArgs, "error creating values.yaml translator: %s", err.Error())
 	}
 
-	isCPSpec, err := ts.TranslateFromValueToSpec(values)
+	valueStruct := v1alpha2.Values{}
+	err = yaml.Unmarshal(values, &valueStruct)
 	if err != nil {
-		l.logAndFatal("error translating values.yaml: ", err.Error())
+		logAndFatalf(rootArgs, "error unmarshalling values.yaml into value struct : %s", err.Error())
+	}
+
+	isCPSpec, err := ts.TranslateFromValueToSpec(&valueStruct)
+	if err != nil {
+		logAndFatalf(rootArgs, "error translating values.yaml: %s", err.Error())
 	}
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCPSpec)
 	if err != nil {
-		l.logAndFatal("error marshalling translated IstioControlPlaneSpec: ", err.Error())
+		logAndFatalf(rootArgs, "error marshalling translated IstioControlPlaneSpec: %s", err.Error())
 	}
 	cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 	if err != nil {
-		l.logAndFatal("error converting json: ", gotString, "\n", err.Error())
+		logAndFatalf(rootArgs, "error converting json: %s\n%s", gotString, err.Error())
 	}
 	fmt.Println(string(cpYaml))
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.
-func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *logger) {
-	initLogsOrExit(rootArgs)
+func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) {
+	checkLogsOrExit(rootArgs)
 
-	l.logAndPrint("translating in cluster specs")
+	logAndPrintf(rootArgs, "translating in cluster specs")
 
 	c := kubectlcmd.New()
 	output, stderr, err := c.GetConfig("istio-sidecar-injector", mmArgs.namespace, "jsonpath='{.data.values}'")
 	if err != nil {
-		l.logAndFatal(err.Error())
+		logAndFatalf(rootArgs, err.Error())
 	}
 	if stderr != "" {
-		l.logAndPrint("error: ", stderr, "\n")
+		logAndPrintf(rootArgs, "error: %s\n", stderr)
 	}
 	var value map[string]interface{}
 	if len(output) > 1 {
@@ -120,11 +123,11 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	}
 	err = json.Unmarshal([]byte(output), &value)
 	if err != nil {
-		l.logAndFatal("error unmarshalling JSON to untyped map ", err.Error())
+		logAndFatalf(rootArgs, "error unmarshalling JSON to untyped map %s", err.Error())
 	}
 	res, err := yaml.Marshal(value)
 	if err != nil {
-		l.logAndFatal("error marshalling untyped map to YAML: ", err.Error())
+		logAndFatalf(rootArgs, "error marshalling untyped map to YAML: %s", err.Error())
 	}
-	translateFunc(res, l)
+	translateFunc(rootArgs, res)
 }
