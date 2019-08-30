@@ -31,6 +31,9 @@ mixer:
         enabled: false
         sampleProbability: 1
 
+      contextGraph:
+        enabled: false
+
     # Setting this to false sets the useAdapterCRDs mixer startup argument to false
     useAdapterCRDs: false
 
