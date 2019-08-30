@@ -126,8 +126,8 @@ data:
 
     # If set to true, and a given service does not have a corresponding DestinationRule configured,
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
-    # TLS configuration appropriately.
-    enableAutoMtls: {{ .Values.global.mtls.autoClientConfig }}
+    # TLS configuration appropriately. By default, it is true.
+    enableAutoMtls: {{ .Values.global.mtls.automatic }}
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
