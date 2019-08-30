@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -26,6 +27,10 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -498,6 +503,16 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
+	// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
+	// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+	// metadata already. Because of this, we can still get most of the information we need.
+	// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+	// attempt to read the real pod.
+	instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
+	if err == nil {
+		return instances, nil
+	}
+
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
 		// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
@@ -538,6 +553,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
 	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
 	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
@@ -550,6 +566,106 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 	}
 	return out, nil
+}
+
+// getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
+// from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
+// If the proxy doesn't have enough metadata, an error is returned
+func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+	if len(proxy.WorkloadLabels) == 0 {
+		return nil, fmt.Errorf("no workload labels found")
+	}
+
+	if proxy.Metadata[model.NodeMetadataClusterID] != c.ClusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata[model.NodeMetadataClusterID], c.ClusterID)
+	}
+
+	// Create a pod with just the information needed to find the associated Services
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: proxy.ConfigNamespace,
+			Labels:    proxy.WorkloadLabels[0],
+		},
+	}
+
+	// Find the Service associated with the pod.
+	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+	services, err := svcLister.GetPodServices(dummyPod)
+	if err != nil {
+		return nil, fmt.Errorf("error getting instances: %v", err)
+
+	}
+	if len(services) == 0 {
+		return nil, fmt.Errorf("no instances found: %v ", err)
+	}
+
+	// This is a reference to a port by name. We need to do a lookup from the ports map
+	// podPorts must first be unmarshalled, then we can do a lookup.
+	var podPorts []*v1.ContainerPort
+	// We only need the ports if they do a port reference by name, so we don't need to fail yet if
+	// port metadata is not provided
+	if _, f := proxy.Metadata[model.NodeMetadataPodPorts]; f {
+		if err := json.Unmarshal([]byte(proxy.Metadata[model.NodeMetadataPodPorts]), &podPorts); err != nil {
+			return nil, err
+		}
+	}
+
+	out := make([]*model.ServiceInstance, 0)
+	for _, svc := range services {
+		svcAccount := proxy.Metadata[model.NodeMetadataServiceAccount]
+		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
+		c.RLock()
+		modelService, f := c.servicesMap[hostname]
+		c.RUnlock()
+		if !f {
+			return nil, fmt.Errorf("failed to find model service for %v", hostname)
+		}
+		for _, port := range svc.Spec.Ports {
+			svcPort, f := modelService.Ports.Get(port.Name)
+			if !f {
+				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
+			}
+			targetPort, err := findPortFromMetadata(port, podPorts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
+			}
+			// Construct the ServiceInstance
+			out = append(out, &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     proxy.IPAddresses[0],
+					Port:        targetPort,
+					ServicePort: svcPort,
+					Network:     c.endpointNetwork(proxy.IPAddresses[0]),
+					Locality:    util.LocalityToString(proxy.Locality),
+				},
+				Service: modelService,
+				// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
+				Labels:         proxy.WorkloadLabels[0],
+				ServiceAccount: svcAccount,
+			})
+		}
+	}
+	return out, nil
+}
+
+// findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
+func findPortFromMetadata(svcPort v1.ServicePort, podPorts []*v1.ContainerPort) (int, error) {
+	target := svcPort.TargetPort
+
+	switch target.Type {
+	case intstr.String:
+		name := target.StrVal
+		for _, port := range podPorts {
+			if port.Name == name && port.Protocol == svcPort.Protocol {
+				return int(port.ContainerPort), nil
+			}
+		}
+	case intstr.Int:
+		// For a direct reference we can just return the port number
+		return target.IntValue(), nil
+	}
+
+	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
 func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {

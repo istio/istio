@@ -325,6 +325,23 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
+// ConvertLocality converts '/' separated locality string to Locality struct.
+func LocalityToString(l *core.Locality) string {
+	if l == nil {
+		return ""
+	}
+	resp := l.Region
+	if l.Zone == "" {
+		return resp
+	}
+	resp += "/" + l.Zone
+	if l.SubZone == "" {
+		return resp
+	}
+	resp += "/" + l.SubZone
+	return resp
+}
+
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
 func IsLocalityEmpty(locality *core.Locality) bool {
 	if locality == nil || (len(locality.GetRegion()) == 0) {

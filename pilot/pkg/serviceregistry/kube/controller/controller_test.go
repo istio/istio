@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -495,6 +496,42 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if services[0].Service.Hostname != hostname {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
+	}
+
+	// Test that we can look up instances just by Proxy metadata
+	metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
+		Type:            "sidecar",
+		IPAddresses:     []string{"1.1.1.1"},
+		Locality:        &core.Locality{Region: "r", Zone: "z"},
+		ConfigNamespace: "nsa",
+		Metadata:        map[string]string{model.NodeMetadataServiceAccount: "account"},
+		WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
+	})
+	if err != nil {
+		t.Fatalf("got err getting service instances")
+	}
+
+	expected := &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{Family: 0,
+			Address:     "1.1.1.1",
+			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+			Locality:    "r/z",
+		},
+		Service: &model.Service{
+			Hostname:        "svc1.nsa.svc.company.com",
+			Address:         "10.0.0.1",
+			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
+			Attributes:      model.ServiceAttributes{Name: "svc1", Namespace: "nsa", UID: "istio://nsa/services/svc1"},
+		},
+		Labels:         labels.Instance{"app": "prod-app"},
+		ServiceAccount: "account",
+	}
+	if len(metaServices) != 1 {
+		t.Fatalf("expected 1 instance, got %v", len(metaServices))
+	}
+	if !reflect.DeepEqual(expected, metaServices[0]) {
+		t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
 	}
 }
 
