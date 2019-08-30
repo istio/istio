@@ -331,7 +331,7 @@ func (cl *Client) Get(typ, name, namespace string) *model.Config {
 
 	config := s.Object.DeepCopyObject().(crd.IstioObject)
 	err := rc.dynamic.Get().
-		NamespaceIfScoped(namespace, !s.ClusterScoped).
+		NamespaceIfScoped(namespace, !schema.ClusterScoped).
 		Resource(crd.ResourceName(schema.Plural)).
 		Name(name).
 		Do().Into(config)
@@ -372,7 +372,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 
 	obj := crd.KnownTypes[schema.Type].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Post().
-		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.ClusterScoped).
+		NamespaceIfScoped(out.GetObjectMeta().Namespace, !schema.ClusterScoped).
 		Resource(crd.ResourceName(schema.Plural)).
 		Body(out).
 		Do().Into(obj)
@@ -409,7 +409,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 
 	obj := crd.KnownTypes[schema.Type].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Put().
-		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.ClusterScoped).
+		NamespaceIfScoped(out.GetObjectMeta().Namespace, !schema.ClusterScoped).
 		Resource(crd.ResourceName(schema.Plural)).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
@@ -437,7 +437,7 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 	}
 
 	return rc.dynamic.Delete().
-		NamespaceIfScoped(namespace, !s.ClusterScoped).
+		NamespaceIfScoped(namespace, !schema.ClusterScoped).
 		Resource(crd.ResourceName(schema.Plural)).
 		Name(name).
 		Do().Error()
@@ -460,7 +460,7 @@ func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 
 	list := crd.KnownTypes[schema.Type].Collection.DeepCopyObject().(crd.IstioObjectList)
 	errs := rc.dynamic.Get().
-		NamespaceIfScoped(namespace, !s.ClusterScoped).
+		NamespaceIfScoped(namespace, !schema.ClusterScoped).
 		Resource(crd.ResourceName(schema.Plural)).
 		Do().Into(list)
 
