@@ -119,7 +119,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(service, nil, p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
 		t.Run(tc.name, func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(service, nil, p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
 			got := b.BuildTCPFilter()

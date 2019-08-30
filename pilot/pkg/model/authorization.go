@@ -136,17 +136,17 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 }
 
 // ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(ns string, workloadLabels map[string]string) []Config {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(ns string, workloadLabels labels.Collection) []Config {
 	if policy == nil {
 		return nil
 	}
 
 	var ret []Config
-	workload := labels.Instance(workloadLabels)
+
 	for _, config := range policy.namespaceToV1beta1Policies[ns] {
 		spec := config.Spec.(*authpb.AuthorizationPolicy)
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if selector.SubsetOf(workload) {
+		if workloadLabels.IsSupersetOf(selector) {
 			ret = append(ret, config)
 		}
 	}

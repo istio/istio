@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/pkg/config/labels"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -437,7 +438,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
+			got := authzPolicies.ListAuthorizationPolicies(
+				tc.ns, []labels.Instance{labels.Instance(tc.workloadLabels)})
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
 			}

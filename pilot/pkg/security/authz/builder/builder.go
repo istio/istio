@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -44,7 +45,7 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	if serviceInstance.Service == nil {
 		rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
 		return nil
@@ -72,12 +73,12 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 	}
 
 	// TODO: support policy in root namespace.
-	matchedPolicies := policies.ListAuthorizationPolicies(serviceNamespace, serviceMetadata.Labels)
+	matchedPolicies := policies.ListAuthorizationPolicies(serviceNamespace, workloadLabels)
 	if len(matchedPolicies) > 0 {
 		builder.v1beta1Generator = v1beta1.NewGenerator(matchedPolicies)
 	} else {
 		rbacLog.Debugf("v1beta1 authorization policies disabled for workload %v in %s",
-			serviceMetadata.Labels, serviceNamespace)
+			workloadLabels, serviceNamespace)
 	}
 
 	if builder.v1alpha1Generator == nil && builder.v1beta1Generator == nil {
