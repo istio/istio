@@ -76,6 +76,7 @@ type PushContext struct {
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	// gateways for each namespace
 	gatewaysByNamespace map[string][]Config
+	allGateways         []Config
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -391,10 +392,10 @@ func NewPushContext() *PushContext {
 			hosts:    make([]host.Name, 0),
 			destRule: map[host.Name]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace:     map[string][]*SidecarScope{},
-		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
-		gatewaysByNamespace:     map[string][]Config{},
-
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:       map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:           map[string][]Config{},
+		allGateways:                   []Config{},
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
@@ -691,10 +692,8 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	if features.ScopeGatewayToNamespace.Get() {
-		if err = ps.initGateways(env); err != nil {
-			return err
-		}
+	if err = ps.initGateways(env); err != nil {
+		return err
 	}
 
 	// Must be initialized in the end
@@ -1141,6 +1140,7 @@ func (ps *PushContext) initGateways(env *Environment) error {
 
 	sortConfigByCreationTime(gatewayConfigs)
 
+	ps.allGateways = gatewayConfigs
 	ps.gatewaysByNamespace = make(map[string][]Config)
 	for _, gatewayConfig := range gatewayConfigs {
 		if _, exists := ps.gatewaysByNamespace[gatewayConfig.Namespace]; !exists {
@@ -1151,13 +1151,21 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) Gateways(proxy *Proxy) []Config {
+func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
 	out := make([]Config, 0)
-	for _, cfg := range ps.gatewaysByNamespace[proxy.ConfigNamespace] {
+
+	var configs []Config
+	if features.ScopeGatewayToNamespace.Get() {
+		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
+	} else {
+		configs = ps.allGateways
+	}
+
+	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
@@ -1169,5 +1177,9 @@ func (ps *PushContext) Gateways(proxy *Proxy) []Config {
 			}
 		}
 	}
-	return out
+
+	if len(out) == 0 {
+		return nil
+	}
+	return MergeGateways(out...)
 }
