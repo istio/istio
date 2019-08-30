@@ -22,12 +22,16 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+// Throttling behavior for mixer.
 type LoadSheddingConfigMode int32
 
 const (
+	// Removes throttling behavior for mixer.
 	LoadSheddingConfig_DISABLED LoadSheddingConfigMode = 0
+	// Enables an advisory mode for throttling behavior for mixer.
 	LoadSheddingConfig_LOG_ONLY LoadSheddingConfigMode = 1
-	LoadSheddingConfig_ENFORCE  LoadSheddingConfigMode = 2
+	// Turn on throttling behavior for mixer.
+	LoadSheddingConfig_ENFORCE LoadSheddingConfigMode = 2
 )
 
 var LoadSheddingConfigMode_name = map[int32]string{
@@ -47,16 +51,16 @@ func (x LoadSheddingConfigMode) String() string {
 }
 
 func (LoadSheddingConfigMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{21, 0}
+	return fileDescriptor_a739174c5795eddf, []int{20, 0}
 }
 
 // Specifies the sidecar's default behavior when handling outbound traffic from the application.
 type OutboundTrafficPolicyConfigMode int32
 
 const (
-	//outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
+	// Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
 	OutboundTrafficPolicyConfig_ALLOW_ANY OutboundTrafficPolicyConfigMode = 0
-	//restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries
+	// Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries
 	OutboundTrafficPolicyConfig_REGISTRY_ONLY OutboundTrafficPolicyConfigMode = 1
 )
 
@@ -75,17 +79,18 @@ func (x OutboundTrafficPolicyConfigMode) String() string {
 }
 
 func (OutboundTrafficPolicyConfigMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{30, 0}
+	return fileDescriptor_a739174c5795eddf, []int{29, 0}
 }
 
+// Mode for the ingress controller.
 type PilotIngressConfigIngressControllerMode int32
 
 const (
-	//all Ingress resources without annotation or with istio annotation.
+	// Selects all Ingress resources, with or without Istio annotation.
 	PilotIngressConfig_DEFAULT PilotIngressConfigIngressControllerMode = 0
-	//only with istio annotation.
+	// Selects only resources with istio annotation.
 	PilotIngressConfig_STRICT PilotIngressConfigIngressControllerMode = 1
-	//no ingress or sync.
+	// No ingress or sync.
 	PilotIngressConfig_OFF PilotIngressConfigIngressControllerMode = 2
 )
 
@@ -106,10 +111,10 @@ func (x PilotIngressConfigIngressControllerMode) String() string {
 }
 
 func (PilotIngressConfigIngressControllerMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{32, 0}
+	return fileDescriptor_a739174c5795eddf, []int{31, 0}
 }
 
-// Configure the access log for sidecar to JSON or TEXT
+// Configures the access log for sidecar to JSON or TEXT
 type ProxyConfigAccessLogEncoding int32
 
 const (
@@ -132,9 +137,10 @@ func (x ProxyConfigAccessLogEncoding) String() string {
 }
 
 func (ProxyConfigAccessLogEncoding) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{41, 0}
+	return fileDescriptor_a739174c5795eddf, []int{40, 0}
 }
 
+// Controls whether automatic sidecar injection is enabled.
 type ProxyConfigAutoInject int32
 
 const (
@@ -157,7 +163,7 @@ func (x ProxyConfigAutoInject) String() string {
 }
 
 func (ProxyConfigAutoInject) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{41, 1}
+	return fileDescriptor_a739174c5795eddf, []int{40, 1}
 }
 
 // Specifies which tracer to use.
@@ -186,11 +192,12 @@ func (x ProxyConfigTracer) String() string {
 }
 
 func (ProxyConfigTracer) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{41, 2}
+	return fileDescriptor_a739174c5795eddf, []int{40, 2}
 }
 
-// AddonIngressConfig is described in istio.io documentation.
+// Configuration for the addon ingress.
 type AddonIngressConfig struct {
+	// Controls whether addon ingress is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Hosts                []string `protobuf:"bytes,2,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -237,7 +244,7 @@ func (m *AddonIngressConfig) GetHosts() []string {
 	return nil
 }
 
-// ArchConfig is described in istio.io documentation.
+// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 type ArchConfig struct {
 	// Sets pod scheduling weight for amd64 arch
 	Amd64 uint32 `protobuf:"varint,1,opt,name=amd64,proto3" json:"amd64,omitempty"`
@@ -296,8 +303,9 @@ func (m *ArchConfig) GetS390X() uint32 {
 	return 0
 }
 
-// CNIConfig is described in istio.io documentation.
+// Configuration for CNI.
 type CNIConfig struct {
+	// Controls whether CNI is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -336,8 +344,11 @@ func (m *CNIConfig) GetEnabled() bool {
 	return false
 }
 
-// CPUTargetUtilizationConfig is described in istio.io documentation.
+// Configuration for CPU target utilization for HorizontalPodAutoscaler target.
 type CPUTargetUtilizationConfig struct {
+	// K8s utilization setting for HorizontalPodAutoscaler target.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	TargetAverageUtilization int32    `protobuf:"varint,1,opt,name=targetAverageUtilization,proto3" json:"targetAverageUtilization,omitempty"`
 	XXX_NoUnkeyedLiteral     struct{} `json:"-"`
 	XXX_unrecognized         []byte   `json:"-"`
@@ -376,13 +387,22 @@ func (m *CPUTargetUtilizationConfig) GetTargetAverageUtilization() int32 {
 	return 0
 }
 
-// CertManagerConfig is described in istio.io documentation.
+// Configuration for CertManager.
 type CertManagerConfig struct {
-	Enabled bool   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub     string `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	// 	NodeSelector map[string]interface{} `json:"nodeSelector"`
-	Resources            *v1.ResourceRequirements `protobuf:"bytes,3,opt,name=resources,proto3" json:"resources,omitempty"`
-	Tag                  string                   `protobuf:"bytes,4,opt,name=tag,proto3" json:"tag,omitempty"`
+	// Controls whether CertManager is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Image hub for the CertManager Deployment.
+	Hub string `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	// Image tag for the CertManager Deployment.
+	Tag string `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources            *v1.ResourceRequirements `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -427,13 +447,6 @@ func (m *CertManagerConfig) GetHub() string {
 	return ""
 }
 
-func (m *CertManagerConfig) GetResources() *v1.ResourceRequirements {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
 func (m *CertManagerConfig) GetTag() string {
 	if m != nil {
 		return m.Tag
@@ -441,13 +454,33 @@ func (m *CertManagerConfig) GetTag() string {
 	return ""
 }
 
-// CoreDNSConfig is described in istio.io documentation.
+func (m *CertManagerConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
+func (m *CertManagerConfig) GetResources() *v1.ResourceRequirements {
+	if m != nil {
+		return m.Resources
+	}
+	return nil
+}
+
+// Configuration for Core DNS.
 type CoreDNSConfig struct {
-	CoreDNSImage       string `protobuf:"bytes,1,opt,name=coreDNSImage,proto3" json:"coreDNSImage,omitempty"`
-	CoreDNSPluginImage string `protobuf:"bytes,2,opt,name=coreDNSPluginImage,proto3" json:"coreDNSPluginImage,omitempty"`
-	Enabled            bool   `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// 	NodeSelector       map[string]interface{} `json:"nodeSelector,omitempty"`
-	ReplicaCount         uint32   `protobuf:"varint,4,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// Controls whether CoreDNS is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Image for Core DNS.
+	CoreDNSImage       string `protobuf:"bytes,2,opt,name=coreDNSImage,proto3" json:"coreDNSImage,omitempty"`
+	CoreDNSPluginImage string `protobuf:"bytes,3,opt,name=coreDNSPluginImage,proto3" json:"coreDNSPluginImage,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// Number of replicas for Core DNS.
+	ReplicaCount         uint32   `protobuf:"varint,5,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -478,6 +511,13 @@ func (m *CoreDNSConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CoreDNSConfig proto.InternalMessageInfo
 
+func (m *CoreDNSConfig) GetEnabled() bool {
+	if m != nil {
+		return m.Enabled
+	}
+	return false
+}
+
 func (m *CoreDNSConfig) GetCoreDNSImage() string {
 	if m != nil {
 		return m.CoreDNSImage
@@ -492,11 +532,11 @@ func (m *CoreDNSConfig) GetCoreDNSPluginImage() string {
 	return ""
 }
 
-func (m *CoreDNSConfig) GetEnabled() bool {
+func (m *CoreDNSConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
-		return m.Enabled
+		return m.NodeSelector
 	}
-	return false
+	return nil
 }
 
 func (m *CoreDNSConfig) GetReplicaCount() uint32 {
@@ -506,9 +546,11 @@ func (m *CoreDNSConfig) GetReplicaCount() uint32 {
 	return 0
 }
 
-// DefaultPodDisruptionBudgetConfig is described in istio.io documentation.
+// DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
+//
+// See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 type DefaultPodDisruptionBudgetConfig struct {
-	// k8s PodDisruptionBudget settings.
+	// Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -547,9 +589,11 @@ func (m *DefaultPodDisruptionBudgetConfig) GetEnabled() bool {
 	return false
 }
 
-// DefaultResourcesConfig is described in istio.io documentation.
+// DefaultResourcesConfig specifies the default k8s resources settings for all Istio control plane components.
 type DefaultResourcesConfig struct {
 	// k8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	Requests             *ResourcesRequestsConfig `protobuf:"bytes,1,opt,name=requests,proto3" json:"requests,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
@@ -588,27 +632,72 @@ func (m *DefaultResourcesConfig) GetRequests() *ResourcesRequestsConfig {
 	return nil
 }
 
-// EgressGatewayConfig is described in istio.io documentation.
+// Configuration for an egress gateway.
 type EgressGatewayConfig struct {
-	AutoscaleEnabled bool                        `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMax     uint32                      `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	AutoscaleMin     uint32                      `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	ConnectTimeout   string                      `protobuf:"bytes,4,opt,name=connectTimeout,proto3" json:"connectTimeout,omitempty"`
-	Cpu              *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	DrainDuration    *duration.Duration          `protobuf:"bytes,6,opt,name=drainDuration,proto3" json:"drainDuration,omitempty"`
-	Enabled          bool                        `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Env              map[string]string           `protobuf:"bytes,8,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Labels           *GatewayLabelsConfig        `protobuf:"bytes,9,opt,name=labels,proto3" json:"labels,omitempty"`
-	NodeSelector     map[string]string           `protobuf:"bytes,10,rep,name=nodeSelector,proto3" json:"nodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
-	// 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
-	// 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
-	Ports         []*PortsConfig           `protobuf:"bytes,11,rep,name=ports,proto3" json:"ports,omitempty"`
-	Resources     *v1.ResourceRequirements `protobuf:"bytes,12,opt,name=resources,proto3" json:"resources,omitempty"`
-	SecretVolumes []*SecretVolume          `protobuf:"bytes,13,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
-	// 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-	//    Type                             v1.ServiceType          `json:"type,omitempty"`
-	Zvpn                 *ZeroVPNConfig `protobuf:"bytes,14,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
+	// Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
+	AutoscaleEnabled bool `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	// maxReplicas setting for HorizontalPodAutoscaler.
+	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
+	// minReplicas setting for HorizontalPodAutoscaler.
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
+	// K8s utilization setting for HorizontalPodAutoscaler target.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// Controls whether an egress gateway is enabled.
+	Enabled bool `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Environment variables passed to the proxy container.
+	Env    map[string]string    `protobuf:"bytes,8,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Labels *GatewayLabelsConfig `protobuf:"bytes,9,opt,name=labels,proto3" json:"labels,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// K8s annotations for pods.
+	//
+	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// Pod anti-affinity label selector.
+	//
+	// Specify the pod anti-affinity that allows you to constrain which nodes
+	// your pod is eligible to be scheduled based on labels on pods that are
+	// already running on the node rather than based on labels on nodes.
+	// There are currently two types of anti-affinity:
+	//    "requiredDuringSchedulingIgnoredDuringExecution"
+	//    "preferredDuringSchedulingIgnoredDuringExecution"
+	// which denote “hard” vs. “soft” requirements, you can define your values
+	// in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+	// correspondingly.
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+	//
+	// Examples:
+	// podAntiAffinityLabelSelector:
+	//  - key: security
+	//    operator: In
+	//    values: S1,S2
+	//    topologyKey: "kubernetes.io/hostname"
+	//  This pod anti-affinity rule says that the pod requires not to be scheduled
+	//  onto a node if that node is already running a pod with label having key
+	//  “security” and value “S1”.
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	// See PodAntiAffinityLabelSelector.
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	// Ports Configuration for the egress gateway service.
+	Ports []*PortsConfig `protobuf:"bytes,14,rep,name=ports,proto3" json:"ports,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources *v1.ResourceRequirements `protobuf:"bytes,15,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Config for secret volume mounts.
+	SecretVolumes []*SecretVolume `protobuf:"bytes,16,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
+	// Annotations to add to the egress gateway service.
+	ServiceAnnotations map[string]interface{} `protobuf:"bytes,17,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	// Service type.
+	//
+	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+	Type string `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
+	// Enables cross-cluster access using SNI matching.
+	Zvpn                 *ZeroVPNConfig `protobuf:"bytes,19,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -660,23 +749,9 @@ func (m *EgressGatewayConfig) GetAutoscaleMin() uint32 {
 	return 0
 }
 
-func (m *EgressGatewayConfig) GetConnectTimeout() string {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return ""
-}
-
 func (m *EgressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	if m != nil {
 		return m.Cpu
-	}
-	return nil
-}
-
-func (m *EgressGatewayConfig) GetDrainDuration() *duration.Duration {
-	if m != nil {
-		return m.DrainDuration
 	}
 	return nil
 }
@@ -702,9 +777,30 @@ func (m *EgressGatewayConfig) GetLabels() *GatewayLabelsConfig {
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetNodeSelector() map[string]string {
+func (m *EgressGatewayConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
+	}
+	return nil
+}
+
+func (m *EgressGatewayConfig) GetPodAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.PodAnnotations
+	}
+	return nil
+}
+
+func (m *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityLabelSelector
+	}
+	return nil
+}
+
+func (m *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityTermLabelSelector
 	}
 	return nil
 }
@@ -730,6 +826,20 @@ func (m *EgressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
+func (m *EgressGatewayConfig) GetServiceAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.ServiceAnnotations
+	}
+	return nil
+}
+
+func (m *EgressGatewayConfig) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
 func (m *EgressGatewayConfig) GetZvpn() *ZeroVPNConfig {
 	if m != nil {
 		return m.Zvpn
@@ -737,7 +847,7 @@ func (m *EgressGatewayConfig) GetZvpn() *ZeroVPNConfig {
 	return nil
 }
 
-// EnvoyMetricsConfig is described in istio.io documentation.
+// EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
 type EnvoyMetricsConfig struct {
 	// Enables the Envoy Metrics Service.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
@@ -796,15 +906,28 @@ func (m *EnvoyMetricsConfig) GetPort() int32 {
 	return 0
 }
 
-// GalleyConfig is described in istio.io documentation.
+// GalleyConfig is a set of Configuration for Galley.
 type GalleyConfig struct {
-	Enabled bool              `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Image   string            `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
-	Mesh    map[string]string `protobuf:"bytes,3,rep,name=mesh,proto3" json:"mesh,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// 	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector"`
-	// 	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector"`
-	ReplicaCount         uint32                   `protobuf:"varint,4,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	Resources            *v1.ResourceRequirements `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Controls whether Galley is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Image name used for Galley.
+	//
+	// This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.
+	//
+	// Examples: custom-galley, docker.io/someuser:custom-galley
+	Image string `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
+	// TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
+	Mesh map[string]string `protobuf:"bytes,3,rep,name=mesh,proto3" json:"mesh,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,4,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,5,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	// Number of replicas in the Galley Deployment.
+	ReplicaCount uint32 `protobuf:"varint,6,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources            *v1.ResourceRequirements `protobuf:"bytes,7,opt,name=resources,proto3" json:"resources,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -856,6 +979,20 @@ func (m *GalleyConfig) GetMesh() map[string]string {
 	return nil
 }
 
+func (m *GalleyConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityLabelSelector
+	}
+	return nil
+}
+
+func (m *GalleyConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityTermLabelSelector
+	}
+	return nil
+}
+
 func (m *GalleyConfig) GetReplicaCount() uint32 {
 	if m != nil {
 		return m.ReplicaCount
@@ -870,7 +1007,7 @@ func (m *GalleyConfig) GetResources() *v1.ResourceRequirements {
 	return nil
 }
 
-// GatewayLabelsConfig is described in istio.io documentation.
+// GatewayLabelsConfig is a set of Configuration for gateway labels.
 type GatewayLabelsConfig struct {
 	App                  string   `protobuf:"bytes,1,opt,name=app,proto3" json:"app,omitempty"`
 	Istio                string   `protobuf:"bytes,2,opt,name=istio,proto3" json:"istio,omitempty"`
@@ -918,12 +1055,14 @@ func (m *GatewayLabelsConfig) GetIstio() string {
 	return ""
 }
 
-// GatewaysConfig is described in istio.io documentation.
+// Configuration for gateways.
 type GatewaysConfig struct {
-	IstioEgressgateway   *EgressGatewayConfig  `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istioEgressgateway,proto3" json:"istio_egressgateway,omitempty"`
-	Enabled              bool                  `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	IstioIlbgateway      *ILBGatewayConfig     `protobuf:"bytes,3,opt,name=istio_ilbgateway,json=istioIlbgateway,proto3" json:"istio_ilbgateway,omitempty"`
-	IstioIngressgateway  *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istioIngressgateway,proto3" json:"istio_ingressgateway,omitempty"`
+	// Configuration for an egress gateway.
+	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istioEgressgateway,proto3" json:"istioEgressgateway,omitempty"`
+	// Controls whether any gateways are enabled.
+	Enabled bool `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Configuration for an ingress gateway.
+	IstioIngressgateway  *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istioIngressgateway,proto3" json:"istioIngressgateway,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -968,13 +1107,6 @@ func (m *GatewaysConfig) GetEnabled() bool {
 	return false
 }
 
-func (m *GatewaysConfig) GetIstioIlbgateway() *ILBGatewayConfig {
-	if m != nil {
-		return m.IstioIlbgateway
-	}
-	return nil
-}
-
 func (m *GatewaysConfig) GetIstioIngressgateway() *IngressGatewayConfig {
 	if m != nil {
 		return m.IstioIngressgateway
@@ -982,61 +1114,135 @@ func (m *GatewaysConfig) GetIstioIngressgateway() *IngressGatewayConfig {
 	return nil
 }
 
+// Global Configuration for Istio components.
 type GlobalConfig struct {
-	Arch *ArchConfig `protobuf:"bytes,30,opt,name=arch,proto3" json:"arch,omitempty"`
-	// Configuration validation component namespace
-	ConfigNamespace string `protobuf:"bytes,1,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
-	// Enables server-side validation of configuration.
-	ConfigValidation bool `protobuf:"varint,2,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
-	// Enables MTLS for control plane.
-	ControlPlaneSecurityEnabled bool `protobuf:"varint,3,opt,name=controlPlaneSecurityEnabled,proto3" json:"controlPlaneSecurityEnabled,omitempty"`
-	// K8s NodeSelector
-	DefaultNodeSelector map[string]string `protobuf:"bytes,31,rep,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// k8s PodDisruptionBudget settings.
-	DefaultPodDisruptionBudget *DefaultPodDisruptionBudgetConfig `protobuf:"bytes,4,opt,name=defaultPodDisruptionBudget,proto3" json:"defaultPodDisruptionBudget,omitempty"`
-	// Selects whether policy enforcement is installed.
-	DisablePolicyChecks bool                    `protobuf:"varint,5,opt,name=disablePolicyChecks,proto3" json:"disablePolicyChecks,omitempty"`
-	DefaultResources    *DefaultResourcesConfig `protobuf:"bytes,6,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`
-	// Enable helm test
-	EnableHelmTest bool `protobuf:"varint,7,opt,name=enableHelmTest,proto3" json:"enableHelmTest,omitempty"`
-	// Enables tracing.
-	EnableTracing bool `protobuf:"varint,8,opt,name=enableTracing,proto3" json:"enableTracing,omitempty"`
-	// Root for docker image paths.
-	Hub string `protobuf:"bytes,9,opt,name=hub,proto3" json:"hub,omitempty"`
-	// ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	// Default namespace.
-	IstioNamespace    string                   `protobuf:"bytes,10,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
-	LocalityLbSetting map[string]string        `protobuf:"bytes,32,rep,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	K8SIngress        *KubernetesIngressConfig `protobuf:"bytes,11,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
-	Logging           *GlobalLoggingConfig     `protobuf:"bytes,12,opt,name=logging,proto3" json:"logging,omitempty"`
-	MeshExpansion     *MeshExpansionConfig     `protobuf:"bytes,13,opt,name=meshExpansion,proto3" json:"meshExpansion,omitempty"`
-	MeshNetworks      map[string]string        `protobuf:"bytes,33,rep,name=meshNetworks,proto3" json:"meshNetworks,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// Monitor port number for all control plane components.
-	MonitoringPort uint32              `protobuf:"varint,14,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
-	Mtls           *MTLSConfig         `protobuf:"bytes,15,opt,name=mtls,proto3" json:"mtls,omitempty"`
-	MultiCluster   *MultiClusterConfig `protobuf:"bytes,16,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
-	// Restricts the applications namespace that the controller manages.
-	OneNamespace          bool                         `protobuf:"varint,17,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
-	OutboundTrafficPolicy *OutboundTrafficPolicyConfig `protobuf:"bytes,18,opt,name=outboundTrafficPolicy,proto3" json:"outboundTrafficPolicy,omitempty"`
-	// If set, allows traffic in cases when the mixer policy service cannot be reached.
-	PolicyCheckFailOpen bool `protobuf:"varint,19,opt,name=policyCheckFailOpen,proto3" json:"policyCheckFailOpen,omitempty"`
-	// Namespace of policy components
-	PolicyNamespace string `protobuf:"bytes,20,opt,name=policyNamespace,proto3" json:"policyNamespace,omitempty"`
-	// k8s priorityClassName.
-	PriorityClassName string           `protobuf:"bytes,21,opt,name=priorityClassName,proto3" json:"priorityClassName,omitempty"`
-	Proxy             *ProxyConfig     `protobuf:"bytes,22,opt,name=proxy,proto3" json:"proxy,omitempty"`
-	ProxyInit         *ProxyInitConfig `protobuf:"bytes,23,opt,name=proxy_init,json=proxyInit,proto3" json:"proxy_init,omitempty"`
-	Sds               *SDSConfig       `protobuf:"bytes,24,opt,name=sds,proto3" json:"sds,omitempty"`
-	// Version tag for docker images.
-	Tag string `protobuf:"bytes,25,opt,name=tag,proto3" json:"tag,omitempty"`
-	// Namespace of telemetry components
-	TelemetryNamespace string `protobuf:"bytes,26,opt,name=telemetryNamespace,proto3" json:"telemetryNamespace,omitempty"`
-	// test
-	Tracer *TracerConfig `protobuf:"bytes,27,opt,name=tracer,proto3" json:"tracer,omitempty"`
+	// Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+	//   0 - Never scheduled
+	//   1 - Least preferred
+	//   2 - No preference
+	//   3 - Most preferred
+	Arch *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
+	// Specifies the namespace for the configuration and validation component.
+	ConfigNamespace string `protobuf:"bytes,2,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
+	// Controls whether the server-side validation is enabled.
+	ConfigValidation bool `protobuf:"varint,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
+	// Controls whether the MTLS for communication between the control plane components is enabled.
+	ControlPlaneSecurityEnabled bool `protobuf:"varint,4,opt,name=controlPlaneSecurityEnabled,proto3" json:"controlPlaneSecurityEnabled,omitempty"`
+	// Default k8s node selector for all the Istio control plane components
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	DefaultNodeSelector map[string]interface{} `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"`
+	// Specifies the default pod disruption budget configuration.
+	DefaultPodDisruptionBudget *DefaultPodDisruptionBudgetConfig `protobuf:"bytes,7,opt,name=defaultPodDisruptionBudget,proto3" json:"defaultPodDisruptionBudget,omitempty"`
+	// Controls whether the policy enforcement is enabled.
+	DisablePolicyChecks bool `protobuf:"varint,8,opt,name=disablePolicyChecks,proto3" json:"disablePolicyChecks,omitempty"`
+	// Default k8s resources settings for all Istio control plane components.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	DefaultResources *DefaultResourcesConfig `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`
+	// Controls whether the helm test templates are enabled.
+	EnableHelmTest bool `protobuf:"varint,10,opt,name=enableHelmTest,proto3" json:"enableHelmTest,omitempty"`
+	// Controls whether the distributed tracing for the applications is enabled.
+	//
+	// See https://opentracing.io/docs/overview/what-is-tracing/
+	EnableTracing bool `protobuf:"varint,11,opt,name=enableTracing,proto3" json:"enableTracing,omitempty"`
+	// Specifies the docker hub for Istio images.
+	Hub string `protobuf:"bytes,12,opt,name=hub,proto3" json:"hub,omitempty"`
+	// Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
+	//
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	ImagePullPolicy string `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"`
+	// Specifies the default namespace for the Istio control plane components.
+	IstioNamespace string `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
+	// Specifies the global locality load balancing settings.
+	// Locality-weighted load balancing allows administrators to control the distribution of traffic to
+	// endpoints based on the localities of where the traffic originates and where it will terminate.
+	// Please set either failover or distribute configuration but not both.
+	//
+	// localityLbSetting:
+	//   distribute:
+	//   - from: "us-central1/*"
+	//     to:
+	//       "us-central1/*": 80
+	//       "us-central2/*": 20
+	//
+	// localityLbSetting:
+	//   failover:
+	//   - from: us-east
+	//     to: eu-west
+	//   - from: us-west
+	//     to: us-east
+	LocalityLbSetting map[string]string `protobuf:"bytes,15,rep,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Specifies the Configuration for the legacy kubernetes Ingress.
+	K8SIngress *KubernetesIngressConfig `protobuf:"bytes,16,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
+	// Specifies the global logging level settings for the Istio control plane components.
+	Logging *GlobalLoggingConfig `protobuf:"bytes,17,opt,name=logging,proto3" json:"logging,omitempty"`
+	// Specifies the Configuration for Istio mesh expansion to bare metal.
+	MeshExpansion *MeshExpansionConfig `protobuf:"bytes,18,opt,name=meshExpansion,proto3" json:"meshExpansion,omitempty"`
+	// Configure the mesh networks to be used by the Split Horizon EDS.
+	//
+	// The following example defines two networks with different endpoints association methods.
+	// For `network1` all endpoints that their IP belongs to the provided CIDR range will be
+	// mapped to network1. The gateway for this network example is specified by its public IP
+	// address and port.
+	// The second network, `network2`, in this example is defined differently with all endpoints
+	// retrieved through the specified Multi-Cluster registry being mapped to network2. The
+	// gateway is also defined differently with the name of the gateway service on the remote
+	// cluster. The public IP for the gateway will be determined from that remote service (only
+	// LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+	// it still need to be configured manually).
+	//
+	// meshNetworks:
+	//   network1:
+	//     endpoints:
+	//     - fromCidr: "192.168.0.1/24"
+	//     gateways:
+	//     - address: 1.1.1.1
+	//       port: 80
+	//   network2:
+	//     endpoints:
+	//     - fromRegistry: reg1
+	//     gateways:
+	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+	//       port: 443
+	//
+	MeshNetworks map[string]interface{} `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
+	// Specifies the monitor port number for all Istio control plane components.
+	MonitoringPort uint32 `protobuf:"varint,20,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
+	// Specifies the MTLS settings for the applications that Istio manages.
+	Mtls *MTLSConfig `protobuf:"bytes,21,opt,name=mtls,proto3" json:"mtls,omitempty"`
+	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
+	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
+	// Controls whether to restrict the applications namespace the controller manages;
+	// If set it to false, the controller watches all namespaces.
+	OneNamespace bool `protobuf:"varint,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
+	// Controls the default behavior of the sidecar for handling outbound traffic from the application.
+	OutboundTrafficPolicy *OutboundTrafficPolicyConfig `protobuf:"bytes,24,opt,name=outboundTrafficPolicy,proto3" json:"outboundTrafficPolicy,omitempty"`
+	// Controls whether to allow traffic in cases when the mixer policy service cannot be reached.
+	PolicyCheckFailOpen bool `protobuf:"varint,25,opt,name=policyCheckFailOpen,proto3" json:"policyCheckFailOpen,omitempty"`
+	// Specifies the namespace for the policy component.
+	PolicyNamespace string `protobuf:"bytes,26,opt,name=policyNamespace,proto3" json:"policyNamespace,omitempty"`
+	// Specifies the k8s priorityClassName for the istio control plane components.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+	PriorityClassName string `protobuf:"bytes,27,opt,name=priorityClassName,proto3" json:"priorityClassName,omitempty"`
+	// Specifies how proxies are configured within Istio.
+	Proxy *ProxyConfig `protobuf:"bytes,28,opt,name=proxy,proto3" json:"proxy,omitempty"`
+	// Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
+	ProxyInit *ProxyInitConfig `protobuf:"bytes,29,opt,name=proxyInit,proto3" json:"proxyInit,omitempty"`
+	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
+	// Specifies the tag for the Istio docker images.
+	Tag string `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
+	// Specifies the namespace for the telemetry component.
+	TelemetryNamespace string `protobuf:"bytes,32,opt,name=telemetryNamespace,proto3" json:"telemetryNamespace,omitempty"`
+	// Specifies the Configuration for each of the supported tracers.
+	Tracer *TracerConfig `protobuf:"bytes,33,opt,name=tracer,proto3" json:"tracer,omitempty"`
 	// Specifies the trust domain that corresponds to the root cert of CA.
-	TrustDomain string `protobuf:"bytes,28,opt,name=trustDomain,proto3" json:"trustDomain,omitempty"`
-	// Selects use of Mesh Configuration Protocol to configure Pilot.
-	UseMCP               bool     `protobuf:"varint,29,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
+	TrustDomain string `protobuf:"bytes,34,opt,name=trustDomain,proto3" json:"trustDomain,omitempty"`
+	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
+	UseMCP               bool     `protobuf:"varint,35,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1095,7 +1301,7 @@ func (m *GlobalConfig) GetControlPlaneSecurityEnabled() bool {
 	return false
 }
 
-func (m *GlobalConfig) GetDefaultNodeSelector() map[string]string {
+func (m *GlobalConfig) GetDefaultNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.DefaultNodeSelector
 	}
@@ -1144,6 +1350,13 @@ func (m *GlobalConfig) GetHub() string {
 	return ""
 }
 
+func (m *GlobalConfig) GetImagePullPolicy() string {
+	if m != nil {
+		return m.ImagePullPolicy
+	}
+	return ""
+}
+
 func (m *GlobalConfig) GetIstioNamespace() string {
 	if m != nil {
 		return m.IstioNamespace
@@ -1179,7 +1392,7 @@ func (m *GlobalConfig) GetMeshExpansion() *MeshExpansionConfig {
 	return nil
 }
 
-func (m *GlobalConfig) GetMeshNetworks() map[string]string {
+func (m *GlobalConfig) GetMeshNetworks() map[string]interface{} {
 	if m != nil {
 		return m.MeshNetworks
 	}
@@ -1298,8 +1511,11 @@ func (m *GlobalConfig) GetUseMCP() bool {
 	return false
 }
 
-// GlobalLoggingConfig is described in istio.io documentation.
+// GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
 type GlobalLoggingConfig struct {
+	// Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+	// The control plane has different scopes depending on component, but can configure default log level across all components
+	// If empty, default scope and level will be used as configured in code
 	Level                string   `protobuf:"bytes,1,opt,name=level,proto3" json:"level,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1338,152 +1554,64 @@ func (m *GlobalLoggingConfig) GetLevel() string {
 	return ""
 }
 
-// ILBGatewayConfig is described in istio.io documentation.
-type ILBGatewayConfig struct {
-	AutoscaleEnabled bool                        `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMax     uint32                      `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	AutoscaleMin     uint32                      `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	Enabled          bool                        `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Cpu              *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	Labels           *GatewayLabelsConfig        `protobuf:"bytes,6,opt,name=labels,proto3" json:"labels,omitempty"`
-	LoadBalancerIP   string                      `protobuf:"bytes,7,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
-	// 	NodeSelector       map[string]interface{}      `json:"nodeSelector,omitempty"`
-	// 	PodAnnotations     map[string]interface{}      `json:"podAnnotations,omitempty"`
-	Ports                []*PortsConfig           `protobuf:"bytes,8,rep,name=ports,proto3" json:"ports,omitempty"`
-	Resources            *v1.ResourceRequirements `protobuf:"bytes,9,opt,name=resources,proto3" json:"resources,omitempty"`
-	SecretVolumes        []*SecretVolume          `protobuf:"bytes,10,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
-}
-
-func (m *ILBGatewayConfig) Reset()         { *m = ILBGatewayConfig{} }
-func (m *ILBGatewayConfig) String() string { return proto.CompactTextString(m) }
-func (*ILBGatewayConfig) ProtoMessage()    {}
-func (*ILBGatewayConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{15}
-}
-
-func (m *ILBGatewayConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ILBGatewayConfig.Unmarshal(m, b)
-}
-func (m *ILBGatewayConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ILBGatewayConfig.Marshal(b, m, deterministic)
-}
-func (m *ILBGatewayConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ILBGatewayConfig.Merge(m, src)
-}
-func (m *ILBGatewayConfig) XXX_Size() int {
-	return xxx_messageInfo_ILBGatewayConfig.Size(m)
-}
-func (m *ILBGatewayConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_ILBGatewayConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ILBGatewayConfig proto.InternalMessageInfo
-
-func (m *ILBGatewayConfig) GetAutoscaleEnabled() bool {
-	if m != nil {
-		return m.AutoscaleEnabled
-	}
-	return false
-}
-
-func (m *ILBGatewayConfig) GetAutoscaleMax() uint32 {
-	if m != nil {
-		return m.AutoscaleMax
-	}
-	return 0
-}
-
-func (m *ILBGatewayConfig) GetAutoscaleMin() uint32 {
-	if m != nil {
-		return m.AutoscaleMin
-	}
-	return 0
-}
-
-func (m *ILBGatewayConfig) GetEnabled() bool {
-	if m != nil {
-		return m.Enabled
-	}
-	return false
-}
-
-func (m *ILBGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
-	if m != nil {
-		return m.Cpu
-	}
-	return nil
-}
-
-func (m *ILBGatewayConfig) GetLabels() *GatewayLabelsConfig {
-	if m != nil {
-		return m.Labels
-	}
-	return nil
-}
-
-func (m *ILBGatewayConfig) GetLoadBalancerIP() string {
-	if m != nil {
-		return m.LoadBalancerIP
-	}
-	return ""
-}
-
-func (m *ILBGatewayConfig) GetPorts() []*PortsConfig {
-	if m != nil {
-		return m.Ports
-	}
-	return nil
-}
-
-func (m *ILBGatewayConfig) GetResources() *v1.ResourceRequirements {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-func (m *ILBGatewayConfig) GetSecretVolumes() []*SecretVolume {
-	if m != nil {
-		return m.SecretVolumes
-	}
-	return nil
-}
-
-// IngressGatewayConfig is described in istio.io documentation.
+// Configuration for an ingress gateway.
 type IngressGatewayConfig struct {
-	AutoscaleEnabled         bool                        `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMax             uint32                      `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	AutoscaleMin             uint32                      `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	ConnectTimeout           string                      `protobuf:"bytes,4,opt,name=connectTimeout,proto3" json:"connectTimeout,omitempty"`
-	Cpu                      *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	CustomService            bool                        `protobuf:"varint,6,opt,name=customService,proto3" json:"customService,omitempty"`
-	Debug                    string                      `protobuf:"bytes,7,opt,name=debug,proto3" json:"debug,omitempty"`
-	Domain                   string                      `protobuf:"bytes,8,opt,name=domain,proto3" json:"domain,omitempty"`
-	DrainDuration            *duration.Duration          `protobuf:"bytes,9,opt,name=drainDuration,proto3" json:"drainDuration,omitempty"`
-	Enabled                  bool                        `protobuf:"varint,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Env                      map[string]string           `protobuf:"bytes,11,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	ExternalIPs              []string                    `protobuf:"bytes,12,rep,name=externalIPs,proto3" json:"externalIPs,omitempty"`
-	K8SIngress               bool                        `protobuf:"varint,13,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
-	K8SIngressHttps          bool                        `protobuf:"varint,14,opt,name=k8sIngressHttps,proto3" json:"k8sIngressHttps,omitempty"`
-	Labels                   *GatewayLabelsConfig        `protobuf:"bytes,15,opt,name=labels,proto3" json:"labels,omitempty"`
-	LoadBalancerIP           string                      `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
-	LoadBalancerSourceRanges []string                    `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
-	MeshExpansionPorts       []*PortsConfig              `protobuf:"bytes,18,rep,name=meshExpansionPorts,proto3" json:"meshExpansionPorts,omitempty"`
-	// 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
-	// 	PodAnnotations                   map[string]interface{}      `json:"podAnnotations,omitempty"`
-	// 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
-	// 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
-	Ports        []*PortsConfig `protobuf:"bytes,19,rep,name=ports,proto3" json:"ports,omitempty"`
-	ReplicaCount uint32         `protobuf:"varint,20,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	// 	Resources                        map[string]interface{}      `json:"resources,omitempty"`
-	Sds           *IngressGatewaySdsConfig `protobuf:"bytes,21,opt,name=sds,proto3" json:"sds,omitempty"`
-	SecretVolumes []*SecretVolume          `protobuf:"bytes,22,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
-	// 	ServiceAnnotations               map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-	//    Type                             v1.ServiceType          `json:"type,omitempty"`
-	Zvpn                 *IngressGatewayZvpnConfig `protobuf:"bytes,23,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
+	// Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
+	AutoscaleEnabled bool `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	// maxReplicas setting for HorizontalPodAutoscaler.
+	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
+	// minReplicas setting for HorizontalPodAutoscaler.
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
+	// K8s utilization setting for HorizontalPodAutoscaler target.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	CustomService bool                        `protobuf:"varint,6,opt,name=customService,proto3" json:"customService,omitempty"`
+	Debug         string                      `protobuf:"bytes,7,opt,name=debug,proto3" json:"debug,omitempty"`
+	Domain        string                      `protobuf:"bytes,8,opt,name=domain,proto3" json:"domain,omitempty"`
+	// Controls whether an ingress gateway is enabled.
+	Enabled bool `protobuf:"varint,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Environment variables passed to the proxy container.
+	Env                      map[string]string    `protobuf:"bytes,11,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ExternalIPs              []string             `protobuf:"bytes,12,rep,name=externalIPs,proto3" json:"externalIPs,omitempty"`
+	K8SIngress               bool                 `protobuf:"varint,13,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
+	K8SIngressHttps          bool                 `protobuf:"varint,14,opt,name=k8sIngressHttps,proto3" json:"k8sIngressHttps,omitempty"`
+	Labels                   *GatewayLabelsConfig `protobuf:"bytes,15,opt,name=labels,proto3" json:"labels,omitempty"`
+	LoadBalancerIP           string               `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
+	LoadBalancerSourceRanges []string             `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
+	MeshExpansionPorts       []*PortsConfig       `protobuf:"bytes,18,rep,name=meshExpansionPorts,proto3" json:"meshExpansionPorts,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,19,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// K8s annotations for pods.
+	//
+	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	PodAnnotations map[string]interface{} `protobuf:"bytes,20,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,21,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,22,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	// Port Configuration for the ingress gateway.
+	Ports []*PortsConfig `protobuf:"bytes,23,rep,name=ports,proto3" json:"ports,omitempty"`
+	// Number of replicas for the ingress gateway Deployment.
+	ReplicaCount uint32 `protobuf:"varint,24,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources map[string]interface{} `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Secret Discovery Service (SDS) Configuration for ingress gateway.
+	Sds *IngressGatewaySdsConfig `protobuf:"bytes,26,opt,name=sds,proto3" json:"sds,omitempty"`
+	// Config for secret volume mounts.
+	SecretVolumes []*SecretVolume `protobuf:"bytes,27,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
+	// Annotations to add to the egress gateway service.
+	ServiceAnnotations map[string]interface{} `protobuf:"bytes,28,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	// Service type.
+	//
+	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+	Type string `protobuf:"bytes,29,opt,name=type,proto3" json:"type,omitempty"`
+	// Enables cross-cluster access using SNI matching.
+	Zvpn                 *IngressGatewayZvpnConfig `protobuf:"bytes,30,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -1493,7 +1621,7 @@ func (m *IngressGatewayConfig) Reset()         { *m = IngressGatewayConfig{} }
 func (m *IngressGatewayConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewayConfig) ProtoMessage()    {}
 func (*IngressGatewayConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{16}
+	return fileDescriptor_a739174c5795eddf, []int{15}
 }
 
 func (m *IngressGatewayConfig) XXX_Unmarshal(b []byte) error {
@@ -1535,13 +1663,6 @@ func (m *IngressGatewayConfig) GetAutoscaleMin() uint32 {
 	return 0
 }
 
-func (m *IngressGatewayConfig) GetConnectTimeout() string {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return ""
-}
-
 func (m *IngressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	if m != nil {
 		return m.Cpu
@@ -1568,13 +1689,6 @@ func (m *IngressGatewayConfig) GetDomain() string {
 		return m.Domain
 	}
 	return ""
-}
-
-func (m *IngressGatewayConfig) GetDrainDuration() *duration.Duration {
-	if m != nil {
-		return m.DrainDuration
-	}
-	return nil
 }
 
 func (m *IngressGatewayConfig) GetEnabled() bool {
@@ -1640,6 +1754,34 @@ func (m *IngressGatewayConfig) GetMeshExpansionPorts() []*PortsConfig {
 	return nil
 }
 
+func (m *IngressGatewayConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
+func (m *IngressGatewayConfig) GetPodAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.PodAnnotations
+	}
+	return nil
+}
+
+func (m *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityLabelSelector
+	}
+	return nil
+}
+
+func (m *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityTermLabelSelector
+	}
+	return nil
+}
+
 func (m *IngressGatewayConfig) GetPorts() []*PortsConfig {
 	if m != nil {
 		return m.Ports
@@ -1652,6 +1794,13 @@ func (m *IngressGatewayConfig) GetReplicaCount() uint32 {
 		return m.ReplicaCount
 	}
 	return 0
+}
+
+func (m *IngressGatewayConfig) GetResources() map[string]interface{} {
+	if m != nil {
+		return m.Resources
+	}
+	return nil
 }
 
 func (m *IngressGatewayConfig) GetSds() *IngressGatewaySdsConfig {
@@ -1668,6 +1817,20 @@ func (m *IngressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
+func (m *IngressGatewayConfig) GetServiceAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.ServiceAnnotations
+	}
+	return nil
+}
+
+func (m *IngressGatewayConfig) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
 func (m *IngressGatewayConfig) GetZvpn() *IngressGatewayZvpnConfig {
 	if m != nil {
 		return m.Zvpn
@@ -1675,9 +1838,12 @@ func (m *IngressGatewayConfig) GetZvpn() *IngressGatewayZvpnConfig {
 	return nil
 }
 
-// IngressGatewaySdsConfig is described in istio.io documentation.
+// Secret Discovery Service (SDS) Configuration for ingress gateway.
 type IngressGatewaySdsConfig struct {
-	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+	// This server runs in the same pod as ingress gateway.
 	Image                string   `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1688,7 +1854,7 @@ func (m *IngressGatewaySdsConfig) Reset()         { *m = IngressGatewaySdsConfig
 func (m *IngressGatewaySdsConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewaySdsConfig) ProtoMessage()    {}
 func (*IngressGatewaySdsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{17}
+	return fileDescriptor_a739174c5795eddf, []int{16}
 }
 
 func (m *IngressGatewaySdsConfig) XXX_Unmarshal(b []byte) error {
@@ -1723,8 +1889,9 @@ func (m *IngressGatewaySdsConfig) GetImage() string {
 	return ""
 }
 
-// IngressGatewayZvpnConfig is described in istio.io documentation.
+// IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
 type IngressGatewayZvpnConfig struct {
+	// Controls whether ZeroVPN is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Suffix               string   `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1736,7 +1903,7 @@ func (m *IngressGatewayZvpnConfig) Reset()         { *m = IngressGatewayZvpnConf
 func (m *IngressGatewayZvpnConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewayZvpnConfig) ProtoMessage()    {}
 func (*IngressGatewayZvpnConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{18}
+	return fileDescriptor_a739174c5795eddf, []int{17}
 }
 
 func (m *IngressGatewayZvpnConfig) XXX_Unmarshal(b []byte) error {
@@ -1771,8 +1938,11 @@ func (m *IngressGatewayZvpnConfig) GetSuffix() string {
 	return ""
 }
 
-// KubernetesEnvMixerAdapterConfig is described in istio.io documentation.
+// Configuration for Kubernetes environment adapter in mixer.
 type KubernetesEnvMixerAdapterConfig struct {
+	// Enables the Kubernetes env adapter in Mixer.
+	//
+	// See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1783,7 +1953,7 @@ func (m *KubernetesEnvMixerAdapterConfig) Reset()         { *m = KubernetesEnvMi
 func (m *KubernetesEnvMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*KubernetesEnvMixerAdapterConfig) ProtoMessage()    {}
 func (*KubernetesEnvMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{19}
+	return fileDescriptor_a739174c5795eddf, []int{18}
 }
 
 func (m *KubernetesEnvMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -1811,11 +1981,11 @@ func (m *KubernetesEnvMixerAdapterConfig) GetEnabled() bool {
 	return false
 }
 
-// KubernetesIngressConfig represents the configuration for Kubernetes Ingress.
+// Configuration for the legacy kubernetes Ingress.
 type KubernetesIngressConfig struct {
 	// Enables gateway for legacy k8s Ingress.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Enables gateway for legacy k8s Ingress.
+	// Enables HTTPS legacy k8s Ingress.
 	EnableHttps bool `protobuf:"varint,2,opt,name=enableHttps,proto3" json:"enableHttps,omitempty"`
 	// Sets the gateway name for legacy k8s Ingress.
 	GatewayName          string   `protobuf:"bytes,3,opt,name=gatewayName,proto3" json:"gatewayName,omitempty"`
@@ -1828,7 +1998,7 @@ func (m *KubernetesIngressConfig) Reset()         { *m = KubernetesIngressConfig
 func (m *KubernetesIngressConfig) String() string { return proto.CompactTextString(m) }
 func (*KubernetesIngressConfig) ProtoMessage()    {}
 func (*KubernetesIngressConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{20}
+	return fileDescriptor_a739174c5795eddf, []int{19}
 }
 
 func (m *KubernetesIngressConfig) XXX_Unmarshal(b []byte) error {
@@ -1870,7 +2040,7 @@ func (m *KubernetesIngressConfig) GetGatewayName() string {
 	return ""
 }
 
-// LoadSheddingConfig configs when mixer starts rejecting grpc requests.
+// Configuration for when mixer starts rejecting grpc requests.
 type LoadSheddingConfig struct {
 	LatencyThreshold     string   `protobuf:"bytes,1,opt,name=latencyThreshold,proto3" json:"latencyThreshold,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1882,7 +2052,7 @@ func (m *LoadSheddingConfig) Reset()         { *m = LoadSheddingConfig{} }
 func (m *LoadSheddingConfig) String() string { return proto.CompactTextString(m) }
 func (*LoadSheddingConfig) ProtoMessage()    {}
 func (*LoadSheddingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{21}
+	return fileDescriptor_a739174c5795eddf, []int{20}
 }
 
 func (m *LoadSheddingConfig) XXX_Unmarshal(b []byte) error {
@@ -1910,7 +2080,7 @@ func (m *LoadSheddingConfig) GetLatencyThreshold() string {
 	return ""
 }
 
-// MTLSConfig is described in istio.io documentation.
+// MTLS settings for the applications that Istio manages.
 type MTLSConfig struct {
 	// Enables MTLS for service to service traffic.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
@@ -1923,7 +2093,7 @@ func (m *MTLSConfig) Reset()         { *m = MTLSConfig{} }
 func (m *MTLSConfig) String() string { return proto.CompactTextString(m) }
 func (*MTLSConfig) ProtoMessage()    {}
 func (*MTLSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{22}
+	return fileDescriptor_a739174c5795eddf, []int{21}
 }
 
 func (m *MTLSConfig) XXX_Unmarshal(b []byte) error {
@@ -1951,7 +2121,7 @@ func (m *MTLSConfig) GetEnabled() bool {
 	return false
 }
 
-// MeshExpansionConfig is described in istio.io documentation.
+// Configuration for Istio mesh expansion to bare metal.
 type MeshExpansionConfig struct {
 	// Exposes Pilot and Citadel mTLS on the ingress gateway.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
@@ -1966,7 +2136,7 @@ func (m *MeshExpansionConfig) Reset()         { *m = MeshExpansionConfig{} }
 func (m *MeshExpansionConfig) String() string { return proto.CompactTextString(m) }
 func (*MeshExpansionConfig) ProtoMessage()    {}
 func (*MeshExpansionConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{23}
+	return fileDescriptor_a739174c5795eddf, []int{22}
 }
 
 func (m *MeshExpansionConfig) XXX_Unmarshal(b []byte) error {
@@ -2001,22 +2171,26 @@ func (m *MeshExpansionConfig) GetUseILB() bool {
 	return false
 }
 
-// MixerAdaptersConfig is described in istio.io documentation.
+// Configuration for Mixer adapters.
 type MixerAdaptersConfig struct {
-	Kubernetesenv        *KubernetesEnvMixerAdapterConfig `protobuf:"bytes,1,opt,name=kubernetesenv,proto3" json:"kubernetesenv,omitempty"`
-	Prometheus           *PrometheusMixerAdapterConfig    `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
-	Stdio                *StdioMixerAdapterConfig         `protobuf:"bytes,3,opt,name=stdio,proto3" json:"stdio,omitempty"`
-	UseAdapterCRDs       bool                             `protobuf:"varint,4,opt,name=useAdapterCRDs,proto3" json:"useAdapterCRDs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
-	XXX_unrecognized     []byte                           `json:"-"`
-	XXX_sizecache        int32                            `json:"-"`
+	// Configuration for Kubernetes environment adapter in mixer.
+	Kubernetesenv *KubernetesEnvMixerAdapterConfig `protobuf:"bytes,1,opt,name=kubernetesenv,proto3" json:"kubernetesenv,omitempty"`
+	// Configuration for Prometheus adapter in mixer.
+	Prometheus *PrometheusMixerAdapterConfig `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
+	// Configuration for stdio adapter in mixer, recommended for debug usage only.
+	Stdio *StdioMixerAdapterConfig `protobuf:"bytes,3,opt,name=stdio,proto3" json:"stdio,omitempty"`
+	// Sets the --useAdapterCRDs mixer startup argument.
+	UseAdapterCRDs       bool     `protobuf:"varint,4,opt,name=useAdapterCRDs,proto3" json:"useAdapterCRDs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *MixerAdaptersConfig) Reset()         { *m = MixerAdaptersConfig{} }
 func (m *MixerAdaptersConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerAdaptersConfig) ProtoMessage()    {}
 func (*MixerAdaptersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{24}
+	return fileDescriptor_a739174c5795eddf, []int{23}
 }
 
 func (m *MixerAdaptersConfig) XXX_Unmarshal(b []byte) error {
@@ -2065,14 +2239,12 @@ func (m *MixerAdaptersConfig) GetUseAdapterCRDs() bool {
 	return false
 }
 
-// MixerConfig is described in istio.io documentation.
+// Configuration for Mixer.
 type MixerConfig struct {
-	Adapters             *MixerAdaptersConfig  `protobuf:"bytes,1,opt,name=adapters,proto3" json:"adapters,omitempty"`
-	Enabled              bool                  `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Env                  map[string]string     `protobuf:"bytes,3,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Image                string                `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
-	Policy               *MixerPolicyConfig    `protobuf:"bytes,5,opt,name=policy,proto3" json:"policy,omitempty"`
-	Telemetry            *MixerTelemetryConfig `protobuf:"bytes,6,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
+	// MixerPolicyConfig is set of configurations for Mixer Policy
+	Policy *MixerPolicyConfig `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	// MixerTelemetryConfig is set of configurations for Mixer Telemetry
+	Telemetry            *MixerTelemetryConfig `protobuf:"bytes,2,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -2082,7 +2254,7 @@ func (m *MixerConfig) Reset()         { *m = MixerConfig{} }
 func (m *MixerConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerConfig) ProtoMessage()    {}
 func (*MixerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{25}
+	return fileDescriptor_a739174c5795eddf, []int{24}
 }
 
 func (m *MixerConfig) XXX_Unmarshal(b []byte) error {
@@ -2103,34 +2275,6 @@ func (m *MixerConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MixerConfig proto.InternalMessageInfo
 
-func (m *MixerConfig) GetAdapters() *MixerAdaptersConfig {
-	if m != nil {
-		return m.Adapters
-	}
-	return nil
-}
-
-func (m *MixerConfig) GetEnabled() bool {
-	if m != nil {
-		return m.Enabled
-	}
-	return false
-}
-
-func (m *MixerConfig) GetEnv() map[string]string {
-	if m != nil {
-		return m.Env
-	}
-	return nil
-}
-
-func (m *MixerConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
 func (m *MixerConfig) GetPolicy() *MixerPolicyConfig {
 	if m != nil {
 		return m.Policy
@@ -2145,16 +2289,32 @@ func (m *MixerConfig) GetTelemetry() *MixerTelemetryConfig {
 	return nil
 }
 
-// MixerPolicyConfig is described in istio.io documentation.
+// Configuration for Mixer Policy.
 type MixerPolicyConfig struct {
-	AutoscaleEnabled bool                        `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMax     uint32                      `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	AutoscaleMin     uint32                      `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	Cpu              *CPUTargetUtilizationConfig `protobuf:"bytes,4,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	Enabled          bool                        `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Image            string                      `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
-	// 	PodAnnotations   map[string]interface{}      `json:"podAnnotations,omitempty"`
-	ReplicaCount         uint32   `protobuf:"varint,7,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.
+	AutoscaleEnabled bool `protobuf:"varint,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	// Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
+	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
+	// Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
+	// Target CPU utilization used in HorizontalPodAutoscaler.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,4,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// Controls whether Mixer Policy is enabled
+	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Image name used for Mixer Policy.
+	//
+	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+	//
+	// Examples: custom-mixer, docker.io/someuser:custom-mixer
+	Image string `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
+	// K8s annotations to attach to mixer policy deployment
+	//
+	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	PodAnnotations map[string]interface{} `protobuf:"bytes,7,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// Number of replicas in the Mixer Policy Deployment
+	ReplicaCount         uint32   `protobuf:"varint,8,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2164,7 +2324,7 @@ func (m *MixerPolicyConfig) Reset()         { *m = MixerPolicyConfig{} }
 func (m *MixerPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerPolicyConfig) ProtoMessage()    {}
 func (*MixerPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{26}
+	return fileDescriptor_a739174c5795eddf, []int{25}
 }
 
 func (m *MixerPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -2227,6 +2387,13 @@ func (m *MixerPolicyConfig) GetImage() string {
 	return ""
 }
 
+func (m *MixerPolicyConfig) GetPodAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.PodAnnotations
+	}
+	return nil
+}
+
 func (m *MixerPolicyConfig) GetReplicaCount() uint32 {
 	if m != nil {
 		return m.ReplicaCount
@@ -2234,32 +2401,63 @@ func (m *MixerPolicyConfig) GetReplicaCount() uint32 {
 	return 0
 }
 
-// MixerTelemetryConfig is described in istio.io documentation.
+// Configuration for Mixer Telemetry.
 type MixerTelemetryConfig struct {
-	Adapters         *MixerAdaptersConfig        `protobuf:"bytes,1,opt,name=adapters,proto3" json:"adapters,omitempty"`
-	AutoscaleEnabled bool                        `protobuf:"varint,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMax     uint32                      `protobuf:"varint,3,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	AutoscaleMin     uint32                      `protobuf:"varint,4,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	Cpu              *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	Enabled          bool                        `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Env              map[string]string           `protobuf:"bytes,7,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Image            string                      `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
-	Loadshedding     *LoadSheddingConfig         `protobuf:"bytes,9,opt,name=loadshedding,proto3" json:"loadshedding,omitempty"`
-	// 	NodeSelector           map[string]interface{}     `json:"nodeSelector,omitempty"`
-	// 	PodAnnotations         map[string]interface{}     `json:"podAnnotations,omitempty"`
-	ReplicaCount           uint32                   `protobuf:"varint,10,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	Resources              *v1.ResourceRequirements `protobuf:"bytes,11,opt,name=resources,proto3" json:"resources,omitempty"`
-	SessionAffinityEnabled bool                     `protobuf:"varint,12,opt,name=sessionAffinityEnabled,proto3" json:"sessionAffinityEnabled,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}                 `json:"-"`
-	XXX_unrecognized       []byte                   `json:"-"`
-	XXX_sizecache          int32                    `json:"-"`
+	// Configuration for different mixer adapters.
+	Adapters *MixerAdaptersConfig `protobuf:"bytes,1,opt,name=adapters,proto3" json:"adapters,omitempty"`
+	// Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.
+	AutoscaleEnabled bool `protobuf:"varint,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	// Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
+	AutoscaleMax uint32 `protobuf:"varint,3,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
+	// Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
+	AutoscaleMin uint32 `protobuf:"varint,4,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
+	// Target CPU utilization used in HorizontalPodAutoscaler.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// Controls whether Mixer Telemetry is enabled.
+	Enabled bool `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Environment variables passed to the Mixer container.
+	//
+	// Examples:
+	// env:
+	//   ENV_VAR_1: value1
+	//   ENV_VAR_2: value2
+	Env map[string]string `protobuf:"bytes,7,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Image name used for Mixer Telemetry.
+	//
+	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+	//
+	// Examples: custom-mixer, docker.io/someuser:custom-mixer
+	Image string `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
+	// LoadSheddingConfig configs when mixer starts rejecting grpc requests.
+	Loadshedding *LoadSheddingConfig `protobuf:"bytes,9,opt,name=loadshedding,proto3" json:"loadshedding,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// K8s annotations to attach to mixer telemetry deployment
+	//
+	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// Number of replicas in the Mixer Telemetry Deployment.
+	ReplicaCount uint32 `protobuf:"varint,12,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources *v1.ResourceRequirements `protobuf:"bytes,13,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Controls whether to enable the sticky session setting when choosing backend pods.
+	SessionAffinityEnabled bool     `protobuf:"varint,14,opt,name=sessionAffinityEnabled,proto3" json:"sessionAffinityEnabled,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{} `json:"-"`
+	XXX_unrecognized       []byte   `json:"-"`
+	XXX_sizecache          int32    `json:"-"`
 }
 
 func (m *MixerTelemetryConfig) Reset()         { *m = MixerTelemetryConfig{} }
 func (m *MixerTelemetryConfig) String() string { return proto.CompactTextString(m) }
 func (*MixerTelemetryConfig) ProtoMessage()    {}
 func (*MixerTelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{27}
+	return fileDescriptor_a739174c5795eddf, []int{26}
 }
 
 func (m *MixerTelemetryConfig) XXX_Unmarshal(b []byte) error {
@@ -2343,6 +2541,20 @@ func (m *MixerTelemetryConfig) GetLoadshedding() *LoadSheddingConfig {
 	return nil
 }
 
+func (m *MixerTelemetryConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
+func (m *MixerTelemetryConfig) GetPodAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.PodAnnotations
+	}
+	return nil
+}
+
 func (m *MixerTelemetryConfig) GetReplicaCount() uint32 {
 	if m != nil {
 		return m.ReplicaCount
@@ -2364,9 +2576,10 @@ func (m *MixerTelemetryConfig) GetSessionAffinityEnabled() bool {
 	return false
 }
 
-// MultiClusterConfig is described in istio.io documentation.
+// MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
 type MultiClusterConfig struct {
-	// Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.
+	// Enables the connection between two kubernetes clusters via their respective ingressgateway services.
+	// Use if the pods in each cluster cannot directly talk to one another.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2377,7 +2590,7 @@ func (m *MultiClusterConfig) Reset()         { *m = MultiClusterConfig{} }
 func (m *MultiClusterConfig) String() string { return proto.CompactTextString(m) }
 func (*MultiClusterConfig) ProtoMessage()    {}
 func (*MultiClusterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{28}
+	return fileDescriptor_a739174c5795eddf, []int{27}
 }
 
 func (m *MultiClusterConfig) XXX_Unmarshal(b []byte) error {
@@ -2405,21 +2618,33 @@ func (m *MultiClusterConfig) GetEnabled() bool {
 	return false
 }
 
-// NodeAgentConfig is described in istio.io documentation.
+// Configuration for Node Agent Daemonset.
 type NodeAgentConfig struct {
+	// Controls whether Node Agent is enabled.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// 	Env          map[string]interface{} `json:"env,omitempty"`
-	Image                string   `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	// Environment variables passed to the Node Agent container.
+	//
+	// Examples:
+	// env:
+	//   ENV_VAR_1: value1
+	//   ENV_VAR_2: value2
+	Env map[string]interface{} `protobuf:"bytes,2,opt,name=env,proto3" json:"env,omitempty"`
+	// Image name for the Node Agent DaemonSet.
+	Image string `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector         map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
 func (m *NodeAgentConfig) Reset()         { *m = NodeAgentConfig{} }
 func (m *NodeAgentConfig) String() string { return proto.CompactTextString(m) }
 func (*NodeAgentConfig) ProtoMessage()    {}
 func (*NodeAgentConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{29}
+	return fileDescriptor_a739174c5795eddf, []int{28}
 }
 
 func (m *NodeAgentConfig) XXX_Unmarshal(b []byte) error {
@@ -2447,6 +2672,13 @@ func (m *NodeAgentConfig) GetEnabled() bool {
 	return false
 }
 
+func (m *NodeAgentConfig) GetEnv() map[string]interface{} {
+	if m != nil {
+		return m.Env
+	}
+	return nil
+}
+
 func (m *NodeAgentConfig) GetImage() string {
 	if m != nil {
 		return m.Image
@@ -2454,7 +2686,14 @@ func (m *NodeAgentConfig) GetImage() string {
 	return ""
 }
 
-// OutboundTrafficPolicyConfig is described in istio.io documentation.
+func (m *NodeAgentConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
+// OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
 type OutboundTrafficPolicyConfig struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2465,7 +2704,7 @@ func (m *OutboundTrafficPolicyConfig) Reset()         { *m = OutboundTrafficPoli
 func (m *OutboundTrafficPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*OutboundTrafficPolicyConfig) ProtoMessage()    {}
 func (*OutboundTrafficPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{30}
+	return fileDescriptor_a739174c5795eddf, []int{29}
 }
 
 func (m *OutboundTrafficPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -2486,31 +2725,86 @@ func (m *OutboundTrafficPolicyConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_OutboundTrafficPolicyConfig proto.InternalMessageInfo
 
-// PilotConfig is described in istio.io documentation.
+// Configuration for Pilot.
 type PilotConfig struct {
-	Enabled          bool                        `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	AutoscaleEnabled bool                        `protobuf:"varint,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	AutoscaleMin     uint32                      `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	AutoscaleMax     uint32                      `protobuf:"varint,4,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	ReplicaCount     uint32                      `protobuf:"varint,5,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	Image            string                      `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
-	Sidecar          bool                        `protobuf:"varint,7,opt,name=sidecar,proto3" json:"sidecar,omitempty"`
-	TraceSampling    float64                     `protobuf:"fixed64,8,opt,name=traceSampling,proto3" json:"traceSampling,omitempty"`
-	Resources        *v1.ResourceRequirements    `protobuf:"bytes,9,opt,name=resources,proto3" json:"resources,omitempty"`
-	ConfigNamespace  string                      `protobuf:"bytes,10,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
-	Cpu              *CPUTargetUtilizationConfig `protobuf:"bytes,11,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	// 	NodeSelector                     map[string]interface{}      `json:"nodeSelector,omitempty"`
-	KeepaliveMaxServerConnectionAge *duration.Duration `protobuf:"bytes,12,opt,name=keepaliveMaxServerConnectionAge,proto3" json:"keepaliveMaxServerConnectionAge,omitempty"`
-	DeploymentLabels                map[string]string  `protobuf:"bytes,13,rep,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// 	MeshNetworks                     map[string]interface{}      `json:"meshNetworks,omitempty"`
-	// 	PodAntiAffinityLabelSelector     []map[string]interface{}    `json:"podAntiAffinityLabelSelector"`
-	// 	PodAntiAffinityTermLabelSelector []map[string]interface{}    `json:"podAntiAffinityTermLabelSelector"`
-	ConfigMap            bool                  `protobuf:"varint,14,opt,name=configMap,proto3" json:"configMap,omitempty"`
-	Ingress              *PilotIngressConfig   `protobuf:"bytes,15,opt,name=ingress,proto3" json:"ingress,omitempty"`
-	UseMCP               bool                  `protobuf:"varint,16,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
-	Env                  map[string]string     `protobuf:"bytes,17,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Policy               *PilotPolicyConfig    `protobuf:"bytes,18,opt,name=policy,proto3" json:"policy,omitempty"`
-	Telemetry            *PilotTelemetryConfig `protobuf:"bytes,19,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
+	// Controls whether Pilot is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Controls whether a HorizontalPodAutoscaler is installed for Pilot.
+	AutoscaleEnabled bool `protobuf:"varint,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
+	// Minimum number of replicas in the HorizontalPodAutoscaler for Pilot.
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
+	// Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
+	AutoscaleMax uint32 `protobuf:"varint,4,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
+	// Number of replicas in the Pilot Deployment.
+	ReplicaCount uint32 `protobuf:"varint,5,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// Image name used for Pilot.
+	//
+	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+	//
+	// Examples: custom-pilot, docker.io/someuser:custom-pilot
+	Image string `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
+	// Controls whether a sidecar proxy is installed in the Pilot pod.
+	//
+	// Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.
+	Sidecar bool `protobuf:"varint,7,opt,name=sidecar,proto3" json:"sidecar,omitempty"`
+	// Trace sampling fraction.
+	//
+	// Used to set the fraction of time that traces are sampled. Higher values are more accurate but add CPU overhead.
+	//
+	// Allowed values: 0.0 to 1.0
+	TraceSampling float64 `protobuf:"fixed64,8,opt,name=traceSampling,proto3" json:"traceSampling,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources *v1.ResourceRequirements `protobuf:"bytes,9,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Namespace that the configuration management feature is installed into, if different from Pilot namespace.
+	ConfigNamespace string `protobuf:"bytes,10,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
+	// Target CPU utilization used in HorizontalPodAutoscaler.
+	//
+	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,11,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,12,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// Maximum duration that a sidecar can be connected to a pilot.
+	//
+	// This setting balances out load across pilot instances, but adds some resource overhead.
+	//
+	// Examples: 300s, 30m, 1h
+	KeepaliveMaxServerConnectionAge *duration.Duration `protobuf:"bytes,13,opt,name=keepaliveMaxServerConnectionAge,proto3" json:"keepaliveMaxServerConnectionAge,omitempty"`
+	// Labels that are added to Pilot pods.
+	//
+	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	DeploymentLabels map[string]interface{} `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
+	// Used to override control plane networks.
+	MeshNetworks map[string]interface{} `protobuf:"bytes,15,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,16,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,17,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	// Configuration settings passed to Pilot as a ConfigMap.
+	//
+	// This controls whether the mesh config map, generated from values.yaml is generated.
+	// If false, pilot wil use default values or user-supplied values, in that order of preference.
+	ConfigMap bool `protobuf:"varint,18,opt,name=configMap,proto3" json:"configMap,omitempty"`
+	// Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
+	Ingress *PilotIngressConfig `protobuf:"bytes,19,opt,name=ingress,proto3" json:"ingress,omitempty"`
+	// Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
+	//
+	// If set to true, Pilot requires an MCP server (like Galley) to be installed.
+	UseMCP bool `protobuf:"varint,20,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
+	// Environment variables passed to the Pilot container.
+	//
+	// Examples:
+	// env:
+	//   ENV_VAR_1: value1
+	//   ENV_VAR_2: value2
+	Env map[string]string `protobuf:"bytes,21,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Controls whether Istio policy is applied to Pilot.
+	Policy *PilotPolicyConfig `protobuf:"bytes,22,opt,name=policy,proto3" json:"policy,omitempty"`
+	// Controls whether telemetry is exported for Pilot.
+	Telemetry            *PilotTelemetryConfig `protobuf:"bytes,23,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -2520,7 +2814,7 @@ func (m *PilotConfig) Reset()         { *m = PilotConfig{} }
 func (m *PilotConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotConfig) ProtoMessage()    {}
 func (*PilotConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{31}
+	return fileDescriptor_a739174c5795eddf, []int{30}
 }
 
 func (m *PilotConfig) XXX_Unmarshal(b []byte) error {
@@ -2618,6 +2912,13 @@ func (m *PilotConfig) GetCpu() *CPUTargetUtilizationConfig {
 	return nil
 }
 
+func (m *PilotConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
 func (m *PilotConfig) GetKeepaliveMaxServerConnectionAge() *duration.Duration {
 	if m != nil {
 		return m.KeepaliveMaxServerConnectionAge
@@ -2625,9 +2926,30 @@ func (m *PilotConfig) GetKeepaliveMaxServerConnectionAge() *duration.Duration {
 	return nil
 }
 
-func (m *PilotConfig) GetDeploymentLabels() map[string]string {
+func (m *PilotConfig) GetDeploymentLabels() map[string]interface{} {
 	if m != nil {
 		return m.DeploymentLabels
+	}
+	return nil
+}
+
+func (m *PilotConfig) GetMeshNetworks() map[string]interface{} {
+	if m != nil {
+		return m.MeshNetworks
+	}
+	return nil
+}
+
+func (m *PilotConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityLabelSelector
+	}
+	return nil
+}
+
+func (m *PilotConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityTermLabelSelector
 	}
 	return nil
 }
@@ -2674,10 +2996,15 @@ func (m *PilotConfig) GetTelemetry() *PilotTelemetryConfig {
 	return nil
 }
 
-// PilotIngressConfig is described in istio.io documentation.
+// Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
 type PilotIngressConfig struct {
+	// Sets the type ingress service for Pilot.
+	//
+	// If empty, node-port is assumed.
+	//
+	// Allowed values: node-port, istio-ingressgateway, ingress
 	IngressService string `protobuf:"bytes,1,opt,name=ingressService,proto3" json:"ingressService,omitempty"`
-	//Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
+	// If mode is STRICT, this value must be set on "kubernetes.io/ingress.class" annotation to activate.
 	IngressClass         string   `protobuf:"bytes,3,opt,name=ingressClass,proto3" json:"ingressClass,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2688,7 +3015,7 @@ func (m *PilotIngressConfig) Reset()         { *m = PilotIngressConfig{} }
 func (m *PilotIngressConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotIngressConfig) ProtoMessage()    {}
 func (*PilotIngressConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{32}
+	return fileDescriptor_a739174c5795eddf, []int{31}
 }
 
 func (m *PilotIngressConfig) XXX_Unmarshal(b []byte) error {
@@ -2723,8 +3050,9 @@ func (m *PilotIngressConfig) GetIngressClass() string {
 	return ""
 }
 
-// PilotPolicyConfig is described in istio.io documentation.
+// Controls whether Istio policy is applied to Pilot.
 type PilotPolicyConfig struct {
+	// Controls whether Istio policy is applied to Pilot.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2735,7 +3063,7 @@ func (m *PilotPolicyConfig) Reset()         { *m = PilotPolicyConfig{} }
 func (m *PilotPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotPolicyConfig) ProtoMessage()    {}
 func (*PilotPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{33}
+	return fileDescriptor_a739174c5795eddf, []int{32}
 }
 
 func (m *PilotPolicyConfig) XXX_Unmarshal(b []byte) error {
@@ -2763,8 +3091,9 @@ func (m *PilotPolicyConfig) GetEnabled() bool {
 	return false
 }
 
-// PilotTelemetryConfig is described in istio.io documentation.
+// Controls whether telemetry is exported for Pilot.
 type PilotTelemetryConfig struct {
+	// Controls whether telemetry is exported for Pilot.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2775,7 +3104,7 @@ func (m *PilotTelemetryConfig) Reset()         { *m = PilotTelemetryConfig{} }
 func (m *PilotTelemetryConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotTelemetryConfig) ProtoMessage()    {}
 func (*PilotTelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{34}
+	return fileDescriptor_a739174c5795eddf, []int{33}
 }
 
 func (m *PilotTelemetryConfig) XXX_Unmarshal(b []byte) error {
@@ -2803,11 +3132,15 @@ func (m *PilotTelemetryConfig) GetEnabled() bool {
 	return false
 }
 
-// PortsConfig is described in istio.io documentation.
+// Configuration for a port.
 type PortsConfig struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Port                 int32    `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	NodePort             int32    `protobuf:"varint,3,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
+	// Port name.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Port number.
+	Port int32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	// NodePort number.
+	NodePort int32 `protobuf:"varint,3,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
+	// Target port number.
 	TargetPort           int32    `protobuf:"varint,4,opt,name=targetPort,proto3" json:"targetPort,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2818,7 +3151,7 @@ func (m *PortsConfig) Reset()         { *m = PortsConfig{} }
 func (m *PortsConfig) String() string { return proto.CompactTextString(m) }
 func (*PortsConfig) ProtoMessage()    {}
 func (*PortsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{35}
+	return fileDescriptor_a739174c5795eddf, []int{34}
 }
 
 func (m *PortsConfig) XXX_Unmarshal(b []byte) error {
@@ -2867,30 +3200,30 @@ func (m *PortsConfig) GetTargetPort() int32 {
 	return 0
 }
 
-// PrometheusConfig is described in istio.io documentation.
+// Configuration for Prometheus.
 type PrometheusConfig struct {
-	CreatePrometheusResource bool   `protobuf:"varint,1,opt,name=createPrometheusResource,proto3" json:"createPrometheusResource,omitempty"`
-	Enabled                  bool   `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ReplicaCount             uint32 `protobuf:"varint,3,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	Hub                      string `protobuf:"bytes,4,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                      string `protobuf:"bytes,5,opt,name=tag,proto3" json:"tag,omitempty"`
-	Retention                string `protobuf:"bytes,6,opt,name=retention,proto3" json:"retention,omitempty"`
-	// 	NodeSelector             map[string]interface{}    `json:"nodeSelector,omitempty"`
-	ScrapeInterval       *duration.Duration        `protobuf:"bytes,7,opt,name=scrapeInterval,proto3" json:"scrapeInterval,omitempty"`
-	ContextPath          string                    `protobuf:"bytes,8,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
-	Ingress              *AddonIngressConfig       `protobuf:"bytes,9,opt,name=ingress,proto3" json:"ingress,omitempty"`
-	Service              *PrometheusServiceConfig  `protobuf:"bytes,10,opt,name=service,proto3" json:"service,omitempty"`
-	Security             *PrometheusSecurityConfig `protobuf:"bytes,11,opt,name=security,proto3" json:"security,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
-	XXX_unrecognized     []byte                    `json:"-"`
-	XXX_sizecache        int32                     `json:"-"`
+	CreatePrometheusResource bool                      `protobuf:"varint,1,opt,name=createPrometheusResource,proto3" json:"createPrometheusResource,omitempty"`
+	Enabled                  bool                      `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	ReplicaCount             uint32                    `protobuf:"varint,3,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	Hub                      string                    `protobuf:"bytes,4,opt,name=hub,proto3" json:"hub,omitempty"`
+	Tag                      string                    `protobuf:"bytes,5,opt,name=tag,proto3" json:"tag,omitempty"`
+	Retention                string                    `protobuf:"bytes,6,opt,name=retention,proto3" json:"retention,omitempty"`
+	NodeSelector             map[string]interface{}   `protobuf:"bytes,7,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	ScrapeInterval           *duration.Duration        `protobuf:"bytes,8,opt,name=scrapeInterval,proto3" json:"scrapeInterval,omitempty"`
+	ContextPath              string                    `protobuf:"bytes,9,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
+	Ingress                  *AddonIngressConfig       `protobuf:"bytes,10,opt,name=ingress,proto3" json:"ingress,omitempty"`
+	Service                  *PrometheusServiceConfig  `protobuf:"bytes,11,opt,name=service,proto3" json:"service,omitempty"`
+	Security                 *PrometheusSecurityConfig `protobuf:"bytes,12,opt,name=security,proto3" json:"security,omitempty"`
+	XXX_NoUnkeyedLiteral     struct{}                  `json:"-"`
+	XXX_unrecognized         []byte                    `json:"-"`
+	XXX_sizecache            int32                     `json:"-"`
 }
 
 func (m *PrometheusConfig) Reset()         { *m = PrometheusConfig{} }
 func (m *PrometheusConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusConfig) ProtoMessage()    {}
 func (*PrometheusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{36}
+	return fileDescriptor_a739174c5795eddf, []int{35}
 }
 
 func (m *PrometheusConfig) XXX_Unmarshal(b []byte) error {
@@ -2953,6 +3286,13 @@ func (m *PrometheusConfig) GetRetention() string {
 	return ""
 }
 
+func (m *PrometheusConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
 func (m *PrometheusConfig) GetScrapeInterval() *duration.Duration {
 	if m != nil {
 		return m.ScrapeInterval
@@ -2988,9 +3328,13 @@ func (m *PrometheusConfig) GetSecurity() *PrometheusSecurityConfig {
 	return nil
 }
 
-// PrometheusMixerAdapterConfig is described in istio.io documentation.
+// Configuration for Prometheus adapter in mixer.
 type PrometheusMixerAdapterConfig struct {
-	Enabled               bool               `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Enables the Prometheus adapter in Mixer.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Sets the duration after which Prometheus registry purges a metric.
+	//
+	// See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus/#Params
 	MetricsExpiryDuration *duration.Duration `protobuf:"bytes,2,opt,name=metricsExpiryDuration,proto3" json:"metricsExpiryDuration,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{}           `json:"-"`
 	XXX_unrecognized      []byte             `json:"-"`
@@ -3001,7 +3345,7 @@ func (m *PrometheusMixerAdapterConfig) Reset()         { *m = PrometheusMixerAda
 func (m *PrometheusMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusMixerAdapterConfig) ProtoMessage()    {}
 func (*PrometheusMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{37}
+	return fileDescriptor_a739174c5795eddf, []int{36}
 }
 
 func (m *PrometheusMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -3036,8 +3380,9 @@ func (m *PrometheusMixerAdapterConfig) GetMetricsExpiryDuration() *duration.Dura
 	return nil
 }
 
-// PrometheusSecurityConfig is described in istio.io documentation.
+// Configuration for Prometheus adapter security.
 type PrometheusSecurityConfig struct {
+	// Controls whether Prometheus security is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -3048,7 +3393,7 @@ func (m *PrometheusSecurityConfig) Reset()         { *m = PrometheusSecurityConf
 func (m *PrometheusSecurityConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusSecurityConfig) ProtoMessage()    {}
 func (*PrometheusSecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{38}
+	return fileDescriptor_a739174c5795eddf, []int{37}
 }
 
 func (m *PrometheusSecurityConfig) XXX_Unmarshal(b []byte) error {
@@ -3076,10 +3421,10 @@ func (m *PrometheusSecurityConfig) GetEnabled() bool {
 	return false
 }
 
-// PrometheusServiceConfig is described in istio.io documentation.
+// Configuration for Prometheus adapter service.
 type PrometheusServiceConfig struct {
-	// 	Annotations map[string]interface{}           `json:"annotations,omitempty"`
-	NodePort             *PrometheusServiceNodePortConfig `protobuf:"bytes,1,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
+	Annotations          map[string]interface{}          `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	NodePort             *PrometheusServiceNodePortConfig `protobuf:"bytes,2,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
 	XXX_unrecognized     []byte                           `json:"-"`
 	XXX_sizecache        int32                            `json:"-"`
@@ -3089,7 +3434,7 @@ func (m *PrometheusServiceConfig) Reset()         { *m = PrometheusServiceConfig
 func (m *PrometheusServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusServiceConfig) ProtoMessage()    {}
 func (*PrometheusServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{39}
+	return fileDescriptor_a739174c5795eddf, []int{38}
 }
 
 func (m *PrometheusServiceConfig) XXX_Unmarshal(b []byte) error {
@@ -3110,6 +3455,13 @@ func (m *PrometheusServiceConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PrometheusServiceConfig proto.InternalMessageInfo
 
+func (m *PrometheusServiceConfig) GetAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.Annotations
+	}
+	return nil
+}
+
 func (m *PrometheusServiceConfig) GetNodePort() *PrometheusServiceNodePortConfig {
 	if m != nil {
 		return m.NodePort
@@ -3117,8 +3469,9 @@ func (m *PrometheusServiceConfig) GetNodePort() *PrometheusServiceNodePortConfig
 	return nil
 }
 
-// PrometheusServiceNodePortConfig is described in istio.io documentation.
+// Configuration for Prometheus Service NodePort.
 type PrometheusServiceNodePortConfig struct {
+	// Controls whether Prometheus NodePort config is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Port                 uint32   `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -3130,7 +3483,7 @@ func (m *PrometheusServiceNodePortConfig) Reset()         { *m = PrometheusServi
 func (m *PrometheusServiceNodePortConfig) String() string { return proto.CompactTextString(m) }
 func (*PrometheusServiceNodePortConfig) ProtoMessage()    {}
 func (*PrometheusServiceNodePortConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{40}
+	return fileDescriptor_a739174c5795eddf, []int{39}
 }
 
 func (m *PrometheusServiceNodePortConfig) XXX_Unmarshal(b []byte) error {
@@ -3165,36 +3518,66 @@ func (m *PrometheusServiceNodePortConfig) GetPort() uint32 {
 	return 0
 }
 
-// ProxyConfig specifies how proxies are configured within Istio.
+// Configuration for Proxy.
 type ProxyConfig struct {
 	// Specifies the path to write the sidecar access log file.
 	AccessLogFile string `protobuf:"bytes,1,opt,name=accessLogFile,proto3" json:"accessLogFile,omitempty"`
 	// Configures how and what fields are displayed in sidecar access log.
 	AccessLogFormat string `protobuf:"bytes,2,opt,name=accessLogFormat,proto3" json:"accessLogFormat,omitempty"`
-	// Domain for the cluster - defaults to .cluster.local, but k8s allows this to be customized, can be prod.example.com
-	ClusterDomain     string `protobuf:"bytes,5,opt,name=clusterDomain,proto3" json:"clusterDomain,omitempty"`
+	// Domain for the cluster, default: "cluster.local".
+	//
+	// K8s allows this to be customized, see https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
+	ClusterDomain string `protobuf:"bytes,5,opt,name=clusterDomain,proto3" json:"clusterDomain,omitempty"`
+	// Per Component log level for proxy, applies to gateways and sidecars.
+	//
+	// If a component level is not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
 	ComponentLogLevel string `protobuf:"bytes,6,opt,name=componentLogLevel,proto3" json:"componentLogLevel,omitempty"`
 	// Controls number of proxy worker threads.
+	//
+	// If set to 0 (default), then start worker thread for each CPU thread/core.
 	Concurrency uint32 `protobuf:"varint,7,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
 	// Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.
+	//
+	// This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
 	DnsRefreshRate *duration.Duration `protobuf:"bytes,8,opt,name=dnsRefreshRate,proto3" json:"dnsRefreshRate,omitempty"`
 	// Enables core dumps for newly injected sidecars.
-	EnableCoreDump      bool                `protobuf:"varint,9,opt,name=enableCoreDump,proto3" json:"enableCoreDump,omitempty"`
+	//
+	// If set, newly injected sidecars will have core dumps enabled.
+	EnableCoreDump bool `protobuf:"varint,9,opt,name=enableCoreDump,proto3" json:"enableCoreDump,omitempty"`
+	// Configures Envoy Metrics Service.
 	EnvoyMetricsService *EnvoyMetricsConfig `protobuf:"bytes,10,opt,name=envoyMetricsService,proto3" json:"envoyMetricsService,omitempty"`
-	EnvoyStatsd         *EnvoyMetricsConfig `protobuf:"bytes,11,opt,name=envoyStatsd,proto3" json:"envoyStatsd,omitempty"`
+	// Configures statsd export in Envoy.
+	EnvoyStatsd *EnvoyMetricsConfig `protobuf:"bytes,11,opt,name=envoyStatsd,proto3" json:"envoyStatsd,omitempty"`
 	// Specifies the Istio ingress ports not to capture.
 	ExcludeInboundPorts string `protobuf:"bytes,12,opt,name=excludeInboundPorts,proto3" json:"excludeInboundPorts,omitempty"`
 	// Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.
 	ExcludeIPRanges string `protobuf:"bytes,13,opt,name=excludeIPRanges,proto3" json:"excludeIPRanges,omitempty"`
-	// Image name or path for the proxy.
+	// Image name or path for the proxy, default: "proxyv2".
+	//
+	// If registry or tag are not specified, global.hub and global.tag are used.
+	//
+	// Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0
 	Image string `protobuf:"bytes,14,opt,name=image,proto3" json:"image,omitempty"`
 	// Specifies the Istio ingress ports to capture.
+	//
+	// Examples:
+	// "":          Redirect no inbound traffic to Envoy.
+	// "*":         Redirect all inbound traffic to Envoy.
+	// "80,8080":   Redirect only selected ports.
 	IncludeInboundPorts string `protobuf:"bytes,15,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
 	// Lists the IP ranges of Istio egress traffic that the sidecar captures.
-	IncludeIPRanges    string `protobuf:"bytes,16,opt,name=includeIPRanges,proto3" json:"includeIPRanges,omitempty"`
+	//
+	// Example: "172.30.0.0/16,172.20.0.0/16"
+	// This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar."
+	IncludeIPRanges string `protobuf:"bytes,16,opt,name=includeIPRanges,proto3" json:"includeIPRanges,omitempty"`
+	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.
 	KubevirtInterfaces string `protobuf:"bytes,17,opt,name=kubevirtInterfaces,proto3" json:"kubevirtInterfaces,omitempty"`
-	LogLevel           string `protobuf:"bytes,18,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
-	Privileged         bool   `protobuf:"varint,19,opt,name=privileged,proto3" json:"privileged,omitempty"`
+	// Log level for proxy, applies to gateways and sidecars. If left empty, "warning" is used. Expected values are: trace\|debug\|info\|warning\|error\|critical\|off
+	LogLevel string `protobuf:"bytes,18,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
+	// Enables privileged securityContext for the istio-proxy container.
+	//
+	// See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+	Privileged bool `protobuf:"varint,19,opt,name=privileged,proto3" json:"privileged,omitempty"`
 	// Sets the initial delay for readiness probes in seconds.
 	ReadinessInitialDelaySeconds uint32 `protobuf:"varint,20,opt,name=readinessInitialDelaySeconds,proto3" json:"readinessInitialDelaySeconds,omitempty"`
 	// Sets the interval between readiness probes in seconds.
@@ -3202,7 +3585,10 @@ type ProxyConfig struct {
 	// Sets the number of successive failed probes before indicating readiness failure.
 	ReadinessFailureThreshold uint32 `protobuf:"varint,22,opt,name=readinessFailureThreshold,proto3" json:"readinessFailureThreshold,omitempty"`
 	// Default port used for the Pilot agent's health checks.
-	StatusPort           uint32                   `protobuf:"varint,23,opt,name=statusPort,proto3" json:"statusPort,omitempty"`
+	StatusPort uint32 `protobuf:"varint,23,opt,name=statusPort,proto3" json:"statusPort,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	Resources            *v1.ResourceRequirements `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
@@ -3213,7 +3599,7 @@ func (m *ProxyConfig) Reset()         { *m = ProxyConfig{} }
 func (m *ProxyConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyConfig) ProtoMessage()    {}
 func (*ProxyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{41}
+	return fileDescriptor_a739174c5795eddf, []int{40}
 }
 
 func (m *ProxyConfig) XXX_Unmarshal(b []byte) error {
@@ -3388,8 +3774,9 @@ func (m *ProxyConfig) GetResources() *v1.ResourceRequirements {
 	return nil
 }
 
-// ProxyInitConfig is described in istio.io documentation.
+// Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
 type ProxyInitConfig struct {
+	// Specifies the image for the proxy_init container.
 	Image                string   `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -3400,7 +3787,7 @@ func (m *ProxyInitConfig) Reset()         { *m = ProxyInitConfig{} }
 func (m *ProxyInitConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyInitConfig) ProtoMessage()    {}
 func (*ProxyInitConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{42}
+	return fileDescriptor_a739174c5795eddf, []int{41}
 }
 
 func (m *ProxyInitConfig) XXX_Unmarshal(b []byte) error {
@@ -3428,7 +3815,7 @@ func (m *ProxyInitConfig) GetImage() string {
 	return ""
 }
 
-// ResourcesRequestsConfig is described in istio.io documentation.
+// Configuration for K8s resource requests.
 type ResourcesRequestsConfig struct {
 	Cpu                  string   `protobuf:"bytes,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
 	Memory               string   `protobuf:"bytes,2,opt,name=memory,proto3" json:"memory,omitempty"`
@@ -3441,7 +3828,7 @@ func (m *ResourcesRequestsConfig) Reset()         { *m = ResourcesRequestsConfig
 func (m *ResourcesRequestsConfig) String() string { return proto.CompactTextString(m) }
 func (*ResourcesRequestsConfig) ProtoMessage()    {}
 func (*ResourcesRequestsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{43}
+	return fileDescriptor_a739174c5795eddf, []int{42}
 }
 
 func (m *ResourcesRequestsConfig) XXX_Unmarshal(b []byte) error {
@@ -3476,12 +3863,13 @@ func (m *ResourcesRequestsConfig) GetMemory() string {
 	return ""
 }
 
-// SDSConfig is described in istio.io documentation.
+// Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 type SDSConfig struct {
+	// Controls whether the SecretDiscoveryService is enabled.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	UdsPath string `protobuf:"bytes,2,opt,name=udsPath,proto3" json:"udsPath,omitempty"`
-	// Enables SDS use of k8s sa normal JWT to request for certificates.
+	// Enables SDS use of k8s normal JWT to request for certificates.
 	UseNormalJwt bool `protobuf:"varint,3,opt,name=useNormalJwt,proto3" json:"useNormalJwt,omitempty"`
 	// Enables SDS use of trustworthy JWT to request for certificates.
 	UseTrustworthyJwt    bool     `protobuf:"varint,4,opt,name=useTrustworthyJwt,proto3" json:"useTrustworthyJwt,omitempty"`
@@ -3494,7 +3882,7 @@ func (m *SDSConfig) Reset()         { *m = SDSConfig{} }
 func (m *SDSConfig) String() string { return proto.CompactTextString(m) }
 func (*SDSConfig) ProtoMessage()    {}
 func (*SDSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{44}
+	return fileDescriptor_a739174c5795eddf, []int{43}
 }
 
 func (m *SDSConfig) XXX_Unmarshal(b []byte) error {
@@ -3543,7 +3931,9 @@ func (m *SDSConfig) GetUseTrustworthyJwt() bool {
 	return false
 }
 
-// SecretVolume is described in istio.io documentation.
+// Configuration for secret volume mounts.
+//
+// See https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets.
 type SecretVolume struct {
 	MountPath            string   `protobuf:"bytes,1,opt,name=mountPath,proto3" json:"mountPath,omitempty"`
 	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -3557,7 +3947,7 @@ func (m *SecretVolume) Reset()         { *m = SecretVolume{} }
 func (m *SecretVolume) String() string { return proto.CompactTextString(m) }
 func (*SecretVolume) ProtoMessage()    {}
 func (*SecretVolume) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{45}
+	return fileDescriptor_a739174c5795eddf, []int{44}
 }
 
 func (m *SecretVolume) XXX_Unmarshal(b []byte) error {
@@ -3599,25 +3989,53 @@ func (m *SecretVolume) GetSecretName() string {
 	return ""
 }
 
-// SecurityConfig is described in istio.io documentation.
+// Configuration for Citadel.
 type SecurityConfig struct {
-	Enabled              bool              `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ReplicaCount         uint32            `protobuf:"varint,2,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	Image                string            `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
-	SelfSigned           bool              `protobuf:"varint,4,opt,name=selfSigned,proto3" json:"selfSigned,omitempty"`
-	TrustDomain          string            `protobuf:"bytes,5,opt,name=trustDomain,proto3" json:"trustDomain,omitempty"`
-	DnsCerts             map[string]string `protobuf:"bytes,6,rep,name=dnsCerts,proto3" json:"dnsCerts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	CreateMeshPolicy     bool              `protobuf:"varint,7,opt,name=createMeshPolicy,proto3" json:"createMeshPolicy,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+	// Controls whether Citadel is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Number of replicas in the Citadel Deployment.
+	ReplicaCount uint32 `protobuf:"varint,2,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	// Image name used for Citadel.
+	//
+	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+	//
+	// Examples: custom-citadel, docker.io/someuser:custom-citadel
+	Image string `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
+	// Controls whether self-signed CA is used for citadel to generate the certificate/key pair.
+	//
+	// Setting to false if you want to use your own root CA for Citade Deployment.
+	SelfSigned bool `protobuf:"varint,4,opt,name=selfSigned,proto3" json:"selfSigned,omitempty"`
+	// The trust domain corresponds to the trust root of a system
+	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	// Indicate the domain used in SPIFFE identity URL
+	// The default depends on the environment.
+	//   kubernetes: cluster.local
+	//    else:  default dns domain
+	TrustDomain string `protobuf:"bytes,5,opt,name=trustDomain,proto3" json:"trustDomain,omitempty"`
+	// The DNS Certs specifies the customized DNS name and corresponding service account.
+	//
+	// Example:
+	//   istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
+	//   istio-galley-service-account.istio-config: istio-galley.istio-config.svc
+	DnsCerts map[string]string `protobuf:"bytes,6,rep,name=dnsCerts,proto3" json:"dnsCerts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Controls whether the mesh-wide authentication policy is created or not.
+	//
+	// Setting to true creates the mesh-wide authentication policy with name "default".
+	CreateMeshPolicy bool `protobuf:"varint,7,opt,name=createMeshPolicy,proto3" json:"createMeshPolicy,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector         map[string]interface{} `protobuf:"bytes,8,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
 func (m *SecurityConfig) Reset()         { *m = SecurityConfig{} }
 func (m *SecurityConfig) String() string { return proto.CompactTextString(m) }
 func (*SecurityConfig) ProtoMessage()    {}
 func (*SecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{46}
+	return fileDescriptor_a739174c5795eddf, []int{45}
 }
 
 func (m *SecurityConfig) XXX_Unmarshal(b []byte) error {
@@ -3687,21 +4105,29 @@ func (m *SecurityConfig) GetCreateMeshPolicy() bool {
 	return false
 }
 
+func (m *SecurityConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
 // ServiceConfig is described in istio.io documentation.
 type ServiceConfig struct {
-	// 	Annotations  map[string]interface{} `json:"annotations,omitempty"`
-	ExternalPort         uint32   `protobuf:"varint,1,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
-	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Annotations          map[string]interface{} `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	ExternalPort         uint32                  `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
+	Name                 string                  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Type                 string                  `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
 func (m *ServiceConfig) Reset()         { *m = ServiceConfig{} }
 func (m *ServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*ServiceConfig) ProtoMessage()    {}
 func (*ServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{47}
+	return fileDescriptor_a739174c5795eddf, []int{46}
 }
 
 func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
@@ -3722,6 +4148,13 @@ func (m *ServiceConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ServiceConfig proto.InternalMessageInfo
 
+func (m *ServiceConfig) GetAnnotations() map[string]interface{} {
+	if m != nil {
+		return m.Annotations
+	}
+	return nil
+}
+
 func (m *ServiceConfig) GetExternalPort() uint32 {
 	if m != nil {
 		return m.ExternalPort
@@ -3736,19 +4169,49 @@ func (m *ServiceConfig) GetName() string {
 	return ""
 }
 
+func (m *ServiceConfig) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
 // SidecarInjectorConfig is described in istio.io documentation.
 type SidecarInjectorConfig struct {
-	// 	AlwaysInjectSelector             []map[string]interface{} `json:"alwaysInjectSelector,omitempty"`
-	Enabled                   bool   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	EnableNamespacesByDefault bool   `protobuf:"varint,2,opt,name=enableNamespacesByDefault,proto3" json:"enableNamespacesByDefault,omitempty"`
-	Image                     string `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
-	// 	NodeSelector                     map[string]interface{}   `json:"nodeSelector,omitempty"`
-	// 	NeverInjectSelector              []map[string]interface{} `json:"neverInjectSelector,omitempty"`
-	// 	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector"`
-	// 	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector"`
-	ReplicaCount         uint32   `protobuf:"varint,4,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
-	RewriteAppHTTPProbe  bool     `protobuf:"varint,5,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
-	SelfSigned           bool     `protobuf:"varint,6,opt,name=selfSigned,proto3" json:"selfSigned,omitempty"`
+	// Controls whether Sidecar Injector is enabled.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Enables sidecar auto-injection in namespaces by default.
+	EnableNamespacesByDefault bool `protobuf:"varint,2,opt,name=enableNamespacesByDefault,proto3" json:"enableNamespacesByDefault,omitempty"`
+	// Image name used for Sidecar Injector.
+	//
+	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
+	//
+	// Examples: custom-sidecar_injector, docker.io/someuser:custom-sidecar_injector
+	Image string `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
+	// K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
+	//
+	// Annotations in the pods have higher precedence than the label selectors.
+	// Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
+	// See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+	NeverInjectSelector []map[string]interface{} `protobuf:"bytes,11,opt,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
+	// See NeverInjectSelector.
+	AlwaysInjectSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	// See EgressGatewayConfig.
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	// Number of replicas in the Sidecar Injector Deployment.
+	ReplicaCount uint32 `protobuf:"varint,15,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
+	//  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
+	RewriteAppHTTPProbe bool `protobuf:"varint,16,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
+	// Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.
+	//
+	// Setting to false if you want to use your own root CA.
+	SelfSigned           bool     `protobuf:"varint,17,opt,name=selfSigned,proto3" json:"selfSigned,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3758,7 +4221,7 @@ func (m *SidecarInjectorConfig) Reset()         { *m = SidecarInjectorConfig{} }
 func (m *SidecarInjectorConfig) String() string { return proto.CompactTextString(m) }
 func (*SidecarInjectorConfig) ProtoMessage()    {}
 func (*SidecarInjectorConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{48}
+	return fileDescriptor_a739174c5795eddf, []int{47}
 }
 
 func (m *SidecarInjectorConfig) XXX_Unmarshal(b []byte) error {
@@ -3800,6 +4263,41 @@ func (m *SidecarInjectorConfig) GetImage() string {
 	return ""
 }
 
+func (m *SidecarInjectorConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
+func (m *SidecarInjectorConfig) GetNeverInjectSelector() []map[string]interface{} {
+	if m != nil {
+		return m.NeverInjectSelector
+	}
+	return nil
+}
+
+func (m *SidecarInjectorConfig) GetAlwaysInjectSelector() []map[string]interface{} {
+	if m != nil {
+		return m.AlwaysInjectSelector
+	}
+	return nil
+}
+
+func (m *SidecarInjectorConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityLabelSelector
+	}
+	return nil
+}
+
+func (m *SidecarInjectorConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
+	if m != nil {
+		return m.PodAntiAffinityTermLabelSelector
+	}
+	return nil
+}
+
 func (m *SidecarInjectorConfig) GetReplicaCount() uint32 {
 	if m != nil {
 		return m.ReplicaCount
@@ -3821,9 +4319,11 @@ func (m *SidecarInjectorConfig) GetSelfSigned() bool {
 	return false
 }
 
-// StdioMixerAdapterConfig is described in istio.io documentation.
+// Configuration for stdio adapter in mixer, recommended for debug usage only.
 type StdioMixerAdapterConfig struct {
-	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Enable stdio adapter to output logs and metrics to local machine.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Whether to output a console-friendly or json-friendly format.
 	OutputAsJson         bool     `protobuf:"varint,2,opt,name=outputAsJson,proto3" json:"outputAsJson,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -3834,7 +4334,7 @@ func (m *StdioMixerAdapterConfig) Reset()         { *m = StdioMixerAdapterConfig
 func (m *StdioMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
 func (*StdioMixerAdapterConfig) ProtoMessage()    {}
 func (*StdioMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{49}
+	return fileDescriptor_a739174c5795eddf, []int{48}
 }
 
 func (m *StdioMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
@@ -3869,21 +4369,24 @@ func (m *StdioMixerAdapterConfig) GetOutputAsJson() bool {
 	return false
 }
 
-// TracerConfig is described in istio.io documentation.
+// Configuration for each of the supported tracers.
 type TracerConfig struct {
-	Datadog              *TracerDatadogConfig   `protobuf:"bytes,1,opt,name=datadog,proto3" json:"datadog,omitempty"`
-	Lightstep            *TracerLightStepConfig `protobuf:"bytes,2,opt,name=lightstep,proto3" json:"lightstep,omitempty"`
-	Zipkin               *TracerZipkinConfig    `protobuf:"bytes,3,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
-	XXX_unrecognized     []byte                 `json:"-"`
-	XXX_sizecache        int32                  `json:"-"`
+	// Configuration for the datadog tracing service.
+	Datadog *TracerDatadogConfig `protobuf:"bytes,1,opt,name=datadog,proto3" json:"datadog,omitempty"`
+	// Configuration for the lightstep tracing service.
+	Lightstep *TracerLightStepConfig `protobuf:"bytes,2,opt,name=lightstep,proto3" json:"lightstep,omitempty"`
+	// Configuration for the zipkin tracing service.
+	Zipkin               *TracerZipkinConfig `protobuf:"bytes,3,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
 func (m *TracerConfig) Reset()         { *m = TracerConfig{} }
 func (m *TracerConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerConfig) ProtoMessage()    {}
 func (*TracerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{50}
+	return fileDescriptor_a739174c5795eddf, []int{49}
 }
 
 func (m *TracerConfig) XXX_Unmarshal(b []byte) error {
@@ -3925,8 +4428,9 @@ func (m *TracerConfig) GetZipkin() *TracerZipkinConfig {
 	return nil
 }
 
-// TracerDatadogConfig is described in istio.io documentation.
+// Configuration for the datadog tracing service.
 type TracerDatadogConfig struct {
+	// Address in host:port format for reporting trace data to the Datadog agent.
 	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -3937,7 +4441,7 @@ func (m *TracerDatadogConfig) Reset()         { *m = TracerDatadogConfig{} }
 func (m *TracerDatadogConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerDatadogConfig) ProtoMessage()    {}
 func (*TracerDatadogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{51}
+	return fileDescriptor_a739174c5795eddf, []int{50}
 }
 
 func (m *TracerDatadogConfig) XXX_Unmarshal(b []byte) error {
@@ -3965,9 +4469,9 @@ func (m *TracerDatadogConfig) GetAddress() string {
 	return ""
 }
 
-// TracerLightStepConfig is described in istio.io documentation.
+// Configuration for the lightstep tracing service.
 type TracerLightStepConfig struct {
-	// Sets the lightstep satellite pool address.
+	// Sets the lightstep satellite pool address in host:port format for reporting trace data.
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Sets the lightstep access token.
 	AccessToken string `protobuf:"bytes,2,opt,name=accessToken,proto3" json:"accessToken,omitempty"`
@@ -3984,7 +4488,7 @@ func (m *TracerLightStepConfig) Reset()         { *m = TracerLightStepConfig{} }
 func (m *TracerLightStepConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerLightStepConfig) ProtoMessage()    {}
 func (*TracerLightStepConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{52}
+	return fileDescriptor_a739174c5795eddf, []int{51}
 }
 
 func (m *TracerLightStepConfig) XXX_Unmarshal(b []byte) error {
@@ -4033,9 +4537,11 @@ func (m *TracerLightStepConfig) GetSecure() bool {
 	return false
 }
 
-// TracerZipkinConfig is described in istio.io documentation.
+// Configuration for the zipkin tracing service.
 type TracerZipkinConfig struct {
-	// Specifies address in host:port format for reporting trace data in zipkin format.
+	// Address of zipkin instance in host:port format for reporting trace data.
+	//
+	// Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941
 	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4046,7 +4552,7 @@ func (m *TracerZipkinConfig) Reset()         { *m = TracerZipkinConfig{} }
 func (m *TracerZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerZipkinConfig) ProtoMessage()    {}
 func (*TracerZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{53}
+	return fileDescriptor_a739174c5795eddf, []int{52}
 }
 
 func (m *TracerZipkinConfig) XXX_Unmarshal(b []byte) error {
@@ -4074,15 +4580,24 @@ func (m *TracerZipkinConfig) GetAddress() string {
 	return ""
 }
 
-// TracingConfig is described in istio.io documentation.
+// Configurations for different tracing system to be installed.
 type TracingConfig struct {
-	Enabled bool                  `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Enables tracing systems installation.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Controls legacy k8s ingress for addon tracing components.
 	Ingress *TracingIngressConfig `protobuf:"bytes,2,opt,name=ingress,proto3" json:"ingress,omitempty"`
-	Jaeger  *TracingJaegerConfig  `protobuf:"bytes,3,opt,name=jaeger,proto3" json:"jaeger,omitempty"`
-	// 	NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
-	Provider             string               `protobuf:"bytes,4,opt,name=provider,proto3" json:"provider,omitempty"`
-	Service              *ServiceConfig       `protobuf:"bytes,5,opt,name=service,proto3" json:"service,omitempty"`
-	Zipkin               *TracingZipkinConfig `protobuf:"bytes,6,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
+	// Defines Configuration for addon Jaeger tracing.
+	Jaeger *TracingJaegerConfig `protobuf:"bytes,3,opt,name=jaeger,proto3" json:"jaeger,omitempty"`
+	// K8s node selector.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	// Configures which tracing system to be installed.
+	Provider string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	// Controls K8s service for addon tracing components.
+	Service *ServiceConfig `protobuf:"bytes,6,opt,name=service,proto3" json:"service,omitempty"`
+	// Defines Configuration for addon Zipkin tracing.
+	Zipkin               *TracingZipkinConfig `protobuf:"bytes,7,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -4092,7 +4607,7 @@ func (m *TracingConfig) Reset()         { *m = TracingConfig{} }
 func (m *TracingConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingConfig) ProtoMessage()    {}
 func (*TracingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{54}
+	return fileDescriptor_a739174c5795eddf, []int{53}
 }
 
 func (m *TracingConfig) XXX_Unmarshal(b []byte) error {
@@ -4134,6 +4649,13 @@ func (m *TracingConfig) GetJaeger() *TracingJaegerConfig {
 	return nil
 }
 
+func (m *TracingConfig) GetNodeSelector() map[string]interface{} {
+	if m != nil {
+		return m.NodeSelector
+	}
+	return nil
+}
+
 func (m *TracingConfig) GetProvider() string {
 	if m != nil {
 		return m.Provider
@@ -4155,8 +4677,9 @@ func (m *TracingConfig) GetZipkin() *TracingZipkinConfig {
 	return nil
 }
 
-// TracingIngressConfig is described in istio.io documentation.
+// Controls legacy k8s ingress for addon tracing components.
 type TracingIngressConfig struct {
+	// Enables k8s ingress for addon tracing components.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4167,7 +4690,7 @@ func (m *TracingIngressConfig) Reset()         { *m = TracingIngressConfig{} }
 func (m *TracingIngressConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingIngressConfig) ProtoMessage()    {}
 func (*TracingIngressConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{55}
+	return fileDescriptor_a739174c5795eddf, []int{54}
 }
 
 func (m *TracingIngressConfig) XXX_Unmarshal(b []byte) error {
@@ -4195,10 +4718,13 @@ func (m *TracingIngressConfig) GetEnabled() bool {
 	return false
 }
 
-// TracingJaegerConfig is described in istio.io documentation.
+// Configuration for addon Jaeger tracing.
 type TracingJaegerConfig struct {
-	Hub                  string                     `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                  string                     `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	// Image hub for Jaeger tracing deployment.
+	Hub string `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
+	// Image tag for Jaeger tracing deployment.
+	Tag string `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	// Configures Jaeger in-memory storage setting.
 	Memory               *TracingJaegerMemoryConfig `protobuf:"bytes,3,opt,name=memory,proto3" json:"memory,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
@@ -4209,7 +4735,7 @@ func (m *TracingJaegerConfig) Reset()         { *m = TracingJaegerConfig{} }
 func (m *TracingJaegerConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingJaegerConfig) ProtoMessage()    {}
 func (*TracingJaegerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{56}
+	return fileDescriptor_a739174c5795eddf, []int{55}
 }
 
 func (m *TracingJaegerConfig) XXX_Unmarshal(b []byte) error {
@@ -4251,8 +4777,9 @@ func (m *TracingJaegerConfig) GetMemory() *TracingJaegerMemoryConfig {
 	return nil
 }
 
-// TracingJaegerMemoryConfig is described in istio.io documentation.
+// Configuration for Jaeger in-memory storage setting.
 type TracingJaegerMemoryConfig struct {
+	// Set limit of the amount of traces stored in memory for Jaeger
 	MaxTraces            uint32   `protobuf:"varint,1,opt,name=max_traces,json=maxTraces,proto3" json:"max_traces,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4263,7 +4790,7 @@ func (m *TracingJaegerMemoryConfig) Reset()         { *m = TracingJaegerMemoryCo
 func (m *TracingJaegerMemoryConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingJaegerMemoryConfig) ProtoMessage()    {}
 func (*TracingJaegerMemoryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{57}
+	return fileDescriptor_a739174c5795eddf, []int{56}
 }
 
 func (m *TracingJaegerMemoryConfig) XXX_Unmarshal(b []byte) error {
@@ -4291,15 +4818,27 @@ func (m *TracingJaegerMemoryConfig) GetMaxTraces() uint32 {
 	return 0
 }
 
-// TracingZipkinConfig is described in istio.io documentation.
+// Configuration for Zipkin.
 type TracingZipkinConfig struct {
-	Hub                  string                   `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                  string                   `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	ProbeStartupDelay    uint32                   `protobuf:"varint,3,opt,name=probeStartupDelay,proto3" json:"probeStartupDelay,omitempty"`
-	QueryPort            uint32                   `protobuf:"varint,4,opt,name=queryPort,proto3" json:"queryPort,omitempty"`
-	Resources            *v1.ResourceRequirements `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
-	JavaOptsHeap         string                   `protobuf:"bytes,6,opt,name=javaOptsHeap,proto3" json:"javaOptsHeap,omitempty"`
-	MaxSpans             uint32                   `protobuf:"varint,7,opt,name=maxSpans,proto3" json:"maxSpans,omitempty"`
+	// Image hub for Zipkin tracing deployment.
+	Hub string `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
+	// Image tag for Zipkin tracing deployment.
+	Tag string `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	// InitialDelaySeconds of livenessProbe for Zipkin deployment
+	ProbeStartupDelay uint32 `protobuf:"varint,3,opt,name=probeStartupDelay,proto3" json:"probeStartupDelay,omitempty"`
+	// Container port for Zipkin deployment
+	QueryPort uint32 `protobuf:"varint,4,opt,name=queryPort,proto3" json:"queryPort,omitempty"`
+	// K8s resources settings.
+	//
+	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+	Resources *v1.ResourceRequirements `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Configure java heap opts for Zipkin deployment
+	JavaOptsHeap string `protobuf:"bytes,6,opt,name=javaOptsHeap,proto3" json:"javaOptsHeap,omitempty"`
+	// Configures number of max spans to keep in Zipkin memory storage.
+	//
+	// Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer
+	MaxSpans uint32 `protobuf:"varint,7,opt,name=maxSpans,proto3" json:"maxSpans,omitempty"`
+	// Configures GC values of JAVA_OPTS for Zipkin deployment
 	Node                 *TracingZipkinNodeConfig `protobuf:"bytes,8,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
@@ -4310,7 +4849,7 @@ func (m *TracingZipkinConfig) Reset()         { *m = TracingZipkinConfig{} }
 func (m *TracingZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingZipkinConfig) ProtoMessage()    {}
 func (*TracingZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{58}
+	return fileDescriptor_a739174c5795eddf, []int{57}
 }
 
 func (m *TracingZipkinConfig) XXX_Unmarshal(b []byte) error {
@@ -4387,8 +4926,9 @@ func (m *TracingZipkinConfig) GetNode() *TracingZipkinNodeConfig {
 	return nil
 }
 
-// TracingZipkinNodeConfig is described in istio.io documentation.
+// Configuration for GC values of JAVA_OPTS for Zipkin deployment
 type TracingZipkinNodeConfig struct {
+	// Configures -XX:ConcGCThreads value of JAVA_OPTS for Zipkin deployment
 	Cpus                 uint32   `protobuf:"varint,1,opt,name=cpus,proto3" json:"cpus,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4399,7 +4939,7 @@ func (m *TracingZipkinNodeConfig) Reset()         { *m = TracingZipkinNodeConfig
 func (m *TracingZipkinNodeConfig) String() string { return proto.CompactTextString(m) }
 func (*TracingZipkinNodeConfig) ProtoMessage()    {}
 func (*TracingZipkinNodeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{59}
+	return fileDescriptor_a739174c5795eddf, []int{58}
 }
 
 func (m *TracingZipkinNodeConfig) XXX_Unmarshal(b []byte) error {
@@ -4428,30 +4968,30 @@ func (m *TracingZipkinNodeConfig) GetCpus() uint32 {
 }
 
 type Values struct {
-	Certmanager  *CertManagerConfig `protobuf:"bytes,1,opt,name=certmanager,proto3" json:"certmanager,omitempty"`
-	IstioCni     *CNIConfig         `protobuf:"bytes,2,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
-	Istiocoredns *CoreDNSConfig     `protobuf:"bytes,3,opt,name=istiocoredns,proto3" json:"istiocoredns,omitempty"`
-	Galley       *GalleyConfig      `protobuf:"bytes,4,opt,name=galley,proto3" json:"galley,omitempty"`
-	Gateways     *GatewaysConfig    `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
-	Global       *GlobalConfig      `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	// 	Grafana         map[string]interface{} `json:"grafana,omitempty"`
-	Mixer                  *MixerConfig           `protobuf:"bytes,7,opt,name=mixer,proto3" json:"mixer,omitempty"`
-	Nodeagent              *NodeAgentConfig       `protobuf:"bytes,8,opt,name=nodeagent,proto3" json:"nodeagent,omitempty"`
-	Pilot                  *PilotConfig           `protobuf:"bytes,9,opt,name=pilot,proto3" json:"pilot,omitempty"`
-	Prometheus             *PrometheusConfig      `protobuf:"bytes,10,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
-	Security               *SecurityConfig        `protobuf:"bytes,11,opt,name=security,proto3" json:"security,omitempty"`
-	SidecarInjectorWebhook *SidecarInjectorConfig `protobuf:"bytes,12,opt,name=sidecarInjectorWebhook,proto3" json:"sidecarInjectorWebhook,omitempty"`
-	Tracing                *TracingConfig         `protobuf:"bytes,13,opt,name=tracing,proto3" json:"tracing,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}               `json:"-"`
-	XXX_unrecognized       []byte                 `json:"-"`
-	XXX_sizecache          int32                  `json:"-"`
+	Certmanager            *CertManagerConfig      `protobuf:"bytes,1,opt,name=certmanager,proto3" json:"certmanager,omitempty"`
+	IstioCni               *CNIConfig              `protobuf:"bytes,2,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
+	Istiocoredns           *CoreDNSConfig          `protobuf:"bytes,3,opt,name=istiocoredns,proto3" json:"istiocoredns,omitempty"`
+	Galley                 *GalleyConfig           `protobuf:"bytes,4,opt,name=galley,proto3" json:"galley,omitempty"`
+	Gateways               *GatewaysConfig         `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
+	Global                 *GlobalConfig           `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
+	Grafana                map[string]interface{} `protobuf:"bytes,7,opt,name=grafana,proto3" json:"grafana,omitempty"`
+	Mixer                  *MixerConfig            `protobuf:"bytes,8,opt,name=mixer,proto3" json:"mixer,omitempty"`
+	Nodeagent              *NodeAgentConfig        `protobuf:"bytes,9,opt,name=nodeagent,proto3" json:"nodeagent,omitempty"`
+	Pilot                  *PilotConfig            `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
+	Prometheus             *PrometheusConfig       `protobuf:"bytes,11,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
+	Security               *SecurityConfig         `protobuf:"bytes,12,opt,name=security,proto3" json:"security,omitempty"`
+	SidecarInjectorWebhook *SidecarInjectorConfig  `protobuf:"bytes,13,opt,name=sidecarInjectorWebhook,proto3" json:"sidecarInjectorWebhook,omitempty"`
+	Tracing                *TracingConfig          `protobuf:"bytes,14,opt,name=tracing,proto3" json:"tracing,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{}                `json:"-"`
+	XXX_unrecognized       []byte                  `json:"-"`
+	XXX_sizecache          int32                   `json:"-"`
 }
 
 func (m *Values) Reset()         { *m = Values{} }
 func (m *Values) String() string { return proto.CompactTextString(m) }
 func (*Values) ProtoMessage()    {}
 func (*Values) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{60}
+	return fileDescriptor_a739174c5795eddf, []int{59}
 }
 
 func (m *Values) XXX_Unmarshal(b []byte) error {
@@ -4514,6 +5054,13 @@ func (m *Values) GetGlobal() *GlobalConfig {
 	return nil
 }
 
+func (m *Values) GetGrafana() map[string]interface{} {
+	if m != nil {
+		return m.Grafana
+	}
+	return nil
+}
+
 func (m *Values) GetMixer() *MixerConfig {
 	if m != nil {
 		return m.Mixer
@@ -4563,8 +5110,11 @@ func (m *Values) GetTracing() *TracingConfig {
 	return nil
 }
 
-// ZeroVPNConfig is described in istio.io documentation.
+
+
+// ZeroVPNConfig enables cross-cluster access using SNI matching.
 type ZeroVPNConfig struct {
+	// Controls whether ZeroVPN is enabled.
 	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Suffix               string   `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -4576,7 +5126,7 @@ func (m *ZeroVPNConfig) Reset()         { *m = ZeroVPNConfig{} }
 func (m *ZeroVPNConfig) String() string { return proto.CompactTextString(m) }
 func (*ZeroVPNConfig) ProtoMessage()    {}
 func (*ZeroVPNConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a739174c5795eddf, []int{61}
+	return fileDescriptor_a739174c5795eddf, []int{62}
 }
 
 func (m *ZeroVPNConfig) XXX_Unmarshal(b []byte) error {
@@ -4628,18 +5178,14 @@ func init() {
 	proto.RegisterType((*DefaultResourcesConfig)(nil), "values.DefaultResourcesConfig")
 	proto.RegisterType((*EgressGatewayConfig)(nil), "values.EgressGatewayConfig")
 	proto.RegisterMapType((map[string]string)(nil), "values.EgressGatewayConfig.EnvEntry")
-	proto.RegisterMapType((map[string]string)(nil), "values.EgressGatewayConfig.NodeSelectorEntry")
 	proto.RegisterType((*EnvoyMetricsConfig)(nil), "values.EnvoyMetricsConfig")
 	proto.RegisterType((*GalleyConfig)(nil), "values.GalleyConfig")
 	proto.RegisterMapType((map[string]string)(nil), "values.GalleyConfig.MeshEntry")
 	proto.RegisterType((*GatewayLabelsConfig)(nil), "values.GatewayLabelsConfig")
 	proto.RegisterType((*GatewaysConfig)(nil), "values.GatewaysConfig")
 	proto.RegisterType((*GlobalConfig)(nil), "values.GlobalConfig")
-	proto.RegisterMapType((map[string]string)(nil), "values.GlobalConfig.DefaultNodeSelectorEntry")
 	proto.RegisterMapType((map[string]string)(nil), "values.GlobalConfig.LocalityLbSettingEntry")
-	proto.RegisterMapType((map[string]string)(nil), "values.GlobalConfig.MeshNetworksEntry")
 	proto.RegisterType((*GlobalLoggingConfig)(nil), "values.GlobalLoggingConfig")
-	proto.RegisterType((*ILBGatewayConfig)(nil), "values.ILBGatewayConfig")
 	proto.RegisterType((*IngressGatewayConfig)(nil), "values.IngressGatewayConfig")
 	proto.RegisterMapType((map[string]string)(nil), "values.IngressGatewayConfig.EnvEntry")
 	proto.RegisterType((*IngressGatewaySdsConfig)(nil), "values.IngressGatewaySdsConfig")
@@ -4651,7 +5197,6 @@ func init() {
 	proto.RegisterType((*MeshExpansionConfig)(nil), "values.MeshExpansionConfig")
 	proto.RegisterType((*MixerAdaptersConfig)(nil), "values.MixerAdaptersConfig")
 	proto.RegisterType((*MixerConfig)(nil), "values.MixerConfig")
-	proto.RegisterMapType((map[string]string)(nil), "values.MixerConfig.EnvEntry")
 	proto.RegisterType((*MixerPolicyConfig)(nil), "values.MixerPolicyConfig")
 	proto.RegisterType((*MixerTelemetryConfig)(nil), "values.MixerTelemetryConfig")
 	proto.RegisterMapType((map[string]string)(nil), "values.MixerTelemetryConfig.EnvEntry")
@@ -4659,7 +5204,6 @@ func init() {
 	proto.RegisterType((*NodeAgentConfig)(nil), "values.NodeAgentConfig")
 	proto.RegisterType((*OutboundTrafficPolicyConfig)(nil), "values.OutboundTrafficPolicyConfig")
 	proto.RegisterType((*PilotConfig)(nil), "values.PilotConfig")
-	proto.RegisterMapType((map[string]string)(nil), "values.PilotConfig.DeploymentLabelsEntry")
 	proto.RegisterMapType((map[string]string)(nil), "values.PilotConfig.EnvEntry")
 	proto.RegisterType((*PilotIngressConfig)(nil), "values.PilotIngressConfig")
 	proto.RegisterType((*PilotPolicyConfig)(nil), "values.PilotPolicyConfig")
@@ -4699,278 +5243,288 @@ func init() {
 }
 
 var fileDescriptor_a739174c5795eddf = []byte{
-	// 4354 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x5b, 0xcd, 0x73, 0x1b, 0x47,
-	0x76, 0x37, 0x40, 0x12, 0x04, 0x1e, 0x09, 0x09, 0x6c, 0x7e, 0x68, 0x44, 0xc9, 0x92, 0x76, 0xd6,
-	0x2b, 0xcb, 0xbb, 0x36, 0xa8, 0x2f, 0xcb, 0xb6, 0xec, 0xac, 0x97, 0x22, 0x28, 0x1a, 0x5a, 0x90,
-	0x44, 0x06, 0x90, 0xbd, 0xf6, 0x21, 0x4a, 0x73, 0xa6, 0x09, 0x8e, 0x39, 0x98, 0x19, 0x4f, 0xf7,
-	0x50, 0xa4, 0x6f, 0x39, 0x6e, 0xa5, 0x2a, 0x55, 0x7b, 0x4a, 0x52, 0x7b, 0xca, 0x35, 0x7f, 0x40,
-	0xfe, 0x80, 0xa4, 0x2a, 0xb7, 0x1c, 0x72, 0xc8, 0x3f, 0x90, 0x7f, 0x23, 0x55, 0xa9, 0x54, 0x7f,
-	0xcc, 0x47, 0x03, 0x03, 0xf0, 0x23, 0xae, 0xda, 0xaa, 0x3d, 0x91, 0xfd, 0xfa, 0xbd, 0xee, 0x9e,
-	0xd7, 0xfd, 0xde, 0xfb, 0xbd, 0xd7, 0x0d, 0x78, 0x14, 0x1e, 0x0f, 0x36, 0x70, 0xe8, 0xd2, 0x0d,
-	0x97, 0x32, 0x37, 0xd8, 0x38, 0x79, 0x84, 0xbd, 0xf0, 0x08, 0x3f, 0xde, 0x38, 0xc1, 0x5e, 0x4c,
-	0xa8, 0xfa, 0xf3, 0x86, 0x9d, 0x85, 0x84, 0x36, 0xc3, 0x28, 0x60, 0x01, 0xaa, 0x48, 0xda, 0xfa,
-	0x9d, 0x41, 0x10, 0x0c, 0x3c, 0xb2, 0x21, 0xa8, 0x07, 0xf1, 0xe1, 0x86, 0x13, 0x47, 0x98, 0xb9,
-	0x81, 0x2f, 0xf9, 0xd6, 0xcd, 0xe3, 0x4f, 0x69, 0xd3, 0x0d, 0xf8, 0xe8, 0x1b, 0x76, 0x10, 0x91,
-	0x8d, 0x93, 0x47, 0x1b, 0x03, 0xe2, 0x93, 0x08, 0x33, 0xe2, 0x48, 0x1e, 0xb3, 0x05, 0x68, 0xd3,
-	0x71, 0x02, 0xbf, 0xed, 0x0f, 0x22, 0x42, 0xe9, 0x56, 0xe0, 0x1f, 0xba, 0x03, 0x64, 0xc0, 0x3c,
-	0xf1, 0xf1, 0x81, 0x47, 0x1c, 0xa3, 0x74, 0xaf, 0xf4, 0xa0, 0x6a, 0x25, 0x4d, 0xb4, 0x02, 0x73,
-	0x47, 0x01, 0x65, 0xd4, 0x28, 0xdf, 0x9b, 0x79, 0x50, 0xb3, 0x64, 0xc3, 0xb4, 0x00, 0x36, 0x23,
-	0xfb, 0x48, 0x49, 0xaf, 0xc0, 0x1c, 0x1e, 0x3a, 0xcf, 0x9e, 0x0a, 0xd9, 0xba, 0x25, 0x1b, 0x7c,
-	0xcc, 0x30, 0xb4, 0x9f, 0x3d, 0xf5, 0x88, 0x51, 0x16, 0xf4, 0xa4, 0xc9, 0xf9, 0xe9, 0x93, 0xcf,
-	0x1e, 0x9e, 0x1a, 0x33, 0x92, 0x5f, 0x34, 0xcc, 0x5f, 0x40, 0x6d, 0x6b, 0xaf, 0x7d, 0xde, 0x82,
-	0xcc, 0xdf, 0xc1, 0xfa, 0x56, 0xf7, 0x75, 0x1f, 0x47, 0x03, 0xc2, 0x5e, 0x33, 0xd7, 0x73, 0x7f,
-	0x14, 0x2a, 0x50, 0x72, 0xcf, 0xc1, 0x60, 0xa2, 0x6b, 0xf3, 0x84, 0x44, 0x78, 0x40, 0x72, 0x1c,
-	0x62, 0xa0, 0x39, 0x6b, 0x62, 0xbf, 0xf9, 0x8f, 0x25, 0x58, 0xda, 0x22, 0x11, 0xdb, 0xc5, 0x3e,
-	0x1e, 0x90, 0xe8, 0x5c, 0xd5, 0x34, 0x60, 0xe6, 0x28, 0x3e, 0x10, 0x1f, 0x57, 0xb3, 0xf8, 0xbf,
-	0xe8, 0x25, 0xd4, 0x22, 0x42, 0x83, 0x38, 0xb2, 0x09, 0x15, 0x1f, 0xb7, 0xf0, 0xf8, 0x41, 0x53,
-	0x6e, 0x4a, 0x13, 0x87, 0x6e, 0x93, 0x6f, 0x4a, 0xf3, 0xe4, 0x51, 0xd3, 0x52, 0x4c, 0x16, 0xf9,
-	0x21, 0x76, 0x23, 0x32, 0x24, 0x3e, 0xa3, 0x56, 0x26, 0xca, 0x47, 0x66, 0x78, 0x60, 0xcc, 0xca,
-	0x91, 0x19, 0x1e, 0x98, 0xff, 0x54, 0x82, 0xfa, 0x56, 0x10, 0x91, 0xd6, 0x5e, 0x4f, 0xad, 0xcb,
-	0x84, 0x45, 0x5b, 0x12, 0xda, 0x43, 0x3c, 0x20, 0x62, 0x71, 0x35, 0x4b, 0xa3, 0xa1, 0x26, 0x20,
-	0xd5, 0xee, 0x7a, 0xf1, 0xc0, 0xf5, 0x25, 0xa7, 0x5c, 0x70, 0x41, 0x4f, 0xfe, 0x5b, 0x67, 0xf4,
-	0x6f, 0x35, 0x61, 0x31, 0x22, 0xa1, 0xe7, 0xda, 0x78, 0x2b, 0x88, 0x7d, 0x26, 0x96, 0x56, 0xb7,
-	0x34, 0x9a, 0xf9, 0x05, 0xdc, 0x6b, 0x91, 0x43, 0x1c, 0x7b, 0xac, 0x1b, 0x38, 0x2d, 0x97, 0x46,
-	0x71, 0xc8, 0xf5, 0xfa, 0x22, 0x76, 0x06, 0x84, 0x9d, 0xbb, 0xaf, 0xaf, 0x61, 0x4d, 0x49, 0x27,
-	0xda, 0x49, 0x0e, 0xe7, 0xe7, 0x50, 0x8d, 0xc8, 0x0f, 0x31, 0xe1, 0xa7, 0xb0, 0x24, 0x94, 0x7a,
-	0xb7, 0x29, 0x2d, 0x22, 0x55, 0x24, 0xb5, 0x14, 0x83, 0x14, 0xb1, 0x52, 0x01, 0xf3, 0xbf, 0x2a,
-	0xb0, 0xbc, 0x2d, 0x8e, 0xfa, 0x0e, 0x66, 0xe4, 0x2d, 0x3e, 0x53, 0x83, 0xfe, 0x12, 0x1a, 0x38,
-	0x66, 0x01, 0xb5, 0xb1, 0x47, 0xb6, 0xb5, 0x15, 0x8d, 0xd1, 0xf9, 0xc7, 0xa7, 0xb4, 0x5d, 0x7c,
-	0xaa, 0x8e, 0xb3, 0x46, 0xd3, 0x79, 0x5c, 0x5f, 0x1d, 0x6d, 0x8d, 0x86, 0xee, 0xc3, 0x35, 0x3b,
-	0xf0, 0x7d, 0x62, 0xb3, 0xbe, 0x3b, 0x24, 0x41, 0xcc, 0xd4, 0x0e, 0x8f, 0x50, 0xd1, 0x53, 0x98,
-	0xb1, 0xc3, 0xd8, 0x98, 0x13, 0xdf, 0x6a, 0x26, 0xdf, 0x3a, 0xf9, 0xd4, 0x5b, 0x9c, 0x1d, 0x7d,
-	0x09, 0x75, 0x27, 0xc2, 0xae, 0xdf, 0x52, 0x4e, 0xc1, 0xa8, 0x08, 0xf9, 0x9b, 0x4d, 0xe9, 0x35,
-	0x9a, 0x89, 0xd7, 0x68, 0x26, 0x0c, 0x96, 0xce, 0x9f, 0xdf, 0x9b, 0x79, 0x7d, 0xf7, 0x9f, 0xc1,
-	0x0c, 0xf1, 0x4f, 0x8c, 0xea, 0xbd, 0x99, 0x07, 0x0b, 0x8f, 0xdf, 0x4b, 0x16, 0x54, 0xa0, 0xd6,
-	0xe6, 0xb6, 0x7f, 0xb2, 0xed, 0xb3, 0xe8, 0xcc, 0xe2, 0x02, 0xe8, 0x09, 0x54, 0x3c, 0x7c, 0x40,
-	0x3c, 0x6a, 0xd4, 0xc4, 0x5a, 0x6e, 0x25, 0xa2, 0x4a, 0xa8, 0x23, 0x3a, 0xd5, 0x47, 0x28, 0x56,
-	0xf4, 0x97, 0xb0, 0xe8, 0x07, 0x0e, 0xe9, 0x11, 0x8f, 0xd8, 0x2c, 0x88, 0x0c, 0x10, 0xb3, 0x7e,
-	0x34, 0x6d, 0xd6, 0xbd, 0x1c, 0xbf, 0x9c, 0x5e, 0x1b, 0x02, 0x7d, 0x00, 0x73, 0x61, 0x10, 0x31,
-	0x6a, 0x2c, 0x88, 0xb1, 0x96, 0x93, 0xb1, 0xba, 0x9c, 0xa8, 0xa6, 0x97, 0x1c, 0xba, 0x09, 0x2f,
-	0x5e, 0xdd, 0x84, 0x9f, 0x43, 0x9d, 0x12, 0x3b, 0x22, 0xec, 0xeb, 0xc0, 0x8b, 0x87, 0x84, 0x1a,
-	0x75, 0x31, 0xf5, 0x4a, 0x32, 0x75, 0x2f, 0xd7, 0x69, 0xe9, 0xac, 0xe8, 0x03, 0x98, 0xfd, 0xf1,
-	0x24, 0xf4, 0x8d, 0x6b, 0x62, 0xfa, 0xd5, 0x44, 0xe4, 0x3b, 0x12, 0x05, 0x5f, 0x77, 0xf7, 0xd4,
-	0x7a, 0x05, 0xcb, 0xfa, 0x33, 0xa8, 0x26, 0x2a, 0xe7, 0x5e, 0xe3, 0x98, 0x9c, 0x29, 0x47, 0xc0,
-	0xff, 0xe5, 0x8e, 0x56, 0xc8, 0x2a, 0x93, 0x97, 0x8d, 0xe7, 0xe5, 0x4f, 0x4b, 0xeb, 0x5f, 0xc2,
-	0xd2, 0x98, 0xd2, 0x2e, 0x33, 0x80, 0xf9, 0x35, 0xa0, 0x6d, 0xff, 0x24, 0x38, 0xdb, 0x25, 0x2c,
-	0x72, 0xed, 0xf3, 0xe3, 0x08, 0x82, 0x59, 0x1e, 0x3a, 0xd4, 0x40, 0xe2, 0x7f, 0x4e, 0xe3, 0x4a,
-	0x17, 0xb6, 0x32, 0x67, 0x89, 0xff, 0xcd, 0xbf, 0x2f, 0xc3, 0xe2, 0x0e, 0xf6, 0x3c, 0x72, 0x76,
-	0x91, 0xd0, 0xe4, 0xe6, 0x1c, 0x9a, 0x6c, 0xa0, 0xc7, 0x30, 0x3b, 0x24, 0xf4, 0xc8, 0x98, 0x11,
-	0xfa, 0xbe, 0x93, 0x9d, 0xb8, 0x6c, 0xcc, 0xe6, 0x2e, 0xa1, 0x47, 0xf2, 0x9c, 0x08, 0xde, 0x8b,
-	0x78, 0x37, 0xfd, 0x60, 0xcc, 0x5d, 0xf9, 0x60, 0xac, 0x7f, 0x02, 0xb5, 0x74, 0xfa, 0x4b, 0x69,
-	0xfc, 0x2f, 0x60, 0xb9, 0xc0, 0x6c, 0xf8, 0x10, 0x38, 0x0c, 0x93, 0x21, 0x70, 0x18, 0x0a, 0xbd,
-	0x70, 0x68, 0x91, 0xea, 0x85, 0x37, 0xcc, 0xbf, 0x2b, 0xc3, 0x35, 0x25, 0x9f, 0x88, 0x76, 0x60,
-	0x59, 0xf4, 0xbd, 0x21, 0xc2, 0xa6, 0x06, 0xb2, 0x57, 0xf9, 0xd8, 0x5b, 0x53, 0x0c, 0xce, 0x42,
-	0x42, 0x6e, 0x3b, 0x2f, 0x96, 0xdf, 0xa8, 0xb2, 0xbe, 0x51, 0x5b, 0xd0, 0x90, 0xf3, 0xb8, 0xde,
-	0x41, 0x32, 0x89, 0x8c, 0x8e, 0x46, 0x32, 0x49, 0xbb, 0xf3, 0x42, 0x9f, 0xe1, 0xba, 0x90, 0x68,
-	0xa7, 0x02, 0x68, 0x1f, 0x56, 0xd4, 0x20, 0xbe, 0xb6, 0xda, 0x59, 0x31, 0xd0, 0xed, 0x74, 0x20,
-	0xbf, 0x60, 0xb9, 0xf2, 0x33, 0xdb, 0x9a, 0xa0, 0xf9, 0xc7, 0xeb, 0xb0, 0xb8, 0xe3, 0x05, 0x07,
-	0xd8, 0x53, 0xea, 0xb8, 0x0f, 0xb3, 0x38, 0xb2, 0x8f, 0x8c, 0x3b, 0x62, 0x44, 0x94, 0x8c, 0x98,
-	0x01, 0x1d, 0x4b, 0xf4, 0xa3, 0x07, 0x70, 0xdd, 0x16, 0xed, 0x3d, 0x3c, 0x24, 0x34, 0xc4, 0x76,
-	0x12, 0x7c, 0x47, 0xc9, 0x3c, 0xc8, 0x48, 0xd2, 0xd7, 0xd8, 0x73, 0x1d, 0xe9, 0x95, 0xa5, 0x6e,
-	0xc6, 0xe8, 0xe8, 0x37, 0x70, 0xcb, 0x0e, 0x7c, 0x16, 0x05, 0x5e, 0xd7, 0xc3, 0x3e, 0xe9, 0x11,
-	0x3b, 0x8e, 0x5c, 0x76, 0xb6, 0xad, 0xc5, 0xe3, 0x69, 0x2c, 0xe8, 0x0d, 0x2c, 0x3b, 0x32, 0x82,
-	0xe6, 0x4d, 0xdb, 0xb8, 0xab, 0xfb, 0xcf, 0xfc, 0x27, 0x37, 0x5b, 0xe3, 0xfc, 0xd2, 0x2e, 0x8a,
-	0x46, 0x42, 0x47, 0xb0, 0xee, 0x4c, 0x0c, 0xf0, 0x6a, 0x23, 0x1e, 0x24, 0xf3, 0x9c, 0x07, 0x05,
-	0xac, 0x29, 0x63, 0xa1, 0x87, 0xb0, 0xec, 0xb8, 0x94, 0x7f, 0x56, 0x37, 0xf0, 0x5c, 0xfb, 0x6c,
-	0xeb, 0x88, 0xd8, 0xc7, 0xd2, 0xec, 0xaa, 0x56, 0x51, 0x17, 0x7a, 0x05, 0x0d, 0x67, 0x04, 0x3e,
-	0xa8, 0x00, 0x78, 0x67, 0x64, 0x45, 0x23, 0xf0, 0xc2, 0x1a, 0x93, 0xe3, 0x71, 0x5a, 0x1e, 0xdd,
-	0xaf, 0x88, 0x37, 0xec, 0x13, 0xca, 0x54, 0x3c, 0x1c, 0xa1, 0xa2, 0xf7, 0xa0, 0x2e, 0x29, 0xfd,
-	0x08, 0xdb, 0xae, 0x3f, 0x30, 0xaa, 0x82, 0x4d, 0x27, 0x26, 0x30, 0xb1, 0x96, 0xc1, 0xc4, 0xfb,
-	0x70, 0x4d, 0x1c, 0xc8, 0xec, 0xfc, 0x80, 0xc4, 0x01, 0x3a, 0x15, 0x7d, 0x0b, 0x4b, 0x5e, 0x60,
-	0x63, 0xcf, 0x65, 0x67, 0x9d, 0x83, 0x1e, 0x61, 0x8c, 0xcf, 0x71, 0x4f, 0x6c, 0xe7, 0xaf, 0x0a,
-	0xb7, 0xb3, 0x33, 0xca, 0x2d, 0x37, 0x73, 0x7c, 0x14, 0xf4, 0x25, 0xc0, 0xf1, 0xa7, 0x54, 0x59,
-	0x84, 0xb1, 0xa0, 0xa3, 0xaa, 0xdf, 0xc6, 0x07, 0x24, 0xf2, 0x09, 0x23, 0x54, 0xcb, 0x12, 0xac,
-	0x9c, 0x08, 0xfa, 0x18, 0xe6, 0xbd, 0x60, 0x30, 0xe0, 0x2b, 0x5a, 0x1c, 0x89, 0xed, 0x62, 0x45,
-	0x1d, 0xd9, 0xa9, 0x24, 0x13, 0x5e, 0xb4, 0x09, 0x75, 0xee, 0x71, 0xb7, 0x4f, 0x43, 0xec, 0x53,
-	0x6e, 0x0e, 0x75, 0x5d, 0x78, 0x37, 0xdf, 0xa9, 0x84, 0x75, 0x09, 0xf4, 0x0a, 0x16, 0x39, 0x61,
-	0x8f, 0xb0, 0xb7, 0x41, 0x74, 0x4c, 0x8d, 0x9f, 0x09, 0x85, 0xdc, 0x2f, 0x54, 0xc8, 0x6e, 0x8e,
-	0x51, 0x01, 0x83, 0xbc, 0x2c, 0xdf, 0x89, 0x61, 0xe0, 0xbb, 0x2c, 0x88, 0x5c, 0x7f, 0xc0, 0xd1,
-	0x80, 0x88, 0xb9, 0x75, 0x6b, 0x84, 0xca, 0x5d, 0xc3, 0x90, 0x79, 0xd4, 0xb8, 0xae, 0xbb, 0x86,
-	0xdd, 0x7e, 0xa7, 0x97, 0xb8, 0x06, 0xde, 0x8f, 0x7e, 0x0d, 0x8b, 0xc3, 0xd8, 0x63, 0xee, 0x96,
-	0x17, 0x53, 0x46, 0x22, 0xa3, 0x21, 0xf8, 0xd7, 0x53, 0xfe, 0x5c, 0x9f, 0x92, 0xd3, 0xf8, 0x79,
-	0x20, 0x0a, 0x7c, 0x92, 0x9d, 0x8b, 0x25, 0x71, 0xa0, 0x34, 0x1a, 0xfa, 0x16, 0x56, 0x83, 0x98,
-	0x1d, 0x04, 0xb1, 0xef, 0xf4, 0x23, 0x7c, 0x78, 0xe8, 0xda, 0xd2, 0x10, 0x0c, 0x24, 0x26, 0xfb,
-	0x79, 0x32, 0xd9, 0x7e, 0x11, 0x93, 0x9a, 0xb5, 0x78, 0x04, 0x6e, 0x76, 0x61, 0x66, 0x54, 0x2f,
-	0xb1, 0xeb, 0xed, 0x87, 0xc4, 0x37, 0x96, 0xa5, 0xd9, 0x15, 0x74, 0x71, 0x5f, 0x28, 0xc9, 0xd9,
-	0x9a, 0x57, 0xa4, 0x2f, 0x1c, 0x21, 0xa3, 0x0f, 0x61, 0x29, 0x8c, 0xdc, 0x80, 0x3b, 0xac, 0x2d,
-	0x0f, 0x53, 0xca, 0x7b, 0x8c, 0x55, 0xc1, 0x3b, 0xde, 0x21, 0x10, 0x5b, 0x14, 0x9c, 0x9e, 0x19,
-	0x6b, 0xe2, 0xa3, 0x32, 0xc4, 0xc6, 0x89, 0x29, 0x62, 0xe3, 0x0d, 0xf4, 0x0c, 0x40, 0xfc, 0xf3,
-	0xc6, 0xf5, 0x5d, 0x66, 0xdc, 0x10, 0xfc, 0x37, 0x34, 0xfe, 0xb6, 0xef, 0x26, 0x4e, 0xa7, 0x16,
-	0x26, 0x04, 0xf4, 0x73, 0x98, 0xa1, 0x0e, 0x35, 0x0c, 0x21, 0xb0, 0x94, 0xe2, 0xb2, 0x56, 0xb2,
-	0xa3, 0xbc, 0x37, 0xc9, 0xc4, 0x6e, 0xa6, 0x99, 0x18, 0xcf, 0xa9, 0x18, 0xf1, 0xc8, 0x90, 0xb0,
-	0x28, 0xf7, 0xd1, 0xeb, 0x32, 0xa7, 0x1a, 0xef, 0x41, 0x1f, 0x42, 0x85, 0x45, 0xd8, 0x26, 0x91,
-	0x71, 0x4b, 0xcc, 0x94, 0x22, 0xc0, 0xbe, 0xa0, 0x26, 0xe0, 0x57, 0xf2, 0xa0, 0x7b, 0xb0, 0xc0,
-	0xa2, 0x98, 0xb2, 0x56, 0x30, 0xc4, 0xae, 0x6f, 0xdc, 0x16, 0xc3, 0xe6, 0x49, 0x68, 0x0d, 0x2a,
-	0x31, 0x25, 0xbb, 0x5b, 0x5d, 0xe3, 0x5d, 0xb1, 0x2d, 0xaa, 0xb5, 0xfe, 0x12, 0x8c, 0x49, 0xde,
-	0xfc, 0x52, 0xc8, 0xb0, 0x05, 0x6b, 0xc5, 0x6e, 0xe4, 0xb2, 0xf8, 0x72, 0xcc, 0xf6, 0x2e, 0x85,
-	0x76, 0x7e, 0x05, 0xcb, 0x05, 0x8e, 0x84, 0x0b, 0x78, 0xe4, 0x84, 0x78, 0x6a, 0x10, 0xd9, 0x30,
-	0xff, 0x7b, 0x06, 0x1a, 0xa3, 0x08, 0xe2, 0x4f, 0x92, 0xe1, 0xe5, 0x30, 0xd0, 0xac, 0x8e, 0x81,
-	0xae, 0x96, 0xd3, 0x65, 0x09, 0x54, 0xe5, 0xe2, 0x09, 0xd4, 0x7d, 0xb8, 0xe6, 0x05, 0xd8, 0x79,
-	0x81, 0x3d, 0xec, 0xdb, 0x24, 0x6a, 0x77, 0x45, 0xf8, 0xaa, 0x59, 0x23, 0xd4, 0x2c, 0x2b, 0xaa,
-	0x5e, 0x2e, 0x2b, 0xaa, 0xfd, 0x84, 0x59, 0x11, 0x5c, 0x38, 0x2b, 0x32, 0xff, 0xbd, 0x0a, 0x2b,
-	0x45, 0xe8, 0xee, 0xcf, 0x30, 0x95, 0x7f, 0x0f, 0xea, 0x76, 0x4c, 0x59, 0x30, 0xec, 0x91, 0xe8,
-	0xc4, 0xb5, 0x89, 0xd8, 0xfd, 0xaa, 0xa5, 0x13, 0xb9, 0x2d, 0x38, 0xe4, 0x20, 0x1e, 0xa8, 0xed,
-	0x95, 0x0d, 0xee, 0x1f, 0x1c, 0xe9, 0x3c, 0xaa, 0x82, 0xac, 0x5a, 0xe3, 0xe5, 0x81, 0xda, 0xd5,
-	0xcb, 0x03, 0xa0, 0x9f, 0xed, 0x4f, 0x64, 0x79, 0x40, 0x26, 0xd7, 0xbf, 0x98, 0x86, 0xc4, 0x47,
-	0xea, 0x03, 0xf7, 0x60, 0x81, 0x9c, 0x32, 0x12, 0xf9, 0xd8, 0x6b, 0x77, 0x79, 0xba, 0x3d, 0xc3,
-	0xbd, 0x5d, 0x8e, 0x84, 0xee, 0x68, 0x38, 0xa5, 0x2e, 0xe6, 0xcd, 0xc3, 0x90, 0x07, 0x70, 0x3d,
-	0x6b, 0x7d, 0xc5, 0x58, 0x48, 0x45, 0x04, 0xaf, 0x5a, 0xa3, 0xe4, 0x9c, 0x29, 0x5d, 0xff, 0xff,
-	0x98, 0x52, 0xa3, 0xd0, 0x94, 0x9e, 0x83, 0x91, 0xa7, 0xf4, 0xa4, 0x11, 0x60, 0x7f, 0x40, 0xa8,
-	0xb1, 0x24, 0xbe, 0x6a, 0x62, 0x3f, 0xda, 0x02, 0xa4, 0x01, 0x1c, 0x61, 0x7e, 0x06, 0x9a, 0x6c,
-	0x93, 0x05, 0xec, 0x99, 0x2d, 0x2f, 0x9f, 0x6b, 0xcb, 0xa3, 0xc9, 0xee, 0x4a, 0x41, 0xb2, 0xfb,
-	0x48, 0xc6, 0xc6, 0x55, 0x1d, 0x17, 0xea, 0x3b, 0xda, 0x73, 0x68, 0x3e, 0x52, 0x8e, 0x99, 0xf6,
-	0xda, 0xc5, 0x0b, 0x1e, 0x4f, 0x55, 0xc1, 0x43, 0x06, 0xef, 0x7b, 0xc5, 0xf3, 0x7d, 0x77, 0x12,
-	0xfa, 0x3f, 0x45, 0xed, 0xc3, 0x6c, 0xc3, 0x8d, 0x09, 0x5f, 0x72, 0xd9, 0x62, 0x83, 0xd9, 0x01,
-	0x63, 0xd2, 0x22, 0xa7, 0x8c, 0xb5, 0x06, 0x15, 0x1a, 0x1f, 0x1e, 0xba, 0xa7, 0x6a, 0x30, 0xd5,
-	0x32, 0x3f, 0x87, 0xbb, 0x19, 0xf4, 0xde, 0xf6, 0x4f, 0x76, 0xdd, 0x53, 0x12, 0x6d, 0x3a, 0x38,
-	0x64, 0xe7, 0x57, 0xa3, 0xcd, 0xb7, 0x70, 0x63, 0x02, 0x6e, 0x9f, 0xb2, 0x12, 0x6e, 0x80, 0x32,
-	0xa7, 0x11, 0xa6, 0x23, 0x73, 0xd3, 0x3c, 0x89, 0x73, 0xa8, 0x84, 0x59, 0x00, 0xb6, 0x19, 0x09,
-	0x48, 0x72, 0x24, 0xf3, 0x07, 0x40, 0x9d, 0x00, 0x3b, 0xbd, 0x23, 0xe2, 0x38, 0x59, 0xa0, 0xfe,
-	0x25, 0x34, 0x3c, 0xcc, 0x88, 0x6f, 0x9f, 0xf5, 0x8f, 0x22, 0x42, 0x8f, 0x02, 0xcf, 0x51, 0xbb,
-	0x33, 0x46, 0x37, 0x37, 0x60, 0x76, 0x18, 0x38, 0x04, 0x2d, 0x42, 0xb5, 0xd5, 0xee, 0x6d, 0xbe,
-	0xe8, 0x6c, 0xb7, 0x1a, 0xef, 0xf0, 0x56, 0x67, 0x7f, 0xe7, 0xcd, 0xfe, 0x5e, 0xe7, 0xdb, 0x46,
-	0x09, 0x2d, 0xc0, 0xfc, 0xf6, 0xde, 0xcb, 0x7d, 0x6b, 0x6b, 0xbb, 0x51, 0x36, 0xef, 0x03, 0x64,
-	0xd0, 0x7b, 0x8a, 0x4e, 0x76, 0x60, 0xb9, 0x20, 0xa1, 0x98, 0xbe, 0x33, 0x31, 0x25, 0xed, 0xce,
-	0x0b, 0xa5, 0x0a, 0xd5, 0x32, 0x7f, 0x5f, 0x86, 0xe5, 0xfc, 0x6e, 0x24, 0x9a, 0xdd, 0x85, 0xfa,
-	0x71, 0xaa, 0x74, 0xee, 0x03, 0x65, 0xed, 0xe4, 0xfd, 0xf1, 0x4c, 0xaa, 0x70, 0x3b, 0x2d, 0x5d,
-	0x1a, 0xb5, 0x04, 0x94, 0x1d, 0x12, 0x76, 0x44, 0x62, 0xb9, 0x1b, 0xb9, 0x72, 0x6b, 0x37, 0xed,
-	0x29, 0x18, 0x28, 0x27, 0x87, 0x3e, 0x86, 0x39, 0xca, 0x1c, 0x37, 0x50, 0x35, 0x96, 0xd4, 0x7c,
-	0x7b, 0x9c, 0x58, 0x20, 0x2b, 0xb9, 0xb9, 0xaf, 0x8b, 0x29, 0x49, 0xba, 0xac, 0x16, 0x55, 0x10,
-	0x66, 0x84, 0x6a, 0xfe, 0x47, 0x19, 0x16, 0xc4, 0x28, 0x4a, 0x07, 0x9f, 0x40, 0x15, 0x2b, 0xad,
-	0x8c, 0x96, 0x8e, 0x0a, 0x54, 0x66, 0xa5, 0xcc, 0x53, 0x0a, 0x46, 0x4d, 0x19, 0x50, 0x64, 0x09,
-	0xef, 0xb6, 0x36, 0x5a, 0x61, 0x1c, 0x49, 0x8d, 0x73, 0x36, 0x5f, 0x09, 0x7c, 0x04, 0x15, 0x99,
-	0x84, 0xa8, 0xf0, 0x7b, 0x53, 0x1b, 0x48, 0xcb, 0x87, 0x14, 0x23, 0x7a, 0x0e, 0xb5, 0x14, 0xc2,
-	0x2b, 0xc8, 0xa5, 0x4f, 0xdf, 0x4f, 0x7a, 0x93, 0x7c, 0x22, 0x65, 0xbf, 0xb2, 0x3b, 0xfa, 0x43,
-	0x19, 0x96, 0xc6, 0x56, 0xf4, 0x27, 0x01, 0x35, 0x0a, 0xac, 0xcc, 0x5e, 0x0e, 0xac, 0xe4, 0xb6,
-	0x71, 0x6e, 0x82, 0xcf, 0xac, 0xe4, 0xb7, 0x65, 0x34, 0xfe, 0xcc, 0x17, 0x5c, 0x25, 0xfd, 0xef,
-	0x2c, 0xac, 0x14, 0xe9, 0xfb, 0xea, 0x87, 0xad, 0x48, 0x9f, 0xe5, 0x0b, 0xea, 0x73, 0xe6, 0x02,
-	0xfa, 0x9c, 0x9d, 0xac, 0xcf, 0xb9, 0x2b, 0xeb, 0xb3, 0x52, 0x88, 0xb3, 0xe6, 0x75, 0x9c, 0x55,
-	0xa4, 0xa7, 0x49, 0xf6, 0x51, 0xcd, 0x6f, 0xc4, 0xaf, 0x61, 0x91, 0x83, 0x12, 0xaa, 0x1c, 0xb7,
-	0x02, 0x84, 0x69, 0xb1, 0x62, 0xdc, 0xa9, 0x5b, 0x1a, 0xff, 0xd8, 0x46, 0xc2, 0x79, 0x55, 0xf3,
-	0x85, 0xab, 0x27, 0x0e, 0xcf, 0x60, 0x8d, 0x12, 0xca, 0x7d, 0xf8, 0xe6, 0xe1, 0x21, 0x4f, 0xf4,
-	0xd3, 0xc2, 0xe8, 0xa2, 0xd0, 0xd1, 0x84, 0xde, 0x2b, 0x1b, 0x65, 0x13, 0xd0, 0x78, 0xb1, 0x66,
-	0x4a, 0xa4, 0xd9, 0x84, 0xeb, 0x3c, 0xed, 0xde, 0x1c, 0x10, 0x9f, 0x5d, 0x11, 0x4b, 0xec, 0xc0,
-	0xad, 0x29, 0x25, 0x1b, 0xf3, 0x81, 0x0a, 0x92, 0x75, 0xa8, 0x6d, 0x76, 0x3a, 0xfb, 0xdf, 0xbc,
-	0xd9, 0xdc, 0xfb, 0xb6, 0xf1, 0x0e, 0x5a, 0x82, 0xba, 0xb5, 0xbd, 0xd3, 0xee, 0xf5, 0xad, 0x6f,
-	0x55, 0xa8, 0x34, 0xff, 0xa6, 0x0a, 0x0b, 0x5d, 0xd7, 0x0b, 0xce, 0x5f, 0xc8, 0x95, 0x8d, 0x62,
-	0x82, 0x03, 0x19, 0x35, 0x9c, 0xd9, 0x62, 0xc3, 0xd1, 0x4e, 0xcd, 0x5c, 0xc1, 0xa9, 0x29, 0x76,
-	0x1c, 0x06, 0xcc, 0x53, 0xd7, 0x21, 0x36, 0x8e, 0x92, 0xfb, 0x49, 0xd5, 0xe4, 0xf9, 0x92, 0xa8,
-	0x9f, 0xf4, 0xf0, 0x30, 0xf4, 0x92, 0x42, 0x6c, 0xc9, 0xd2, 0x89, 0x3f, 0x59, 0x12, 0x5b, 0x50,
-	0xff, 0x87, 0xe2, 0xfa, 0xbf, 0x72, 0x00, 0x0b, 0x97, 0x73, 0x00, 0x36, 0xdc, 0x3d, 0x26, 0x24,
-	0xc4, 0x9e, 0x7b, 0xc2, 0x35, 0xc6, 0xd3, 0x3d, 0x71, 0x02, 0x79, 0x5e, 0xc9, 0x8f, 0xf8, 0x80,
-	0xa8, 0x92, 0xeb, 0x94, 0xdc, 0xed, 0xbc, 0x11, 0xd0, 0x6b, 0x68, 0x38, 0x24, 0xf4, 0x82, 0x33,
-	0xfe, 0x79, 0x32, 0xf7, 0x51, 0x57, 0x94, 0x1f, 0xa4, 0x80, 0x23, 0x3b, 0x43, 0xcd, 0xd6, 0x08,
-	0xaf, 0x74, 0x2e, 0x63, 0x43, 0xa0, 0xdb, 0x50, 0x93, 0x4a, 0xd8, 0xc5, 0xa1, 0xca, 0xc4, 0x32,
-	0x02, 0x7a, 0x0a, 0xf3, 0xea, 0xf6, 0x46, 0x25, 0x61, 0xeb, 0xda, 0x5c, 0x7a, 0xb5, 0x39, 0x61,
-	0xcd, 0x55, 0xbc, 0x1a, 0xf9, 0x8a, 0x57, 0x82, 0x12, 0x96, 0x74, 0x94, 0x90, 0x5f, 0xb5, 0xee,
-	0x05, 0x33, 0x3c, 0x80, 0x74, 0x3c, 0x20, 0x44, 0xce, 0xc7, 0x03, 0xcb, 0x3a, 0x1e, 0x10, 0x52,
-	0x53, 0xf0, 0xc0, 0x16, 0xac, 0x16, 0x6a, 0xed, 0x52, 0x75, 0xb4, 0xab, 0xfa, 0xaf, 0x3f, 0x96,
-	0x00, 0x8d, 0xeb, 0x54, 0xdc, 0x3c, 0x48, 0x42, 0x52, 0x59, 0x28, 0xa9, 0x9b, 0x07, 0x8d, 0xca,
-	0x8d, 0x54, 0x51, 0x44, 0x49, 0x56, 0xc1, 0x7e, 0x8d, 0x66, 0x7e, 0x06, 0xab, 0x6e, 0x3a, 0x38,
-	0x8b, 0x02, 0xcf, 0x23, 0xd1, 0x2e, 0xf7, 0x50, 0x0b, 0x30, 0xdf, 0xda, 0x7e, 0xb9, 0xf9, 0xba,
-	0xd3, 0x6f, 0xbc, 0x83, 0x00, 0x2a, 0xbd, 0xbe, 0xd5, 0xde, 0xea, 0x37, 0x4a, 0x68, 0x1e, 0x66,
-	0xf6, 0x5f, 0xbe, 0x6c, 0x94, 0xcd, 0x8f, 0x60, 0x69, 0x4c, 0xe7, 0x53, 0x9c, 0xeb, 0x43, 0x58,
-	0x29, 0x52, 0xf6, 0x14, 0x89, 0x1f, 0x60, 0x21, 0x97, 0xf9, 0x22, 0x04, 0xb3, 0x3e, 0xcf, 0x5e,
-	0xe4, 0xc7, 0x8a, 0xff, 0xd3, 0xcb, 0xe7, 0x72, 0x76, 0xf9, 0x8c, 0xd6, 0xa1, 0xea, 0x07, 0x0e,
-	0xe9, 0x66, 0x97, 0xd2, 0x69, 0x1b, 0xdd, 0x01, 0x90, 0x2f, 0x87, 0x44, 0xef, 0xac, 0xe8, 0xcd,
-	0x51, 0x44, 0x0d, 0x32, 0x83, 0xe8, 0xd9, 0x73, 0x24, 0x3b, 0x22, 0x98, 0x91, 0xac, 0x27, 0xf1,
-	0x2e, 0x6a, 0xc9, 0x13, 0xfb, 0xa7, 0xc0, 0xe3, 0x51, 0x17, 0x3a, 0x53, 0xe0, 0x42, 0xd5, 0xad,
-	0xd3, 0x6c, 0x76, 0xeb, 0xa4, 0x4a, 0xd9, 0x73, 0x59, 0x29, 0xfb, 0x36, 0x77, 0x88, 0x8c, 0xf8,
-	0xe9, 0x6b, 0x91, 0x9a, 0x95, 0x11, 0xd0, 0x26, 0x5c, 0xa3, 0x76, 0x84, 0x43, 0xd2, 0xf6, 0x19,
-	0x89, 0x4e, 0xb0, 0x27, 0xbc, 0xee, 0x54, 0xaf, 0x33, 0x22, 0xc0, 0x93, 0x47, 0x3b, 0xf0, 0x19,
-	0x39, 0x65, 0x5d, 0xcc, 0x8e, 0x14, 0xfa, 0xc8, 0x93, 0xf2, 0x1e, 0x61, 0x04, 0x7e, 0x8c, 0xbf,
-	0x52, 0xcb, 0x3c, 0xc2, 0x67, 0x30, 0x4f, 0xd5, 0xf9, 0x05, 0x3d, 0xc7, 0xc9, 0xf4, 0xa8, 0x8e,
-	0x72, 0x22, 0xaa, 0xf8, 0xd1, 0x17, 0x50, 0xa5, 0xea, 0xde, 0x54, 0xf9, 0xe5, 0x7b, 0x45, 0xb2,
-	0x92, 0x23, 0x41, 0x91, 0x89, 0x84, 0xf9, 0xfb, 0x12, 0xdc, 0x9e, 0x96, 0x87, 0x4d, 0x89, 0xb5,
-	0xfb, 0xb0, 0x3a, 0x94, 0x6f, 0x25, 0xb6, 0x4f, 0x43, 0x37, 0x3a, 0x4b, 0xeb, 0x70, 0xe5, 0xf3,
-	0xb4, 0x5a, 0x2c, 0x67, 0x3e, 0x05, 0x63, 0xd2, 0x8a, 0xa7, 0x58, 0xc6, 0x5f, 0xc1, 0x8d, 0x09,
-	0x3a, 0x42, 0x5b, 0xb9, 0xd3, 0x3f, 0x92, 0xc7, 0x8e, 0x89, 0xec, 0x29, 0xc6, 0x44, 0x43, 0x89,
-	0xa0, 0xb9, 0x0f, 0x77, 0xcf, 0x61, 0x9e, 0xfe, 0x48, 0x24, 0xb5, 0xc9, 0xba, 0x7a, 0x10, 0xf2,
-	0xcf, 0x35, 0x58, 0xc8, 0xdd, 0xfa, 0xf0, 0x58, 0x8f, 0x6d, 0x9b, 0x50, 0xda, 0x09, 0x06, 0x2f,
-	0x5d, 0x2f, 0x31, 0x6a, 0x9d, 0xc8, 0x63, 0x74, 0x46, 0x08, 0xa2, 0x21, 0x4e, 0x5e, 0x9e, 0x8c,
-	0x92, 0x45, 0xad, 0x55, 0x82, 0x3c, 0x75, 0xe7, 0x22, 0x0d, 0x44, 0x27, 0xa2, 0x0f, 0x61, 0xc9,
-	0x0e, 0x86, 0x61, 0xe0, 0x73, 0x5f, 0x1e, 0x0c, 0x3a, 0xe2, 0x0e, 0x42, 0x9a, 0xcc, 0x78, 0x87,
-	0x3a, 0xf7, 0x76, 0x1c, 0x45, 0xc4, 0xb7, 0xcf, 0x54, 0x86, 0x93, 0x27, 0x71, 0xe3, 0x72, 0x7c,
-	0x6a, 0x91, 0xc3, 0x88, 0xd0, 0x23, 0x0b, 0x33, 0x09, 0xcd, 0xa7, 0x1b, 0x97, 0x2e, 0x90, 0xdd,
-	0x52, 0x8b, 0x77, 0x81, 0xf1, 0x30, 0x14, 0x16, 0x94, 0xde, 0x52, 0x27, 0x54, 0xd4, 0x81, 0x65,
-	0x92, 0x7b, 0xa9, 0xd3, 0xd3, 0x0c, 0x27, 0x35, 0xb7, 0xf1, 0xc7, 0x3c, 0x56, 0x91, 0x18, 0xfa,
-	0x02, 0x16, 0x04, 0xb9, 0xc7, 0x30, 0xa3, 0x8e, 0x32, 0xa1, 0x69, 0xa3, 0xe4, 0xd9, 0xd1, 0x43,
-	0x58, 0x26, 0xa7, 0xb6, 0x17, 0x3b, 0xa4, 0xed, 0x0b, 0xa4, 0x2b, 0x8b, 0x9d, 0x8b, 0x42, 0x91,
-	0x45, 0x5d, 0x7c, 0x23, 0x13, 0x72, 0x57, 0x15, 0x54, 0xeb, 0x72, 0x23, 0x47, 0xc8, 0x19, 0x68,
-	0xbc, 0x96, 0x07, 0x8d, 0x0f, 0x61, 0xd9, 0xf5, 0xc7, 0x67, 0xbc, 0x2e, 0x67, 0x2c, 0xe8, 0xe2,
-	0x33, 0x26, 0xe4, 0x64, 0x46, 0x59, 0xf4, 0x1d, 0x25, 0xa3, 0x26, 0xa0, 0xe3, 0xf8, 0x80, 0x9c,
-	0xb8, 0x11, 0x13, 0x2e, 0xef, 0x10, 0xdb, 0xa2, 0xde, 0x2b, 0xae, 0x02, 0xc7, 0x7b, 0x78, 0x78,
-	0xf1, 0x92, 0xb3, 0x83, 0x04, 0x57, 0xda, 0xe6, 0xe1, 0x25, 0x8c, 0xdc, 0x13, 0xd7, 0x23, 0x03,
-	0xe2, 0xa8, 0x1b, 0xd7, 0x1c, 0x05, 0xbd, 0x80, 0xdb, 0x11, 0xc1, 0x8e, 0xeb, 0x13, 0x4a, 0xdb,
-	0xbe, 0xcb, 0x5c, 0xec, 0xb5, 0x88, 0x87, 0xcf, 0x7a, 0xc4, 0x0e, 0x7c, 0x87, 0xaa, 0x2a, 0xee,
-	0x54, 0x1e, 0x9e, 0x44, 0xa5, 0xfd, 0x5d, 0x12, 0xb9, 0x81, 0x93, 0x48, 0xaf, 0x0a, 0xe9, 0x09,
-	0xbd, 0xe8, 0x0b, 0xb8, 0x99, 0xf6, 0xbc, 0xc4, 0xae, 0x17, 0x47, 0x24, 0x2b, 0xea, 0xad, 0x09,
-	0xd1, 0xc9, 0x0c, 0xfc, 0xcb, 0x28, 0xc3, 0x2c, 0xa6, 0xc2, 0xb1, 0xdc, 0x10, 0xec, 0x39, 0x8a,
-	0x0e, 0xcb, 0x8d, 0x2b, 0xc3, 0x72, 0xf3, 0x7d, 0x58, 0x4a, 0x6d, 0x7b, 0xdb, 0xb7, 0x03, 0x91,
-	0xa3, 0x56, 0x61, 0xf6, 0x55, 0x6f, 0x7f, 0xaf, 0xf1, 0x0e, 0xff, 0xaf, 0xbf, 0xfd, 0xbb, 0x7e,
-	0xa3, 0x64, 0xbe, 0x0f, 0xc0, 0x33, 0x92, 0xb6, 0xff, 0x3d, 0xb1, 0x99, 0x2c, 0x2c, 0xe6, 0x6a,
-	0x8e, 0x69, 0x05, 0xb2, 0x64, 0x3e, 0x4c, 0xae, 0x6e, 0x39, 0x8a, 0xf9, 0xae, 0xdd, 0xfd, 0x6d,
-	0x9b, 0x0f, 0x54, 0x87, 0x5a, 0xa7, 0xbd, 0xf3, 0x55, 0xbf, 0xd7, 0xdf, 0xee, 0xca, 0xc2, 0x64,
-	0x6b, 0xb3, 0xbf, 0xd9, 0xda, 0xdf, 0x69, 0x94, 0xcd, 0xf7, 0xe1, 0xfa, 0xc8, 0x8d, 0x73, 0x76,
-	0x2c, 0x4b, 0xf9, 0x64, 0x6f, 0x0b, 0x6e, 0x4c, 0x78, 0xbb, 0xca, 0xe3, 0x34, 0x4f, 0x1a, 0x14,
-	0xcc, 0xe3, 0x09, 0xc1, 0x1a, 0x54, 0x86, 0x64, 0x18, 0x44, 0x67, 0x49, 0xbd, 0x58, 0xb6, 0xcc,
-	0x3f, 0x94, 0xa0, 0x96, 0xde, 0x57, 0x4f, 0x71, 0xab, 0x06, 0xcc, 0xc7, 0x0e, 0x15, 0x21, 0x58,
-	0x0e, 0x90, 0x34, 0x39, 0x92, 0x88, 0x29, 0xd9, 0xe3, 0x9e, 0xd0, 0x7b, 0xf5, 0x96, 0xa9, 0x57,
-	0x46, 0x1a, 0x8d, 0xbb, 0xbe, 0x98, 0x92, 0x7e, 0x14, 0x53, 0xf6, 0x36, 0x88, 0xd8, 0xd1, 0x19,
-	0x67, 0x94, 0xa5, 0xc1, 0xf1, 0x0e, 0xf3, 0xaf, 0x61, 0x31, 0x5f, 0xe9, 0xe7, 0x18, 0x63, 0xc8,
-	0x01, 0x89, 0x98, 0x5d, 0x7e, 0x53, 0x46, 0x48, 0x81, 0x59, 0x39, 0x07, 0xcc, 0xf8, 0x79, 0x11,
-	0x23, 0xe4, 0x0a, 0xce, 0x39, 0x8a, 0xf9, 0x9f, 0x65, 0xb8, 0x76, 0xd1, 0x70, 0x37, 0x06, 0x95,
-	0xca, 0xd3, 0xb2, 0xcd, 0x99, 0xbc, 0xe3, 0x10, 0xcb, 0xf0, 0x0e, 0x7b, 0xee, 0xc0, 0x4f, 0x6f,
-	0x73, 0x73, 0x94, 0xd1, 0x9b, 0xfa, 0xb9, 0xf1, 0x9b, 0xfa, 0xdf, 0x40, 0xd5, 0xf1, 0xe9, 0x16,
-	0xe1, 0xfe, 0xa6, 0xa2, 0x3f, 0x9d, 0xd5, 0xd7, 0xdf, 0x6c, 0x29, 0x36, 0x99, 0xac, 0xa4, 0x52,
-	0xe2, 0xfd, 0x98, 0x80, 0x87, 0xbb, 0x84, 0x1e, 0xa9, 0x57, 0x1e, 0xf3, 0xea, 0xfd, 0xd8, 0x08,
-	0x7d, 0xfd, 0x73, 0xa8, 0x6b, 0xc3, 0x5c, 0x2a, 0x5d, 0xd8, 0x81, 0xba, 0x8e, 0x05, 0x4c, 0x58,
-	0x4c, 0xae, 0xe1, 0x52, 0x3c, 0x50, 0xb7, 0x34, 0x5a, 0xd1, 0xe6, 0x99, 0xff, 0x53, 0x82, 0xd5,
-	0x9e, 0xcc, 0xca, 0xa5, 0x7d, 0x05, 0xe7, 0x23, 0xa3, 0x2f, 0xe0, 0xa6, 0xfc, 0x37, 0x4d, 0x9c,
-	0xe9, 0x8b, 0x33, 0xf5, 0x96, 0x41, 0x41, 0xdf, 0xc9, 0x0c, 0x13, 0x76, 0xef, 0x22, 0x2f, 0x3a,
-	0x1f, 0xc2, 0x72, 0x44, 0xde, 0x46, 0x2e, 0x23, 0x9b, 0x61, 0xf8, 0x55, 0xbf, 0xdf, 0xed, 0x46,
-	0xc1, 0x01, 0x49, 0x1e, 0x99, 0x15, 0x74, 0x8d, 0x9c, 0x89, 0xca, 0xe8, 0x99, 0x30, 0xbf, 0x81,
-	0x1b, 0x13, 0x8a, 0xec, 0xd3, 0x8f, 0x68, 0x10, 0xb3, 0x30, 0x66, 0x9b, 0xf4, 0x15, 0x4d, 0x1f,
-	0x08, 0x6a, 0x34, 0xf3, 0x5f, 0x4a, 0xb0, 0x98, 0x7f, 0x2f, 0x82, 0x3e, 0x86, 0x79, 0x07, 0x33,
-	0xec, 0x04, 0x83, 0xd1, 0x32, 0xa8, 0x64, 0x6b, 0xc9, 0xce, 0x04, 0xfd, 0x2a, 0x5e, 0xf4, 0x39,
-	0xd4, 0x3c, 0x77, 0x70, 0xc4, 0x28, 0x23, 0xa1, 0x02, 0x9e, 0xef, 0xea, 0x82, 0x1d, 0xde, 0xdd,
-	0x63, 0x24, 0x4c, 0x12, 0xda, 0x94, 0x1f, 0x3d, 0x86, 0xca, 0x8f, 0x6e, 0x78, 0xac, 0x6a, 0x3f,
-	0xb9, 0xa8, 0x2f, 0x25, 0xbf, 0x13, 0x7d, 0x49, 0x02, 0x2d, 0x39, 0xcd, 0x0d, 0x58, 0x2e, 0x58,
-	0x10, 0xd7, 0x06, 0x76, 0x1c, 0x01, 0xfb, 0xe5, 0xf9, 0x4c, 0x9a, 0xe6, 0xdf, 0x96, 0x60, 0xb5,
-	0x70, 0x25, 0x93, 0x65, 0xb8, 0x29, 0x4a, 0xcf, 0xdf, 0x0f, 0x8e, 0x89, 0xaf, 0xce, 0x63, 0x9e,
-	0xc4, 0x37, 0xce, 0xe6, 0x63, 0x4a, 0x37, 0xa4, 0x7c, 0x4a, 0x46, 0x11, 0x37, 0x72, 0xdc, 0x24,
-	0x89, 0x32, 0x74, 0xd5, 0x32, 0x9b, 0x80, 0xc6, 0x3f, 0x6e, 0xca, 0xea, 0xff, 0xa1, 0x0c, 0x75,
-	0xf5, 0xee, 0xef, 0xdc, 0x7d, 0x7f, 0x96, 0xa5, 0x3e, 0x65, 0xbd, 0xb2, 0xa0, 0x46, 0x98, 0x90,
-	0xfc, 0x3c, 0x81, 0xca, 0xf7, 0x98, 0x0c, 0x48, 0xa4, 0xb6, 0xe1, 0xd6, 0x88, 0xd8, 0x2b, 0xd1,
-	0x99, 0xec, 0x83, 0x64, 0xe5, 0xd0, 0x23, 0x8c, 0x82, 0x13, 0xd7, 0x21, 0x91, 0xca, 0x09, 0xd3,
-	0x36, 0xda, 0xc8, 0xb2, 0xa9, 0x39, 0xfd, 0xc5, 0xf9, 0x84, 0x1c, 0xea, 0x49, 0x7a, 0x10, 0x2a,
-	0x85, 0x2b, 0x28, 0x3c, 0x09, 0x0f, 0x61, 0xa5, 0xe8, 0xbb, 0xa6, 0xa4, 0x2a, 0x4c, 0x9e, 0x9d,
-	0x91, 0x4f, 0x4a, 0x32, 0xdb, 0xd2, 0x58, 0x66, 0x5b, 0xce, 0x32, 0xdb, 0xcf, 0xd2, 0x88, 0x29,
-	0x75, 0xf4, 0xb3, 0x42, 0x1d, 0xed, 0x0a, 0x96, 0x64, 0x9d, 0x2a, 0xa8, 0x3e, 0x87, 0x9b, 0x13,
-	0x99, 0xd0, 0xbb, 0x00, 0x43, 0x7c, 0xfa, 0x46, 0xa0, 0x02, 0xaa, 0x9c, 0x62, 0x6d, 0x88, 0x4f,
-	0xc5, 0x21, 0xa1, 0xe6, 0xbf, 0x96, 0xd3, 0x25, 0x6b, 0x07, 0xe6, 0x22, 0x4b, 0x16, 0xef, 0xe3,
-	0x82, 0x03, 0xd2, 0x63, 0x38, 0x62, 0x71, 0x28, 0x80, 0x9b, 0xca, 0xec, 0xc7, 0x3b, 0x78, 0x58,
-	0xfd, 0x21, 0x26, 0xd1, 0x59, 0x5a, 0x8c, 0xa8, 0x5b, 0x19, 0xe1, 0xa7, 0x7a, 0xab, 0xce, 0x5d,
-	0xd3, 0xf7, 0xf8, 0x04, 0xef, 0x87, 0x8c, 0x7e, 0x45, 0x70, 0xa8, 0x12, 0x1e, 0x8d, 0xc6, 0x4f,
-	0xd6, 0x10, 0x9f, 0xf6, 0x42, 0xec, 0x53, 0x95, 0xe8, 0xa4, 0x6d, 0xf4, 0x04, 0x66, 0x79, 0x62,
-	0xa8, 0x72, 0x9b, 0xbb, 0x85, 0xc7, 0x84, 0x27, 0x87, 0xc9, 0xb5, 0x3e, 0x67, 0x36, 0x3f, 0x82,
-	0x1b, 0x13, 0x18, 0x78, 0xc4, 0xb1, 0xc3, 0x38, 0x51, 0xbc, 0xf8, 0xdf, 0xfc, 0xb7, 0x39, 0xa8,
-	0x7c, 0x2d, 0xc6, 0x45, 0x9f, 0xc3, 0x02, 0xb7, 0xe8, 0xa1, 0xfc, 0xfd, 0x96, 0x72, 0x8c, 0x69,
-	0x95, 0x6f, 0xec, 0xa7, 0x5d, 0x56, 0x9e, 0x1b, 0x35, 0xa1, 0x26, 0xdf, 0x97, 0xdb, 0xbe, 0xab,
-	0x0c, 0x32, 0x7d, 0x14, 0x98, 0xfe, 0x2e, 0xcd, 0xaa, 0x0a, 0x9e, 0x2d, 0xdf, 0x45, 0x9f, 0xc1,
-	0xa2, 0xf8, 0x9f, 0xeb, 0xd2, 0xf1, 0x93, 0x9f, 0x7b, 0xa5, 0xa6, 0xa3, 0xfd, 0x58, 0xcb, 0xd2,
-	0x58, 0xd1, 0x87, 0x50, 0x19, 0x88, 0x9f, 0x23, 0xa8, 0xab, 0xb6, 0x95, 0xa2, 0x1f, 0x29, 0x58,
-	0x8a, 0x07, 0x3d, 0x86, 0xaa, 0xba, 0x6e, 0x4f, 0xf6, 0x72, 0x6d, 0xe4, 0xe9, 0x4a, 0x7a, 0xdb,
-	0x95, 0xf0, 0x89, 0x19, 0xc4, 0xeb, 0x39, 0x65, 0xa1, 0x2b, 0x45, 0xaf, 0x63, 0x2d, 0xc5, 0x83,
-	0x3e, 0x80, 0xb9, 0x21, 0x8f, 0x58, 0xaa, 0xc0, 0xb3, 0x5c, 0x70, 0xe1, 0x6a, 0x49, 0x0e, 0xf4,
-	0x31, 0xd4, 0xf8, 0x26, 0xe1, 0x01, 0xf1, 0x99, 0xda, 0xd6, 0xf4, 0xad, 0xe5, 0xc8, 0x05, 0x88,
-	0x95, 0x71, 0x8a, 0xe7, 0x29, 0xae, 0x17, 0x30, 0x55, 0xe4, 0x59, 0x2e, 0x28, 0xd6, 0x5a, 0x92,
-	0x03, 0x7d, 0xaa, 0xdd, 0x81, 0x83, 0xfe, 0x33, 0x81, 0xd1, 0x02, 0x9b, 0x76, 0xef, 0xfd, 0x78,
-	0xac, 0xb4, 0xb3, 0x56, 0x8c, 0xb7, 0xb2, 0x82, 0x0e, 0x7a, 0x0d, 0x6b, 0x54, 0x87, 0x2b, 0xdf,
-	0x90, 0x83, 0xa3, 0x20, 0x38, 0x56, 0x25, 0xf6, 0x34, 0x3a, 0x16, 0x82, 0x1a, 0x6b, 0x82, 0x30,
-	0x77, 0xa9, 0x4c, 0xbd, 0x09, 0xaf, 0xeb, 0xe7, 0x42, 0x8b, 0x0e, 0x56, 0xc2, 0x65, 0x6e, 0x42,
-	0x5d, 0xfb, 0x79, 0xcf, 0xe5, 0x5f, 0x8f, 0xbc, 0x80, 0xef, 0xaa, 0xc9, 0x6f, 0x49, 0x0f, 0x2a,
-	0xa2, 0x7c, 0xf0, 0xe4, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0xde, 0x7b, 0x0c, 0x43, 0x6d, 0x3a,
-	0x00, 0x00,
+	// 4515 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x5c, 0x4b, 0x73, 0x1c, 0x47,
+	0x72, 0xd6, 0xe0, 0x31, 0x98, 0x49, 0x60, 0xf0, 0xa8, 0xc1, 0xa3, 0x09, 0x42, 0x24, 0xb6, 0xf5,
+	0xa2, 0x76, 0xb5, 0x03, 0xbe, 0x44, 0x49, 0x14, 0xbd, 0x16, 0x08, 0x80, 0x14, 0x28, 0x3c, 0x26,
+	0x7a, 0x86, 0xd4, 0x92, 0x17, 0xba, 0xd0, 0x5d, 0x18, 0xb4, 0xd0, 0xd3, 0xdd, 0xec, 0xaa, 0x1e,
+	0x02, 0x0a, 0xff, 0x81, 0xb5, 0x4f, 0x3e, 0x38, 0x7c, 0x70, 0x38, 0xc2, 0x07, 0xc7, 0x1e, 0xfc,
+	0x03, 0xec, 0xbb, 0x2f, 0x3e, 0xfb, 0xe8, 0x08, 0xfb, 0xe8, 0x83, 0x7f, 0x80, 0x8f, 0x8e, 0x70,
+	0xd4, 0xa3, 0x9f, 0xd3, 0x33, 0x03, 0x60, 0x29, 0xd9, 0x3e, 0x61, 0x2a, 0x2b, 0xb3, 0xba, 0xba,
+	0xaa, 0x32, 0xf3, 0xcb, 0xac, 0x6c, 0xc0, 0x1d, 0xff, 0xb4, 0xb3, 0x81, 0x7d, 0x9b, 0x6e, 0xd8,
+	0x94, 0xd9, 0xde, 0x46, 0xef, 0x0e, 0x76, 0xfc, 0x13, 0x7c, 0x77, 0xa3, 0x87, 0x9d, 0x90, 0x50,
+	0xf5, 0xe7, 0x35, 0x3b, 0xf7, 0x09, 0x6d, 0xf8, 0x81, 0xc7, 0x3c, 0x54, 0x96, 0xb4, 0xd5, 0x1b,
+	0x1d, 0xcf, 0xeb, 0x38, 0x64, 0x43, 0x50, 0x8f, 0xc2, 0xe3, 0x0d, 0x2b, 0x0c, 0x30, 0xb3, 0x3d,
+	0x57, 0xf2, 0xad, 0xea, 0xa7, 0x5f, 0xd2, 0x86, 0xed, 0xf1, 0xd1, 0x37, 0x4c, 0x2f, 0x20, 0x1b,
+	0xbd, 0x3b, 0x1b, 0x1d, 0xe2, 0x92, 0x00, 0x33, 0x62, 0x49, 0x1e, 0x7d, 0x1b, 0xd0, 0xa6, 0x65,
+	0x79, 0xee, 0xae, 0xdb, 0x09, 0x08, 0xa5, 0x5b, 0x9e, 0x7b, 0x6c, 0x77, 0x90, 0x06, 0x53, 0xc4,
+	0xc5, 0x47, 0x0e, 0xb1, 0xb4, 0xd2, 0x7a, 0xe9, 0x56, 0xc5, 0x88, 0x9a, 0x68, 0x11, 0x26, 0x4f,
+	0x3c, 0xca, 0xa8, 0x36, 0xb6, 0x3e, 0x7e, 0xab, 0x6a, 0xc8, 0x86, 0x6e, 0x00, 0x6c, 0x06, 0xe6,
+	0x89, 0x92, 0x5e, 0x84, 0x49, 0xdc, 0xb5, 0x1e, 0xdc, 0x17, 0xb2, 0x35, 0x43, 0x36, 0xf8, 0x98,
+	0xbe, 0x6f, 0x3e, 0xb8, 0xef, 0x10, 0x6d, 0x4c, 0xd0, 0xa3, 0x26, 0xe7, 0xa7, 0xf7, 0xbe, 0xba,
+	0x7d, 0xa6, 0x8d, 0x4b, 0x7e, 0xd1, 0xd0, 0x3f, 0x82, 0xea, 0xd6, 0xc1, 0xee, 0xa8, 0x09, 0xe9,
+	0xbf, 0x85, 0xd5, 0xad, 0xe6, 0xf3, 0x36, 0x0e, 0x3a, 0x84, 0x3d, 0x67, 0xb6, 0x63, 0xff, 0x28,
+	0x96, 0x40, 0xc9, 0x3d, 0x04, 0x8d, 0x89, 0xae, 0xcd, 0x1e, 0x09, 0x70, 0x87, 0xa4, 0x38, 0xc4,
+	0x40, 0x93, 0xc6, 0xc0, 0x7e, 0xfd, 0xdf, 0x4b, 0xb0, 0xb0, 0x45, 0x02, 0xb6, 0x8f, 0x5d, 0xdc,
+	0x21, 0xc1, 0xc8, 0xa5, 0x99, 0x87, 0xf1, 0x93, 0xf0, 0x48, 0xbc, 0x5c, 0xd5, 0xe0, 0x3f, 0x39,
+	0x85, 0xe1, 0x8e, 0x78, 0xad, 0xaa, 0xc1, 0x7f, 0xa2, 0xc7, 0x30, 0xe3, 0x7a, 0x16, 0x69, 0x11,
+	0x87, 0x98, 0xcc, 0x0b, 0xb4, 0x89, 0xf5, 0xd2, 0xad, 0xe9, 0xbb, 0x37, 0x1a, 0x72, 0x47, 0x1b,
+	0xed, 0x73, 0x9f, 0xec, 0x63, 0xbf, 0xc5, 0x02, 0xdb, 0xed, 0xec, 0xba, 0x8c, 0x04, 0xc7, 0xd8,
+	0x24, 0x46, 0x46, 0x06, 0x3d, 0x81, 0x6a, 0x40, 0xa8, 0x17, 0x06, 0x26, 0xa1, 0xda, 0xa4, 0x18,
+	0xe0, 0x56, 0x43, 0x6e, 0x75, 0x03, 0xfb, 0x76, 0x83, 0x6f, 0x75, 0xa3, 0x77, 0xa7, 0x61, 0x28,
+	0x26, 0x83, 0xbc, 0x09, 0xed, 0x80, 0x74, 0x89, 0xcb, 0xa8, 0x91, 0x88, 0xea, 0xff, 0x51, 0x82,
+	0xda, 0x96, 0x17, 0x90, 0xed, 0x83, 0xd6, 0xc8, 0x77, 0xd3, 0x61, 0xc6, 0x94, 0xac, 0xbb, 0x5d,
+	0xdc, 0x21, 0xea, 0x25, 0x33, 0x34, 0xd4, 0x00, 0xa4, 0xda, 0x4d, 0x27, 0xec, 0xd8, 0xae, 0xe4,
+	0x94, 0x2f, 0x5f, 0xd0, 0xf3, 0x4e, 0xd6, 0x42, 0x87, 0x99, 0x80, 0xf8, 0x8e, 0x6d, 0xe2, 0x2d,
+	0x2f, 0x74, 0x99, 0x58, 0x8e, 0x9a, 0x91, 0xa1, 0xe9, 0x8f, 0x60, 0x7d, 0x9b, 0x1c, 0xe3, 0xd0,
+	0x61, 0x4d, 0xcf, 0xda, 0xb6, 0x69, 0x10, 0xfa, 0x7c, 0x7f, 0x1f, 0x87, 0x56, 0x87, 0xb0, 0x91,
+	0xe7, 0xeb, 0x39, 0x2c, 0x2b, 0xe9, 0x68, 0x3d, 0x23, 0x25, 0xf9, 0x1a, 0x2a, 0x01, 0x79, 0x13,
+	0x12, 0xae, 0x0d, 0x25, 0x31, 0xf7, 0x9b, 0xd1, 0xdc, 0x63, 0x56, 0x43, 0x31, 0x48, 0x11, 0x23,
+	0x16, 0xd0, 0x7f, 0x5f, 0x81, 0xfa, 0x8e, 0x50, 0xb9, 0xa7, 0x98, 0x91, 0xb7, 0xf8, 0x5c, 0x0d,
+	0xfa, 0x4b, 0x98, 0xc7, 0x21, 0xf3, 0xa8, 0x89, 0x1d, 0xb2, 0x93, 0x99, 0x51, 0x1f, 0x9d, 0xbf,
+	0x7c, 0x4c, 0xdb, 0xc7, 0x67, 0x4a, 0xad, 0x32, 0xb4, 0x2c, 0x8f, 0xed, 0x2a, 0x15, 0xcb, 0xd0,
+	0xd0, 0x7d, 0x18, 0x37, 0xfd, 0x50, 0x1d, 0x25, 0x3d, 0x7a, 0x87, 0xc1, 0x5a, 0x65, 0x70, 0xf6,
+	0xf4, 0x92, 0x4d, 0x65, 0x0f, 0xcb, 0x03, 0x18, 0x27, 0x6e, 0x4f, 0xab, 0xac, 0x8f, 0xdf, 0x9a,
+	0xbe, 0xfb, 0x61, 0x34, 0x5e, 0xc1, 0xdb, 0x36, 0x76, 0xdc, 0xde, 0x8e, 0xcb, 0x82, 0x73, 0x83,
+	0x0b, 0xa0, 0x7b, 0x50, 0x76, 0xf0, 0x11, 0x71, 0xa8, 0x56, 0x15, 0x53, 0xb9, 0x1e, 0x89, 0x2a,
+	0xa1, 0x3d, 0xd1, 0xa9, 0xe6, 0xa0, 0x58, 0xfb, 0x4e, 0x11, 0x5c, 0x49, 0xa3, 0x66, 0x7d, 0xcf,
+	0xda, 0x74, 0x5d, 0x8f, 0x89, 0xd7, 0xa4, 0xda, 0xf4, 0x85, 0x46, 0xc9, 0x49, 0x21, 0x1b, 0xd6,
+	0x04, 0x85, 0xd9, 0x9b, 0xc7, 0xc7, 0xb6, 0x6b, 0x33, 0x39, 0xe5, 0x78, 0x6e, 0x33, 0x62, 0xd4,
+	0x8f, 0xd2, 0xa3, 0xb6, 0x1c, 0xdb, 0x24, 0x87, 0xc7, 0x05, 0x83, 0x0f, 0x1d, 0x0a, 0xbd, 0x81,
+	0xf5, 0x5c, 0x7f, 0x9b, 0x04, 0xdd, 0xec, 0xe3, 0x6a, 0x97, 0x79, 0xdc, 0xc8, 0xe1, 0xd0, 0xa7,
+	0x30, 0xe9, 0x7b, 0x01, 0xa3, 0xda, 0xac, 0xd8, 0xd8, 0x7a, 0x34, 0x6e, 0x93, 0x13, 0xd5, 0xae,
+	0x48, 0x8e, 0xac, 0x89, 0x9a, 0xbb, 0xb2, 0x89, 0x42, 0x0f, 0xa1, 0x46, 0x89, 0x19, 0x10, 0xf6,
+	0xc2, 0x73, 0xc2, 0x2e, 0xa1, 0xda, 0xbc, 0x78, 0xf4, 0x62, 0xf4, 0xe8, 0x56, 0xaa, 0xd3, 0xc8,
+	0xb2, 0xa2, 0x03, 0x40, 0x94, 0x04, 0x3d, 0xdb, 0x24, 0xe9, 0x8d, 0x5d, 0xb8, 0xd0, 0xc6, 0x16,
+	0x48, 0x22, 0x04, 0x13, 0xdc, 0x09, 0x6b, 0x48, 0x18, 0x34, 0xf1, 0x1b, 0x7d, 0x0a, 0x13, 0x3f,
+	0xf6, 0x7c, 0x57, 0xab, 0x8b, 0x51, 0x97, 0xa2, 0x51, 0x5f, 0x91, 0xc0, 0x7b, 0xd1, 0x3c, 0x50,
+	0x6b, 0x22, 0x58, 0x56, 0x1f, 0x40, 0x25, 0x3a, 0xed, 0xdc, 0x2f, 0x9c, 0x92, 0x73, 0xa1, 0xd7,
+	0x55, 0x83, 0xff, 0xe4, 0x2e, 0x50, 0xc8, 0x2a, 0xc3, 0x2a, 0x1b, 0x0f, 0xc7, 0xbe, 0x2c, 0xe9,
+	0x2f, 0x00, 0xed, 0xb8, 0x3d, 0xef, 0x7c, 0x9f, 0xb0, 0xc0, 0x36, 0x47, 0x3b, 0x68, 0x04, 0x13,
+	0xdc, 0x27, 0xab, 0x81, 0xc4, 0x6f, 0x4e, 0xe3, 0xfb, 0x22, 0x94, 0x7f, 0xd2, 0x10, 0xbf, 0xf5,
+	0xff, 0x1a, 0x87, 0x99, 0xa7, 0xd8, 0x71, 0xc8, 0xf9, 0x45, 0x7c, 0xbe, 0x9d, 0xb2, 0xfa, 0xb2,
+	0x81, 0xee, 0xc2, 0x44, 0x97, 0xd0, 0x13, 0x6d, 0x5c, 0x6c, 0xc9, 0x8d, 0x44, 0x57, 0x93, 0x31,
+	0x1b, 0xfb, 0x84, 0x9e, 0x48, 0x05, 0x17, 0xbc, 0x23, 0x15, 0x64, 0xe2, 0xe7, 0x55, 0x90, 0xc9,
+	0x77, 0xab, 0x20, 0x79, 0x67, 0x54, 0xee, 0x77, 0x46, 0x59, 0xcd, 0x98, 0xba, 0xb2, 0x66, 0xac,
+	0x7e, 0x01, 0xd5, 0x78, 0x71, 0x2f, 0x75, 0x9e, 0xfe, 0x08, 0xea, 0x05, 0xe6, 0x94, 0x0f, 0x81,
+	0x7d, 0x3f, 0x1a, 0x02, 0xfb, 0xbe, 0xd8, 0x75, 0x8e, 0x48, 0xe3, 0x5d, 0xe7, 0x0d, 0xfd, 0x9f,
+	0x4b, 0x30, 0xab, 0xe4, 0x23, 0xd1, 0xef, 0x00, 0x89, 0x3e, 0x69, 0xe0, 0x3b, 0xb2, 0x53, 0x79,
+	0xc4, 0xeb, 0x43, 0xac, 0xbf, 0x51, 0x20, 0x96, 0x3e, 0x85, 0x63, 0xd9, 0x53, 0x78, 0x00, 0x75,
+	0xc1, 0xaf, 0x90, 0x6a, 0xf4, 0x1c, 0x79, 0x64, 0xd6, 0xa2, 0xe7, 0xa8, 0xde, 0xec, 0x83, 0x8a,
+	0x04, 0xf5, 0xbf, 0x9b, 0x85, 0x99, 0xa7, 0x8e, 0x77, 0x84, 0x1d, 0xf5, 0x1e, 0x1f, 0xc3, 0x04,
+	0x0e, 0xcc, 0x13, 0x35, 0x73, 0x14, 0x8d, 0x98, 0x00, 0x5b, 0x43, 0xf4, 0xa3, 0x5b, 0x30, 0x67,
+	0x8a, 0xf6, 0x01, 0xee, 0x12, 0xea, 0x63, 0x33, 0x5a, 0xe5, 0x3c, 0x99, 0x3b, 0x73, 0x49, 0x7a,
+	0x81, 0x1d, 0xdb, 0x92, 0xa8, 0x73, 0x5c, 0x3a, 0xf3, 0x3c, 0x1d, 0x7d, 0x03, 0xd7, 0x4d, 0xcf,
+	0x65, 0x81, 0xe7, 0x34, 0x1d, 0xec, 0x92, 0x16, 0x31, 0xc3, 0xc0, 0x66, 0xe7, 0x11, 0x06, 0x98,
+	0x10, 0x62, 0xc3, 0x58, 0x50, 0x13, 0xea, 0x96, 0x44, 0x2a, 0x07, 0x69, 0x87, 0x58, 0xbe, 0x90,
+	0xc5, 0x2b, 0x12, 0x45, 0x27, 0xb0, 0x6a, 0x0d, 0x44, 0x4e, 0xf1, 0xe9, 0x55, 0x03, 0x8f, 0xc2,
+	0x58, 0xc6, 0x90, 0xb1, 0xd0, 0x6d, 0xa8, 0x5b, 0x36, 0xe5, 0xef, 0xd1, 0xf4, 0x1c, 0xdb, 0x3c,
+	0xdf, 0x3a, 0x21, 0xe6, 0x29, 0xd5, 0x2a, 0xe2, 0xad, 0x8b, 0xba, 0xd0, 0x33, 0x98, 0xb7, 0x72,
+	0xb8, 0x4c, 0xc1, 0x86, 0x1b, 0xb9, 0x19, 0xe5, 0x70, 0x9b, 0xd1, 0x27, 0x87, 0x3e, 0x86, 0x59,
+	0x79, 0xca, 0xbe, 0x25, 0x4e, 0xb7, 0x4d, 0x28, 0x13, 0x28, 0xa2, 0x62, 0xe4, 0xa8, 0xe8, 0x43,
+	0xa8, 0x49, 0x4a, 0x3b, 0xc0, 0xa6, 0xed, 0x76, 0x04, 0x4c, 0xa8, 0x18, 0x59, 0x62, 0x14, 0x07,
+	0xcc, 0x24, 0x71, 0xc0, 0x2d, 0x98, 0x13, 0x36, 0xb3, 0x19, 0x3a, 0x8e, 0x7c, 0x09, 0xe1, 0x9b,
+	0xab, 0x46, 0x9e, 0xcc, 0x67, 0x22, 0xce, 0x6a, 0x72, 0xb4, 0x66, 0x05, 0x63, 0x8e, 0x8a, 0x5e,
+	0xc2, 0x82, 0xe3, 0x99, 0xd8, 0xe1, 0x66, 0xef, 0xa8, 0x45, 0x18, 0xe3, 0xb3, 0x99, 0x13, 0x96,
+	0xf8, 0x57, 0xb1, 0x25, 0x4e, 0x1d, 0xee, 0xc6, 0x5e, 0x9e, 0x5b, 0x9a, 0xe5, 0xfe, 0x51, 0xd0,
+	0x1f, 0x03, 0x9c, 0x7e, 0x49, 0x95, 0xb2, 0x68, 0xf3, 0x59, 0x60, 0xfb, 0x5d, 0x78, 0x44, 0x02,
+	0x97, 0x30, 0x42, 0x33, 0x01, 0xa3, 0x91, 0x12, 0x41, 0x9f, 0xc3, 0x94, 0xe3, 0x75, 0x3a, 0x7c,
+	0x46, 0x0b, 0x39, 0x1c, 0x27, 0x66, 0xb4, 0x27, 0x3b, 0x95, 0x64, 0xc4, 0x8b, 0x36, 0xa1, 0xc6,
+	0x7d, 0xc4, 0xce, 0x99, 0x8f, 0x5d, 0xca, 0x35, 0x05, 0x65, 0x85, 0xf7, 0xd3, 0x9d, 0x4a, 0x38,
+	0x2b, 0xc1, 0xb1, 0x20, 0x27, 0x1c, 0x10, 0xf6, 0xd6, 0x0b, 0x4e, 0xa9, 0x72, 0xcb, 0x23, 0xb1,
+	0x60, 0x5a, 0x86, 0xef, 0x40, 0xd7, 0x73, 0x6d, 0xe6, 0x71, 0x26, 0x0e, 0x6d, 0xb4, 0x45, 0x61,
+	0xc6, 0x73, 0x54, 0x6e, 0x2d, 0xba, 0xcc, 0xa1, 0xda, 0x52, 0xd6, 0x5a, 0xec, 0xb7, 0xf7, 0x5a,
+	0x91, 0xb5, 0xe0, 0xfd, 0xe8, 0x37, 0x30, 0xd3, 0x0d, 0x1d, 0x66, 0x6f, 0x39, 0x21, 0x65, 0x24,
+	0xd0, 0x96, 0x05, 0xff, 0x6a, 0xcc, 0x9f, 0xea, 0x53, 0x72, 0x19, 0x7e, 0xee, 0x54, 0x3c, 0x97,
+	0x24, 0xe7, 0x61, 0x45, 0x1c, 0xb9, 0x0c, 0x0d, 0xbd, 0x84, 0x25, 0x2f, 0x64, 0x47, 0x5e, 0xe8,
+	0x5a, 0xed, 0x00, 0x1f, 0x1f, 0xdb, 0xa6, 0x3a, 0x65, 0x9a, 0x78, 0xd8, 0x07, 0xd1, 0xc3, 0x0e,
+	0x8b, 0x98, 0xd4, 0x53, 0x8b, 0x47, 0xe0, 0x8a, 0xe9, 0x27, 0x6a, 0xf7, 0x04, 0xdb, 0xce, 0xa1,
+	0x4f, 0x5c, 0xed, 0x9a, 0x54, 0xcc, 0x82, 0x2e, 0x7e, 0xd8, 0x25, 0x39, 0x99, 0xf3, 0xaa, 0x3c,
+	0xec, 0x39, 0x32, 0xfa, 0x0c, 0x16, 0xfc, 0xc0, 0xf6, 0xb8, 0x0d, 0xdb, 0x72, 0x30, 0xa5, 0xbc,
+	0x47, 0xbb, 0x2e, 0x78, 0xfb, 0x3b, 0x04, 0xfc, 0x0c, 0xbc, 0xb3, 0x73, 0x6d, 0x4d, 0xbc, 0x54,
+	0x02, 0x3f, 0x39, 0x31, 0x86, 0x9f, 0xbc, 0x81, 0x3e, 0x87, 0xaa, 0xf8, 0xb1, 0xeb, 0xda, 0x4c,
+	0x7b, 0x5f, 0xb0, 0xaf, 0x64, 0xd8, 0x79, 0x87, 0x12, 0x49, 0x38, 0xd1, 0x07, 0x30, 0x4e, 0x2d,
+	0xaa, 0xdd, 0x10, 0x02, 0x0b, 0x31, 0xc6, 0xdc, 0x8e, 0x36, 0x94, 0xf7, 0x46, 0x31, 0xfd, 0xcd,
+	0x24, 0xa6, 0x6f, 0x00, 0x62, 0xc4, 0x21, 0x5d, 0xc2, 0x82, 0xd4, 0x3b, 0xaf, 0xcb, 0xb8, 0xb7,
+	0xbf, 0x07, 0x7d, 0x06, 0x65, 0x16, 0x60, 0x93, 0x04, 0xda, 0x2f, 0xc4, 0x93, 0x62, 0x34, 0xdb,
+	0x16, 0xd4, 0x28, 0xbe, 0x91, 0x3c, 0x68, 0x1d, 0xa6, 0x59, 0x10, 0x52, 0xb6, 0xed, 0x75, 0xb1,
+	0xed, 0x6a, 0xba, 0x18, 0x36, 0x4d, 0x42, 0xcb, 0x50, 0x0e, 0x29, 0xd9, 0xdf, 0x6a, 0x6a, 0x1f,
+	0x88, 0x5d, 0x51, 0xad, 0xd5, 0x6d, 0x58, 0x2e, 0xd6, 0xfa, 0x4b, 0xe1, 0x85, 0x5f, 0x41, 0xbd,
+	0x40, 0x6d, 0xb9, 0x80, 0x43, 0x7a, 0xc4, 0x51, 0x83, 0xc8, 0x86, 0xfe, 0x9f, 0xd3, 0xb0, 0x58,
+	0xe4, 0x81, 0xff, 0x1f, 0x85, 0xb5, 0x1f, 0x42, 0xcd, 0x0c, 0x29, 0xf3, 0xba, 0x2d, 0x19, 0x02,
+	0x08, 0xff, 0x59, 0x31, 0xb2, 0x44, 0xfe, 0xfa, 0x16, 0x39, 0x0a, 0x3b, 0xc2, 0x09, 0x56, 0x0d,
+	0xd9, 0xe0, 0x3b, 0x61, 0xc9, 0x6d, 0xaa, 0x08, 0xb2, 0x6a, 0xa5, 0x41, 0x0d, 0x64, 0x41, 0xcd,
+	0x17, 0x32, 0x54, 0x9e, 0x16, 0x96, 0xfb, 0xa3, 0x61, 0x20, 0x26, 0x17, 0x2b, 0xaf, 0xc3, 0x34,
+	0x39, 0x63, 0x24, 0x70, 0xb1, 0xb3, 0xdb, 0xa4, 0xda, 0x8c, 0xc8, 0xc6, 0xa5, 0x49, 0xe8, 0x46,
+	0xc6, 0x8e, 0xd7, 0xc4, 0x73, 0xd3, 0x66, 0xfa, 0x16, 0xcc, 0x25, 0xad, 0x6f, 0x19, 0xf3, 0xa9,
+	0xf0, 0x35, 0x15, 0x23, 0x4f, 0x4e, 0xc5, 0xe5, 0x73, 0x17, 0x8f, 0xcb, 0x3f, 0x86, 0x59, 0xc7,
+	0xc3, 0xd6, 0x63, 0xec, 0x60, 0xd7, 0x24, 0xc1, 0x6e, 0x53, 0xb8, 0x92, 0xaa, 0x91, 0xa3, 0xa2,
+	0x87, 0xa0, 0xa5, 0x29, 0x2d, 0x89, 0x7a, 0xb1, 0xdb, 0x21, 0x3c, 0x58, 0xe3, 0x6f, 0x35, 0xb0,
+	0x1f, 0x6d, 0x01, 0xca, 0x38, 0x00, 0x11, 0x89, 0x6a, 0x68, 0x70, 0x78, 0x5a, 0xc0, 0xde, 0x97,
+	0x40, 0xa8, 0xbf, 0x93, 0x04, 0xc2, 0xe2, 0x4f, 0x92, 0x40, 0x58, 0xfa, 0x79, 0xe3, 0xa3, 0xe5,
+	0x9f, 0x28, 0x81, 0xb0, 0x32, 0x32, 0x81, 0x90, 0x0f, 0xa5, 0xb4, 0x82, 0x50, 0xea, 0x51, 0x3a,
+	0x94, 0xba, 0x76, 0xa1, 0xf5, 0x4e, 0xa5, 0x16, 0xee, 0x48, 0x63, 0xbf, 0x9a, 0xc5, 0x37, 0x59,
+	0xcd, 0x6b, 0x59, 0x34, 0x6d, 0xfa, 0xfb, 0xb2, 0x11, 0xd7, 0xff, 0xd0, 0x6c, 0xc4, 0xda, 0x1f,
+	0x9c, 0x8d, 0x78, 0x3f, 0x95, 0x8d, 0xb8, 0xaf, 0xb2, 0x11, 0xd2, 0x81, 0xad, 0x17, 0xbf, 0xd3,
+	0xab, 0x9e, 0xef, 0xbe, 0x93, 0xc4, 0xc4, 0x2e, 0xac, 0x0c, 0x58, 0xad, 0xcb, 0xa6, 0x12, 0xf4,
+	0x3d, 0xd0, 0x06, 0x4d, 0x72, 0xc8, 0x58, 0xcb, 0x50, 0xa6, 0xe1, 0xf1, 0xb1, 0x7d, 0xa6, 0x06,
+	0x53, 0x2d, 0xfd, 0x6b, 0xb8, 0x99, 0xc0, 0xd4, 0x1d, 0xb7, 0xb7, 0x6f, 0x9f, 0x91, 0x60, 0xd3,
+	0xc2, 0x3e, 0x1b, 0x9d, 0xc4, 0xd7, 0xdf, 0xc2, 0xca, 0x00, 0x8c, 0x3b, 0x64, 0x26, 0xdc, 0x18,
+	0xcb, 0x48, 0x41, 0x98, 0x51, 0x19, 0xb8, 0xa6, 0x49, 0x9c, 0x43, 0xc5, 0x9d, 0x02, 0xe4, 0xc8,
+	0xa4, 0x78, 0x9a, 0xa4, 0xbf, 0x01, 0xb4, 0xe7, 0x61, 0xab, 0x75, 0x42, 0x2c, 0x2b, 0x71, 0xb3,
+	0xbf, 0x84, 0x79, 0x07, 0x33, 0xe2, 0x9a, 0xe7, 0xed, 0x93, 0x80, 0xd0, 0x13, 0xcf, 0xb1, 0xd4,
+	0xee, 0xf4, 0xd1, 0xf5, 0x0d, 0x98, 0xe8, 0x7a, 0x16, 0x41, 0x33, 0x50, 0xd9, 0xde, 0x6d, 0x6d,
+	0x3e, 0xde, 0xdb, 0xd9, 0x9e, 0x7f, 0x8f, 0xb7, 0xf6, 0x0e, 0x9f, 0xbe, 0x3e, 0x3c, 0xd8, 0x7b,
+	0x39, 0x5f, 0x42, 0xd3, 0x30, 0xb5, 0x73, 0xf0, 0xe4, 0xd0, 0xd8, 0xda, 0x99, 0x1f, 0xd3, 0x3f,
+	0x06, 0x48, 0xe0, 0xea, 0x90, 0x35, 0x79, 0x0a, 0xf5, 0x02, 0xf0, 0x3d, 0x7c, 0x67, 0x42, 0x4a,
+	0x76, 0xf7, 0x1e, 0xab, 0xa5, 0x50, 0x2d, 0xfd, 0x77, 0x63, 0x50, 0x4f, 0xef, 0x46, 0xb4, 0xb2,
+	0xfb, 0x50, 0x3b, 0x8d, 0x17, 0x9d, 0xfb, 0x43, 0x19, 0x82, 0x7f, 0xd2, 0x1f, 0x75, 0x14, 0x6e,
+	0xa7, 0x91, 0x95, 0x46, 0xdb, 0x00, 0x7e, 0xe0, 0x75, 0x09, 0x3b, 0x21, 0xa1, 0xdc, 0x8d, 0x54,
+	0x1a, 0xba, 0x19, 0xf7, 0x14, 0x0c, 0x94, 0x92, 0x43, 0x9f, 0xc3, 0x24, 0x65, 0x96, 0xed, 0x89,
+	0xcd, 0x4a, 0x99, 0x88, 0x16, 0x27, 0x16, 0xc8, 0x4a, 0x6e, 0xee, 0xf7, 0x42, 0x4a, 0xa2, 0x2e,
+	0x63, 0x9b, 0xaa, 0xd0, 0x3d, 0x47, 0xd5, 0xff, 0x14, 0xa6, 0xc5, 0x20, 0x6a, 0x09, 0xee, 0x40,
+	0x59, 0xc2, 0x63, 0xf5, 0xee, 0xd7, 0xe2, 0x00, 0x81, 0x33, 0x65, 0x90, 0xba, 0x62, 0x44, 0x0f,
+	0xa1, 0x1a, 0xa3, 0x4b, 0xf5, 0x96, 0x6b, 0x19, 0xa9, 0x76, 0xd4, 0x1b, 0x41, 0xdd, 0x98, 0x5d,
+	0xff, 0xd7, 0x31, 0x58, 0xe8, 0x1b, 0xf9, 0x7f, 0x13, 0xa5, 0x4d, 0x5c, 0xf9, 0xf2, 0x61, 0x72,
+	0x80, 0x85, 0x29, 0xa7, 0x93, 0x95, 0xfd, 0x0e, 0x7a, 0xea, 0x4a, 0x0e, 0x3a, 0xef, 0x97, 0x2a,
+	0x05, 0xf7, 0x4d, 0x7f, 0x56, 0x86, 0xc5, 0xa2, 0xf5, 0x47, 0x5f, 0x40, 0x05, 0xab, 0x83, 0x9f,
+	0x4f, 0x8f, 0x15, 0x68, 0x85, 0x11, 0x33, 0x17, 0xee, 0xcb, 0xd8, 0x05, 0xf7, 0x65, 0xfc, 0x02,
+	0xfb, 0x32, 0xf1, 0x53, 0x5c, 0x0a, 0x95, 0x0b, 0x91, 0xee, 0x54, 0x16, 0xe9, 0x16, 0xad, 0x53,
+	0x0e, 0xe9, 0xc6, 0x1b, 0x5a, 0x49, 0x6f, 0xe8, 0x6f, 0x60, 0x86, 0xc3, 0x42, 0xaa, 0xcc, 0xa5,
+	0x4a, 0xfd, 0xc4, 0x61, 0x75, 0xbf, 0x29, 0x35, 0x32, 0xfc, 0xff, 0xa7, 0xae, 0x8d, 0xf2, 0x87,
+	0x6a, 0x66, 0x54, 0xde, 0xb8, 0x76, 0xf5, 0x1b, 0x95, 0x07, 0xb0, 0x4c, 0x09, 0xe5, 0x56, 0x3c,
+	0xc2, 0x69, 0xd1, 0x81, 0x92, 0xe0, 0x7f, 0x40, 0xef, 0x95, 0x51, 0x42, 0x03, 0x50, 0x7f, 0x8a,
+	0x63, 0x88, 0xaf, 0xf9, 0xc7, 0x12, 0xcc, 0x1d, 0x78, 0x16, 0xd9, 0xec, 0x10, 0x77, 0xe4, 0xe5,
+	0x2c, 0xba, 0x2d, 0x0f, 0xd5, 0xd8, 0x85, 0x96, 0x3d, 0x7b, 0x9a, 0xc6, 0xd3, 0xa7, 0xe9, 0x1d,
+	0x5c, 0x45, 0xeb, 0x4f, 0xe1, 0xfa, 0x90, 0xfc, 0x8a, 0x7e, 0x4b, 0x79, 0xe7, 0x1a, 0x54, 0x37,
+	0xf7, 0xf6, 0x0e, 0xbf, 0x7f, 0xbd, 0x79, 0xf0, 0x72, 0xfe, 0x3d, 0xb4, 0x00, 0x35, 0x63, 0xe7,
+	0xe9, 0x6e, 0xab, 0x6d, 0xbc, 0x54, 0x3e, 0x5a, 0xff, 0x2b, 0x80, 0xe9, 0xa6, 0xed, 0x78, 0xa3,
+	0x5f, 0xff, 0xca, 0x76, 0x61, 0x80, 0x2d, 0xce, 0xdb, 0x8e, 0x89, 0x62, 0xdb, 0x31, 0xea, 0xc6,
+	0x7d, 0x80, 0x0d, 0xd6, 0x60, 0x8a, 0xda, 0x16, 0x31, 0x71, 0x10, 0x5d, 0x18, 0xab, 0x26, 0x8f,
+	0xb9, 0x45, 0xb6, 0xa3, 0x85, 0xbb, 0xbe, 0xc3, 0xb5, 0x99, 0xab, 0x7a, 0xc9, 0xc8, 0x12, 0xb3,
+	0x2a, 0x50, 0xbd, 0xba, 0x0a, 0x14, 0xe4, 0xef, 0xa1, 0x38, 0x7f, 0xaf, 0x6c, 0xe0, 0xf4, 0xe5,
+	0x6c, 0x60, 0xfe, 0x30, 0xcd, 0x5c, 0xc1, 0xb4, 0x98, 0x70, 0xf3, 0x94, 0x10, 0x1f, 0x3b, 0x76,
+	0x8f, 0xaf, 0x7a, 0x8b, 0x04, 0x3d, 0xa1, 0x3c, 0x2e, 0x31, 0xf9, 0xe3, 0x36, 0x3b, 0x44, 0x19,
+	0x81, 0x6b, 0x0d, 0x59, 0x04, 0xd4, 0x88, 0x8a, 0x80, 0x1a, 0xdb, 0xaa, 0x08, 0xc8, 0x18, 0x35,
+	0x82, 0x4c, 0xa1, 0xfb, 0x8e, 0x77, 0xce, 0x97, 0x48, 0x06, 0xf1, 0xc2, 0x0a, 0x8c, 0x9e, 0x6c,
+	0x9f, 0x5c, 0x5f, 0xea, 0x75, 0xee, 0x0a, 0xa9, 0xd7, 0x51, 0xd1, 0xef, 0xfc, 0xcf, 0x1b, 0xfd,
+	0x2e, 0xbc, 0xdb, 0xe8, 0x77, 0x0d, 0xaa, 0xf2, 0x7c, 0xed, 0x63, 0x5f, 0xe4, 0xb6, 0x2b, 0x46,
+	0x42, 0x40, 0xf7, 0x61, 0xca, 0x56, 0xa9, 0x9a, 0x7a, 0xd6, 0x95, 0x09, 0x53, 0x90, 0xcd, 0xb6,
+	0x47, 0xac, 0xa9, 0xd4, 0xdf, 0x62, 0x3a, 0xf5, 0x87, 0x1a, 0xd2, 0x2e, 0x2e, 0x09, 0x67, 0xbb,
+	0x96, 0x19, 0xa9, 0xd0, 0xc7, 0x26, 0xe8, 0x73, 0x39, 0x8b, 0x3e, 0x85, 0xc8, 0x68, 0xf4, 0xb9,
+	0x92, 0x45, 0x9f, 0x42, 0x6a, 0x30, 0xfa, 0xbc, 0xb2, 0x33, 0xf9, 0xeb, 0x12, 0xa0, 0xfe, 0xe5,
+	0x10, 0x97, 0x26, 0x92, 0x10, 0xe5, 0xec, 0x4a, 0xea, 0xd2, 0x24, 0x43, 0xe5, 0xa6, 0x4b, 0x51,
+	0x44, 0x56, 0x59, 0xb9, 0x80, 0x0c, 0x4d, 0xff, 0x0a, 0x96, 0xec, 0x78, 0x70, 0x16, 0x78, 0x8e,
+	0x43, 0x82, 0x7d, 0x6e, 0xb7, 0xa7, 0x61, 0x6a, 0x7b, 0xe7, 0xc9, 0xe6, 0xf3, 0xbd, 0xf6, 0xfc,
+	0x7b, 0x08, 0xa0, 0xdc, 0x6a, 0x1b, 0xbb, 0x5b, 0xed, 0xf9, 0x12, 0x9a, 0x82, 0xf1, 0xc3, 0x27,
+	0x4f, 0xe6, 0xc7, 0xf4, 0x5f, 0xc3, 0x42, 0xdf, 0x72, 0x0d, 0xf1, 0x74, 0xb7, 0x61, 0xb1, 0x68,
+	0x9d, 0x86, 0x48, 0xbc, 0x81, 0xe9, 0x54, 0xaa, 0x04, 0x21, 0x98, 0x70, 0x79, 0x30, 0x29, 0x5f,
+	0x56, 0xfc, 0x8e, 0x6f, 0xfa, 0xc7, 0x92, 0x9b, 0x7e, 0xb4, 0x0a, 0x15, 0x6e, 0x5b, 0x9a, 0x49,
+	0x05, 0x40, 0xdc, 0x46, 0x37, 0x00, 0x64, 0xfd, 0x9b, 0xe8, 0x9d, 0x10, 0xbd, 0x29, 0x8a, 0xfe,
+	0xfb, 0x09, 0x98, 0x4f, 0x22, 0xa6, 0xa4, 0xa8, 0xce, 0x0c, 0x08, 0x66, 0x24, 0xe9, 0x89, 0x6c,
+	0xae, 0x9a, 0xf2, 0xc0, 0xfe, 0x21, 0xf7, 0xbb, 0x79, 0xc7, 0x32, 0x5e, 0xe0, 0x58, 0xd4, 0xd5,
+	0xda, 0x44, 0x5f, 0x89, 0xdd, 0x64, 0x92, 0x8e, 0x5f, 0xe3, 0x6e, 0x82, 0x11, 0x57, 0xdc, 0xb6,
+	0x4a, 0x07, 0x94, 0x10, 0xfa, 0x8c, 0xf3, 0xd4, 0x15, 0x8c, 0xf3, 0x26, 0xcc, 0x52, 0x33, 0xc0,
+	0x3e, 0x11, 0x0c, 0x3d, 0xec, 0x08, 0x7f, 0x35, 0xd4, 0x16, 0xe7, 0x04, 0xd0, 0x3a, 0x4c, 0x9b,
+	0x9e, 0xcb, 0xc8, 0x19, 0x6b, 0x62, 0x76, 0x22, 0xbc, 0x59, 0xd5, 0x48, 0x93, 0xd2, 0x06, 0x01,
+	0xb2, 0x06, 0xa1, 0xbf, 0x5e, 0x33, 0x31, 0x08, 0x5f, 0xc1, 0x94, 0x4a, 0x16, 0x29, 0xaf, 0x75,
+	0xb3, 0x3f, 0xee, 0x55, 0xea, 0x10, 0x89, 0x2a, 0x7e, 0xf4, 0x08, 0x2a, 0x54, 0xdd, 0x28, 0x2b,
+	0x97, 0xb5, 0x5e, 0x24, 0x2b, 0x39, 0xa2, 0x10, 0x25, 0x92, 0xd0, 0x7f, 0x57, 0x82, 0xb5, 0x61,
+	0xa1, 0xf5, 0x10, 0x14, 0x73, 0x08, 0x4b, 0x5d, 0x59, 0xdc, 0xb2, 0x73, 0xe6, 0xdb, 0xc1, 0x79,
+	0xb4, 0x68, 0x0a, 0xd6, 0x0d, 0x59, 0xd5, 0x62, 0x39, 0xfd, 0x3e, 0x68, 0x83, 0x66, 0x3c, 0x44,
+	0xbb, 0xfe, 0xb6, 0x04, 0x2b, 0x03, 0x16, 0x09, 0x7d, 0x03, 0xd3, 0x38, 0x05, 0xf3, 0x4b, 0x17,
+	0x3a, 0x34, 0x69, 0x11, 0xb4, 0x95, 0x52, 0xc2, 0xb1, 0x6c, 0x76, 0xa3, 0xef, 0xa1, 0x07, 0x8a,
+	0x31, 0x5a, 0xe4, 0x48, 0x50, 0x3f, 0x84, 0x9b, 0x23, 0x98, 0x87, 0x17, 0x06, 0xc5, 0xa6, 0xa1,
+	0xa6, 0x8a, 0x80, 0xfe, 0xbe, 0x0a, 0xd3, 0xa9, 0xfb, 0x33, 0x0e, 0xc4, 0xb0, 0x69, 0x12, 0x4a,
+	0xf7, 0xbc, 0xce, 0x13, 0xdb, 0x89, 0x6c, 0x4b, 0x96, 0xc8, 0x01, 0x54, 0x42, 0xf0, 0x82, 0x2e,
+	0x8e, 0xaa, 0x8d, 0xf2, 0x64, 0x71, 0x99, 0x22, 0x81, 0xbf, 0xba, 0xbe, 0x92, 0x7a, 0x9a, 0x25,
+	0xa2, 0xcf, 0x60, 0xc1, 0xf4, 0xba, 0xbe, 0xe7, 0x72, 0x38, 0xe1, 0x75, 0xf6, 0xc4, 0xbd, 0x92,
+	0xd4, 0xdc, 0xfe, 0x0e, 0xa5, 0x3a, 0x66, 0x18, 0x04, 0xc4, 0x35, 0xcf, 0x85, 0x02, 0xd7, 0x8c,
+	0x34, 0x89, 0xeb, 0xa7, 0xe5, 0x52, 0x83, 0x1c, 0x07, 0x84, 0x9e, 0x18, 0x98, 0x91, 0x0b, 0xe8,
+	0x67, 0x56, 0x20, 0xa9, 0x08, 0x10, 0x05, 0xb2, 0x61, 0xd7, 0x17, 0x2a, 0x1a, 0x57, 0x04, 0x44,
+	0x54, 0xb4, 0x07, 0x75, 0x92, 0xaa, 0xce, 0x8a, 0xfc, 0x4f, 0x4e, 0x63, 0xfb, 0x0b, 0xb8, 0x8c,
+	0x22, 0x31, 0xf4, 0x08, 0xa6, 0x05, 0xb9, 0xc5, 0x30, 0xa3, 0x96, 0xd2, 0xe0, 0x61, 0xa3, 0xa4,
+	0xd9, 0xd1, 0x6d, 0xa8, 0x93, 0x33, 0xd3, 0x09, 0x2d, 0xb2, 0xeb, 0x8a, 0x30, 0x44, 0x5e, 0x87,
+	0xc8, 0x3a, 0x84, 0xa2, 0x2e, 0xbe, 0x91, 0x11, 0xb9, 0xa9, 0xae, 0x5c, 0x54, 0x5d, 0x42, 0x8e,
+	0x9c, 0x20, 0xfa, 0xd9, 0x34, 0xa2, 0xbf, 0x0d, 0x75, 0xdb, 0xed, 0x7f, 0xe2, 0x9c, 0x7c, 0x62,
+	0x41, 0x97, 0xa8, 0x84, 0x70, 0xb3, 0x4f, 0x9c, 0x57, 0x95, 0x10, 0x59, 0x32, 0x6a, 0x00, 0x3a,
+	0x0d, 0x8f, 0x48, 0xcf, 0x0e, 0x58, 0xac, 0x52, 0xb2, 0x7c, 0xaf, 0x6a, 0x14, 0xf4, 0x70, 0x2f,
+	0xe7, 0x44, 0x67, 0x47, 0x96, 0xe8, 0xc5, 0x6d, 0xee, 0xe5, 0xfc, 0xc0, 0xee, 0xd9, 0x0e, 0xe9,
+	0x10, 0x4b, 0xe0, 0xab, 0x8a, 0x91, 0xa2, 0xa0, 0xc7, 0xb0, 0x16, 0x10, 0x6c, 0xd9, 0x2e, 0xa1,
+	0x74, 0xd7, 0xb5, 0x99, 0x8d, 0x9d, 0x6d, 0xe2, 0xe0, 0xf3, 0x16, 0x31, 0x3d, 0xd7, 0xa2, 0xaa,
+	0x02, 0x60, 0x28, 0x0f, 0x0f, 0xac, 0xe3, 0xfe, 0x26, 0x09, 0x6c, 0xcf, 0x8a, 0xa4, 0x97, 0x84,
+	0xf4, 0x80, 0x5e, 0xf4, 0x08, 0xae, 0xc5, 0x3d, 0x4f, 0xb0, 0xed, 0x84, 0x01, 0x49, 0x52, 0xbd,
+	0xcb, 0x42, 0x74, 0x30, 0x03, 0x7f, 0x33, 0xca, 0x30, 0x0b, 0xa9, 0x30, 0x2c, 0x2b, 0x82, 0x3d,
+	0x45, 0xc9, 0xc6, 0x4c, 0xda, 0xd5, 0x6b, 0xc5, 0x3f, 0x81, 0x85, 0x58, 0xb7, 0x77, 0x5c, 0xd3,
+	0x13, 0x39, 0x94, 0x0a, 0x4c, 0x3c, 0x6b, 0x1d, 0x1e, 0xcc, 0xbf, 0xc7, 0x7f, 0xb5, 0x77, 0x7e,
+	0xdb, 0x9e, 0x2f, 0xe9, 0x9f, 0x00, 0xf0, 0x70, 0x71, 0xd7, 0xfd, 0x81, 0x98, 0x4c, 0xa6, 0x9b,
+	0x53, 0x99, 0xe8, 0x38, 0x2f, 0x5d, 0xd2, 0x6f, 0x47, 0xb7, 0xe0, 0x1c, 0x4c, 0xbd, 0xda, 0x6d,
+	0x7e, 0xb7, 0xcb, 0x07, 0xaa, 0x41, 0x75, 0x6f, 0xf7, 0xe9, 0xb7, 0xed, 0x56, 0x7b, 0xa7, 0x29,
+	0xd3, 0xd5, 0xdb, 0x9b, 0xed, 0xcd, 0xed, 0xc3, 0xa7, 0xf3, 0x63, 0xfa, 0x27, 0x30, 0x97, 0xbb,
+	0xbc, 0x4f, 0x8e, 0x65, 0x29, 0x7d, 0x9d, 0xb0, 0x05, 0x2b, 0x03, 0x0a, 0xb0, 0x39, 0x5c, 0xe0,
+	0x11, 0x9d, 0x42, 0x9b, 0x3c, 0x5a, 0x5b, 0x86, 0x72, 0x97, 0x74, 0x3d, 0x95, 0x42, 0xad, 0x1a,
+	0xaa, 0xa5, 0xff, 0x45, 0x09, 0xaa, 0xf1, 0xd5, 0xff, 0x10, 0xb3, 0xaa, 0xc1, 0x54, 0x68, 0x51,
+	0xe1, 0xc5, 0xe5, 0x00, 0x51, 0x93, 0x03, 0x9a, 0x90, 0x92, 0x03, 0x6e, 0x09, 0x9d, 0x67, 0x6f,
+	0x99, 0xaa, 0xfc, 0xca, 0xd0, 0xb8, 0xe9, 0x0b, 0x29, 0x69, 0x07, 0x21, 0xe5, 0x31, 0x10, 0x3b,
+	0x39, 0xe7, 0x8c, 0x32, 0x61, 0xdc, 0xdf, 0xa1, 0xff, 0x09, 0xcc, 0xa4, 0xef, 0x98, 0x38, 0xd4,
+	0xe9, 0x72, 0x5c, 0x24, 0x9e, 0x2e, 0xdf, 0x29, 0x21, 0xc4, 0xf8, 0x70, 0x2c, 0x85, 0x0f, 0xf9,
+	0x79, 0x11, 0x23, 0xa4, 0xae, 0x21, 0x52, 0x14, 0xfd, 0x2f, 0xc7, 0x61, 0xf6, 0xa2, 0x1e, 0xb3,
+	0x0f, 0xb1, 0x8d, 0x0d, 0x4b, 0x05, 0x64, 0xf2, 0x2d, 0x62, 0x1a, 0xce, 0x71, 0xcb, 0xee, 0xb8,
+	0x71, 0x6d, 0x5b, 0x8a, 0x92, 0x2f, 0x7a, 0x98, 0xec, 0x2f, 0x7a, 0xf8, 0x06, 0x2a, 0x96, 0x4b,
+	0xb7, 0x08, 0xb7, 0x37, 0xe5, 0x6c, 0xa1, 0x79, 0x76, 0xfe, 0x8d, 0x6d, 0xc5, 0x26, 0xc3, 0x9d,
+	0x58, 0x4a, 0x14, 0xe7, 0x09, 0x94, 0xba, 0x4f, 0xe8, 0x89, 0xaa, 0x97, 0x99, 0x52, 0xc5, 0x79,
+	0x39, 0x7a, 0x1f, 0x6a, 0xac, 0x5c, 0x1e, 0x35, 0xae, 0x7e, 0x0d, 0xb5, 0xcc, 0x54, 0x2e, 0x15,
+	0xf9, 0xfc, 0x4d, 0x09, 0x6a, 0xef, 0x1a, 0x92, 0xe8, 0x30, 0x13, 0xd5, 0x0b, 0x34, 0x13, 0x60,
+	0x90, 0xa1, 0xc5, 0x67, 0x68, 0x3c, 0x1b, 0x63, 0xe4, 0x0b, 0xa1, 0xf5, 0x7f, 0x99, 0x84, 0xa5,
+	0x96, 0xcc, 0xe6, 0x48, 0xd5, 0xf7, 0x46, 0xe3, 0xbe, 0x47, 0x70, 0x4d, 0xfe, 0x8c, 0x13, 0x2e,
+	0xf4, 0xf1, 0xb9, 0xaa, 0xd9, 0x53, 0xc1, 0xc1, 0x60, 0x86, 0x0b, 0x26, 0xf2, 0xae, 0x92, 0xd6,
+	0xfd, 0x1e, 0xea, 0x2e, 0xe9, 0x11, 0xf5, 0x22, 0xf1, 0x50, 0xd3, 0x97, 0x49, 0x07, 0x14, 0x8d,
+	0x80, 0x5e, 0xc2, 0x22, 0x76, 0xde, 0xe2, 0x73, 0x9a, 0x1b, 0xf9, 0x52, 0x9f, 0x05, 0x14, 0x0e,
+	0x31, 0x32, 0x75, 0x52, 0xfb, 0x79, 0x53, 0x27, 0xb3, 0x3f, 0x6d, 0x61, 0xf5, 0x5c, 0x81, 0xa1,
+	0xb9, 0x0d, 0xf5, 0x80, 0xbc, 0x0d, 0x6c, 0x46, 0x36, 0x7d, 0xff, 0xdb, 0x76, 0xbb, 0xd9, 0x0c,
+	0xbc, 0x23, 0x22, 0xd0, 0x45, 0xc5, 0x28, 0xea, 0xca, 0x19, 0xa1, 0x85, 0xbc, 0x11, 0xd2, 0xbf,
+	0x87, 0x95, 0x01, 0x77, 0x7d, 0xc3, 0x6d, 0xa2, 0x17, 0x32, 0x3f, 0x64, 0x9b, 0xf4, 0x19, 0x55,
+	0x31, 0x4c, 0xc5, 0xc8, 0xd0, 0xf4, 0x7f, 0x28, 0xc1, 0x4c, 0xba, 0xd6, 0x0b, 0x7d, 0x0e, 0x53,
+	0x16, 0x66, 0xd8, 0xf2, 0x3a, 0xf9, 0x7b, 0x21, 0xc9, 0xb6, 0x2d, 0x3b, 0xa3, 0x88, 0x4d, 0xf1,
+	0xa2, 0xaf, 0xa1, 0xea, 0xd8, 0x9d, 0x13, 0x46, 0x19, 0xf1, 0x55, 0x50, 0xf1, 0x7e, 0x56, 0x70,
+	0x8f, 0x77, 0xb7, 0x18, 0xf1, 0xa3, 0x1c, 0x4c, 0xcc, 0x8f, 0xee, 0x42, 0xf9, 0x47, 0xdb, 0x3f,
+	0x55, 0x99, 0xe0, 0x14, 0xcc, 0x94, 0x92, 0xaf, 0x44, 0x5f, 0x94, 0xf3, 0x91, 0x9c, 0xfa, 0x06,
+	0xd4, 0x0b, 0x26, 0xc4, 0x57, 0x03, 0x5b, 0x96, 0x08, 0x55, 0xa5, 0x31, 0x8b, 0x9a, 0xfa, 0x9f,
+	0x97, 0x60, 0xa9, 0x70, 0x26, 0x83, 0x65, 0xb8, 0xed, 0x97, 0x50, 0xa3, 0xed, 0x9d, 0x12, 0x57,
+	0x99, 0xc2, 0x34, 0x89, 0x6f, 0x9c, 0xc9, 0xc7, 0x94, 0x7e, 0x4f, 0x39, 0xb1, 0x84, 0x22, 0x0a,
+	0x03, 0xb8, 0x0f, 0x20, 0xca, 0xb3, 0xa8, 0x96, 0xde, 0x00, 0xd4, 0xff, 0x72, 0x43, 0x66, 0xff,
+	0x6f, 0x63, 0x50, 0x53, 0x45, 0xbd, 0x23, 0xf7, 0xfd, 0x41, 0x12, 0xae, 0xe7, 0xae, 0x62, 0xd5,
+	0x08, 0x03, 0x02, 0xf6, 0x7b, 0x50, 0xfe, 0x01, 0x93, 0x0e, 0x09, 0xd4, 0x36, 0x5c, 0xcf, 0x89,
+	0x3d, 0x13, 0x9d, 0xd1, 0x3e, 0x48, 0xd6, 0x77, 0xf2, 0xe5, 0xdc, 0x2a, 0x54, 0xfc, 0xc0, 0xeb,
+	0xd9, 0x16, 0x09, 0x94, 0x7f, 0x8d, 0xdb, 0x68, 0x23, 0xc9, 0x22, 0x94, 0xb3, 0x5f, 0xb6, 0x0c,
+	0xc8, 0x1d, 0xdc, 0x8b, 0x0f, 0xd3, 0x54, 0xe1, 0x5b, 0x14, 0x9e, 0xa6, 0xdb, 0xb0, 0x58, 0xb4,
+	0x36, 0x43, 0x42, 0x74, 0x26, 0xcf, 0x5f, 0x6e, 0x59, 0xa2, 0xac, 0x50, 0xa9, 0x2f, 0x2b, 0x34,
+	0x96, 0x64, 0x85, 0xbe, 0x8a, 0x61, 0x9e, 0x5c, 0xe7, 0x5f, 0x14, 0xae, 0xf3, 0xbe, 0x60, 0x89,
+	0xe6, 0xa9, 0x90, 0xe0, 0x43, 0xb8, 0x36, 0x90, 0x09, 0xbd, 0x0f, 0xd0, 0xc5, 0x67, 0xaf, 0x05,
+	0x94, 0xa5, 0xea, 0x83, 0xd7, 0x6a, 0x17, 0x9f, 0x89, 0x83, 0x46, 0xf5, 0x7f, 0x1a, 0x8b, 0xa7,
+	0x9c, 0x39, 0x74, 0x17, 0x99, 0xb2, 0x28, 0x8f, 0xf5, 0x8e, 0x48, 0x8b, 0xe1, 0x80, 0x85, 0xbe,
+	0x88, 0x36, 0x54, 0x56, 0xac, 0xbf, 0x83, 0x63, 0xc1, 0x37, 0x21, 0x09, 0xce, 0xe3, 0x44, 0x5e,
+	0xcd, 0x48, 0x08, 0xef, 0xea, 0x9b, 0x51, 0x6e, 0xde, 0x7e, 0xc0, 0x3d, 0x7c, 0xe8, 0x33, 0xfa,
+	0x2d, 0xc1, 0xbe, 0x8a, 0xd2, 0x33, 0x34, 0x7e, 0xb2, 0xba, 0xf8, 0xac, 0xe5, 0x63, 0x75, 0xcb,
+	0x5e, 0x33, 0xe2, 0x36, 0xba, 0x07, 0x13, 0xfc, 0x14, 0x2a, 0x00, 0x75, 0xb3, 0xf0, 0x98, 0x1c,
+	0x78, 0x56, 0x74, 0xc0, 0x04, 0xb3, 0xfe, 0x6b, 0x58, 0x19, 0xc0, 0xc0, 0xb1, 0x88, 0xe9, 0x87,
+	0xd1, 0xc2, 0x8b, 0xdf, 0xfa, 0x7f, 0x4f, 0x42, 0xf9, 0x85, 0x18, 0x17, 0x7d, 0x0d, 0xd3, 0xdc,
+	0x2a, 0x74, 0xe5, 0x17, 0xbc, 0xf9, 0xd2, 0x8a, 0xbe, 0x8f, 0x7b, 0x8d, 0x34, 0x37, 0x6a, 0x40,
+	0x55, 0x54, 0xdd, 0xbf, 0x36, 0x5d, 0x5b, 0x29, 0x75, 0x5c, 0x14, 0x1c, 0x7f, 0x99, 0x6c, 0x54,
+	0x04, 0xcf, 0x96, 0x6b, 0xa3, 0xaf, 0x60, 0x46, 0xfc, 0xe6, 0x6b, 0x69, 0xb9, 0x54, 0x1d, 0xb4,
+	0x58, 0x75, 0x32, 0x9f, 0xda, 0x1a, 0x19, 0x56, 0xf4, 0x19, 0x94, 0x3b, 0xe2, 0xbb, 0x29, 0xa5,
+	0xca, 0x8b, 0x45, 0x5f, 0x53, 0x19, 0x8a, 0x07, 0xdd, 0x85, 0x8a, 0xaa, 0x1c, 0x8a, 0xf6, 0x72,
+	0x39, 0x57, 0x91, 0x19, 0x97, 0x10, 0x44, 0x7c, 0xe2, 0x09, 0xa2, 0x8c, 0x57, 0x69, 0xf4, 0x62,
+	0xd1, 0x57, 0x02, 0x86, 0xe2, 0x41, 0x5f, 0xc2, 0x54, 0x27, 0xc0, 0xc7, 0xd8, 0xc5, 0x17, 0x4c,
+	0x90, 0x46, 0xec, 0xe8, 0x53, 0x98, 0xec, 0x72, 0x7f, 0xa9, 0x76, 0xb8, 0x9e, 0xb9, 0xe8, 0x8f,
+	0x2a, 0x65, 0x04, 0x07, 0xfa, 0x1c, 0xaa, 0x7c, 0x7b, 0x71, 0x87, 0xb8, 0x4c, 0xdd, 0xe7, 0xc5,
+	0x55, 0xda, 0xb9, 0x2b, 0x60, 0x23, 0xe1, 0x14, 0x55, 0x84, 0xb6, 0xe3, 0x31, 0x85, 0xed, 0xea,
+	0x05, 0xb7, 0x1b, 0x86, 0xe4, 0x40, 0x5f, 0x66, 0x0a, 0x81, 0x24, 0x80, 0xd3, 0xfa, 0xd3, 0x6e,
+	0x05, 0xc5, 0x3f, 0x77, 0xfb, 0x92, 0xa1, 0xcb, 0xc5, 0xe1, 0x45, 0x92, 0x02, 0x45, 0xcf, 0x61,
+	0x99, 0x66, 0x21, 0xf0, 0xf7, 0xe4, 0xe8, 0xc4, 0xf3, 0x4e, 0x15, 0xfa, 0x8a, 0x7d, 0x73, 0x21,
+	0x50, 0x36, 0x06, 0x08, 0x73, 0x63, 0xcc, 0xd4, 0xe7, 0x26, 0xb3, 0xd9, 0x13, 0x95, 0xf1, 0x4d,
+	0x46, 0xc4, 0xa5, 0x6b, 0xb0, 0x5c, 0xbc, 0x4b, 0xfa, 0x4d, 0x78, 0x7f, 0x28, 0x14, 0xd3, 0x37,
+	0xa1, 0x96, 0xf9, 0x76, 0xf1, 0xf2, 0xd5, 0x77, 0x8f, 0xe1, 0x55, 0x25, 0xfa, 0x17, 0x06, 0x47,
+	0x65, 0x91, 0x68, 0xbb, 0xf7, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x68, 0x03, 0xce, 0x12, 0xe4,
+	0x40, 0x00, 0x00,
 }

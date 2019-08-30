@@ -2,11 +2,11 @@
 title: values
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 69
+number_of_entries: 70
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
-<p>AddonIngressConfig is described in istio.io documentation.</p>
+<p>Configuration for the addon ingress.</p>
 
 <table class="message-fields">
 <thead>
@@ -21,6 +21,8 @@ number_of_entries: 69
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether addon ingress is enabled.</p>
+
 </td>
 </tr>
 <tr id="AddonIngressConfig-hosts">
@@ -34,7 +36,7 @@ number_of_entries: 69
 </section>
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
-<p>ArchConfig is described in istio.io documentation.</p>
+<p>ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.</p>
 
 <table class="message-fields">
 <thead>
@@ -74,7 +76,7 @@ number_of_entries: 69
 </section>
 <h2 id="CNIConfig">CNIConfig</h2>
 <section>
-<p>CNIConfig is described in istio.io documentation.</p>
+<p>Configuration for CNI.</p>
 
 <table class="message-fields">
 <thead>
@@ -89,6 +91,8 @@ number_of_entries: 69
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether CNI is enabled.</p>
+
 </td>
 </tr>
 </tbody>
@@ -96,7 +100,7 @@ number_of_entries: 69
 </section>
 <h2 id="CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</h2>
 <section>
-<p>CPUTargetUtilizationConfig is described in istio.io documentation.</p>
+<p>Configuration for CPU target utilization for HorizontalPodAutoscaler target.</p>
 
 <table class="message-fields">
 <thead>
@@ -111,6 +115,10 @@ number_of_entries: 69
 <td><code>targetAverageUtilization</code></td>
 <td><code>int32</code></td>
 <td>
+<p>K8s utilization setting for HorizontalPodAutoscaler target.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
 </td>
 </tr>
 </tbody>
@@ -118,7 +126,7 @@ number_of_entries: 69
 </section>
 <h2 id="CertManagerConfig">CertManagerConfig</h2>
 <section>
-<p>CertManagerConfig is described in istio.io documentation.</p>
+<p>Configuration for CertManager.</p>
 
 <table class="message-fields">
 <thead>
@@ -133,19 +141,15 @@ number_of_entries: 69
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether CertManager is enabled.</p>
+
 </td>
 </tr>
 <tr id="CertManagerConfig-hub">
 <td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
-</td>
-</tr>
-<tr id="CertManagerConfig-resources">
-<td><code>resources</code></td>
-<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
-<td>
-<p>NodeSelector map[string]interface&lbrace;} <code>json:&quot;nodeSelector&quot;</code></p>
+<p>Image hub for the CertManager Deployment.</p>
 
 </td>
 </tr>
@@ -153,6 +157,28 @@ number_of_entries: 69
 <td><code>tag</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image tag for the CertManager Deployment.</p>
+
+</td>
+</tr>
+<tr id="CertManagerConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="CertManagerConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 </tbody>
@@ -160,7 +186,7 @@ number_of_entries: 69
 </section>
 <h2 id="CoreDNSConfig">CoreDNSConfig</h2>
 <section>
-<p>CoreDNSConfig is described in istio.io documentation.</p>
+<p>Configuration for Core DNS.</p>
 
 <table class="message-fields">
 <thead>
@@ -171,10 +197,20 @@ number_of_entries: 69
 </tr>
 </thead>
 <tbody>
+<tr id="CoreDNSConfig-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Controls whether CoreDNS is enabled.</p>
+
+</td>
+</tr>
 <tr id="CoreDNSConfig-coreDNSImage">
 <td><code>coreDNSImage</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image for Core DNS.</p>
+
 </td>
 </tr>
 <tr id="CoreDNSConfig-coreDNSPluginImage">
@@ -183,17 +219,21 @@ number_of_entries: 69
 <td>
 </td>
 </tr>
-<tr id="CoreDNSConfig-enabled">
-<td><code>enabled</code></td>
-<td><code>bool</code></td>
+<tr id="CoreDNSConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
 </td>
 </tr>
 <tr id="CoreDNSConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>NodeSelector       map[string]interface&lbrace;} <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+<p>Number of replicas for Core DNS.</p>
 
 </td>
 </tr>
@@ -202,7 +242,9 @@ number_of_entries: 69
 </section>
 <h2 id="DefaultPodDisruptionBudgetConfig">DefaultPodDisruptionBudgetConfig</h2>
 <section>
-<p>DefaultPodDisruptionBudgetConfig is described in istio.io documentation.</p>
+<p>DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.</p>
+
+<p>See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/</p>
 
 <table class="message-fields">
 <thead>
@@ -217,7 +259,7 @@ number_of_entries: 69
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
-<p>k8s PodDisruptionBudget settings.</p>
+<p>Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.</p>
 
 </td>
 </tr>
@@ -226,7 +268,7 @@ number_of_entries: 69
 </section>
 <h2 id="DefaultResourcesConfig">DefaultResourcesConfig</h2>
 <section>
-<p>DefaultResourcesConfig is described in istio.io documentation.</p>
+<p>DefaultResourcesConfig specifies the default k8s resources settings for all Istio control plane components.</p>
 
 <table class="message-fields">
 <thead>
@@ -243,6 +285,8 @@ number_of_entries: 69
 <td>
 <p>k8s resources settings.</p>
 
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 </tbody>
@@ -250,7 +294,7 @@ number_of_entries: 69
 </section>
 <h2 id="EgressGatewayConfig">EgressGatewayConfig</h2>
 <section>
-<p>EgressGatewayConfig is described in istio.io documentation.</p>
+<p>Configuration for an egress gateway.</p>
 
 <table class="message-fields">
 <thead>
@@ -265,48 +309,50 @@ number_of_entries: 69
 <td><code>autoscaleEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>maxReplicas setting for HorizontalPodAutoscaler.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
 <td><code>uint32</code></td>
 <td>
-</td>
-</tr>
-<tr id="EgressGatewayConfig-connectTimeout">
-<td><code>connectTimeout</code></td>
-<td><code>string</code></td>
-<td>
+<p>minReplicas setting for HorizontalPodAutoscaler.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-cpu">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
 <td>
-</td>
-</tr>
-<tr id="EgressGatewayConfig-drainDuration">
-<td><code>drainDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
+<p>K8s utilization setting for HorizontalPodAutoscaler target.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-enabled">
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether an egress gateway is enabled.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-env">
 <td><code>env</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>Environment variables passed to the proxy container.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-labels">
@@ -317,17 +363,66 @@ number_of_entries: 69
 </tr>
 <tr id="EgressGatewayConfig-nodeSelector">
 <td><code>nodeSelector</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-podAntiAffinityLabelSelector">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>Pod anti-affinity label selector.</p>
+
+<p>Specify the pod anti-affinity that allows you to constrain which nodes
+your pod is eligible to be scheduled based on labels on pods that are
+already running on the node rather than based on labels on nodes.
+There are currently two types of anti-affinity:
+   &ldquo;requiredDuringSchedulingIgnoredDuringExecution&rdquo;
+   &ldquo;preferredDuringSchedulingIgnoredDuringExecution&rdquo;
+which denote “hard” vs. “soft” requirements, you can define your values
+in &ldquo;podAntiAffinityLabelSelector&rdquo; and &ldquo;podAntiAffinityTermLabelSelector&rdquo;
+correspondingly.
+See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
+
+<p>Examples:
+podAntiAffinityLabelSelector:
+ - key: security
+   operator: In
+   values: S1,S2
+   topologyKey: &ldquo;kubernetes.io/hostname&rdquo;
+ This pod anti-affinity rule says that the pod requires not to be scheduled
+ onto a node if that node is already running a pod with label having key
+ “security” and value “S1”.</p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-podAntiAffinityTermLabelSelector">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See PodAntiAffinityLabelSelector.</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-ports">
 <td><code>ports</code></td>
 <td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
 <td>
-<p>PodAnnotations                   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code>
-PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
-PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+<p>Ports Configuration for the egress gateway service.</p>
 
 </td>
 </tr>
@@ -335,20 +430,43 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-secretVolumes">
 <td><code>secretVolumes</code></td>
 <td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
 <td>
+<p>Config for secret volume mounts.</p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-serviceAnnotations">
+<td><code>serviceAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Annotations to add to the egress gateway service.</p>
+
+</td>
+</tr>
+<tr id="EgressGatewayConfig-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Service type.</p>
+
+<p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
+
 </td>
 </tr>
 <tr id="EgressGatewayConfig-zvpn">
 <td><code>zvpn</code></td>
 <td><code><a href="#ZeroVPNConfig">ZeroVPNConfig</a></code></td>
 <td>
-<p>ServiceAnnotations               map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
-  Type                             v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+<p>Enables cross-cluster access using SNI matching.</p>
 
 </td>
 </tr>
@@ -357,7 +475,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="EnvoyMetricsConfig">EnvoyMetricsConfig</h2>
 <section>
-<p>EnvoyMetricsConfig is described in istio.io documentation.</p>
+<p>EnvoyMetricsConfig is a set of configuration options for Envoy metrics.</p>
 
 <table class="message-fields">
 <thead>
@@ -397,7 +515,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="GalleyConfig">GalleyConfig</h2>
 <section>
-<p>GalleyConfig is described in istio.io documentation.</p>
+<p>GalleyConfig is a set of Configuration for Galley.</p>
 
 <table class="message-fields">
 <thead>
@@ -412,26 +530,51 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Galley is enabled.</p>
+
 </td>
 </tr>
 <tr id="GalleyConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Galley.</p>
+
+<p>This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-galley, docker.io/someuser:custom-galley</p>
+
 </td>
 </tr>
 <tr id="GalleyConfig-mesh">
 <td><code>mesh</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).</p>
+
+</td>
+</tr>
+<tr id="GalleyConfig-podAntiAffinityLabelSelector">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
+</td>
+</tr>
+<tr id="GalleyConfig-podAntiAffinityTermLabelSelector">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
 </td>
 </tr>
 <tr id="GalleyConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>PodAntiAffinityLabelSelector     []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
-PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+<p>Number of replicas in the Galley Deployment.</p>
 
 </td>
 </tr>
@@ -439,6 +582,10 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 </tbody>
@@ -446,7 +593,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
 <section>
-<p>GatewayLabelsConfig is described in istio.io documentation.</p>
+<p>GatewayLabelsConfig is a set of Configuration for gateway labels.</p>
 
 <table class="message-fields">
 <thead>
@@ -474,7 +621,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="GatewaysConfig">GatewaysConfig</h2>
 <section>
-<p>GatewaysConfig is described in istio.io documentation.</p>
+<p>Configuration for gateways.</p>
 
 <table class="message-fields">
 <thead>
@@ -485,28 +632,28 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </tr>
 </thead>
 <tbody>
-<tr id="GatewaysConfig-istio_egressgateway">
+<tr id="GatewaysConfig-istioEgressgateway">
 <td><code>istioEgressgateway</code></td>
 <td><code><a href="#EgressGatewayConfig">EgressGatewayConfig</a></code></td>
 <td>
+<p>Configuration for an egress gateway.</p>
+
 </td>
 </tr>
 <tr id="GatewaysConfig-enabled">
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether any gateways are enabled.</p>
+
 </td>
 </tr>
-<tr id="GatewaysConfig-istio_ilbgateway">
-<td><code>istioIlbgateway</code></td>
-<td><code><a href="#ILBGatewayConfig">ILBGatewayConfig</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="GatewaysConfig-istio_ingressgateway">
+<tr id="GatewaysConfig-istioIngressgateway">
 <td><code>istioIngressgateway</code></td>
 <td><code><a href="#IngressGatewayConfig">IngressGatewayConfig</a></code></td>
 <td>
+<p>Configuration for an ingress gateway.</p>
+
 </td>
 </tr>
 </tbody>
@@ -514,6 +661,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="GlobalConfig">GlobalConfig</h2>
 <section>
+<p>Global Configuration for Istio components.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -527,13 +676,19 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>arch</code></td>
 <td><code><a href="#ArchConfig">ArchConfig</a></code></td>
 <td>
+<p>Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  0 - Never scheduled
+  1 - Least preferred
+  2 - No preference
+  3 - Most preferred</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-configNamespace">
 <td><code>configNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>Configuration validation component namespace</p>
+<p>Specifies the namespace for the configuration and validation component.</p>
 
 </td>
 </tr>
@@ -541,7 +696,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>configValidation</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables server-side validation of configuration.</p>
+<p>Controls whether the server-side validation is enabled.</p>
 
 </td>
 </tr>
@@ -549,15 +704,17 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>controlPlaneSecurityEnabled</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables MTLS for control plane.</p>
+<p>Controls whether the MTLS for communication between the control plane components is enabled.</p>
 
 </td>
 </tr>
 <tr id="GlobalConfig-defaultNodeSelector">
 <td><code>defaultNodeSelector</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
-<p>K8s NodeSelector</p>
+<p>Default k8s node selector for all the Istio control plane components</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
 </tr>
@@ -565,7 +722,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>defaultPodDisruptionBudget</code></td>
 <td><code><a href="#DefaultPodDisruptionBudgetConfig">DefaultPodDisruptionBudgetConfig</a></code></td>
 <td>
-<p>k8s PodDisruptionBudget settings.</p>
+<p>Specifies the default pod disruption budget configuration.</p>
 
 </td>
 </tr>
@@ -573,7 +730,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>disablePolicyChecks</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Selects whether policy enforcement is installed.</p>
+<p>Controls whether the policy enforcement is enabled.</p>
 
 </td>
 </tr>
@@ -581,13 +738,17 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>defaultResources</code></td>
 <td><code><a href="#DefaultResourcesConfig">DefaultResourcesConfig</a></code></td>
 <td>
+<p>Default k8s resources settings for all Istio control plane components.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-enableHelmTest">
 <td><code>enableHelmTest</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enable helm test</p>
+<p>Controls whether the helm test templates are enabled.</p>
 
 </td>
 </tr>
@@ -595,7 +756,9 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>enableTracing</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables tracing.</p>
+<p>Controls whether the distributed tracing for the applications is enabled.</p>
+
+<p>See https://opentracing.io/docs/overview/what-is-tracing/</p>
 
 </td>
 </tr>
@@ -603,7 +766,18 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
-<p>Root for docker image paths.</p>
+<p>Specifies the docker hub for Istio images.</p>
+
+</td>
+</tr>
+<tr id="GlobalConfig-imagePullPolicy">
+<td><code>imagePullPolicy</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.</p>
+
+<p>More info: https://kubernetes.io/docs/concepts/containers/images#updating-images</p>
 
 </td>
 </tr>
@@ -611,8 +785,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>istioNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>ImagePullPolicy             v1.PullPolicy                 <code>json:&quot;imagePullPolicy,omitempty&quot;</code>
-Default namespace.</p>
+<p>Specifies the default namespace for the Istio control plane components.</p>
 
 </td>
 </tr>
@@ -620,37 +793,89 @@ Default namespace.</p>
 <td><code>localityLbSetting</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>Specifies the global locality load balancing settings.
+Locality-weighted load balancing allows administrators to control the distribution of traffic to
+endpoints based on the localities of where the traffic originates and where it will terminate.
+Please set either failover or distribute configuration but not both.</p>
+
+<p>localityLbSetting:
+  distribute:
+  - from: &ldquo;us-central1/<em>&rdquo;
+    to:
+      &ldquo;us-central1/</em>&rdquo;: 80
+      &ldquo;us-central2/*&rdquo;: 20</p>
+
+<p>localityLbSetting:
+  failover:
+  - from: us-east
+    to: eu-west
+  - from: us-west
+    to: us-east</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-k8sIngress">
 <td><code>k8sIngress</code></td>
 <td><code><a href="#KubernetesIngressConfig">KubernetesIngressConfig</a></code></td>
 <td>
+<p>Specifies the Configuration for the legacy kubernetes Ingress.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-logging">
 <td><code>logging</code></td>
 <td><code><a href="#GlobalLoggingConfig">GlobalLoggingConfig</a></code></td>
 <td>
+<p>Specifies the global logging level settings for the Istio control plane components.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-meshExpansion">
 <td><code>meshExpansion</code></td>
 <td><code><a href="#MeshExpansionConfig">MeshExpansionConfig</a></code></td>
 <td>
+<p>Specifies the Configuration for Istio mesh expansion to bare metal.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-meshNetworks">
 <td><code>meshNetworks</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+<p>Configure the mesh networks to be used by the Split Horizon EDS.</p>
+
+<p>The following example defines two networks with different endpoints association methods.
+For <code>network1</code> all endpoints that their IP belongs to the provided CIDR range will be
+mapped to network1. The gateway for this network example is specified by its public IP
+address and port.
+The second network, <code>network2</code>, in this example is defined differently with all endpoints
+retrieved through the specified Multi-Cluster registry being mapped to network2. The
+gateway is also defined differently with the name of the gateway service on the remote
+cluster. The public IP for the gateway will be determined from that remote service (only
+LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+it still need to be configured manually).</p>
+
+<p>meshNetworks:
+  network1:
+    endpoints:
+    - fromCidr: &ldquo;192.168.0.<sup>1</sup>&frasl;<sub>24</sub>&rdquo;
+    gateways:
+    - address: 1.1.1.1
+      port: 80
+  network2:
+    endpoints:
+    - fromRegistry: reg1
+    gateways:
+    - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 443</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-monitoringPort">
 <td><code>monitoringPort</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>Monitor port number for all control plane components.</p>
+<p>Specifies the monitor port number for all Istio control plane components.</p>
 
 </td>
 </tr>
@@ -658,19 +883,24 @@ Default namespace.</p>
 <td><code>mtls</code></td>
 <td><code><a href="#MTLSConfig">MTLSConfig</a></code></td>
 <td>
+<p>Specifies the MTLS settings for the applications that Istio manages.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-multiCluster">
 <td><code>multiCluster</code></td>
 <td><code><a href="#MultiClusterConfig">MultiClusterConfig</a></code></td>
 <td>
+<p>Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-oneNamespace">
 <td><code>oneNamespace</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Restricts the applications namespace that the controller manages.</p>
+<p>Controls whether to restrict the applications namespace the controller manages;
+If set it to false, the controller watches all namespaces.</p>
 
 </td>
 </tr>
@@ -678,13 +908,15 @@ Default namespace.</p>
 <td><code>outboundTrafficPolicy</code></td>
 <td><code><a href="#OutboundTrafficPolicyConfig">OutboundTrafficPolicyConfig</a></code></td>
 <td>
+<p>Controls the default behavior of the sidecar for handling outbound traffic from the application.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-policyCheckFailOpen">
 <td><code>policyCheckFailOpen</code></td>
 <td><code>bool</code></td>
 <td>
-<p>If set, allows traffic in cases when the mixer policy service cannot be reached.</p>
+<p>Controls whether to allow traffic in cases when the mixer policy service cannot be reached.</p>
 
 </td>
 </tr>
@@ -692,7 +924,7 @@ Default namespace.</p>
 <td><code>policyNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>Namespace of policy components</p>
+<p>Specifies the namespace for the policy component.</p>
 
 </td>
 </tr>
@@ -700,7 +932,9 @@ Default namespace.</p>
 <td><code>priorityClassName</code></td>
 <td><code>string</code></td>
 <td>
-<p>k8s priorityClassName.</p>
+<p>Specifies the k8s priorityClassName for the istio control plane components.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass</p>
 
 </td>
 </tr>
@@ -708,25 +942,31 @@ Default namespace.</p>
 <td><code>proxy</code></td>
 <td><code><a href="#ProxyConfig">ProxyConfig</a></code></td>
 <td>
+<p>Specifies how proxies are configured within Istio.</p>
+
 </td>
 </tr>
-<tr id="GlobalConfig-proxy_init">
+<tr id="GlobalConfig-proxyInit">
 <td><code>proxyInit</code></td>
 <td><code><a href="#ProxyInitConfig">ProxyInitConfig</a></code></td>
 <td>
+<p>Specifies the Configuration for proxy_init container which sets the pods&rsquo; networking to intercept the inbound/outbound traffic.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-sds">
 <td><code>sds</code></td>
 <td><code><a href="#SDSConfig">SDSConfig</a></code></td>
 <td>
+<p>Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.</p>
+
 </td>
 </tr>
 <tr id="GlobalConfig-tag">
 <td><code>tag</code></td>
 <td><code>string</code></td>
 <td>
-<p>Version tag for docker images.</p>
+<p>Specifies the tag for the Istio docker images.</p>
 
 </td>
 </tr>
@@ -734,7 +974,7 @@ Default namespace.</p>
 <td><code>telemetryNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>Namespace of telemetry components</p>
+<p>Specifies the namespace for the telemetry component.</p>
 
 </td>
 </tr>
@@ -742,7 +982,7 @@ Default namespace.</p>
 <td><code>tracer</code></td>
 <td><code><a href="#TracerConfig">TracerConfig</a></code></td>
 <td>
-<p>test</p>
+<p>Specifies the Configuration for each of the supported tracers.</p>
 
 </td>
 </tr>
@@ -758,7 +998,7 @@ Default namespace.</p>
 <td><code>useMCP</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Selects use of Mesh Configuration Protocol to configure Pilot.</p>
+<p>Controls whether to use of Mesh Configuration Protocol to distribute configuration.</p>
 
 </td>
 </tr>
@@ -767,7 +1007,7 @@ Default namespace.</p>
 </section>
 <h2 id="GlobalLoggingConfig">GlobalLoggingConfig</h2>
 <section>
-<p>GlobalLoggingConfig is described in istio.io documentation.</p>
+<p>GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.</p>
 
 <table class="message-fields">
 <thead>
@@ -782,87 +1022,9 @@ Default namespace.</p>
 <td><code>level</code></td>
 <td><code>string</code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ILBGatewayConfig">ILBGatewayConfig</h2>
-<section>
-<p>ILBGatewayConfig is described in istio.io documentation.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ILBGatewayConfig-autoscaleEnabled">
-<td><code>autoscaleEnabled</code></td>
-<td><code>bool</code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-autoscaleMax">
-<td><code>autoscaleMax</code></td>
-<td><code>uint32</code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-autoscaleMin">
-<td><code>autoscaleMin</code></td>
-<td><code>uint32</code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-enabled">
-<td><code>enabled</code></td>
-<td><code>bool</code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-cpu">
-<td><code>cpu</code></td>
-<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-labels">
-<td><code>labels</code></td>
-<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-loadBalancerIP">
-<td><code>loadBalancerIP</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-ports">
-<td><code>ports</code></td>
-<td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
-<td>
-<p>NodeSelector       map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code>
-PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
-
-</td>
-</tr>
-<tr id="ILBGatewayConfig-resources">
-<td><code>resources</code></td>
-<td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="ILBGatewayConfig-secretVolumes">
-<td><code>secretVolumes</code></td>
-<td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
-<td>
-<p>ServiceAnnotations map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
-  Type               v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+<p>Comma-separated minimum per-scope logging level of messages to output, in the form of &lt;scope&gt;:&lt;level&gt;,&lt;scope&gt;:&lt;level&gt;
+The control plane has different scopes depending on component, but can configure default log level across all components
+If empty, default scope and level will be used as configured in code</p>
 
 </td>
 </tr>
@@ -871,7 +1033,7 @@ PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnota
 </section>
 <h2 id="IngressGatewayConfig">IngressGatewayConfig</h2>
 <section>
-<p>IngressGatewayConfig is described in istio.io documentation.</p>
+<p>Configuration for an ingress gateway.</p>
 
 <table class="message-fields">
 <thead>
@@ -886,30 +1048,34 @@ PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnota
 <td><code>autoscaleEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>maxReplicas setting for HorizontalPodAutoscaler.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
 <td><code>uint32</code></td>
 <td>
-</td>
-</tr>
-<tr id="IngressGatewayConfig-connectTimeout">
-<td><code>connectTimeout</code></td>
-<td><code>string</code></td>
-<td>
+<p>minReplicas setting for HorizontalPodAutoscaler.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-cpu">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
 <td>
+<p>K8s utilization setting for HorizontalPodAutoscaler target.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-customService">
@@ -930,22 +1096,20 @@ PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnota
 <td>
 </td>
 </tr>
-<tr id="IngressGatewayConfig-drainDuration">
-<td><code>drainDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-</td>
-</tr>
 <tr id="IngressGatewayConfig-enabled">
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether an ingress gateway is enabled.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-env">
 <td><code>env</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>Environment variables passed to the proxy container.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-externalIPs">
@@ -990,14 +1154,47 @@ PodAnnotations     map[string]interface&lbrace;}      <code>json:&quot;podAnnota
 <td>
 </td>
 </tr>
+<tr id="IngressGatewayConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-podAntiAffinityLabelSelector">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-podAntiAffinityTermLabelSelector">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
+</td>
+</tr>
 <tr id="IngressGatewayConfig-ports">
 <td><code>ports</code></td>
 <td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
 <td>
-<p>NodeSelector                     map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code>
-PodAnnotations                   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code>
-PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
-PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+<p>Port Configuration for the ingress gateway.</p>
 
 </td>
 </tr>
@@ -1005,13 +1202,25 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Number of replicas for the ingress gateway Deployment.</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-sds">
 <td><code>sds</code></td>
 <td><code><a href="#IngressGatewaySdsConfig">IngressGatewaySdsConfig</a></code></td>
 <td>
-<p>Resources                        map[string]interface&lbrace;}      <code>json:&quot;resources,omitempty&quot;</code></p>
+<p>Secret Discovery Service (SDS) Configuration for ingress gateway.</p>
 
 </td>
 </tr>
@@ -1019,14 +1228,33 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>secretVolumes</code></td>
 <td><code><a href="#SecretVolume">SecretVolume[]</a></code></td>
 <td>
+<p>Config for secret volume mounts.</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-serviceAnnotations">
+<td><code>serviceAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Annotations to add to the egress gateway service.</p>
+
+</td>
+</tr>
+<tr id="IngressGatewayConfig-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Service type.</p>
+
+<p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayConfig-zvpn">
 <td><code>zvpn</code></td>
 <td><code><a href="#IngressGatewayZvpnConfig">IngressGatewayZvpnConfig</a></code></td>
 <td>
-<p>ServiceAnnotations               map[string]interface&lbrace;}      <code>json:&quot;serviceAnnotations,omitempty&quot;</code>
-  Type                             v1.ServiceType          <code>json:&quot;type,omitempty&quot;</code></p>
+<p>Enables cross-cluster access using SNI matching.</p>
 
 </td>
 </tr>
@@ -1035,7 +1263,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="IngressGatewaySdsConfig">IngressGatewaySdsConfig</h2>
 <section>
-<p>IngressGatewaySdsConfig is described in istio.io documentation.</p>
+<p>Secret Discovery Service (SDS) Configuration for ingress gateway.</p>
 
 <table class="message-fields">
 <thead>
@@ -1050,12 +1278,17 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>If true, ingress gateway fetches credentials from SDS server to handle TLS connections.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewaySdsConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+This server runs in the same pod as ingress gateway.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1063,7 +1296,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="IngressGatewayZvpnConfig">IngressGatewayZvpnConfig</h2>
 <section>
-<p>IngressGatewayZvpnConfig is described in istio.io documentation.</p>
+<p>IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.</p>
 
 <table class="message-fields">
 <thead>
@@ -1078,6 +1311,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether ZeroVPN is enabled.</p>
+
 </td>
 </tr>
 <tr id="IngressGatewayZvpnConfig-suffix">
@@ -1091,7 +1326,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</h2>
 <section>
-<p>KubernetesEnvMixerAdapterConfig is described in istio.io documentation.</p>
+<p>Configuration for Kubernetes environment adapter in mixer.</p>
 
 <table class="message-fields">
 <thead>
@@ -1106,6 +1341,10 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables the Kubernetes env adapter in Mixer.</p>
+
+<p>See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/</p>
+
 </td>
 </tr>
 </tbody>
@@ -1113,7 +1352,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="KubernetesIngressConfig">KubernetesIngressConfig</h2>
 <section>
-<p>KubernetesIngressConfig represents the configuration for Kubernetes Ingress.</p>
+<p>Configuration for the legacy kubernetes Ingress.</p>
 
 <table class="message-fields">
 <thead>
@@ -1136,7 +1375,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enableHttps</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables gateway for legacy k8s Ingress.</p>
+<p>Enables HTTPS legacy k8s Ingress.</p>
 
 </td>
 </tr>
@@ -1153,7 +1392,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="LoadSheddingConfig">LoadSheddingConfig</h2>
 <section>
-<p>LoadSheddingConfig configs when mixer starts rejecting grpc requests.</p>
+<p>Configuration for when mixer starts rejecting grpc requests.</p>
 
 <table class="message-fields">
 <thead>
@@ -1175,6 +1414,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="LoadSheddingConfig-mode">LoadSheddingConfig.mode</h2>
 <section>
+<p>Throttling behavior for mixer.</p>
+
 <table class="enum-values">
 <thead>
 <tr>
@@ -1186,16 +1427,22 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <tr id="LoadSheddingConfig-mode-DISABLED">
 <td><code>DISABLED</code></td>
 <td>
+<p>Removes throttling behavior for mixer.</p>
+
 </td>
 </tr>
 <tr id="LoadSheddingConfig-mode-LOG_ONLY">
 <td><code>LOG_ONLY</code></td>
 <td>
+<p>Enables an advisory mode for throttling behavior for mixer.</p>
+
 </td>
 </tr>
 <tr id="LoadSheddingConfig-mode-ENFORCE">
 <td><code>ENFORCE</code></td>
 <td>
+<p>Turn on throttling behavior for mixer.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1203,7 +1450,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MTLSConfig">MTLSConfig</h2>
 <section>
-<p>MTLSConfig is described in istio.io documentation.</p>
+<p>MTLS settings for the applications that Istio manages.</p>
 
 <table class="message-fields">
 <thead>
@@ -1227,7 +1474,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MeshExpansionConfig">MeshExpansionConfig</h2>
 <section>
-<p>MeshExpansionConfig is described in istio.io documentation.</p>
+<p>Configuration for Istio mesh expansion to bare metal.</p>
 
 <table class="message-fields">
 <thead>
@@ -1259,7 +1506,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MixerAdaptersConfig">MixerAdaptersConfig</h2>
 <section>
-<p>MixerAdaptersConfig is described in istio.io documentation.</p>
+<p>Configuration for Mixer adapters.</p>
 
 <table class="message-fields">
 <thead>
@@ -1274,24 +1521,32 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>kubernetesenv</code></td>
 <td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
 <td>
+<p>Configuration for Kubernetes environment adapter in mixer.</p>
+
 </td>
 </tr>
 <tr id="MixerAdaptersConfig-prometheus">
 <td><code>prometheus</code></td>
 <td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
 <td>
+<p>Configuration for Prometheus adapter in mixer.</p>
+
 </td>
 </tr>
 <tr id="MixerAdaptersConfig-stdio">
 <td><code>stdio</code></td>
 <td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
 <td>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
+
 </td>
 </tr>
 <tr id="MixerAdaptersConfig-useAdapterCRDs">
 <td><code>useAdapterCRDs</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1299,7 +1554,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MixerConfig">MixerConfig</h2>
 <section>
-<p>MixerConfig is described in istio.io documentation.</p>
+<p>Configuration for Mixer.</p>
 
 <table class="message-fields">
 <thead>
@@ -1310,40 +1565,20 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </tr>
 </thead>
 <tbody>
-<tr id="MixerConfig-adapters">
-<td><code>adapters</code></td>
-<td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="MixerConfig-enabled">
-<td><code>enabled</code></td>
-<td><code>bool</code></td>
-<td>
-</td>
-</tr>
-<tr id="MixerConfig-env">
-<td><code>env</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-</td>
-</tr>
-<tr id="MixerConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-</tr>
 <tr id="MixerConfig-policy">
 <td><code>policy</code></td>
 <td><code><a href="#MixerPolicyConfig">MixerPolicyConfig</a></code></td>
 <td>
+<p>MixerPolicyConfig is set of configurations for Mixer Policy</p>
+
 </td>
 </tr>
 <tr id="MixerConfig-telemetry">
 <td><code>telemetry</code></td>
 <td><code><a href="#MixerTelemetryConfig">MixerTelemetryConfig</a></code></td>
 <td>
+<p>MixerTelemetryConfig is set of configurations for Mixer Telemetry</p>
+
 </td>
 </tr>
 </tbody>
@@ -1351,7 +1586,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MixerPolicyConfig">MixerPolicyConfig</h2>
 <section>
-<p>MixerPolicyConfig is described in istio.io documentation.</p>
+<p>Configuration for Mixer Policy.</p>
 
 <table class="message-fields">
 <thead>
@@ -1366,43 +1601,71 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>autoscaleEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-cpu">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
 <td>
+<p>Target CPU utilization used in HorizontalPodAutoscaler.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-enabled">
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Mixer Policy is enabled</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Mixer Policy.</p>
+
+<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-mixer, docker.io/someuser:custom-mixer</p>
+
+</td>
+</tr>
+<tr id="MixerPolicyConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations to attach to mixer policy deployment</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
 </td>
 </tr>
 <tr id="MixerPolicyConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>PodAnnotations   map[string]interface&lbrace;}      <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
+<p>Number of replicas in the Mixer Policy Deployment</p>
 
 </td>
 </tr>
@@ -1411,7 +1674,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="MixerTelemetryConfig">MixerTelemetryConfig</h2>
 <section>
-<p>MixerTelemetryConfig is described in istio.io documentation.</p>
+<p>Configuration for Mixer Telemetry.</p>
 
 <table class="message-fields">
 <thead>
@@ -1426,62 +1689,110 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>adapters</code></td>
 <td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
 <td>
+<p>Configuration for different mixer adapters.</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-autoscaleEnabled">
 <td><code>autoscaleEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-cpu">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
 <td>
+<p>Target CPU utilization used in HorizontalPodAutoscaler.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-enabled">
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Mixer Telemetry is enabled.</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-env">
 <td><code>env</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>Environment variables passed to the Mixer container.</p>
+
+<p>Examples:
+env:
+  ENV<em>VAR</em>1: value1
+  ENV<em>VAR</em>2: value2</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Mixer Telemetry.</p>
+
+<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-mixer, docker.io/someuser:custom-mixer</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-loadshedding">
 <td><code>loadshedding</code></td>
 <td><code><a href="#LoadSheddingConfig">LoadSheddingConfig</a></code></td>
 <td>
+<p>LoadSheddingConfig configs when mixer starts rejecting grpc requests.</p>
+
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="MixerTelemetryConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations to attach to mixer telemetry deployment</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>NodeSelector           map[string]interface&lbrace;}     <code>json:&quot;nodeSelector,omitempty&quot;</code>
-PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnnotations,omitempty&quot;</code></p>
+<p>Number of replicas in the Mixer Telemetry Deployment.</p>
 
 </td>
 </tr>
@@ -1489,12 +1800,18 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-sessionAffinityEnabled">
 <td><code>sessionAffinityEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether to enable the sticky session setting when choosing backend pods.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1502,7 +1819,7 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 </section>
 <h2 id="MultiClusterConfig">MultiClusterConfig</h2>
 <section>
-<p>MultiClusterConfig is described in istio.io documentation.</p>
+<p>MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.</p>
 
 <table class="message-fields">
 <thead>
@@ -1517,7 +1834,8 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables the connection between two kubernetes clusters via their respective ingressgateway services. Use if the pods in each cluster cannot directly talk to one another.</p>
+<p>Enables the connection between two kubernetes clusters via their respective ingressgateway services.
+Use if the pods in each cluster cannot directly talk to one another.</p>
 
 </td>
 </tr>
@@ -1526,7 +1844,7 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 </section>
 <h2 id="NodeAgentConfig">NodeAgentConfig</h2>
 <section>
-<p>NodeAgentConfig is described in istio.io documentation.</p>
+<p>Configuration for Node Agent Daemonset.</p>
 
 <table class="message-fields">
 <thead>
@@ -1541,13 +1859,38 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Node Agent is enabled.</p>
+
+</td>
+</tr>
+<tr id="NodeAgentConfig-env">
+<td><code>env</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Environment variables passed to the Node Agent container.</p>
+
+<p>Examples:
+env:
+  ENV<em>VAR</em>1: value1
+  ENV<em>VAR</em>2: value2</p>
+
 </td>
 </tr>
 <tr id="NodeAgentConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
-<p>Env          map[string]interface&lbrace;} <code>json:&quot;env,omitempty&quot;</code></p>
+<p>Image name for the Node Agent DaemonSet.</p>
+
+</td>
+</tr>
+<tr id="NodeAgentConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
 </tr>
@@ -1556,7 +1899,7 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 </section>
 <h2 id="OutboundTrafficPolicyConfig">OutboundTrafficPolicyConfig</h2>
 <section>
-<p>OutboundTrafficPolicyConfig is described in istio.io documentation.</p>
+<p>OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.</p>
 
 </section>
 <h2 id="OutboundTrafficPolicyConfig-mode">OutboundTrafficPolicyConfig.mode</h2>
@@ -1574,14 +1917,14 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 <tr id="OutboundTrafficPolicyConfig-mode-ALLOW_ANY">
 <td><code>ALLOW_ANY</code></td>
 <td>
-<p>outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
+<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
 
 </td>
 </tr>
 <tr id="OutboundTrafficPolicyConfig-mode-REGISTRY_ONLY">
 <td><code>REGISTRY_ONLY</code></td>
 <td>
-<p>restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
 
 </td>
 </tr>
@@ -1590,7 +1933,7 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 </section>
 <h2 id="PilotConfig">PilotConfig</h2>
 <section>
-<p>PilotConfig is described in istio.io documentation.</p>
+<p>Configuration for Pilot.</p>
 
 <table class="message-fields">
 <thead>
@@ -1605,89 +1948,168 @@ PodAnnotations         map[string]interface&lbrace;}     <code>json:&quot;podAnn
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Pilot is enabled.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-autoscaleEnabled">
 <td><code>autoscaleEnabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether a HorizontalPodAutoscaler is installed for Pilot.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Minimum number of replicas in the HorizontalPodAutoscaler for Pilot.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Number of replicas in the Pilot Deployment.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Pilot.</p>
+
+<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-pilot, docker.io/someuser:custom-pilot</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-sidecar">
 <td><code>sidecar</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether a sidecar proxy is installed in the Pilot pod.</p>
+
+<p>Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-traceSampling">
 <td><code>traceSampling</code></td>
 <td><code>double</code></td>
 <td>
+<p>Trace sampling fraction.</p>
+
+<p>Used to set the fraction of time that traces are sampled. Higher values are more accurate but add CPU overhead.</p>
+
+<p>Allowed values: 0.0 to 1.0</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-resources">
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-configNamespace">
 <td><code>configNamespace</code></td>
 <td><code>string</code></td>
 <td>
+<p>Namespace that the configuration management feature is installed into, if different from Pilot namespace.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-cpu">
 <td><code>cpu</code></td>
 <td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
 <td>
+<p>Target CPU utilization used in HorizontalPodAutoscaler.</p>
+
+<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
+
+</td>
+</tr>
+<tr id="PilotConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-keepaliveMaxServerConnectionAge">
 <td><code>keepaliveMaxServerConnectionAge</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>NodeSelector                     map[string]interface&lbrace;}      <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+<p>Maximum duration that a sidecar can be connected to a pilot.</p>
+
+<p>This setting balances out load across pilot instances, but adds some resource overhead.</p>
+
+<p>Examples: 300s, 30m, 1h</p>
 
 </td>
 </tr>
 <tr id="PilotConfig-deploymentLabels">
 <td><code>deploymentLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+<p>Labels that are added to Pilot pods.</p>
+
+<p>See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/</p>
+
+</td>
+</tr>
+<tr id="PilotConfig-meshNetworks">
+<td><code>meshNetworks</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Used to override control plane networks.</p>
+
+</td>
+</tr>
+<tr id="PilotConfig-podAntiAffinityLabelSelector">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
+</td>
+</tr>
+<tr id="PilotConfig-podAntiAffinityTermLabelSelector">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-configMap">
 <td><code>configMap</code></td>
 <td><code>bool</code></td>
 <td>
-<p>MeshNetworks                     map[string]interface&lbrace;}      <code>json:&quot;meshNetworks,omitempty&quot;</code>
-PodAntiAffinityLabelSelector     []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
-PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+<p>Configuration settings passed to Pilot as a ConfigMap.</p>
+
+<p>This controls whether the mesh config map, generated from values.yaml is generated.
+If false, pilot wil use default values or user-supplied values, in that order of preference.</p>
 
 </td>
 </tr>
@@ -1695,30 +2117,47 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>ingress</code></td>
 <td><code><a href="#PilotIngressConfig">PilotIngressConfig</a></code></td>
 <td>
+<p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-useMCP">
 <td><code>useMCP</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Pilot is configured through the Mesh Control Protocol (MCP).</p>
+
+<p>If set to true, Pilot requires an MCP server (like Galley) to be installed.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-env">
 <td><code>env</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>Environment variables passed to the Pilot container.</p>
+
+<p>Examples:
+env:
+  ENV<em>VAR</em>1: value1
+  ENV<em>VAR</em>2: value2</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-policy">
 <td><code>policy</code></td>
 <td><code><a href="#PilotPolicyConfig">PilotPolicyConfig</a></code></td>
 <td>
+<p>Controls whether Istio policy is applied to Pilot.</p>
+
 </td>
 </tr>
 <tr id="PilotConfig-telemetry">
 <td><code>telemetry</code></td>
 <td><code><a href="#PilotTelemetryConfig">PilotTelemetryConfig</a></code></td>
 <td>
+<p>Controls whether telemetry is exported for Pilot.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1726,7 +2165,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PilotIngressConfig">PilotIngressConfig</h2>
 <section>
-<p>PilotIngressConfig is described in istio.io documentation.</p>
+<p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
 
 <table class="message-fields">
 <thead>
@@ -1741,13 +2180,19 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>ingressService</code></td>
 <td><code>string</code></td>
 <td>
+<p>Sets the type ingress service for Pilot.</p>
+
+<p>If empty, node-port is assumed.</p>
+
+<p>Allowed values: node-port, istio-ingressgateway, ingress</p>
+
 </td>
 </tr>
 <tr id="PilotIngressConfig-ingressClass">
 <td><code>ingressClass</code></td>
 <td><code>string</code></td>
 <td>
-<p>Value to set on &ldquo;kubernetes.io/ingress.class&rdquo; annotations to activate, if mode is STRICT</p>
+<p>If mode is STRICT, this value must be set on &ldquo;kubernetes.io/ingress.class&rdquo; annotation to activate.</p>
 
 </td>
 </tr>
@@ -1756,6 +2201,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PilotIngressConfig-ingressControllerMode">PilotIngressConfig.ingressControllerMode</h2>
 <section>
+<p>Mode for the ingress controller.</p>
+
 <table class="enum-values">
 <thead>
 <tr>
@@ -1767,21 +2214,21 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <tr id="PilotIngressConfig-ingressControllerMode-DEFAULT">
 <td><code>DEFAULT</code></td>
 <td>
-<p>all Ingress resources without annotation or with istio annotation.</p>
+<p>Selects all Ingress resources, with or without Istio annotation.</p>
 
 </td>
 </tr>
 <tr id="PilotIngressConfig-ingressControllerMode-STRICT">
 <td><code>STRICT</code></td>
 <td>
-<p>only with istio annotation.</p>
+<p>Selects only resources with istio annotation.</p>
 
 </td>
 </tr>
 <tr id="PilotIngressConfig-ingressControllerMode-OFF">
 <td><code>OFF</code></td>
 <td>
-<p>no ingress or sync.</p>
+<p>No ingress or sync.</p>
 
 </td>
 </tr>
@@ -1790,7 +2237,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PilotPolicyConfig">PilotPolicyConfig</h2>
 <section>
-<p>PilotPolicyConfig is described in istio.io documentation.</p>
+<p>Controls whether Istio policy is applied to Pilot.</p>
 
 <table class="message-fields">
 <thead>
@@ -1805,6 +2252,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Istio policy is applied to Pilot.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1812,7 +2261,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PilotTelemetryConfig">PilotTelemetryConfig</h2>
 <section>
-<p>PilotTelemetryConfig is described in istio.io documentation.</p>
+<p>Controls whether telemetry is exported for Pilot.</p>
 
 <table class="message-fields">
 <thead>
@@ -1827,6 +2276,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether telemetry is exported for Pilot.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1834,7 +2285,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PortsConfig">PortsConfig</h2>
 <section>
-<p>PortsConfig is described in istio.io documentation.</p>
+<p>Configuration for a port.</p>
 
 <table class="message-fields">
 <thead>
@@ -1849,24 +2300,32 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
+<p>Port name.</p>
+
 </td>
 </tr>
 <tr id="PortsConfig-port">
 <td><code>port</code></td>
 <td><code>int32</code></td>
 <td>
+<p>Port number.</p>
+
 </td>
 </tr>
 <tr id="PortsConfig-nodePort">
 <td><code>nodePort</code></td>
 <td><code>int32</code></td>
 <td>
+<p>NodePort number.</p>
+
 </td>
 </tr>
 <tr id="PortsConfig-targetPort">
 <td><code>targetPort</code></td>
 <td><code>int32</code></td>
 <td>
+<p>Target port number.</p>
+
 </td>
 </tr>
 </tbody>
@@ -1874,7 +2333,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PrometheusConfig">PrometheusConfig</h2>
 <section>
-<p>PrometheusConfig is described in istio.io documentation.</p>
+<p>Configuration for Prometheus.</p>
 
 <table class="message-fields">
 <thead>
@@ -1921,12 +2380,18 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td>
 </td>
 </tr>
+<tr id="PrometheusConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>GOSTRUCT: NodeSelector             map[string]interface&lbrace;}    <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+
+</td>
+</tr>
 <tr id="PrometheusConfig-scrapeInterval">
 <td><code>scrapeInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>NodeSelector             map[string]interface&lbrace;}    <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
-
 </td>
 </tr>
 <tr id="PrometheusConfig-contextPath">
@@ -1958,7 +2423,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</h2>
 <section>
-<p>PrometheusMixerAdapterConfig is described in istio.io documentation.</p>
+<p>Configuration for Prometheus adapter in mixer.</p>
 
 <table class="message-fields">
 <thead>
@@ -1973,12 +2438,18 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables the Prometheus adapter in Mixer.</p>
+
 </td>
 </tr>
 <tr id="PrometheusMixerAdapterConfig-metricsExpiryDuration">
 <td><code>metricsExpiryDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+<p>Sets the duration after which Prometheus registry purges a metric.</p>
+
+<p>See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus/#Params</p>
+
 </td>
 </tr>
 </tbody>
@@ -1986,7 +2457,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PrometheusSecurityConfig">PrometheusSecurityConfig</h2>
 <section>
-<p>PrometheusSecurityConfig is described in istio.io documentation.</p>
+<p>Configuration for Prometheus adapter security.</p>
 
 <table class="message-fields">
 <thead>
@@ -2001,6 +2472,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Prometheus security is enabled.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2008,7 +2481,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PrometheusServiceConfig">PrometheusServiceConfig</h2>
 <section>
-<p>PrometheusServiceConfig is described in istio.io documentation.</p>
+<p>Configuration for Prometheus adapter service.</p>
 
 <table class="message-fields">
 <thead>
@@ -2019,12 +2492,16 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </tr>
 </thead>
 <tbody>
+<tr id="PrometheusServiceConfig-annotations">
+<td><code>annotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+</tr>
 <tr id="PrometheusServiceConfig-nodePort">
 <td><code>nodePort</code></td>
 <td><code><a href="#PrometheusServiceNodePortConfig">PrometheusServiceNodePortConfig</a></code></td>
 <td>
-<p>Annotations map[string]interface&lbrace;}           <code>json:&quot;annotations,omitempty&quot;</code></p>
-
 </td>
 </tr>
 </tbody>
@@ -2032,7 +2509,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="PrometheusServiceNodePortConfig">PrometheusServiceNodePortConfig</h2>
 <section>
-<p>PrometheusServiceNodePortConfig is described in istio.io documentation.</p>
+<p>Configuration for Prometheus Service NodePort.</p>
 
 <table class="message-fields">
 <thead>
@@ -2047,6 +2524,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Prometheus NodePort config is enabled.</p>
+
 </td>
 </tr>
 <tr id="PrometheusServiceNodePortConfig-port">
@@ -2060,7 +2539,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="ProxyConfig">ProxyConfig</h2>
 <section>
-<p>ProxyConfig specifies how proxies are configured within Istio.</p>
+<p>Configuration for Proxy.</p>
 
 <table class="message-fields">
 <thead>
@@ -2091,7 +2570,9 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>clusterDomain</code></td>
 <td><code>string</code></td>
 <td>
-<p>Domain for the cluster - defaults to .cluster.local, but k8s allows this to be customized, can be prod.example.com</p>
+<p>Domain for the cluster, default: &ldquo;cluster.local&rdquo;.</p>
+
+<p>K8s allows this to be customized, see https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/</p>
 
 </td>
 </tr>
@@ -2099,6 +2580,10 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>componentLogLevel</code></td>
 <td><code>string</code></td>
 <td>
+<p>Per Component log level for proxy, applies to gateways and sidecars.</p>
+
+<p>If a component level is not set, then the global &ldquo;logLevel&rdquo; will be used. If left empty, &ldquo;misc:error&rdquo; is used.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-concurrency">
@@ -2106,6 +2591,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>uint32</code></td>
 <td>
 <p>Controls number of proxy worker threads.</p>
+
+<p>If set to 0 (default), then start worker thread for each CPU thread/core.</p>
 
 </td>
 </tr>
@@ -2115,6 +2602,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td>
 <p>Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.</p>
 
+<p>This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-enableCoreDump">
@@ -2123,18 +2612,24 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td>
 <p>Enables core dumps for newly injected sidecars.</p>
 
+<p>If set, newly injected sidecars will have core dumps enabled.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-envoyMetricsService">
 <td><code>envoyMetricsService</code></td>
 <td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
 <td>
+<p>Configures Envoy Metrics Service.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-envoyStatsd">
 <td><code>envoyStatsd</code></td>
 <td><code><a href="#EnvoyMetricsConfig">EnvoyMetricsConfig</a></code></td>
 <td>
+<p>Configures statsd export in Envoy.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-excludeInboundPorts">
@@ -2157,7 +2652,11 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
-<p>Image name or path for the proxy.</p>
+<p>Image name or path for the proxy, default: &ldquo;proxyv2&rdquo;.</p>
+
+<p>If registry or tag are not specified, global.hub and global.tag are used.</p>
+
+<p>Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0</p>
 
 </td>
 </tr>
@@ -2167,6 +2666,11 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td>
 <p>Specifies the Istio ingress ports to capture.</p>
 
+<p>Examples:
+&ldquo;&rdquo;:          Redirect no inbound traffic to Envoy.
+&ldquo;*&rdquo;:         Redirect all inbound traffic to Envoy.
+&ldquo;80,8080&rdquo;:   Redirect only selected ports.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-includeIPRanges">
@@ -2175,24 +2679,35 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td>
 <p>Lists the IP ranges of Istio egress traffic that the sidecar captures.</p>
 
+<p>Example: &ldquo;172.30.0.0/16,172.20.0.0/16&rdquo;
+This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar.&rdquo;</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-kubevirtInterfaces">
 <td><code>kubevirtInterfaces</code></td>
 <td><code>string</code></td>
 <td>
+<p>Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-logLevel">
 <td><code>logLevel</code></td>
 <td><code>string</code></td>
 <td>
+<p>Log level for proxy, applies to gateways and sidecars. If left empty, &ldquo;warning&rdquo; is used. Expected values are: trace|debug|info|warning|error|critical|off</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-privileged">
 <td><code>privileged</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables privileged securityContext for the istio-proxy container.</p>
+
+<p>See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/</p>
+
 </td>
 </tr>
 <tr id="ProxyConfig-readinessInitialDelaySeconds">
@@ -2231,6 +2746,10 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 </tbody>
@@ -2238,7 +2757,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="ProxyConfig-accessLogEncoding">ProxyConfig.accessLogEncoding</h2>
 <section>
-<p>Configure the access log for sidecar to JSON or TEXT</p>
+<p>Configures the access log for sidecar to JSON or TEXT</p>
 
 <table class="enum-values">
 <thead>
@@ -2263,6 +2782,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="ProxyConfig-autoInject">ProxyConfig.autoInject</h2>
 <section>
+<p>Controls whether automatic sidecar injection is enabled.</p>
+
 <table class="enum-values">
 <thead>
 <tr>
@@ -2316,7 +2837,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="ProxyInitConfig">ProxyInitConfig</h2>
 <section>
-<p>ProxyInitConfig is described in istio.io documentation.</p>
+<p>Configuration for proxy_init container which sets the pods&rsquo; networking to intercept the inbound/outbound traffic.</p>
 
 <table class="message-fields">
 <thead>
@@ -2331,6 +2852,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Specifies the image for the proxy_init container.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2338,7 +2861,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="ResourcesRequestsConfig">ResourcesRequestsConfig</h2>
 <section>
-<p>ResourcesRequestsConfig is described in istio.io documentation.</p>
+<p>Configuration for K8s resource requests.</p>
 
 <table class="message-fields">
 <thead>
@@ -2366,7 +2889,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="SDSConfig">SDSConfig</h2>
 <section>
-<p>SDSConfig is described in istio.io documentation.</p>
+<p>Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.</p>
 
 <table class="message-fields">
 <thead>
@@ -2381,6 +2904,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether the SecretDiscoveryService is enabled.</p>
+
 </td>
 </tr>
 <tr id="SDSConfig-udsPath">
@@ -2395,7 +2920,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>useNormalJwt</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enables SDS use of k8s sa normal JWT to request for certificates.</p>
+<p>Enables SDS use of k8s normal JWT to request for certificates.</p>
 
 </td>
 </tr>
@@ -2412,7 +2937,9 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="SecretVolume">SecretVolume</h2>
 <section>
-<p>SecretVolume is described in istio.io documentation.</p>
+<p>Configuration for secret volume mounts.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets.</p>
 
 <table class="message-fields">
 <thead>
@@ -2446,7 +2973,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </section>
 <h2 id="SecurityConfig">SecurityConfig</h2>
 <section>
-<p>SecurityConfig is described in istio.io documentation.</p>
+<p>Configuration for Citadel.</p>
 
 <table class="message-fields">
 <thead>
@@ -2461,42 +2988,83 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether Citadel is enabled.</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Number of replicas in the Citadel Deployment.</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Citadel.</p>
+
+<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-citadel, docker.io/someuser:custom-citadel</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-selfSigned">
 <td><code>selfSigned</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether self-signed CA is used for citadel to generate the certificate/key pair.</p>
+
+<p>Setting to false if you want to use your own root CA for Citade Deployment.</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-trustDomain">
 <td><code>trustDomain</code></td>
 <td><code>string</code></td>
 <td>
+<p>The trust domain corresponds to the trust root of a system
+Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+Indicate the domain used in SPIFFE identity URL
+The default depends on the environment.
+  kubernetes: cluster.local
+   else:  default dns domain</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-dnsCerts">
 <td><code>dnsCerts</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+<p>The DNS Certs specifies the customized DNS name and corresponding service account.</p>
+
+<p>Example:
+  istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
+  istio-galley-service-account.istio-config: istio-galley.istio-config.svc</p>
+
 </td>
 </tr>
 <tr id="SecurityConfig-createMeshPolicy">
 <td><code>createMeshPolicy</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether the mesh-wide authentication policy is created or not.</p>
+
+<p>Setting to true creates the mesh-wide authentication policy with name &ldquo;default&rdquo;.</p>
+
+</td>
+</tr>
+<tr id="SecurityConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
 </td>
 </tr>
 </tbody>
@@ -2515,20 +3083,28 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 </tr>
 </thead>
 <tbody>
+<tr id="ServiceConfig-annotations">
+<td><code>annotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+</tr>
 <tr id="ServiceConfig-externalPort">
 <td><code>externalPort</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>Annotations  map[string]interface&lbrace;} <code>json:&quot;annotations,omitempty&quot;</code></p>
-
 </td>
 </tr>
 <tr id="ServiceConfig-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Type         v1.ServiceType     <code>json:&quot;type,omitempty&quot;</code></p>
-
+</td>
+</tr>
+<tr id="ServiceConfig-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -2551,7 +3127,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
-<p>AlwaysInjectSelector             []map[string]interface&lbrace;} <code>json:&quot;alwaysInjectSelector,omitempty&quot;</code></p>
+<p>Controls whether Sidecar Injector is enabled.</p>
 
 </td>
 </tr>
@@ -2559,22 +3135,73 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;}    <code>json:&
 <td><code>enableNamespacesByDefault</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables sidecar auto-injection in namespaces by default.</p>
+
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-image">
 <td><code>image</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image name used for Sidecar Injector.</p>
+
+<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
+
+<p>Examples: custom-sidecar<em>injector, docker.io/someuser:custom-sidecar</em>injector</p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-neverInjectSelector">
+<td><code>neverInjectSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.</p>
+
+<p>Annotations in the pods have higher precedence than the label selectors.
+Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
+See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions</p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-alwaysInjectSelector">
+<td><code>alwaysInjectSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See NeverInjectSelector.</p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-podAntiAffinityLabelSelector">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-podAntiAffinityTermLabelSelector">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See EgressGatewayConfig.</p>
+
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-replicaCount">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>NodeSelector                     map[string]interface&lbrace;}   <code>json:&quot;nodeSelector,omitempty&quot;</code>
-NeverInjectSelector              []map[string]interface&lbrace;} <code>json:&quot;neverInjectSelector,omitempty&quot;</code>
-PodAntiAffinityLabelSelector     []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityLabelSelector&quot;</code>
-PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quot;podAntiAffinityTermLabelSelector&quot;</code></p>
+<p>Number of replicas in the Sidecar Injector Deployment.</p>
 
 </td>
 </tr>
@@ -2582,12 +3209,18 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>rewriteAppHTTPProbe</code></td>
 <td><code>bool</code></td>
 <td>
+<p>If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.</p>
+
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-selfSigned">
 <td><code>selfSigned</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.</p>
+
+<p>Setting to false if you want to use your own root CA.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2595,7 +3228,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="StdioMixerAdapterConfig">StdioMixerAdapterConfig</h2>
 <section>
-<p>StdioMixerAdapterConfig is described in istio.io documentation.</p>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
 
 <table class="message-fields">
 <thead>
@@ -2610,12 +3243,16 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enable stdio adapter to output logs and metrics to local machine.</p>
+
 </td>
 </tr>
 <tr id="StdioMixerAdapterConfig-outputAsJson">
 <td><code>outputAsJson</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Whether to output a console-friendly or json-friendly format.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2623,7 +3260,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracerConfig">TracerConfig</h2>
 <section>
-<p>TracerConfig is described in istio.io documentation.</p>
+<p>Configuration for each of the supported tracers.</p>
 
 <table class="message-fields">
 <thead>
@@ -2638,18 +3275,24 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>datadog</code></td>
 <td><code><a href="#TracerDatadogConfig">TracerDatadogConfig</a></code></td>
 <td>
+<p>Configuration for the datadog tracing service.</p>
+
 </td>
 </tr>
 <tr id="TracerConfig-lightstep">
 <td><code>lightstep</code></td>
 <td><code><a href="#TracerLightStepConfig">TracerLightStepConfig</a></code></td>
 <td>
+<p>Configuration for the lightstep tracing service.</p>
+
 </td>
 </tr>
 <tr id="TracerConfig-zipkin">
 <td><code>zipkin</code></td>
 <td><code><a href="#TracerZipkinConfig">TracerZipkinConfig</a></code></td>
 <td>
+<p>Configuration for the zipkin tracing service.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2657,7 +3300,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracerDatadogConfig">TracerDatadogConfig</h2>
 <section>
-<p>TracerDatadogConfig is described in istio.io documentation.</p>
+<p>Configuration for the datadog tracing service.</p>
 
 <table class="message-fields">
 <thead>
@@ -2672,6 +3315,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
+<p>Address in host:port format for reporting trace data to the Datadog agent.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2679,7 +3324,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracerLightStepConfig">TracerLightStepConfig</h2>
 <section>
-<p>TracerLightStepConfig is described in istio.io documentation.</p>
+<p>Configuration for the lightstep tracing service.</p>
 
 <table class="message-fields">
 <thead>
@@ -2694,7 +3339,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
-<p>Sets the lightstep satellite pool address.</p>
+<p>Sets the lightstep satellite pool address in host:port format for reporting trace data.</p>
 
 </td>
 </tr>
@@ -2727,7 +3372,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracerZipkinConfig">TracerZipkinConfig</h2>
 <section>
-<p>TracerZipkinConfig is described in istio.io documentation.</p>
+<p>Configuration for the zipkin tracing service.</p>
 
 <table class="message-fields">
 <thead>
@@ -2742,7 +3387,9 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
-<p>Specifies address in host:port format for reporting trace data in zipkin format.</p>
+<p>Address of zipkin instance in host:port format for reporting trace data.</p>
+
+<p>Example: &lt;zipkin-collector-service&gt;.&lt;zipkin-collector-namespace&gt;:941</p>
 
 </td>
 </tr>
@@ -2751,7 +3398,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingConfig">TracingConfig</h2>
 <section>
-<p>TracingConfig is described in istio.io documentation.</p>
+<p>Configurations for different tracing system to be installed.</p>
 
 <table class="message-fields">
 <thead>
@@ -2766,25 +3413,41 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables tracing systems installation.</p>
+
 </td>
 </tr>
 <tr id="TracingConfig-ingress">
 <td><code>ingress</code></td>
 <td><code><a href="#TracingIngressConfig">TracingIngressConfig</a></code></td>
 <td>
+<p>Controls legacy k8s ingress for addon tracing components.</p>
+
 </td>
 </tr>
 <tr id="TracingConfig-jaeger">
 <td><code>jaeger</code></td>
 <td><code><a href="#TracingJaegerConfig">TracingJaegerConfig</a></code></td>
 <td>
+<p>Defines Configuration for addon Jaeger tracing.</p>
+
+</td>
+</tr>
+<tr id="TracingConfig-nodeSelector">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
 </td>
 </tr>
 <tr id="TracingConfig-provider">
 <td><code>provider</code></td>
 <td><code>string</code></td>
 <td>
-<p>NodeSelector map[string]interface&lbrace;} <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
+<p>Configures which tracing system to be installed.</p>
 
 </td>
 </tr>
@@ -2792,12 +3455,16 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>service</code></td>
 <td><code><a href="#ServiceConfig">ServiceConfig</a></code></td>
 <td>
+<p>Controls K8s service for addon tracing components.</p>
+
 </td>
 </tr>
 <tr id="TracingConfig-zipkin">
 <td><code>zipkin</code></td>
 <td><code><a href="#TracingZipkinConfig">TracingZipkinConfig</a></code></td>
 <td>
+<p>Defines Configuration for addon Zipkin tracing.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2805,7 +3472,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingIngressConfig">TracingIngressConfig</h2>
 <section>
-<p>TracingIngressConfig is described in istio.io documentation.</p>
+<p>Controls legacy k8s ingress for addon tracing components.</p>
 
 <table class="message-fields">
 <thead>
@@ -2820,6 +3487,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Enables k8s ingress for addon tracing components.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2827,7 +3496,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingJaegerConfig">TracingJaegerConfig</h2>
 <section>
-<p>TracingJaegerConfig is described in istio.io documentation.</p>
+<p>Configuration for addon Jaeger tracing.</p>
 
 <table class="message-fields">
 <thead>
@@ -2842,18 +3511,24 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image hub for Jaeger tracing deployment.</p>
+
 </td>
 </tr>
 <tr id="TracingJaegerConfig-tag">
 <td><code>tag</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image tag for Jaeger tracing deployment.</p>
+
 </td>
 </tr>
 <tr id="TracingJaegerConfig-memory">
 <td><code>memory</code></td>
 <td><code><a href="#TracingJaegerMemoryConfig">TracingJaegerMemoryConfig</a></code></td>
 <td>
+<p>Configures Jaeger in-memory storage setting.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2861,7 +3536,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingJaegerMemoryConfig">TracingJaegerMemoryConfig</h2>
 <section>
-<p>TracingJaegerMemoryConfig is described in istio.io documentation.</p>
+<p>Configuration for Jaeger in-memory storage setting.</p>
 
 <table class="message-fields">
 <thead>
@@ -2876,6 +3551,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>maxTraces</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Set limit of the amount of traces stored in memory for Jaeger</p>
+
 </td>
 </tr>
 </tbody>
@@ -2883,7 +3560,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingZipkinConfig">TracingZipkinConfig</h2>
 <section>
-<p>TracingZipkinConfig is described in istio.io documentation.</p>
+<p>Configuration for Zipkin.</p>
 
 <table class="message-fields">
 <thead>
@@ -2898,48 +3575,68 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image hub for Zipkin tracing deployment.</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-tag">
 <td><code>tag</code></td>
 <td><code>string</code></td>
 <td>
+<p>Image tag for Zipkin tracing deployment.</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-probeStartupDelay">
 <td><code>probeStartupDelay</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>InitialDelaySeconds of livenessProbe for Zipkin deployment</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-queryPort">
 <td><code>queryPort</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Container port for Zipkin deployment</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-resources">
 <td><code>resources</code></td>
 <td><code><a href="#k8s-io-api-core-v1-ResourceRequirements">k8s.io.api.core.v1.ResourceRequirements</a></code></td>
 <td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-javaOptsHeap">
 <td><code>javaOptsHeap</code></td>
 <td><code>string</code></td>
 <td>
+<p>Configure java heap opts for Zipkin deployment</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-maxSpans">
 <td><code>maxSpans</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Configures number of max spans to keep in Zipkin memory storage.</p>
+
+<p>Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer</p>
+
 </td>
 </tr>
 <tr id="TracingZipkinConfig-node">
 <td><code>node</code></td>
 <td><code><a href="#TracingZipkinNodeConfig">TracingZipkinNodeConfig</a></code></td>
 <td>
+<p>Configures GC values of JAVA_OPTS for Zipkin deployment</p>
+
 </td>
 </tr>
 </tbody>
@@ -2947,7 +3644,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="TracingZipkinNodeConfig">TracingZipkinNodeConfig</h2>
 <section>
-<p>TracingZipkinNodeConfig is described in istio.io documentation.</p>
+<p>Configuration for GC values of JAVA_OPTS for Zipkin deployment</p>
 
 <table class="message-fields">
 <thead>
@@ -2962,10 +3659,22 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>cpus</code></td>
 <td><code>uint32</code></td>
 <td>
+<p>Configures -XX:ConcGCThreads value of JAVA_OPTS for Zipkin deployment</p>
+
 </td>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="TypeMapStringInterface">TypeMapStringInterface</h2>
+<section>
+<p>GOTYPE: map[string]interface&lbrace;}</p>
+
+</section>
+<h2 id="TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</h2>
+<section>
+<p>GOTYPE: []map[string]interface&lbrace;}</p>
+
 </section>
 <h2 id="Values">Values</h2>
 <section>
@@ -3014,12 +3723,16 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td>
 </td>
 </tr>
+<tr id="Values-grafana">
+<td><code>grafana</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+</tr>
 <tr id="Values-mixer">
 <td><code>mixer</code></td>
 <td><code><a href="#MixerConfig">MixerConfig</a></code></td>
 <td>
-<p>Grafana         map[string]interface&lbrace;} <code>json:&quot;grafana,omitempty&quot;</code></p>
-
 </td>
 </tr>
 <tr id="Values-nodeagent">
@@ -3063,7 +3776,7 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 </section>
 <h2 id="ZeroVPNConfig">ZeroVPNConfig</h2>
 <section>
-<p>ZeroVPNConfig is described in istio.io documentation.</p>
+<p>ZeroVPNConfig enables cross-cluster access using SNI matching.</p>
 
 <table class="message-fields">
 <thead>
@@ -3078,6 +3791,8 @@ PodAntiAffinityTermLabelSelector []map[string]interface&lbrace;} <code>json:&quo
 <td><code>enabled</code></td>
 <td><code>bool</code></td>
 <td>
+<p>Controls whether ZeroVPN is enabled.</p>
+
 </td>
 </tr>
 <tr id="ZeroVPNConfig-suffix">

@@ -98,7 +98,7 @@ $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_python
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha2_path) $(protoc_gen_python_plugin) $^
 	@cp -r /tmp/pkg/* pkg/
 	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha2_path)/values_types.pb.go
-	@patch $(values_v1alpha2_path)/values_types.pb.go < $(values_v1alpha2_path)/fix_values_structs.patch
+	go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(values_v1alpha2_path)/values_types.pb.go
 
 generate-values: $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
 
