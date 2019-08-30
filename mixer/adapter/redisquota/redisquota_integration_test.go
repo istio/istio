@@ -151,6 +151,10 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			  {
 			   "Quota": {
 			    "requestCount": {
+                 "Status": {
+                  "code": 8,
+                  "message": "handler.redisquota.istio-system:redisquota: Resource exhausted"
+                 },
 			     "ValidDuration": 0,
 			     "Amount": 0
 			    }
@@ -228,4 +232,78 @@ func TestFixedWindowAlgorithm(t *testing.T) {
 
 func TestRollingWindowAlgorithm(t *testing.T) {
 	runServerWithSelectedAlgorithm(t, "FIXED_WINDOW")
+}
+
+func TestErrorFromRedis(t *testing.T) {
+	cases := map[string]struct {
+		attrs  map[string]interface{}
+		quotas map[string]istio_mixer_v1.CheckRequest_QuotaParams
+		want   string
+	}{
+		"Request 30 when 50 is available": {
+			attrs: map[string]interface{}{},
+			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+				"requestCount": {
+					Amount:     30,
+					BestEffort: true,
+				},
+			},
+			want: `
+			 {
+			  "AdapterState": null,
+			  "Returns": [
+			   {
+			    "Quota": {
+				"requestCount": {
+					"Status": {
+						"code": 14,
+						"message": "handler.redisquota.istio-system:redisquota: Service Unavailable"
+					},
+					"ValidDuration": 0,
+					"Amount": 0
+				}
+			    }
+			   }
+			  ]
+			 }
+			`,
+		},
+	}
+	// start mock redis server
+	for id, c := range cases {
+		mockRedis, err := miniredis.Run()
+		if err != nil {
+			t.Fatalf("Unable to start mock redis server: %v", err)
+		}
+
+		serviceCfg := adapterConfig
+		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", "ROLLING_WINDOW", -1)
+		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
+
+		t.Logf("Executing test case '%s'", id)
+		adapter_integration.RunTest(
+			t,
+			GetInfo,
+			adapter_integration.Scenario{
+				ParallelCalls: []adapter_integration.Call{
+					{
+						CallKind: adapter_integration.CHECK,
+						Attrs:    c.attrs,
+						Quotas:   c.quotas,
+					},
+				},
+				Configs: []string{
+					serviceCfg,
+				},
+				SetError: func(ctx interface{}) error {
+					mockRedis.Close()
+					return nil
+				},
+				Want: c.want,
+			},
+		)
+
+		mockRedis.Close()
+	}
+
 }

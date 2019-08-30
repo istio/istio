@@ -768,7 +768,7 @@ gopkg.in/square/go-jose.v2/jwt
 gopkg.in/stack.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# istio.io/api v0.0.0-20190827203453-55bf99d69a1f
+# istio.io/api v0.0.0-20190829032130-adb6f9e24baf
 istio.io/api/mesh/v1alpha1
 istio.io/api/mcp/v1alpha1
 istio.io/api/authentication/v1alpha1

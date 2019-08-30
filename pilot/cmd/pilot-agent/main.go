@@ -60,6 +60,9 @@ var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
+	trustDomain      string
+	pilotIdentity    string
+	mixerIdentity    string
 	statusPort       uint16
 	applicationPorts []string
 
@@ -172,8 +175,8 @@ var (
 				}
 			}
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
-			role.TrustDomain = spiffe.GetTrustDomain()
+			trustDomain = spiffe.DetermineTrustDomain(trustDomain, true)
+			spiffe.SetTrustDomain(trustDomain)
 			log.Infof("Proxy role: %#v", role)
 
 			tlsCertsToWatch = []string{
@@ -238,7 +241,7 @@ var (
 			setSpiffeTrustDomain(role.DNSDomain)
 
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, role.PilotIdentity)
+			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, pilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// resolve statsd address
@@ -330,7 +333,7 @@ var (
 						opts["wildcard"] = "::"
 						opts["dns_lookup_family"] = "AUTO"
 					}
-					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, role.MixerIdentity)
+					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, mixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
 					if len(mixerSAN) > 1 {
 						opts["MixerSubjectAltName"] = mixerSAN[0]
@@ -434,9 +437,8 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 //explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
 //and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(domain string) {
-
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotTrustDomain := role.TrustDomain
+		pilotTrustDomain := trustDomain
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == podNamespaceVar.Get()+".svc.cluster.local" || domain == "") {
@@ -571,11 +573,11 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
+	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&role.PilotIdentity, "pilotIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
 		"The identity used as the suffix for pilot's spiffe SAN ")
-	proxyCmd.PersistentFlags().StringVar(&role.MixerIdentity, "mixerIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
