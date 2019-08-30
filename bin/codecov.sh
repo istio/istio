@@ -140,7 +140,7 @@ cat "${COVERAGEDIR}"/*.report > report.out
 go tool cover -html=coverage.cov -o coverage.html
 
 # Build the combined junit.xml
-go get github.com/imsky/junit-merger/...
+go get github.com/imsky/junit-merger/src/junit-merger
 junit-merger "${COVERAGEDIR}"/*-junit.xml > junit.xml
 
 popd

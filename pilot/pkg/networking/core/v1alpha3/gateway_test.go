@@ -752,9 +752,10 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			proxy13Gateway.SetGatewaysForProxy(env.PushContext)
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy13Gateway, env.PushContext, proxyInstances, tt.routeName)
 			if route == nil {
-				t.Error("got an empty route configuration")
+				t.Fatal("got an empty route configuration")
 			}
 			vh := make([]string, 0)
 			for _, h := range route.VirtualHosts {
@@ -776,6 +777,9 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 	configStore.ListStub = func(typ, namespace string) (configs []pilot_model.Config, e error) {
 		if typ == "virtual-service" {
 			return virtualServices, nil
+		}
+		if typ == "gateway" {
+			return gateways, nil
 		}
 		return nil, nil
 	}
