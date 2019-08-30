@@ -110,6 +110,7 @@ spec:
     logInfo:
       server-accesslog-stackdriver.instance.{{ .Release.Namespace }}:
         labelNames:
+        - mesh_uid
         - source_uid
         - source_ip
         - source_app
@@ -148,6 +149,7 @@ spec:
         - referer
       server-tcp-accesslog-stackdriver.instance.{{ .Release.Namespace }}:
         labelNames:
+        - mesh_uid
         - connection_id
         - connection_event
         - source_uid
@@ -259,6 +261,7 @@ spec:
   params:
     value: "1"
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -298,6 +301,7 @@ spec:
   params:
     value: "1"
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -336,6 +340,7 @@ spec:
   params:
     value: request.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -375,6 +380,7 @@ spec:
   params:
     value: request.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -413,6 +419,7 @@ spec:
   params:
     value: response.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -452,6 +459,7 @@ spec:
   params:
     value: response.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -490,6 +498,7 @@ spec:
   params:
     value: response.duration
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -529,6 +538,7 @@ spec:
   params:
     value: response.duration
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -567,6 +577,7 @@ spec:
   params:
     value: connection.received.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -602,6 +613,7 @@ spec:
   params:
     value: connection.received.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -636,6 +648,7 @@ spec:
   params:
     value: connection.sent.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -671,6 +684,7 @@ spec:
   params:
     value: connection.sent.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -706,6 +720,7 @@ spec:
     severity: '"Info"'
     timestamp: request.time
     variables:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       source_uid: source.uid | ""
       source_ip: source.ip | ip("0.0.0.0")
       source_app: source.labels["app"] | ""
@@ -765,6 +780,7 @@ spec:
     severity: '"Info"'
     timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
     variables:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       source_uid: source.uid | ""
       connection_id: connection.id | ""
       connection_event: connection.event | ""
@@ -885,5 +901,47 @@ spec:
   - handler: stackdriver
     instances:
     - stackdriver-span
+{{- end }}
+---
+{{- if .Values.mixer.adapters.stackdriver.contextGraph.enabled }}
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: stackdriver-edge
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  compiledTemplate: edge
+  params:
+    timestamp: request.time | context.time | timestamp("2017-01-01T00:00:00Z")
+    sourceUid: source.uid | "Unknown"
+    sourceOwner: source.owner | "Unknown"
+    sourceWorkloadName: source.workload.name | "Unknown"
+    sourceWorkloadNamespace: source.workload.namespace | "Unknown"
+    destinationUid: destination.uid | "Unknown"
+    destinationOwner: destination.owner | "Unknown"
+    destinationWorkloadName: destination.workload.name | "Unknown"
+    destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+    contextProtocol: context.protocol | "Unknown"
+    apiProtocol: api.protocol | "Unknown"
+    destinationServiceName: destination.service.name | "Unknown"
+    destinationServiceNamespace: destination.service.namespace | "Unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stackdriver-edge
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  match: (context.reporter.kind | "inbound" == "inbound") && (context.protocol | "unknown" != "unknown")
+  actions:
+   - handler: stackdriver
+     instances:
+     - stackdriver-edge
 {{- end }}
 {{- end }}
