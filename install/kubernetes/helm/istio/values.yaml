@@ -499,7 +499,7 @@ global:
     # When a CSR is sent from Citadel Agent to the CA (e.g. Citadel), this aud is to make sure the
     # JWT is intended for the CA.
     token:
-      aud:
+      aud: istio-ca
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
