@@ -96,8 +96,8 @@
         "tag_name": "destination_version"
       },
       {
-        "regex": "(destination_service_host=\\.=(.+?);\\.;)",
-        "tag_name": "destination_service_host"
+        "regex": "(destination_service=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service"
       },
       {
         "regex": "(destination_service_name=\\.=(.+?);\\.;)",
