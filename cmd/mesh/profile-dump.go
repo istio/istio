@@ -53,7 +53,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 	return &cobra.Command{
 		Use:   "dump",
 		Short: "Dumps an Istio configuration profile.",
-		Long:  "The dump subcommand is used to dump the values in an Istio configuration profile.",
+		Long:  "The dump subcommand dumps the values in an Istio configuration profile.",
 		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())

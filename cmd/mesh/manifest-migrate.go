@@ -46,7 +46,7 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 	return &cobra.Command{
 		Use:   "migrate",
 		Short: "Migrates a file containing Helm values to IstioControlPlane format.",
-		Long:  "The migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.",
+		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioControlPlane format.",
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if len(args) == 0 {
