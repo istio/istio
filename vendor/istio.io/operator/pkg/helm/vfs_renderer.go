@@ -41,6 +41,17 @@ var (
 	ProfileNames = make(map[string]bool)
 )
 
+func init() {
+	profilePaths, err := vfs.ReadDir(profilesRoot)
+	if err != nil {
+		panic(err)
+	}
+	for _, p := range profilePaths {
+		p = strings.TrimSuffix(p, ".yaml")
+		ProfileNames[p] = true
+	}
+}
+
 // VFSRenderer is a helm template renderer that uses compiled-in helm charts.
 type VFSRenderer struct {
 	namespace        string
