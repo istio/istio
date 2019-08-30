@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -108,6 +109,11 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 	// Setting selfSigned to false because the primary and the remote clusters
 	// are running with a shared root CA
 	helmSetContent += " --set security.selfSigned=false"
+
+	// Set the cluster id
+	config := strings.Split(k.RemoteKubeConfig, "/")
+	helmSetContent += " --set global.multicluster.clusterName=" + config[len(config)-1]
+
 	// Enabling access log because some tests (e.g. TestGrpc) are validating
 	// based on the pods logs
 	helmSetContent += " --set global.proxy.accessLogFile=\"/dev/stdout\""
