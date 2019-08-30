@@ -504,8 +504,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		return err
 	}
 
-	// Set the sidecarScope associated with this proxy
+	// Set the sidecarScope and merged gateways associated with this proxy
 	nt.SetSidecarScope(s.globalPushContext())
+	nt.SetGatewaysForProxy(s.globalPushContext())
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -558,11 +559,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	// Precompute the sidecar scope associated with this proxy.
+	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	con.modelNode.SetSidecarScope(pushEv.push)
+	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !proxyNeedsPush(con, pushEv.targetNamespaces) {

@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -102,7 +101,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	_ []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	var err error
@@ -158,14 +157,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		}
 	}
 
-	// Collect all proxy labels for source match
-	var proxyLabels labels.Collection
-	for _, w := range proxyInstances {
-		proxyLabels = append(proxyLabels, w.Labels)
-	}
-
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
+		node.WorkloadLabels, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
