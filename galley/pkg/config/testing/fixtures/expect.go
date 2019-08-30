@@ -47,7 +47,7 @@ func ExpectFilter(t *testing.T, acc *Accumulator, fn FilterFn, expected ...event
 	g := gomega.NewGomegaWithT(t)
 
 	wrapFn := func() []event.Event {
-		e := acc.events
+		e := acc.Events()
 		if fn != nil {
 			e = fn(e)
 		}
