@@ -22,7 +22,7 @@
 docker: build-linux test-bins-linux docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
-DOCKER_TARGETS:=docker.base docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -88,7 +88,7 @@ docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
 
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
-docker.sidecar_injector: pilot/docker/Dockerfile.sidecar_injector
+docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 	$(DOCKER_RULE)
 
