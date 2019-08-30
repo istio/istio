@@ -764,8 +764,8 @@ istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4
 istio.io/operator v0.0.0-20190827173952-af847b66d2f9 h1:lXYXdziz/jPdLue45aGwStjKR1hxU1ufCVT4v7adJPk=
 istio.io/operator v0.0.0-20190827173952-af847b66d2f9/go.mod h1:ENQMBbrqipefx/BuRqZirIiMDfkdVa2l562+kWDY3Gs=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
-istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e h1:8RI4/zsMtrjkvyUqvy5CTGyVQPL86rERoWdm1npYU2A=
-istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
+istio.io/pkg v0.0.0-20190830135512-7b8fd56b3c8f h1:jsH/arjVneuoKYrARxF7HAYiKB+gdugGd3MSFN5s6H4=
+istio.io/pkg v0.0.0-20190830135512-7b8fd56b3c8f/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471 h1:MzQGt8qWQCR+39kbYRd0uQqsvSidpYqJLFeWiJ9l4OE=
 k8s.io/api v0.0.0-20190222213804-5cb15d344471/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87 h1:BMfPZfi3CkPd9e9Qbm+/AFgE6qXWQcbzUvC91LR3m7w=
