@@ -15,6 +15,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"regexp"
@@ -267,10 +268,16 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 }
 
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
+	// Or updated in DiscoveryServer.WorkloadUpdate.
+	if node.WorkloadLabels != nil {
+		return nil
+	}
+
 	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
-		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		l = labels.Collection{node.Metadata}
+		log.Errorf("failed to get service proxy labels: %v", err)
+		return err
 	}
 
 	node.WorkloadLabels = l
@@ -362,6 +369,16 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
 	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
+
+	if data, ok := metadata[NodeMetadataLabels]; ok {
+		var nodeLabels map[string]string
+		if err := json.Unmarshal([]byte(data), &nodeLabels); err != nil {
+			log.Warnf("invalid node label %s: %v", data, err)
+		}
+		if len(nodeLabels) > 0 {
+			out.WorkloadLabels = labels.Collection{nodeLabels}
+		}
+	}
 	return out, nil
 }
 
