@@ -210,12 +210,13 @@ func TestAddToMesh(t *testing.T) {
 
 func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	t.Helper()
-
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
 	crdFactory = mockDynamicClientGenerator(c.dynamicConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
+	// If this is left empty, then the real kubeconfig will be used and break tests
+	kubeconfig = "fake"
 
 	fErr := rootCmd.Execute()
 	output := out.String()
