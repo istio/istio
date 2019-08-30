@@ -60,7 +60,7 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Compare manifests and generate diff.",
-		Long:  "The diff-manifest subcommand is used to compare manifest from two files or directories.",
+		Long:  "The diff subcommand compares manifests from two files or directories.",
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			if diffArgs.compareDir {

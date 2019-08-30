@@ -23,7 +23,7 @@ func ProfileCmd() *cobra.Command {
 	pc := &cobra.Command{
 		Use:   "profile",
 		Short: "Commands related to Istio configuration profiles.",
-		Long:  "The profile subcommand is list, dump or diff Istio configuration profiles.",
+		Long:  "The profile subcommand lists, dumps or diffs Istio configuration profiles.",
 	}
 
 	pdArgs := &profileDumpArgs{}

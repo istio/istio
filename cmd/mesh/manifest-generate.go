@@ -44,8 +44,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
-		Short: "Generates Istio install manifest.",
-		Long:  "The generate subcommand is used to generate an Istio install manifest.",
+		Short: "Generates an Istio install manifest.",
+		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			manifestGenerate(rootArgs, mgArgs, l)
