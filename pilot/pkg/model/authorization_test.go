@@ -419,6 +419,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "namespace not match",
+			ns:   "foo",
+			workloadLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+			configs: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+			want: nil,
+		},
 	}
 
 	for _, tc := range cases {
