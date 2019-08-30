@@ -119,8 +119,8 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15011
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15011
           {{- else }}
           - istio-pilot:15011
           {{- end }}
@@ -128,8 +128,8 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15010
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15010
           {{- else }}
           - istio-pilot:15010
           {{- end }}
