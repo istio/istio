@@ -113,6 +113,16 @@ func TestParseMetadata(t *testing.T) {
 					"foo": "bar",
 				}}},
 		},
+		{
+			name: "Capture Pod Ports",
+			metadata: map[string]interface{}{
+				"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+			},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: map[string]string{
+					"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+				}},
+		},
 	}
 
 	nodeID := "sidecar~1.1.1.1~id~domain"
