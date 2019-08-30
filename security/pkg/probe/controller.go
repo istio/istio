@@ -82,7 +82,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 	}, nil
 }
 
-// TODO: decouple the cert generation and probing procedures.
+// TODO(myidpt): decouple the cert generation and probing procedures.
 func (c *LivenessCheckController) checkGrpcServer() error {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
@@ -95,15 +95,11 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	certPEM, signErr := c.ca.Sign(csrPEM, []string{LivenessProbeClientIdentity}, c.interval, false)
+	certPEM, signErr := c.ca.SignWithCertChain(csrPEM, []string{LivenessProbeClientIdentity}, c.interval, false)
 	if signErr != nil {
 		return signErr.(ca.Error)
 	}
-	// Append the intermediate certs to the certificate to form a cert chain.
-	certChainPEM := c.ca.GetCAKeyCertBundle().GetCertChainPem()
-	if len(certChainPEM) > 0 {
-		certPEM = append(certPEM, certChainPEM...)
-	}
+
 	// Store certificate chain and private key to generate CSR
 	tempDir, err := ioutil.TempDir("/tmp", "caprobe")
 	if err != nil {

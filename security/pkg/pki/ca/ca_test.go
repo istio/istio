@@ -17,6 +17,7 @@ package ca
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
@@ -522,6 +523,58 @@ root-cert-3`
 	} else if expRootCerts != string(rootCerts) {
 		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
 			expRootCerts, string(rootCerts))
+	}
+}
+
+func TestSignWithCertChain(t *testing.T) {
+	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
+	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
+	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
+	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
+	caNamespace := "default"
+
+	defaultWorkloadCertTTL := 30 * time.Minute
+	maxWorkloadCertTTL := time.Hour
+
+	client := fake.NewSimpleClientset()
+
+	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+	if err != nil {
+		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a plugged-cert CA.")
+	}
+
+	opts := util.CertOptions{
+		// This value is not used, instead, subjectID should be used in certificate.
+		Host:       "spiffe://different.com/test",
+		RSAKeySize: 2048,
+		IsCA:       false,
+	}
+	csrPEM, privPEM, err := util.GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	certPEM, signErr := ca.SignWithCertChain(csrPEM, []string{"localhost"}, time.Hour, false)
+	if signErr != nil {
+		t.Error(err)
+	}
+
+	cert, err := tls.X509KeyPair(certPEM, privPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(cert.Certificate) != 3 {
+		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
 	}
 }
 

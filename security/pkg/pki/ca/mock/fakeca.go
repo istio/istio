@@ -39,6 +39,18 @@ func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, 
 	return ca.SignedCert, nil
 }
 
+// SignWithCertChain returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert and the cert chain.
+func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
+	if ca.SignErr != nil {
+		return nil, ca.SignErr
+	}
+	cert := ca.SignedCert
+	if ca.KeyCertBundle != nil {
+		cert = append(cert, ca.KeyCertBundle.GetCertChainPem()...)
+	}
+	return cert, nil
+}
+
 // GetCAKeyCertBundle returns KeyCertBundle if KeyCertBundle is not nil, otherwise, it returns an empty
 // FakeKeyCertBundle.
 func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {

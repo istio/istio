@@ -17,7 +17,6 @@ package ca
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net"
 	"time"
@@ -263,7 +262,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			if s.certificate == nil || shouldRefresh(s.certificate) {
 				// Apply new certificate if there isn't one yet, or the one has become invalid.
-				newCert, err := s.applyServerCertificate()
+				newCert, err := s.getServerCertificate()
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply TLS server certificate (%v)", err)
 				}
@@ -275,9 +274,9 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(config))
 }
 
-// applyServerCertificate returns a valid server TLS certificate and the intermediate CA certificates,
+// getServerCertificate returns a valid server TLS certificate and the intermediate CA certificates,
 // signed by the current CA root.
-func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
+func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
 		RSAKeySize: 2048,
 	}
@@ -287,7 +286,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, signErr := s.ca.Sign(csrPEM, s.hostnames, s.serverCertTTL, false)
+	certPEM, signErr := s.ca.SignWithCertChain(csrPEM, s.hostnames, s.serverCertTTL, false)
 	if signErr != nil {
 		return nil, signErr.(*ca.Error)
 	}
@@ -295,14 +294,6 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	cert, err := tls.X509KeyPair(certPEM, privPEM)
 	if err != nil {
 		return nil, err
-	}
-
-	// Attach the intermediate certificates.
-	certChainPEM := s.ca.GetCAKeyCertBundle().GetCertChainPem()
-	var certChainDER *pem.Block
-	certChainDER, _ = pem.Decode(certChainPEM)
-	if certChainDER != nil {
-		cert.Certificate = append(cert.Certificate, certChainDER.Bytes)
 	}
 	return &cert, nil
 }
