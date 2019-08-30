@@ -52,11 +52,11 @@ const (
 	ManagementClusterHostname = "mgmtCluster"
 
 	// StatName patterns
-	service         = "%SERVICE%"
-	serviceFQDN     = "%SERVICE_FQDN%"
-	servicePort     = "%SERVICE_PORT%"
-	servicePortName = "%SERVICE_PORT_NAME%"
-	subsetName      = "%SUBSET_NAME%"
+	serviceStatPattern         = "%SERVICE%"
+	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
+	servicePortStatPattern     = "%SERVICE_PORT%"
+	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
+	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
 var (
@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					if len(env.Mesh.OutboundClusterStatName) != 0 {
-						subsetCluster.AltStatName = altStatName("", string(service.Hostname), subset.Name, proxy.DNSDomain, port)
+						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
 					}
 					setUpstreamProtocol(subsetCluster, port)
 
@@ -1190,11 +1190,11 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 }
 
 func altStatName(statPattern string, host string, subset string, dnsDomain string, port *model.Port) string {
-	name := strings.ReplaceAll(statPattern, service, shortHostName(host, dnsDomain))
-	name = strings.ReplaceAll(name, serviceFQDN, host)
-	name = strings.ReplaceAll(name, subsetName, subset)
-	name = strings.ReplaceAll(name, servicePort, strconv.Itoa(port.Port))
-	name = strings.ReplaceAll(name, servicePortName, port.Name)
+	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, dnsDomain))
+	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
+	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
+	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
+	name = strings.ReplaceAll(name, servicePortNameStatPattern, port.Name)
 	return name
 }
 
