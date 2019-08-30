@@ -22,6 +22,14 @@ SHELL := /bin/bash -o pipefail
 # Current version, updated after a release.
 VERSION ?= 1.3-dev
 
+# Base version of Istio image to use
+BASE_VERSION ?= 1.3
+
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
+export GOSUMDB ?= sum.golang.org
+>>>>>>> 3cd6c36... Pin the base image for the 1.3 branch (#16697)
+
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
