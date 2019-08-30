@@ -118,6 +118,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// The merged gateways associated with the proxy if this is a Router
+	MergedGateway *MergedGateway
+
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
 
@@ -255,6 +258,17 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
 
+}
+
+// SetGatewaysForProxy merges the Gateway objects associated with this
+// proxy and caches the merged object in the proxy Node. This is a convenience hack so that
+// callers can simply call push.MergedGateways(node) instead of having to
+// fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
+	if node.Type != Router {
+		return
+	}
+	node.MergedGateway = ps.mergeGateways(node)
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {
