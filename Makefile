@@ -22,6 +22,9 @@ SHELL := /bin/bash -o pipefail
 # Current version, updated after a release.
 VERSION ?= 1.3-dev
 
+# Base version of Istio image to use
+BASE_VERSION ?= 1.3
+
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB

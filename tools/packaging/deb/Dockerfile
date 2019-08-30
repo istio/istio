@@ -1,5 +1,11 @@
 # Base dockerfile containing ubuntu and istio debian.
 # Can be used for testing
+# ISTIO_VERSION is used to specify the version of the release
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION}
+
 # hadolint ignore=DL3006
 FROM istionightly/base_debug
 
