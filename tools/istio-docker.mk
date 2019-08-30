@@ -88,7 +88,6 @@ docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
 
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
-docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 	$(DOCKER_RULE)
 
