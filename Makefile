@@ -24,6 +24,7 @@ VERSION ?= 1.4-dev
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
+export GOSUMDB ?= sum.golang.org
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
