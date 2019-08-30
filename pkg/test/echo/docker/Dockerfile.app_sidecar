@@ -1,8 +1,5 @@
-# Version is the base image version from the TLD Makefile
-ARG BASE_VERSION=latest
-
-# The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
+# hadolint ignore=DL3006
+FROM istionightly/base_debug
 
 # Add CA certificates for SSL connections.
 # obtained from debian ca-certs deb using fetch_cacerts.sh
