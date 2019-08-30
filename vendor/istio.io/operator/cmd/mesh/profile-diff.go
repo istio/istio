@@ -39,7 +39,7 @@ func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
 
 // profileDiff compare two profile files.
 func profileDiff(rootArgs *rootArgs, args []string) {
-	initLogsOrExit(rootArgs)
+	checkLogsOrExit(rootArgs)
 
 	a, err := helm.ReadValuesYAML(args[0])
 	if err != nil {
