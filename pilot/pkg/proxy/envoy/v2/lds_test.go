@@ -75,10 +75,10 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio)
+		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio), 15006 (virtual inbound)
 		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 4 {
+		if len(ldsr.GetHTTPListeners()) != 5 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
 			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
@@ -527,8 +527,8 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				return
 			}
 
-			// Expect 1 HTTP listeners for 8081
-			if len(adsResponse.GetHTTPListeners()) != 1 {
+			// Expect 1 HTTP listeners for 8081, 1 hybrid listeners for 15006 (virtual inbound)
+			if len(adsResponse.GetHTTPListeners()) != 2 {
 				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 			}
 			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener

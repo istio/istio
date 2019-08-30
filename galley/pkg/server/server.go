@@ -44,8 +44,10 @@ func New(a *settings.Args) *Server {
 	readiness := components.NewProbe(&a.Readiness)
 	s.host.Add(readiness)
 
-	validation := components.NewValidation(a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
-	s.host.Add(validation)
+	if a.ValidationArgs != nil && a.ValidationArgs.EnableValidation {
+		validation := components.NewValidation(a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
+		s.host.Add(validation)
+	}
 
 	if a.EnableServer {
 		if a.UseOldProcessor {
