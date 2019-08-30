@@ -18,7 +18,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -175,7 +174,6 @@ func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServe
 				// If the test uses a real jwt, decode the header, payload, and signature.
 				if !strings.HasPrefix(saReq.Spec.Token, testJwtPrefix) {
 					if !isJwtDecodable(saReq.Spec.Token) {
-						fmt.Println("FOO")
 						simpleTokenReviewResp(resp, false, "invalid JWT")
 						return
 					}
