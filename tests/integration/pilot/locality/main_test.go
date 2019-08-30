@@ -158,6 +158,8 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				Name:        "http",
 				Protocol:    protocol.HTTP,
 				ServicePort: 80,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
 			},
 		},
 		Galley: g,
