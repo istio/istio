@@ -324,7 +324,7 @@ volumes:
       - serviceAccountToken:
           path: istio-token
           expirationSeconds: 43200
-          audience: {{ .Values.global.trustDomain }}
+          audience: {{ .Values.global.sds.token.aud }}
 {{- if .Values.global.sds.customTokenDirectory }}
 - name: custom-sds-token
   secret:

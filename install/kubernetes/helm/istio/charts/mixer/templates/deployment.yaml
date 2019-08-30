@@ -17,7 +17,7 @@
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -194,7 +194,7 @@
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
