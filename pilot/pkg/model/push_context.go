@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -94,6 +95,9 @@ type PushContext struct {
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+
+	// AuthPolicies contains a map of hostname and port to authentication policy
+	AuthPolicies map[host.Name]map[int]*Config `json:"-"`
 
 	initDone bool
 }
@@ -725,6 +729,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 
 	ps.initServiceAccounts(env, allServices)
 
+	ps.initAuthPolicies(env, allServices)
+
 	return nil
 }
 
@@ -745,6 +751,16 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				continue
 			}
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+		}
+	}
+}
+
+// Caches list of authentication policies
+func (ps *PushContext) initAuthPolicies(env *Environment, services []*Service) {
+	for _, svc := range services {
+		ps.AuthPolicies[svc.Hostname] = map[int]*Config{}
+		for _, port := range svc.Ports {
+			ps.AuthPolicies[svc.Hostname][port.Port] = env.IstioConfigStore.AuthenticationPolicyForWorkload(svc, nil, port)
 		}
 	}
 }
@@ -968,6 +984,32 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	}
 	ps.SetDestinationRules(configs)
 	return nil
+}
+
+// AuthPolicyForProxy returns the matching auth policy for a given proxy
+func (ps *PushContext) AuthPolicyForProxy(service *Service, port int, proxy *Proxy) *authn.Policy {
+	policy := ps.AuthPolicies[service.Hostname][port]
+	authPolicy := policy.Spec.(*authn.Policy)
+	var workloadPolicy *Config
+
+	if len(authPolicy.Targets) > 0 {
+		// TODO(gihanson) how to handle case of multiple workloads per node
+		for _, l := range proxy.WorkloadLabels {
+			for _, dest := range authPolicy.Targets {
+				log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, policy.Namespace, policy.Name)
+				destLabels := labels.Instance(dest.Labels)
+				if !destLabels.SubsetOf(l) {
+					continue
+				}
+				log.Debugf("matched auth policy (%s/%s) with workload: %s", policy.Namespace, policy.Name, l)
+				workloadPolicy = policy
+			}
+		}
+	} else {
+		workloadPolicy = policy
+	}
+
+	return workloadPolicy.Spec.(*authn.Policy)
 }
 
 // SetDestinationRules is updates internal structures using a set of configs.
