@@ -250,6 +250,37 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 		},
 		{
 			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Jwks: test.JwtPubKey1,
+							},
+						},
+					},
+				},
+			},
+			wantName:    "jwt-auth",
+			useIstioJWT: true,
+			wantConfig: &istio_jwt.JwtAuthentication{
+				Rules: []*istio_jwt.JwtRule{
+					{
+						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+							LocalJwks: &istio_jwt.DataSource{
+								Specifier: &istio_jwt.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+					},
+				},
+				AllowMissingOrFailed: true,
+			},
+		},
+		{
+			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
 						Jwt: &authn.Jwt{
@@ -310,6 +341,49 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
 									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:           true,
+						PayloadInMetadata: "issuer-1",
+					},
+				},
+			},
+		},
+		{
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer: "issuer-1",
+							Jwks:   test.JwtPubKey2,
+						},
+					},
+				},
+			},
+			wantName: "envoy.filters.http.jwt_authn",
+			wantConfig: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						Requires: &envoy_jwt.JwtRequirement{
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+								AllowMissingOrFailed: &types.Empty{},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "issuer-1",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey2,
 								},
 							},
 						},

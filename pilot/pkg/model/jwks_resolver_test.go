@@ -124,6 +124,27 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 			},
 			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
+		"jwks": {
+			Targets: []*authn.TargetSelector{{
+				Name: "two",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
+			}},
+			Origins: []*authn.OriginAuthenticationMethod{
+				{
+					Jwt: &authn.Jwt{
+						Issuer: "http://abc",
+						Jwks:   "JSONWebKeySet",
+					},
+				},
+			},
+			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
+		},
 	}
 
 	cases := []struct {
@@ -137,6 +158,10 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 		{
 			in:       authNPolicies["two"],
 			expected: "http://xyz",
+		},
+		{
+			in:       authNPolicies["jwks"],
+			expected: "",
 		},
 	}
 	for _, c := range cases {
