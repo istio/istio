@@ -87,7 +87,7 @@ func (s *source) Start() {
 					scope.Source.Infof("[%s] Triggering reload in response to: %v", s.name, trigger.Source)
 					s.reload()
 				}
-			case <- done:
+			case <-done:
 				return
 			}
 		}
