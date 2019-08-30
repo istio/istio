@@ -293,6 +293,13 @@ func (m *RedisProxy_ConnPoolSettings) Validate() error {
 		}
 	}
 
+	if _, ok := RedisProxy_ConnPoolSettings_ReadPolicy_name[int32(m.GetReadPolicy())]; !ok {
+		return RedisProxy_ConnPoolSettingsValidationError{
+			field:  "ReadPolicy",
+			reason: "value must be one of the defined enum values",
+		}
+	}
+
 	return nil
 }
 

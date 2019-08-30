@@ -1002,8 +1002,9 @@ func (m *Principal_Set) GetIds() []*Principal {
 
 // Authentication attributes for a downstream.
 type Principal_Authenticated struct {
-	// The name of the principal. If set, The URI SAN is used from the certificate, otherwise the
-	// subject field is used. If unset, it applies to any user that is authenticated.
+	// The name of the principal. If set, The URI SAN or DNS SAN in that order is used from the
+	// certificate, otherwise the subject field is used. If unset, it applies to any user that is
+	// authenticated.
 	PrincipalName        *matcher.StringMatcher `protobuf:"bytes,2,opt,name=principal_name,json=principalName,proto3" json:"principal_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`

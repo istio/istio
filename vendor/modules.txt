@@ -155,7 +155,7 @@ github.com/dsnet/compress
 # github.com/emicklei/go-restful v2.9.3+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/go-control-plane v0.8.6
+# github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a
 github.com/envoyproxy/go-control-plane/envoy/api/v2/core
 github.com/envoyproxy/go-control-plane/envoy/api/v2/route
 github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2
