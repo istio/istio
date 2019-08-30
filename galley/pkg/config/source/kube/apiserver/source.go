@@ -193,17 +193,15 @@ func (s *Source) startWatchers() {
 			scope.Source.Infof("  Found:  %v", found)
 		}
 
-		// Create a watcher for resources that are builtin or were found
-		if a.IsBuiltIn() || found {
-			col := newWatcher(r, a)
-			col.dispatch(s.handlers)
-			s.watchers[r.Collection.Name] = col
-		}
-
-		// Send a Full Sync event immediately for custom resources that we never found, or that are disabled.
+		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
+		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.Disabled {
 			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Collection.Name)
 			s.handlers.Handle(event.FullSyncFor(r.Collection.Name))
+		} else {
+			col := newWatcher(r, a)
+			col.dispatch(s.handlers)
+			s.watchers[r.Collection.Name] = col
 		}
 
 	}

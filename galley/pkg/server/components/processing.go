@@ -59,8 +59,6 @@ const versionMetadataKey = "config.source.version"
 type Processing struct {
 	args *settings.Args
 
-	excludedResourceKinds []string
-
 	distributor  *snapshot.Cache
 	configzTopic fw.Topic
 
@@ -80,17 +78,10 @@ var _ process.Component = &Processing{}
 // NewProcessing returns a new processing component.
 func NewProcessing(a *settings.Args) *Processing {
 	d := snapshot.New(groups.IndexFunction)
-
-	e := a.ExcludedResourceKinds
-	if e == nil {
-		e = defaultExcludedResourceKinds()
-	}
-
 	return &Processing{
-		args:                  a,
-		distributor:           d,
-		configzTopic:          configz.CreateTopic(d),
-		excludedResourceKinds: e,
+		args:         a,
+		distributor:  d,
+		configzTopic: configz.CreateTopic(d),
 	}
 }
 
@@ -309,16 +300,8 @@ func (p *Processing) getSourceSchema() *schema.Instance {
 	return b.Build()
 }
 
-func defaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
-	}
-	return resources
-}
-
 func (p *Processing) isKindExcluded(kind string) bool {
-	for _, excludedKind := range p.excludedResourceKinds {
+	for _, excludedKind := range p.args.ExcludedResourceKinds {
 		if kind == excludedKind {
 			return true
 		}
@@ -333,7 +316,7 @@ func (p *Processing) getMCPTypes() *resource.Schema {
 		"istio/mesh/v1alpha1/MeshConfig",
 		"type.googleapis.com/istio.mesh.v1alpha1.MeshConfig")
 
-	for _, k := range p.excludedResourceKinds {
+	for _, k := range p.args.ExcludedResourceKinds {
 		spec := kubeMeta.Types.Get(k)
 		if spec != nil {
 			b.UnregisterInfo(spec.Target)
