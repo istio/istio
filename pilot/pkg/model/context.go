@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -319,8 +320,20 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 	fields := metadata.GetFields()
 	res := make(map[string]string, len(fields))
 	for k, v := range fields {
-		if s, ok := v.GetKind().(*types.Value_StringValue); ok {
+		switch s := v.GetKind().(type) {
+		case *types.Value_StringValue:
 			res[k] = s.StringValue
+		case *types.Value_StructValue:
+			// Some fields are not simple strings, they are structs. Dump these to json strings.
+			// TODO: convert metadata to a properly typed struct rather than map[string]string
+			j, err := (&jsonpb.Marshaler{}).MarshalToString(s.StructValue)
+			if err != nil {
+				log.Warnf("failed to unmarshal metadata field %v with value %v: %v", k, v, err)
+				continue
+			}
+			res[k] = j
+		default:
+			continue
 		}
 	}
 	if len(res) == 0 {
