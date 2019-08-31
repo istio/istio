@@ -279,7 +279,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 	// Set the initial workload labels
-	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
+	server.EnvoyXdsServer.WorkloadUpdate("", "127.0.0.4", map[string]string{"version": "v1"}, nil)
 
 	// Update cache
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})

@@ -108,7 +108,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 
 func (sd *MemServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 	sd.ip2workloadLabels[ip] = &labels
-	sd.EDSUpdater.WorkloadUpdate(sd.ClusterID, map[string]string(labels), nil)
+	sd.EDSUpdater.WorkloadUpdate(sd.ClusterID, ip, map[string]string(labels), nil)
 }
 
 // AddHTTPService is a helper to add a service of type http, named 'http-main', with the
