@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	"istio.io/istio/pkg/config/labels"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )

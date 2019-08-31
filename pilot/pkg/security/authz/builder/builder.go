@@ -45,7 +45,8 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection,
+	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	if serviceInstance.Service == nil {
 		rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
 		return nil
