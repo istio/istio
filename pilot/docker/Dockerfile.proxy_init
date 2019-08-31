@@ -1,13 +1,11 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
-FROM ubuntu:xenial as default
-# hadolint ignore=DL3005,DL3008
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    iproute2 \
-    iptables \
- && rm -rf /var/lib/apt/lists/*
+# ISTIO_VERSION is used to specify the version of the release
+ARG BASE_VERSION=latest
+
+ # The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 COPY istio-iptables.sh /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
