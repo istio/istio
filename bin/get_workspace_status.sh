@@ -35,18 +35,10 @@ if [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-DOCKER_HUB="docker.io/istio"
-if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
-  DOCKER_HUB="${ISTIO_DOCKER_HUB}"
-fi
-
 GIT_DESCRIBE_TAG=$(git describe --tags)
 
 # used by bin/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION}"
 echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-echo "istio.io/pkg/version.buildUser=$(whoami)"
-echo "istio.io/pkg/version.buildHost=$(hostname -f)"
-echo "istio.io/pkg/version.buildDockerHub=${DOCKER_HUB}"
 echo "istio.io/pkg/version.buildStatus=${tree_status}"
 echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"

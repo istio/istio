@@ -65,10 +65,7 @@ func TestVersion(t *testing.T) {
 
 			validateField(t, "Version", verInfo.Version)
 			validateField(t, "GitRevision", verInfo.GitRevision)
-			validateField(t, "User", verInfo.User)
-			validateField(t, "Host", verInfo.Host)
 			validateField(t, "GolangVersion", verInfo.GolangVersion)
-			validateField(t, "DockerHub", verInfo.DockerHub)
 			validateField(t, "BuildStatus", verInfo.BuildStatus)
 			validateField(t, "GitTag", verInfo.GitTag)
 		})
