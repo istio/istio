@@ -330,9 +330,11 @@ precommit: format lint
 
 format:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 fmt:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
