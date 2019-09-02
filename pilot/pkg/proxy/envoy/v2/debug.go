@@ -59,7 +59,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
 	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
-	mux.HandleFunc("/debug/workloadz", s.workloadz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
@@ -148,17 +147,6 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	w.Header().Add("Content-Type", "application/json")
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
-	s.mutex.RUnlock()
-	_, _ = w.Write(out)
-}
-
-// Tracks info about workloads. Currently only K8S serviceregistry populates this, based
-// on pod labels and annotations. This is used to detect label changes and push.
-func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-	s.mutex.RLock()
-	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
 	s.mutex.RUnlock()
 	_, _ = w.Write(out)
 }
