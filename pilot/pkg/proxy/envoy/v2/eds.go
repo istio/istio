@@ -465,8 +465,12 @@ func (s *DiscoveryServer) WorkloadUpdate(shard, id string, workloadLabels map[st
 	for _, connection := range adsClients {
 		// update node label
 		if connection.modelNode.IPAddresses[0] == id {
-			// set to nil, trigger re-set in SetWorkloadLabels
-			connection.modelNode.WorkloadLabels = nil
+			select {
+			// trigger re-set in SetWorkloadLabels
+			case connection.updateChannel <- &UpdateEvent{workloadLabel: true}:
+			default:
+				adsLog.Infof("A workload %s label update request is ongoing", id)
+			}
 		}
 	}
 	adsClientsMutex.RUnlock()
