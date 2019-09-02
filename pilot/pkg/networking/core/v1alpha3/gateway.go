@@ -806,15 +806,20 @@ func getSNIHostsForServer(server *networking.Server) []string {
 		return nil
 	}
 	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := make([]string, 0)
+	sniHosts := make(map[string]bool)
 	for _, h := range server.Hosts {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")
-			sniHosts = append(sniHosts, parts[1])
-		} else {
-			sniHosts = append(sniHosts, h)
+			h = parts[1]
+		}
+		// do not add hosts, that have already been added
+		if !sniHosts[h] {
+			sniHosts[h] = true
 		}
 	}
-
-	return sniHosts
+	sniHostsSlice := make([]string, 0, len(sniHosts))
+	for host := range sniHosts {
+		sniHostsSlice = append(sniHostsSlice, host)
+	}
+	return sniHostsSlice
 }
