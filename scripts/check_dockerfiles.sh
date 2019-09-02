@@ -23,7 +23,7 @@
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
-cd "${ROOTDIR}"
+cd "${ROOTDIR}"|| exit
 
 CD_TMPFILE=$(mktemp /tmp/check_dockerfile.XXXXXX)
 HL_TMPFILE=$(mktemp /tmp/hadolint.XXXXXX)
