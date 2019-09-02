@@ -457,7 +457,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 		case updateEv := <-con.updateChannel:
 			if updateEv.workloadLabel && con.modelNode != nil {
-				con.modelNode.SetWorkloadLabels(s.Env, true)
+				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
 			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
