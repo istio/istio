@@ -41,13 +41,13 @@ func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
 func profileDiff(rootArgs *rootArgs, args []string) {
 	initLogsOrExit(rootArgs)
 
-	a, err := helm.ReadValuesYAML(args[0])
+	a, err := helm.ReadProfileYAML(args[0])
 	if err != nil {
 		log.Errorf("could not read the profile values from %s: %s", args[0], err)
 		os.Exit(1)
 	}
 
-	b, err := helm.ReadValuesYAML(args[1])
+	b, err := helm.ReadProfileYAML(args[1])
 	if err != nil {
 		log.Errorf("could not read the profile values from %s: %s", args[1], err)
 		os.Exit(1)

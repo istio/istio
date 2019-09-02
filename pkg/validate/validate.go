@@ -32,7 +32,6 @@ var (
 		"CustomPackagePath": validateInstallPackagePath,
 		"DefaultNamespace":  validateDefaultNamespace,
 	}
-
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{
 		"DefaultNamespace": true,
@@ -41,8 +40,9 @@ var (
 
 // CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
-func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) util.Errors {
-	return validate(defaultValidations, is, nil, checkRequired)
+func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) (errs util.Errors) {
+	errs = util.AppendErrs(errs, CheckValues(is.Values))
+	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequired))
 }
 
 func validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {

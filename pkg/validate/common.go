@@ -126,6 +126,9 @@ func validatePortNumberString(path util.Path, val interface{}) util.Errors {
 	if !util.IsString(val) {
 		return util.NewErrs(fmt.Errorf("validatePortNumberString(%s) bad type %T, want string", path, val))
 	}
+	if val.(string) == "*" || val.(string) == "" {
+		return nil
+	}
 	intV, err := strconv.ParseInt(val.(string), 10, 32)
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("%s : %s", path, err))
@@ -148,7 +151,7 @@ func validateIPRangesOrStar(path util.Path, val interface{}) (errs util.Errors) 
 		return util.NewErrs(err)
 	}
 
-	if val.(string) == "*" {
+	if val.(string) == "*" || val.(string) == "" {
 		return errs
 	}
 

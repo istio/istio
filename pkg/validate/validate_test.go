@@ -15,13 +15,9 @@
 package validate
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
@@ -134,11 +130,11 @@ affinity:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			tk := &v1alpha2.TestKube{}
-			err := unmarshalWithJSONPB(tt.yamlStr, tk)
+			err := util.UnmarshalWithJSONPB(tt.yamlStr, tk)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
-			s, err := marshalWithJSONPB(tk)
+			s, err := util.MarshalWithJSONPB(tk)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
@@ -222,6 +218,11 @@ trafficManagement:
                 targetAverageUtilization: 80
         nodeSelector:
           disktype: ssd
+values:
+  global:
+    proxy:
+      includeIpRanges: "1.1.0.0/16,2.2.0.0/16"
+      excludeIpRanges: "3.3.0.0/16,4.4.0.0/16"
 
 `,
 		},
@@ -245,12 +246,35 @@ hub: docker.io:tag/istio
 installPackagePath: /local/file/path
 `,
 		},
+		{
+			desc: "BadValuesIP",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIpRanges: "1.1.0.300/16,2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: 1.1.0.300/16`}),
+		},
+		{
+			desc: "EmptyValuesIP",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIpRanges: ""
+      includeInboundPorts: "*"
+`,
+		},
 	}
 
 	for _, tt := range tests {
+		if tt.desc != "EmptyValuesIP" {
+			continue
+		}
 		t.Run(tt.desc, func(t *testing.T) {
 			ispec := &v1alpha2.IstioControlPlaneSpec{}
-			err := unmarshalWithJSONPB(tt.yamlStr, ispec)
+			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
@@ -260,33 +284,6 @@ installPackagePath: /local/file/path
 			}
 		})
 	}
-}
-
-func unmarshalWithJSONPB(y string, out proto.Message) error {
-	jb, err := yaml.YAMLToJSON([]byte(y))
-	if err != nil {
-		return err
-	}
-
-	u := jsonpb.Unmarshaler{}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func marshalWithJSONPB(in proto.Message) (string, error) {
-	m := jsonpb.Marshaler{}
-	js, err := m.MarshalToString(in)
-	if err != nil {
-		return "", err
-	}
-	yb, err := yaml.JSONToYAML([]byte(js))
-	if err != nil {
-		return "", err
-	}
-	return string(yb), nil
 }
 
 func stripNL(s string) string {

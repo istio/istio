@@ -133,7 +133,7 @@ func init() {
 
 }
 
-// ParseK8SYAMLToIstioControlPlaneSpec parses a YAML string IstioControlPlane CustomResource and unmarshals in into
+// ParseK8SYAMLToIstioControlPlaneSpec parses a IstioControlPlane CustomResource YAML string and unmarshals in into
 // an IstioControlPlaneSpec object. It returns the object and an API group/version with it.
 func ParseK8SYAMLToIstioControlPlaneSpec(yml string) (*v1alpha2.IstioControlPlaneSpec, *schema.GroupVersionKind, error) {
 	o, err := object.ParseYAMLToK8sObject([]byte(yml))
