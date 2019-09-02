@@ -457,7 +457,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 		case updateEv := <-con.updateChannel:
 			if updateEv.workloadLabel && con.modelNode != nil {
-				con.modelNode.WorkloadLabels = nil
+				con.modelNode.SetWorkloadLabels(s.Env, true)
 			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
@@ -515,7 +515,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 
@@ -559,7 +559,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 

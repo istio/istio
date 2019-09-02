@@ -266,7 +266,9 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 	return nil
 }
 
-func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+// SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
+// otherwise only set it when it is nil.
+func (node *Proxy) SetWorkloadLabels(env *Environment, force bool) error {
 	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
 	// Or updated in DiscoveryServer.WorkloadUpdate.
 	if node.WorkloadLabels != nil {
