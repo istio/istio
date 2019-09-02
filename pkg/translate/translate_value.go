@@ -364,7 +364,7 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	for k, v := range envMap {
 		outEnv[cnt] = make(map[string]interface{})
 		outEnv[cnt]["name"] = k
-		outEnv[cnt]["value"] = v
+		outEnv[cnt]["value"] = fmt.Sprintf("%v", v)
 		cnt++
 	}
 	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
