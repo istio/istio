@@ -40,18 +40,16 @@ import (
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) *xdsapi.RouteConfiguration {
-	// TODO: Move all this out
-	proxyInstances := node.ServiceInstances
 	var rc *xdsapi.RouteConfiguration
 	switch node.Type {
 	case model.SidecarProxy:
-		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 		}
 		return rc
 	case model.Router:
-		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 		}
@@ -101,7 +99,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	_ []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	var err error
@@ -159,7 +157,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
-		node.WorkloadLabels, virtualServices, listenerPort)
+		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {

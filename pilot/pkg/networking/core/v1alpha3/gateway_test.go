@@ -753,7 +753,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
 			proxy13Gateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy13Gateway, env.PushContext, proxyInstances, tt.routeName)
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy13Gateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
