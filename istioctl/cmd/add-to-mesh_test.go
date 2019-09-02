@@ -41,6 +41,7 @@ type testcase struct {
 	k8sConfigs        []runtime.Object
 	dynamicConfigs    []runtime.Object
 	expectedOutput    string
+	namespace         string
 }
 
 var (
@@ -137,6 +138,7 @@ func TestAddToMesh(t *testing.T) {
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
+			namespace:         "default",
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
 				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
 				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
@@ -148,6 +150,7 @@ func TestAddToMesh(t *testing.T) {
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
+			namespace:         "default",
 			expectedOutput:    "Error: services \"test\" not found\n",
 		},
 		{
@@ -157,6 +160,7 @@ func TestAddToMesh(t *testing.T) {
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
+			namespace:         "default",
 			expectedOutput:    "No deployments found for service dummyservice.default\n",
 		},
 		{
@@ -188,6 +192,7 @@ func TestAddToMesh(t *testing.T) {
 			args:              strings.Split("experimental add-to-mesh external-service dummyservice 11.11.11.11 tcp:12345", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
+			namespace:         "default",
 			dynamicConfigs:    cannedDynamicConfigs,
 			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
 		},
@@ -196,6 +201,7 @@ func TestAddToMesh(t *testing.T) {
 			args:              strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
+			namespace:         "default",
 			dynamicConfigs:    cannedDynamicConfigs,
 			expectedOutput:    "Error: service entry \"mesh-expansion-vmtest\" already exists, skip\n",
 		},
@@ -211,8 +217,8 @@ func TestAddToMesh(t *testing.T) {
 func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	t.Helper()
 
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
-	crdFactory = mockDynamicClientGenerator(c.dynamicConfigs)
+	interfaceFactory = mockInterfaceFactoryGenerator(c.namespace, c.k8sConfigs)
+	crdFactory = mockDynamicClientGenerator(c.namespace, c.dynamicConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
@@ -236,11 +242,14 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	}
 }
 
-func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig string) (dynamic.Interface, error) {
+func mockDynamicClientGenerator(ns string, dynamicConfigs []runtime.Object) func(kubeconfig string) (dynamic.Interface, error) {
 	outFactory := func(_ string) (dynamic.Interface, error) {
 		types := runtime.NewScheme()
 		client := fake.NewSimpleDynamicClient(types, dynamicConfigs...)
 		return client, nil
+	}
+	if ns != "" {
+		namespace = ns
 	}
 	return outFactory
 }

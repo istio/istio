@@ -279,7 +279,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	clientFactory = mockClientFactoryGenerator(c.configs)
 
 	// Override the K8s config factory
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
+	interfaceFactory = mockInterfaceFactoryGenerator("", c.k8sConfigs)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -314,11 +314,13 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 }
 
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
+func mockInterfaceFactoryGenerator(ns string, k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
 	outFactory := func(_ string) (kubernetes.Interface, error) {
 		client := fake.NewSimpleClientset(k8sConfigs...)
 		return client, nil
 	}
-
+	if ns != "" {
+		namespace = ns
+	}
 	return outFactory
 }
