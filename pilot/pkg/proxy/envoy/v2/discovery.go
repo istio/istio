@@ -109,7 +109,7 @@ type DiscoveryServer struct {
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
-	// clusterID => workloadID => Workload
+	// clusterID => workload ip => Workload
 	WorkloadsByID map[string]map[string]*Workload
 
 	pushChannel chan *model.PushRequest

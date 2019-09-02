@@ -430,27 +430,27 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(shard, id string, workloadLabels map[string]string, _ map[string]string) {
+func (s *DiscoveryServer) WorkloadUpdate(clusterID, ip string, workloadLabels map[string]string, _ map[string]string) {
 	inboundWorkloadUpdates.Increment()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if workloadLabels == nil {
 		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID[shard], id)
+		delete(s.WorkloadsByID[clusterID], ip)
 		return
 	}
 
-	_, f := s.WorkloadsByID[shard]
+	_, f := s.WorkloadsByID[clusterID]
 	if !f {
-		s.WorkloadsByID[shard] = map[string]*Workload{id: {Labels: workloadLabels}}
-		s.sendPushRequestTo(id)
+		s.WorkloadsByID[clusterID] = map[string]*Workload{ip: {Labels: workloadLabels}}
+		s.sendPushRequestTo(ip)
 		return
 	}
 
-	w, ok := s.WorkloadsByID[shard][id]
+	w, ok := s.WorkloadsByID[clusterID][ip]
 	if !ok {
-		s.WorkloadsByID[shard][id] = &Workload{Labels: workloadLabels}
-		s.sendPushRequestTo(id)
+		s.WorkloadsByID[clusterID][ip] = &Workload{Labels: workloadLabels}
+		s.sendPushRequestTo(ip)
 		return
 	}
 
@@ -464,12 +464,12 @@ func (s *DiscoveryServer) WorkloadUpdate(shard, id string, workloadLabels map[st
 	adsClientsMutex.RLock()
 	for _, connection := range adsClients {
 		// update node label
-		if connection.modelNode.IPAddresses[0] == id {
+		if connection.modelNode.IPAddresses[0] == ip {
 			select {
 			// trigger re-set in SetWorkloadLabels
 			case connection.updateChannel <- &UpdateEvent{workloadLabel: true}:
 			default:
-				adsLog.Infof("A workload %s label update request is ongoing", id)
+				adsLog.Infof("A workload %s label update request is ongoing", ip)
 			}
 		}
 	}
@@ -479,7 +479,7 @@ func (s *DiscoveryServer) WorkloadUpdate(shard, id string, workloadLabels map[st
 	// TODO: we can do a push for the affected workload only, but we need to confirm
 	// no other workload can be affected. Safer option is to fallback to full push.
 
-	adsLog.Infof("Label change, full push %s ", id)
+	adsLog.Infof("Label change, full push %s", ip)
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
 }
@@ -511,15 +511,15 @@ func (s *DiscoveryServer) sendPushRequestTo(ip string) {
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
-	s.edsUpdate(shard, serviceName, namespace, istioEndpoints, false)
+	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
 }
 
-// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
 // and requests a full/eds push.
-func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
+func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
@@ -534,7 +534,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
 			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, shard)
+			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
 			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
 			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 			if svcShards == 0 {
@@ -586,7 +586,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 		}
 	}
 	ep.mutex.Lock()
-	ep.Shards[shard] = istioEndpoints
+	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
