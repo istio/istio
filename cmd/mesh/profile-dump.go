@@ -97,7 +97,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	}
 
 	// This contains the IstioControlPlane CR.
-	baseCRYAML, err := helm.ReadValuesYAML(profile)
+	baseCRYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return "", fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
@@ -108,7 +108,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 		if err != nil {
 			return "", err
 		}
-		defaultYAML, err := helm.ReadValuesYAML(dfn)
+		defaultYAML, err := helm.ReadProfileYAML(dfn)
 		if err != nil {
 			return "", fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}
