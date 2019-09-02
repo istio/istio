@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -821,5 +822,7 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	for host := range sniHosts {
 		sniHostsSlice = append(sniHostsSlice, host)
 	}
+	sort.Strings(sniHostsSlice)
+
 	return sniHostsSlice
 }
