@@ -95,7 +95,7 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&) chmod 755 envoy pilot-agent &&
-docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
+docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
@@ -116,7 +116,7 @@ ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -131,7 +131,7 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
-docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
