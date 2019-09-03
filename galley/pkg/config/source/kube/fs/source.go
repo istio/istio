@@ -72,7 +72,8 @@ func (s *source) Start() {
 	if s.done != nil {
 		return
 	}
-	s.done = make(chan struct{})
+	done := make(chan struct{})
+	s.done = done
 
 	c := make(chan appsignals.Signal, 1)
 	appsignals.Watch(c)
@@ -86,7 +87,7 @@ func (s *source) Start() {
 					scope.Source.Infof("[%s] Triggering reload in response to: %v", s.name, trigger.Source)
 					s.reload()
 				}
-			case <-s.done:
+			case <-done:
 				return
 			}
 		}
