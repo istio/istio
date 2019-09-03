@@ -51,7 +51,10 @@ import (
 )
 
 var (
-	crdFactory = createDynamicInterface
+	crdFactory  = createDynamicInterface
+	labels      []string
+	annotations []string
+	svcAcctAnn  string
 )
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
