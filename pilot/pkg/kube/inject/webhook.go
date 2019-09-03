@@ -432,6 +432,32 @@ func escapeJSONPointerValue(in string) string {
 	return strings.Replace(step, "/", "~1", -1)
 }
 
+func updateLabels(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
+	for key, value := range added {
+		if target == nil {
+			target = map[string]string{}
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "add",
+				Path: "/metadata/labels",
+				Value: map[string]string{
+					key: value,
+				},
+			})
+		} else {
+			op := "add"
+			if target[key] != "" {
+				op = "replace"
+			}
+			patch = append(patch, rfc6902PatchOperation{
+				Op:    op,
+				Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
+				Value: value,
+			})
+		}
+	}
+	return patch
+}
+
 func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
 	for key, value := range added {
 		if target == nil {
@@ -499,6 +525,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	if pod.Labels[MTLSReadyLabelName] == "" {
+		patch = append(patch, updateLabels(pod.Labels, map[string]string{MTLSReadyLabelName: "true"})...)
+	}
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
