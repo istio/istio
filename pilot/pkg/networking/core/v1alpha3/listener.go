@@ -2174,20 +2174,20 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 }
 
 func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
-	hasTlsInspector := false
-	hasHttpInspector := false
+	hasTLSInspector := false
+	hasHTTPInspector := false
 
 	for _, f := range filters {
-		hasTlsInspector = hasTlsInspector || f.Name == xdsutil.TlsInspector
-		hasHttpInspector = hasHttpInspector || f.Name == envoyListenerHTTPInspector
+		hasTLSInspector = hasTLSInspector || f.Name == xdsutil.TlsInspector
+		hasHTTPInspector = hasHTTPInspector || f.Name == envoyListenerHTTPInspector
 	}
 
-	if !hasTlsInspector {
+	if !hasTLSInspector {
 		filters =
 			append(filters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
 	}
 
-	if !hasHttpInspector {
+	if !hasHTTPInspector {
 		filters =
 			append(filters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
 	}
