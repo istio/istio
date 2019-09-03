@@ -16,12 +16,13 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
