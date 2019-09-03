@@ -123,7 +123,7 @@ function create_windows_archive() {
   zip -r -q "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
     || error_exit 'Could not create istio windows archive'
 
-  zip -r -q "${OUTPUT_PATH}/istioctl-${VER_STRING}-win.zip" -C "${BIN_DIR}" istioctl.exe \
+  zip -r -q -j "${OUTPUT_PATH}/istioctl-${VER_STRING}-win.zip" "${istioctl_path}" \
     || error_exit 'Could not create istioctl windows archive'
 
   rm "${istioctl_path}"
