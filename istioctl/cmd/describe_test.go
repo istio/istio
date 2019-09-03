@@ -39,6 +39,7 @@ type execAndK8sConfigTestCase struct {
 	execClientConfig map[string][]byte // Canned Envoy configuration
 	configs          []model.Config    // Canned Istio configuration
 	k8sConfigs       []runtime.Object  // Canned K8s configuration
+	namespace        string
 
 	args []string
 
@@ -234,6 +235,7 @@ func TestDescribe(t *testing.T) {
 			execClientConfig: cannedConfig,
 			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedK8sEnv,
+			namespace:        "default",
 			args:             strings.Split("experimental describe pod details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `Pod: details-v1-5b7f94f9bc-wp5tb
    Pod Ports: 15090 (istio-proxy)
@@ -284,6 +286,9 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
+	if c.namespace != "" {
+		namespace = c.namespace
+	}
 
 	file = "" // Clear, because we re-use
 
