@@ -773,7 +773,9 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 // Caches list of authentication policies
 func (ps *PushContext) initAuthPolicies(env *Environment, services []*Service) {
 	for _, svc := range services {
-		ps.AuthPolicies[svc.Hostname] = map[int]*Config{}
+		if ps.AuthPolicies[svc.Hostname] == nil {
+			ps.AuthPolicies[svc.Hostname] = map[int]*Config{}
+		}
 		for _, port := range svc.Ports {
 			ps.AuthPolicies[svc.Hostname][port.Port] = env.IstioConfigStore.AuthenticationPolicyForWorkload(svc, nil, port)
 		}
