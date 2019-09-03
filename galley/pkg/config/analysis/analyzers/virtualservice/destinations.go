@@ -2,6 +2,7 @@ package virtualservice
 
 import (
 	"fmt"
+	"regexp"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -10,11 +11,15 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
+var (
+	// TODO: This is likely inadequate
+	fqdnPattern = regexp.MustCompile("(.+)\\.(.+)\\.svc\\.cluster\\.local")
+)
+
 // DestinationAnalyzer checks the hosts associated with each virtual service
+// https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#Destination
 // TODO: This all needs lots of cleanup and correctness checking
 type DestinationAnalyzer struct {
-	// ServiceNames      []string
-	// ServiceEntryHosts []string
 }
 
 // Name implements Analyzer
@@ -32,6 +37,7 @@ func (da *DestinationAnalyzer) Analyze(ctx analysis.Context) {
 
 func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context) {
 	vs := r.Item.(*v1alpha3.VirtualService)
+	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	routeProtocols := []string{"http", "tcp", "tls"}
 	destinations := make([]*v1alpha3.Destination, 0)
@@ -40,36 +46,90 @@ func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx anal
 	}
 
 	for _, destination := range destinations {
-		if !da.checkDestination(r, destination.GetHost(), ctx) {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NotYetImplemented(r, fmt.Sprintf("TODO: virtualservices.nohost.hostnotfound %s", destination.GetHost())))
+		if !da.checkDestinationHost(ns, destination, ctx) {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NotYetImplemented(r,
+				fmt.Sprintf("TODO: virtualservices.nohost.hostnotfound %s", destination.GetHost())))
+			continue
+		}
+		if !da.checkDestinationSubset(ns, destination, ctx) {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NotYetImplemented(r,
+				fmt.Sprintf("TODO: Could not find matching host + subset %s + %s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
 
 }
 
-func (da *DestinationAnalyzer) checkDestination(r *resource.Entry, destHost string, ctx analysis.Context) bool {
-	// https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#Destination
-	// We need to handle two possible formats: short name (assume the nsame namespace as the rule) and FQDN
-	// Need to check services from both platform registry + ServiceEntries
-	//TODO
+func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination, ctx analysis.Context) bool {
+	// Figure out the resource.Name to look up from the provided host string
+	name := getResourceNameFromHost(vsNamespace, destination.GetHost())
 
-	// destName := resource.NewFullName // TODO: Handle FQDN
-
-	fmt.Println("DEBUG0c-----------------------")
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
-		fmt.Println("DEBUG0a:", r.Metadata.Name)
-		return true
-	})
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		fmt.Println("DEBUG0b:", r.Metadata.Name)
-		return true
-	})
-
-	//TODO: Also check subsets?
-
-	//TODO: How to make sure this is platform independent? Or at least the k8s stuff is marked as such?
-
+	// Check explicitly defined ServiceEntries
+	// Check services from the platform service registry
+	// TODO: How to make sure this is platform independent?
+	// TODO: Look at synthetic service entries? But they're not (currently) in the snapshot... and according to Oz "don't have quiesce characteristics" and we "may get one-off issues"
+	if ctx.Find(metadata.IstioNetworkingV1Alpha3Serviceentries, name) == nil && ctx.Find(metadata.K8SCoreV1Services, name) == nil {
+		return false
+	}
 	return true
+}
+
+func (da *DestinationAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination, ctx analysis.Context) bool {
+	// Figure out the resource.Name to look up from the provided host string
+	name := getResourceNameFromHost(vsNamespace, destination.GetHost())
+
+	subset := destination.GetSubset()
+
+	// if there's no subset specified, we're done
+	if subset == "" {
+		return true
+	}
+
+	// TODO: Is it worth the extra effort to avoid repeated looping here? Probably... need to generate a set of what DR hostname+subset combos exist
+	found := false
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
+		dr := r.Item.(*v1alpha3.DestinationRule)
+		drNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+
+		// Skip over destination rules that don't match on host
+		if name != getResourceNameFromHost(drNamespace, dr.GetHost()) {
+			return true
+		}
+
+		for _, ss := range dr.GetSubsets() {
+			if ss.GetName() == subset {
+				found = true
+				return false // Stop iterating since we found a match
+			}
+		}
+		return true
+	})
+	return found
+}
+
+// TODO: Is there already a lib I can use for this? Or, failing that, a better place for this to live?
+func getResourceNameFromHost(defaultNamespace, host string) resource.Name {
+	// We need to handle two possible formats: short name (assumes the same namespace as the rule) and FQDN
+
+	// First, try to parse as FQDN
+	namespace, name := getNamespaceAndNameFromFQDN(host)
+
+	// TODO: Do we also need to handle "namespace/name" ?
+
+	//Otherwise, treat this as a short name and use the assumed namespace
+	if namespace == "" {
+		namespace = defaultNamespace
+		name = host
+	}
+	return resource.NewName(namespace, name)
+}
+
+// TODO: Is there already a lib I can use for this? Or, failing that, a better place for this to live?
+func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
+	result := fqdnPattern.FindAllStringSubmatch(fqdn, -1)
+	if len(result) == 0 {
+		return "", ""
+	}
+	return result[0][0], result[0][1]
 }
 
 //TODO: How to elegantly accomplish this in Go?
