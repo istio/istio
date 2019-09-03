@@ -105,7 +105,7 @@ run-mixer:
 # Test targets to run. Exclude tests that are broken for now
 # Reachability tests are run in the 'run-minimal-test', no need to duplicate it.
 # (also helps to shard the tests)
-INT_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|security/reachability\|telemetry/tracing\|/istioctl")
+INT_TARGETS = $(shell env GO111MODULE=off GOPATH=${GOPATH} ${GO} list ../istio/tests/integration/... | grep -v "/mixer\|security/reachability\|telemetry/tracing\|/istioctl")
 
 INT_FLAGS ?= \
 	--istio.test.hub ${HUB} \

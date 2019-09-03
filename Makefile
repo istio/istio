@@ -182,7 +182,7 @@ kind-run:
 # Runs the test in docker. Will exec into KIND and run "make $TEST_TARGET" (default: run-all-tests)
 docker-run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf -e ONE_NAMESPACE=$(ONE_NAMESPACE) \
-		${KIND_CLUSTER}-control-plane \
+		-e GO111MODULE=on ${KIND_CLUSTER}-control-plane \
 		bash -c "cd ${TOP}/src/istio.io/installer; make git.dep ${TEST_TARGET}"
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
