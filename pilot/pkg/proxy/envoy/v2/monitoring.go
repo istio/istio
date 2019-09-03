@@ -136,10 +136,9 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	inboundConfigUpdates   = inboundUpdates.With(typeTag.Value("config"))
-	inboundEDSUpdates      = inboundUpdates.With(typeTag.Value("eds"))
-	inboundServiceUpdates  = inboundUpdates.With(typeTag.Value("svc"))
-	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
+	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
+	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
+	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 )
 
 func recordSendError(metric monitoring.Metric, err error) {

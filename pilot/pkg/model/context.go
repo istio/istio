@@ -270,7 +270,6 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 // otherwise only set it when it is nil.
 func (node *Proxy) SetWorkloadLabels(env *Environment, force bool) error {
 	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
-	// Or updated in DiscoveryServer.WorkloadUpdate.
 	if node.WorkloadLabels != nil {
 		return nil
 	}

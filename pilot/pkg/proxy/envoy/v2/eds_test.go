@@ -402,12 +402,6 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
-	// Update the endpoint with different label - expect full
-	server.EnvoyXdsServer.WorkloadUpdate("", "127.0.0.4", map[string]string{"version": "v2"}, nil)
-
-	edsFullUpdateCheck(adsc, t)
-	testTCPEndpoints("127.0.0.4", adsc, t)
-
 	// Update the endpoint again, no label change - expect incremental
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.5", "account2", "v1"))
