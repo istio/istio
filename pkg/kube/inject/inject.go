@@ -139,6 +139,10 @@ const (
 	ProxyContainerName = "istio-proxy"
 )
 
+const (
+	MTLSReadyLabelName = "security.istio.io/mtlsReady"
+)
+
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
@@ -857,6 +861,12 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
+	if status != "" && metadata.Labels[MTLSReadyLabelName] == "" {
+		if metadata.Labels == nil {
+			metadata.Labels = make(map[string]string)
+		}
+		metadata.Labels[MTLSReadyLabelName] = "true"
+	}
 
 	return out, nil
 }
