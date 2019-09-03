@@ -1002,24 +1002,22 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	return nil
 }
 
-// AuthPolicyForProxy returns the matching auth policy for a given proxy
-func (ps *PushContext) AuthPolicyForProxy(service *Service, port int, proxy *Proxy) *authn.Policy {
-	policy := ps.AuthPolicies[service.Hostname][port]
+// AuthenticationPolicyForWorkload returns the matching auth policy for a given service
+// This replaces store.AuthenticationPolicyForWorkload
+func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *authn.Policy {
+	policy := ps.AuthPolicies[service.Hostname][port.Port]
 	authPolicy := policy.Spec.(*authn.Policy)
 	var workloadPolicy *Config
 
 	if len(authPolicy.Targets) > 0 {
-		// TODO(gihanson) how to handle case of multiple workloads per node
-		for _, l := range proxy.WorkloadLabels {
-			for _, dest := range authPolicy.Targets {
-				log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, policy.Namespace, policy.Name)
-				destLabels := labels.Instance(dest.Labels)
-				if !destLabels.SubsetOf(l) {
-					continue
-				}
-				log.Debugf("matched auth policy (%s/%s) with workload: %s", policy.Namespace, policy.Name, l)
-				workloadPolicy = policy
+		for _, dest := range authPolicy.Targets {
+			log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, policy.Namespace, policy.Name)
+			destLabels := labels.Instance(dest.Labels)
+			if !destLabels.SubsetOf(l) {
+				continue
 			}
+			log.Debugf("matched auth policy (%s/%s) with workload: %s", policy.Namespace, policy.Name, l)
+			workloadPolicy = policy
 		}
 	} else {
 		workloadPolicy = policy
