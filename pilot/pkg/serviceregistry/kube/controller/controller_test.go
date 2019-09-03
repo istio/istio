@@ -113,16 +113,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uin
 	}
 }
 
-func (fx *FakeXdsUpdater) WorkloadUpdate(shard, id string, labels map[string]string, annotations map[string]string) {
-	select {
-	case fx.Events <- XdsEvent{Type: "workload", ID: id}:
-	default:
-	}
-}
-
 func (fx *FakeXdsUpdater) Wait(et string) *XdsEvent {
-	t := time.NewTimer(5 * time.Second)
-
 	for {
 		select {
 		case e := <-fx.Events:
@@ -130,7 +121,7 @@ func (fx *FakeXdsUpdater) Wait(et string) *XdsEvent {
 				return &e
 			}
 			continue
-		case <-t.C:
+		case <-time.After(5 * time.Second):
 			return nil
 		}
 	}
@@ -404,12 +395,14 @@ func TestController_GetPodLocality(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 
 			// Setup kube caches
-			controller, fx := newFakeController(t)
+			controller, _ := newFakeController(t)
 			defer controller.Stop()
 			addNodes(t, controller, c.nodes...)
 			addPods(t, controller, c.pods...)
-			for range c.pods {
-				fx.Wait("workload")
+			for _, pod := range c.pods {
+				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+					t.Errorf("wait for pod err: %v", err)
+				}
 			}
 
 			// Verify expected existing pod AZs
@@ -435,7 +428,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	defer controller.Stop()
 	p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	addPods(t, controller, p)
-	fx.Wait("workload")
+	if err := waitForPod(controller, p.Status.PodIP); err != nil {
+		t.Errorf("wait for pod err: %v", err)
+	}
 
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
@@ -580,8 +575,10 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 			controller, fx := newFakeController(t)
 			defer controller.Stop()
 			addPods(t, controller, c.pods...)
-			for range c.pods {
-				fx.Wait("workload")
+			for _, pod := range c.pods {
+				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+					t.Errorf("wait for pod err: %v", err)
+				}
 			}
 
 			createService(controller, "svc1", "nsa",
@@ -675,16 +672,15 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 }
 
 func TestWorkloadHealthCheckInfo(t *testing.T) {
-	controller, fx := newFakeController(t)
+	controller, _ := newFakeController(t)
 	defer controller.Stop()
 
-	pods := []*coreV1.Pod{
-		generatePodWithProbes("128.0.0.1", "pod1", "nsa1", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090")),
+	pod := generatePodWithProbes("128.0.0.1", "pod1", "nsa1", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090"))
+	addPods(t, controller, pod)
+
+	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+		t.Errorf("wait for pod err: %v", err)
 	}
-	addPods(t, controller, pods...)
-
-	fx.Wait("workload")
-
 	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
 
 	expected := []*model.Probe{
@@ -719,15 +715,15 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 }
 
 func TestWorkloadHealthCheckInfoPrometheusScrape(t *testing.T) {
-	controller, fx := newFakeController(t)
+	controller, _ := newFakeController(t)
 	defer controller.Stop()
 
-	pods := []*coreV1.Pod{
-		generatePod("128.0.1.6", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-			map[string]string{PrometheusScrape: "true"}),
+	pod := generatePod("128.0.1.6", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+		map[string]string{PrometheusScrape: "true"})
+	addPods(t, controller, pod)
+	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+		t.Errorf("wait for pod err: %v", err)
 	}
-	addPods(t, controller, pods...)
-	fx.Wait("workload")
 
 	controller.pods.keys["128.0.1.6"] = "nsA/pod1"
 
@@ -745,16 +741,15 @@ func TestWorkloadHealthCheckInfoPrometheusScrape(t *testing.T) {
 }
 
 func TestWorkloadHealthCheckInfoPrometheusPath(t *testing.T) {
-	controller, fx := newFakeController(t)
+	controller, _ := newFakeController(t)
 	defer controller.Stop()
 
-	pods := []*coreV1.Pod{
-		generatePod("128.0.1.7", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-			map[string]string{PrometheusScrape: "true", PrometheusPath: "/other"}),
+	pod := generatePod("128.0.1.7", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+		map[string]string{PrometheusScrape: "true", PrometheusPath: "/other"})
+	addPods(t, controller, pod)
+	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+		t.Errorf("wait for pod err: %v", err)
 	}
-	addPods(t, controller, pods...)
-	fx.Wait("workload")
-
 	controller.pods.keys["128.0.1.7"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.1.7")
@@ -771,15 +766,15 @@ func TestWorkloadHealthCheckInfoPrometheusPath(t *testing.T) {
 }
 
 func TestWorkloadHealthCheckInfoPrometheusPort(t *testing.T) {
-	controller, fx := newFakeController(t)
+	controller, _ := newFakeController(t)
 	defer controller.Stop()
 
-	pods := []*coreV1.Pod{
-		generatePod("128.0.1.8", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
-			map[string]string{PrometheusScrape: "true", PrometheusPort: "3210"}),
+	pod := generatePod("128.0.1.8", "pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+		map[string]string{PrometheusScrape: "true", PrometheusPort: "3210"})
+	addPods(t, controller, pod)
+	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+		t.Errorf("wait for pod err: %v", err)
 	}
-	addPods(t, controller, pods...)
-	fx.Wait("workload")
 	controller.pods.keys["128.0.1.8"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.1.8")

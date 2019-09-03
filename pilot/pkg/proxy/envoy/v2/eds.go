@@ -428,14 +428,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	s.startPush(req)
 }
 
-// WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(clusterID, ip string, workloadLabels map[string]string, _ map[string]string) {
-	inboundWorkloadUpdates.Increment()
-
-	// Note: do not support labels update, for in k8s it is rare for users to directly update labels of the pod
-	// More common case is update labels by update deployments, statefulsets.
-}
-
 // EDSUpdate computes destination address membership across all clusters and networks.
 // This is the main method implementing EDS.
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses

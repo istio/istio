@@ -15,8 +15,10 @@
 package controller
 
 import (
+	"k8s.io/apimachinery/pkg/util/wait"
 	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,11 +94,7 @@ func cleanup(ki kubernetes.Interface, fx *FakeXdsUpdater) {
 		if err == nil {
 			// Make sure the pods don't exist
 			for _, pod := range pods.Items {
-				err := ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
-				if err == nil {
-					// pod existed before, wait for event
-					_ = fx.Wait("workload")
-				}
+				_ = ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 			}
 		}
 	}
@@ -117,6 +115,14 @@ func TestPodCache(t *testing.T) {
 	})
 }
 
+func waitForPod(c *Controller, ip string) error {
+	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		if _, ok := c.pods.keys[ip]; ok {
+			return true, nil
+		}
+		return false, nil
+	})
+}
 func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 	initTestEnv(t, c.client, fx)
 
@@ -133,16 +139,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		pod := pod
 		addPods(t, c, pod)
 		// Wait for the workload event
-
-		ev := fx.Wait("workload")
-		if ev == nil {
-			t.Error("No event ", pod.Name)
-			continue
-		}
-		if ev.ID != pod.Status.PodIP {
-			t.Error("Workload event expected ", pod.Status.PodIP, "got", ev.ID, ev.Type)
-			continue
-		}
+		waitForPod(c, pod.Status.PodIP)
 	}
 
 	// Verify podCache
