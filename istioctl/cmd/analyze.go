@@ -22,12 +22,19 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 
 	"github.com/spf13/cobra"
 )
 
+var (
+	useKube bool
+)
+
 // Analyze command
+// Once we're ready to move this functionality out of the "experimental" subtree, we should merge
+// with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file|globpattern>...",
@@ -37,12 +44,14 @@ func Analyze() *cobra.Command {
 istioctl experimental analyze a.yaml b.yaml
 
 # Analyze the current live cluster
-istioctl experimental analyze -c $HOME/.kube/config
+istioctl experimental analyze -k
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl experimental analyze -c $HOME/.kube/config a.yaml b.yaml
+istioctl experimental analyze -k a.yaml b.yaml
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// These scopes are pretty verbose at the default log level and significantly clutter terminal output,
+			// so we adjust them here to avoid that.
 			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
 			loggingOptions.SetOutputLevel("source", log.ErrorLevel)
 			if err := log.Configure(loggingOptions); err != nil {
@@ -58,11 +67,12 @@ istioctl experimental analyze -c $HOME/.kube/config a.yaml b.yaml
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All())
 
 			// If we're using kube, use that as a base source.
-			if kubeconfig != "" {
-				k, err := client.NewKubeFromConfigFile(kubeconfig)
+			if useKube {
+				config, err := kube.BuildClientConfig(kubeconfig, configContext)
 				if err != nil {
 					return err
 				}
+				k := client.NewKube(config)
 				sa.AddRunningKubeSource(k)
 			}
 
@@ -86,6 +96,9 @@ istioctl experimental analyze -c $HOME/.kube/config a.yaml b.yaml
 			return nil
 		},
 	}
+
+	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
+		"Use live kubernetes cluster for analysis")
 
 	return analysisCmd
 }
