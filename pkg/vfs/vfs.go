@@ -12,61 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata --nocompress --nometadata --pkg vfs -o assets.gen.go --prefix ../../data ../../data/...
-
-// Package vfs is a set of file system utilities to access compiled-in helm charts.
+/*
+Package vfsgen is a set of file system utilities for compiled in helm charts which are generated using
+github.com/shurcooL/vfsgen and included in this package in vfsgen.gen.go.
+*/
 package vfs
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 // ReadFile reads the content of compiled in files at path and returns a buffer with the data.
 func ReadFile(path string) ([]byte, error) {
-	return Asset(path)
+	f, err := Assets.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return ioutil.ReadAll(f)
 }
 
 // Stat returns a FileInfo object for the given path.
 func Stat(path string) (os.FileInfo, error) {
-	info, err := AssetInfo(path)
+	f, err := Assets.Open(path)
 	if err != nil {
-		// try it as a directory instead
-		_, err = AssetDir(path)
-		if err == nil {
-			info = &dirInfo{name: filepath.Base(path)}
-		}
-	} else {
-		fi := info.(bindataFileInfo)
-		fi.name = filepath.Base(fi.name)
+		return nil, err
 	}
-
-	return info, err
-}
-
-type dirInfo struct {
-	name string
-}
-
-func (di dirInfo) Name() string {
-	return di.name
-}
-func (di dirInfo) Size() int64 {
-	return 0
-}
-func (di dirInfo) Mode() os.FileMode {
-	return os.FileMode(0)
-}
-func (di dirInfo) ModTime() time.Time {
-	return time.Unix(0, 0)
-}
-func (di dirInfo) IsDir() bool {
-	return true
-}
-func (di dirInfo) Sys() interface{} {
-	return nil
+	defer f.Close()
+	return f.Stat()
 }
 
 // Size returns the size of the file at the given path, if it is found.
@@ -80,7 +57,20 @@ func Size(path string) (int64, error) {
 
 // ReadDir non-recursively reads the directory at path and returns all the files contained in it.
 func ReadDir(path string) ([]string, error) {
-	return AssetDir(path)
+	dir, err := Assets.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	fs, err := dir.Readdir(-1)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range fs {
+		out = append(out, f.Name())
+	}
+	return out, nil
 }
 
 // GetFilesRecursive recursively reads the directory at path and returns all the files contained in it.
@@ -97,18 +87,22 @@ func getFilesRecursive(prefix string, root os.FileInfo) ([]string, error) {
 		return nil, fmt.Errorf("not a dir: %s", root.Name())
 	}
 	prefix = filepath.Join(prefix, root.Name())
-	fs, _ := AssetDir(prefix)
+	dir, err := Assets.Open(prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	fs, err := dir.Readdir(-1)
+	if err != nil {
+		return nil, err
+	}
 	var out []string
 	for _, f := range fs {
-		info, err := Stat(filepath.Join(prefix, f))
-		if err != nil {
-			return nil, err
-		}
-		if !info.IsDir() {
-			out = append(out, filepath.Join(prefix, filepath.Base(info.Name())))
+		if !f.IsDir() {
+			out = append(out, filepath.Join(prefix, f.Name()))
 			continue
 		}
-		nfs, err := getFilesRecursive(prefix, info)
+		nfs, err := getFilesRecursive(prefix, f)
 		if err != nil {
 			return nil, err
 		}
