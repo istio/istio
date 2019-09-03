@@ -26,27 +26,27 @@ var (
 	errorTag = monitoring.MustCreateLabel(errorlabel)
 
 	serviceAccountCreationCounts = monitoring.NewSum(
-		"svc_acc_created_cert_count",
+		"citadel_secret_controller_svc_acc_created_cert_count",
 		"The number of certificates created due to service account creation.",
 	)
 
 	serviceAccountDeletionCounts = monitoring.NewSum(
-		"svc_acc_deleted_cert_count",
+		"citadel_secret_controller_svc_acc_deleted_cert_count",
 		"The number of certificates deleted due to service account deletion.",
 	)
 
 	secretDeletionCounts = monitoring.NewSum(
-		"secret_deleted_cert_count",
+		"citadel_secret_controller_secret_deleted_cert_count",
 		"The number of certificates recreated due to secret deletion (service account still exists).",
 	)
 
 	csrErrorCounts = monitoring.NewSum(
-		"csr_err_count",
+		"citadel_secret_controller_csr_err_count",
 		"The number of errors occurred when creating the CSR.",
 	)
 
 	certSignErrorCounts = monitoring.NewSum(
-		"csr_sign_err_count",
+		"citadel_secret_controller_csr_sign_err_count",
 		"The number of errors occurred when signing the CSR.",
 		monitoring.WithLabels(errorTag),
 	)
