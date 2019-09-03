@@ -621,8 +621,10 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 		generatePod("128.0.0.3", "pod3", "nsB", sa3, "node1", map[string]string{"app": "prod-app"}, map[string]string{}),
 	}
 	addPods(t, controller, pods...)
-	for i := 0; i < 3; i++ {
-		<-fx.Events
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Errorf("wait for pod err: %v", err)
+		}
 	}
 
 	createService(controller, "svc1", "nsA",
