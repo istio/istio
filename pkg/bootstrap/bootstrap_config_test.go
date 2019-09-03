@@ -397,9 +397,9 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
 
 	if stats.prefixes == "" {
-		stats.prefixes = requiredEnvoyStatsMatcherInclusionPrefixes
+		stats.prefixes = "reporter=," + requiredEnvoyStatsMatcherInclusionPrefixes
 	} else {
-		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
+		stats.prefixes = "reporter=," + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes
 	}
 
 	if stats.suffixes == "" {
