@@ -93,9 +93,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(newVersionCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(AuthN())
-	rootCmd.AddCommand(deprecateCmd("register","experimental add-to-mesh"))
-	rootCmd.AddCommand(deprecateCmd("deregister","experimental remove-from-mesh"))
-        rootCmd.AddCommand(injectCommand())
+	rootCmd.AddCommand(deprecateCmd("register", "experimental add-to-mesh"))
+	rootCmd.AddCommand(deprecateCmd("deregister", "experimental remove-from-mesh"))
+	rootCmd.AddCommand(injectCommand())
 
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
