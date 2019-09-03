@@ -88,9 +88,9 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "global-mtls-permissive.yaml",
-					Namespace:  systemNM,
-					// RequiredEnvironment: environment.Kube,
+					ConfigFile:          "global-mtls-permissive.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
 						if opts.Target == rctx.Naked {
@@ -122,9 +122,9 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile: "single-port-mtls-on.yaml",
-					Namespace:  rctx.Namespace,
-					// RequiredEnvironment: environment.Kube,
+					ConfigFile:          "single-port-mtls-on.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return opts.Target == rctx.B
