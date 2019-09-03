@@ -7,11 +7,6 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 ARG proxy_version
 ARG istio_version
 
-ARG ISTIO_API_SHA=unknown
-ARG ENVOY_SHA=unknown
-LABEL istio-api-vcs-ref=$ISTIO_API_SHA \
-    envoy-vcs-ref=$ENVOY_SHA
-
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 # Environment variable indicating the exact build, for debugging
