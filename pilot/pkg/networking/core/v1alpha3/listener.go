@@ -1380,16 +1380,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1409,8 +1407,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			listener:    mutable.Listener,
 			protocol:    protocol.Unsupported,
 		}
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
@@ -1418,8 +1415,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverAuto:
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
@@ -1806,7 +1802,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			break
 		}
 	}
-	if needTLSInspector {
+	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[xdsutil.TlsInspector] = true
 		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
 	}
@@ -2185,4 +2181,26 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	}
 
 	return true
+}
+
+func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
+	hasTlsInspector := false
+	hasHttpInspector := false
+
+	for _, f := range filters {
+		hasTlsInspector = hasTlsInspector || f.Name == xdsutil.TlsInspector
+		hasHttpInspector = hasHttpInspector || f.Name == envoyListenerHTTPInspector
+	}
+
+	if !hasTlsInspector {
+		filters =
+			append(filters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+	}
+
+	if !hasHttpInspector {
+		filters =
+			append(filters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+	}
+
+	return filters
 }

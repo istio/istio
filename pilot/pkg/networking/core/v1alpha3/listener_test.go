@@ -461,9 +461,10 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
-		if len(listeners[0].ListenerFilters) != 1 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		if len(listeners[0].ListenerFilters) != 2 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
 		}
 	} else {
 		if len(listeners[0].FilterChains) != 3 {
@@ -479,9 +480,10 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
-		if len(listeners[0].ListenerFilters) != 1 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		if len(listeners[0].ListenerFilters) != 2 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
 		}
 	}
 }
@@ -678,9 +680,10 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
 
-		if len(l.ListenerFilters) != 1 ||
-			l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+		if len(l.ListenerFilters) != 2 ||
+			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
 		}
 	}
 
@@ -706,9 +709,10 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 	}
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
-	if len(l.ListenerFilters) != 1 ||
-		l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-		t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+	if len(l.ListenerFilters) != 2 ||
+		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+		t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
 	}
 }
 
