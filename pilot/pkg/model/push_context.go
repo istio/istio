@@ -83,7 +83,7 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
 	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
@@ -923,13 +923,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]Config, 0)
 	sidecarConfigWithoutSelector := make([]Config, 0)
-	sidecarsWithoutSelectorByNamesapce := make(map[string]struct{})
+	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamesapce[sidecarConfig.Namespace] = struct{}{}
+			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -965,7 +965,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if _, exist := sidecarsWithoutSelectorByNamesapce[ns]; !exist {
+			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
 				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 			}
 		}

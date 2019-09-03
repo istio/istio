@@ -47,7 +47,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
-		out.workloadSelector = labels.Instance(localEnvoyFilter.WorkloadSelector.Labels)
+		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
