@@ -1008,6 +1008,11 @@ func TestDebugEndpoints(t *testing.T) {
 			found := false
 			for _, c := range workloadDebugResponse.Clients {
 				if p == c.ProxyID {
+					// retrieved cert chain from debug endpoint should match the mock cert chain
+					if c.CertificateChain != string(fakeCertificateChain) {
+						t.Errorf("expected cert chain: %s, but got %s",
+							string(fakeCertificateChain), c.CertificateChain)
+					}
 					found = true
 					break
 				}
