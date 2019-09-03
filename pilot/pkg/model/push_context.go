@@ -751,7 +751,9 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		if ps.ServiceAccounts[svc.Hostname] == nil {
+			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		}
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
