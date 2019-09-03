@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-type ReachabilityTestCase struct {
+type TestCase struct {
 	ConfigFile string
 	Namespace  namespace.Instance
 
@@ -49,8 +49,8 @@ type ReachabilityTestCase struct {
 	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
 }
 
-// ReachabilityContext is a context for reachability tests.
-type ReachabilityContext struct {
+// Context is a context for reachability tests.
+type Context struct {
 	ctx                   framework.TestContext
 	g                     galley.Instance
 	p                     pilot.Instance
@@ -59,7 +59,7 @@ type ReachabilityContext struct {
 }
 
 // CreateReachabilityContext creates and initializes reachability context.
-func CreateReachabilityContext(ctx framework.TestContext, g galley.Instance, p pilot.Instance) ReachabilityContext {
+func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instance) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
 		Inject: true,
@@ -74,7 +74,7 @@ func CreateReachabilityContext(ctx framework.TestContext, g galley.Instance, p p
 			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)
 
-	return ReachabilityContext{
+	return Context{
 		ctx:       ctx,
 		g:         g,
 		p:         p,
@@ -87,7 +87,7 @@ func CreateReachabilityContext(ctx framework.TestContext, g galley.Instance, p p
 }
 
 // Run runs the given reachability test cases with the context.
-func (rc *ReachabilityContext) Run(testCases []ReachabilityTestCase) {
+func (rc *Context) Run(testCases []TestCase) {
 	callOptions := []echo.CallOptions{
 		{
 			PortName: "http",

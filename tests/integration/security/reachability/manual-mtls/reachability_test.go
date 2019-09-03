@@ -37,10 +37,10 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
-			rctx := reachability.CreateReachabilityContext(ctx, g, p)
+			rctx := reachability.CreateContext(ctx, g, p)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
-			testCases := []reachability.ReachabilityTestCase{
+			testCases := []reachability.TestCase{
 				{
 					ConfigFile:          "global-mtls-on.yaml",
 					Namespace:           systemNM,
