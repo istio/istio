@@ -384,6 +384,19 @@ func citadelQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "secret_deleted_cert_count") {
 			continue
 		}
+		if strings.Contains(query, "server_csr_count") {
+			continue
+		}
+
+		if strings.Contains(query, "success_cert_issuance_count") {
+			continue
+		}
+		if strings.Contains(query, "csr_parsing_err_count") {
+			continue
+		}
+		if strings.Contains(query, "authentication_failure_count") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
