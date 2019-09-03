@@ -41,6 +41,7 @@ type testcase struct {
 	k8sConfigs        []runtime.Object
 	dynamicConfigs    []runtime.Object
 	expectedOutput    string
+	namespace         string
 }
 
 var (
@@ -140,6 +141,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
 				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
 				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
+			namespace: "default",
 		},
 		{
 			description: "service not exists",
@@ -151,10 +153,11 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput:    "Error: services \"test\" not found\n",
 		},
 		{
-			description: "service without depolyment",
+			description: "service without deployment",
 			args: strings.Split("experimental add-to-mesh service dummyservice --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
+			namespace:         "default",
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput:    "No deployments found for service dummyservice.default\n",
@@ -189,6 +192,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
 			dynamicConfigs:    cannedDynamicConfigs,
+			namespace:         "default",
 			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
 		},
 		{
@@ -197,7 +201,18 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
 			dynamicConfigs:    cannedDynamicConfigs,
+			namespace:         "default",
 			expectedOutput:    "Error: service entry \"mesh-expansion-vmtest\" already exists, skip\n",
+		},
+		{
+			description:    "external service banana namespace",
+			args:           strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345", " "),
+			k8sConfigs:     cannedK8sConfigs,
+			dynamicConfigs: cannedDynamicConfigs,
+			namespace:      "banana",
+			expectedOutput: `ServiceEntry "mesh-expansion-vmtest.banana" has been created in the Istio service mesh for the external service "vmtest"
+Kubernetes Service "vmtest.banana" has been created in the Istio service mesh for the external service "vmtest"
+`,
 		},
 	}
 
@@ -216,13 +231,16 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
+	if c.namespace != "" {
+		namespace = c.namespace
+	}
 
 	fErr := rootCmd.Execute()
 	output := out.String()
 
 	if c.expectedException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception,"+
+			t.Fatalf("Wanted an exception, "+
 				"didn't get one, output was %q", output)
 		}
 	} else {

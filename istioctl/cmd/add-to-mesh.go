@@ -412,7 +412,22 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 		Endpoints:  eps,
 		Resolution: v1alpha3.ServiceEntry_STATIC,
 	}
-	u.Object["spec"] = spec
+
+	// Because we are placing into an Unstructured, place as a map instead
+	// of structured Istio types.  (The go-client can handle the structured data, but the
+	// fake go-client used for mocking cannot.)
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	iSpec := map[string]interface{}{}
+	err = yaml.Unmarshal(b, &iSpec)
+	if err != nil {
+		return err
+	}
+
+	u.Object["spec"] = iSpec
+
 	return nil
 }
 

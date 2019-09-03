@@ -141,6 +141,7 @@ func TestRemoveFromMesh(t *testing.T) {
 			args:              strings.Split("experimental remove-from-mesh service details", " "),
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfig,
+			namespace:         "default",
 			expectedOutput:    "deployment \"details-v1.default\" updated successfully with Istio sidecar un-injected.\n",
 		},
 		{
@@ -151,10 +152,11 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "Error: service \"test\" does not exist, skip\n",
 		},
 		{
-			description:       "service without depolyment",
+			description:       "service without deployment",
 			args:              strings.Split("experimental remove-from-mesh service dummyservice", " "),
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfig,
+			namespace:         "default",
 			expectedOutput:    "No deployments found for service dummyservice.default\n",
 		},
 		{
@@ -177,6 +179,7 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,
 			dynamicConfigs:    cannedDynamicConfig,
+			namespace:         "default",
 			expectedOutput:    "Error: service entry \"mesh-expansion-dummyservice\" does not exist, skip\n",
 		},
 		{
@@ -185,6 +188,7 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfig,
 			dynamicConfigs:    cannedDynamicConfig,
+			namespace:         "default",
 			expectedOutput: "Kubernetes Service \"vmtest.default\" has been deleted for external service \"vmtest\"\n" +
 				"Service Entry \"mesh-expansion-vmtest\" has been deleted for external service \"vmtest\"\n",
 		},
