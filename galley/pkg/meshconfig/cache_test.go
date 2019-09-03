@@ -4,7 +4,7 @@ import "testing"
 
 func TestNewCache(t *testing.T) {
 	fs, err := NewCacheFromFile("testdata/meshconfig.json")
-	defer fs.Close()
+	defer func() { _ = fs.Close() }()
 	if err != nil {
 		t.Fatal(err)
 	}
