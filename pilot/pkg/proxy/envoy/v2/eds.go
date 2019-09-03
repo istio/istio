@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -427,83 +426,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
 	s.startPush(req)
-}
-
-// WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(clusterID, ip string, workloadLabels map[string]string, _ map[string]string) {
-	inboundWorkloadUpdates.Increment()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if workloadLabels == nil {
-		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID[clusterID], ip)
-		return
-	}
-
-	_, f := s.WorkloadsByID[clusterID]
-	if !f {
-		s.WorkloadsByID[clusterID] = map[string]*Workload{ip: {Labels: workloadLabels}}
-		s.sendPushRequestTo(ip)
-		return
-	}
-
-	w, ok := s.WorkloadsByID[clusterID][ip]
-	if !ok {
-		s.WorkloadsByID[clusterID][ip] = &Workload{Labels: workloadLabels}
-		s.sendPushRequestTo(ip)
-		return
-	}
-
-	if reflect.DeepEqual(w.Labels, workloadLabels) {
-		// No label change.
-		return
-	}
-	w.Labels = workloadLabels
-
-	// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
-	adsClientsMutex.RLock()
-	for _, connection := range adsClients {
-		// update node label
-		if connection.modelNode.IPAddresses[0] == ip {
-			select {
-			// trigger re-set in SetWorkloadLabels
-			case connection.updateChannel <- &UpdateEvent{workloadLabel: true}:
-			default:
-				adsLog.Infof("A workload %s label update request is ongoing", ip)
-			}
-		}
-	}
-	adsClientsMutex.RUnlock()
-
-	// Label changes require recomputing the config.
-	// TODO: we can do a push for the affected workload only, but we need to confirm
-	// no other workload can be affected. Safer option is to fallback to full push.
-
-	adsLog.Infof("Label change, full push %s", ip)
-	s.ConfigUpdate(&model.PushRequest{Full: true})
-
-}
-
-// Note: we can not get the specific xds connection in single control plane multi-network model,
-// as there may be overlapping network address across clusters.
-// So we trigger pushes to all the potential proxies.
-func (s *DiscoveryServer) sendPushRequestTo(ip string) {
-	adsClientsMutex.RLock()
-	for _, connection := range adsClients {
-		// if the workload has envoy proxy and connected to server,
-		// then do a full xDS push for this proxy;
-		// otherwise:
-		//   case 1: the workload has no sidecar proxy, no need xDS push at all.
-		//   case 2: the workload xDS connection has not been established,
-		//           also no need to trigger a full push here.
-		if connection.modelNode.IPAddresses[0] == ip {
-			// There is a possibility that the pod comes up later than endpoint.
-			// So no endpoints add/update events after this, we should request
-			// full push immediately to speed up sidecar startup.
-			s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-		}
-	}
-	adsClientsMutex.RUnlock()
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.

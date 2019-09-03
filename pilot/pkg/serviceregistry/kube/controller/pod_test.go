@@ -17,9 +17,11 @@ package controller
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -32,7 +34,7 @@ import (
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
 func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
-	cleanup(ki, fx)
+	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
 		_, err := ki.CoreV1().Namespaces().Create(&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -85,18 +87,14 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 	fx.Clear()
 }
 
-func cleanup(ki kubernetes.Interface, fx *FakeXdsUpdater) {
+func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
 		n := n
 		pods, err := ki.CoreV1().Pods(n).List(metav1.ListOptions{})
 		if err == nil {
 			// Make sure the pods don't exist
 			for _, pod := range pods.Items {
-				err := ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
-				if err == nil {
-					// pod existed before, wait for event
-					_ = fx.Wait("workload")
-				}
+				_ = ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 			}
 		}
 	}
@@ -106,7 +104,7 @@ func TestPodCache(t *testing.T) {
 	t.Run("localApiserver", func(t *testing.T) {
 		c, fx := newLocalController(t)
 		defer c.Stop()
-		defer cleanup(c.client, fx)
+		defer cleanup(c.client)
 		testPodCache(t, c, fx)
 	})
 	t.Run("fakeApiserver", func(t *testing.T) {
@@ -114,6 +112,17 @@ func TestPodCache(t *testing.T) {
 		c, fx := newFakeController(t)
 		defer c.Stop()
 		testPodCache(t, c, fx)
+	})
+}
+
+func waitForPod(c *Controller, ip string) error {
+	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		c.pods.RLock()
+		defer c.pods.RUnlock()
+		if _, ok := c.pods.keys[ip]; ok {
+			return true, nil
+		}
+		return false, nil
 	})
 }
 
@@ -133,16 +142,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		pod := pod
 		addPods(t, c, pod)
 		// Wait for the workload event
-
-		ev := fx.Wait("workload")
-		if ev == nil {
-			t.Error("No event ", pod.Name)
-			continue
-		}
-		if ev.ID != pod.Status.PodIP {
-			t.Error("Workload event expected ", pod.Status.PodIP, "got", ev.ID, ev.Type)
-			continue
-		}
+		waitForPod(c, pod.Status.PodIP)
 	}
 
 	// Verify podCache

@@ -540,43 +540,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	}
 }
 
-// TestLDSWithWorkloadLabelUpdate tests updating workload labels will trigger xDS
-func TestLDSWithWorkloadLabelUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	registry := memServiceDiscovery(server, t)
-	registry.AddWorkload(app3Ip, labels.Instance{"version": "v1"})
-
-	t.Run("workload label update", func(t *testing.T) {
-		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			IP:        app3Ip,
-			Namespace: "default",
-			Workload:  "app3",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ldsr.Close()
-
-		ldsr.Watch()
-
-		_, err = ldsr.Wait(5*time.Second, "lds")
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-
-		// trigger full push
-		registry.UpdateWorkloadLabels(app3Ip, labels.Instance{"version": "v2"})
-		_, err = ldsr.Wait(5*time.Second, "lds")
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-	})
-}
-
 func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 	if l != nil {
 		var chain *xdsapi_listener.FilterChain
