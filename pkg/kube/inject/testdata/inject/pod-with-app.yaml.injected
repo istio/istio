@@ -6,6 +6,7 @@ metadata:
   creationTimestamp: null
   labels:
     app: hello
+    security.istio.io/mtlsReady: "true"
   name: hello
   namespace: test
 spec:
