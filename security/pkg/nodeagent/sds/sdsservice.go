@@ -17,7 +17,6 @@ package sds
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -170,12 +169,11 @@ func (s *sdsservice) DebugInfo() (string, error) {
 
 		conn.mutex.RLock()
 		c := sdsclientdebug{
-			ConnectionID: connKey.ConnectionID,
-			ProxyID:      conn.proxyID,
-			ResourceName: conn.ResourceName,
-			// should be base64 encoded for straightforward comparison with Envoy SDS config dump format
-			CertificateChain: base64.StdEncoding.EncodeToString(conn.secret.CertificateChain),
-			RootCert:         base64.StdEncoding.EncodeToString(conn.secret.RootCert),
+			ConnectionID:     connKey.ConnectionID,
+			ProxyID:          conn.proxyID,
+			ResourceName:     conn.ResourceName,
+			CertificateChain: string(conn.secret.CertificateChain),
+			RootCert:         string(conn.secret.RootCert),
 			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
 			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
 		}
