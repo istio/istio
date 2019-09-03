@@ -475,19 +475,7 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 				return err
 			}
 		case []interface{}:
-			errs := util.Errors{}
-			for _, newNode := range node {
-				if newMap, ok := newNode.(map[string]interface{}); ok {
-					errs = util.AppendErr(errs, t.translateRemainingPaths(newMap, cpSpecTree, newPath))
-					continue
-				}
-				if _, ok := newNode.(string); ok {
-					errs = util.AppendErr(errs,
-						tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), node))
-					break
-				}
-			}
-			if err := errs.ToError(); err != nil {
+			if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath("Values."+newPath.String()), node); err != nil {
 				return err
 			}
 		// remaining leaf need to be put into root.values
