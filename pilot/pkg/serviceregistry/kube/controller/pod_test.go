@@ -34,7 +34,7 @@ import (
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
 func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
-	cleanup(ki, fx)
+	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
 		_, err := ki.CoreV1().Namespaces().Create(&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -87,7 +87,7 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 	fx.Clear()
 }
 
-func cleanup(ki kubernetes.Interface, fx *FakeXdsUpdater) {
+func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
 		n := n
 		pods, err := ki.CoreV1().Pods(n).List(metav1.ListOptions{})
@@ -104,7 +104,7 @@ func TestPodCache(t *testing.T) {
 	t.Run("localApiserver", func(t *testing.T) {
 		c, fx := newLocalController(t)
 		defer c.Stop()
-		defer cleanup(c.client, fx)
+		defer cleanup(c.client)
 		testPodCache(t, c, fx)
 	})
 	t.Run("fakeApiserver", func(t *testing.T) {
