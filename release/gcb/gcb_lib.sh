@@ -96,10 +96,10 @@ function make_istio() {
   cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
   cp        "${ISTIO_OUT}"/archive/istio-*z*   "${OUTPUT_PATH}/"
 
-  for file in `ls "${ISTIO_OUT}"/istioctl*.tar.gz`; do
+  for file in "${ISTIO_OUT}"/istioctl*.tar.gz; do
     sha256sum "${file}" > "$file.sha256"
   done
-  for file in `ls "${ISTIO_OUT}"/istioctl*.zip`; do
+  for file in "${ISTIO_OUT}"/istioctl*.zip; do
     sha256sum "${file}" > "$file.sha256"
   done
   cp        "${ISTIO_OUT}"/archive/istioctl*.tar.gz "${OUTPUT_PATH}/"      
