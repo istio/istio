@@ -93,9 +93,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(newVersionCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(AuthN())
-	rootCmd.AddCommand(register())
-	rootCmd.AddCommand(deregisterCmd)
-	rootCmd.AddCommand(injectCommand())
+	rootCmd.AddCommand(deprecateCmd("register","experimental add-to-mesh"))
+	rootCmd.AddCommand(deprecateCmd("deregister","experimental remove-from-mesh"))
+        rootCmd.AddCommand(injectCommand())
 
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
@@ -206,6 +206,18 @@ func graduatedCmd(name string) *cobra.Command {
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated
 func seeExperimentalCmd(name string) *cobra.Command {
 	msg := fmt.Sprintf("(%s is experimental.  Use `istioctl experimental %s`)", name, name)
+	return &cobra.Command{
+		Use:   name,
+		Short: msg,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New(msg)
+		},
+	}
+}
+
+// deprecateCmd is used to deprecate a command with a new command
+func deprecateCmd(name string, newName string) *cobra.Command {
+	msg := fmt.Sprintf("(%s is deprecated.  Use `istioctl %s` instead)", name, newName)
 	return &cobra.Command{
 		Use:   name,
 		Short: msg,
