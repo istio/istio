@@ -48,7 +48,10 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// closes old process
 	cancel()

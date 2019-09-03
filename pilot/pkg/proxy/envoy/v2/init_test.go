@@ -18,7 +18,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +26,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
@@ -37,7 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -219,20 +219,11 @@ func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggrega
 }
 
 func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
-	data, err := json.Marshal(labels)
-	if err != nil {
-		return err
-	}
-
-	nodeMetadata.Fields[model.NodeMetadataLabels] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: string(data)}}
-	// Not influence other cases
-	defer delete(nodeMetadata.Fields, model.NodeMetadataLabels)
-
-	err = ldsstr.Send(&xdsapi.DiscoveryRequest{
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
 			Id:       node,
-			Metadata: nodeMetadata,
+			Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
 		},
 		TypeUrl: v2.ListenerType})
 	if err != nil {

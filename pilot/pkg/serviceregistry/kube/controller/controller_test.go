@@ -481,6 +481,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
 	svcNode.DNSDomain = "nsa.svc.cluster.local"
+	svcNode.Metadata = &model.NodeMetadata{}
 	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
@@ -502,7 +503,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		IPAddresses:     []string{"1.1.1.1"},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: "nsa",
-		Metadata:        map[string]string{model.NodeMetadataServiceAccount: "account"},
+		Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
 		WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
 	})
 	if err != nil {
@@ -597,7 +598,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 			if ev == nil {
 				t.Error("Timeout creating service")
 			}
-			serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: c.ips})
+			serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
 			if err != nil {
 				t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 			}

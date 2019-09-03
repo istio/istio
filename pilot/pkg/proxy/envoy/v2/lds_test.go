@@ -54,10 +54,10 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta: map[string]string{
-				model.NodeMetadataInterceptionMode: string(model.InterceptionNone),
-				model.NodeMetadataHTTP10:           "1",
-			},
+			Meta: model.NodeMetadata{
+				InterceptionMode: model.InterceptionNone,
+				HTTP10:           "1",
+			}.ToStruct(),
 			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
 			Namespace: "none",
 		})
@@ -134,7 +134,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      map[string]string{},
+			Meta:      nil,
 			IP:        "10.12.0.1", // matches none.yaml s1tcp.none
 			Namespace: "seexamples",
 		})
@@ -164,7 +164,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      map[string]string{},
+			Meta:      nil,
 			IP:        "10.13.0.1",
 			Namespace: "exampleegressgw",
 		})
@@ -210,11 +210,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "ns1",
-			model.NodeMetadataInstanceIPs:     "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"100.1.1.2"},
+			ConfigNamespace: "ns1",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
 	})
@@ -272,11 +272,11 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "istio-system",
-			model.NodeMetadataInstanceIPs:     "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"99.1.1.1"}, // as service instance of ingress gateway
+			ConfigNamespace: "istio-system",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
 		NodeType:  "router",
@@ -397,11 +397,11 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "consumerns",
-			model.NodeMetadataInstanceIPs:     "98.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"98.1.1.1"}, // as service instance of ingress gateway
+			ConfigNamespace: "consumerns",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
 		NodeType:  "sidecar",
@@ -512,11 +512,11 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-				Meta: map[string]string{
-					model.NodeMetadataConfigNamespace: "consumerns",
-					model.NodeMetadataInstanceIPs:     test.ip, // as service instance of ingress gateway
-					model.NodeMetadataIstioVersion:    "1.3.0",
-				},
+				Meta: model.NodeMetadata{
+					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
+					ConfigNamespace: "istio-system",
+					IstioVersion:    "1.3.0",
+				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
 				NodeType:  "sidecar",

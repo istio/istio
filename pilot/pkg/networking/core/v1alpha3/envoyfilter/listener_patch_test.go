@@ -630,8 +630,17 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default",
-		Metadata: map[string]string{"foo": "sidecar", "bar": "proxy", "ISTIO_VERSION": "1.2.2"}}
+	sidecarProxy := &model.Proxy{
+		Type:            model.SidecarProxy,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))

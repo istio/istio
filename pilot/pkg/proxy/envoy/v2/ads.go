@@ -501,7 +501,11 @@ func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection
 	if node == nil || node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(node.Id, model.ParseMetadata(node.Metadata))
+	meta, err := model.ParseMetadata(node.Metadata)
+	if err != nil {
+		return err
+	}
+	nt, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return err
 	}

@@ -57,9 +57,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -69,10 +69,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
+			HTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -81,9 +81,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -92,10 +92,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
+			HTTP10:          "1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -105,9 +105,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
@@ -409,7 +409,6 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				t.Errorf("Failed to initialize push context: %v", err)
 			}
 
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
@@ -1362,7 +1361,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		return nil
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1387,7 +1386,7 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 		}
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -1453,7 +1452,7 @@ func isMysqlListener(listener *xdsapi.Listener) bool {
 }
 
 func isNodeHTTP10(proxy *model.Proxy) bool {
-	return proxy.Metadata[model.NodeMetadataHTTP10] == "1"
+	return proxy.Metadata.HTTP10 == "1"
 }
 
 func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {

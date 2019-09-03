@@ -772,11 +772,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 		in         *authn.Policy
 		sdsUdsPath string
 		expected   []plugin.FilterChain
-		meta       map[string]string
+		meta       *model.NodeMetadata
 	}{
 		{
 			name: "NoAuthnPolicy",
 			in:   nil,
+			meta: &model.NodeMetadata{},
 			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
@@ -793,6 +794,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta:     &model.NodeMetadata{},
 			expected: nil,
 		},
 		{
@@ -804,6 +806,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -823,6 +826,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -843,6 +847,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
 				{
@@ -872,6 +877,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
+			meta:       &model.NodeMetadata{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -905,10 +911,10 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: map[string]string{
-				model.NodeMetadataTLSServerCertChain: "/custom/path/to/cert-chain.pem",
-				model.NodeMetadataTLSServerKey:       "/custom-key.pem",
-				model.NodeMetadataTLSServerRootCert:  "/custom/path/to/root.pem",
+			meta: &model.NodeMetadata{
+				TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+				TLSServerKey:       "/custom-key.pem",
+				TLSServerRootCert:  "/custom/path/to/root.pem",
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
