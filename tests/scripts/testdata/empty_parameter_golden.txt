@@ -1,3 +1,4 @@
+cleaning previous ISTIO chains
 iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT
