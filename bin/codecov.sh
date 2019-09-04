@@ -137,7 +137,6 @@ pushd "${OUT_DIR}"
 go get github.com/wadey/gocovmerge
 gocovmerge "${COVERAGEDIR}"/*.cov > coverage.cov
 cat "${COVERAGEDIR}"/*.report > report.out
-go tool cover -html=coverage.cov -o coverage.html
 
 # Build the combined junit.xml
 go get github.com/imsky/junit-merger/src/junit-merger
