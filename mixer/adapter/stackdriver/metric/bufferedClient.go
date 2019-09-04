@@ -171,7 +171,7 @@ func (b *buffered) Send() {
 			if isOutOfOrderError(err) {
 				b.l.Debugf("Given data: %v", timeSeries)
 			} else {
-				b.l.Errorf("Given data: %v", timeSeries)
+				b.l.Errorf("Given data: %v", timeSeries) // nolint: errcheck
 			}
 		} else {
 			b.l.Debugf("Successfully sent data to Stackdriver.")
