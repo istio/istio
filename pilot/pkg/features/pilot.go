@@ -165,7 +165,7 @@ var (
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
-		"SKIP_VALIDATE_TRUST_DOMAIN",
+		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
 
