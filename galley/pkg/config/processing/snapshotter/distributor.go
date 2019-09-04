@@ -21,9 +21,25 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-// Distributor interface abstracts the snapshotImpl distribution mechanism. Typically, this is implemented by the MCP layer.
+// Distributor interface abstracts the snapshotImpl distribution mechanism. Typically, this is implemented by the
+// MCP layer.
 type Distributor interface {
-	SetSnapshot(name string, s snapshot.Snapshot)
+	Distribute(name string, s *Snapshot)
+}
+
+// MCPDistributor distributes a snapshot to the MCP layer.
+type MCPDistributor struct {
+	mcpCache *snapshot.Cache
+}
+
+// Distribute is an implementation of SetSnapshot
+func (d *MCPDistributor) Distribute(name string, s *Snapshot) {
+	d.mcpCache.SetSnapshot(name, s)
+}
+
+// NewMCPDistributor returns a new instance of MCPDistributor
+func NewMCPDistributor(c *snapshot.Cache) *MCPDistributor {
+	return &MCPDistributor{mcpCache: c}
 }
 
 // InMemoryDistributor is an in-memory Distributor implementation.
@@ -42,11 +58,11 @@ func NewInMemoryDistributor() *InMemoryDistributor {
 }
 
 // SetSnapshot is an implementation of Distributor.SetSnapshot
-func (d *InMemoryDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
+func (d *InMemoryDistributor) Distribute(name string, s *Snapshot) {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()
 
-	scope.Processing.Debugf("InmemoryDistributor.SetSnapshot: %s: %v", name, s)
+	scope.Processing.Debugf("InmemoryDistributor.Distribute: %s: %v", name, s)
 	d.snapshots[name] = s
 }
 
