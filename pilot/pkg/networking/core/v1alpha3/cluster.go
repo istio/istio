@@ -423,31 +423,36 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.Locality
 }
 
 func generateInboundPassthroughClusters(env *model.Environment, proxy *model.Proxy) []*apiv2.Cluster {
-	inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env, proxy)
-	inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-	inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-		SourceAddress: &core.SocketAddress{
-			Address: util.InboundPassthroughBindIpv4,
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: uint32(0),
+	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
+	ipv4, ipv6 := ipv4AndIpv6Support(proxy)
+	clusters := make([]*apiv2.Cluster, 0, 2)
+	if ipv4 {
+		inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(env, proxy)
+		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: util.InboundPassthroughBindIpv4,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
 			},
-		},
+		}
+		clusters = append(clusters, inboundPassthroughClusterIpv4)
 	}
-
-	inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env, proxy)
-	inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-	inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-		SourceAddress: &core.SocketAddress{
-			Address: util.InboundPassthroughBindIpv6,
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: uint32(0),
+	if ipv6 {
+		inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(env, proxy)
+		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: util.InboundPassthroughBindIpv6,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
 			},
-		},
+		}
+		clusters = append(clusters, inboundPassthroughClusterIpv6)
 	}
-	return []*apiv2.Cluster{
-		inboundPassthroughClusterIpv4,
-		inboundPassthroughClusterIpv6,
-	}
+	return clusters
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
