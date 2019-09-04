@@ -93,6 +93,26 @@ func TestManifestGenerateTelemetry(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateOrdered(t *testing.T) {
+	// Since this is testing the special case of stable YAML output order, it
+	// does not use the established test group pattern
+	t.Run("stable_manifest", func(t *testing.T) {
+		inPath := filepath.Join(testDataDir, "input", "all_on.yaml")
+		got1, err := runManifestGenerate(inPath, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got2, err := runManifestGenerate(inPath, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got1 != got2 {
+			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
+		}
+	})
+}
+
 func runTestGroup(t *testing.T, tests testGroup) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	for _, tt := range tests {
