@@ -167,7 +167,7 @@ func (b *buffered) Send() {
 		if err != nil {
 			ets := handleError(err, timeSeries)
 			b.updateRetryBuffer(ets)
-			_ = b.l.Errorf("Stackdriver returned: %v\n", err)
+			b.l.Errorf("%d time series was sent and Stackdriver returned: %v\n", len(timeSeries), err) // nolint: errcheck
 			if isOutOfOrderError(err) {
 				b.l.Debugf("Given data: %v", timeSeries)
 			} else {
