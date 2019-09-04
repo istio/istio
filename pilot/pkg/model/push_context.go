@@ -403,7 +403,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
-		AuthNPolicies:                  map[host.Name]map[int]*Config{},
+		AuthNPolicies:                 map[host.Name]map[int]*Config{},
 	}
 }
 

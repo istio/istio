@@ -193,31 +193,31 @@ func TestAuthNPolicies(t *testing.T) {
 			hostname:  "mtls-strict-svc.default.svc.cluster.local",
 			namespace: "default",
 			port:      80,
-			expected: "mtls-strict-svc",
+			expected:  "mtls-strict-svc",
 		},
 		{
 			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
 			namespace: "default",
 			port:      80,
-			expected: "mtls-permissive-svc",
+			expected:  "mtls-permissive-svc",
 		},
 		{
 			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
 			namespace: "default",
 			port:      90,
-			expected: "nil",
+			expected:  "nil",
 		},
 		{
 			hostname:  "mtls-disable-svc.default.svc.cluster.local",
 			namespace: "default",
 			port:      80,
-			expected: "mtls-disable-svc",
+			expected:  "mtls-disable-svc",
 		},
 		{
 			hostname:  "mtls-strict-svc.another-namespace.svc.cluster.local",
 			namespace: "another-namespace",
 			port:      80,
-			expected: "nil",
+			expected:  "nil",
 		},
 	}
 
