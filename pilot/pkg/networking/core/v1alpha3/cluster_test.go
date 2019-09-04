@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
@@ -198,6 +200,16 @@ func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution,
+		nodeType, locality, mesh,
+		destRule, meta, istioVersion,
+		// Add default sidecar proxy meta
+		[]string{"6.6.6.6", "::1"})
+}
+
+func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
+	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -275,7 +287,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 		proxy = &model.Proxy{
 			ClusterID:    "some-cluster-id",
 			Type:         model.SidecarProxy,
-			IPAddresses:  []string{"6.6.6.6"},
+			IPAddresses:  proxyIps,
 			Locality:     locality,
 			DNSDomain:    "com",
 			Metadata:     meta,
@@ -1205,5 +1217,45 @@ func TestAltStatName(t *testing.T) {
 				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
 			}
 		})
+	}
+}
+
+func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
+
+	validation := func(clusters []*apiv2.Cluster) []bool {
+		hasIpv4, hasIpv6 := false, false
+		for _, c := range clusters {
+			hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
+			hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
+		}
+		return []bool{hasIpv4, hasIpv6}
+	}
+	for _, inAndOut := range []struct {
+		ips      []string
+		features []bool
+	}{
+		{[]string{"6.6.6.6", "::1"}, []bool{true, true}},
+		{[]string{"6.6.6.6"}, []bool{true, false}},
+		{[]string{"::1"}, []bool{false, true}},
+	} {
+		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests: 1,
+							IdleTimeout:             &types.Duration{Seconds: 15},
+						},
+					},
+				},
+			},
+			make(map[string]string),
+			model.MaxIstioVersion,
+			inAndOut.ips,
+		)
+		g := NewGomegaWithT(t)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
 	}
 }
