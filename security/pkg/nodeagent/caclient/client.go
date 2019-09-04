@@ -79,7 +79,7 @@ func getCATLSRootCertFromConfigMap(controller configMap, interval time.Duration,
 			break
 		}
 		time.Sleep(retryInterval)
-		log.Infof("Unable to fetch CA TLS root cert: %v, retry in %v", err, interval)
+		log.Warnf("Unable to fetch CA TLS root cert: %v, retry in %v", err, interval)
 	}
 	if cert == "" {
 		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", max)
