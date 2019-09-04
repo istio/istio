@@ -11,58 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package local
 
-package fixtures
+// Test helpers common to this package
 
 import (
-	"testing"
-
-	"github.com/onsi/gomega"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
-func TestSource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	s := &Source{}
-
-	s.Start()
-	g.Expect(s.running).To(gomega.BeTrue())
-
-	s.Stop()
-	g.Expect(s.running).To(gomega.BeFalse())
-}
-
-func TestSource_Dispatch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	a := &Accumulator{}
-
-	s := &Source{}
-	s.Dispatch(a)
-	s.Start()
-
-	g.Expect(s.Handlers).To(gomega.Equal(a))
-}
-
-func TestSource_Handle(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	s := &Source{}
-
-	a := &Accumulator{}
-	s.Dispatch(a)
-
-	s.Start()
-
-	e := event.Event{
-		Kind:   event.Added,
+func createTestEvent(k event.Kind, r *resource.Entry) event.Event {
+	return event.Event{
+		Kind:   k,
 		Source: data.Collection1,
-		Entry:  nil,
+		Entry:  r,
 	}
-	s.Handle(e)
+}
 
-	g.Expect(a.Events()).To(gomega.Equal([]event.Event{e}))
+func createTestResource(name, version string) *resource.Entry {
+	return &resource.Entry{
+		Metadata: resource.Metadata{
+			Name:    resource.NewName("ns", name),
+			Version: resource.Version(version),
+		},
+		Item: &types.Empty{},
+	}
 }
