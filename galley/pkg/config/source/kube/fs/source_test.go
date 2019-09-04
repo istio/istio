@@ -64,7 +64,7 @@ func TestInitialFile(t *testing.T) {
 	acc := startOrFail(t, s)
 	defer s.Stop()
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1)))
 
@@ -73,7 +73,7 @@ func TestInitialFile(t *testing.T) {
 	deleteFiles(t, dir, "foo.yaml")
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 }
 
@@ -89,26 +89,26 @@ func TestAddDeleteMultipleTimes(t *testing.T) {
 
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 	appsignals.Notify("test", syscall.SIGUSR1)
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1)))
 
 	acc.Clear()
 	deleteFiles(t, dir, "foo.yaml")
 	appsignals.Notify("test", syscall.SIGUSR1)
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 
 	acc.Clear()
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 	appsignals.Notify("test", syscall.SIGUSR1)
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.AddFor(data.Collection1, withVersion(data.EntryN1I1V1, "v2"))))
 
 	acc.Clear()
 	deleteFiles(t, dir, "foo.yaml")
 	appsignals.Notify("test", syscall.SIGUSR1)
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, withVersion(data.EntryN1I1V1, "v2"))))
 }
 
@@ -125,7 +125,7 @@ func TestAddDeleteMultipleTimes1(t *testing.T) {
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1)))
 
@@ -133,7 +133,7 @@ func TestAddDeleteMultipleTimes1(t *testing.T) {
 	deleteFiles(t, dir, "foo.yaml")
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 }
 
@@ -150,7 +150,7 @@ func TestAddUpdateDelete(t *testing.T) {
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1)))
 
@@ -158,14 +158,14 @@ func TestAddUpdateDelete(t *testing.T) {
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V2)
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.UpdateFor(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
 
 	acc.Clear()
 	copyFile(t, dir, "foo.yaml", "")
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
 }
 
@@ -179,7 +179,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	acc := startOrFail(t, s)
 	defer s.Stop()
 
-	g.Eventually(acc.Events).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.FullSyncFor(k8smeta.K8SCoreV1Endpoints),
 		event.FullSyncFor(k8smeta.K8SExtensionsV1Beta1Ingresses),
 		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces),
@@ -191,19 +191,19 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	copyFile(t, dir, "bar.yaml", builtin.GetService())
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(HaveLen(1))
-	g.Expect(acc.Events()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[0].Entry.Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
+	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
+	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
+	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Added))
+	g.Expect(acc.EventsWithoutOrigins()[0].Entry.Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
 
 	acc.Clear()
 	deleteFiles(t, dir, "bar.yaml")
 	appsignals.Notify("test", syscall.SIGUSR1)
 
-	g.Eventually(acc.Events).Should(HaveLen(1))
-	g.Expect(acc.Events()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[0].Entry.Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
+	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
+	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
+	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Deleted))
+	g.Expect(acc.EventsWithoutOrigins()[0].Entry.Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
 }
 
 func TestMultiStart(t *testing.T) {

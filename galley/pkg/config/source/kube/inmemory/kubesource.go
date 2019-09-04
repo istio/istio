@@ -231,6 +231,6 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 	return kubeResource{
 		spec:  resourceSpec,
 		sha:   sha1.Sum(yamlChunk),
-		entry: rt.ToResourceEntry(objMeta, item),
+		entry: rt.ToResourceEntry(objMeta, &resourceSpec, item),
 	}, nil
 }
