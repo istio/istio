@@ -41,6 +41,7 @@ func (u *InMemoryStatusUpdater) Get() diag.Messages {
 func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
 	u.mu.Lock()
 	if u.m != nil {
+		u.mu.Unlock()
 		return true
 	}
 
@@ -49,6 +50,7 @@ func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
 	}
 	ch := u.waitCh
 	u.mu.Unlock()
+
 	select {
 	case <-cancelCh:
 		return false
