@@ -180,6 +180,13 @@ data:
     - job_name: 'kubernetes-service-endpoints'
       kubernetes_sd_configs:
       - role: endpoints
+{{- if .Values.configmap.kubernetes_sd_configs.namespaces }}
+        namespaces:
+          names:
+{{- range $i, $ns := .Values.configmap.kubernetes_sd_configs.namespaces }}
+          - {{ $ns }}
+{{- end }}
+{{- end }}
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
         action: keep
@@ -209,6 +216,13 @@ data:
     - job_name: 'kubernetes-pods'
       kubernetes_sd_configs:
       - role: pod
+{{- if .Values.configmap.kubernetes_sd_configs.namespaces }}
+        namespaces:
+          names:
+{{- range $i, $ns := .Values.configmap.kubernetes_sd_configs.namespaces }}
+          - {{ $ns }}
+{{- end }}
+{{- end }}
       relabel_configs:  # If first two labels are present, pod should be scraped  by the istio-secure job.
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep
@@ -247,6 +261,13 @@ data:
         insecure_skip_verify: true  # prometheus does not support secure naming.
       kubernetes_sd_configs:
       - role: pod
+  {{- if .Values.configmap.kubernetes_sd_configs.namespaces }}
+        namespaces:
+          names:
+  {{- range $i, $ns := .Values.configmap.kubernetes_sd_configs.namespaces }}
+          - {{ $ns }}
+  {{- end }}
+  {{- end }}
       relabel_configs:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep

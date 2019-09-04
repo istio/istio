@@ -58,3 +58,7 @@ service:
 
 security:
   enabled: true
+
+configmap:
+  kubernetes_sd_configs:
+    namespaces: []
