@@ -140,6 +140,7 @@ const (
 )
 
 const (
+	// MTLSReadyLabelName name for the mtlsReady label for mTLS autopilot
 	MTLSReadyLabelName = "security.istio.io/mtlsReady"
 )
 
