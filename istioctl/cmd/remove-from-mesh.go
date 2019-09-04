@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
 	"k8s.io/client-go/kubernetes"
