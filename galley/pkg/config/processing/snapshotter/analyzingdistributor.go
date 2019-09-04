@@ -32,6 +32,9 @@ type AnalyzingDistributor struct {
 
 	analysisMu     sync.Mutex
 	cancelAnalysis chan struct{}
+
+	snapshotsMu   sync.RWMutex
+	lastSnapshots map[string]*Snapshot
 }
 
 var _ Distributor = &AnalyzingDistributor{}
@@ -53,17 +56,26 @@ var _ StatusUpdater = &InMemoryStatusUpdater{}
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
 	return &AnalyzingDistributor{
-		updater:     u,
-		analyzer:    a,
-		distributor: d,
+		updater:       u,
+		analyzer:      a,
+		distributor:   d,
+		lastSnapshots: make(map[string]*Snapshot),
 	}
 }
 
 // Distribute implements snapshotter.Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
+	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
+	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
+	if name == "default" || name == "syntheticServiceEntry" {
+		d.snapshotsMu.Lock()
+		d.lastSnapshots[name] = s
+		d.snapshotsMu.Unlock()
+	}
+
 	// Make use of the fact that "default" is the main snapshot group, currently. Once/if this changes, we will need to
 	// redesign this approach.
-
+	// We use "default" to trigger analysis, since it has a debounce strategy that means it won't trigger constantly.
 	if name != "default" {
 		d.distributor.Distribute(name, s)
 		return
@@ -86,8 +98,9 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 }
 
 func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *Snapshot) {
+	// For analysis, we use a combined snapshot
 	ctx := &context{
-		sn:       s,
+		sn:       d.getCombinedSnapshot(),
 		cancelCh: cancelCh,
 	}
 
@@ -98,6 +111,25 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 	}
 
 	d.distributor.Distribute("default", s)
+}
+
+// getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group
+// Important assumption: the collections in each snapshot don't overlap.
+func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
+	var collections []*collection.Instance
+
+	d.snapshotsMu.RLock()
+	defer d.snapshotsMu.RUnlock()
+
+	for _, s := range d.lastSnapshots {
+		for _, n := range s.set.Names() {
+			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the component snapshots
+			collections = append(collections, s.set.Collection(n))
+		}
+	}
+
+	set := collection.NewSetFromCollections(collections)
+	return &Snapshot{set: set}
 }
 
 type context struct {
