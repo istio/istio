@@ -397,10 +397,18 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
-	// ipv4 and ipv6
+	ipv4, ipv6 := ipv4AndIpv6Support(node)
+	// ipv4 and ipv6 feature detect
+	ipVersions := make([]string, 0, 2)
+	if ipv4 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
+	}
+	if ipv6 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
-	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
 
+	for _, clusterName := range ipVersions {
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       clusterName,
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
@@ -444,9 +452,18 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 
 func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.Environment,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	ipv4, ipv6 := ipv4AndIpv6Support(node)
+	// ipv4 and ipv6 feature detect
+	ipVersions := make([]string, 0, 2)
+	if ipv4 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
+	}
+	if ipv6 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
 
-	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
+	for _, clusterName := range ipVersions {
 		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
 			matchingIP = "0.0.0.0/0"
