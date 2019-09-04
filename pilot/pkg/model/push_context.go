@@ -96,8 +96,8 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
-	// AuthPolicies contains a map of hostname and port to authentication policy
-	AuthPolicies map[host.Name]map[int]*Config `json:"-"`
+	// AuthNPolicies contains a map of hostname and port to authentication policy
+	AuthNPolicies map[host.Name]map[int]*Config `json:"-"`
 
 	initDone bool
 }
@@ -403,7 +403,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
-		AuthPolicies:                  map[host.Name]map[int]*Config{},
+		AuthNPolicies:                  map[host.Name]map[int]*Config{},
 	}
 }
 
@@ -773,11 +773,11 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 // Caches list of authentication policies
 func (ps *PushContext) initAuthPolicies(env *Environment, services []*Service) {
 	for _, svc := range services {
-		if ps.AuthPolicies[svc.Hostname] == nil {
-			ps.AuthPolicies[svc.Hostname] = map[int]*Config{}
+		if ps.AuthNPolicies[svc.Hostname] == nil {
+			ps.AuthNPolicies[svc.Hostname] = map[int]*Config{}
 		}
 		for _, port := range svc.Ports {
-			ps.AuthPolicies[svc.Hostname][port.Port] = env.IstioConfigStore.AuthenticationPolicyForWorkload(svc, nil, port)
+			ps.AuthNPolicies[svc.Hostname][port.Port] = env.IstioConfigStore.AuthenticationPolicyForWorkload(svc, nil, port)
 		}
 	}
 }
@@ -1007,7 +1007,10 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *authn.Policy {
-	policy := ps.AuthPolicies[service.Hostname][port.Port]
+	policy := ps.AuthNPolicies[service.Hostname][port.Port]
+	if policy == nil {
+		return nil
+	}
 	authPolicy := policy.Spec.(*authn.Policy)
 	var workloadPolicy *Config
 
