@@ -39,6 +39,9 @@ type AnalyzingDistributor struct {
 
 var _ Distributor = &AnalyzingDistributor{}
 
+const defaultSnapshotGroup = "default"
+const syntheticSnapshotGroup = "syntheticServiceEntry"
+
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
 	return &AnalyzingDistributor{
@@ -53,7 +56,7 @@ func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
 	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
-	if name == "default" || name == "syntheticServiceEntry" {
+	if name == defaultSnapshotGroup || name == syntheticSnapshotGroup {
 		d.snapshotsMu.Lock()
 		d.lastSnapshots[name] = s
 		d.snapshotsMu.Unlock()
@@ -62,7 +65,7 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Make use of the fact that "default" is the main snapshot group, currently. Once/if this changes, we will need to
 	// redesign this approach.
 	// We use "default" to trigger analysis, since it has a debounce strategy that means it won't trigger constantly.
-	if name != "default" {
+	if name != defaultSnapshotGroup {
 		d.distributor.Distribute(name, s)
 		return
 	}
@@ -96,7 +99,8 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 		d.updater.Update(ctx.messages)
 	}
 
-	d.distributor.Distribute("default", s)
+	// Execution only reaches this point for default snapshot group
+	d.distributor.Distribute(defaultSnapshotGroup, s)
 }
 
 // getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group

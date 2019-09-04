@@ -194,8 +194,8 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
 	s.lastSnapshotTime = now
 	s.pendingEvents = 0
-	scope.Processing.Errora("Publishing snapshot for group: ", o.Group)
-	scope.Processing.Errora(sn)
+	scope.Processing.Infoa("Publishing snapshot for group: ", o.Group)
+	scope.Processing.Debuga(sn)
 	o.Distributor.Distribute(o.Group, sn)
 }
 

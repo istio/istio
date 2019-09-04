@@ -44,13 +44,13 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	sSynthetic := getTestSnapshot("c")
 	sOther := getTestSnapshot("a", "d")
 
-	ad.Distribute("syntheticServiceEntry", sSynthetic)
-	ad.Distribute("default", sDefault)
+	ad.Distribute(syntheticSnapshotGroup, sSynthetic)
+	ad.Distribute(defaultSnapshotGroup, sDefault)
 	ad.Distribute("other", sOther)
 
 	// Assert we sent every received snapshot to the distributor
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("default") }).Should(Equal(sDefault))
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("syntheticServiceEntry") }).Should(Equal(sSynthetic))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(syntheticSnapshotGroup) }).Should(Equal(sSynthetic))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(defaultSnapshotGroup) }).Should(Equal(sDefault))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
 	// Assert we triggered only once analysis, with the expected combination of snapshots
