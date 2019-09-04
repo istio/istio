@@ -269,8 +269,7 @@ fi
 # the pattern to check if a chain exists, is described at https://stackoverflow.com/a/10784612/553720
 if [[ -z "${CLEAN_PREVIOUS_CHAINS}" ]]; then
 echo "checking if ISTIO_REDIRECT exists"
-iptables -t nat --list ISTIO_REDIRECT
-if [ $? -eq 0 ]; then 
+if iptables -t nat --list ISTIO_REDIRECT; then
   echo "ISTIO_REDIRECT detected, exiting"
   trap - EXIT # clear trap, do not dump iptables
   exit 0
