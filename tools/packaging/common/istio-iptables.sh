@@ -19,7 +19,7 @@
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
 function usage() {
-  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-t] [-h]"
+  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-t] [-c] [-h]"
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
@@ -52,6 +52,7 @@ function usage() {
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
+  echo '  -c: Clean the previous Istio chains'
   # shellcheck disable=SC2016
   echo ''
 }
@@ -136,8 +137,10 @@ OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
+CLEAN_PREVIOUS_CHAINS=${ISTIO_CLEAN_PREVIOUS_CHAINS-}
 
-while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
+
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t:c" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
@@ -171,6 +174,9 @@ while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
       ;;
     k)
       KUBEVIRT_INTERFACES=${OPTARG}
+      ;;
+    c)
+      CLEAN_PREVIOUS_CHAINS="true"
       ;;
     t)
       echo "Unit testing is specified..."
@@ -254,6 +260,25 @@ else
     done
 fi
 
+if [[ -z "${CLEAN_PREVIOUS_CHAINS}" ]] && [[ "${1:-}" = "clean" ]]; then
+CLEAN_PREVIOUS_CHAINS=true
+fi
+
+# if cleaning of the previous chains is not required, check if ISTIO_REDIRECT already exists
+# if it exists, exit, since the chains are already set
+# the pattern to check if a chain exists, is described at https://stackoverflow.com/a/10784612/553720
+if [[ -z "${CLEAN_PREVIOUS_CHAINS}" ]]; then
+echo "checking if ISTIO_REDIRECT exists"
+iptables -t nat --list ISTIO_REDIRECT
+if [ $? -eq 0 ]; then 
+  echo "ISTIO_REDIRECT detected, exiting"
+  trap - EXIT # clear trap, do not dump iptables
+  exit 0
+fi
+else
+  echo "cleaning previous ISTIO chains"
+fi
+
 # Remove the old chains, to generate new configs.
 iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
 iptables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
@@ -294,6 +319,7 @@ echo "ISTIO_INBOUND_PORTS=${ISTIO_INBOUND_PORTS-}"
 echo "ISTIO_LOCAL_EXCLUDE_PORTS=${ISTIO_LOCAL_EXCLUDE_PORTS-}"
 echo "ISTIO_SERVICE_CIDR=${ISTIO_SERVICE_CIDR-}"
 echo "ISTIO_SERVICE_EXCLUDE_CIDR=${ISTIO_SERVICE_EXCLUDE_CIDR-}"
+echo "ISTIO_CLEAN_PREVIOUS_CHAINS=${ISTIO_CLEAN_PREVIOUS_CHAINS-}"
 echo
 echo "Variables:"
 echo "----------"
@@ -309,6 +335,7 @@ echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
 echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
 echo "OUTBOUND_PORTS_EXCLUDE=${OUTBOUND_PORTS_EXCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
+echo "CLEAN_PREVIOUS_CHAINS=${CLEAN_PREVIOUS_CHAINS}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
