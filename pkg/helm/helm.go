@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -112,8 +113,16 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 		return "", err
 	}
 
+	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
+	keys := make([]string, 0, len(files))
+	for k := range files {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var sb strings.Builder
-	for _, f := range files {
+	for i := 0; i < len(keys); i++ {
+		f := files[keys[i]]
 		// add yaml separator if the rendered file doesn't have one at the end
 		if !strings.HasSuffix(strings.TrimSpace(f)+"\n", YAMLSeparator) {
 			f += YAMLSeparator
