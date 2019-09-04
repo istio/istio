@@ -1,0 +1,3 @@
+checking if ISTIO_REDIRECT exists
+iptables -t nat --list ISTIO_REDIRECT
+ISTIO_REDIRECT detected, exiting
