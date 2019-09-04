@@ -158,7 +158,7 @@ require (
 	istio.io/api v0.0.0-20190829032130-adb6f9e24baf
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
 	istio.io/operator v0.0.0-20190903182931-6c75ed1939cf
-	istio.io/pkg v0.0.0-20190830135512-7b8fd56b3c8f
+	istio.io/pkg v0.0.0-20190904191233-967c99e82cd4
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
