@@ -166,7 +166,8 @@ func (b *buffered) Send() {
 		if err != nil {
 			ets := handleError(err, timeSeries)
 			b.updateRetryBuffer(ets)
-			_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, timeSeries)
+			_ = b.l.Errorf("Stackdriver returned: %v\n", err)
+			b.l.Debugf("Given data: %v", timeSeries)
 		} else {
 			b.l.Debugf("Successfully sent data to Stackdriver.")
 		}
