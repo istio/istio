@@ -625,6 +625,10 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.patch",
 			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
 		},
+		{
+			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
+			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
+		},
 	}
 
 	for i, c := range cases {
@@ -751,6 +755,10 @@ func TestHelmInject(t *testing.T) {
 		{
 			inputFile: "user-volume.yaml",
 			wantFile:  "user-volume.yaml.injected",
+		},
+		{
+			inputFile: "hello-mtls-not-ready.yaml",
+			wantFile:  "hello-mtls-not-ready.yaml.injected",
 		},
 	}
 

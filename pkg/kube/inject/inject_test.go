@@ -110,6 +110,16 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			in:                           "hello-mtls-not-ready.yaml",
+			want:                         "hello-mtls-not-ready.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			in:                           "hello-namespace.yaml",
 			want:                         "hello-namespace.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
