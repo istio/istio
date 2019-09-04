@@ -15,12 +15,15 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
@@ -108,6 +111,131 @@ func TestMergeUpdateRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthNPolicies(t *testing.T) {
+	ps := NewPushContext()
+	authNPolicies := map[string]struct {
+		policy *authn.Policy
+		port   int
+	}{
+		constants.DefaultAuthenticationPolicyName: {
+			policy: &authn.Policy{},
+			port:   99,
+		},
+		"mtls-strict-svc": {
+			policy: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "mtls-strict-svc",
+				}},
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
+				}},
+			},
+			port: 80,
+		},
+		"mtls-permissive-svc": {
+			policy: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "mtls-permissive-svc",
+					Ports: []*authn.PortSelector{
+						{
+							Port: &authn.PortSelector_Number{
+								Number: 80,
+							},
+						},
+					},
+				}},
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{
+						Mtls: &authn.MutualTls{
+							Mode: authn.MutualTls_PERMISSIVE,
+						},
+					},
+				}},
+			},
+			port: 80,
+		},
+		"mtls-disable-svc": {
+			policy: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "mtls-disable-svc",
+				}},
+			},
+			port: 80,
+		},
+	}
+	for key, value := range authNPolicies {
+		cfg := Config{
+			ConfigMeta: ConfigMeta{
+				Type:      schemas.AuthenticationPolicy.Type,
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha1",
+				Namespace: "default",
+				Domain:    "cluster.local",
+			},
+			Spec: value.policy,
+		}
+		hostname := host.Name(fmt.Sprintf("%s.default.svc.cluster.local", key))
+		ps.AuthNPolicies[hostname] = map[int]*Config{}
+		ps.AuthNPolicies[hostname][value.port] = &cfg
+
+	}
+
+	cases := []struct {
+		hostname  host.Name
+		namespace string
+		port      int
+		expected  string
+	}{
+		{
+			hostname:  "mtls-strict-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected: "mtls-strict-svc",
+		},
+		{
+			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected: "mtls-permissive-svc",
+		},
+		{
+			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      90,
+			expected: "nil",
+		},
+		{
+			hostname:  "mtls-disable-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected: "mtls-disable-svc",
+		},
+		{
+			hostname:  "mtls-strict-svc.another-namespace.svc.cluster.local",
+			namespace: "another-namespace",
+			port:      80,
+			expected: "nil",
+		},
+	}
+
+	for _, c := range cases {
+		ps.ServiceByHostnameAndNamespace[c.hostname] = map[string]*Service{"default": nil}
+	}
+
+	for i, c := range cases {
+		port := &Port{Port: c.port}
+		service := &Service{
+			Hostname:   c.hostname,
+			Attributes: ServiceAttributes{Namespace: c.namespace},
+		}
+		if got := ps.AuthenticationPolicyForWorkload(service, nil, port); reflect.DeepEqual(got, authNPolicies[c.expected]) {
+			t.Errorf("%d. GetServiceMutualTLSMode for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expected)
+		}
+	}
+
 }
 
 func TestEnvoyFilters(t *testing.T) {
