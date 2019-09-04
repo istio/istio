@@ -26,7 +26,7 @@ function fail_test {
 
 echo "Running IPv6 and IPv4 addresses validation functions..."
 set -e
-. ./tools/packaging/common/istio-iptables.sh -t
+. ./tools/packaging/common/istio-iptables.sh -t -c
 echo "Validation functions are loaded"
 declare -a test_good_ipv4
 declare -a test_bad_ipv4
