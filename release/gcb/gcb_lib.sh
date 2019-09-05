@@ -184,10 +184,10 @@ function update_helm() {
   sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
   if [ "${current_tag}" != "${VERSION}" ]; then
-    find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
   fi
 
   # replace prerelease with release location for istio.io repo
