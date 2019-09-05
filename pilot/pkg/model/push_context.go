@@ -1016,12 +1016,10 @@ func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l label
 
 	if len(authPolicy.Targets) > 0 {
 		for _, dest := range authPolicy.Targets {
-			log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, policy.Namespace, policy.Name)
 			destLabels := labels.Instance(dest.Labels)
 			if !destLabels.SubsetOf(l) {
 				continue
 			}
-			log.Debugf("matched auth policy (%s/%s) with workload: %s", policy.Namespace, policy.Name, l)
 			workloadPolicy = policy
 		}
 	} else {
