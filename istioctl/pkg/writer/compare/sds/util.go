@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
@@ -39,6 +41,7 @@ type SecretItem struct {
 	Data        string `json:"cert"`
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
+	State       string `json:"state"`
 	SecretMeta
 }
 
@@ -63,6 +66,7 @@ type SecretItemBuilder interface {
 	Data(string) SecretItemBuilder
 	Source(string) SecretItemBuilder
 	Destination(string) SecretItemBuilder
+	State(string) SecretItemBuilder
 	Build() (SecretItem, error)
 }
 
@@ -72,6 +76,7 @@ type secretItemBuilder struct {
 	data   string
 	source string
 	dest   string
+	state  string
 	SecretMeta
 }
 
@@ -99,6 +104,12 @@ func (s *secretItemBuilder) Destination(dest string) SecretItemBuilder {
 	return s
 }
 
+// State sets the state of the secret on the agent or sidecar
+func (s *secretItemBuilder) State(state string) SecretItemBuilder {
+	s.state = state
+	return s
+}
+
 // Build takes the set fields from the builder and constructs the actual SecretItem
 // including generating the SecretMeta from the supplied cert data, if present
 func (s *secretItemBuilder) Build() (SecretItem, error) {
@@ -107,6 +118,7 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 		Data:        s.data,
 		Source:      s.source,
 		Destination: s.dest,
+		State:       s.state,
 	}
 
 	var meta SecretMeta
@@ -162,8 +174,13 @@ func GetNodeAgentSecrets(
 	return secrets, nil
 }
 
-// getEnvoyActiveSecrets parses the secrets section of the config dump into []SecretItem
-func GetEnvoyActiveSecrets(
+// ConfigDumpSecret refers to either a DynamicWarmingSecret or a DynamicActiveSecret
+type ConfigDumpSecret interface {
+	GetSecret() *auth.Secret
+}
+
+// GetEnvoySecrets parses the secrets section of the config dump into []SecretItem
+func GetEnvoySecrets(
 	wrapper *configdump.Wrapper) ([]SecretItem, error) {
 	secretConfigDump, err := wrapper.GetSecretConfigDump()
 	if err != nil {
@@ -171,34 +188,52 @@ func GetEnvoyActiveSecrets(
 	}
 
 	proxySecretItems := make([]SecretItem, 0)
-	for _, secret := range secretConfigDump.DynamicActiveSecrets {
+	for _, warmingSecret := range secretConfigDump.DynamicWarmingSecrets {
 		builder := NewSecretItemBuilder()
-		builder.Name(secret.Name)
-
-		certChainSecret := secret.GetSecret().
-			GetTlsCertificate().
-			GetCertificateChain().
-			GetInlineBytes()
-		caDataSecret := secret.GetSecret().
-			GetValidationContext().
-			GetTrustedCa().
-			GetInlineBytes()
-
-		// seems as though the most straightforward way to tell whether this is a root ca or not
-		// is to check whether the inline bytes of the cert chain or the trusted ca field is zero length
-		if len(certChainSecret) > 0 {
-			builder.Data(string(certChainSecret))
-		} else if len(caDataSecret) > 0 {
-			builder.Data(string(caDataSecret))
+		builder.Name(warmingSecret.Name).
+			Data(dataFromConfigDumpSecret(warmingSecret)).
+			State("WARMING")
+		secret, err := builder.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error building node agent warming secret")
 		}
+		proxySecretItems = append(proxySecretItems, secret)
+	}
+	for _, activeSecret := range secretConfigDump.DynamicActiveSecrets {
+		builder := NewSecretItemBuilder()
+		builder.Name(activeSecret.Name).
+			Data(dataFromConfigDumpSecret(activeSecret)).
+			State("ACTIVE")
 
 		secret, err := builder.Build()
 		if err != nil {
-			return nil, fmt.Errorf("error building node agent secret")
+			return nil, fmt.Errorf("error building node agent active secret")
 		}
 		proxySecretItems = append(proxySecretItems, secret)
 	}
 	return proxySecretItems, nil
+}
+
+func dataFromConfigDumpSecret(secret ConfigDumpSecret) string {
+	certChainSecret := secret.GetSecret().
+		GetTlsCertificate().
+		GetCertificateChain().
+		GetInlineBytes()
+	caDataSecret := secret.GetSecret().
+		GetValidationContext().
+		GetTrustedCa().
+		GetInlineBytes()
+
+	// seems as though the most straightforward way to tell whether this is a root ca or not
+	// is to check whether the inline bytes of the cert chain or the trusted ca field is zero length
+	var secretData string
+	if len(certChainSecret) > 0 {
+		secretData = string(certChainSecret)
+	} else if len(caDataSecret) > 0 {
+		secretData = string(caDataSecret)
+	}
+
+	return secretData
 }
 
 func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {

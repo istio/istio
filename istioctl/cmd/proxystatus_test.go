@@ -57,8 +57,8 @@ Routes Match
 			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb --sds", " "),
 			wantException:    false,
 			// nolint: lll
-			expectedString: `RESOURCE NAME     TYPE           VALID CERT     NODE AGENT     PROXY       SERIAL NUMBER                               EXPIRES                  NOT BEFORE
-default           Cert Chain     true                          PRESENT     172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z`,
+			expectedString: `RESOURCE NAME     TYPE           VALID CERT     NODE AGENT     PROXY      SERIAL NUMBER                               EXPIRES                  NOT BEFORE
+default           Cert Chain     true                          ACTIVE     172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z`,
 		},
 		{ // case 5: supplying nonexistent pod name should result in error with --sds flag
 			args:          strings.Split("proxy-status random-gibberish-podname-61789237418234", " "),

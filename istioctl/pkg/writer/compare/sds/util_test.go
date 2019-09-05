@@ -186,7 +186,7 @@ func TestGetEnvoyActiveSecrets(t *testing.T) {
 			dump := &configdump.Wrapper{}
 			json.Unmarshal(rawDump, dump)
 
-			output, err := GetEnvoyActiveSecrets(dump)
+			output, err := GetEnvoySecrets(dump)
 			if tc.wantErr != (err != nil) {
 				t.Errorf("expected error: %t, but got: %t, error: %v", tc.wantErr, err != nil, err)
 			}

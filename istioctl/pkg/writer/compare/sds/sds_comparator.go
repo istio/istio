@@ -58,7 +58,7 @@ func (c *SDSComparator) Diff() error {
 		return fmt.Errorf("could not parse node agent secrets: %v", err)
 	}
 
-	proxySecrets, err := GetEnvoyActiveSecrets(c.envoy)
+	proxySecrets, err := GetEnvoySecrets(c.envoy)
 	if err != nil {
 		return fmt.Errorf("could not parse secrets from sidecar config dump: %v", err)
 	}
@@ -68,7 +68,7 @@ func (c *SDSComparator) Diff() error {
 	secretMap := make(map[string]*SecretItemDiff)
 	for _, secret := range proxySecrets {
 		status := SecretItemDiff{
-			Proxy:      "PRESENT",
+			Proxy:      secret.State,
 			SecretItem: secret,
 		}
 		secretMap[secret.Data] = &status
