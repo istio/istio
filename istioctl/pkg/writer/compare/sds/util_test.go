@@ -128,8 +128,8 @@ func TestGetNodeAgentSecrets(t *testing.T) {
 					SecretMeta: SecretMeta{
 						Valid:        true,
 						SerialNumber: "146151220826062972802318521739440941340",
-						Expires:      "2024-05-14T23:11:26Z",
-						ValidFrom:    "2019-05-16T22:11:26Z",
+						NotAfter:     "2024-05-14T23:11:26Z",
+						NotBefore:    "2019-05-16T22:11:26Z",
 						Type:         "CA",
 					},
 				},
@@ -141,8 +141,8 @@ func TestGetNodeAgentSecrets(t *testing.T) {
 					SecretMeta: SecretMeta{
 						Valid:        true,
 						SerialNumber: "146151220826062972802318521739440941340",
-						Expires:      "2024-05-14T23:11:26Z",
-						ValidFrom:    "2019-05-16T22:11:26Z",
+						NotAfter:     "2024-05-14T23:11:26Z",
+						NotBefore:    "2019-05-16T22:11:26Z",
 						Type:         "CA",
 					},
 				},

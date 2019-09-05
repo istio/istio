@@ -57,7 +57,7 @@ Routes Match
 			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb --sds", " "),
 			wantException:    false,
 			// nolint: lll
-			expectedString: `RESOURCE NAME     TYPE           VALID CERT     NODE AGENT     PROXY       SERIAL NUMBER                               EXPIRES                  NOT BEFORE
+			expectedString: `RESOURCE NAME     TYPE           VALID CERT     NODE AGENT     PROXY       SERIAL NUMBER                               NOT AFTER                NOT BEFORE
 default           Cert Chain     true                          WARMING     102248101821513494474081488414108563796     2019-09-05T21:18:20Z     2019-09-04T21:18:20Z
 default           Cert Chain     true                          ACTIVE      172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z`,
 		},

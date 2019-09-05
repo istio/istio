@@ -62,8 +62,8 @@ func (w *sdsWriter) PrintSecretItems(secrets []SecretItem) error {
 }
 
 var (
-	secretItemColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "SERIAL NUMBER", "EXPIRES", "NOT BEFORE", "SOURCE", "DESTINATION"}
-	secretDiffColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "NODE AGENT", "PROXY", "SERIAL NUMBER", "EXPIRES", "NOT BEFORE"}
+	secretItemColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "SERIAL NUMBER", "NOT AFTER", "NOT BEFORE", "SOURCE", "DESTINATION"}
+	secretDiffColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "NODE AGENT", "PROXY", "SERIAL NUMBER", "NOT AFTER", "NOT BEFORE"}
 )
 
 // printSecretItemsTabular prints the secret in table format
@@ -76,7 +76,7 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
 		fmt.Fprintf(tw, "%s\t%s\t%t\t%s\t%s\t%s\t%s\t%s\n",
-			s.Name, s.Type, s.Valid, s.SerialNumber, s.Expires, s.ValidFrom, s.Source, s.Destination)
+			s.Name, s.Type, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore, s.Source, s.Destination)
 	}
 	return tw.Flush()
 }
@@ -118,7 +118,7 @@ func (w *sdsWriter) printDiffsTabular(statuses []SecretItemDiff) error {
 	fmt.Fprintln(tw, strings.Join(secretDiffColumns, "\t"))
 	for _, status := range statuses {
 		fmt.Fprintf(tw, "%s\t%s\t%t\t%s\t%s\t%s\t%s\t%s\n",
-			status.Name, status.Type, status.Valid, status.Source, status.Proxy, status.SerialNumber, status.Expires, status.ValidFrom)
+			status.Name, status.Type, status.Valid, status.Source, status.Proxy, status.SerialNumber, status.NotAfter, status.NotBefore)
 	}
 	return tw.Flush()
 }

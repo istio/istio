@@ -47,8 +47,8 @@ func TestSDSWriterSecretItems(t *testing.T) {
 					SecretMeta: SecretMeta{
 						Valid:        true,
 						SerialNumber: "serial_number",
-						Expires:      "expires",
-						ValidFrom:    "valid",
+						NotAfter:     "expires",
+						NotBefore:    "valid",
 						Type:         "type",
 					},
 				},
@@ -70,8 +70,8 @@ func TestSDSWriterSecretItems(t *testing.T) {
 					SecretMeta: SecretMeta{
 						Valid:        true,
 						SerialNumber: "serial_number",
-						Expires:      "expires",
-						ValidFrom:    "valid",
+						NotAfter:     "expires",
+						NotBefore:    "valid",
 						Type:         "type",
 					},
 				},
@@ -123,8 +123,8 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 						SecretMeta: SecretMeta{
 							Valid:        true,
 							SerialNumber: "serial_number",
-							Expires:      "expires",
-							ValidFrom:    "valid",
+							NotAfter:     "expires",
+							NotBefore:    "valid",
 							Type:         "type",
 						},
 					},
@@ -150,8 +150,8 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 						SecretMeta: SecretMeta{
 							Valid:        true,
 							SerialNumber: "serial_number",
-							Expires:      "expires",
-							ValidFrom:    "valid",
+							NotAfter:     "expires",
+							NotBefore:    "valid",
 							Type:         "type",
 						},
 					},

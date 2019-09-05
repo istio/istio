@@ -49,8 +49,8 @@ type SecretItem struct {
 type SecretMeta struct {
 	Valid        bool   `json:"cert_valid"`
 	SerialNumber string `json:"serial_number"`
-	Expires      string `json:"expires"`
-	ValidFrom    string `json:"valid_from"`
+	NotAfter     string `json:"not_after"`
+	NotBefore    string `json:"not_before"`
 	Type         string `json:"type"`
 }
 
@@ -248,8 +248,8 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 
 	return SecretMeta{
 		SerialNumber: fmt.Sprintf("%d", cert.SerialNumber),
-		Expires:      cert.NotAfter.Format(time.RFC3339),
-		ValidFrom:    cert.NotBefore.Format(time.RFC3339),
+		NotAfter:     cert.NotAfter.Format(time.RFC3339),
+		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,
 	}, nil
 }
