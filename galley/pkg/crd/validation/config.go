@@ -31,7 +31,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -259,7 +258,7 @@ func rebuildWebhookConfigHelper(
 	// the webhook name is fixed at startup time
 	webhookConfig.Name = webhookName
 
-	// update ownerRefs so configuration is cleaned up when the validation deployment is deleted.
+	// update ownerRefs so configuration is cleaned up when the galley's namespace is deleted.
 	webhookConfig.OwnerReferences = ownerRefs
 
 	in, err := os.Open(caFile)
@@ -343,17 +342,17 @@ func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, 
 		createInformerWebhookSource: defaultCreateInformerWebhookSource,
 	}
 
-	if galleyDeployment, err := whc.webhookParameters.Clientset.AppsV1().
-		Deployments(whc.webhookParameters.DeploymentAndServiceNamespace).
-		Get(whc.webhookParameters.DeploymentName, v1.GetOptions{}); err != nil {
-		scope.Warnf("Could not find %s/%s deployment to set ownerRef. "+
+	galleyNamespace, err := whc.webhookParameters.Clientset.CoreV1().Namespaces().Get(
+		whc.webhookParameters.DeploymentAndServiceNamespace, v1.GetOptions{})
+	if err != nil {
+		scope.Warnf("Could not find %s namespace to set ownerRef. "+
 			"The validatingwebhookconfiguration must be deleted manually",
-			whc.webhookParameters.DeploymentAndServiceNamespace, whc.webhookParameters.DeploymentName)
+			whc.webhookParameters.DeploymentAndServiceNamespace)
 	} else {
 		whc.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
-				galleyDeployment,
-				appsv1.SchemeGroupVersion.WithKind("Deployment"),
+				galleyNamespace,
+				v1.SchemeGroupVersion.WithKind("Namespace"),
 			),
 		}
 	}

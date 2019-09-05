@@ -31,7 +31,6 @@ import (
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,23 +98,22 @@ var (
 		},
 	}
 
-	dummyDeployment = &appsv1.Deployment{
+	dummyNamespace = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-galley",
-			Namespace: "istio-system",
+			Name:      "istio-system",
 			UID:       "deadbeef",
 		},
 	}
 
-	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+	dummyClient = fake.NewSimpleClientset(dummyNamespace)
 
 	createFakeWebhookSource   = fcache.NewFakeControllerSource
 	createFakeEndpointsSource = func() cache.ListerWatcher {
 		source := fcache.NewFakeControllerSource()
 		source.Add(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dummyDeployment.Name,
-				Namespace: dummyDeployment.Namespace,
+				Name:      dummyNamespace.Name,
+				Namespace: dummyNamespace.Namespace,
 			},
 			Subsets: []v1.EndpointSubset{{
 				Addresses: []v1.EndpointAddress{{
@@ -193,9 +191,9 @@ func createTestWebhook(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyDeployment.Name,
-		ServiceName:                   dummyDeployment.Name,
-		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+		DeploymentName:                dummyNamespace.Name,
+		ServiceName:                   dummyNamespace.Name,
+		DeploymentAndServiceNamespace: dummyNamespace.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
