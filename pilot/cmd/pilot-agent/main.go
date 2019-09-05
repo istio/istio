@@ -417,10 +417,13 @@ var (
 	}
 )
 
+// dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
 	stringMap := map[string]bool{}
 	for _, c := range in {
-		stringMap[c] = true
+		if len(c) > 0 {
+			stringMap[c] = true
+		}
 	}
 	unique := make([]string, 0)
 	for c := range stringMap {
