@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	minK8SVersion = "1.11"
+	minK8SVersion = "1.13"
 )
 
 var (
@@ -180,7 +180,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 	}
 
 	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#5. SideCar-Injector\n")
+	fmt.Fprintf(writer, "#5. Sidecar-Injector\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 	err = c.checkMutatingWebhook()
 	if err != nil {
