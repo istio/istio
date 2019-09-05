@@ -22,9 +22,12 @@ import (
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
 // for the given service instance.
-func NewPolicyApplier(configStore model.IstioConfigStore,
+func NewPolicyApplier(push *model.PushContext,
 	serviceInstance *model.ServiceInstance) authn.PolicyApplier {
 	// TODO: check v1alpha2 policy and returns alpha2 applier, if exists.
-	authnPolicy := v1alpha1.GetConsolidateAuthenticationPolicy(configStore, serviceInstance)
+	service := serviceInstance.Service
+	labels := serviceInstance.Labels
+	port := serviceInstance.Endpoint.Port
+	authnPolicy := push.AuthenticationPolicyForWorkload(service, labels, port)
 	return v1alpha1.NewPolicyApplier(authnPolicy)
 }

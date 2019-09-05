@@ -744,7 +744,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 
 	ps.initServiceAccounts(env, allServices)
 
-	ps.initAuthPolicies(env, allServices)
+	ps.initAuthNPolicies(env, allServices)
 
 	return nil
 }
@@ -771,7 +771,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 }
 
 // Caches list of authentication policies
-func (ps *PushContext) initAuthPolicies(env *Environment, services []*Service) {
+func (ps *PushContext) initAuthNPolicies(env *Environment, services []*Service) {
 	for _, svc := range services {
 		if ps.AuthNPolicies[svc.Hostname] == nil {
 			ps.AuthNPolicies[svc.Hostname] = map[int]*Config{}
@@ -1006,8 +1006,8 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
-func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *authn.Policy {
-	policy := ps.AuthNPolicies[service.Hostname][port.Port]
+func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port int) *authn.Policy {
+	policy := ps.AuthNPolicies[service.Hostname][port]
 	if policy == nil {
 		return nil
 	}

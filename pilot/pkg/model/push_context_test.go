@@ -226,12 +226,11 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		port := &Port{Port: c.port}
 		service := &Service{
 			Hostname:   c.hostname,
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
-		if got := ps.AuthenticationPolicyForWorkload(service, nil, port); reflect.DeepEqual(got, authNPolicies[c.expected]) {
+		if got := ps.AuthenticationPolicyForWorkload(service, nil, c.port); reflect.DeepEqual(got, authNPolicies[c.expected]) {
 			t.Errorf("%d. GetServiceMutualTLSMode for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expected)
 		}
 	}
