@@ -16,6 +16,7 @@ package meshcfg
 
 import (
 	"io/ioutil"
+	"sync"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -26,45 +27,63 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
-// For overriding in tests
-var yamlToJSON = yaml.YAMLToJSON
-
 // FsSource is a event.InMemorySource implementation that reads mesh from file.
 type FsSource struct {
 	path string
 	fw   filewatcher.FileWatcher
 
 	inmemory *InMemorySource
+
+	wg sync.WaitGroup
+
+	// For overriding in tests
+	yamlToJSON func(y []byte) ([]byte, error)
 }
 
 var _ event.Source = &FsSource{}
 
 // NewFS returns a new mesh cache, based on watching a file.
 func NewFS(path string) (*FsSource, error) {
+	return newFS(path, yaml.YAMLToJSON)
+}
+
+// newFS returns a new mesh cache, based on watching a file.
+func newFS(path string, yamlToJSON func(y []byte) ([]byte, error)) (*FsSource, error) {
 	fw := filewatcher.NewWatcher()
 
 	err := fw.Add(path)
 	if err != nil {
+		_ = fw.Close()
 		return nil, err
 	}
 
 	c := &FsSource{
-		path:     path,
-		fw:       fw,
-		inmemory: NewInmemory(),
+		path:       path,
+		fw:         fw,
+		inmemory:   NewInmemory(),
+		yamlToJSON: yamlToJSON,
 	}
 
 	c.reload()
+
 	// If we were not able to load mesh config, start with the default.
 	if !c.inmemory.IsSynced() {
 		scope.Processing.Infof("Unable to load up mesh config, using default values (path: %s)", path)
 		c.inmemory.Set(Default())
 	}
 
+	c.wg.Add(1)
 	go func() {
-		for range fw.Events(path) {
-			c.reload()
+		ch := fw.Events(path)
+
+		// Make sure the channel isn't nil. This can happen if the Stop function
+		// is called before we get here.
+		if ch != nil {
+			for range ch {
+				c.reload()
+			}
 		}
+		c.wg.Done()
 	}()
 
 	return c, nil
@@ -79,6 +98,13 @@ func (c *FsSource) Start() {
 func (c *FsSource) Stop() {
 	scope.Processing.Debugf("meshcfg.FsSource.Stop >>>")
 	c.inmemory.Stop()
+
+	// close the file watcher
+	_ = c.fw.Close()
+
+	// wait for the goroutine to be done
+	c.wg.Wait()
+
 	scope.Processing.Debugf("meshcfg.FsSource.Stop <<<")
 }
 
@@ -94,7 +120,7 @@ func (c *FsSource) reload() {
 		return
 	}
 
-	js, err := yamlToJSON(by)
+	js, err := c.yamlToJSON(by)
 	if err != nil {
 		scope.Processing.Errorf("Error converting mesh config Yaml to JSON (path: %s): %v", c.path, err)
 		return
