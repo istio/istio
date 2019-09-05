@@ -263,6 +263,8 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 	p.Peers = usedPeers
 	filterConfig := &authn_filter.FilterConfig{
 		Policy: p,
+		// we can always set this field, it's no-op if mTLS is not used.
+		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
 	}
 
 	// Remove targets part.

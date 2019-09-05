@@ -606,10 +606,18 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 	}
 }
 
+func setSkipValidateTrustDomain(value string, t *testing.T) {
+	err := os.Setenv(features.SkipValidateTrustDomain.Name, value)
+	if err != nil {
+		t.Fatalf("failed to set SkipValidateTrustDomain: %v", err)
+	}
+}
+
 func TestBuildAuthNFilter(t *testing.T) {
 	cases := []struct {
-		in                   *authn.Policy
-		expectedFilterConfig *authn_filter.FilterConfig
+		in                      *authn.Policy
+		expectedFilterConfig    *authn_filter.FilterConfig
+		skipTrustDomainValidate bool
 	}{
 
 		{
@@ -649,9 +657,61 @@ func TestBuildAuthNFilter(t *testing.T) {
 				},
 			},
 		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{},
+						},
+					},
+				},
+			},
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn.MutualTls{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{},
+						},
+					},
+				},
+			},
+			skipTrustDomainValidate: true,
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn.MutualTls{},
+							},
+						},
+					},
+				},
+				SkipValidateTrustDomain: true,
+			},
+		},
 	}
 
 	for _, c := range cases {
+		if c.skipTrustDomainValidate {
+			setSkipValidateTrustDomain("true", t)
+			defer func() {
+				setSkipValidateTrustDomain("false", t)
+			}()
+		}
 		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
