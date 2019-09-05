@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -173,11 +173,6 @@ func GetNodeAgentSecrets(
 	return secrets, nil
 }
 
-// ConfigDumpSecret refers to either a DynamicWarmingSecret or a DynamicActiveSecret
-type ConfigDumpSecret interface {
-	GetSecret() *auth.Secret
-}
-
 // GetEnvoySecrets parses the secrets section of the config dump into []SecretItem
 func GetEnvoySecrets(
 	wrapper *configdump.Wrapper) ([]SecretItem, error) {
@@ -188,51 +183,51 @@ func GetEnvoySecrets(
 
 	proxySecretItems := make([]SecretItem, 0)
 	for _, warmingSecret := range secretConfigDump.DynamicWarmingSecrets {
-		builder := NewSecretItemBuilder()
-		builder.Name(warmingSecret.Name).
-			Data(dataFromConfigDumpSecret(warmingSecret)).
-			State("WARMING")
-		secret, err := builder.Build()
+		secret, err := parseDynamicSecret(warmingSecret, "WARMING")
 		if err != nil {
-			return nil, fmt.Errorf("error building node agent warming secret")
+			return nil, fmt.Errorf("failed building warming secret %s: %v",
+				warmingSecret.Name, err)
 		}
 		proxySecretItems = append(proxySecretItems, secret)
 	}
 	for _, activeSecret := range secretConfigDump.DynamicActiveSecrets {
-		builder := NewSecretItemBuilder()
-		builder.Name(activeSecret.Name).
-			Data(dataFromConfigDumpSecret(activeSecret)).
-			State("ACTIVE")
-
-		secret, err := builder.Build()
+		secret, err := parseDynamicSecret(activeSecret, "ACTIVE")
 		if err != nil {
-			return nil, fmt.Errorf("error building node agent active secret")
+			return nil, fmt.Errorf("failed building warming secret %s: %v",
+				activeSecret.Name, err)
 		}
 		proxySecretItems = append(proxySecretItems, secret)
 	}
 	return proxySecretItems, nil
 }
 
-func dataFromConfigDumpSecret(secret ConfigDumpSecret) string {
-	certChainSecret := secret.GetSecret().
+func parseDynamicSecret(s *envoy_admin_v2alpha.SecretsConfigDump_DynamicSecret, state string) (SecretItem, error) {
+	builder := NewSecretItemBuilder()
+	builder.Name(s.Name).State(state)
+
+	certChainSecret := s.GetSecret().
 		GetTlsCertificate().
 		GetCertificateChain().
 		GetInlineBytes()
-	caDataSecret := secret.GetSecret().
+	caDataSecret := s.GetSecret().
 		GetValidationContext().
 		GetTrustedCa().
 		GetInlineBytes()
 
 	// seems as though the most straightforward way to tell whether this is a root ca or not
 	// is to check whether the inline bytes of the cert chain or the trusted ca field is zero length
-	var secretData string
 	if len(certChainSecret) > 0 {
-		secretData = string(certChainSecret)
+		builder.Data(string(certChainSecret))
 	} else if len(caDataSecret) > 0 {
-		secretData = string(caDataSecret)
+		builder.Data(string(caDataSecret))
 	}
 
-	return secretData
+	secret, err := builder.Build()
+	if err != nil {
+		return SecretItem{}, fmt.Errorf("error building secret: %v", err)
+	}
+
+	return secret, nil
 }
 
 func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
