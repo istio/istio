@@ -393,7 +393,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "14.11.11.11"),
 				buildServiceInstance(services[0], "15.11.11.11"),
 			},
-			numListenersOnServicePort: 1,
+			numListenersOnServicePort: 6,
 		},
 	}
 	for _, tt := range tests {

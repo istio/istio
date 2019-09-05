@@ -98,9 +98,10 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:      hostname,
-							Namespace: cfg.Namespace,
-							ExportTo:  exportTo,
+							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							Name:            hostname,
+							Namespace:       cfg.Namespace,
+							ExportTo:        exportTo,
 						},
 					})
 				}
@@ -114,9 +115,10 @@ func convertServices(cfg model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					Name:      hostname,
-					Namespace: cfg.Namespace,
-					ExportTo:  exportTo,
+					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					Name:            hostname,
+					Namespace:       cfg.Namespace,
+					ExportTo:        exportTo,
 				},
 			})
 		}

@@ -35,6 +35,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -520,7 +521,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Address:         "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
-			Attributes:      model.ServiceAttributes{Name: "svc1", Namespace: "nsa", UID: "istio://nsa/services/svc1"},
+			Attributes: model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "svc1",
+				Namespace:       "nsa",
+				UID:             "istio://nsa/services/svc1"},
 		},
 		Labels:         labels.Instance{"app": "prod-app"},
 		ServiceAccount: "account",
