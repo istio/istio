@@ -17,13 +17,11 @@ package components
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
 
-	envvar "istio.io/pkg/env"
-
+	"istio.io/istio/galley/pkg/envvar"
 	"istio.io/istio/pkg/mcp/server"
 )
 
@@ -36,16 +34,6 @@ var (
 	watchEventHandledProbe func()
 )
 
-var (
-	// For the purposes of logging rate limiting authz failures, this controls how
-	// many authz failures are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
-	authzFailureLogBurstSize = envvar.RegisterIntVar("AUTHZ_FAILURE_LOG_BURST_SIZE", 1, "").Get()
-
-	// For the purposes of logging rate limiting authz failures, this controls how
-	// frequently bursts of authz failures are logged.
-	authzFailureLogFreq = envvar.RegisterDurationVar("AUTHZ_FAILURE_LOG_FREQ", time.Minute, "").Get()
-)
-
 func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
 	// Do the initial read.
 	list, err := readAccessList(accessListFile)
@@ -54,8 +42,8 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 	}
 
 	options := server.DefaultListAuthCheckerOptions()
-	options.AuthzFailureLogBurstSize = authzFailureLogBurstSize
-	options.AuthzFailureLogFreq = authzFailureLogFreq
+	options.AuthzFailureLogBurstSize = envvar.AuthzFailureLogBurstSize.Get()
+	options.AuthzFailureLogFreq = envvar.AuthzFailureLogFreq.Get()
 	if list.IsBlackList {
 		options.AuthMode = server.AuthBlackList
 	} else {
