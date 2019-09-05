@@ -504,7 +504,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
@@ -554,7 +554,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	// should be after SetServiceInstances, because it depends on con.modelNode.ClusterID.
-	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
