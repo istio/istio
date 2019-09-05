@@ -43,7 +43,7 @@ update-charts: installer.sha
 
 # make target dependencies
 vfsgen: data/ update-charts
-	go run ./cmd/vfsgen/vfsgen.go
+	go generate ./...
 
 generate: generate-values generate-types vfsgen
 
