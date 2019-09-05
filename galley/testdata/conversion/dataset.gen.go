@@ -853,7 +853,7 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                     "mode": 1
                 },
                 "protocol_detection_timeout": {
-                  "nanos": 10000000
+                  "nanos": 100000000
                 },
                 "proxy_listen_port": 15001,
                 "root_namespace": "istio-system"
