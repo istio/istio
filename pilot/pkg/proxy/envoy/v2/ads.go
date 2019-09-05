@@ -549,7 +549,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 
-	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
+	if err := con.modelNode.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
 
