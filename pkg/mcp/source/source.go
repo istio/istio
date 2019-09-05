@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/rate"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/log"
 )
 

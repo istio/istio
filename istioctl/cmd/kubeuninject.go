@@ -32,7 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/inject"
+
 	"istio.io/pkg/log"
 )
 

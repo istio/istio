@@ -16,28 +16,28 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
-
-	"istio.io/istio/pilot/pkg/model"
 
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.BeNil())
 }
@@ -46,12 +46,11 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -60,12 +59,12 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
-	role.TrustDomain = ""
+	trustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -75,12 +74,11 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.TrustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -89,12 +87,15 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "secured"
+	trustDomain = "secured"
+	defer func() {
+		trustDomain = ""
+	}()
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -103,12 +104,15 @@ func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "my.domain"
-	role.TrustDomain = "secured"
+	trustDomain = "secured"
+	defer func() {
+		trustDomain = ""
+	}()
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -136,80 +140,65 @@ func TestDetectSds(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	tests := []struct {
-		controlPlaneBootstrap   bool
-		controlPlaneAuthEnabled bool
-		udsPath                 string
-		preferTokenPath         string
-		tokenPath               string
-		expectedSdsEnabled      bool
-		expectedSdsTokenPath    string
+		controlPlaneBootstrap bool
+		sdsAddress            string
+		tokenPath             string
+		expectedSdsEnabled    bool
+		expectedSdsTokenPath  string
 	}{
 		{
-			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: false,
-			expectedSdsEnabled:      false,
-			expectedSdsTokenPath:    "",
+			controlPlaneBootstrap: true,
+			expectedSdsEnabled:    false,
+			expectedSdsTokenPath:  "",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
-			udsPath:                 "/tmp/testtmpuds1.log",
-			preferTokenPath:         "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:      true,
-			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			sdsAddress:            "/tmp/testtmpuds1.log",
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
-			udsPath:                 "/tmp/testtmpuds1.log",
-			tokenPath:               "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:      true,
-			expectedSdsTokenPath:    "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			sdsAddress:            "unix:/tmp/testtmpuds1.log",
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
-			tokenPath:               "/tmp/testtmptoken1.log",
+			controlPlaneBootstrap: true,
+			sdsAddress:            "/tmp/testtmpuds1.log",
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    true,
+			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap:   true,
-			controlPlaneAuthEnabled: true,
-			udsPath:                 "/tmp/testtmpuds1.log",
+			controlPlaneBootstrap: true,
+			tokenPath:             "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:    false,
+		},
+		{
+			controlPlaneBootstrap: true,
+			sdsAddress:            "/tmp/testtmpuds1.log",
 		},
 		{
 			controlPlaneBootstrap: false,
-			udsPath:               "/tmp/test_tmp_uds2",
-			preferTokenPath:       "/tmp/test_tmp_token2",
+			sdsAddress:            "/tmp/test_tmp_uds2",
+			tokenPath:             "/tmp/test_tmp_token2",
 			expectedSdsEnabled:    true,
 			expectedSdsTokenPath:  "/tmp/test_tmp_token2",
 		},
 		{
 			controlPlaneBootstrap: false,
-			udsPath:               "/tmp/test_tmp_uds3",
-			tokenPath:             "/tmp/test_tmp_token3",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/test_tmp_token3",
-		},
-		{
-			controlPlaneBootstrap: false,
-			udsPath:               "/tmp/test_tmp_uds4",
-		},
-		{
-			controlPlaneBootstrap: false,
-			tokenPath:             "/tmp/test_tmp_token4",
+			sdsAddress:            "/tmp/test_tmp_uds4",
 		},
 	}
 	for _, tt := range tests {
-		if tt.udsPath != "" {
-			if _, err := os.Stat(tt.udsPath); err != nil {
-				os.Create(tt.udsPath)
-				defer os.Remove(tt.udsPath)
-			}
-		}
-		if tt.preferTokenPath != "" {
-			if _, err := os.Stat(tt.preferTokenPath); err != nil {
-				os.Create(tt.preferTokenPath)
-				defer os.Remove(tt.preferTokenPath)
+		if tt.sdsAddress != "" {
+			addr := strings.TrimPrefix(tt.sdsAddress, "unix:")
+			if _, err := os.Stat(addr); err != nil {
+				os.Create(addr)
+				defer os.Remove(addr)
 			}
 		}
 		if tt.tokenPath != "" {
@@ -219,7 +208,7 @@ func TestDetectSds(t *testing.T) {
 			}
 		}
 
-		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.controlPlaneAuthEnabled, tt.udsPath, tt.preferTokenPath, tt.tokenPath)
+		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.sdsAddress, tt.tokenPath)
 		g.Expect(enabled).To(gomega.Equal(tt.expectedSdsEnabled))
 		g.Expect(path).To(gomega.Equal(tt.expectedSdsTokenPath))
 	}
@@ -261,12 +250,11 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ".svc.cluster.local"
-	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -277,12 +265,12 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = "service.consul"
-	role.TrustDomain = ""
+	trustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -291,12 +279,12 @@ func TestCustomPilotSanIfAuthenticationMutualDomainKubernetesNoTrustDomain(t *te
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.PilotIdentity = "pilot-identity"
+	pilotIdentity = "pilot-identity"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/pilot-identity"}))
 }
@@ -305,13 +293,13 @@ func TestCustomPilotSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "mesh.com"
-	role.PilotIdentity = "pilot-identity"
+	trustDomain = "mesh.com"
+	pilotIdentity = "pilot-identity"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, pilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://mesh.com/pilot-identity"}))
 }
@@ -320,13 +308,13 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role = &model.Proxy{Metadata: map[string]string{}}
 	role.DNSDomain = ""
-	role.TrustDomain = "mesh.com"
-	role.MixerIdentity = "mixer-identity"
+	trustDomain = "mesh.com"
+	mixerIdentity = "mixer-identity"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
 	setSpiffeTrustDomain(role.DNSDomain)
-	mixerSAN := envoy.GetSAN("", role.MixerIdentity)
+	mixerSAN := envoy.GetSAN("", mixerIdentity)
 
 	g.Expect(mixerSAN).To(gomega.Equal("spiffe://mesh.com/mixer-identity"))
 }
@@ -334,10 +322,10 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 func TestDedupeStrings(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	in := []string{
-		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
-		config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert,
+		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
+		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
 	}
-	expected := []string{config.DefaultCertChain, config.DefaultKey, config.DefaultRootCert}
+	expected := []string{constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert}
 
 	actual := dedupeStrings(in)
 

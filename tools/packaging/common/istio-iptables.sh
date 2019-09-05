@@ -312,6 +312,15 @@ echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
 echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
+
+set +o nounset
+# Blindly add a ipv6 address. If it fails it's fine.
+# Add local ipv6 address to lo. Used in redirecting unknown ipv6 traffic to original dst.
+# This address does not show up in neigh table so each Pod/Vm will only see its own. Think about 127.0.0.6.
+if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
+  ip -6 addr add ::6/128 dev lo
+fi
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -326,7 +335,13 @@ iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
 # Use this chain also for redirecting inbound traffic to the common Envoy port
 # when not using TPROXY.
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+
+# PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+  iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+else
+  iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+fi
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -411,6 +426,9 @@ if [ -n "${OUTBOUND_PORTS_EXCLUDE}" ]; then
     iptables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
   done
 fi
+
+# 127.0.0.6 is bind connect from inbound passthrough cluster
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 
 if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK-}" ]; then
   # Redirect app calls back to itself via Envoy when using the service VIP or endpoint
@@ -502,7 +520,12 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Use this chain also for redirecting inbound traffic to the common Envoy port
   # when not using TPROXY.
   ip6tables -t nat -N ISTIO_IN_REDIRECT
-  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+  # PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_INBOUND_CAPTURE_PORT}"
+  else
+    ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+  fi
 
   # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
   # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -541,6 +564,9 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
       ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport "${port}" -j RETURN
     done
   fi
+
+  # ::6 is bind when connect from inbound passthrough cluster
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
 
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.

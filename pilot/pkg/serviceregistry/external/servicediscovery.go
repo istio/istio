@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
@@ -39,7 +41,7 @@ type ServiceEntryStore struct {
 
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table. Key is the fqdn hostname and namespace
-	instances map[config.Hostname]map[string][]*model.ServiceInstance
+	instances map[host.Name]map[string][]*model.ServiceInstance
 
 	changeMutex  sync.RWMutex
 	lastChange   time.Time
@@ -53,11 +55,11 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
 		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[config.Hostname]map[string][]*model.ServiceInstance{},
+		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
-		callbacks.RegisterEventHandler(model.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		callbacks.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
@@ -115,7 +117,7 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 // GetService retrieves a service by host name if it exists
 // THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
 // DO NOT USE
-func (d *ServiceEntryStore) GetService(hostname config.Hostname) (*model.Service, error) {
+func (d *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	for _, service := range d.getServices() {
 		if service.Hostname == hostname {
 			return service, nil
@@ -150,7 +152,7 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
-	labels config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	d.update()
 
 	d.storeMutex.RLock()
@@ -181,7 +183,7 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.changeMutex.RUnlock()
 
-	di := map[config.Hostname]map[string][]*model.ServiceInstance{}
+	di := map[host.Name]map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
@@ -242,12 +244,12 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, nil
 }
 
-func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	d.update()
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
-	out := make(config.LabelsCollection, 0)
+	out := make(labels.Collection, 0)
 
 	for _, ip := range proxy.IPAddresses {
 		instances, found := d.ip2instance[ip]

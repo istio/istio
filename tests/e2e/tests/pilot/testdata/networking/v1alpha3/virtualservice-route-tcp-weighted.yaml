@@ -9,7 +9,7 @@ spec:
   tcp:
   - match:
     - port: 90
-      source_labels:
+      sourceLabels:
         app: a
     route:
     - destination:

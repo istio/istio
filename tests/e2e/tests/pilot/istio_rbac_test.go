@@ -59,6 +59,13 @@ func setupRbacRules(t *testing.T, rules []string) *deployableConfig {
 }
 
 func TestRBACForSidecar(t *testing.T) {
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
+
 	cfgs := setupRbacRules(t, []string{rbacEnableTmpl, rbacRulesTmpl})
 	if cfgs != nil {
 		if err := cfgs.Setup(); err != nil {
@@ -176,6 +183,13 @@ func TestRBACForSidecar(t *testing.T) {
 }
 
 func TestRBACForEgressGateway(t *testing.T) {
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
+
 	// Only test when Authentication enabled, otherwise there is no client certificate for the source identity.
 	if !tc.Kube.AuthEnabled {
 		return

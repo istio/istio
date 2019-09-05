@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -166,7 +167,12 @@ func (b *buffered) Send() {
 		if err != nil {
 			ets := handleError(err, timeSeries)
 			b.updateRetryBuffer(ets)
-			_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, timeSeries)
+			b.l.Errorf("%d time series was sent and Stackdriver returned: %v\n", len(timeSeries), err) // nolint: errcheck
+			if isOutOfOrderError(err) {
+				b.l.Debugf("Given data: %v", timeSeries)
+			} else {
+				b.l.Errorf("Given data: %v", timeSeries) // nolint: errcheck
+			}
 		} else {
 			b.l.Debugf("Successfully sent data to Stackdriver.")
 		}
@@ -235,6 +241,15 @@ func isRetryable(c codes.Code) bool {
 	switch c {
 	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
 		return true
+	}
+	return false
+}
+
+func isOutOfOrderError(err error) bool {
+	if s, ok := status.FromError(err); ok {
+		if strings.Contains(strings.ToLower(s.Message()), "order") {
+			return true
+		}
 	}
 	return false
 }

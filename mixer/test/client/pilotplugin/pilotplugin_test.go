@@ -32,12 +32,14 @@ import (
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 const (
@@ -103,6 +105,7 @@ static_resources:
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
+  "context.proxy_version": "1.1.1",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -132,10 +135,12 @@ static_resources:
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
+  "context.proxy_version": "1.1.1",
   "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
+  "destination.mesh.id": "helloworld",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -165,6 +170,7 @@ static_resources:
   "context.proxy_error_code": "-",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
+  "context.proxy_version": "1.1.1",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "destination.service.host": "svc.ns3",
@@ -213,10 +219,12 @@ static_resources:
   "context.proxy_error_code": "-",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
+  "context.proxy_version": "1.1.1",
   "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
+  "destination.mesh.id": "helloworld",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -299,11 +307,11 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	return nil, nil
 }
-func (mock) GetService(_ config.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) InstancesByPort(_ *model.Service, _ int, _ config.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (mock) GetService(_ host.Name) (*model.Service, error) { return nil, nil }
+func (mock) InstancesByPort(_ *model.Service, _ int, _ labels.Collection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 func (mock) ManagementPorts(_ string) model.PortList                        { return nil }
@@ -333,8 +341,8 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	pushContext = model.PushContext{
-		ServiceByHostnameAndNamespace: map[config.Hostname]map[string]*model.Service{
-			config.Hostname("svc.ns3"): {
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
@@ -343,8 +351,12 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod1.ns2",
-			Type: model.SidecarProxy,
+			ID:           "pod1.ns2",
+			Type:         model.SidecarProxy,
+			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
+			Metadata: map[string]string{
+				model.NodeMetadataMeshID: "helloworld",
+			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -353,8 +365,12 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod2.ns2",
-			Type: model.SidecarProxy,
+			ID:           "pod2.ns2",
+			Type:         model.SidecarProxy,
+			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
+			Metadata: map[string]string{
+				model.NodeMetadataMeshID: "helloworld",
+			},
 		},
 		Service: &svc,
 		Push:    &pushContext,
@@ -364,11 +380,11 @@ var (
 func makeRoute(cluster string) *v2.RouteConfiguration {
 	return &v2.RouteConfiguration{
 		Name: cluster,
-		VirtualHosts: []route.VirtualHost{{
+		VirtualHosts: []*route.VirtualHost{{
 			Name:    cluster,
 			Domains: []string{"*"},
-			Routes: []route.Route{{
-				Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+			Routes: []*route.Route{{
+				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: cluster},
 				}},
@@ -380,14 +396,14 @@ func makeRoute(cluster string) *v2.RouteConfiguration {
 func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionManager) {
 	return &v2.Listener{
 			Name: route,
-			Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+			Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		}, &hcm.HttpConnectionManager{
 			CodecType:  hcm.AUTO,
 			StatPrefix: route,
 			RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: core.ConfigSource{
+				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
 				}},
 			},
@@ -408,7 +424,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 		t.Error(err)
 	}
 	serverManager.HttpFilters = append(serverMutable.FilterChains[0].HTTP, serverManager.HttpFilters...)
-	serverListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
+	serverListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
 		Name:       util.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(serverManager)},
 	}}}}
@@ -418,7 +434,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 		t.Error(err)
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
-	clientListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
+	clientListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
 		Name:       util.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}

@@ -23,8 +23,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
@@ -83,18 +84,12 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
 				pc.keys[ip] = key
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
-				}
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
 				// delete only if this pod was in the cache
 				if pc.keys[ip] == key {
 					delete(pc.keys, ip)
-					if pc.c != nil && pc.c.XDSUpdater != nil {
-						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-					}
 				}
 				return nil
 			}
@@ -102,25 +97,16 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
 				pc.keys[ip] = key
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
-				}
 			default:
 				// delete if the pod switched to other states and is in the cache
 				if pc.keys[ip] == key {
 					delete(pc.keys, ip)
-					if pc.c != nil && pc.c.XDSUpdater != nil {
-						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-					}
 				}
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
 			if pc.keys[ip] == key {
 				delete(pc.keys, ip)
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-				}
 			}
 		}
 	}
@@ -149,7 +135,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred
-func (pc *PodCache) labelsByIP(addr string) (config.Labels, bool) {
+func (pc *PodCache) labelsByIP(addr string) (labels.Instance, bool) {
 	pod := pc.getPodByIP(addr)
 	if pod == nil {
 		return nil, false

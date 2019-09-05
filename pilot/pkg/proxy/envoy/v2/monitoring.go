@@ -14,46 +14,46 @@
 package v2
 
 import (
-	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
-	"istio.io/istio/pilot/pkg/monitoring"
+	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/monitoring"
 )
 
 var (
-	errTag     = monitoring.MustCreateTag("err")
-	clusterTag = monitoring.MustCreateTag("cluster")
-	nodeTag    = monitoring.MustCreateTag("node")
-	typeTag    = monitoring.MustCreateTag("type")
+	errTag     = monitoring.MustCreateLabel("err")
+	clusterTag = monitoring.MustCreateLabel("cluster")
+	nodeTag    = monitoring.MustCreateLabel("node")
+	typeTag    = monitoring.MustCreateLabel("type")
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
 		"Pilot rejected CSD configs.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	edsReject = monitoring.NewGauge(
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	edsInstances = monitoring.NewGauge(
 		"pilot_xds_eds_instances",
 		"Instances for each cluster, as of last push. Zero instances is an error.",
-		clusterTag,
+		monitoring.WithLabels(clusterTag),
 	)
 
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	rdsReject = monitoring.NewGauge(
 		"pilot_xds_rds_reject",
 		"Pilot rejected RDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	rdsExpiredNonce = monitoring.NewSum(
@@ -87,7 +87,7 @@ var (
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
 		"Pilot build and send errors for lds, rds, cds and eds.",
-		typeTag,
+		monitoring.WithLabels(typeTag),
 	)
 
 	cdsPushes         = pushes.With(typeTag.Value("cds"))
@@ -133,13 +133,12 @@ var (
 	inboundUpdates = monitoring.NewSum(
 		"pilot_inbound_updates",
 		"Total number of updates received by pilot.",
-		typeTag,
+		monitoring.WithLabels(typeTag),
 	)
 
-	inboundConfigUpdates   = inboundUpdates.With(typeTag.Value("config"))
-	inboundEDSUpdates      = inboundUpdates.With(typeTag.Value("eds"))
-	inboundServiceUpdates  = inboundUpdates.With(typeTag.Value("svc"))
-	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
+	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
+	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
+	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 )
 
 func recordSendError(metric monitoring.Metric, err error) {
@@ -157,7 +156,7 @@ func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
 }
 
 func init() {
-	monitoring.MustRegisterViews(
+	monitoring.MustRegister(
 		cdsReject,
 		edsReject,
 		ldsReject,

@@ -217,7 +217,7 @@ func TestCompile(t *testing.T) {
 			i := interpreter.New(program, externs)
 			v, err := i.Eval("eval", b)
 			if err != nil {
-				if test.Err != err.Error() {
+				if !strings.HasPrefix(err.Error(), test.Err) {
 					tt.Fatalf("expected error not found: E:'%v', A:'%v'", test.Err, err)
 				}
 				return

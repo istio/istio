@@ -625,7 +625,7 @@ func CheckDeployment(ctx context.Context, namespace, deployment string, kubeconf
 		// This can be deployed by previous tests, but doesn't complete currently, blocking the test.
 		return nil
 	}
-	errc := make(chan error)
+	errc := make(chan error, 1)
 	go func() {
 		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s --kubeconfig=%s", namespace, deployment, kubeconfig); err != nil {
 			errc <- fmt.Errorf("%s in namespace %s failed", deployment, namespace)

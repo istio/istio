@@ -17,6 +17,7 @@ package binary
 import (
 	"encoding/json"
 	"flag"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -30,11 +31,11 @@ var (
 	releasedir *string
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	releasedir = flag.String("base-dir", "", "directory for binaries")
 	binaries = flag.String("binaries", "", "space separated binaries to test")
 	flag.Parse()
-
+	os.Exit(m.Run())
 }
 
 func TestVersion(t *testing.T) {
@@ -52,7 +53,7 @@ func TestVersion(t *testing.T) {
 
 			out, err := exec.Command(cmd, args...).Output()
 			if err != nil {
-				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
+				t.Fatalf("--version failed with error: %v. Output: %v", err, string(out))
 			}
 
 			var resp version.Version
@@ -64,10 +65,7 @@ func TestVersion(t *testing.T) {
 
 			validateField(t, "Version", verInfo.Version)
 			validateField(t, "GitRevision", verInfo.GitRevision)
-			validateField(t, "User", verInfo.User)
-			validateField(t, "Host", verInfo.Host)
 			validateField(t, "GolangVersion", verInfo.GolangVersion)
-			validateField(t, "DockerHub", verInfo.DockerHub)
 			validateField(t, "BuildStatus", verInfo.BuildStatus)
 			validateField(t, "GitTag", verInfo.GitTag)
 		})
@@ -92,7 +90,7 @@ func TestFlags(t *testing.T) {
 		t.Run(b, func(t *testing.T) {
 			out, err := exec.Command(cmd, "--help").Output()
 			if err != nil {
-				t.Fatalf("Version failed with error: %v. Output: %v", err, string(out))
+				t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
 			}
 
 			for _, blacklist := range blacklistedFlags {

@@ -34,7 +34,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -48,8 +52,8 @@ import (
 // foo.default.svc.cluster.local hostname, has a virtual IP of 10.0.1.1 and
 // listens on ports 80, 8080
 type Service struct {
-	// Hostname of the service, e.g. "catalog.mystore.com"
-	Hostname config.Hostname `json:"hostname"`
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
@@ -126,7 +130,7 @@ type Port struct {
 	Port int `json:"port"`
 
 	// Protocol to be used for the port.
-	Protocol config.Protocol `json:"protocol,omitempty"`
+	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
 // PortList is a set of ports
@@ -250,7 +254,7 @@ type ProbeList []*Probe
 type ServiceInstance struct {
 	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
 	Service        *Service        `json:"service,omitempty"`
-	Labels         config.Labels   `json:"labels,omitempty"`
+	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
@@ -348,7 +352,7 @@ type ServiceAttributes struct {
 	UID string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ExportTo map[config.Visibility]bool
+	ExportTo map[visibility.Instance]bool
 
 	// For Kubernetes platform
 
@@ -368,7 +372,7 @@ type ServiceDiscovery interface {
 
 	// GetService retrieves a service by host name if it exists
 	// Deprecated - do not use for anything other than tests
-	GetService(hostname config.Hostname) (*Service, error)
+	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -392,7 +396,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels config.LabelsCollection) ([]*ServiceInstance, error)
+	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -413,7 +417,7 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
-	GetProxyWorkloadLabels(*Proxy) (config.LabelsCollection, error)
+	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -471,8 +475,7 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num && port.Protocol != config.ProtocolUDP &&
-			port.Protocol != config.ProtocolUnsupported {
+		if port.Port == num && port.Protocol != protocol.UDP {
 			return port, true
 		}
 	}
@@ -488,17 +491,17 @@ func (s *Service) External() bool {
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
 // Deprecated
-func (s *Service) Key(port *Port, labels config.Labels) string {
+func (s *Service) Key(port *Port, l labels.Instance) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, config.LabelsCollection{labels})
+	return ServiceKey(s.Hostname, PortList{port}, labels.Collection{l})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
 //
-// Interface wants to turn `Hostname` into `fmt.Stringer`, completely defeating the purpose of the type alias.
+// Interface wants to turn `Name` into `fmt.Stringer`, completely defeating the purpose of the type alias.
 // nolint: interfacer
-func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList config.LabelsCollection) string {
+func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Collection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(string(hostname))
@@ -533,16 +536,16 @@ func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList conf
 
 	if nt > 0 {
 		buffer.WriteString("|")
-		labels := make([]string, nt)
+		l := make([]string, nt)
 		for i := 0; i < nt; i++ {
-			labels[i] = labelsList[i].String()
+			l[i] = labelsList[i].String()
 		}
-		sort.Strings(labels)
+		sort.Strings(l)
 		for i := 0; i < nt; i++ {
 			if i > 0 {
 				buffer.WriteString(";")
 			}
-			buffer.WriteString(labels[i])
+			buffer.WriteString(l[i])
 		}
 	}
 	return buffer.String()
@@ -550,9 +553,9 @@ func ServiceKey(hostname config.Hostname, servicePorts PortList, labelsList conf
 
 // ParseServiceKey is the inverse of the Service.String() method
 // Deprecated
-func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, labels config.LabelsCollection) {
+func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Collection) {
 	parts := strings.Split(s, "|")
-	hostname = config.Hostname(parts[0])
+	hostname = host.Name(parts[0])
 
 	var names []string
 	if len(parts) > 1 {
@@ -567,7 +570,7 @@ func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, labels
 
 	if len(parts) > 2 && len(parts[2]) > 0 {
 		for _, tag := range strings.Split(parts[2], ";") {
-			labels = append(labels, config.ParseLabelsString(tag))
+			lc = append(lc, labels.Parse(tag))
 		}
 	}
 	return
@@ -575,7 +578,7 @@ func ParseServiceKey(s string) (hostname config.Hostname, ports PortList, labels
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname config.Hostname, port int) string {
+func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
@@ -583,7 +586,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname conf
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 // This is used only for the SNI-DNAT router. Do not use for other purposes.
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
-func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname config.Hostname, port int) string {
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
 }
 
@@ -593,7 +596,7 @@ func IsValidSubsetKey(s string) bool {
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname config.Hostname, port int) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
 	var parts []string
 	dnsSrvMode := false
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
@@ -619,7 +622,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 		subsetName = strings.TrimSuffix(parts[2], "_")
 	}
 
-	hostname = config.Hostname(parts[3])
+	hostname = host.Name(parts[3])
 	return
 }
 

@@ -20,8 +20,10 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/monitoring"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/gateway"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/monitoring"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -47,22 +49,22 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateTag("type")
-	nameTag = monitoring.MustCreateTag("name")
+	typeTag = monitoring.MustCreateLabel("type")
+	nameTag = monitoring.MustCreateLabel("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
 		"Total number of configs that Pilot had to reject or ignore.",
-		typeTag, nameTag,
+		monitoring.WithLabels(typeTag, nameTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(totalRejectedConfigs)
+	monitoring.MustRegister(totalRejectedConfigs)
 }
 
-func recordRejectedConfig(gateway string) {
-	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gateway)).Increment()
+func recordRejectedConfig(gatewayName string) {
+	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
@@ -84,13 +86,13 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		gatewayName := fmt.Sprintf("%s/%s", gatewayConfig.Namespace, gatewayConfig.Name)
 		names[gatewayName] = true
 
-		gateway := gatewayConfig.Spec.(*networking.Gateway)
-		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gateway)
-		for _, s := range gateway.Servers {
+		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
+		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gatewayCfg)
+		for _, s := range gatewayCfg.Servers {
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
-			protocol := config.ParseProtocol(s.Port.Protocol)
+			p := protocol.Parse(s.Port.Protocol)
 
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
@@ -113,11 +115,11 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				//    for each server (as each server ends up as a separate http connection manager due to filter chain match
 				// 3. No for everything else.
 
-				if p, exists := plaintextServers[s.Port.Number]; exists {
-					currentProto := config.ParseProtocol(p[0].Port.Protocol)
-					if currentProto != protocol || !protocol.IsHTTP() {
+				if server, exists := plaintextServers[s.Port.Number]; exists {
+					currentProto := protocol.Parse(server[0].Port.Protocol)
+					if currentProto != p || !p.IsHTTP() {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
-							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
+							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, server[0].Port.Name, server[0].Port.Number, server[0].Port.Protocol)
 						recordRejectedConfig(gatewayName)
 						continue
 					}
@@ -133,7 +135,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
-					if config.IsHTTPServer(s) {
+					if gateway.IsHTTPServer(s) {
 						routeName := gatewayRDSRouteName(s, gatewayConfig)
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
@@ -168,13 +170,13 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				}
 			} else {
 				gatewayPorts[s.Port.Number] = true
-				if config.IsTLSServer(s) {
+				if gateway.IsTLSServer(s) {
 					tlsServers[s.Port.Number] = []*networking.Server{s}
 				} else {
 					plaintextServers[s.Port.Number] = []*networking.Server{s}
 				}
 
-				if config.IsHTTPServer(s) {
+				if gateway.IsHTTPServer(s) {
 					routeName := gatewayRDSRouteName(s, gatewayConfig)
 					serversByRouteName[routeName] = []*networking.Server{s}
 					routeNamesByServer[s] = routeName
@@ -245,12 +247,12 @@ func checkDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
 func gatewayRDSRouteName(server *networking.Server, cfg Config) string {
-	protocol := config.ParseProtocol(server.Port.Protocol)
-	if protocol.IsHTTP() {
+	p := protocol.Parse(server.Port.Protocol)
+	if p.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
-	if protocol == config.ProtocolHTTPS && server.Tls != nil && !config.IsPassThroughServer(server) {
+	if p == protocol.HTTPS && server.Tls != nil && !gateway.IsPassThroughServer(server) {
 		return fmt.Sprintf("https.%d.%s.%s.%s",
 			server.Port.Number, server.Port.Name, cfg.Name, cfg.Namespace)
 	}
@@ -260,7 +262,7 @@ func gatewayRDSRouteName(server *networking.Server, cfg Config) string {
 
 // ParseGatewayRDSRouteName is used by the EnvoyFilter patching logic to match
 // a specific route configuration to patch.
-func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gateway string) {
+func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayName string) {
 	parts := strings.Split(name, ".")
 	if strings.HasPrefix(name, "http.") {
 		// this is a http gateway. Parse port number and return empty string for rest
@@ -272,7 +274,7 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gateway st
 			portNumber, _ = strconv.Atoi(parts[1])
 			portName = parts[2]
 			// gateway name should be ns/name
-			gateway = parts[4] + "/" + parts[3]
+			gatewayName = parts[4] + "/" + parts[3]
 		}
 	}
 	return

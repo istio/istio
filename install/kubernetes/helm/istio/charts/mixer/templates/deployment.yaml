@@ -13,15 +13,13 @@
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -80,6 +78,11 @@
           {{- end }}
         {{- if .Values.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         {{- range $key, $val := .Values.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -154,6 +157,8 @@
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "{{ $.Values.global.sds.enabled }}"
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
@@ -168,10 +173,8 @@
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
-        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock
@@ -183,6 +186,9 @@
 {{- define "telemetry_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -192,15 +198,13 @@
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: uds-socket
         emptyDir: {}
@@ -265,6 +269,11 @@
           - {{ $.Values.telemetry.loadshedding.mode }}
         {{- if .Values.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         {{- range $key, $val := .Values.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -339,6 +348,8 @@
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "{{ $.Values.global.sds.enabled }}"
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
@@ -353,10 +364,8 @@
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
         - name: istio-token
           mountPath: /var/run/secrets/tokens
-        {{- end }}
         {{- end }}
         - name: uds-socket
           mountPath: /sock

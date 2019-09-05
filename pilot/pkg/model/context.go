@@ -15,16 +15,20 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config"
+
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -38,16 +42,12 @@ type Environment struct {
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
 
-	// Mixer subject alternate name for mutual TLS
-	MixerSAN []string
-
 	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	// Deprecated - a local config for ads will be used instead
 	PushContext *PushContext
 
 	// MeshNetworks (loaded from a config map) provides information about the
@@ -91,18 +91,6 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	DNSDomain string
 
-	// TrustDomain defines the trust domain of the certificate
-	TrustDomain string
-
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
-	//spiffe://{TrustDomain}/{PilotIdentity}
-	PilotIdentity string
-
-	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
-	//spiffe://{TrustDomain}/{MixerIdentity}
-	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
-	MixerIdentity string
-
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
@@ -114,11 +102,62 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// The merged gateways associated with the proxy if this is a Router
+	MergedGateway *MergedGateway
+
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
 
 	// labels associated with the workload
-	WorkloadLabels config.LabelsCollection
+	WorkloadLabels labels.Collection
+
+	// Istio version associated with the Proxy
+	IstioVersion *IstioVersion
+}
+
+var (
+	istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
+)
+
+// IstioVersion encodes the Istio version of the proxy. This is a low key way to
+// do semver style comparisons and generate the appropriate envoy config
+type IstioVersion struct {
+	Major int
+	Minor int
+	Patch int
+}
+
+var (
+	MaxIstioVersion = &IstioVersion{Major: 65535, Minor: 65535, Patch: 65535}
+)
+
+// Compare returns -1/0/1 if version is less than, equal or greater than inv
+// To compare only on major, call this function with { X, -1, -1}.
+// to compare only on major & minor, call this function with {X, Y, -1}.
+func (pversion *IstioVersion) Compare(inv *IstioVersion) int {
+	if pversion.Major > inv.Major {
+		return 1
+	} else if pversion.Major < inv.Major {
+		return -1
+	}
+
+	// check minors
+	if inv.Minor > -1 {
+		if pversion.Minor > inv.Minor {
+			return 1
+		} else if pversion.Minor < inv.Minor {
+			return -1
+		}
+		// check patch
+		if inv.Patch > -1 {
+			if pversion.Patch > inv.Patch {
+				return 1
+			} else if pversion.Patch < inv.Patch {
+				return -1
+			}
+		}
+	}
+	return 0
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -155,12 +194,6 @@ func (node *Proxy) ServiceNode() string {
 		string(node.Type), ip, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 
-}
-
-// GetProxyVersion returns the proxy version string identifier, and whether it is present.
-func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
-	return version, found
 }
 
 // GetIstioVersion returns the Istio version of the proxy, and whether it is present
@@ -203,13 +236,23 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	if node.Type == SidecarProxy {
-		labels := node.WorkloadLabels
-		node.SidecarScope = ps.getSidecarScope(node, labels)
+		node.SidecarScope = ps.getSidecarScope(node, node.WorkloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
 
+}
+
+// SetGatewaysForProxy merges the Gateway objects associated with this
+// proxy and caches the merged object in the proxy Node. This is a convenience hack so that
+// callers can simply call push.MergedGateways(node) instead of having to
+// fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
+	if node.Type != Router {
+		return
+	}
+	node.MergedGateway = ps.mergeGateways(node)
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {
@@ -223,14 +266,21 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 	return nil
 }
 
-func (node *Proxy) SetWorkloadLabels(env *Environment) error {
-	labels, err := env.GetProxyWorkloadLabels(node)
-	if err != nil {
-		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
-		labels = config.LabelsCollection{node.Metadata}
+// SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
+// otherwise only set it when it is nil.
+func (node *Proxy) SetWorkloadLabels(env *Environment, force bool) error {
+	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
+	if node.WorkloadLabels != nil {
+		return nil
 	}
 
-	node.WorkloadLabels = labels
+	l, err := env.GetProxyWorkloadLabels(node)
+	if err != nil {
+		log.Errorf("failed to get service proxy labels: %v", err)
+		return err
+	}
+
+	node.WorkloadLabels = l
 	return nil
 }
 
@@ -269,8 +319,18 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 	fields := metadata.GetFields()
 	res := make(map[string]string, len(fields))
 	for k, v := range fields {
-		if s, ok := v.GetKind().(*types.Value_StringValue); ok {
+		switch s := v.GetKind().(type) {
+		case *types.Value_StringValue:
 			res[k] = s.StringValue
+		default:
+			// Some fields are not simple strings, dump these to json strings.
+			// TODO: convert metadata to a properly typed struct rather than map[string]string
+			j, err := (&jsonpb.Marshaler{}).MarshalToString(v)
+			if err != nil {
+				log.Warnf("failed to unmarshal metadata field %v with value %v: %v", k, v, err)
+				continue
+			}
+			res[k] = j
 		}
 	}
 	if len(res) == 0 {
@@ -312,13 +372,50 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
+	if len(out.IPAddresses) == 0 {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
+	out.IstioVersion = ParseIstioVersion(metadata[NodeMetadataIstioVersion])
+
+	if data, ok := metadata[NodeMetadataLabels]; ok {
+		var nodeLabels map[string]string
+		if err := json.Unmarshal([]byte(data), &nodeLabels); err != nil {
+			log.Warnf("invalid node label %s: %v", data, err)
+		}
+		if len(nodeLabels) > 0 {
+			out.WorkloadLabels = labels.Collection{nodeLabels}
+		}
+	}
 	return out, nil
+}
+
+// ParseIstioVersion parses a version string and returns IstioVersion struct
+func ParseIstioVersion(ver string) *IstioVersion {
+	if strings.HasPrefix(ver, "master-") {
+		// This proxy is from a master branch build. Assume latest version
+		return MaxIstioVersion
+	}
+
+	// strip the release- prefix if any and extract the version string
+	ver = istioVersionRegexp.FindString(strings.TrimPrefix(ver, "release-"))
+
+	if ver == "" {
+		// return very large values assuming latest version
+		return MaxIstioVersion
+	}
+
+	parts := strings.Split(ver, ".")
+	// we are guaranteed to have atleast major and minor based on the regex
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	patch := 0
+	if len(parts) > 2 {
+		patch, _ = strconv.Atoi(parts[2])
+	}
+	return &IstioVersion{Major: major, Minor: minor, Patch: patch}
 }
 
 // GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
@@ -393,9 +490,6 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
-	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
-	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
-
 	// NodeMetadataIstioVersion specifies the Istio version associated with the proxy
 	NodeMetadataIstioVersion = "ISTIO_VERSION"
 
@@ -403,6 +497,9 @@ const (
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
 	NodeMetadataNetwork = "NETWORK"
+
+	// NodeMetadataNetwork defines the cluster the node belongs to.
+	NodeMetadataClusterID = "CLUSTER_ID"
 
 	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
@@ -416,10 +513,6 @@ const (
 	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
-
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
-	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "SIDECAR_UID"
 
 	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
 	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
@@ -440,6 +533,9 @@ const (
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+
+	// NodeMetadataMeshID specifies the mesh ID environment variable.
+	NodeMetadataMeshID = "MESH_ID"
 
 	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
 	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
@@ -462,6 +558,38 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataPodPorts the ports on a pod. This is used to lookup named ports.
+	NodeMetadataPodPorts = "POD_PORTS"
+
+	// NodeMetadataCanonicalTelemetryService specifies the service name to use for all node telemetry.
+	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"
+
+	// NodeMetadataLabels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	NodeMetadataLabels = "LABELS"
+
+	// NodeMetadataWorkloadName specifies the name of the workload represented by this node.
+	NodeMetadataWorkloadName = "WORKLOAD_NAME"
+
+	// NodeMetadataOwner specifies the workload owner (opaque string). Typically, this is the owning controller of
+	// of the workload instance (ex: k8s deployment for a k8s pod).
+	NodeMetadataOwner = "OWNER"
+
+	// NodeMetadataServiceAccount specifies the service account which is running the workload.
+	NodeMetadataServiceAccount = "SERVICE_ACCOUNT"
+
+	// NodeMetadataPlatformMetadata contains any platform specific metadata
+	NodeMetadataPlatformMetadata = "PLATFORM_METADATA"
+
+	// NodeMetadataInstanceName is the short name for the workload instance (ex: pod name)
+	NodeMetadataInstanceName = "NAME" // replaces POD_NAME
+
+	// NodeMetadataNamespace is the namespace in which the workload instance is running.
+	NodeMetadataNamespace = "NAMESPACE" // replaces CONFIG_NAMESPACE
+
+	// NodeMetadataExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
+	// The list is comma-separated.
+	NodeMetadataExchangeKeys = "EXCHANGE_KEYS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

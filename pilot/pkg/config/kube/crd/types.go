@@ -19,201 +19,202 @@ package crd
 // This file contains Go definitions for Custom Resource Definition kinds
 // to adhere to the idiomatic use of k8s API machinery.
 // These definitions are synthesized from Istio configuration type descriptors
-// as declared in the Pilot config model.
+// as declared in the Istio config model.
 
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type SchemaType struct {
-	Schema     model.ProtoSchema
+	Schema     schema.Instance
 	Object     IstioObject
 	Collection IstioObjectList
 }
 
 var KnownTypes = map[string]SchemaType{
-	model.MockConfig.Type: {
-		Schema: model.MockConfig,
+	schemas.MockConfig.Type: {
+		Schema: schemas.MockConfig,
 		Object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MockConfig",
-				APIVersion: APIVersion(&model.MockConfig),
+				APIVersion: APIVersion(&schemas.MockConfig),
 			},
 		},
 		Collection: &MockConfigList{},
 	},
-	model.VirtualService.Type: {
-		Schema: model.VirtualService,
+	schemas.VirtualService.Type: {
+		Schema: schemas.VirtualService,
 		Object: &VirtualService{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "VirtualService",
-				APIVersion: APIVersion(&model.VirtualService),
+				APIVersion: APIVersion(&schemas.VirtualService),
 			},
 		},
 		Collection: &VirtualServiceList{},
 	},
-	model.Gateway.Type: {
-		Schema: model.Gateway,
+	schemas.Gateway.Type: {
+		Schema: schemas.Gateway,
 		Object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Gateway",
-				APIVersion: APIVersion(&model.Gateway),
+				APIVersion: APIVersion(&schemas.Gateway),
 			},
 		},
 		Collection: &GatewayList{},
 	},
-	model.ServiceEntry.Type: {
-		Schema: model.ServiceEntry,
+	schemas.ServiceEntry.Type: {
+		Schema: schemas.ServiceEntry,
 		Object: &ServiceEntry{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceEntry",
-				APIVersion: APIVersion(&model.ServiceEntry),
+				APIVersion: APIVersion(&schemas.ServiceEntry),
 			},
 		},
 		Collection: &ServiceEntryList{},
 	},
-	model.DestinationRule.Type: {
-		Schema: model.DestinationRule,
+	schemas.DestinationRule.Type: {
+		Schema: schemas.DestinationRule,
 		Object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationRule",
-				APIVersion: APIVersion(&model.DestinationRule),
+				APIVersion: APIVersion(&schemas.DestinationRule),
 			},
 		},
 		Collection: &DestinationRuleList{},
 	},
-	model.EnvoyFilter.Type: {
-		Schema: model.EnvoyFilter,
+	schemas.EnvoyFilter.Type: {
+		Schema: schemas.EnvoyFilter,
 		Object: &EnvoyFilter{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EnvoyFilter",
-				APIVersion: APIVersion(&model.EnvoyFilter),
+				APIVersion: APIVersion(&schemas.EnvoyFilter),
 			},
 		},
 		Collection: &EnvoyFilterList{},
 	},
-	model.Sidecar.Type: {
-		Schema: model.Sidecar,
+	schemas.Sidecar.Type: {
+		Schema: schemas.Sidecar,
 		Object: &Sidecar{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Sidecar",
-				APIVersion: APIVersion(&model.Sidecar),
+				APIVersion: APIVersion(&schemas.Sidecar),
 			},
 		},
 		Collection: &SidecarList{},
 	},
-	model.HTTPAPISpec.Type: {
-		Schema: model.HTTPAPISpec,
+	schemas.HTTPAPISpec.Type: {
+		Schema: schemas.HTTPAPISpec,
 		Object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpec",
-				APIVersion: APIVersion(&model.HTTPAPISpec),
+				APIVersion: APIVersion(&schemas.HTTPAPISpec),
 			},
 		},
 		Collection: &HTTPAPISpecList{},
 	},
-	model.HTTPAPISpecBinding.Type: {
-		Schema: model.HTTPAPISpecBinding,
+	schemas.HTTPAPISpecBinding.Type: {
+		Schema: schemas.HTTPAPISpecBinding,
 		Object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
-				APIVersion: APIVersion(&model.HTTPAPISpecBinding),
+				APIVersion: APIVersion(&schemas.HTTPAPISpecBinding),
 			},
 		},
 		Collection: &HTTPAPISpecBindingList{},
 	},
-	model.QuotaSpec.Type: {
-		Schema: model.QuotaSpec,
+	schemas.QuotaSpec.Type: {
+		Schema: schemas.QuotaSpec,
 		Object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpec",
-				APIVersion: APIVersion(&model.QuotaSpec),
+				APIVersion: APIVersion(&schemas.QuotaSpec),
 			},
 		},
 		Collection: &QuotaSpecList{},
 	},
-	model.QuotaSpecBinding.Type: {
-		Schema: model.QuotaSpecBinding,
+	schemas.QuotaSpecBinding.Type: {
+		Schema: schemas.QuotaSpecBinding,
 		Object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
-				APIVersion: APIVersion(&model.QuotaSpecBinding),
+				APIVersion: APIVersion(&schemas.QuotaSpecBinding),
 			},
 		},
 		Collection: &QuotaSpecBindingList{},
 	},
-	model.AuthenticationPolicy.Type: {
-		Schema: model.AuthenticationPolicy,
+	schemas.AuthenticationPolicy.Type: {
+		Schema: schemas.AuthenticationPolicy,
 		Object: &Policy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Policy",
-				APIVersion: APIVersion(&model.AuthenticationPolicy),
+				APIVersion: APIVersion(&schemas.AuthenticationPolicy),
 			},
 		},
 		Collection: &PolicyList{},
 	},
-	model.AuthenticationMeshPolicy.Type: {
-		Schema: model.AuthenticationMeshPolicy,
+	schemas.AuthenticationMeshPolicy.Type: {
+		Schema: schemas.AuthenticationMeshPolicy,
 		Object: &MeshPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MeshPolicy",
-				APIVersion: APIVersion(&model.AuthenticationMeshPolicy),
+				APIVersion: APIVersion(&schemas.AuthenticationMeshPolicy),
 			},
 		},
 		Collection: &MeshPolicyList{},
 	},
-	model.ServiceRole.Type: {
-		Schema: model.ServiceRole,
+	schemas.ServiceRole.Type: {
+		Schema: schemas.ServiceRole,
 		Object: &ServiceRole{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRole",
-				APIVersion: APIVersion(&model.ServiceRole),
+				APIVersion: APIVersion(&schemas.ServiceRole),
 			},
 		},
 		Collection: &ServiceRoleList{},
 	},
-	model.ServiceRoleBinding.Type: {
-		Schema: model.ServiceRoleBinding,
+	schemas.ServiceRoleBinding.Type: {
+		Schema: schemas.ServiceRoleBinding,
 		Object: &ServiceRoleBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ServiceRoleBinding",
-				APIVersion: APIVersion(&model.ServiceRoleBinding),
+				APIVersion: APIVersion(&schemas.ServiceRoleBinding),
 			},
 		},
 		Collection: &ServiceRoleBindingList{},
 	},
-	model.AuthorizationPolicy.Type: {
-		Schema: model.AuthorizationPolicy,
-		Object: &AuthorizationPolicy{
-			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "AuthorizationPolicy",
-				APIVersion: APIVersion(&model.AuthorizationPolicy),
-			},
-		},
-		Collection: &AuthorizationPolicyList{},
-	},
-	model.RbacConfig.Type: {
-		Schema: model.RbacConfig,
+	schemas.RbacConfig.Type: {
+		Schema: schemas.RbacConfig,
 		Object: &RbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "RbacConfig",
-				APIVersion: APIVersion(&model.RbacConfig),
+				APIVersion: APIVersion(&schemas.RbacConfig),
 			},
 		},
 		Collection: &RbacConfigList{},
 	},
-	model.ClusterRbacConfig.Type: {
-		Schema: model.ClusterRbacConfig,
+	schemas.ClusterRbacConfig.Type: {
+		Schema: schemas.ClusterRbacConfig,
 		Object: &ClusterRbacConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ClusterRbacConfig",
-				APIVersion: APIVersion(&model.ClusterRbacConfig),
+				APIVersion: APIVersion(&schemas.ClusterRbacConfig),
 			},
 		},
 		Collection: &ClusterRbacConfigList{},
+	},
+	schemas.AuthorizationPolicy.Type: {
+		Schema: schemas.AuthorizationPolicy,
+		Object: &AuthorizationPolicy{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "AuthorizationPolicy",
+				APIVersion: APIVersion(&schemas.AuthorizationPolicy),
+			},
+		},
+		Collection: &AuthorizationPolicyList{},
 	},
 }
 
@@ -1762,109 +1763,6 @@ func (in *ServiceRoleBindingList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// AuthorizationPolicy is the generic Kubernetes API Object wrapper
-type AuthorizationPolicy struct {
-	meta_v1.TypeMeta   `json:",inline"`
-	meta_v1.ObjectMeta `json:"metadata"`
-	Spec               map[string]interface{} `json:"spec"`
-}
-
-// GetSpec from a wrapper
-func (in *AuthorizationPolicy) GetSpec() map[string]interface{} {
-	return in.Spec
-}
-
-// SetSpec for a wrapper
-func (in *AuthorizationPolicy) SetSpec(spec map[string]interface{}) {
-	in.Spec = spec
-}
-
-// GetObjectMeta from a wrapper
-func (in *AuthorizationPolicy) GetObjectMeta() meta_v1.ObjectMeta {
-	return in.ObjectMeta
-}
-
-// SetObjectMeta for a wrapper
-func (in *AuthorizationPolicy) SetObjectMeta(metadata meta_v1.ObjectMeta) {
-	in.ObjectMeta = metadata
-}
-
-// AuthorizationPolicyList is the generic Kubernetes API list wrapper
-type AuthorizationPolicyList struct {
-	meta_v1.TypeMeta `json:",inline"`
-	meta_v1.ListMeta `json:"metadata"`
-	Items            []AuthorizationPolicy `json:"items"`
-}
-
-// GetItems from a wrapper
-func (in *AuthorizationPolicyList) GetItems() []IstioObject {
-	out := make([]IstioObject, len(in.Items))
-	for i := range in.Items {
-		out[i] = &in.Items[i]
-	}
-	return out
-}
-
-// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *AuthorizationPolicy) DeepCopyInto(out *AuthorizationPolicy) {
-	*out = *in
-	out.TypeMeta = in.TypeMeta
-	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	out.Spec = in.Spec
-}
-
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicy.
-func (in *AuthorizationPolicy) DeepCopy() *AuthorizationPolicy {
-	if in == nil {
-		return nil
-	}
-	out := new(AuthorizationPolicy)
-	in.DeepCopyInto(out)
-	return out
-}
-
-// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *AuthorizationPolicy) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	}
-
-	return nil
-}
-
-// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *AuthorizationPolicyList) DeepCopyInto(out *AuthorizationPolicyList) {
-	*out = *in
-	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
-	if in.Items != nil {
-		in, out := &in.Items, &out.Items
-		*out = make([]AuthorizationPolicy, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
-}
-
-// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicyList.
-func (in *AuthorizationPolicyList) DeepCopy() *AuthorizationPolicyList {
-	if in == nil {
-		return nil
-	}
-	out := new(AuthorizationPolicyList)
-	in.DeepCopyInto(out)
-	return out
-}
-
-// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
-func (in *AuthorizationPolicyList) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	}
-
-	return nil
-}
-
 // RbacConfig is the generic Kubernetes API Object wrapper
 type RbacConfig struct {
 	meta_v1.TypeMeta   `json:",inline"`
@@ -2064,6 +1962,109 @@ func (in *ClusterRbacConfigList) DeepCopy() *ClusterRbacConfigList {
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
 func (in *ClusterRbacConfigList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// AuthorizationPolicy is the generic Kubernetes API Object wrapper
+type AuthorizationPolicy struct {
+	meta_v1.TypeMeta   `json:",inline"`
+	meta_v1.ObjectMeta `json:"metadata"`
+	Spec               map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *AuthorizationPolicy) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *AuthorizationPolicy) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *AuthorizationPolicy) GetObjectMeta() meta_v1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *AuthorizationPolicy) SetObjectMeta(metadata meta_v1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// AuthorizationPolicyList is the generic Kubernetes API list wrapper
+type AuthorizationPolicyList struct {
+	meta_v1.TypeMeta `json:",inline"`
+	meta_v1.ListMeta `json:"metadata"`
+	Items            []AuthorizationPolicy `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *AuthorizationPolicyList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *AuthorizationPolicy) DeepCopyInto(out *AuthorizationPolicy) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicy.
+func (in *AuthorizationPolicy) DeepCopy() *AuthorizationPolicy {
+	if in == nil {
+		return nil
+	}
+	out := new(AuthorizationPolicy)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *AuthorizationPolicy) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *AuthorizationPolicyList) DeepCopyInto(out *AuthorizationPolicyList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]AuthorizationPolicy, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AuthorizationPolicyList.
+func (in *AuthorizationPolicyList) DeepCopy() *AuthorizationPolicyList {
+	if in == nil {
+		return nil
+	}
+	out := new(AuthorizationPolicyList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *AuthorizationPolicyList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

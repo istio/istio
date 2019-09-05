@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -26,6 +27,10 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -33,11 +38,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/monitoring"
+
 	"istio.io/pkg/log"
 )
 
@@ -61,19 +69,19 @@ const (
 )
 
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents)
+	monitoring.MustRegister(k8sEvents)
 }
 
 func incrementEvent(kind, event string) {
@@ -126,9 +134,9 @@ type Controller struct {
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
-	servicesMap map[config.Hostname]*model.Service
+	servicesMap map[host.Name]*model.Service
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
-	externalNameSvcInstanceMap map[config.Hostname][]*model.ServiceInstance
+	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -155,8 +163,8 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		queue:                      kube.NewQueue(1 * time.Second),
 		ClusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[config.Hostname]*model.Service),
-		externalNameSvcInstanceMap: make(map[config.Hostname][]*model.ServiceInstance),
+		servicesMap:                make(map[host.Name]*model.Service),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -306,7 +314,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname config.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	defer c.RUnlock()
 	return c.servicesMap[hostname], nil
@@ -409,7 +417,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
-	labelsList config.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 
 	// Locate all ports in the actual service
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
@@ -421,7 +429,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
-		inScopeInstances := []*model.ServiceInstance{}
+		inScopeInstances := make([]*model.ServiceInstance, 0)
 		for _, i := range instances {
 			if i.Service.Attributes.Namespace == svc.Attributes.Namespace {
 				inScopeInstances = append(inScopeInstances, i)
@@ -440,13 +448,15 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return nil, nil
 	}
 
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
+
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			labels, _ := c.pods.labelsByIP(ea.IP)
+			podLabels, _ := c.pods.labelsByIP(ea.IP)
 			// check that one of the input labels is a subset of the labels
-			if !labelsList.HasSubsetOf(labels) {
+			if !labelsList.HasSubsetOf(podLabels) {
 				continue
 			}
 
@@ -455,7 +465,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
-				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				if mixerEnabled {
+					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				}
 			}
 
 			// identify the port by name. K8S EndpointPort uses the service port name
@@ -472,7 +484,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 							Locality:    az,
 						},
 						Service:        svc,
-						Labels:         labels,
+						Labels:         podLabels,
 						ServiceAccount: sa,
 					})
 				}
@@ -487,29 +499,41 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 
-	// There is only one IP for kube registry
-	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
-
-	pod := c.pods.getPodByIP(proxyIP)
-	if pod != nil {
-		// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
-		// which can happen when multi clusters using same pod cidr.
-		// As we have proxy Network meta, compare it with the network which endpoint belongs to,
-		// if they are not same, ignore the pod, because the pod is in another cluster.
-		if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
-			return out, nil
+	if len(proxy.IPAddresses) > 0 {
+		// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
+		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+		// metadata already. Because of this, we can still get most of the information we need.
+		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+		// attempt to read the real pod.
+		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
+		if err == nil {
+			return instances, nil
 		}
 
-		proxyNamespace = pod.Namespace
-		// 1. find proxy service by label selector, if not any, there may exist headless service
-		// failover to 2
-		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-		if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
-			for _, svc := range services {
-				out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
+		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+		// because multiple ips belong to the same pod
+		proxyIP := proxy.IPAddresses[0]
+		pod := c.pods.getPodByIP(proxyIP)
+		if pod != nil {
+			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
+			// which can happen when multi clusters using same pod cidr.
+			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
+			// if they are not same, ignore the pod, because the pod is in another cluster.
+			if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
+				return out, nil
 			}
-			return out, nil
+
+			proxyNamespace = pod.Namespace
+			// 1. find proxy service by label selector, if not any, there may exist headless service
+			// failover to 2
+			svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
+				for _, svc := range services {
+					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
+				}
+				return out, nil
+			}
 		}
 	}
 
@@ -531,6 +555,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
 	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
 	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+
 	if len(out) == 0 {
 		if c.Env != nil {
 			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
@@ -543,6 +568,106 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 	}
 	return out, nil
+}
+
+// getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
+// from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
+// If the proxy doesn't have enough metadata, an error is returned
+func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+	if len(proxy.WorkloadLabels) == 0 {
+		return nil, fmt.Errorf("no workload labels found")
+	}
+
+	if proxy.Metadata[model.NodeMetadataClusterID] != c.ClusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata[model.NodeMetadataClusterID], c.ClusterID)
+	}
+
+	// Create a pod with just the information needed to find the associated Services
+	dummyPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: proxy.ConfigNamespace,
+			Labels:    proxy.WorkloadLabels[0],
+		},
+	}
+
+	// Find the Service associated with the pod.
+	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+	services, err := svcLister.GetPodServices(dummyPod)
+	if err != nil {
+		return nil, fmt.Errorf("error getting instances: %v", err)
+
+	}
+	if len(services) == 0 {
+		return nil, fmt.Errorf("no instances found: %v ", err)
+	}
+
+	// This is a reference to a port by name. We need to do a lookup from the ports map
+	// podPorts must first be unmarshalled, then we can do a lookup.
+	var podPorts []*v1.ContainerPort
+	// We only need the ports if they do a port reference by name, so we don't need to fail yet if
+	// port metadata is not provided
+	if _, f := proxy.Metadata[model.NodeMetadataPodPorts]; f {
+		if err := json.Unmarshal([]byte(proxy.Metadata[model.NodeMetadataPodPorts]), &podPorts); err != nil {
+			return nil, err
+		}
+	}
+
+	out := make([]*model.ServiceInstance, 0)
+	for _, svc := range services {
+		svcAccount := proxy.Metadata[model.NodeMetadataServiceAccount]
+		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
+		c.RLock()
+		modelService, f := c.servicesMap[hostname]
+		c.RUnlock()
+		if !f {
+			return nil, fmt.Errorf("failed to find model service for %v", hostname)
+		}
+		for _, port := range svc.Spec.Ports {
+			svcPort, f := modelService.Ports.Get(port.Name)
+			if !f {
+				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
+			}
+			targetPort, err := findPortFromMetadata(port, podPorts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
+			}
+			// Construct the ServiceInstance
+			out = append(out, &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     proxy.IPAddresses[0],
+					Port:        targetPort,
+					ServicePort: svcPort,
+					Network:     c.endpointNetwork(proxy.IPAddresses[0]),
+					Locality:    util.LocalityToString(proxy.Locality),
+				},
+				Service: modelService,
+				// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
+				Labels:         proxy.WorkloadLabels[0],
+				ServiceAccount: svcAccount,
+			})
+		}
+	}
+	return out, nil
+}
+
+// findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
+func findPortFromMetadata(svcPort v1.ServicePort, podPorts []*v1.ContainerPort) (int, error) {
+	target := svcPort.TargetPort
+
+	switch target.Type {
+	case intstr.String:
+		name := target.StrVal
+		for _, port := range podPorts {
+			if port.Name == name && port.Protocol == svcPort.Protocol {
+				return int(port.ContainerPort), nil
+			}
+		}
+	case intstr.Int:
+		// For a direct reference we can just return the port number
+		return target.IntValue(), nil
+	}
+
+	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
 func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
@@ -561,18 +686,19 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					continue
 				}
 
-				// There is only one IP for kube registry
-				proxyIP := proxy.IPAddresses[0]
+				podIP := proxy.IPAddresses[0]
 
-				if hasProxyIP(ss.Addresses, proxyIP) {
-					out = append(out, c.getEndpoints(proxyIP, port.Port, svcPort, svc))
-				}
+				// consider multiple IP scenarios
+				for _, ip := range proxy.IPAddresses {
+					if hasProxyIP(ss.Addresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+					}
 
-				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
-					nrEP := c.getEndpoints(proxyIP, port.Port, svcPort, svc)
-					out = append(out, nrEP)
-					if c.Env != nil {
-						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					if hasProxyIP(ss.NotReadyAddresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+						if c.Env != nil {
+							c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						}
 					}
 				}
 			}
@@ -605,30 +731,32 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-		// There is only one IP for kube registry
-		proxyIP := proxy.IPAddresses[0]
 
-		out = append(out, c.getEndpoints(proxyIP, int32(portNum), svcPort, svc))
+		podIP := proxy.IPAddresses[0]
 
+		// consider multiple IP scenarios
+		for _, ip := range proxy.IPAddresses {
+			out = append(out, c.getEndpoints(podIP, ip, int32(portNum), svcPort, svc))
+		}
 	}
 
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (config.LabelsCollection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		return config.LabelsCollection{pod.Labels}, nil
+		return labels.Collection{pod.Labels}, nil
 	}
 	return nil, nil
 }
 
-func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	labels, _ := c.pods.labelsByIP(ip)
-	pod := c.pods.getPodByIP(ip)
+func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+	podLabels, _ := c.pods.labelsByIP(podIP)
+	pod := c.pods.getPodByIP(podIP)
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodLocality(pod)
@@ -636,14 +764,14 @@ func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address:     ip,
+			Address:     address,
 			Port:        int(endpointPort),
 			ServicePort: svcPort,
-			Network:     c.endpointNetwork(ip),
+			Network:     c.endpointNetwork(address),
 			Locality:    az,
 		},
 		Service:        svc,
-		Labels:         labels,
+		Labels:         podLabels,
 		ServiceAccount: sa,
 	}
 }
@@ -659,7 +787,7 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(svc, port, config.LabelsCollection{})
+		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
@@ -772,6 +900,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -779,17 +908,27 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-					if c.Env != nil {
-						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					// For service without selector, maybe there are no related pods
+					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+						if c.Env != nil {
+							c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+						}
+						// TODO: keep them in a list, and check when pod events happen !
+						continue
 					}
-					// TODO: keep them in a list, and check when pod events happen !
-					continue
 				}
 
-				labels := map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
-
-				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				var labels map[string]string
+				locality, sa, uid := "", "", ""
+				if pod != nil {
+					locality = c.GetPodLocality(pod)
+					sa = kube.SecureNamingSAN(pod)
+					if mixerEnabled {
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					}
+					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
@@ -800,9 +939,9 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServicePortName: port.Name,
 						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  kube.SecureNamingSAN(pod),
+						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),
-						Locality:        c.GetPodLocality(pod),
+						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}

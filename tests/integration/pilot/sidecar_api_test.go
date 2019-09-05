@@ -37,11 +37,12 @@ func TestSidecarListeners(t *testing.T) {
 
 			// Simulate proxy identity of a sidecar ...
 			nodeID := &model.Proxy{
-				ClusterID:   "integration-test",
-				Type:        model.SidecarProxy,
-				IPAddresses: []string{"10.2.0.1"},
-				ID:          "app3.testns",
-				DNSDomain:   "testns.cluster.local",
+				ClusterID:    "integration-test",
+				Type:         model.SidecarProxy,
+				IPAddresses:  []string{"10.2.0.1"},
+				ID:           "app3.testns",
+				DNSDomain:    "testns.cluster.local",
+				IstioVersion: model.MaxIstioVersion,
 			}
 
 			// Start the xDS stream containing the listeners for this node
@@ -92,7 +93,7 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("10.2.0.1", "{.filterChains[0].filterChainMatch.prefixRanges[0].addressPrefix}").
 			Equals("32", "{.filterChains[0].filterChainMatch.prefixRanges[0].prefixLen}").
 			Equals(true, "{.useOriginalDst}").
@@ -106,8 +107,8 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("mixer", "{.filterChains[1].filters[0].name}").
 			Equals("envoy.tcp_proxy", "{.filterChains[1].filters[1].name}").
-			Equals("PassthroughCluster", "{.filterChains[1].filters[1].config.cluster}").
-			Equals("PassthroughCluster", "{.filterChains[1].filters[1].config.stat_prefix}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[1].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[1].typedConfig.statPrefix}").
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})

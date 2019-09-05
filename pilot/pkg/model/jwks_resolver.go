@@ -28,8 +28,8 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/pkg/cache"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -130,7 +130,7 @@ type JwksResolver struct {
 }
 
 func init() {
-	monitoring.MustRegisterViews(networkFetchSuccessCounter, networkFetchFailCounter)
+	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
@@ -183,7 +183,7 @@ func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 		switch method.GetParams().(type) {
 		case *authn.PeerAuthenticationMethod_Jwt:
 			policyJwt := method.GetJwt()
-			if policyJwt.JwksUri == "" {
+			if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
 				uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
 				if err != nil {
 					log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
@@ -196,7 +196,7 @@ func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 	for _, method := range policy.Origins {
 		// JWT is only allowed authentication method type for Origin.
 		policyJwt := method.GetJwt()
-		if policyJwt.JwksUri == "" {
+		if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
 			uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
 			if err != nil {
 				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)

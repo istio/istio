@@ -26,8 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/status"
-
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
@@ -583,8 +582,8 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
-		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request resource name",
-			conIDresourceNamePrefix, err)
+		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+			" resource name. The failed jwt above is: %s", conIDresourceNamePrefix, err, token)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{

@@ -24,8 +24,9 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestTransportConfig(t *testing.T) {
@@ -36,7 +37,7 @@ func TestTransportConfig(t *testing.T) {
 	}{
 		{
 			// defaults set
-			mesh: config.DefaultMeshConfig(),
+			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{},
 			},
@@ -49,7 +50,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// retry and retry times set
-			mesh: config.DefaultMeshConfig(),
+			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheckRetries.Name:           "5",
@@ -66,7 +67,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// just retry amount set
-			mesh: config.DefaultMeshConfig(),
+			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheckRetries.Name: "1",
@@ -81,7 +82,7 @@ func TestTransportConfig(t *testing.T) {
 		},
 		{
 			// fail open from node metadata
-			mesh: config.DefaultMeshConfig(),
+			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
 					annotation.PolicyCheck.Name: policyCheckDisable,
@@ -100,5 +101,34 @@ func TestTransportConfig(t *testing.T) {
 		if !reflect.DeepEqual(tc.NetworkFailPolicy, c.expect) {
 			t.Errorf("got %v, expected %v", tc.NetworkFailPolicy, c.expect)
 		}
+	}
+}
+
+func Test_proxyVersionToString(t *testing.T) {
+	type args struct {
+		ver *model.IstioVersion
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "major.minor.patch",
+			args: args{ver: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0}},
+			want: "1.2.0",
+		},
+		{
+			name: "max",
+			args: args{ver: model.MaxIstioVersion},
+			want: "65535.65535.65535",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := proxyVersionToString(tt.args.ver); got != tt.want {
+				t.Errorf("proxyVersionToString(ver) = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

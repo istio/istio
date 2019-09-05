@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,9 +62,6 @@ var (
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
 	sdsServiceLog    = log.RegisterScope("sdsServiceLog", "SDS service debugging", 0)
-
-	// metrics for monitoring SDS service.
-	sdsMetrics = newMonitoringMetrics()
 )
 
 type discoveryStream interface {
@@ -163,9 +160,13 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 func (s *sdsservice) DebugInfo() (string, error) {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-
 	clientDebug := make([]sdsclientdebug, 0)
 	for connKey, conn := range sdsClients {
+		// it's possible for the connection to be established without an instantiated secret
+		if conn.secret == nil {
+			continue
+		}
+
 		conn.mutex.RLock()
 		c := sdsclientdebug{
 			ConnectionID:     connKey.ConnectionID,
@@ -265,25 +266,29 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				token = t
 			}
 
-			// Update metric for metrics.
-			sdsMetrics.pendingPushPerConn.WithLabelValues(generateResourcePerConnLabel(resourceName, conID)).Inc()
-			sdsMetrics.totalActiveConn.Inc()
-
+			// Update metrics.
+			totalActiveConnCounts.Increment()
+			if discReq.ErrorDetail != nil {
+				totalSecretUpdateFailureCounts.Increment()
+			}
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
-				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, versionInfo %q\n",
-					conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo)
+				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
+					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					discReq.ErrorDetail.GoString())
 				continue
 			}
 
 			if firstRequestFlag {
-				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, versionInfo %q\n",
-					conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo)
+				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
+					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					discReq.ErrorDetail.GoString())
 			} else {
-				sdsServiceLog.Debugf("%s received SDS request from proxy %q, versionInfo %q\n",
-					conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo)
+				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
+					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					discReq.ErrorDetail.GoString())
 			}
 
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
@@ -383,7 +388,7 @@ func (s *sdsservice) clearStaledClientsJob() {
 	for {
 		select {
 		case <-s.ticker.C:
-			s.clearStaledClients()
+			clearStaledClients()
 		case <-s.closing:
 			if s.ticker != nil {
 				s.ticker.Stop()
@@ -392,7 +397,7 @@ func (s *sdsservice) clearStaledClientsJob() {
 	}
 }
 
-func (s *sdsservice) clearStaledClients() {
+func clearStaledClients() {
 	sdsServiceLog.Debug("start staled connection cleanup job")
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
@@ -401,10 +406,9 @@ func (s *sdsservice) clearStaledClients() {
 		sdsServiceLog.Debugf("remove staled clients %+v", connKey)
 		delete(sdsClients, connKey)
 		delete(staledClientKeys, connKey)
+		// totalStaleConnCounts should be 0 when the for loop finishes.
+		totalStaleConnCounts.Decrement()
 	}
-
-	sdsMetrics.staleConn.Reset()
-	sdsMetrics.totalStaleConn.Set(0)
 }
 
 // NotifyProxy sends notification to proxy about secret update,
@@ -446,13 +450,8 @@ func recycleConnection(conID, resourceName string) {
 
 	staledClientKeys[key] = true
 
-	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
-	sdsMetrics.pushPerConn.DeleteLabelValues(metricLabelName)
-	sdsMetrics.pendingPushPerConn.DeleteLabelValues(metricLabelName)
-	sdsMetrics.pushErrorPerConn.DeleteLabelValues(metricLabelName)
-	sdsMetrics.staleConn.WithLabelValues(metricLabelName).Inc()
-	sdsMetrics.totalStaleConn.Inc()
-	sdsMetrics.totalActiveConn.Dec()
+	totalStaleConnCounts.Increment()
+	totalActiveConnCounts.Decrement()
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
@@ -499,6 +498,8 @@ func getCredentialToken(ctx context.Context) (string, error) {
 func addConn(k cache.ConnKey, conn *sdsConnection) {
 	sdsClientsMutex.Lock()
 	defer sdsClientsMutex.Unlock()
+	conIDresourceNamePrefix := sdsLogPrefix(k.ConnectionID, k.ResourceName)
+	sdsServiceLog.Debugf("%s add a new connection", conIDresourceNamePrefix)
 	sdsClients[k] = conn
 }
 
@@ -531,11 +532,9 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
-	metricLabelName := generateResourcePerConnLabel(resourceName, conID)
 	if err = con.stream.Send(response); err != nil {
 		sdsServiceLog.Errorf("%s failed to send response: %v", conIDresourceNamePrefix, err)
-		sdsMetrics.pushErrorPerConn.WithLabelValues(metricLabelName).Inc()
-		sdsMetrics.totalPushError.Inc()
+		totalPushErrorCounts.Increment()
 		return err
 	}
 
@@ -546,18 +545,12 @@ func pushSDS(con *sdsConnection) error {
 		sdsServiceLog.Infof("%s pushed root cert to proxy\n", conIDresourceNamePrefix)
 		sdsServiceLog.Debugf("%s pushed root cert %+v to proxy\n", conIDresourceNamePrefix,
 			string(secret.RootCert))
-		sdsMetrics.rootCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
-			float64(secret.ExpireTime.Unix()))
 	} else {
 		sdsServiceLog.Infof("%s pushed key/cert pair to proxy\n", conIDresourceNamePrefix)
 		sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy\n",
 			conIDresourceNamePrefix, string(secret.CertificateChain))
-		sdsMetrics.serverCertExpiryTimestamp.WithLabelValues(metricLabelName).Set(
-			float64(secret.ExpireTime.Unix()))
 	}
-	sdsMetrics.pushPerConn.WithLabelValues(metricLabelName).Inc()
-	sdsMetrics.pendingPushPerConn.WithLabelValues(metricLabelName).Dec()
-	sdsMetrics.totalPush.Inc()
+	totalPushCounts.Increment()
 	return nil
 }
 
@@ -608,7 +601,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err
 	}
-	resp.Resources = append(resp.Resources, *ms)
+	resp.Resources = append(resp.Resources, ms)
 
 	return resp, nil
 }

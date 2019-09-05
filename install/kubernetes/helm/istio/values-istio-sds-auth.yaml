@@ -1,5 +1,5 @@
 global:
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
 
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
@@ -9,7 +9,8 @@ global:
   sds:
     enabled: true
     udsPath: "unix:/var/run/sds/uds_path"
-    useNormalJwt: true
+    token:
+      aud: "istio-ca"
 
 nodeagent:
   enabled: true

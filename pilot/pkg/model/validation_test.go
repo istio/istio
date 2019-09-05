@@ -15,160 +15,25 @@
 package model
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
-
-const (
-	// Config name for testing
-	someName = "foo"
-	// Config namespace for testing.
-	someNamespace = "bar"
-)
-
-func TestConfigDescriptorValidate(t *testing.T) {
-	badLabel := strings.Repeat("a", config.DNS1123LabelMaxLength+1)
-	goodLabel := strings.Repeat("a", config.DNS1123LabelMaxLength-1)
-
-	cases := []struct {
-		name       string
-		descriptor ConfigDescriptor
-		wantErr    bool
-	}{{
-		name:       "Valid ConfigDescriptor (IstioConfig)",
-		descriptor: IstioConfigTypes,
-		wantErr:    false,
-	}, {
-		name: "Invalid DNS11234Label in ConfigDescriptor",
-		descriptor: ConfigDescriptor{ProtoSchema{
-			Type:        badLabel,
-			MessageName: "istio.networking.v1alpha3.Gateway",
-		}},
-		wantErr: true,
-	}, {
-		name: "Bad MessageName in ProtoMessage",
-		descriptor: ConfigDescriptor{ProtoSchema{
-			Type:        goodLabel,
-			MessageName: "nonexistent",
-		}},
-		wantErr: true,
-	}, {
-		name: "Missing key function",
-		descriptor: ConfigDescriptor{ProtoSchema{
-			Type:        "service-entry",
-			MessageName: "istio.networking.v1alpha3.ServiceEtrny",
-		}},
-		wantErr: true,
-	}, {
-		name:       "Duplicate type and message",
-		descriptor: ConfigDescriptor{DestinationRule, DestinationRule},
-		wantErr:    true,
-	}}
-
-	for _, c := range cases {
-		if err := c.descriptor.Validate(); (err != nil) != c.wantErr {
-			t.Errorf("%v failed: got %v but wantErr=%v", c.name, err, c.wantErr)
-		}
-	}
-}
-
-// ValidateConfig ensures that the config object is well-defined
-// TODO: also check name and namespace
-func descriptorValidateConfig(descriptor ConfigDescriptor, typ string, obj interface{}) error {
-	if obj == nil {
-		return fmt.Errorf("invalid nil configuration object")
-	}
-
-	t, ok := descriptor.GetByType(typ)
-	if !ok {
-		return fmt.Errorf("undeclared type: %q", typ)
-	}
-
-	v, ok := obj.(proto.Message)
-	if !ok {
-		return fmt.Errorf("cannot cast to a proto message")
-	}
-
-	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("mismatched message type %q and type %q",
-			proto.MessageName(v), t.MessageName)
-	}
-	return t.Validate(someName, someNamespace, v)
-}
-
-func TestConfigDescriptorValidateConfig(t *testing.T) {
-	cases := []struct {
-		name    string
-		typ     string
-		config  interface{}
-		wantErr bool
-	}{
-		{
-			name:    "bad configuration object",
-			typ:     "policy",
-			config:  nil,
-			wantErr: true,
-		},
-		{
-			name:    "undeclared kind",
-			typ:     "special-type",
-			config:  nil,
-			wantErr: true,
-		},
-		{
-			name:    "non-proto object configuration",
-			typ:     "policy",
-			config:  "non-proto objection configuration",
-			wantErr: true,
-		},
-		{
-			name:    "message type and kind mismatch",
-			typ:     "policy",
-			config:  ServiceEntry,
-			wantErr: true,
-		},
-		{
-			name:    "ProtoSchema validation1",
-			typ:     "service-entry",
-			config:  ServiceEntry,
-			wantErr: true,
-		},
-		{
-			name:    "Successful validation",
-			typ:     MockConfig.Type,
-			config:  &test.MockConfig{Key: "test"},
-			wantErr: false,
-		},
-	}
-
-	types := append(IstioConfigTypes, MockConfig)
-
-	for _, c := range cases {
-		if err := descriptorValidateConfig(types, c.typ, c.config); (err != nil) != c.wantErr {
-			t.Errorf("%v failed: got error=%v but wantErr=%v", c.name, err, c.wantErr)
-		}
-	}
-}
 
 var (
 	endpoint1 = NetworkEndpoint{
 		Address:     "192.168.1.1",
 		Port:        10001,
-		ServicePort: &Port{Name: "http", Port: 81, Protocol: config.ProtocolHTTP},
+		ServicePort: &Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
 	}
 
 	service1 = &Service{
 		Hostname: "one.service.com",
 		Address:  "192.168.3.1", // VIP
 		Ports: PortList{
-			&Port{Name: "http", Port: 81, Protocol: config.ProtocolHTTP},
-			&Port{Name: "http-alt", Port: 8081, Protocol: config.ProtocolHTTP},
+			&Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
+			&Port{Name: "http-alt", Port: 8081, Protocol: protocol.HTTP},
 		},
 	}
 )
@@ -182,7 +47,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 		{
 			name: "nil service",
 			instance: &ServiceInstance{
-				Labels:   config.Labels{},
+				Labels:   labels.Instance{},
 				Endpoint: endpoint1,
 			},
 		},
@@ -190,7 +55,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 			name: "bad label",
 			instance: &ServiceInstance{
 				Service:  service1,
-				Labels:   config.Labels{"*": "-"},
+				Labels:   labels.Instance{"*": "-"},
 				Endpoint: endpoint1,
 			},
 		},
@@ -235,7 +100,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 					ServicePort: &Port{
 						Name:     "http",
 						Port:     service1.Ports[1].Port + 1,
-						Protocol: config.ProtocolGRPC,
+						Protocol: protocol.GRPC,
 					},
 				},
 			},
@@ -251,13 +116,13 @@ func TestServiceInstanceValidate(t *testing.T) {
 
 func TestServiceValidate(t *testing.T) {
 	ports := PortList{
-		{Name: "http", Port: 80, Protocol: config.ProtocolHTTP},
-		{Name: "http-alt", Port: 8080, Protocol: config.ProtocolHTTP},
+		{Name: "http", Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt", Port: 8080, Protocol: protocol.HTTP},
 	}
 	badPorts := PortList{
-		{Port: 80, Protocol: config.ProtocolHTTP},
-		{Name: "http-alt^", Port: 8080, Protocol: config.ProtocolHTTP},
-		{Name: "http", Port: -80, Protocol: config.ProtocolHTTP},
+		{Port: 80, Protocol: protocol.HTTP},
+		{Name: "http-alt^", Port: 8080, Protocol: protocol.HTTP},
+		{Name: "http", Port: -80, Protocol: protocol.HTTP},
 	}
 
 	address := "192.168.1.1"

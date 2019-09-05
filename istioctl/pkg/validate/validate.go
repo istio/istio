@@ -30,9 +30,10 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
+
 	"istio.io/pkg/log"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -86,7 +87,7 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
+	schema, exists := schemas.Istio.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
 	if exists {
 		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -328,8 +329,8 @@ func servicePortPrefixed(n string) bool {
 	if i >= 0 {
 		n = n[:i]
 	}
-	protocol := config.ParseProtocol(n)
-	return protocol == config.ProtocolUnsupported
+	p := protocol.Parse(n)
+	return p == protocol.Unsupported
 }
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {

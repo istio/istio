@@ -55,7 +55,7 @@ type defaultPortForwarder struct {
 }
 
 func (f *defaultPortForwarder) Start() error {
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		errCh <- f.forwarder.ForwardPorts()
 	}()

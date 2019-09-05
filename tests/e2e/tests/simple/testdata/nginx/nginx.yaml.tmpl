@@ -180,6 +180,8 @@ spec:
         # 1. It serves a 404 page at /
         # 2. It serves 200 on a /healthz endpoint
         image: gcr.io/google_containers/defaultbackend:1.4
+        securityContext:
+          runAsUser: 0
         ports:
         - name: http
           containerPort: 8080
@@ -234,6 +236,7 @@ spec:
         prometheus.io/scrape: 'true'
         # Do not redirect inbound traffic to Envoy.
         traffic.sidecar.istio.io/includeInboundPorts: ""
+        traffic.sidecar.istio.io/excludeInboundPorts: "80,443"
         # Exclude outbound traffic to kubernetes master from redirection.
         # This is required in order to support single-namespace Istio configurations.
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{.KubeMasterCIDR}},1.1.1.1/24,2.2.2.2/16,3.3.3.3/20"
@@ -242,6 +245,8 @@ spec:
       containers:
         - name: nginx
           image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.12.0
+          securityContext:
+            runAsUser: 0
           args:
             - /nginx-ingress-controller
             - --default-backend-service=$(POD_NAMESPACE)/nginx-default-http-backend

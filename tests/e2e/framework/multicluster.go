@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -108,6 +109,11 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 	// Setting selfSigned to false because the primary and the remote clusters
 	// are running with a shared root CA
 	helmSetContent += " --set security.selfSigned=false"
+
+	// Set the cluster id
+	config := strings.Split(k.RemoteKubeConfig, "/")
+	helmSetContent += " --set global.multicluster.clusterName=" + config[len(config)-1]
+
 	// Enabling access log because some tests (e.g. TestGrpc) are validating
 	// based on the pods logs
 	helmSetContent += " --set global.proxy.accessLogFile=\"/dev/stdout\""
@@ -119,11 +125,11 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		log.Infof("Remote cluster auto-sidecar injection enabled")
 	}
 	if proxyHub != "" && proxyTag != "" {
-		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
+		helmSetContent += " --set-string global.hub=" + proxyHub + " --set-string global.tag=" + proxyTag
 	}
 	err = util.HelmClientInit()
 	if err != nil {
-		log.Errorf("cnnot run helm init %v", err)
+		log.Errorf("cannot run helm init %v", err)
 		return err
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
@@ -167,7 +173,7 @@ func (k *KubeInfo) generateRemoteIstioForSplitHorizon(dst string, network string
 	helmSetContent += " --set gateways.istio-ingressgateway.env.ISTIO_META_NETWORK=\"" + network + "\""
 	helmSetContent += " --set global.network=\"" + network + "\""
 	if proxyHub != "" && proxyTag != "" {
-		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
+		helmSetContent += " --set-string global.hub=" + proxyHub + " --set-string global.tag=" + proxyTag
 	}
 
 	err = util.HelmClientInit()

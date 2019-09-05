@@ -23,8 +23,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -39,30 +39,39 @@ var (
 
 func TestConvertProtocol(t *testing.T) {
 	type protocolCase struct {
+		port  int32
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}
 	protocols := []protocolCase{
-		{"", coreV1.ProtocolTCP, config.ProtocolTCP},
-		{"http", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http-test", coreV1.ProtocolTCP, config.ProtocolHTTP},
-		{"http", coreV1.ProtocolUDP, config.ProtocolUDP},
-		{"httptest", coreV1.ProtocolTCP, config.ProtocolTCP},
-		{"https", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"https-test", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"http2", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"http2-test", coreV1.ProtocolTCP, config.ProtocolHTTP2},
-		{"grpc", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-test", coreV1.ProtocolTCP, config.ProtocolGRPC},
-		{"grpc-web", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"grpc-web-test", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"mongo", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"mongo-test", coreV1.ProtocolTCP, config.ProtocolMongo},
-		{"redis", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"redis-test", coreV1.ProtocolTCP, config.ProtocolRedis},
-		{"mysql", coreV1.ProtocolTCP, config.ProtocolMySQL},
-		{"mysql-test", coreV1.ProtocolTCP, config.ProtocolMySQL},
+		{8888, "", coreV1.ProtocolTCP, protocol.Unsupported},
+		{25, "", coreV1.ProtocolTCP, protocol.TCP},
+		{53, "", coreV1.ProtocolTCP, protocol.TCP},
+		{3306, "", coreV1.ProtocolTCP, protocol.TCP},
+		{27017, "", coreV1.ProtocolTCP, protocol.TCP},
+		{8888, "http", coreV1.ProtocolTCP, protocol.HTTP},
+		{8888, "http-test", coreV1.ProtocolTCP, protocol.HTTP},
+		{8888, "http", coreV1.ProtocolUDP, protocol.UDP},
+		{8888, "httptest", coreV1.ProtocolTCP, protocol.Unsupported},
+		{25, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{53, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{3306, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{27017, "httptest", coreV1.ProtocolTCP, protocol.TCP},
+		{8888, "https", coreV1.ProtocolTCP, protocol.HTTPS},
+		{8888, "https-test", coreV1.ProtocolTCP, protocol.HTTPS},
+		{8888, "http2", coreV1.ProtocolTCP, protocol.HTTP2},
+		{8888, "http2-test", coreV1.ProtocolTCP, protocol.HTTP2},
+		{8888, "grpc", coreV1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-test", coreV1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-web", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "grpc-web-test", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "mongo", coreV1.ProtocolTCP, protocol.Mongo},
+		{8888, "mongo-test", coreV1.ProtocolTCP, protocol.Mongo},
+		{8888, "redis", coreV1.ProtocolTCP, protocol.Redis},
+		{8888, "redis-test", coreV1.ProtocolTCP, protocol.Redis},
+		{8888, "mysql", coreV1.ProtocolTCP, protocol.MySQL},
+		{8888, "mysql-test", coreV1.ProtocolTCP, protocol.MySQL},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -81,11 +90,11 @@ func TestConvertProtocol(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		testName := strings.Replace(fmt.Sprintf("%s_%s", c.name, c.proto), "-", "_", -1)
+		testName := strings.Replace(fmt.Sprintf("%s_%s_%d", c.name, c.proto, c.port), "-", "_", -1)
 		t.Run(testName, func(t *testing.T) {
-			out := kube.ConvertProtocol(c.name, c.proto)
+			out := kube.ConvertProtocol(c.port, c.name, c.proto)
 			if out != c.out {
-				t.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
+				t.Fatalf("convertProtocol(%d, %q, %q) => %q, want %q", c.port, c.name, c.proto, out, c.out)
 			}
 		})
 	}
@@ -95,19 +104,19 @@ func BenchmarkConvertProtocol(b *testing.B) {
 	cases := []struct {
 		name  string
 		proto coreV1.Protocol
-		out   config.Protocol
+		out   protocol.Instance
 	}{
-		{"grpc-web-lowercase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, config.ProtocolGRPCWeb},
-		{"https-lowercase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
-		{"HTTPS-mixedcase", coreV1.ProtocolTCP, config.ProtocolHTTPS},
+		{"grpc-web-lowercase", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, protocol.GRPCWeb},
+		{"https-lowercase", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"HTTPS-mixedcase", coreV1.ProtocolTCP, protocol.HTTPS},
 	}
 
 	for _, c := range cases {
 		testName := strings.Replace(c.name, "-", "_", -1)
 		b.Run(testName, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				out := kube.ConvertProtocol(c.name, c.proto)
+				out := kube.ConvertProtocol(8888, c.name, c.proto)
 				if out != c.out {
 					b.Fatalf("convertProtocol(%q, %q) => %q, want %q", c.name, c.proto, out, c.out)
 				}
@@ -318,7 +327,6 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	if !service.External() {
 		t.Fatal("ExternalName service (even if .cluster.local) should be external")
-		t.Fatalf("ExternalName service (even if .cluster.local) should be external")
 	}
 
 	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
@@ -337,6 +345,12 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 		{
 			IP: "127.68.32.113",
+		},
+		{
+			Hostname: "127.68.32.114",
+		},
+		{
+			Hostname: "127.68.32.115",
 		},
 	}
 
@@ -391,12 +405,12 @@ func TestProbesToPortsConversion(t *testing.T) {
 		{
 			Name:     "mgmt-3306",
 			Port:     3306,
-			Protocol: config.ProtocolTCP,
+			Protocol: protocol.TCP,
 		},
 		{
 			Name:     "mgmt-9080",
 			Port:     9080,
-			Protocol: config.ProtocolHTTP,
+			Protocol: protocol.HTTP,
 		},
 	}
 

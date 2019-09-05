@@ -31,9 +31,10 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/pkg/monitoring"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -49,22 +50,24 @@ type cacheHandler struct {
 	handler  *kube.ChainHandler
 }
 
+type ValidateFunc func(interface{}) error
+
 var (
-	typeTag  = monitoring.MustCreateTag("type")
-	eventTag = monitoring.MustCreateTag("event")
-	nameTag  = monitoring.MustCreateTag("name")
+	typeTag  = monitoring.MustCreateLabel("type")
+	eventTag = monitoring.MustCreateLabel("event")
+	nameTag  = monitoring.MustCreateLabel("name")
 
 	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_cfg_events",
 		"Events from k8s config.",
-		typeTag, eventTag,
+		monitoring.WithLabels(typeTag, eventTag),
 	)
 
 	k8sErrors = monitoring.NewGauge(
 		"pilot_k8s_object_errors",
 		"Errors converting k8s CRDs",
-		nameTag,
+		monitoring.WithLabels(nameTag),
 	)
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
@@ -73,7 +76,7 @@ var (
 )
 
 func init() {
-	monitoring.MustRegisterViews(k8sEvents, k8sErrors)
+	monitoring.MustRegister(k8sEvents, k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -89,14 +92,14 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 	}
 
 	// add stores for CRD kinds
-	for _, schema := range client.ConfigDescriptor() {
-		out.addInformer(schema, options.WatchedNamespace, options.ResyncPeriod)
+	for _, s := range client.ConfigDescriptor() {
+		out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
 	}
 
 	return out
 }
 
-func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
+func (c *controller) addInformer(schema schema.Instance, namespace string, resyncPeriod time.Duration) {
 	c.kinds[schema.Type] = c.createInformer(crd.KnownTypes[schema.Type].Object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = crd.KnownTypes[schema.Type].Collection.DeepCopyObject()
@@ -127,6 +130,32 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 				req = req.Namespace(namespace)
 			}
 			return req.Watch()
+		},
+		func(obj interface{}) error {
+			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
+			if !ok {
+				return fmt.Errorf("client not initialized %s", schema.Type)
+			}
+			s, exists := rc.descriptor.GetByType(schema.Type)
+			if !exists {
+				return fmt.Errorf("unrecognized type %q", schema.Type)
+			}
+
+			item, ok := obj.(crd.IstioObject)
+			if !ok {
+				return fmt.Errorf("error convert %v to istio CRD", obj)
+			}
+
+			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+			if err != nil {
+				return fmt.Errorf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, obj)
+			}
+
+			if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+				return fmt.Errorf("failed to validate CRD %v, error: %v", config, err)
+			}
+
+			return nil
 		})
 }
 
@@ -148,7 +177,8 @@ func (c *controller) createInformer(
 	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
-	wf cache.WatchFunc) cacheHandler {
+	wf cache.WatchFunc,
+	vf ValidateFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
@@ -161,10 +191,18 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				if err := vf(obj); err != nil {
+					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
+					return
+				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
+				if err := vf(cur); err != nil {
+					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
+					return
+				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
@@ -186,16 +224,16 @@ func incrementEvent(kind, event string) {
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	schema, exists := c.ConfigDescriptor().GetByType(typ)
+	s, exists := c.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return
 	}
 	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
 		item, ok := object.(crd.IstioObject)
 		if ok {
-			config, err := crd.ConvertObject(schema, item, c.client.domainSuffix)
+			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 			if err != nil {
-				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", schema, err, object)
+				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, object)
 			} else {
 				f(*config, ev)
 			}
@@ -228,12 +266,12 @@ func (c *controller) Run(stop <-chan struct{}) {
 	log.Info("controller terminated")
 }
 
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *controller) ConfigDescriptor() schema.Set {
 	return c.client.ConfigDescriptor()
 }
 
 func (c *controller) Get(typ, name, namespace string) *model.Config {
-	schema, exists := c.client.ConfigDescriptor().GetByType(typ)
+	s, exists := c.client.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return nil
 	}
@@ -254,7 +292,7 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 		return nil
 	}
 
-	config, err := crd.ConvertObject(schema, obj, c.client.domainSuffix)
+	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
 	if err != nil {
 		return nil
 	}
@@ -275,7 +313,7 @@ func (c *controller) Delete(typ, name, namespace string) error {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	schema, ok := c.client.ConfigDescriptor().GetByType(typ)
+	s, ok := c.client.ConfigDescriptor().GetByType(typ)
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
@@ -300,7 +338,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := crd.ConvertObject(schema, item, c.client.domainSuffix)
+		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
 			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())

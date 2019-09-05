@@ -74,6 +74,8 @@ type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
 	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
 	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
 }
@@ -296,6 +298,19 @@ func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	}
 	cert := pem.EncodeToMemory(block)
 
+	return cert, nil
+}
+
+// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error) {
+	cert, err := ca.Sign(csrPEM, subjectIDs, ttl, forCA)
+	if err != nil {
+		return nil, err
+	}
+	chainPem := ca.GetCAKeyCertBundle().GetCertChainPem()
+	if len(chainPem) > 0 {
+		cert = append(cert, chainPem...)
+	}
 	return cert, nil
 }
 

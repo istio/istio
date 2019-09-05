@@ -39,7 +39,10 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, "sds-citadel-flow", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "sds-citadel-flow",
+				Inject: true,
+			})
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -58,9 +61,6 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 					ExpectSuccess: true,
 				},
 			}
-
-			// Sleep 10 seconds for the policy to take effect.
-			time.Sleep(10 * time.Second)
 
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))

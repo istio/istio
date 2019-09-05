@@ -58,15 +58,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-	cfg.Values["global.controlPlaneSecurityEnabled"] = "false"
-	cfg.Values["global.mtls.enabled"] = "true"
-	cfg.Values["global.sds.enabled"] = "true"
-	cfg.Values["global.sds.udsPath"] = "unix:/var/run/sds/uds_path"
-	cfg.Values["global.sds.useNormalJwt"] = "true"
-	cfg.Values["nodeagent.enabled"] = "true"
-	cfg.Values["nodeagent.image"] = "node-agent-k8s"
-	cfg.Values["nodeagent.env.CA_PROVIDER"] = "Citadel"
-	cfg.Values["nodeagent.env.CA_ADDR"] = "istio-citadel:8060"
-	cfg.Values["nodeagent.env.VALID_TOKEN"] = "true"
+
+	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth.yaml
+	cfg.ValuesFile = "values-istio-sds-auth.yaml"
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -42,63 +43,68 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
-const jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
+	trustDomain      string
+	pilotIdentity    string
+	mixerIdentity    string
 	statusPort       uint16
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                   string
-	controlPlaneBootstrap        bool
-	binaryPath                   string
-	serviceCluster               string
-	drainDuration                time.Duration
-	parentShutdownDuration       time.Duration
-	discoveryAddress             string
-	zipkinAddress                string
-	lightstepAddress             string
-	lightstepAccessToken         string
-	lightstepSecure              bool
-	lightstepCacertPath          string
-	datadogAgentAddress          string
-	connectTimeout               time.Duration
-	statsdUDPAddress             string
-	envoyMetricsServiceAddress   string
-	envoyAccessLogServiceAddress string
-	proxyAdminPort               uint16
-	controlPlaneAuthPolicy       string
-	customConfigFile             string
-	proxyLogLevel                string
-	proxyComponentLogLevel       string
-	dnsRefreshRate               string
-	concurrency                  int
-	templateFile                 string
-	disableInternalTelemetry     bool
-	tlsCertsToWatch              []string
-	loggingOptions               = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	datadogAgentAddress        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	envoyAccessLogService      string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	proxyComponentLogLevel     string
+	dnsRefreshRate             string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	tlsCertsToWatch            []string
+	loggingOptions             = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
-	instanceIPVar            = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar               = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar          = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar        = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar     = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar            = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar            = env.RegisterStringVar("SDS_UDS_PATH", "/var/run/sds/uds_path", "SDS unix domain socket path")
-	sdsTrustworthyJWTPathVar = env.RegisterStringVar("SDS_JWT_PATH", "/var/run/secrets/tokens/istio-token",
-		"path of token which is used for request key/cert through SDS")
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -169,8 +175,8 @@ var (
 				}
 			}
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
-			role.TrustDomain = spiffe.GetTrustDomain()
+			trustDomain = spiffe.DetermineTrustDomain(trustDomain, true)
+			spiffe.SetTrustDomain(trustDomain)
 			log.Infof("Proxy role: %#v", role)
 
 			tlsCertsToWatch = []string{
@@ -181,7 +187,7 @@ var (
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
-			proxyConfig := config.DefaultProxyConfig()
+			proxyConfig := mesh.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -193,8 +199,12 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
-			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
-			proxyConfig.EnvoyAccessLogServiceAddress = envoyAccessLogServiceAddress
+			proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
+			if envoyAccessLogService != "" {
+				if rs := fromJSON(envoyAccessLogService); rs != nil {
+					proxyConfig.EnvoyAccessLogService = rs
+				}
+			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -222,7 +232,7 @@ var (
 						// only support the default config, or env variable
 						ns = istioNamespaceVar.Get()
 						if ns == "" {
-							ns = config.IstioSystemNamespace
+							ns = constants.IstioSystemNamespace
 						}
 					}
 				}
@@ -231,7 +241,7 @@ var (
 			setSpiffeTrustDomain(role.DNSDomain)
 
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
+			pilotSAN = getSAN(ns, envoyDiscovery.PilotSvcAccName, pilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			// resolve statsd address
@@ -277,21 +287,22 @@ var (
 				}
 			}
 
-			if err := config.ValidateProxyConfig(&proxyConfig); err != nil {
+			if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 				return err
 			}
 
-			if out, err := config.ToYAML(&proxyConfig); err != nil {
+			if out, err := protomarshal.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)
 			}
 
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
-			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled, sdsUdsPathVar.Get(), sdsTrustworthyJWTPathVar.Get(), jwtPath)
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
-			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
-			// skip waiting cert if sds is enabled, otherwise it takes long time for pod to start.
+			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
+			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
+			// pod to start.
 			if controlPlaneAuthEnabled && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
@@ -300,7 +311,9 @@ var (
 			}
 
 			opts := make(map[string]interface{})
-			if sdsEnabled {
+			// If control plane auth is mTLS and global SDS flag is turned on, set UDS path and token path
+			// for control plane SDS.
+			if controlPlaneAuthEnabled && sdsEnabled {
 				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
@@ -320,7 +333,7 @@ var (
 						opts["wildcard"] = "::"
 						opts["dns_lookup_family"] = "AUTO"
 					}
-					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+					mixerSAN := getSAN(ns, envoyDiscovery.MixerSvcAccName, mixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
 					if len(mixerSAN) > 1 {
 						opts["MixerSubjectAltName"] = mixerSAN[0]
@@ -391,7 +404,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, features.TerminationDrainDuration())
+			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -424,9 +437,8 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 //explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
 //and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(domain string) {
-
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotTrustDomain := role.TrustDomain
+		pilotTrustDomain := trustDomain
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == podNamespaceVar.Get()+".svc.cluster.local" || domain == "") {
@@ -448,9 +460,9 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 
 		if overrideIdentity == "" {
-			san = append(san, envoy.GetSAN(ns, defaultSA))
+			san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
 		} else {
-			san = append(san, envoy.GetSAN("", overrideIdentity))
+			san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
 		}
 	}
 	return san
@@ -469,49 +481,50 @@ func getDNSDomain(domain string) string {
 	return domain
 }
 
-// check if SDS UDS path and token path exist, if both exist, requests key/cert
-// using SDS instead of secret mount.
-func detectSds(controlPlaneBootstrap, controlPlaneAuthEnabled bool, udspath, preferJwtpath, jwtpath string) (bool, string) {
+// detectSds checks if the SDS address (when it is UDS) and JWT paths are present.
+func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
+	}
+
+	if len(sdsAddress) == 0 {
+		return false, ""
+	}
+
+	if _, err := os.Stat(trustworthyJWTPath); err != nil {
+		return false, ""
+	}
+
+	// sdsAddress will not be empty when sdsAddress is a UDS address.
+	udsPath := ""
+	if strings.HasPrefix(sdsAddress, "unix:") {
+		udsPath = strings.TrimPrefix(sdsAddress, "unix:")
+		if len(udsPath) == 0 {
+			// If sdsAddress is "unix:", it is invalid, return false.
+			return false, ""
+		}
+	} else {
+		return true, trustworthyJWTPath
 	}
 
 	if !controlPlaneBootstrap {
 		// workload sidecar
 		// treat sds as disabled if uds path isn't set.
-		if _, err := os.Stat(udspath); err != nil {
+		if _, err := os.Stat(udsPath); err != nil {
 			return false, ""
 		}
-		if _, err := os.Stat(preferJwtpath); err == nil {
-			return true, preferJwtpath
-		}
-		if _, err := os.Stat(jwtpath); err == nil {
-			return true, jwtpath
-		}
 
-		return false, ""
-	}
-
-	// for controlplane sidecar, if controlplanesecurity isn't enabled
-	// doens't matter what to return since sds won't be used.
-	if !controlPlaneAuthEnabled {
-		return false, ""
+		return true, trustworthyJWTPath
 	}
 
 	// controlplane components like pilot/mixer/galley have sidecar
 	// they start almost same time as sds server; wait since there is a chance
 	// when pilot-agent start, the uds file doesn't exist.
-	if !waitForFile(udspath, sdsUdsWaitTimeout) {
+	if !waitForFile(udsPath, sdsUdsWaitTimeout) {
 		return false, ""
 	}
-	if _, err := os.Stat(preferJwtpath); err == nil {
-		return true, preferJwtpath
-	}
-	if _, err := os.Stat(jwtpath); err == nil {
-		return true, jwtpath
-	}
 
-	return false, ""
+	return true, trustworthyJWTPath
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -537,6 +550,18 @@ func timeDuration(dur *types.Duration) time.Duration {
 	return out
 }
 
+func fromJSON(j string) *meshconfig.RemoteService {
+	var m meshconfig.RemoteService
+	err := json.Unmarshal([]byte(j), &m)
+	if err != nil {
+		log.Warnf("Unable to unmarshal %s", j)
+		return nil
+	}
+
+	log.Infof("%v", m)
+	return &m
+}
+
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
@@ -548,11 +573,11 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
+	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&role.PilotIdentity, "pilotIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
 		"The identity used as the suffix for pilot's spiffe SAN ")
-	proxyCmd.PersistentFlags().StringVar(&role.MixerIdentity, "mixerIdentity", "",
+	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
@@ -561,7 +586,7 @@ func init() {
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
-	values := config.DefaultProxyConfig()
+	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,
@@ -593,10 +618,10 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
-	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsService.Address,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
-	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogServiceAddress, "envoyAccessLogServiceAddress", values.EnvoyAccessLogServiceAddress,
-		"Host and Port of an Envoy gRPC Access Log Service API implementation (e.g. accesslog-service.istio-system:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogService, "envoyAccessLogService", "",
+		"Settings of an Envoy gRPC Access Log Service API implementation")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",

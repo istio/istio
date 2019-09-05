@@ -25,9 +25,11 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/alicebob/miniredis/server"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/quota"
 )
 
@@ -469,6 +471,7 @@ func TestHandleQuota(t *testing.T) {
 	}
 
 	for id, c := range cases {
+		t.Logf("Executing test case '%s'", id)
 		b := info.NewBuilder().(*builder)
 
 		b.SetAdapterConfig(&config.Params{
@@ -519,6 +522,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		instance    quota.Instance
 		req         RequestInfo
 		errMsg      []string
+		status      rpc.Status
 	}{
 		"Failed to run the script": {
 			mockRedis: map[string]server.Cmd{
@@ -554,9 +558,10 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"failed to run quota script: Error",
 			},
+			status: status.WithUnavailable("failed to run quota script: Error"),
 		},
 		"Invalid response from the script": {
 			mockRedis: map[string]server.Cmd{
@@ -593,9 +598,10 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
+			status: status.WithInternal("invalid response from the redis server: [10]"),
 		},
 	}
 
@@ -629,13 +635,18 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 
 		quotaHandler := adapterHandler.(*handler)
 
-		_, err = quotaHandler.HandleQuota(context.Background(), &c.instance, adapter.QuotaArgs{
+		quotaResult, err := quotaHandler.HandleQuota(context.Background(), &c.instance, adapter.QuotaArgs{
 			QuotaAmount: c.req.token,
 			BestEffort:  c.req.bestEffort,
 		})
 
 		if err != nil {
 			t.Errorf("%v: unexpected error: %v", id, err.Error())
+			continue
+		}
+
+		if c.status.GetCode() != quotaResult.Status.GetCode() {
+			t.Errorf("%v: unexpected error code: %v, expected: %v", id, quotaResult.Status.GetCode(), c.status.GetCode())
 			continue
 		}
 

@@ -173,7 +173,7 @@ type TLSContext struct {
 func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TLSContext,
 	timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
 	start := time.Now()
-	endpointIP := ing.HTTPSAddress()
+	endpointAddress := ing.HTTPSAddress()
 	for {
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
@@ -182,7 +182,7 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 			PrivateKey: tlsCtx.PrivateKey,
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
-			Address:    endpointIP,
+			Address:    endpointAddress,
 		})
 		errorMatch := true
 		if err != nil {
@@ -250,7 +250,10 @@ func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) 
 // DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
 // nolint: interfacer
 func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNs, err := namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}

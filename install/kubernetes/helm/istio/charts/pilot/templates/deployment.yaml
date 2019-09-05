@@ -110,6 +110,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
+{{- if .Values.enableProtocolSniffing }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
+            value: "{{ .Values.enableProtocolSniffing }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -169,6 +173,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -183,10 +189,8 @@ spec:
           - name: sds-uds-path
             mountPath: /var/run/sds
             readOnly: true
-          {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
-          {{- end }}
           {{- end }}
 {{- end }}
       volumes:
@@ -194,15 +198,13 @@ spec:
       - hostPath:
           path: /var/run/sds
         name: sds-uds-path
-      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
-      {{- end }}
       {{- end }}
       - name: config-volume
         configMap:

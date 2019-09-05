@@ -20,16 +20,19 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+
 	"istio.io/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -39,7 +42,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsColle
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(config.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -49,7 +52,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels config.LabelsColle
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels config.LabelsCollection, gateways map[string]bool, port int) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -59,7 +62,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels config.LabelsCollec
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(config.Labels(match.SourceLabels))
+	labelMatch := proxyLabels.IsSupersetOf(match.SourceLabels)
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -67,12 +70,12 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels config.LabelsCollec
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(host config.Hostname, configs []model.Config) []model.Config {
+func getConfigsForHost(hostname host.Name, configs []model.Config) []model.Config {
 	svcConfigs := make([]model.Config, 0)
 	for index := range configs {
 		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
-			if config.Hostname(vsHost).Matches(host) {
+			if host.Name(vsHost).Matches(hostname) {
 				svcConfigs = append(svcConfigs, configs[index])
 				break
 			}
@@ -87,7 +90,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 }
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels config.LabelsCollection,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
@@ -123,7 +126,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTLS(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -192,7 +195,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels config.LabelsCollection,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
@@ -227,7 +230,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTCP(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
@@ -295,7 +298,7 @@ TcpLoop:
 // missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
-	proxyLabels config.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+	gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []model.Config
@@ -305,9 +308,9 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *mod
 		svcConfigs = configs
 	}
 
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
 	return out
 }

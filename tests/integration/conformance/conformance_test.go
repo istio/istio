@@ -27,7 +27,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/conformance"
 	"istio.io/istio/pkg/test/conformance/constraint"
@@ -106,7 +106,10 @@ func runCaseFn(p pilot.Instance, gal galley.Instance, ca *conformance.Test) func
 			}
 		}
 
-		ns := namespace.NewOrFail(ctx, ctx, "conf", true)
+		ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+			Prefix: "conf",
+			Inject: true,
+		})
 
 		if len(ca.Stages) == 1 {
 			runStage(ctx, p, gal, ns, ca.Stages[0])
@@ -229,7 +232,7 @@ func validateTraffic(t framework.TestContext, pil pilot.Instance, gal galley.Ins
 		for _, p := range svc.Ports {
 			ports = append(ports, echo.Port{
 				Name:        p.Name,
-				Protocol:    config.Protocol(p.Protocol),
+				Protocol:    protocol.Instance(p.Protocol),
 				ServicePort: int(p.ServicePort),
 			})
 		}
@@ -253,11 +256,11 @@ func validateTraffic(t framework.TestContext, pil pilot.Instance, gal galley.Ins
 
 	ready := make(map[string]bool)
 	vHosts := virtualServiceHosts(t, stage.Input)
-	for _, call := range stage.Traffic.Calls {
+	for i, call := range stage.Traffic.Calls {
 		call.URL = tmpl.EvaluateOrFail(t, call.URL, constraint.Params{
 			Namespace: ns.Name(),
 		})
-		t.NewSubTest(call.URL).Run(func(t framework.TestContext) {
+		t.NewSubTest(strconv.Itoa(i)).Run(func(t framework.TestContext) {
 			hostname, err := wildcardToRegexp(call.Response.Callee)
 			if err != nil {
 				t.Fatalf("Internal error: regexp.Compile: %v", err)

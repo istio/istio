@@ -1,9 +1,7 @@
-[![CircleCI](https://circleci.com/gh/istio/istio.svg?style=shield)](https://circleci.com/gh/istio/istio)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
 [![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 [![codecov.io](https://codecov.io/github/istio/istio/coverage.svg?branch=master)](https://codecov.io/github/istio/istio?branch=master)
 [![GolangCI](https://golangci.com/badges/github.com/istio/istio.svg)](https://golangci.com/r/github.com/istio/istio)
-[![Mergify Status](https://gh.mergify.io/badges/istio/istio.png?style=cut)](https://mergify.io)
 
 # Istio
 
@@ -75,9 +73,9 @@ project. It includes:
 including Citadel (acting as Certificate Authority), citadel agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/config/istio.networking.v1alpha3/) into proxy specific configuration.
+[routing rules](https://istio.io/docs/reference/config/networking/) into proxy specific configuration.
   - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
   - [mixer](mixer/). This directory

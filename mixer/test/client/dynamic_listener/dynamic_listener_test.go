@@ -140,11 +140,11 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &v2.RouteConfiguration{
 				Name: key,
-				VirtualHosts: []route.VirtualHost{{
+				VirtualHosts: []*route.VirtualHost{{
 					Name:    "backend",
 					Domains: []string{"*"},
-					Routes: []route.Route{{
-						Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+					Routes: []*route.Route{{
+						Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
@@ -166,11 +166,11 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 
 	return &v2.Listener{
 		Name: strconv.Itoa(int(s.Ports().ServerProxyPort)),
-		Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().ServerProxyPort)}}}},
-		FilterChains: []listener.FilterChain{{
-			Filters: []listener.Filter{{
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
 				Name:       util.HTTPConnectionManager,
 				ConfigType: &listener.Filter_Config{pbst},
 			}},

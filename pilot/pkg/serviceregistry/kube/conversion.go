@@ -23,15 +23,18 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-
-	"istio.io/api/annotation"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/spiffe"
-
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/api/annotation"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -46,12 +49,12 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: kube.ConvertProtocol(port.Name, port.Protocol),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
 	}
 }
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
-	addr, external := config.UnspecifiedIP, ""
+	addr, external := constants.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
 	}
@@ -65,7 +68,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		meshExternal = true
 	}
 
-	if addr == config.UnspecifiedIP && external == "" { // headless services should not be load balanced
+	if addr == constants.UnspecifiedIP && external == "" { // headless services should not be load balanced
 		resolution = model.Passthrough
 	}
 
@@ -74,7 +77,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[config.Visibility]bool
+	var exportTo map[visibility.Instance]bool
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
@@ -86,9 +89,9 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			}
 		}
 		if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
-			exportTo = make(map[config.Visibility]bool)
+			exportTo = make(map[visibility.Instance]bool)
 			for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
-				exportTo[config.Visibility(e)] = true
+				exportTo[visibility.Instance(e)] = true
 			}
 		}
 	}
@@ -117,7 +120,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				lbAddrs = append(lbAddrs, ingress.IP)
 			} else if len(ingress.Hostname) > 0 {
 				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-				if err != nil {
+				if err == nil {
 					lbAddrs = append(lbAddrs, addrs...)
 				}
 			}
@@ -150,8 +153,8 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 }
 
 // ServiceHostname produces FQDN for a k8s service
-func ServiceHostname(name, namespace, domainSuffix string) config.Hostname {
-	return config.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+func ServiceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
@@ -184,17 +187,17 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 		return nil, nil
 	}
 
-	var protocol config.Protocol
+	var p protocol.Instance
 	var portVal intstr.IntOrString
 
 	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
 	switch {
 	case handler.HTTPGet != nil:
 		portVal = handler.HTTPGet.Port
-		protocol = config.ProtocolHTTP
+		p = protocol.HTTP
 	case handler.TCPSocket != nil:
 		portVal = handler.TCPSocket.Port
-		protocol = config.ProtocolTCP
+		p = protocol.TCP
 	default:
 		return nil, nil
 	}
@@ -205,7 +208,7 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 		return &model.Port{
 			Name:     managementPortPrefix + strconv.Itoa(port),
 			Port:     port,
-			Protocol: protocol,
+			Protocol: p,
 		}, nil
 	case intstr.String:
 		for _, named := range c.Ports {
@@ -214,7 +217,7 @@ func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port
 				return &model.Port{
 					Name:     managementPortPrefix + strconv.Itoa(port),
 					Port:     port,
-					Protocol: protocol,
+					Protocol: p,
 				}, nil
 			}
 		}
