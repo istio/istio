@@ -247,6 +247,7 @@ func TestFsSource_StartStopStart(t *testing.T) {
 }
 
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15987")
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
