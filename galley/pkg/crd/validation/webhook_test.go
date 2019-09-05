@@ -101,8 +101,8 @@ var (
 
 	dummyNamespace = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-system",
-			UID:       "deadbeef",
+			Name: "istio-system",
+			UID:  "deadbeef",
 		},
 	}
 
