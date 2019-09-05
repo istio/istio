@@ -34,6 +34,8 @@ import (
 )
 
 type TestCase struct {
+	// ConfigFile name of the yaml contains the authentication policy and destination rule CRs needed for the test setup.
+	// The file is expected in the tests/integration/security/reachability/testdata folder.
 	ConfigFile string
 	Namespace  namespace.Instance
 
@@ -58,7 +60,7 @@ type Context struct {
 	A, B, Headless, Naked echo.Instance
 }
 
-// CreateReachabilityContext creates and initializes reachability context.
+// CreateContext creates and initializes reachability context.
 func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instance) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
@@ -108,7 +110,6 @@ func (rc *Context) Run(testCases []TestCase) {
 	}
 
 	for _, c := range testCases {
-		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := rc.ctx.NewSubTest(testName)
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reachability
+package manualmtls
 
 import (
 	"testing"
@@ -43,29 +43,6 @@ func TestReachability(t *testing.T) {
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
-					ConfigFile:          "global-mtls-on-auto.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
