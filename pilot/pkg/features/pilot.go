@@ -206,6 +206,12 @@ var (
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
 			"if headless services have a large number of pods. ",
 	)
+	
+	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
+		1*time.Second,
+		"Protocol detection timeout for inbound listener",
+	).Get()
 )
 
 var (
