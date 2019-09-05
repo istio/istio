@@ -31,6 +31,10 @@ func TestCollection(t *testing.T) {
 	// equivalent to empty tag collection
 	singleton := labels.Collection{nil}
 
+	if (labels.Collection{a}).HasSubsetOf(b) {
+		t.Errorf("{a}.HasSubsetOf(b) => Got true")
+	}
+
 	matching := []struct {
 		tag        labels.Instance
 		collection labels.Collection
@@ -43,14 +47,15 @@ func TestCollection(t *testing.T) {
 		{a1, ab},
 		{b, a1b},
 	}
-
-	if (labels.Collection{a}).HasSubsetOf(b) {
-		t.Errorf("{a}.HasSubsetOf(b) => Got true")
-	}
-
 	for _, pair := range matching {
 		if !pair.collection.HasSubsetOf(pair.tag) {
 			t.Errorf("%v.HasSubsetOf(%v) => Got false", pair.collection, pair.tag)
 		}
+	}
+
+	// Test not panic
+	var nilInstance labels.Instance
+	if ab.HasSubsetOf(nilInstance) {
+		t.Errorf("%v.HasSubsetOf(%v) => Got true", ab, nilInstance)
 	}
 }
