@@ -84,13 +84,7 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Sending on this channel results in a reset on proxy attributes.
-	// Generally it comes before a XdsEvent.
-	updateChannel chan *UpdateEvent
-
 	// TODO: migrate other fields as needed from model.Proxy and replace it
-
-	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
 	LDSListeners []*xdsapi.Listener                    `json:"-"`
 	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
@@ -200,7 +194,6 @@ type UpdateEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:   make(chan *XdsEvent),
-		updateChannel: make(chan *UpdateEvent, 1),
 		PeerAddr:      peerAddr,
 		Clusters:      []string{},
 		Connect:       time.Now(),
@@ -454,10 +447,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				defer s.removeCon(con.ConID, con)
 			} else {
 				con.mu.Unlock()
-			}
-		case updateEv := <-con.updateChannel:
-			if updateEv.workloadLabel && con.modelNode != nil {
-				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
 			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
