@@ -34,7 +34,8 @@ import (
 )
 
 type TestCase struct {
-	// ConfigFile name of the yaml contains the authentication policy and destination rule CRs needed for the test setup.
+	// ConfigFile is the name of the yaml contains the authentication policy and destination rule CRs
+	// that are needed for the test setup.
 	// The file is expected in the tests/integration/security/reachability/testdata folder.
 	ConfigFile string
 	Namespace  namespace.Instance
