@@ -33,7 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/package/model"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 
 	"k8s.io/api/admission/v1beta1"
