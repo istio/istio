@@ -109,7 +109,7 @@ var (
 	sdsUdsWaitTimeout = time.Minute
 
 	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
-	rsTlsEnabled bool
+	rsTLSEnabled bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -307,7 +307,7 @@ var (
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if (controlPlaneAuthEnabled || rsTlsEnabled) && !sdsEnabled {
+			if (controlPlaneAuthEnabled || rsTLSEnabled) && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -570,10 +570,9 @@ func appendTLSCerts(rs *meshconfig.RemoteService) {
 	if rs.TlsSettings == nil {
 		return
 	}
-	rsTlsEnabled = true
-	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.CaCertificates)
-	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.ClientCertificate)
-	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.PrivateKey)
+	rsTLSEnabled = true
+	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
+		rs.TlsSettings.PrivateKey)
 }
 
 func init() {
