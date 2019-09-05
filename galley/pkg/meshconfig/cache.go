@@ -19,13 +19,8 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/ghodss/yaml"
-
-	"istio.io/istio/pkg/config/mesh"
-
-	"github.com/gogo/protobuf/jsonpb"
-
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -90,21 +85,15 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	js, err := yaml.YAMLToJSON(by)
+	cfg, err := mesh.ApplyMeshConfigDefaults(string(by))
 	if err != nil {
-		scope.Errorf("Error converting mesh config Yaml to JSON: %v", err)
-		return
-	}
-
-	cfg := mesh.DefaultMeshConfig()
-	if err = jsonpb.UnmarshalString(string(js), &cfg); err != nil {
 		scope.Errorf("Error reading mesh config as json: %v", err)
 		return
 	}
 
 	c.cachedMutex.Lock()
 	defer c.cachedMutex.Unlock()
-	c.cached = cfg
+	c.cached = *cfg
 	scope.Infof("Reloaded mesh config: \n%s\n", string(by))
 }
 
