@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	minK8SVersion = "1.11"
+	minK8SVersion = "1.13"
 )
 
 var (
@@ -180,7 +180,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 	}
 
 	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#5. SideCar-Injector\n")
+	fmt.Fprintf(writer, "#5. Sidecar-Injector\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 	err = c.checkMutatingWebhook()
 	if err != nil {
@@ -205,7 +205,7 @@ func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return parseVersion(minK8SVersion, 4) < parseVersion(v, 4), nil
+	return parseVersion(minK8SVersion, 4) <= parseVersion(v, 4), nil
 }
 func extractKubernetesVersion(versionInfo *version.Info) (string, error) {
 	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
