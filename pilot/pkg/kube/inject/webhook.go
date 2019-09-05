@@ -33,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/package/model"
 	"istio.io/pkg/log"
 
 	"k8s.io/api/admission/v1beta1"
@@ -526,8 +527,8 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	if pod.Labels[MTLSReadyLabelName] == "" {
-		patch = append(patch, updateLabels(pod.Labels, map[string]string{MTLSReadyLabelName: "true"})...)
+	if pod.Labels[model.MTLSReadyLabelName] == "" {
+		patch = append(patch, updateLabels(pod.Labels, map[string]string{model.MTLSReadyLabelName: "true"})...)
 	}
 
 	if rewrite {
