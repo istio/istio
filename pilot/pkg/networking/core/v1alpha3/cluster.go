@@ -155,7 +155,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 		for _, port := range service.Ports {
 			var mtlsPolicy *authn.Policy
 			if features.UseAutoPilotMTLS.Get() {
-				mtlsPolicy = push.AuthPolicyForProxy(service, port.Port, proxy)
+				mtlsPolicy = push.AuthenticationPolicyForWorkload(service, nil, port)
 			}
 			if port.Protocol == protocol.UDP {
 				continue
@@ -271,7 +271,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 		for _, port := range service.Ports {
 			var mtlsPolicy *authn.Policy
 			if features.UseAutoPilotMTLS.Get() {
-				mtlsPolicy = push.AuthPolicyForProxy(service, port.Port, proxy)
+				mtlsPolicy = push.AuthenticationPolicyForWorkload(service, nil, port)
 			}
 			if port.Protocol == protocol.UDP {
 				continue
