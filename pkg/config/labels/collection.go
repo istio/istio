@@ -24,6 +24,10 @@ func (c Collection) HasSubsetOf(that Instance) bool {
 	if len(c) == 0 {
 		return true
 	}
+	// prevent panic when that is nil
+	if len(that) == 0 {
+		return false
+	}
 	for _, this := range c {
 		if this.SubsetOf(that) {
 			return true
