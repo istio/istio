@@ -140,8 +140,5 @@ func (c *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.Pod, e
 
 func isIngressGateway(p *v1.Pod) bool {
 	appLabel, ok := p.Labels["app"]
-	if ok && appLabel == ingressGatewayApp {
-		return true
-	}
-	return false
+	return ok && appLabel == ingressGatewayApp
 }

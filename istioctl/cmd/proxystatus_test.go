@@ -68,7 +68,7 @@ default           Cert Chain     true                          ACTIVE     172326
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			clientExecFactorySds = mockClientExecSDSFactoryGenerator(c.execClientConfig)
+			clientExecSdsFactory = mockClientExecSDSFactoryGenerator(c.execClientConfig)
 			verifyExecTestOutput(t, c)
 		})
 	}

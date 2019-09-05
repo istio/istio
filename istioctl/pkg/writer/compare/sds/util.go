@@ -144,7 +144,6 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 type connNameFilter func(string) bool
 
 // GetNodeAgentSecrets takes the sds.Debug results provided to the comparator and parses them into []SecretItem
-// note that this util expects the cert data to be base64 encoded
 func GetNodeAgentSecrets(
 	agentResponses map[string]sds.Debug, connFilter connNameFilter) ([]SecretItem, error) {
 	secrets := make([]SecretItem, 0)

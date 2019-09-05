@@ -19,7 +19,7 @@ import (
 	proto "github.com/gogo/protobuf/types"
 )
 
-// GetSecretsConfigDump retrieves a cluster dump with the dynamic active secrets included
+// GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
 func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 	secretDumpAny, err := w.getSection(secrets)
 	if err != nil {

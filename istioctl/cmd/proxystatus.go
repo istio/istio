@@ -47,7 +47,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := clientExecFactorySds(kubeconfig, configContext)
+			kubeClient, err := clientExecSdsFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
 			}

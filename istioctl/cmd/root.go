@@ -52,7 +52,7 @@ var (
 	clientExecFactory = newExecClient
 
 	// Create a kubernetes.ExecClientSDS
-	clientExecFactorySds = newSDSExecClient
+	clientExecSdsFactory = newSDSExecClient
 
 	loggingOptions = log.DefaultOptions()
 )
