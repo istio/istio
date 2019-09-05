@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -565,6 +566,9 @@ func fromJSON(j string) *meshconfig.RemoteService {
 
 func appendTLSCerts(rs *meshconfig.RemoteService) {
 	if rs.TlsSettings == nil {
+		return
+	}
+	if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
 		return
 	}
 	rsTLSEnabled = true
