@@ -185,12 +185,6 @@ type XdsEvent struct {
 	done func()
 }
 
-// UpdateEvent represents a update request for the proxy.
-// This will trigger proxy specific attributes reset before each push.
-type UpdateEvent struct {
-	workloadLabel bool
-}
-
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent),
