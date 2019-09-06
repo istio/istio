@@ -98,7 +98,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	return r
 }
 
-// domainName builds a the route name from a host and port
+// domainName builds the domain name for a given host and port
 func domainName(host string, port int) string {
 	return host + ":" + strconv.Itoa(port)
 }
