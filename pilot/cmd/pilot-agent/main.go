@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -103,6 +104,9 @@ var (
 	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	sdsUdsWaitTimeout = time.Minute
+
+	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
+	rsTLSEnabled bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -180,9 +184,6 @@ var (
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
-			// dedupe cert paths so we don't set up 2 watchers for the same file:
-			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
-
 			proxyConfig := mesh.DefaultProxyConfig()
 
 			// set all flags
@@ -199,6 +200,7 @@ var (
 			if envoyAccessLogService != "" {
 				if rs := fromJSON(envoyAccessLogService); rs != nil {
 					proxyConfig.EnvoyAccessLogService = rs
+					appendTLSCerts(rs)
 				}
 			}
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
@@ -296,10 +298,13 @@ var (
 			controlPlaneAuthEnabled := controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUdsPathVar.Get(), trustworthyJWTPath)
 
+			// dedupe cert paths so we don't set up 2 watchers for the same file:
+			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
+
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if controlPlaneAuthEnabled && !sdsEnabled {
+			if (controlPlaneAuthEnabled || rsTLSEnabled) && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -412,10 +417,13 @@ var (
 	}
 )
 
+// dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
 	stringMap := map[string]bool{}
 	for _, c := range in {
-		stringMap[c] = true
+		if len(c) > 0 {
+			stringMap[c] = true
+		}
 	}
 	unique := make([]string, 0)
 	for c := range stringMap {
@@ -557,6 +565,18 @@ func fromJSON(j string) *meshconfig.RemoteService {
 
 	log.Infof("%v", m)
 	return &m
+}
+
+func appendTLSCerts(rs *meshconfig.RemoteService) {
+	if rs.TlsSettings == nil {
+		return
+	}
+	if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
+		return
+	}
+	rsTLSEnabled = true
+	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
+		rs.TlsSettings.PrivateKey)
 }
 
 func init() {
