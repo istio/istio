@@ -629,15 +629,17 @@ spec:
 	}
 
 	for _, tt := range manifestDiffTests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got, err := ManifestDiff(tt.yamlStringA, tt.yamlStringB)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !strings.Contains(got, tt.want) {
-				t.Errorf("%s:\ngot:\n%v\ndoes't contains\nwant:\n%v", tt.desc, got, tt.want)
-			}
-		})
+		for _, v := range []bool{true, false} {
+			t.Run(tt.desc, func(t *testing.T) {
+				got, err := ManifestDiff(tt.yamlStringA, tt.yamlStringB, v)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if !strings.Contains(got, tt.want) {
+					t.Errorf("%s:\ngot:\n%v\ndoes't contains\nwant:\n%v", tt.desc, got, tt.want)
+				}
+			})
+		}
 	}
 }
 
@@ -815,14 +817,17 @@ spec:
 	}
 
 	for _, tt := range manifestDiffWithSelectAndIgnoreTests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got, err := ManifestDiffWithSelectAndIgnore(tt.yamlStringA, tt.yamlStringB, tt.selectResources, tt.ignoreResources)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !strings.Contains(got, tt.want) {
-				t.Errorf("%s:\ngot:\n%v\ndoes't contains\nwant:\n%v", tt.desc, got, tt.want)
-			}
-		})
+		for _, v := range []bool{true, false} {
+			t.Run(tt.desc, func(t *testing.T) {
+				got, err := ManifestDiffWithSelectAndIgnore(tt.yamlStringA, tt.yamlStringB,
+					tt.selectResources, tt.ignoreResources, v)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if !strings.Contains(got, tt.want) {
+					t.Errorf("%s:\ngot:\n%v\ndoes't contains\nwant:\n%v", tt.desc, got, tt.want)
+				}
+			})
+		}
 	}
 }
