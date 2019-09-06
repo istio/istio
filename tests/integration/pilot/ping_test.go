@@ -53,10 +53,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 
 	ports := []echo.Port{
 		{
-			Name:     "foo",
-			Protocol: protocol.HTTP,
-		},
-		{
 			Name:     "http",
 			Protocol: protocol.HTTP,
 		},
@@ -123,7 +119,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 	// TODO(yxue): support sending raw TCP traffic instead of HTTP
 	callOptions := []callOptions{
 		{"http", scheme.HTTP},
-		{"foo", scheme.HTTP},
 	}
 
 	for _, pair := range connectivityPairs {
