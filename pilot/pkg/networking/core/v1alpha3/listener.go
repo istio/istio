@@ -1041,7 +1041,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	if pluginParams.Port.Port == 0 {
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
-		rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
+			util.IsProtocolSniffingEnabledForNode(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
+		} else {
+			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+		}
 	}
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
