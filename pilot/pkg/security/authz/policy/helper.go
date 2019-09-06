@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	authpb "istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -67,22 +68,10 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 
 func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
 	t.Helper()
-
-	hasClusterRbacConfig := false
-	for _, p := range policies {
-		if p.Type == schemas.ClusterRbacConfig.Type {
-			hasClusterRbacConfig = true
-			break
-		}
-	}
-	if !hasClusterRbacConfig {
-		policies = append(policies, simpleClusterRbacConfig())
-	}
-
 	store := model.MakeIstioStore(memory.Make(schemas.Istio))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
-			t.Fatalf("failed to initilize authz policies: %s", err)
+			t.Fatalf("failed to initialize authz policies: %s", err)
 		}
 	}
 
@@ -96,7 +85,7 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 	return authzPolicies
 }
 
-func simpleClusterRbacConfig() *model.Config {
+func SimpleClusterRbacConfig() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.ClusterRbacConfig.Type,
@@ -169,6 +158,29 @@ func SimplePermissiveBinding(name string, namespace string, role string) *model.
 
 func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
+}
+
+func SimpleAuthzPolicy(name string, namespace string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.AuthorizationPolicy.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &authpb.AuthorizationPolicy{
+			Rules: []*authpb.Rule{
+				{
+					From: []*authpb.Rule_From{
+						{
+							Source: &authpb.Source{
+								Principals: []string{AuthzPolicyTag(name)},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {

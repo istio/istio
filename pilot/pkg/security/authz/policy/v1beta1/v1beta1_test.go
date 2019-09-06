@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v1beta1
 
 import (
 	"testing"
@@ -23,14 +23,10 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
-func TestBuilder_buildV2(t *testing.T) {
-	labelFoo := map[string]string{
-		"app": "foo",
-	}
-	serviceFooInNamespaceA := policy.NewServiceMetadata("foo.a.svc.cluster.local", labelFoo, t)
+func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
 		name         string
-		policies     []*model.Config
+		policies     []model.Config
 		wantRules    map[string][]string
 		forTCPFilter bool
 	}{
@@ -41,16 +37,12 @@ func TestBuilder_buildV2(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
-			if authzPolicies == nil {
-				t.Fatal("failed to create authz policies")
-			}
-			b := NewGenerator(serviceFooInNamespaceA, authzPolicies, false)
-			if b == nil {
-				t.Fatal("failed to create builder")
+			g := NewGenerator(tc.policies)
+			if g == nil {
+				t.Fatal("failed to create generator")
 			}
 
-			got := b.Generate(tc.forTCPFilter)
+			got := g.Generate(tc.forTCPFilter)
 			gotStr := spew.Sdump(got)
 
 			if got.GetRules() == nil {

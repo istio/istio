@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package v1alpha1
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
-func TestBuilder_buildV1(t *testing.T) {
+func TestV1alpha1Generator_Generate(t *testing.T) {
 	serviceFoo := "foo"
 	namespaceA := "a"
 	serviceBar := "bar"
@@ -173,12 +173,12 @@ func TestBuilder_buildV1(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			b := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
-			if b == nil {
-				t.Fatal("failed to create builder")
+			g := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			if g == nil {
+				t.Fatal("failed to create generator")
 			}
 
-			got := b.Generate(tc.forTCPFilter)
+			got := g.Generate(tc.forTCPFilter)
 			gotStr := spew.Sdump(got)
 
 			if tc.isGlobalPermissiveEnabled {
