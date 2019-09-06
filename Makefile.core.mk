@@ -71,7 +71,7 @@ python_output_path := python/istio_api
 protoc_gen_python_prefix := --python_out=,
 protoc_gen_python_plugin := $(protoc_gen_python_prefix):$(repo_dir)/$(python_output_path)
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,emit_yaml=true,mode=html_page:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 types_v1alpha2_path := pkg/apis/istio/v1alpha2
 types_v1alpha2_protos := $(wildcard $(types_v1alpha2_path)/*.proto)
