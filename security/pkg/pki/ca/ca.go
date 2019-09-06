@@ -204,6 +204,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 
 	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
+	} else {
+		log.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
 	}
 	return caOpts, nil
 }
