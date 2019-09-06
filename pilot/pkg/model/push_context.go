@@ -97,10 +97,17 @@ type PushContext struct {
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
-	AuthNPolicies map[host.Name]map[int]*Config `json:"-"`
+	AuthNPolicies map[host.Name]map[int][]*Config `json:"-"`
+
+	defaultAuthNPolicy *authn.Policy
 
 	initDone bool
 }
+
+const (
+	noHostsProvided = "AllHosts"
+	noPortProvided  = -1
+)
 
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
@@ -403,7 +410,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
-		AuthNPolicies:                 map[host.Name]map[int]*Config{},
+		AuthNPolicies:                 map[host.Name]map[int][]*Config{},
 	}
 }
 
@@ -680,6 +687,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	if err = ps.initAuthNPolicies(env); err != nil {
+
+	}
+
 	if err = ps.initVirtualServices(env); err != nil {
 		return err
 	}
@@ -744,8 +755,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 
 	ps.initServiceAccounts(env, allServices)
 
-	ps.initAuthNPolicies(env, allServices)
-
 	return nil
 }
 
@@ -771,15 +780,47 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 }
 
 // Caches list of authentication policies
-func (ps *PushContext) initAuthNPolicies(env *Environment, services []*Service) {
-	for _, svc := range services {
-		if ps.AuthNPolicies[svc.Hostname] == nil {
-			ps.AuthNPolicies[svc.Hostname] = map[int]*Config{}
+func (ps *PushContext) initAuthNPolicies(env *Environment) error {
+	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(authNPolicies)
+	ps.AuthNPolicies = map[host.Name]map[int][]*Config{}
+
+	for i, spec := range authNPolicies {
+		policy := spec.Spec.(*authn.Policy)
+		if spec.Name == constants.DefaultAuthenticationPolicyName {
+			// special case default auth policy to be used if no other matches found
+			ps.defaultAuthNPolicy = policy
+			continue
 		}
-		for _, port := range svc.Ports {
-			ps.AuthNPolicies[svc.Hostname][port.Port] = env.IstioConfigStore.AuthenticationPolicyForWorkload(svc, nil, port)
+
+		if len(policy.Targets) > 0 {
+			for _, dest := range policy.Targets {
+				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
+				if ps.AuthNPolicies[hostName] == nil {
+					ps.AuthNPolicies[hostName] = map[int][]*Config{}
+				}
+				if len(dest.Ports) > 0 {
+					for _, port := range dest.Ports {
+						ps.AuthNPolicies[hostName][int(port.GetNumber())] = append(ps.AuthNPolicies[hostName][int(port.GetNumber())], &authNPolicies[i])
+					}
+				} else {
+					ps.AuthNPolicies[hostName][noPortProvided] = append(ps.AuthNPolicies[hostName][noPortProvided], &authNPolicies[i])
+				}
+
+			}
+		} else {
+			// if no targets provided, store at namespace level
+			if ps.AuthNPolicies[host.Name(spec.Namespace)] == nil {
+				ps.AuthNPolicies[host.Name(spec.Namespace)] = map[int][]*Config{}
+			}
+			ps.AuthNPolicies[host.Name(spec.Namespace)][noPortProvided] = append(ps.AuthNPolicies[host.Name(spec.Namespace)][noPortProvided], &authNPolicies[i])
 		}
 	}
+	return nil
 }
 
 // Caches list of virtual services
@@ -1007,26 +1048,51 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port int) *authn.Policy {
-	policy := ps.AuthNPolicies[service.Hostname][port]
-	if policy == nil {
-		return nil
+	workloadPolicy := ps.defaultAuthNPolicy
+	// TODO gihanson need to check for default policy for namespace
+	if ps.AuthNPolicies[service.Hostname] == nil {
+		return workloadPolicy
 	}
-	authPolicy := policy.Spec.(*authn.Policy)
-	var workloadPolicy *Config
-
-	if len(authPolicy.Targets) > 0 {
-		for _, dest := range authPolicy.Targets {
-			destLabels := labels.Instance(dest.Labels)
-			if !destLabels.SubsetOf(l) {
-				continue
-			}
-			workloadPolicy = policy
+	policies := ps.AuthNPolicies[service.Hostname][port]
+	if len(policies) == 0 {
+		if policy := ps.AuthNPolicies[service.Hostname][noPortProvided]; policy != nil {
+			workloadPolicy = policy[0].Spec.(*authn.Policy)
 		}
-	} else {
-		workloadPolicy = policy
+		return workloadPolicy
 	}
 
-	return workloadPolicy.Spec.(*authn.Policy)
+	found := false
+	for _, policy := range policies {
+		authPolicy := policy.Spec.(*authn.Policy)
+		if len(authPolicy.Targets) > 0 {
+			for _, dest := range authPolicy.Targets {
+				destLabels := labels.Instance(dest.Labels)
+				if !destLabels.SubsetOf(l) {
+					continue
+				}
+				workloadPolicy = policy.Spec.(*authn.Policy)
+				found = true
+			}
+		} else {
+			workloadPolicy = policy.Spec.(*authn.Policy)
+			found = true
+		}
+	}
+
+	// match at the service name level
+	if !found && len(ps.AuthNPolicies[service.Hostname][noPortProvided]) > 0 {
+		found = true
+		workloadPolicy = ps.AuthNPolicies[service.Hostname][noPortProvided][0].Spec.(*authn.Policy)
+	}
+
+	// match at the namespace level
+	if !found && ps.AuthNPolicies[host.Name(service.Attributes.Namespace)] != nil {
+		if len(ps.AuthNPolicies[host.Name(service.Attributes.Namespace)][noPortProvided]) > 0 {
+			workloadPolicy = ps.AuthNPolicies[host.Name(service.Attributes.Namespace)][noPortProvided][0].Spec.(*authn.Policy)
+		}
+	}
+
+	return workloadPolicy
 }
 
 // SetDestinationRules is updates internal structures using a set of configs.

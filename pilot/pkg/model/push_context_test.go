@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -115,58 +114,49 @@ func TestMergeUpdateRequest(t *testing.T) {
 
 func TestAuthNPolicies(t *testing.T) {
 	ps := NewPushContext()
-	authNPolicies := map[string]struct {
-		policy *authn.Policy
-		port   int
-	}{
-		constants.DefaultAuthenticationPolicyName: {
-			policy: &authn.Policy{},
-			port:   99,
-		},
-		"mtls-strict-svc": {
-			policy: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "mtls-strict-svc",
-				}},
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
+	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
+	ps.Env = env
+	authNPolicies := map[string]*authn.Policy{
+		constants.DefaultAuthenticationPolicyName: &authn.Policy{},
+
+		"mtls-strict-svc": &authn.Policy{
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
 			},
-			port: 80,
-		},
-		"mtls-permissive-svc": {
-			policy: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "mtls-permissive-svc",
-					Ports: []*authn.PortSelector{
-						{
-							Port: &authn.PortSelector_Number{
-								Number: 80,
-							},
+			}},
+
+		"mtls-permissive-svc": &authn.Policy{
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-permissive-svc",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
 						},
 					},
-				}},
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{
-						Mtls: &authn.MutualTls{
-							Mode: authn.MutualTls_PERMISSIVE,
-						},
+				},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_PERMISSIVE,
 					},
-				}},
-			},
-			port: 80,
+				},
+			}},
 		},
-		"mtls-disable-svc": {
-			policy: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "mtls-disable-svc",
-				}},
-			},
-			port: 80,
+
+		"mtls-disable-svc": &authn.Policy{
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-disable-svc",
+			}},
 		},
 	}
+	configStore := newFakeStore()
 	for key, value := range authNPolicies {
-		cfg := Config{
+		cfg := &Config{
 			ConfigMeta: ConfigMeta{
 				Type:      schemas.AuthenticationPolicy.Type,
 				Name:      key,
@@ -175,12 +165,15 @@ func TestAuthNPolicies(t *testing.T) {
 				Namespace: "default",
 				Domain:    "cluster.local",
 			},
-			Spec: value.policy,
+			Spec: value,
 		}
-		hostname := host.Name(fmt.Sprintf("%s.default.svc.cluster.local", key))
-		ps.AuthNPolicies[hostname] = map[int]*Config{}
-		ps.AuthNPolicies[hostname][value.port] = &cfg
+		_, _ = configStore.Create(*cfg)
+	}
 
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	if err := ps.initAuthNPolicies(env); err != nil {
+		t.Fatalf("init authn policies failed: %v", err)
 	}
 
 	cases := []struct {
@@ -205,7 +198,7 @@ func TestAuthNPolicies(t *testing.T) {
 			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
 			namespace: "default",
 			port:      90,
-			expected:  "nil",
+			expected:  constants.DefaultAuthenticationPolicyName,
 		},
 		{
 			hostname:  "mtls-disable-svc.default.svc.cluster.local",
@@ -217,7 +210,13 @@ func TestAuthNPolicies(t *testing.T) {
 			hostname:  "mtls-strict-svc.another-namespace.svc.cluster.local",
 			namespace: "another-namespace",
 			port:      80,
-			expected:  "nil",
+			expected:  constants.DefaultAuthenticationPolicyName,
+		},
+		{
+			hostname:  "mtls-default-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  constants.DefaultAuthenticationPolicyName,
 		},
 	}
 
@@ -230,8 +229,8 @@ func TestAuthNPolicies(t *testing.T) {
 			Hostname:   c.hostname,
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
-		if got := ps.AuthenticationPolicyForWorkload(service, nil, c.port); reflect.DeepEqual(got, authNPolicies[c.expected]) {
-			t.Errorf("%d. GetServiceMutualTLSMode for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expected)
+		if got := ps.AuthenticationPolicyForWorkload(service, nil, c.port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
+			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
 		}
 	}
 
