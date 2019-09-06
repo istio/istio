@@ -2,7 +2,7 @@
 title: v1alpha2
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 49
+number_of_entries: 52
 ---
 <h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>
 <section>
@@ -391,6 +391,12 @@ number_of_entries: 49
 <td>
 </td>
 </tr>
+<tr id="HTTPGetAction-port">
+<td><code>port</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+</td>
+</tr>
 <tr id="HTTPGetAction-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
@@ -686,14 +692,27 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td>
 </td>
 </tr>
+<tr id="IstioControlPlaneSpec-values">
+<td><code>values</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides for default global values.yaml.</p>
+
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-unvalidatedValues">
+<td><code>unvalidatedValues</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Unvalidated overrides for default global values.yaml.</p>
+
+</td>
+</tr>
 <tr id="IstioControlPlaneSpec-profile">
 <td><code>profile</code></td>
 <td><code>string</code></td>
 <td>
-<p>Overrides for default global values.yaml.
-Values map[string]interface&lbrace;} <code>protobuf:&quot;bytes,6,opt,name=values&quot; json:&quot;values,omitempty&quot;</code>
-UnvalidatedValues map[string]interface&lbrace;} <code>protobuf:&quot;bytes,6,opt,name=unvalidatedValues&quot; json:&quot;unvalidatedValues,omitempty&quot;</code>
-Path or name for the profile e.g.
+<p>Path or name for the profile e.g.
   minimal (looks in profiles dir for a file called minimal.yaml)
   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
 default profile is used if this field is unset.</p>
@@ -981,7 +1000,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 </thead>
 <tbody>
-<tr id="PodDisruptionBudgetSpec-min_available">
+<tr id="PodDisruptionBudgetSpec-minAvailable">
 <td><code>minAvailable</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -993,7 +1012,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 <td>
 </td>
 </tr>
-<tr id="PodDisruptionBudgetSpec-max_unavailable">
+<tr id="PodDisruptionBudgetSpec-maxUnavailable">
 <td><code>maxUnavailable</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -1227,6 +1246,29 @@ Must be enabled to enable any sub-component.</p>
 <section>
 <p>Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.</p>
 
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RollingUpdateDeployment-maxUnavailable">
+<td><code>maxUnavailable</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="RollingUpdateDeployment-maxSurge">
+<td><code>maxSurge</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h2 id="SecurityFeatureSpec">SecurityFeatureSpec</h2>
 <section>
@@ -1345,6 +1387,12 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 </thead>
 <tbody>
+<tr id="TCPSocketAction-port">
+<td><code>port</code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td>
+</td>
+</tr>
 <tr id="TCPSocketAction-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
@@ -1589,6 +1637,21 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="TypeIntOrStringForPB">TypeIntOrStringForPB</h2>
+<section>
+<p>GOTYPE: *IntOrStringForPB</p>
+
+</section>
+<h2 id="TypeInterface">TypeInterface</h2>
+<section>
+<p>GOTYPE: interface&lbrace;}</p>
+
+</section>
+<h2 id="TypeMapStringInterface">TypeMapStringInterface</h2>
+<section>
+<p>GOTYPE: map[string]interface&lbrace;}</p>
+
 </section>
 <h2 id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec">k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec</h2>
 <section>
@@ -2045,6 +2108,18 @@ Namespace is always the component namespace.</p>
 <p>Path of the form a.b:c.e.:f
 Where b:c is a list element selector of the form key:value and :f is a list selector of the form :value.
 All path intermediate nodes must exist.</p>
+
+</td>
+</tr>
+<tr id="k8sObjectOverlay-PathValue-value">
+<td><code>value</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
+<td>
+<p>Value to add, delete or replace.
+For add, the path should be a new leaf.
+For delete, value should be unset.
+For replace, path should reference an existing node.
+All values are strings but are converted into appropriate type based on schema.</p>
 
 </td>
 </tr>

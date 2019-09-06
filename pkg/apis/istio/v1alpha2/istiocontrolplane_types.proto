@@ -168,8 +168,9 @@ message IstioControlPlaneSpec {
     AutoInjectionFeatureSpec auto_injection = 30;
     GatewayFeatureSpec gateways = 31;
     // Overrides for default global values.yaml.
-    // Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-    // UnvalidatedValues map[string]interface{} `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
+    TypeMapStringInterface values = 50;
+    // Unvalidated overrides for default global values.yaml.
+    TypeMapStringInterface unvalidatedValues = 51;
     // Path or name for the profile e.g.
     //   minimal (looks in profiles dir for a file called minimal.yaml)
     //   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
@@ -450,8 +451,7 @@ message k8sObjectOverlay {
         // For delete, value should be unset.
         // For replace, path should reference an existing node.
         // All values are strings but are converted into appropriate type based on schema.
-//        Value                interface{}           `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-
+        TypeInterface value = 2;
     }
     // Resource API version.
     string api_version = 1;
@@ -513,6 +513,7 @@ message ExecAction {
 // Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
 message HTTPGetAction {
     string path = 1;
+    TypeIntOrStringForPB port = 2;
     string host = 3;
     string scheme = 4;
     repeated HTTPHeader httpHeaders = 5;
@@ -526,14 +527,15 @@ message HTTPHeader {
 
 // Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
 message TCPSocketAction {
+    TypeIntOrStringForPB port = 1;
     string host = 2;
 }
 
 // Mirrors k8s.io.api.policy.v1beta1.PodDisruptionBudget for unmarshaling.
 message PodDisruptionBudgetSpec {
-    uint32 min_available = 1;
+    uint32 minAvailable = 1;
     k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector selector = 2;
-    uint32 max_unavailable = 3;
+    uint32 maxUnavailable = 3;
 }
 
 // Mirrors k8s.io.api.apps.v1.DeploymentStrategy for unmarshaling.
@@ -544,6 +546,8 @@ message DeploymentStrategy {
 
 // Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.
 message RollingUpdateDeployment {
+    TypeIntOrStringForPB maxUnavailable = 1;
+    TypeIntOrStringForPB maxSurge = 2;
 }
 
 message ObjectMeta {
@@ -551,6 +555,15 @@ message ObjectMeta {
     string name = 5;
     string namespace = 6;
 }
+
+// GOTYPE: map[string]interface{}
+message TypeMapStringInterface {}
+
+// GOTYPE: interface{}
+message TypeInterface {}
+
+// GOTYPE: *IntOrStringForPB
+message TypeIntOrStringForPB {}
 
 // TESTING ONLY
 message TestKube {
