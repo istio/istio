@@ -32,39 +32,40 @@ type AnalyzingDistributor struct {
 
 	analysisMu     sync.Mutex
 	cancelAnalysis chan struct{}
+
+	snapshotsMu   sync.RWMutex
+	lastSnapshots map[string]*Snapshot
 }
 
 var _ Distributor = &AnalyzingDistributor{}
 
-// StatusUpdater updates resource statuses, based on the given diagnostic messages.
-type StatusUpdater interface {
-	Update(messages diag.Messages)
-}
-
-// InMemoryStatusUpdater is an in-memory implementation of StatusUpdater
-type InMemoryStatusUpdater struct {
-	mu     sync.RWMutex
-	m      diag.Messages
-	waitCh chan struct{}
-}
-
-var _ StatusUpdater = &InMemoryStatusUpdater{}
+const defaultSnapshotGroup = "default"
+const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
 	return &AnalyzingDistributor{
-		updater:     u,
-		analyzer:    a,
-		distributor: d,
+		updater:       u,
+		analyzer:      a,
+		distributor:   d,
+		lastSnapshots: make(map[string]*Snapshot),
 	}
 }
 
 // Distribute implements snapshotter.Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
+	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
+	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
+	if name == defaultSnapshotGroup || name == syntheticSnapshotGroup {
+		d.snapshotsMu.Lock()
+		d.lastSnapshots[name] = s
+		d.snapshotsMu.Unlock()
+	}
+
 	// Make use of the fact that "default" is the main snapshot group, currently. Once/if this changes, we will need to
 	// redesign this approach.
-
-	if name != "default" {
+	// We use "default" to trigger analysis, since it has a debounce strategy that means it won't trigger constantly.
+	if name != defaultSnapshotGroup {
 		d.distributor.Distribute(name, s)
 		return
 	}
@@ -86,8 +87,9 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 }
 
 func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *Snapshot) {
+	// For analysis, we use a combined snapshot
 	ctx := &context{
-		sn:       s,
+		sn:       d.getCombinedSnapshot(),
 		cancelCh: cancelCh,
 	}
 
@@ -97,7 +99,26 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 		d.updater.Update(ctx.messages)
 	}
 
-	d.distributor.Distribute("default", s)
+	// Execution only reaches this point for default snapshot group
+	d.distributor.Distribute(defaultSnapshotGroup, s)
+}
+
+// getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group
+// Important assumption: the collections in each snapshot don't overlap.
+func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
+	var collections []*collection.Instance
+
+	d.snapshotsMu.RLock()
+	defer d.snapshotsMu.RUnlock()
+
+	for _, s := range d.lastSnapshots {
+		for _, n := range s.set.Names() {
+			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the component snapshots
+			collections = append(collections, s.set.Collection(n))
+		}
+	}
+
+	return &Snapshot{set: collection.NewSetFromCollections(collections)}
 }
 
 type context struct {
@@ -130,42 +151,5 @@ func (c *context) Canceled() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// Update implements StatusUpdater
-func (u *InMemoryStatusUpdater) Update(m diag.Messages) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	u.m = m
-	if u.waitCh != nil {
-		close(u.waitCh)
-	}
-}
-
-// Get returns the current set of captured diag.Messages
-func (u *InMemoryStatusUpdater) Get() diag.Messages {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	return u.m
-}
-
-// WaitForReport blocks until a report is available. Returns true if a report is available, false if cancelCh was closed.
-func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
-	u.mu.Lock()
-	if u.m != nil {
-		return true
-	}
-
-	if u.waitCh == nil {
-		u.waitCh = make(chan struct{})
-	}
-	ch := u.waitCh
-	u.mu.Unlock()
-	select {
-	case <-cancelCh:
-		return false
-	case <-ch:
-		return true
 	}
 }
