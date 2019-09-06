@@ -54,6 +54,6 @@ podAntiAffinityTermLabelSelector: []
 keepaliveMaxServerConnectionAge: 30m
 
 # list of platform service registries to read from
-# options are Counsul, Kubernetes, MCP, Mock
+# options are Consul, Kubernetes, MCP, Mock
 registries:
   - Kubernetes
