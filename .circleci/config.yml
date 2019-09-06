@@ -16,7 +16,7 @@ integrationDefaults: &integrationDefaults
 integrationRemoteOneNamespace: &integrationRemoteOneNamespace
   working_directory: /go/src/istio.io/installer
   docker:
-    - image: istionightly/ci:2019-08-14
+    - image: istionightly/ci:2019-08-30
       environment:
         GOPATH: /go
         SKIP_CLEANUP: 1
@@ -27,7 +27,7 @@ integrationRemoteOneNamespace: &integrationRemoteOneNamespace
 integrationRemoteIsolatedNamespaces: &integrationRemoteIsolatedNamespaces
   working_directory: /go/src/istio.io/installer
   docker:
-    - image: istionightly/ci:2019-08-14
+    - image: istionightly/ci:2019-08-30
       environment:
         GOPATH: /go
         SKIP_CLEANUP: 1

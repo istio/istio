@@ -56,7 +56,6 @@ RUN  apt-get -qqy install build-essential autoconf libtool autotools-dev
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
 
 COPY --from=golang /go/bin/kind /usr/local/bin/kind
-COPY --from=golang /go/bin/ci2gubernator /usr/local/bin/ci2gubernator
 COPY --from=golang /go/bin/go-junit-report /usr/local/bin/go-junit-report
 COPY --from=golang /go/tmp/linux-amd64/helm /usr/local/bin/helm
 COPY --from=golang /usr/local/bin/repo /usr/local/bin/repo
