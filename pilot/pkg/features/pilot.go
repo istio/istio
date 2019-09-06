@@ -203,6 +203,20 @@ var (
 		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
 			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
+
+	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
+		1*time.Second,
+		"Protocol detection timeout for inbound listener",
+	).Get()
+
+	EnableHeadlessService = env.RegisterBoolVar(
+		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
+		true,
+		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
+			"outbound listener for each pod in a headless service. This feature should be disabled "+
+			"if headless services have a large number of pods. ",
+	)
 )
 
 var (
