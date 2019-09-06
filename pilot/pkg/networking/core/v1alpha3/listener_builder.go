@@ -159,6 +159,10 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 			})
 	}
 
+	timeout := features.InboundProtocolDetectionTimeout
+	builder.virtualInboundListener.ListenerFiltersTimeout = &timeout
+	builder.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
+
 	return builder
 }
 

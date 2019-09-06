@@ -74,7 +74,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-		ProtocolDetectionTimeout:          types.DurationProto(10 * time.Millisecond),
+		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
 	}
 }
 
