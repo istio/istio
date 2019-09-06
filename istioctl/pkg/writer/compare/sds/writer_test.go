@@ -54,12 +54,12 @@ func TestSDSWriterSecretItems(t *testing.T) {
 				},
 			},
 			expected: append(
-				[]string{"olinger", "source", "destination", "serial_number", "expires", "valid", "type"},
+				[]string{"olinger", "serial_number", "expires", "valid", "type"},
 				secretItemColumns...),
-			unexpected: []string{"certdata"},
+			unexpected: []string{"source", "destination", "certdata"},
 		},
 		{
-			name:   "test tabular output with a single secret item",
+			name:   "test JSON output with a single secret item",
 			format: JSON,
 			items: []SecretItem{
 				{
@@ -109,7 +109,7 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 			unexpected: secretDiffColumns,
 		},
 		{
-			name:   "test tabular output with a single secret item",
+			name:   "test tabular output with a single secret diff",
 			format: TABULAR,
 			diffs: []SecretItemDiff{
 				{
@@ -136,7 +136,7 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 			unexpected: []string{"alligator", "certdata"},
 		},
 		{
-			name:   "test tabular output with a single secret item",
+			name:   "test JSON output with a single secret diff",
 			format: JSON,
 			diffs: []SecretItemDiff{
 				{

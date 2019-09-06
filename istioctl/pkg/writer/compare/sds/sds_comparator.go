@@ -17,6 +17,7 @@ package sdscompare
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -96,5 +97,8 @@ func (c *SDSComparator) Diff() error {
 		i++
 	}
 
+	sort.Slice(resultDiffs, func(i, j int) bool {
+		return resultDiffs[i].State < resultDiffs[j].State
+	})
 	return c.w.PrintDiffs(resultDiffs)
 }

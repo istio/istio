@@ -115,9 +115,9 @@ inbound|9080||productpage.default.svc.cluster.local     1
 		{ // secret valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config secret details-v1-5b7f94f9bc-wp5tb", " "),
-			expectedOutput: `NAME        VERSION                                                     STATE
-default     2019-08-27 17:19:57.597297632 +0000 UTC m=+64.076469895     ACTIVE
-default     2019-08-27 17:19:57.597297632 +0000 UTC m=+64.076469895     WARMING
+			expectedOutput: `RESOURCE NAME     TYPE           STATUS      VALID CERT     SERIAL NUMBER                               NOT AFTER                NOT BEFORE
+default           Cert Chain     WARMING     true           102248101821513494474081488414108563796     2019-09-05T21:18:20Z     2019-09-04T21:18:20Z
+default           Cert Chain     ACTIVE      true           172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z
 `,
 		},
 		{ // endpoint invalid

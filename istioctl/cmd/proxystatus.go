@@ -59,7 +59,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 					return err
 				}
 
-				// if --sds flag set, should diff node agent secrets with active Envoy secrets
+				// when sds flag set, should diff node agent secrets with active Envoy secrets
 				if sdsDump {
 					var outputFormat sdscompare.Format
 					if sdsJSON {

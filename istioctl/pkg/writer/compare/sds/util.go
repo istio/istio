@@ -124,7 +124,6 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 	var meta SecretMeta
 	var err error
 	if s.data != "" {
-
 		meta, err = secretMetaFromCert([]byte(s.data))
 		if err != nil {
 			log.Debugf("failed to parse secret resource %s from source %s: %v",

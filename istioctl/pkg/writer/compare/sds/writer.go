@@ -62,7 +62,7 @@ func (w *sdsWriter) PrintSecretItems(secrets []SecretItem) error {
 }
 
 var (
-	secretItemColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "SERIAL NUMBER", "NOT AFTER", "NOT BEFORE", "SOURCE", "DESTINATION"}
+	secretItemColumns = []string{"RESOURCE NAME", "TYPE", "STATUS", "VALID CERT", "SERIAL NUMBER", "NOT AFTER", "NOT BEFORE"}
 	secretDiffColumns = []string{"RESOURCE NAME", "TYPE", "VALID CERT", "NODE AGENT", "PROXY", "SERIAL NUMBER", "NOT AFTER", "NOT BEFORE"}
 )
 
@@ -75,8 +75,8 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
-		fmt.Fprintf(tw, "%s\t%s\t%t\t%s\t%s\t%s\t%s\t%s\n",
-			s.Name, s.Type, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore, s.Source, s.Destination)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
+			s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)
 	}
 	return tw.Flush()
 }

@@ -18,11 +18,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"text/tabwriter"
 
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -67,7 +67,7 @@ func (c *ConfigWriter) PrintSecretDump() error {
 	}
 	secretDump, err := c.configDump.GetSecretConfigDump()
 	if err != nil {
-		return err
+		return fmt.Errorf("sidecar doesn't support secrets: %v", err)
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
 	if err := jsonm.Marshal(c.Stdout, secretDump); err != nil {
@@ -87,19 +87,11 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		fmt.Fprintln(c.Stdout, "No active or warming secrets found.")
 		return nil
 	}
+	secretItems, err := sdscompare.GetEnvoySecrets(c.configDump)
+	if err != nil {
+		return err
+	}
 
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
-	if c.configDump == nil {
-		return fmt.Errorf("config writer has not been primed")
-	}
-	_, _ = fmt.Fprintln(w, "NAME\tVERSION\tSTATE")
-	for _, secret := range secretDump.DynamicActiveSecrets {
-		_, _ = fmt.Fprintf(w, "%v\t%v\tACTIVE\n",
-			secret.Secret.Name, secret.VersionInfo)
-	}
-	for _, secret := range secretDump.DynamicWarmingSecrets {
-		_, _ = fmt.Fprintf(w, "%v\t%v\tWARMING\n",
-			secret.Secret.Name, secret.VersionInfo)
-	}
-	return w.Flush()
+	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
+	return secretWriter.PrintSecretItems(secretItems)
 }
