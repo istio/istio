@@ -106,7 +106,7 @@
             "format": "string"
           },
           "enableClientSidePolicyCheck": {
-            "description": "Enables clide side policy checks.",
+            "description": "Enables client side policy checks.",
             "type": "boolean"
           },
           "sdsUdsPath": {

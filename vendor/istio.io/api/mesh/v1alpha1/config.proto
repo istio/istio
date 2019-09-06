@@ -89,7 +89,7 @@ message MeshConfig {
   istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
 
   // Class of ingress resources to be processed by Istio ingress
-  // controller.  This corresponds to the value of
+  // controller. This corresponds to the value of
   // "kubernetes.io/ingress.class" annotation.
   string ingress_class = 7;
 
@@ -195,7 +195,7 @@ message MeshConfig {
 
   reserved 18;
 
-  // Enables clide side policy checks.
+  // Enables client side policy checks.
   bool enable_client_side_policy_check = 19;
 
   // Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
