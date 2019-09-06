@@ -14,7 +14,16 @@
 
 syntax = "proto3";
 
+// $title: Operator Installation
+// $description: Configuration for Istio control plane installation through the Operator.
+// $location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
+
 package v1alpha2;
+
+// TODO: for some reason the below fails proto compilation in this repo.
+// https://github.com/istio/istio/issues/16899
+// package istio.operator.v1alpha2;
+// option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
 
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/apps/v1/generated.proto";
@@ -564,21 +573,3 @@ message TypeInterface {}
 
 // GOTYPE: *IntOrStringForPB
 message TypeIntOrStringForPB {}
-
-// TESTING ONLY
-message TestKube {
-    map<string, string> env = 60;
-
-    Resources resources = 80;
-    //k8s.io.api.core.v1.Probe readiness_probe = 81;
-    ReadinessProbe readiness_probe = 81;
-    k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec hpa_spec = 86;
-    PodDisruptionBudgetSpec pod_disruption_budget = 87;
-    k8s.io.api.core.v1.Affinity affinity = 8;
-
-    map<string, string> pod_annotations = 90;
-    map<string, string> node_selector = 92;
-
-    // Kustomize style overrides for k8s resources in rendered manifests.
-    repeated k8sObjectOverlay overlays = 100;
-}
