@@ -22,6 +22,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+	authpb "istio.io/api/security/v1beta1"
+	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -96,7 +99,7 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(c.config, t)
-			got := authzPolicies.namespaceToV1Policies[testNS]
+			got := authzPolicies.namespaceToV1alpha1Policies[testNS]
 			if !reflect.DeepEqual(c.want, got) {
 				t.Errorf("want:\n%s\n, got:\n%s\n", c.want, got)
 			}
@@ -104,7 +107,7 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func TestGetRolesInNamespace(t *testing.T) {
+func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 	role := &rbacproto.ServiceRole{}
 	binding := &rbacproto.ServiceRoleBinding{
 		Subjects: []*rbacproto.Subject{
@@ -176,7 +179,7 @@ func TestGetRolesInNamespace(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.GetRolesInNamespace(tc.ns)
+			got := authzPolicies.ListServiceRoles(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
 			}
@@ -184,7 +187,7 @@ func TestGetRolesInNamespace(t *testing.T) {
 	}
 }
 
-func TestGetBindingsInNamespace(t *testing.T) {
+func TestAuthorizationPolicies_ListServiceRoleBindings(t *testing.T) {
 	role := &rbacproto.ServiceRole{}
 	binding := &rbacproto.ServiceRoleBinding{
 		Subjects: []*rbacproto.Subject{
@@ -295,7 +298,7 @@ func TestGetBindingsInNamespace(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.GetBindingsInNamespace(tc.ns)
+			got := authzPolicies.ListServiceRoleBindings(tc.ns)
 			if !reflect.DeepEqual(tc.want, got) {
 				t.Errorf("want: %v\n but got: %v", tc.want, got)
 			}
@@ -303,7 +306,148 @@ func TestGetBindingsInNamespace(t *testing.T) {
 	}
 }
 
-func TestIsV1RbacEnabled(t *testing.T) {
+func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
+	policy := &authpb.AuthorizationPolicy{
+		Rules: []*authpb.Rule{
+			{
+				From: []*authpb.Rule_From{
+					{
+						Source: &authpb.Source{
+							Principals: []string{"sleep"},
+						},
+					},
+				},
+				To: []*authpb.Rule_To{
+					{
+						Operation: &authpb.Operation{
+							Methods: []string{"GET"},
+						},
+					},
+				},
+			},
+		},
+	}
+	policyWithSelector := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithSelector.Selector = &selectorpb.WorkloadSelector{
+		MatchLabels: map[string]string{
+			"app":     "httpbin",
+			"version": "v1",
+		},
+	}
+
+	cases := []struct {
+		name           string
+		ns             string
+		workloadLabels map[string]string
+		configs        []Config
+		want           []Config
+	}{
+		{
+			name: "no policies",
+			ns:   "foo",
+			want: nil,
+		},
+		{
+			name: "no policies in namespace foo",
+			ns:   "foo",
+			configs: []Config{
+				newConfig("authz-1", "bar", policy),
+				newConfig("authz-2", "bar", policy),
+			},
+			want: nil,
+		},
+		{
+			name: "one policy",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", policy),
+			},
+			want: []Config{
+				newConfig("authz-1", "bar", policy),
+			},
+		},
+		{
+			name: "two policies",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "foo", policy),
+				newConfig("authz-1", "bar", policy),
+				newConfig("authz-2", "bar", policy),
+			},
+			want: []Config{
+				newConfig("authz-1", "bar", policy),
+				newConfig("authz-2", "bar", policy),
+			},
+		},
+		{
+			name: "selector exact match",
+			ns:   "bar",
+			workloadLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+			configs: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+			want: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+		},
+		{
+			name: "selector subset match",
+			ns:   "bar",
+			workloadLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+				"env":     "dev",
+			},
+			configs: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+			want: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+		},
+		{
+			name: "selector not match",
+			ns:   "bar",
+			workloadLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v2",
+			},
+			configs: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+			want: nil,
+		},
+		{
+			name: "namespace not match",
+			ns:   "foo",
+			workloadLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+			configs: []Config{
+				newConfig("authz-1", "bar", policyWithSelector),
+			},
+			want: nil,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+
+			got := authzPolicies.ListAuthorizationPolicies(
+				tc.ns, []labels.Instance{labels.Instance(tc.workloadLabels)})
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 	target := &rbacproto.RbacConfig_Target{
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
@@ -424,7 +568,7 @@ func TestIsV1RbacEnabled(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.config, t)
-			got := authzPolicies.IsV1RbacEnabled(tc.service, tc.namespace)
+			got := authzPolicies.IsRBACEnabled(tc.service, tc.namespace)
 			if tc.want != got {
 				t.Errorf("want %v but got %v", tc.want, got)
 			}
@@ -455,6 +599,8 @@ func newConfig(name, ns string, spec proto.Message) Config {
 		typ = schemas.ServiceRole.Type
 	case *rbacproto.ServiceRoleBinding:
 		typ = schemas.ServiceRoleBinding.Type
+	case *authpb.AuthorizationPolicy:
+		typ = schemas.AuthorizationPolicy.Type
 	}
 	return Config{
 		ConfigMeta: ConfigMeta{

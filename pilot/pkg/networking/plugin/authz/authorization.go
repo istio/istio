@@ -79,7 +79,8 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 		return
 	}
 
-	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
+	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Node.WorkloadLabels,
+		in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
 		return
 	}
@@ -95,11 +96,15 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			httpFilter := builder.BuildHTTPFilter()
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
-					rbacLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
-					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+					if httpFilter != nil {
+						rbacLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
+						mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+					}
 				} else {
-					rbacLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+					if tcpFilter != nil {
+						rbacLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
+						mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+					}
 				}
 			}
 		} else {
@@ -139,7 +144,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	}
 }
 
-// OnVirtualListener implments the Plugin interface method.
+// OnVirtualListener implements the Plugin interface method.
 func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
