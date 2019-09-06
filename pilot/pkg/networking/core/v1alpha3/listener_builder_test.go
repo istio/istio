@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
@@ -213,9 +215,13 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 		byListenerName[fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue()]++
 	}
 
+	expect := 1
+	if features.EnableProtocolSniffingForInbound.Get() {
+		expect = 2
+	}
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 2 {
-			t.Fatalf("expect virtual listener has 2 passthrough listeners, found %d", v)
+		if k == VirtualInboundListenerName && v != expect {
+			t.Fatalf("expect virtual listener has %d passthrough listeners, found %d", expect, v)
 		}
 		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
 			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
@@ -233,10 +239,14 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 
 	l := listeners[2]
+	expect := 1
+	if features.EnableProtocolSniffingForInbound.Get() {
+		expect = 2
+	}
 	// 2 is the 1 passthrough tcp filter chain for ipv4 and 1 http filter chain for ipv4
-	if len(l.FilterChains) != len(listeners[0].FilterChains)+2 {
+	if len(l.FilterChains) != len(listeners[0].FilterChains)+expect {
 		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
-			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
+			"plus the %d fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, expect, len(l.FilterChains))
 	}
 
 	sawIpv4PassthroughCluster := false
@@ -274,13 +284,15 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
 	}
 
-	if len(l.ListenerFilters) != 2 {
-		t.Fatalf("expected %d listener filters, found %d", 2, len(l.ListenerFilters))
+	if len(l.ListenerFilters) != expect {
+		t.Fatalf("expected %d listener filters, found %d", expect, len(l.ListenerFilters))
 	}
 
-	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != envoyListenerHTTPInspector {
-		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
-			xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
+	if features.EnableProtocolSniffingForInbound.Get() {
+		if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
+			l.ListenerFilters[1].Name != envoyListenerHTTPInspector {
+			t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
+				xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
+		}
 	}
 }
