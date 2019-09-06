@@ -700,10 +700,6 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
-//
-// Connections to the ports of non-load balanced services are directed to
-// the connection's original destination if the service has more than 5 endpoints. This avoids
-// generating too many listeners, but requires that ports of such services be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
@@ -868,10 +864,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					// Minor optimization for Kubernetes statefulsets/headless services
+					// Support Kubernetes statefulsets/headless services.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
-					// for each podIP.
-					if bind == "" && service.Resolution == model.Passthrough &&
+					// for each instance.
+					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {

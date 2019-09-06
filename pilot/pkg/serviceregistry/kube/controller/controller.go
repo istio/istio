@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/pilot/pkg/features"
 	"net"
 	"reflect"
 	"sort"
@@ -960,12 +961,14 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-		svc := obj.(*v1.Service)
-		// if the service is headless service, trigger a full push.
-		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
-			return
+	if features.EnableHeadlessService.Get() {
+		if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
+				return
+			}
 		}
 	}
 

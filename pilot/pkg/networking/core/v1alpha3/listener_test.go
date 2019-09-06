@@ -375,25 +375,13 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		numListenersOnServicePort int
 	}{
 		{
-			name: "less than 5 instances",
+			name: "gen a listener per instance",
 			instances: []*model.ServiceInstance{
 				buildServiceInstance(services[0], "10.10.10.10"),
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
 			numListenersOnServicePort: 3,
-		},
-		{
-			name: "more than 5 instances",
-			instances: []*model.ServiceInstance{
-				buildServiceInstance(services[0], "10.10.10.10"),
-				buildServiceInstance(services[0], "11.11.11.11"),
-				buildServiceInstance(services[0], "12.11.11.11"),
-				buildServiceInstance(services[0], "13.11.11.11"),
-				buildServiceInstance(services[0], "14.11.11.11"),
-				buildServiceInstance(services[0], "15.11.11.11"),
-			},
-			numListenersOnServicePort: 6,
 		},
 	}
 	for _, tt := range tests {
