@@ -114,6 +114,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 	g.Eventually(acc.Events).Should(Equal(expected))
 }
 
+/*
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -163,6 +164,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	}
 	g.Eventually(acc.Events).Should(Equal(expected))
 }
+*/
 
 func TestFsSource_InitialFile(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -286,6 +288,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 	g.Consistently(acc.Events()).Should(HaveLen(0))
 }
 
+/*
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -328,6 +331,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 	g.Consistently(acc.Events()).Should(HaveLen(0))
 }
+*/
 
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
 	g := NewGomegaWithT(t)
@@ -363,19 +367,15 @@ func TestFsSource_InvalidPath(t *testing.T) {
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
 	g := NewGomegaWithT(t)
-	old := yamlToJSON
-	yamlToJSON = func([]byte) ([]byte, error) {
-		return nil, fmt.Errorf("horror")
-	}
-	defer func() {
-		yamlToJSON = old
-	}()
 
 	mcfg := Default()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := newFS(file, func([]byte) ([]byte, error) {
+		return nil, fmt.Errorf("horror")
+	})
+
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()
