@@ -24,6 +24,21 @@ set -x
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
+
+# Local run example:
+# UPGRADE_TEST_LOCAL="true" HUB=gcr.io/istio-release \
+#   ISTIO_REL_URL=https://storage.googleapis.com/istio-release-pipeline-data/daily-build/master-20190107-09-15 \
+#   TAG=master-20190107-09-15 \
+#   prow/upgrade-tests.sh
+
+# Set up inputs needed by test_upgrade.sh
+export SOURCE_HUB=${SOURCE_HUB:-istio}
+export SOURCE_VERSION=1.2.5
+export SOURCE_RELEASE_PATH="https://github.com/istio/istio/releases/download/${SOURCE_VERSION}"
+export TARGET_HUB=${TARGET_HUB:-$HUB}
+export TARGET_VERSION=${TAG}
+export TARGET_RELEASE_PATH=${ISTIO_REL_URL}
+
 # Set to any non-empty value to use kubectl configured cluster instead of mason provisioned cluster.
 UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-}"
 
