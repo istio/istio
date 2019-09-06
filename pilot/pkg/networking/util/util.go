@@ -283,8 +283,7 @@ func IsProtocolSniffingEnabledForNode(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return IsProtocolSniffingEnabledForNode(node) ||
-		(features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node))
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
