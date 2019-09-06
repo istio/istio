@@ -58,7 +58,7 @@ export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}
 OUT ?= ${TOP}/out
 
-BUILD_IMAGE ?= istionightly/ci:2019-08-14
+BUILD_IMAGE ?= istionightly/ci:2019-08-30
 
 GO ?= go
 
