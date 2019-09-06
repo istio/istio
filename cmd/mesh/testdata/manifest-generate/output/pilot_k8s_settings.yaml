@@ -1,5 +1,85 @@
 # Resources for Pilot component
 
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  maxReplicas: 333
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 444
+    type: Resource
+  minReplicas: 222
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-pilot
+
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-pilot-istio-control
+  labels:
+    app: pilot
+    release: istio
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["authentication.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "watch", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-pilot-istio-control
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: istio-control
+---
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -170,132 +250,145 @@ data:
 ---
 
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-control
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-control
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-control
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-control
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["security.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["*"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses", "ingresses/status"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "list", "watch", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
----
-
-
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: istio-pilot
-  namespace: istio-control
-  labels:
-    app: pilot
-    release: istio
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  selector:
-    istio: pilot
----
-
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-pilot
-  namespace: istio-control
-  labels:
-    app: pilot
-    release: istio
-    istio: pilot
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: pilot
-      release: istio
-      istio: pilot
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
+  name: istio
   namespace: istio-control
   labels:
     release: istio
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
+data:
+
+  meshNetworks: |-
+    # Network config
+    networks: {}
+    
+
+  values.yaml: |-
+    appNamespaces: []
+    autoscaleEnabled: true
+    autoscaleMax: 5
+    autoscaleMin: 1
+    configMap: true
+    configNamespace: istio-config
+    cpu:
+      targetAverageUtilization: 80
+    deploymentLabels: null
+    enabled: true
+    env:
+      GODEBUG: gctrace=1
+    image: pilot
+    ingress:
+      ingressClass: istio
+      ingressControllerMode: "OFF"
+      ingressService: istio-ingressgateway
+    keepaliveMaxServerConnectionAge: 30m
+    meshNetworks:
+      networks: {}
+    namespace: istio-control
+    nodeSelector: {}
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+    policy:
+      enabled: false
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2048Mi
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    telemetry:
+      enabled: true
+    tolerations: []
+    traceSampling: 1
+    useMCP: true
+    
+
+  mesh: |-
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: true
+
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: ""
+
+    enableEnvoyAccessLogService: false
+    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
+    reportBatchMaxEntries: 100
+    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
+    reportBatchMaxTime: 1s
+    mixerReportServer: istio-telemetry.istio-control.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.istio-control.svc.cluster.local:15004
+
+    disablePolicyChecks: true
 
 
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
+    # This is the k8s ingress service name, update if you used a different name
+    ingressService: "istio-ingressgateway"
+    ingressControllerMode: "OFF"
+    ingressClass: "istio"
+    # Set expected values when SDS is disabled
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: ""
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: false
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: false
+    config_sources:
+    - address: localhost:15019
+
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    localityLbSetting:
+      enabled: true
+      
+
+    defaultConfig:
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: 2
+      #
+      tracing:
+        zipkin:
+          # Address of the Zipkin collector
+          address: zipkin.istio-control:9411
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: MUTUAL_TLS
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: istio-pilot.istio-control:15011
 ---
 
 
@@ -463,6 +556,79 @@ spec:
 ---
 
 
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: istio-control
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-control
+  labels:
+    release: istio
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-pilot
+  namespace: istio-control
+  labels:
+    app: pilot
+    release: istio
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pilot
+      release: istio
+      istio: pilot
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: istio-control
+  labels:
+    app: pilot
+    release: istio
+    istio: pilot
+spec:
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS
+  - port: 8080
+    name: http-legacy-discovery # direct
+  - port: 15014
+    name: http-monitoring
+  selector:
+    istio: pilot
+---
+
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -473,181 +639,7 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio
-  namespace: istio-control
-  labels:
-    release: istio
-data:
-
-  meshNetworks: |-
-    # Network config
-    networks: {}
-    
-
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: null
-    enabled: true
-    env:
-      GODEBUG: gctrace=1
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: "OFF"
-      ingressService: istio-ingressgateway
-    keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
-    namespace: istio-control
-    nodeSelector: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    telemetry:
-      enabled: true
-    tolerations: []
-    traceSampling: 1
-    useMCP: true
-    
-
-  mesh: |-
-    # Set enableTracing to false to disable request tracing.
-    enableTracing: true
-
-    # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
-
-    enableEnvoyAccessLogService: false
-    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
-    reportBatchMaxEntries: 100
-    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
-    reportBatchMaxTime: 1s
-    mixerReportServer: istio-telemetry.istio-control.svc.cluster.local:15004
-    mixerCheckServer: istio-policy.istio-control.svc.cluster.local:15004
-
-    disablePolicyChecks: true
-
-
-    # This is the k8s ingress service name, update if you used a different name
-    ingressService: "istio-ingressgateway"
-    ingressControllerMode: "OFF"
-    ingressClass: "istio"
-    # Set expected values when SDS is disabled
-    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: ""
-    # This flag is used by secret discovery service(SDS).
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
-    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
-    enableSdsTokenMount: false
-    # This flag is used by secret discovery service(SDS).
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
-    # and pass to sds server, which will be used to request key/cert eventually.
-    # this flag is ignored if enableSdsTokenMount is set.
-    # This isn't supported for non-k8s case.
-    sdsUseK8sSaJwt: false
-    config_sources:
-    - address: localhost:15019
-
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-    localityLbSetting:
-      enabled: true
-      
-
-    defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
-      #
-      ### ADVANCED SETTINGS #############
-      # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
-      # The pseudo service name used for Envoy.
-      serviceCluster: istio-proxy
-      # These settings that determine how long an old Envoy
-      # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      #
-      # Port where Envoy listens (on local host) for admin commands
-      # You can exec into the istio-proxy container in a pod and
-      # curl the admin port (curl http://localhost:15000/) to obtain
-      # diagnostic information from Envoy. See
-      # https://lyft.github.io/envoy/docs/operations/admin.html
-      # for more details
-      proxyAdminPort: 15000
-      #
-      # Set concurrency to a specific number to control the number of Proxy worker threads.
-      # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: 2
-      #
-      tracing:
-        zipkin:
-          # Address of the Zipkin collector
-          address: zipkin.istio-control:9411
-      #
-      # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: MUTUAL_TLS
-      #
-      # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-control:15011
----
-
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: pilot
-    release: istio
-  name: istio-pilot
-  namespace: istio-control
-spec:
-  maxReplicas: 333
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 444
-    type: Resource
-  minReplicas: 222
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
-
----
-
 # Resources for crds component
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-control
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-
 
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -1360,5 +1352,15 @@ spec:
     - name: v1beta1
       served: true
       storage: true
+---
+
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-control
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
 ---
 

@@ -20,7 +20,7 @@ endif
 pwd := $(shell pwd)
 
 # make targets
-.PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts
+.PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
 lint: lint-copyright-banner lint-go
 
@@ -53,6 +53,10 @@ default: mesh
 
 mesh: vfsgen
 	go build -o ${GOBIN}/mesh ./cmd/mesh.go
+
+update-goldens:
+	export REFRESH_GOLDEN=true
+	@go test ./cmd/mesh/...
 
 ########################
 
