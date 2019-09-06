@@ -16,6 +16,7 @@ package analyzers
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
 
@@ -24,5 +25,6 @@ func All() analysis.Analyzer {
 	return analysis.Combine("all",
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.DestinationAnalyzer{},
+		&auth.ServiceRoleBindingAnalyzer{},
 	)
 }

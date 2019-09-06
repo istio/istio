@@ -24,8 +24,7 @@ import (
 )
 
 // GatewayAnalyzer checks the gateways associated with each virtual service
-type GatewayAnalyzer struct {
-}
+type GatewayAnalyzer struct {}
 
 var _ analysis.Analyzer = &GatewayAnalyzer{}
 
