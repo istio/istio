@@ -100,8 +100,8 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range serviceRegistry {
 		missing[fqdn] = true
 	}
-	for _, hostname := range out {
-		for _, service := range hostname.Services {
+	for _, wrapper := range out {
+		for _, service := range wrapper.Services {
 			delete(missing, service.Hostname)
 		}
 	}

@@ -198,6 +198,13 @@ var (
 		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
 			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
+
+	EnableHeadlessService = env.RegisterBoolVar(
+		"PILOT_ENABLE_HEADLESS_SERVICE",
+		true,
+		"If enabled, for a headless service, pilot will generate a single listener for each pod instance. "+
+			"For external name headless service, it does not take effect.",
+	)
 )
 
 var (
