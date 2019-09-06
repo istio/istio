@@ -27,9 +27,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -38,15 +35,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/monitoring"
-
-	"istio.io/pkg/log"
 )
 
 const (
@@ -909,7 +907,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					// For service without selector, maybe there are no related pods
+					// This can not happen in usual case
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
 						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 						if c.Env != nil {
@@ -918,6 +916,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						// TODO: keep them in a list, and check when pod events happen !
 						continue
 					}
+					// For service without selector, maybe there are no related pods
 				}
 
 				var labels map[string]string
@@ -950,8 +949,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		}
 	}
 
-	// TODO: Endpoints include the service labels, maybe we can use them ?
-	// nodeName is also included, not needed
 	if log.InfoEnabled() {
 		var addresses []string
 		for _, ss := range ep.Subsets {
@@ -960,6 +957,17 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			}
 		}
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
+	}
+
+	if features.EnableHeadlessService.Get() {
+		if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
+				return
+			}
+		}
 	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
