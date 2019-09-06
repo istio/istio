@@ -28,8 +28,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -294,7 +294,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
 					dummyNamespace,
-					v1.SchemeGroupVersion.WithKind("Namespace"),
+					corev1.SchemeGroupVersion.WithKind("Namespace"),
 				),
 			},
 		},
@@ -316,7 +316,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 						},
 						Rule: admissionregistrationv1beta1.Rule{
 							APIGroups:   []string{"g1"},
-							APIVersions: []string{"v1"},
+							APIVersions: []string{"corev1"},
 							Resources:   []string{"r1"},
 						},
 					},
