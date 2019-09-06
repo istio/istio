@@ -164,7 +164,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 				Hostname:     svc.Hostname,
 				Address:      svc.Address,
 				MeshExternal: svc.MeshExternal,
+				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
+				Attributes: model.ServiceAttributes{
+					ServiceRegistry: svc.Attributes.ServiceRegistry,
+				},
 			}
 		}
 	}
