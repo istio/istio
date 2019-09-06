@@ -36,9 +36,9 @@ import (
 )
 
 func removeFromMeshCmd() *cobra.Command {
-	addToMeshCmd := &cobra.Command{
+	removeFromMeshCmd := &cobra.Command{
 		Use:     "remove-from-mesh",
-		Aliases: []string{"remove"},
+		Aliases: []string{"rm"},
 		Short:   "Remove workloads from Istio service mesh",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
@@ -48,9 +48,9 @@ func removeFromMeshCmd() *cobra.Command {
 			return nil
 		},
 	}
-	addToMeshCmd.AddCommand(svcUnMeshifyCmd())
-	addToMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
-	return addToMeshCmd
+	removeFromMeshCmd.AddCommand(svcUnMeshifyCmd())
+	removeFromMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
+	return removeFromMeshCmd
 }
 
 func svcUnMeshifyCmd() *cobra.Command {
