@@ -229,6 +229,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 				}
 			}
 		}
+
+		if len(virtualHosts) == 0 {
+			virtualHosts = tmpVirtualHosts
+		}
 	} else {
 		virtualHosts = tmpVirtualHosts
 	}

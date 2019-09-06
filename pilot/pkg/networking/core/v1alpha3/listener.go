@@ -1042,12 +1042,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
 		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
-			util.IsProtocolSniffingEnabledForNode(node) && listenerOpts.bind != actualWildcard {
-			if pluginParams.Service != nil {
-				rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
-			} else {
-				rdsName = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
-			}
+			util.IsProtocolSniffingEnabledForNode(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
 		} else {
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
