@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
+	cert "k8s.io/api/certificates/v1beta1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
-	certificates "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
@@ -95,17 +96,6 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 	mutatingWebhookConfigNames := []string{"mock-mutating-webook"}
 	validatingWebhookConfigNames := []string{"mock-validating-webhook"}
 
-	client := fake.NewSimpleClientset()
-	csr := &certificates.CertificateSigningRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "domain-cluster.local-ns--secret-mock-secret",
-		},
-		Status: certificates.CertificateSigningRequestStatus{
-			Certificate: []byte(exampleIssuedCert),
-		},
-	}
-	client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-
 	testCases := map[string]struct {
 		deleteWebhookConfigOnExit     bool
 		gracePeriodRatio              float32
@@ -143,6 +133,17 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		csr := &cert.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "domain-cluster.local-ns--secret-mock-secret",
+			},
+			Status: cert.CertificateSigningRequestStatus{
+				Certificate: []byte(exampleIssuedCert),
+			},
+		}
+		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -167,10 +168,8 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 			if err == nil {
 				t.Errorf("should have failed at updateMutatingWebhookConfig")
 			}
-			continue
 		} else if err != nil {
 			t.Errorf("failed at updateMutatingWebhookConfig: %v", err)
-			continue
 		}
 	}
 }
@@ -280,7 +279,6 @@ func TestRebuildValidatingWebhookConfigHelper(t *testing.T) {
 }
 
 func TestCreateOrUpdateMutatingWebhookConfig(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	emptyMutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	mutatingWebhookConfigFiles := []string{"./test-data/example-mutating-webhook-config.yaml"}
 	validatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
@@ -341,6 +339,7 @@ func TestCreateOrUpdateMutatingWebhookConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -382,7 +381,6 @@ func TestCreateOrUpdateMutatingWebhookConfig(t *testing.T) {
 }
 
 func TestCreateOrUpdateValidatingWebhookConfig(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	emptyValidatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	validatingWebhookConfigFiles := []string{"./test-data/example-validating-webhook-config.yaml"}
 	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
@@ -443,6 +441,7 @@ func TestCreateOrUpdateValidatingWebhookConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -484,7 +483,6 @@ func TestCreateOrUpdateValidatingWebhookConfig(t *testing.T) {
 }
 
 func TestUpdateMutatingWebhookConfig(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	emptyMutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	mutatingWebhookConfigFiles := []string{"./test-data/example-mutating-webhook-config.yaml"}
 	validatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
@@ -531,6 +529,7 @@ func TestUpdateMutatingWebhookConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -564,7 +563,6 @@ func TestUpdateMutatingWebhookConfig(t *testing.T) {
 }
 
 func TestUpdateValidatingWebhookConfig(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	emptyValidatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	validatingWebhookConfigFiles := []string{"./test-data/example-validating-webhook-config.yaml"}
 	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
@@ -611,6 +609,7 @@ func TestUpdateValidatingWebhookConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -644,7 +643,6 @@ func TestUpdateValidatingWebhookConfig(t *testing.T) {
 }
 
 func TestUpdateCertAndWebhookConfig(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	validatingWebhookConfigFiles := []string{"./test-data/example-validating-webhook-config.yaml"}
 	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	mutatingWebhookConfigNames := []string{"mock-mutating-webook"}
@@ -712,6 +710,7 @@ func TestUpdateCertAndWebhookConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
@@ -768,7 +767,6 @@ func TestUpdateCertAndWebhookConfig(t *testing.T) {
 }
 
 func TestReloadCACert(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 	validatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
 
@@ -802,6 +800,7 @@ func TestReloadCACert(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
