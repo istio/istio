@@ -217,10 +217,11 @@ var (
 	).Get()
 
 	EnableHeadlessService = env.RegisterBoolVar(
-		"PILOT_ENABLE_HEADLESS_SERVICE",
+		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
 		false,
-		"If enabled, for a headless service, pilot will generate a single listener for each pod instance. "+
-			"For external name headless service, it does not take effect.",
+		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
+			"outbound listener for each pod in a headless service. This feature should be disabled "+
+			"if headless services have a large number of pods. ",
 	)
 )
 
