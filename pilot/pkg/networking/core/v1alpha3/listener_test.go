@@ -230,6 +230,16 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
+func TestOutboundListenerRouteV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	testOutboundListenerRouteV13(t,
+		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
+		buildService("test2.com", "2.3.4.5", protocol.HTTP, tnow),
+		buildService("test3.com", "3.4.5.6", "unknown", tnow.Add(2*time.Second)))
+}
+
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
 	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
 	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
@@ -502,6 +512,49 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildOutboundListeners(p, &proxy13, nil, nil, services...)
+	if len(listeners) != 3 {
+		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	}
+
+	l := findListenerByAddress(listeners, wildcardIP)
+	if l == nil {
+		t.Fatalf("expect listener %s", "0.0.0.0_8080")
+	}
+
+	f := l.FilterChains[1].Filters[0]
+	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "8080" {
+		t.Fatalf("expect routes %s, found %s", "8080", rds)
+	}
+
+	l = findListenerByAddress(listeners, "1.2.3.4")
+	if l == nil {
+		t.Fatalf("expect listener %s", "1.2.3.4_8080")
+	}
+	f = l.FilterChains[1].Filters[0]
+	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "test1.com:8080" {
+		t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
+	}
+
+	l = findListenerByAddress(listeners, "3.4.5.6")
+	if l == nil {
+		t.Fatalf("expect listener %s", "3.4.5.6_8080")
+	}
+	f = l.FilterChains[1].Filters[0]
+	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "test3.com:8080" {
+		t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
+	}
+}
+
 func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
@@ -536,6 +589,14 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+		}
+
+		f := listeners[0].FilterChains[2].Filters[0]
+		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+		expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
+		if rds != expect {
+			t.Fatalf("expect routes %s, found %s", expect, rds)
 		}
 	} else {
 		if len(listeners[0].FilterChains) != 3 {
@@ -1375,6 +1436,16 @@ func isNodeHTTP10(proxy *model.Proxy) bool {
 func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {
 	for _, l := range listeners {
 		if port == l.Address.GetSocketAddress().GetPortValue() {
+			return l
+		}
+	}
+
+	return nil
+}
+
+func findListenerByAddress(listeners []*xdsapi.Listener, address string) *xdsapi.Listener {
+	for _, l := range listeners {
+		if address == l.Address.GetSocketAddress().Address {
 			return l
 		}
 	}
