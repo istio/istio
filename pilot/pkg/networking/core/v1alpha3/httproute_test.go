@@ -619,20 +619,6 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:                  "no sidecar config with virtual services - import headless service from other namespaces: 8888",
-			routeName:             "8888",
-			sidecarConfig:         nil,
-			virtualServiceConfigs: []*model.Config{&virtualService4},
-			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {
-					"test-headless.com": true, "test-headless.com:8888": true, "*.test-headless.com": true, "*.test-headless.com:8888": true,
-				},
-				"example.com:8888": {
-					"example.com": true, "example.com:8888": true,
-				},
-			},
-		},
-		{
 			name:                  "sidecar config with unix domain socket listener - import headless service",
 			routeName:             "unix://foo/bar/headless",
 			sidecarConfig:         sidecarConfig,
