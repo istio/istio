@@ -171,9 +171,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 		wildcardDomain := false
 		if features.EnableHeadlessService.Get() && listenerPort != 0 {
-			if len(virtualHostWrapper.VirtualServiceHosts) == 0 {
-				wildcardDomain = true
-			}
+			wildcardDomain = true
 		}
 
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
