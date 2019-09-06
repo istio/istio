@@ -419,12 +419,6 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 
-	// Locate all ports in the actual service
-	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
-	if !exists {
-		return nil, nil
-	}
-
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
@@ -449,18 +443,25 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	}
 
 	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
-
+	// Locate all ports in the actual service
+	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	if !exists {
+		return nil, nil
+	}
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			podLabels, _ := c.pods.labelsByIP(ea.IP)
+			var podLabels labels.Instance
+			pod := c.pods.getPodByIP(ea.IP)
+			if pod != nil {
+				podLabels = configKube.ConvertLabels(pod.ObjectMeta)
+			}
 			// check that one of the input labels is a subset of the labels
 			if !labelsList.HasSubsetOf(podLabels) {
 				continue
 			}
 
-			pod := c.pods.getPodByIP(ea.IP)
 			az, sa, uid := "", "", ""
 			if pod != nil {
 				az = c.GetPodLocality(pod)
