@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"istio.io/istio/pilot/pkg/features"
 	"net"
 	"reflect"
 	"sort"
@@ -28,9 +27,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -39,15 +35,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/monitoring"
-
-	"istio.io/pkg/log"
 )
 
 const (
