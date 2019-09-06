@@ -78,17 +78,27 @@ func (c *ConfigWriter) PrintSecretDump() error {
 
 // PrintSecretSummary prints a summary of dynamic active secrets from the config dump
 func (c *ConfigWriter) PrintSecretSummary() error {
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
-	if c.configDump == nil {
-		return fmt.Errorf("config writer has not been primed")
-	}
 	secretDump, err := c.configDump.GetSecretConfigDump()
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(w, "NAME\tVERSION")
+	if len(secretDump.DynamicActiveSecrets) == 0 &&
+		len(secretDump.DynamicWarmingSecrets) == 0 {
+		fmt.Fprintln(c.Stdout, "No active or warming secrets found.")
+		return nil
+	}
+
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	_, _ = fmt.Fprintln(w, "NAME\tVERSION\tSTATE")
 	for _, secret := range secretDump.DynamicActiveSecrets {
-		_, _ = fmt.Fprintf(w, "%v\t%v\n",
+		_, _ = fmt.Fprintf(w, "%v\t%v\tACTIVE\n",
+			secret.Secret.Name, secret.VersionInfo)
+	}
+	for _, secret := range secretDump.DynamicWarmingSecrets {
+		_, _ = fmt.Fprintf(w, "%v\t%v\tWARMING\n",
 			secret.Secret.Name, secret.VersionInfo)
 	}
 	return w.Flush()
