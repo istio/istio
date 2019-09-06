@@ -1769,8 +1769,8 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15011
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15011
           {{- else }}
           - istio-pilot:15011
           {{- end }}
@@ -1778,8 +1778,8 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15010
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15010
           {{- else }}
           - istio-pilot:15010
           {{- end }}
@@ -2148,7 +2148,8 @@ metadata:
   labels:
     app: istio-egressgateway
     release: {{ .Release.Name }}
-{{ end }}`)
+{{ end }}
+`)
 
 func chartsGatewaysIstioEgressTemplatesServiceaccountYamlBytes() ([]byte, error) {
 	return _chartsGatewaysIstioEgressTemplatesServiceaccountYaml, nil
@@ -2827,8 +2828,8 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15011
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15011
           {{- else }}
           - istio-pilot:15011
           {{- end }}
@@ -2836,8 +2837,8 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.istioNamespace }}
-          - istio-pilot.{{ .Values.global.istioNamespace }}:15010
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15010
           {{- else }}
           - istio-pilot:15010
           {{- end }}
@@ -3532,7 +3533,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-ingressgateway
-    release: {{ .Release.Name }}`)
+    release: {{ .Release.Name }}
+`)
 
 func chartsGatewaysIstioIngressTemplatesServiceaccountYamlBytes() ([]byte, error) {
 	return _chartsGatewaysIstioIngressTemplatesServiceaccountYaml, nil
@@ -3967,7 +3969,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: {{ .Values.cni.hub }}/{{ .values.cni.image | default "install-cni" }}:{{ .Values.cni.tag }}
+          image: {{ .Values.cni.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
           command: ["/install-cni.sh"]
           env:
@@ -4223,7 +4225,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "-x"
     - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
+    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
     - "-d"
     - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
     {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
@@ -4868,14 +4870,14 @@ data:
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Release.Namespace }}:15011
+      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15011
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Release.Namespace }}:15010
+      discoveryAddress: istio-pilot{{ .Values.version }}.{{ .Values.global.configNamespace }}:15010
     {{- end }}
 ---
 `)
@@ -8410,12 +8412,17 @@ spec:
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
+        - containerPort: 9091
         - containerPort: 15014
         - containerPort: 42422
         args:
           - --monitoringPort=15014
           - --address
+{{- if .Values.global.controlPlaneSecurityEnabled }}
           - unix:///sock/mixer.socket
+{{- else }}
+          - tcp://0.0.0.0:9091
+{{- end }}
 {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
 {{- end}}
@@ -8443,8 +8450,13 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.mixer.policy.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.mixer.policy.env }}
         {{- range $key, $val := .Values.mixer.policy.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -8473,6 +8485,7 @@ spec:
             port: 15014
           initialDelaySeconds: 5
           periodSeconds: 5
+{{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
         image: "{{ .Values.global.proxy.image }}"
@@ -8481,7 +8494,6 @@ spec:
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
-        - containerPort: 9091
         - containerPort: 15004
         - containerPort: 15090
           protocol: TCP
@@ -8542,6 +8554,7 @@ spec:
         {{- end }}
         - name: uds-socket
           mountPath: /sock
+{{- end }}
 ---
 
 `)
@@ -22880,6 +22893,20 @@ func chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson() (*asset, error) {
 
 var _chartsIstioTelemetryGrafanaFix_datasourcesSh = []byte(`#!/bin/bash
 
+# Copyright Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
 set -e
 
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -23381,7 +23408,8 @@ spec:
     {{range $rangeList := .Values.grafana.service.loadBalancerSourceRanges}}
     - {{ $rangeList }}
     {{end}}
-  {{end}}`)
+  {{end}}
+`)
 
 func chartsIstioTelemetryGrafanaTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryGrafanaTemplatesServiceYaml, nil
@@ -24062,7 +24090,8 @@ data:
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
       private_key_file: {{ .Values.kiali.security.private_key_file }}
-{{- end}}`)
+{{- end}}
+`)
 
 func chartsIstioTelemetryKialiTemplatesConfigmapYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryKialiTemplatesConfigmapYaml, nil
@@ -26035,12 +26064,17 @@ spec:
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
+        - containerPort: 9091
         - containerPort: 15014
         - containerPort: 42422
         args:
           - --monitoringPort=15014
           - --address
+{{- if .Values.global.controlPlaneSecurityEnabled }}
           - unix:///sock/mixer.socket
+{{- else }}
+          - tcp://0.0.0.0:9091
+{{- end }}
 {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
 {{- end}}
@@ -26068,8 +26102,13 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.mixer.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.mixer.env }}
         {{- range $key, $val := .Values.mixer.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -26107,7 +26146,6 @@ spec:
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         ports:
-        - containerPort: 9091
         - containerPort: 15004
         - containerPort: 15090
           protocol: TCP
@@ -26415,6 +26453,7 @@ spec:
     logInfo:
       server-accesslog-stackdriver.instance.{{ .Release.Namespace }}:
         labelNames:
+        - mesh_uid
         - source_uid
         - source_ip
         - source_app
@@ -26453,6 +26492,7 @@ spec:
         - referer
       server-tcp-accesslog-stackdriver.instance.{{ .Release.Namespace }}:
         labelNames:
+        - mesh_uid
         - connection_id
         - connection_event
         - source_uid
@@ -26564,6 +26604,7 @@ spec:
   params:
     value: "1"
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26603,6 +26644,7 @@ spec:
   params:
     value: "1"
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26641,6 +26683,7 @@ spec:
   params:
     value: request.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26680,6 +26723,7 @@ spec:
   params:
     value: request.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26718,6 +26762,7 @@ spec:
   params:
     value: response.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26757,6 +26802,7 @@ spec:
   params:
     value: response.total_size
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26795,6 +26841,7 @@ spec:
   params:
     value: response.duration
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26834,6 +26881,7 @@ spec:
   params:
     value: response.duration
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26872,6 +26920,7 @@ spec:
   params:
     value: connection.received.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26907,6 +26956,7 @@ spec:
   params:
     value: connection.received.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26941,6 +26991,7 @@ spec:
   params:
     value: connection.sent.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -26976,6 +27027,7 @@ spec:
   params:
     value: connection.sent.bytes | 0
     dimensions:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       destination_port: destination.port | 0
@@ -27011,6 +27063,7 @@ spec:
     severity: '"Info"'
     timestamp: request.time
     variables:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       source_uid: source.uid | ""
       source_ip: source.ip | ip("0.0.0.0")
       source_app: source.labels["app"] | ""
@@ -27070,6 +27123,7 @@ spec:
     severity: '"Info"'
     timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
     variables:
+      mesh_uid: '"{{ .Values.global.meshID }}"'
       source_uid: source.uid | ""
       connection_id: connection.id | ""
       connection_event: connection.event | ""
@@ -27191,6 +27245,48 @@ spec:
     instances:
     - stackdriver-span
 {{- end }}
+---
+{{- if .Values.mixer.adapters.stackdriver.contextGraph.enabled }}
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: stackdriver-edge
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  compiledTemplate: edge
+  params:
+    timestamp: request.time | context.time | timestamp("2017-01-01T00:00:00Z")
+    sourceUid: source.uid | "Unknown"
+    sourceOwner: source.owner | "Unknown"
+    sourceWorkloadName: source.workload.name | "Unknown"
+    sourceWorkloadNamespace: source.workload.namespace | "Unknown"
+    destinationUid: destination.uid | "Unknown"
+    destinationOwner: destination.owner | "Unknown"
+    destinationWorkloadName: destination.workload.name | "Unknown"
+    destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+    contextProtocol: context.protocol | "Unknown"
+    apiProtocol: api.protocol | "Unknown"
+    destinationServiceName: destination.service.name | "Unknown"
+    destinationServiceNamespace: destination.service.namespace | "Unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stackdriver-edge
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-telemetry
+    release: {{ .Release.Name }}
+spec:
+  match: (context.reporter.kind | "inbound" == "inbound") && (context.protocol | "unknown" != "unknown")
+  actions:
+   - handler: stackdriver
+     instances:
+     - stackdriver-edge
+{{- end }}
 {{- end }}
 `)
 
@@ -27241,6 +27337,9 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
       tracer:
         enabled: false
         sampleProbability: 1
+
+      contextGraph:
+        enabled: false
 
     # Setting this to false sets the useAdapterCRDs mixer startup argument to false
     useAdapterCRDs: false
@@ -27995,7 +28094,8 @@ spec:
   tls:
 {{ toYaml .Values.prometheus.ingress.tls | indent 4 }}
   {{- end -}}
-{{- end -}}`)
+{{- end -}}
+`)
 
 func chartsIstioTelemetryPrometheusTemplatesInrgessYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusTemplatesInrgessYaml, nil
@@ -28563,6 +28663,7 @@ metadata:
     monitoring: istio-components
     release: {{ .Release.Name }}
 spec:
+  jobLabel: istio
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel]}
@@ -28832,6 +28933,11 @@ spec:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     honorLabels: true
     interval: {{ .Values.prometheus.scrapeInterval }}
+    relabelings:
+    - sourceLabels: [job]
+      action: replace
+      replacement: kubernetes-cadvisor
+      targetLabel: job
     metricRelabelings:
     - action: drop
       regex: container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)
@@ -28935,7 +29041,8 @@ description: A Helm chart for tracing
 name: tracing
 version: 1.1.0
 appVersion: 1.5.1
-tillerVersion: ">=2.7.2"`)
+tillerVersion: ">=2.7.2"
+`)
 
 func chartsIstioTelemetryTracingChartYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryTracingChartYaml, nil
@@ -29394,7 +29501,8 @@ spec:
     requests:
       storage: 5Gi
 {{- end }}
-{{- end }}`)
+{{- end }}
+`)
 
 func chartsIstioTelemetryTracingTemplatesPvcYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryTracingTemplatesPvcYaml, nil
@@ -29456,7 +29564,8 @@ spec:
   selector:
     app: jaeger
   type: ClusterIP
-{{ end }}`)
+{{ end }}
+`)
 
 func chartsIstioTelemetryTracingTemplatesServiceJaegerYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryTracingTemplatesServiceJaegerYaml, nil
@@ -29855,11 +29964,17 @@ data:
     .:53 {
           errors
           health
+          {{ if eq -1 (semver  .Values.coreDNSTag  | (semver "1.4.0").Compare) }}
+          # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
+          grpc . 127.0.0.1:8053
+          forward . /etc/resolv.conf
+          {{ else }}
           proxy global 127.0.0.1:8053 {
             protocol grpc insecure
           }
-          prometheus :9153
           proxy . /etc/resolv.conf
+          {{ end }}
+          prometheus :9153
           cache 30
           reload
         }
@@ -29913,7 +30028,7 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: {{ .Values.istiocoredns.coreDNSImage }}
+        image: {{ .Values.istiocoredns.coreDNSImage }}:{{ .Values.istiocoredns.coreDNSTag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
@@ -30065,7 +30180,8 @@ istiocoredns:
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
-  coreDNSImage: coredns/coredns:1.1.2
+  coreDNSImage: coredns/coredns
+  coreDNSTag: 1.6.2
   # Source code for the plugin can be found at
   # https://github.com/istio-ecosystem/istio-coredns-plugin
   # The plugin listens for DNS requests from coredns server at 127.0.0.1:8053
@@ -31142,8 +31258,8 @@ security:
 
   # Galley, pilot in each 'profile' must have a DNS cert.
   dnsCerts:
-    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
-    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
+    istio-pilot-service-account.istio-control: istio-pilot.istio-control
+    istio-pilot-service-account.istio-pilot11: istio-pilot.istio-system
 
     istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
     istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
@@ -31465,7 +31581,8 @@ spec:
 {{ toYaml .Values.nodeagent.tolerations | indent 6 }}
 {{- end }}
   updateStrategy:
-    type: RollingUpdate`)
+    type: RollingUpdate
+`)
 
 func chartsSecurityNodeagentTemplatesDaemonsetYamlBytes() ([]byte, error) {
 	return _chartsSecurityNodeagentTemplatesDaemonsetYaml, nil
@@ -31647,6 +31764,11 @@ spec:
                   name: cpu
                   targetAverageUtilization: 80
           env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
             - name: GODEBUG
               value: "gctrace=1"
           strategy:
@@ -31662,6 +31784,11 @@ spec:
         enabled: true
         k8s:
           env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
           - name: GODEBUG
             value: "gctrace=1"
           - name: GOMAXPROCS
