@@ -91,7 +91,7 @@ func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace stri
 	err := c.cmdSite.Run(cmd)
 	if err != nil {
 		logAndPrint("error running kubectl apply: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error from running kubectl apply: %s", err)
+		return stdout.String(), stderr.String(), fmt.Errorf("error running kubectl apply: %s", err)
 	}
 
 	logAndPrint("kubectl apply success")
@@ -120,7 +120,7 @@ func (c *Client) GetConfig(name, namespace, output string, extraArgs ...string) 
 	err := c.cmdSite.Run(cmd)
 	if err != nil {
 		logAndPrint("error running kubectl get cm: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error from running kubectl get cm: %s", err)
+		return stdout.String(), stderr.String(), fmt.Errorf("error running kubectl %s: %s", strings.Join(args, " "), err)
 	}
 
 	logAndPrint("kubectl get cm success")

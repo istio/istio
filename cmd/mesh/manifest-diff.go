@@ -51,40 +51,44 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 			"The format of each list item is \"::\" and the items are comma separated. The \"*\" character represents wildcard selection.\n"+
 			"e.g.\n"+
 			"    Deployment:istio-system:* - compare all deployments in istio-system namespace\n"+
-			"    Service:*:istio-pilot - compare Services called \"istio-pilot\" in all namespaces.")
+			"    Service:*:istio-pilot - compare Services called \"istio-pilot\" in all namespaces")
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
-		"ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources.")
+		"ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources")
 }
 
 func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "diff",
-		Short: "Compare manifests and generate diff.",
+		Use:   "diff <file|dir> <file|dir>",
+		Short: "Compare manifests and generate diff",
 		Long:  "The diff subcommand compares manifests from two files or directories.",
-		Args:  cobra.ExactArgs(2),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 2 {
+				return fmt.Errorf("diff requires two files or directories")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if diffArgs.compareDir {
 				compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.selectResources, diffArgs.ignoreResources)
 			} else {
-				compareManifestsFromFiles(rootArgs, args, diffArgs.selectResources, diffArgs.ignoreResources)
+				compareManifestsFromFiles(rootArgs, args, diffArgs.selectResources, diffArgs.ignoreResources, l)
 			}
 		}}
 	return cmd
 }
 
 //compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResources, ignoreResources string) {
+func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResources, ignoreResources string, l *logger) {
 	initLogsOrExit(rootArgs)
 
 	a, err := ioutil.ReadFile(args[0])
 	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
+		l.logAndFatal(fmt.Sprintf("Could not read %q: %v\n", args[0], err.Error()))
 	}
 	b, err := ioutil.ReadFile(args[1])
 	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
+		l.logAndFatal(fmt.Sprintf("Could not read %q: %v\n", args[1], err.Error()))
 	}
 
 	diff, err := object.ManifestDiffWithSelectAndIgnore(string(a), string(b), selectResources, ignoreResources)
@@ -95,7 +99,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResource
 	if diff == "" {
 		fmt.Println("Manifests are identical")
 	} else {
-		fmt.Printf("Difference of manifests are:\n%s", diff)
+		fmt.Printf("Differences of manifests are:\n%s", diff)
 		os.Exit(1)
 	}
 }
@@ -127,7 +131,7 @@ func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2, selectReso
 	if diff == "" {
 		fmt.Println("Manifests are identical")
 	} else {
-		fmt.Printf("Difference of manifests are:\n%s", diff)
+		fmt.Printf("Differences of manifests are:\n%s", diff)
 		os.Exit(1)
 	}
 }

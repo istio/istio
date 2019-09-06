@@ -44,17 +44,22 @@ type profileDumpArgs struct {
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
-		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree. ")
+		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
-		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered.")
+		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered")
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "dump",
-		Short: "Dumps an Istio configuration profile.",
+		Use:   "dump [<profile>]",
+		Short: "Dumps an Istio configuration profile",
 		Long:  "The dump subcommand dumps the values in an Istio configuration profile.",
-		Args:  cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return fmt.Errorf("too many positional arguments")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			profileDump(args, rootArgs, pdArgs, l)

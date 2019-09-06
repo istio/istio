@@ -28,7 +28,7 @@ import (
 type manifestGenerateArgs struct {
 	// inFilename is the path to the input IstioControlPlane CR.
 	inFilename string
-	// outFilename is the path to the generated output filename.
+	// outFilename is the path to the generated output directory.
 	outFilename string
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
 	// value to set the node at that path to.
@@ -37,15 +37,21 @@ type manifestGenerateArgs struct {
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
+	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
 	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
-		Short: "Generates an Istio install manifest.",
+		Short: "Generates an Istio install manifest",
 		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("generate accepts no positional arguments, got %#v", args)
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			manifestGenerate(rootArgs, mgArgs, l)

@@ -69,6 +69,7 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	s := fmt.Sprint(v...)
 	if !l.logToStdErr {
 		l.print(s)
+		l.print("\n")
 	}
 	log.Infof(s)
 }
