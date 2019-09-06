@@ -105,8 +105,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
+	useSniffing := false
 	var err error
-	listenerPort, err = strconv.Atoi(routeName)
+	if util.IsProtocolSniffingEnabledForNode(node) &&
+		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+		index := strings.IndexRune(routeName, ':')
+		if index != -1 {
+			useSniffing = true
+		}
+		listenerPort, err = strconv.Atoi(routeName[index+1:])
+	} else {
+		listenerPort, err = strconv.Atoi(routeName)
+	}
+
 	if err != nil {
 		// we have a port whose name is http_proxy or unix:///foo/bar
 		// check for both.
@@ -215,11 +226,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
-	var virtualHosts []*route.VirtualHost
+	var tmpVirtualHosts []*route.VirtualHost
 	if listenerPort == 0 {
-		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
+		tmpVirtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
-		virtualHosts = vHostPortMap[listenerPort]
+		tmpVirtualHosts = vHostPortMap[listenerPort]
+	}
+
+	var virtualHosts []*route.VirtualHost
+	if useSniffing {
+		for _, vh := range tmpVirtualHosts {
+			for _, domain := range vh.Domains {
+				if domain == routeName {
+					virtualHosts = append(virtualHosts, vh)
+					break
+				}
+			}
+		}
+
+		if len(virtualHosts) == 0 {
+			virtualHosts = tmpVirtualHosts
+		}
+	} else {
+		virtualHosts = tmpVirtualHosts
 	}
 
 	util.SortVirtualHosts(virtualHosts)
