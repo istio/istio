@@ -84,7 +84,7 @@ $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons):
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
 	@cp -r /tmp/pkg/* pkg/
 	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
-	@patch $(types_v1alpha2_path)/istiocontrolplane_types.pb.go < $(types_v1alpha2_path)/fixup_go_structs.patch
+	go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
 
 generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
 
