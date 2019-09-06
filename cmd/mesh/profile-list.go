@@ -25,7 +25,7 @@ import (
 func profileListCmd(rootArgs *rootArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "Lists available Istio configuration profiles.",
+		Short: "Lists available Istio configuration profiles",
 		Long:  "The list subcommand lists the available Istio configuration profiles.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {

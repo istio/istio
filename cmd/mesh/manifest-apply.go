@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -37,6 +38,8 @@ type manifestApplyArgs struct {
 	readinessTimeout time.Duration
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
+	// yes means don't ask for confirmation (asking for confirmation not implemented)
+	yes bool
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -44,12 +47,13 @@ type manifestApplyArgs struct {
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
+	cmd.PersistentFlags().BoolVarP(&args.yes, "yes", "y", false, "Do not ask for confirmation")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
-		" The --wait flag must be set for this flag to apply.")
+		" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds.")
+		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
@@ -61,6 +65,12 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			if !maArgs.yes && maArgs.kubeConfigPath == "" && maArgs.context == "" {
+				if !confirm("Are you sure?", cmd.OutOrStdout()) {
+					cmd.Print("Cancelled.\n")
+					os.Exit(1)
+				}
+			}
 			manifestApply(rootArgs, maArgs, l)
 		}}
 }
@@ -108,4 +118,20 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 			l.logAndPrint("Manifest:\n\n", out[cn].Manifest, "\n")
 		}
 	}
+}
+
+func confirm(msg string, writer io.Writer) bool {
+	fmt.Fprintf(writer, "%s ", msg)
+
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	response = strings.ToUpper(response)
+	if response == "Y" || response == "YES" {
+		return true
+	}
+
+	return false
 }

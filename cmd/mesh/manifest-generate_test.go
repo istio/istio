@@ -158,7 +158,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 func runManifestGenerate(path, flags string) (string, error) {
 	args := "manifest generate " + flags
 	if flags == "" {
-		args += " -f " + path
+		args += "-f " + path
 	}
 	return runCommand(args)
 }
