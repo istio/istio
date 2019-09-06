@@ -15,139 +15,11 @@
 package validate
 
 import (
-	"strings"
 	"testing"
-
-	"github.com/kylelemons/godebug/diff"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
 )
-
-func TestUnmarshalKubernetes(t *testing.T) {
-	tests := []struct {
-		desc    string
-		yamlStr string
-		want    string
-	}{
-		{
-			desc:    "nil success",
-			yamlStr: "",
-			want:    "{}",
-		},
-		{
-			desc: "hpaSpec",
-			yamlStr: `
-hpaSpec:
-  maxReplicas: 10
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
-`,
-		},
-		{
-			desc: "resources",
-			yamlStr: `
-resources:
-  limits:
-    cpu: 444m
-    memory: 333Mi
-  requests:
-    cpu: 222m
-    memory: 111Mi
-`,
-		},
-		{
-			desc: "podDisruptionBudget",
-			yamlStr: `
-podDisruptionBudget:
-  maxUnavailable: 1
-  selector:
-    matchLabels:
-      app: pilot
-`,
-		},
-		{
-			desc: "readinessProbeWithPortNumber",
-			yamlStr: `
-readinessProbe:
-  failureThreshold: 44
-  initialDelaySeconds: 11
-  periodSeconds: 22
-  successThreshold: 33
-  httpGet:
-    path: /ready
-    port: 8080
-`,
-		},
-		{
-			desc: "readinessProbeWithPortName",
-			yamlStr: `
-readinessProbe:
-  failureThreshold: 44
-  initialDelaySeconds: 11
-  periodSeconds: 22
-  successThreshold: 33
-  httpGet:
-    path: /ready
-    port: http
-`,
-		},
-		{
-			desc: "affinity",
-			yamlStr: `
-affinity:
-  podAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: security
-          operator: In
-          values:
-          - S1
-      topologyKey: failure-domain.beta.kubernetes.io/zone
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: security
-            operator: In
-            values:
-            - S2
-        topologyKey: failure-domain.beta.kubernetes.io/zone
-`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			tk := &v1alpha2.TestKube{}
-			err := util.UnmarshalWithJSONPB(tt.yamlStr, tk)
-			if err != nil {
-				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
-			}
-			s, err := util.MarshalWithJSONPB(tk)
-			if err != nil {
-				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
-			}
-			got, want := stripNL(s), stripNL(tt.want)
-			if want == "" {
-				want = stripNL(tt.yamlStr)
-			}
-			if !util.IsYAMLEqual(got, want) {
-				t.Errorf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, got, want, diff.Diff(got, want))
-			}
-		})
-	}
-}
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
@@ -284,8 +156,4 @@ values:
 			}
 		})
 	}
-}
-
-func stripNL(s string) string {
-	return strings.Trim(s, "\n")
 }
