@@ -60,8 +60,10 @@ update-goldens:
 
 ########################
 
+TMPDIR := $(shell mktemp -d)
+
 repo_dir := .
-out_path = /tmp
+out_path = ${TMPDIR}
 protoc = protoc -I/usr/include/protobuf -I.
 
 go_plugin_prefix := --go_out=plugins=grpc,
@@ -82,9 +84,9 @@ types_v1alpha2_openapi := $(types_v1alpha2_protos:.proto=.json)
 
 $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons): $(types_v1alpha2_protos)
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
-	@cp -r /tmp/pkg/* pkg/
+	@cp -r ${TMPDIR}/pkg/* pkg/
 	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
-	go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@GOARCH=amd64 GOOS=linux go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
 
 generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
 
@@ -100,9 +102,9 @@ values_v1alpha2_openapi := $(values_v1alpha2_protos:.proto=.json)
 
 $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons): $(values_v1alpha2_protos)
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha2_path) $(protoc_gen_python_plugin) $^
-	@cp -r /tmp/pkg/* pkg/
+	@cp -r ${TMPDIR}/pkg/* pkg/
 	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha2_path)/values_types.pb.go
-	go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(values_v1alpha2_path)/values_types.pb.go
+	@GOARCH=amd64 GOOS=linux go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(values_v1alpha2_path)/values_types.pb.go
 
 generate-values: $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
 

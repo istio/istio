@@ -404,6 +404,7 @@ values:
       kubevirtInterfaces: ""
       logLevel: warning
       privileged: false
+      protocolDetectionTimeout: 1s
       readinessFailureThreshold: 30
       readinessInitialDelaySeconds: 1
       readinessPeriodSeconds: 2

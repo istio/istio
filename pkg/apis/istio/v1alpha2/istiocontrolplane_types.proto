@@ -14,22 +14,20 @@
 
 syntax = "proto3";
 
-// $title: Operator Installation
-// $description: Configuration for Istio control plane installation through the Operator.
-// $location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
-
-package v1alpha2;
-
-// TODO: for some reason the below fails proto compilation in this repo.
-// https://github.com/istio/istio/issues/16899
-// package istio.operator.v1alpha2;
-// option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
-
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/apps/v1/generated.proto";
 import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
+
+// $title: Operator Installation
+// $description: Configuration for Istio control plane installation through the Operator.
+// $location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
+//
+// TODO: for some reason the below fails proto compilation in this repo.
+// https://github.com/istio/istio/issues/16899
+// package istio.operator.v1alpha2;
+// option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
 
 /*
 IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
@@ -68,21 +66,28 @@ EXAMPLES
 
 1. Default Istio install
 
+```yaml
 spec:
+```
 
 2. Default minimal profile install
 
+```yaml
 spec:
   profile: minimal
+```
 
 3. Default install with telemetry disabled
 
+```yaml
 spec:
   telemetry:
     enabled: false
+```
 
 4. Default install with each feature installed to different namespace and security components in separate namespaces
 
+```yaml
 spec:
   traffic_management:
     components:
@@ -104,9 +109,11 @@ spec:
         namespace: istio-cert-manager
       node_agent:
         namespace: istio-node-agent
+```
 
 5. Default install with specialized k8s settings for pilot
 
+```yaml
 spec:
   traffic_management:
     components:
@@ -124,9 +131,11 @@ spec:
             initialDelaySeconds: 11
             periodSeconds: 22
             successThreshold: 33
+```
 
 6. Default install with values.yaml customizations for proxy
 
+```yaml
 spec:
   traffic_management:
     components:
@@ -134,9 +143,11 @@ spec:
         values:
         - global.proxy.enableCoreDump: true
         - global.proxy.dnsRefreshRate: 10s
+```
 
 7. Default install with modification to container flag in galley
 
+```yaml
 spec:
   configuration_management:
     components:
@@ -149,7 +160,9 @@ spec:
             patches:
             - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
               value: --livenessProbeInterval=123s
+```
 */
+package v1alpha2;
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 message IstioControlPlane {
