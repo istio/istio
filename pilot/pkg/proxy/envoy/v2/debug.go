@@ -493,6 +493,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	edsClusterMutex.RLock()
+	defer edsClusterMutex.RUnlock()
 	comma := false
 	if len(edsClusters) > 0 {
 		_, _ = fmt.Fprintln(w, "[")
@@ -513,7 +514,6 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.WriteHeader(404)
 	}
-	edsClusterMutex.RUnlock()
 }
 
 // cdsz implements a status and debug interface for CDS.
