@@ -329,3 +329,38 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 	g.Expect(errCode1).To(Equal(0))
 	g.Expect(errCode2).NotTo(Equal(0))
 }
+
+func Test_compareKubernetesVersion(t *testing.T) {
+	type args struct {
+		kuberetesVersion string
+		minimumVersion   int
+	}
+	tests := []struct {
+		ver    string
+		minVer int
+		want   bool
+	}{
+		{
+			"12+",
+			12,
+			true,
+		},
+		{
+			"12+",
+			11,
+			true,
+		},
+		{
+			"12+",
+			13,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("Server %v Min %v", tt.ver, tt.minVer), func(t *testing.T) {
+			if got := compareKubernetesVersion(tt.ver, tt.minVer); got != tt.want {
+				t.Errorf("compareKubernetesVersion() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
