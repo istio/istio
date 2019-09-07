@@ -336,13 +336,13 @@ func Test_compareKubernetesVersion(t *testing.T) {
 		minVer int
 		want   bool
 	}{
-		{"12", 12, true,},
-		{"12", 11, true,},
-		{"12", 13, false,},
+		{"12", 12, true},
+		{"12", 11, true},
+		{"12", 13, false},
 		// Version often has a +
-		{"12+", 12, true,},
-		{"12+", 11, true,},
-		{"12+", 13, false,},
+		{"12+", 12, true},
+		{"12+", 11, true},
+		{"12+", 13, false},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Server %v Min %v", tt.ver, tt.minVer), func(t *testing.T) {
