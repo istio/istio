@@ -1,9 +1,156 @@
 ---
-title: v1alpha2
+title: Operator Installation
+description: Configuration for Istio control plane installation through the Operator.
+location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 51
 ---
+<p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
+Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
+default charts.</p>
+
+<p>The simplest install specialization is to point the user InstallSpec profile to a different values file, for
+example an Istio minimal control plane, which will use the values associated with the minimal control plane profile for
+Istio.</p>
+
+<p>Deeper customization is possible at three levels:</p>
+
+<ol>
+<li>New APIs defined in this file</li>
+</ol>
+
+<p>Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
+control plane profiles, as well as some additional high level settings that are feature specific. Each feature contains
+one or more components, which correspond to Istio components (Pods) in the cluster.</p>
+
+<p>k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
+resources like Affinity, Resource requests/limits, PodDisruptionBudgetSpec, Selectors etc. in a more consistent and
+k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this file for details.</p>
+
+<ol>
+<li>values.yaml</li>
+</ol>
+
+<p>The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/Values).
+This API will gradually be deprecated and values there will be moved either into CRDs that are used to directly
+configure components or, in the case of k8s settings, will be replaced by the new API above.</p>
+
+<ol>
+<li>k8s resource overlays</li>
+</ol>
+
+<p>Once a manifest is rendered from InstallSpec, a further customization can be applied by specifying k8s resource
+overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
+customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.</p>
+
+<p>EXAMPLES</p>
+
+<ol>
+<li>Default Istio install</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+</code></pre>
+
+<ol>
+<li>Default minimal profile install</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+profile: minimal
+</code></pre>
+
+<ol>
+<li>Default install with telemetry disabled</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+telemetry:
+enabled: false
+</code></pre>
+
+<ol>
+<li>Default install with each feature installed to different namespace and security components in separate namespaces</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+traffic_management:
+components:
+namespace: istio-traffic-management
+policy:
+components:
+namespace: istio-policy
+telemetry:
+components:
+namespace: istio-telemetry
+config_management:
+components:
+namespace: istio-config-management
+security:
+components:
+citadel:
+namespace: istio-citadel
+cert_manager:
+namespace: istio-cert-manager
+node_agent:
+namespace: istio-node-agent
+</code></pre>
+
+<ol>
+<li>Default install with specialized k8s settings for pilot</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+traffic_management:
+components:
+pilot:
+k8s:
+resources:
+limits:
+cpu: 444m
+memory: 333Mi
+requests:
+cpu: 222m
+memory: 111Mi
+readinessProbe:
+failureThreshold: 44
+initialDelaySeconds: 11
+periodSeconds: 22
+successThreshold: 33
+</code></pre>
+
+<ol>
+<li>Default install with values.yaml customizations for proxy</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+traffic_management:
+components:
+proxy:
+values:
+- global.proxy.enableCoreDump: true
+- global.proxy.dnsRefreshRate: 10s
+</code></pre>
+
+<ol>
+<li>Default install with modification to container flag in galley</li>
+</ol>
+
+<pre><code class="language-yaml">spec:
+configuration_management:
+components:
+galley:
+k8s:
+overlays:
+- apiVersion: extensions/v1beta1
+kind: Deployment
+name: istio-galley
+patches:
+- path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+value: --livenessProbeInterval=123s
+</code></pre>
+
 <h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>
 <section>
 <p>Configuration options for auto injection feature.</p>
@@ -27,7 +174,7 @@ number_of_entries: 51
 </tr>
 <tr id="AutoInjectionFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#AutoInjectionFeatureSpec-Components">AutoInjectionFeatureSpec.Components</a></code></td>
+<td><code><a href="#AutoInjectionFeatureSpec-Components">AutoInjectionFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -55,7 +202,7 @@ number_of_entries: 51
 </tr>
 <tr id="AutoInjectionFeatureSpec-Components-injector">
 <td><code>injector</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
+<td><code><a href="#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -89,7 +236,7 @@ number_of_entries: 51
 </tr>
 <tr id="CertManagerComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -123,7 +270,7 @@ number_of_entries: 51
 </tr>
 <tr id="CitadelComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -153,7 +300,7 @@ number_of_entries: 51
 </tr>
 <tr id="ConfigManagementFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#ConfigManagementFeatureSpec-Components">ConfigManagementFeatureSpec.Components</a></code></td>
+<td><code><a href="#ConfigManagementFeatureSpec-Components">ConfigManagementFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -181,7 +328,7 @@ number_of_entries: 51
 </tr>
 <tr id="ConfigManagementFeatureSpec-Components-galley">
 <td><code>galley</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
+<td><code><a href="#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -209,7 +356,7 @@ number_of_entries: 51
 </tr>
 <tr id="DeploymentStrategy-rollingUpdate">
 <td><code>rollingUpdate</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#RollingUpdateDeployment">RollingUpdateDeployment</a></code></td>
+<td><code><a href="#RollingUpdateDeployment">RollingUpdateDeployment</a></code></td>
 <td>
 </td>
 </tr>
@@ -243,7 +390,7 @@ number_of_entries: 51
 </tr>
 <tr id="EgressGatewayComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -299,7 +446,7 @@ number_of_entries: 51
 </tr>
 <tr id="GalleyComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -329,7 +476,7 @@ number_of_entries: 51
 </tr>
 <tr id="GatewayFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#GatewayFeatureSpec-Components">GatewayFeatureSpec.Components</a></code></td>
+<td><code><a href="#GatewayFeatureSpec-Components">GatewayFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -357,7 +504,7 @@ number_of_entries: 51
 </tr>
 <tr id="GatewayFeatureSpec-Components-ingress_gateway">
 <td><code>ingressGateway</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#IngressGatewayComponentSpec">IngressGatewayComponentSpec</a></code></td>
+<td><code><a href="#IngressGatewayComponentSpec">IngressGatewayComponentSpec</a></code></td>
 <td>
 <p>Ingress/egress gateway configuration.</p>
 
@@ -365,7 +512,7 @@ number_of_entries: 51
 </tr>
 <tr id="GatewayFeatureSpec-Components-egress_gateway">
 <td><code>egressGateway</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#EgressGatewayComponentSpec">EgressGatewayComponentSpec</a></code></td>
+<td><code><a href="#EgressGatewayComponentSpec">EgressGatewayComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -393,7 +540,7 @@ number_of_entries: 51
 </tr>
 <tr id="HTTPGetAction-port">
 <td><code>port</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
 </tr>
@@ -411,7 +558,7 @@ number_of_entries: 51
 </tr>
 <tr id="HTTPGetAction-httpHeaders">
 <td><code>httpHeaders</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#HTTPHeader">HTTPHeader[]</a></code></td>
+<td><code><a href="#HTTPHeader">HTTPHeader[]</a></code></td>
 <td>
 </td>
 </tr>
@@ -473,7 +620,7 @@ number_of_entries: 51
 </tr>
 <tr id="IngressGatewayComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -495,37 +642,37 @@ number_of_entries: 51
 <tbody>
 <tr id="InstallStatus-traffic_management">
 <td><code>trafficManagement</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="InstallStatus-policy_telemetry">
 <td><code>policyTelemetry</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="InstallStatus-security">
 <td><code>security</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="InstallStatus-config_management">
 <td><code>configManagement</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="InstallStatus-ingress_gateway">
 <td><code>ingressGateway</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="InstallStatus-egress_gateway">
 <td><code>egressGateway</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
+<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
 <td>
 </td>
 </tr>
@@ -584,7 +731,7 @@ number_of_entries: 51
 </tr>
 <tr id="InstallStatus-VersionStatus-status">
 <td><code>status</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus-Status">InstallStatus.Status</a></code></td>
+<td><code><a href="#InstallStatus-Status">InstallStatus.Status</a></code></td>
 <td>
 </td>
 </tr>
@@ -606,7 +753,7 @@ number_of_entries: 51
 <tbody>
 <tr id="IstioControlPlane-spec">
 <td><code>spec</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#IstioControlPlaneSpec">IstioControlPlaneSpec</a></code></td>
+<td><code><a href="#IstioControlPlaneSpec">IstioControlPlaneSpec</a></code></td>
 <td>
 <p>Spec defines the desired state of IstioControlPlane.</p>
 
@@ -614,7 +761,7 @@ number_of_entries: 51
 </tr>
 <tr id="IstioControlPlane-status">
 <td><code>status</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#InstallStatus">InstallStatus</a></code></td>
+<td><code><a href="#InstallStatus">InstallStatus</a></code></td>
 <td>
 <p>Status reports the status of the Istio control plane.</p>
 
@@ -650,7 +797,7 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 </tr>
 <tr id="IstioControlPlaneSpec-traffic_management">
 <td><code>trafficManagement</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TrafficManagementFeatureSpec">TrafficManagementFeatureSpec</a></code></td>
+<td><code><a href="#TrafficManagementFeatureSpec">TrafficManagementFeatureSpec</a></code></td>
 <td>
 <p>Selection and configuration of core Istio features.</p>
 
@@ -658,43 +805,43 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 </tr>
 <tr id="IstioControlPlaneSpec-policy">
 <td><code>policy</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#PolicyFeatureSpec">PolicyFeatureSpec</a></code></td>
+<td><code><a href="#PolicyFeatureSpec">PolicyFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-telemetry">
 <td><code>telemetry</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TelemetryFeatureSpec">TelemetryFeatureSpec</a></code></td>
+<td><code><a href="#TelemetryFeatureSpec">TelemetryFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-security">
 <td><code>security</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#SecurityFeatureSpec">SecurityFeatureSpec</a></code></td>
+<td><code><a href="#SecurityFeatureSpec">SecurityFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-config_management">
 <td><code>configManagement</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#ConfigManagementFeatureSpec">ConfigManagementFeatureSpec</a></code></td>
+<td><code><a href="#ConfigManagementFeatureSpec">ConfigManagementFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-auto_injection">
 <td><code>autoInjection</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</a></code></td>
+<td><code><a href="#AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-gateways">
 <td><code>gateways</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#GatewayFeatureSpec">GatewayFeatureSpec</a></code></td>
+<td><code><a href="#GatewayFeatureSpec">GatewayFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-values">
 <td><code>values</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 <p>Overrides for default global values.yaml.</p>
 
@@ -702,7 +849,7 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 </tr>
 <tr id="IstioControlPlaneSpec-unvalidatedValues">
 <td><code>unvalidatedValues</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 <p>Unvalidated overrides for default global values.yaml.</p>
 
@@ -809,7 +956,7 @@ https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector<
 </tr>
 <tr id="KubernetesResourcesSpec-pod_disruption_budget">
 <td><code>podDisruptionBudget</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#PodDisruptionBudgetSpec">PodDisruptionBudgetSpec</a></code></td>
+<td><code><a href="#PodDisruptionBudgetSpec">PodDisruptionBudgetSpec</a></code></td>
 <td>
 <p>k8s PodDisruptionBudget settings.
 https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work</p>
@@ -836,7 +983,7 @@ https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#prior
 </tr>
 <tr id="KubernetesResourcesSpec-readiness_probe">
 <td><code>readinessProbe</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#ReadinessProbe">ReadinessProbe</a></code></td>
+<td><code><a href="#ReadinessProbe">ReadinessProbe</a></code></td>
 <td>
 <p>k8s readinessProbe settings.
 https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -855,7 +1002,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 <tr id="KubernetesResourcesSpec-resources">
 <td><code>resources</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#Resources">Resources</a></code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
 <td>
 <p>k8s resources settings.
 https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
@@ -873,7 +1020,7 @@ https://kubernetes.io/docs/concepts/services-networking/service/</p>
 </tr>
 <tr id="KubernetesResourcesSpec-strategy">
 <td><code>strategy</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#DeploymentStrategy">DeploymentStrategy</a></code></td>
+<td><code><a href="#DeploymentStrategy">DeploymentStrategy</a></code></td>
 <td>
 <p>k8s deployment strategy.
 https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
@@ -882,7 +1029,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 <tr id="KubernetesResourcesSpec-overlays">
 <td><code>overlays</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#k8sObjectOverlay">k8sObjectOverlay[]</a></code></td>
+<td><code><a href="#k8sObjectOverlay">k8sObjectOverlay[]</a></code></td>
 <td>
 <p>Overlays for k8s resources in rendered manifests.</p>
 
@@ -918,7 +1065,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 <tr id="NodeAgentComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -980,7 +1127,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 <tr id="PilotComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1048,7 +1195,7 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 </tr>
 <tr id="PolicyComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1079,7 +1226,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="PolicyFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#PolicyFeatureSpec-Components">PolicyFeatureSpec.Components</a></code></td>
+<td><code><a href="#PolicyFeatureSpec-Components">PolicyFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -1109,7 +1256,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="PolicyFeatureSpec-Components-policy">
 <td><code>policy</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#PolicyComponentSpec">PolicyComponentSpec</a></code></td>
+<td><code><a href="#PolicyComponentSpec">PolicyComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1143,7 +1290,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="ProxyComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1165,19 +1312,19 @@ Must be enabled to enable any sub-component.</p>
 <tbody>
 <tr id="ReadinessProbe-exec">
 <td><code>exec</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#ExecAction">ExecAction</a></code></td>
+<td><code><a href="#ExecAction">ExecAction</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="ReadinessProbe-httpGet">
 <td><code>httpGet</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#HTTPGetAction">HTTPGetAction</a></code></td>
+<td><code><a href="#HTTPGetAction">HTTPGetAction</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="ReadinessProbe-tcpSocket">
 <td><code>tcpSocket</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TCPSocketAction">TCPSocketAction</a></code></td>
+<td><code><a href="#TCPSocketAction">TCPSocketAction</a></code></td>
 <td>
 </td>
 </tr>
@@ -1257,13 +1404,13 @@ Must be enabled to enable any sub-component.</p>
 <tbody>
 <tr id="RollingUpdateDeployment-maxUnavailable">
 <td><code>maxUnavailable</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="RollingUpdateDeployment-maxSurge">
 <td><code>maxSurge</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
 </tr>
@@ -1293,7 +1440,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="SecurityFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#SecurityFeatureSpec-Components">SecurityFeatureSpec.Components</a></code></td>
+<td><code><a href="#SecurityFeatureSpec-Components">SecurityFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -1321,19 +1468,19 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="SecurityFeatureSpec-Components-citadel">
 <td><code>citadel</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#CitadelComponentSpec">CitadelComponentSpec</a></code></td>
+<td><code><a href="#CitadelComponentSpec">CitadelComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="SecurityFeatureSpec-Components-cert_manager">
 <td><code>certManager</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#CertManagerComponentSpec">CertManagerComponentSpec</a></code></td>
+<td><code><a href="#CertManagerComponentSpec">CertManagerComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="SecurityFeatureSpec-Components-node_agent">
 <td><code>nodeAgent</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#NodeAgentComponentSpec">NodeAgentComponentSpec</a></code></td>
+<td><code><a href="#NodeAgentComponentSpec">NodeAgentComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1367,7 +1514,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="SidecarInjectorComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1389,7 +1536,7 @@ Must be enabled to enable any sub-component.</p>
 <tbody>
 <tr id="TCPSocketAction-port">
 <td><code>port</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
+<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
 </tr>
@@ -1429,7 +1576,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="TelemetryComponentSpec-k8s">
 <td><code>k8s</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1460,7 +1607,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="TelemetryFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TelemetryFeatureSpec-Components">TelemetryFeatureSpec.Components</a></code></td>
+<td><code><a href="#TelemetryFeatureSpec-Components">TelemetryFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -1490,7 +1637,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="TelemetryFeatureSpec-Components-telemetry">
 <td><code>telemetry</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TelemetryComponentSpec">TelemetryComponentSpec</a></code></td>
+<td><code><a href="#TelemetryComponentSpec">TelemetryComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -1521,7 +1668,7 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="TrafficManagementFeatureSpec-components">
 <td><code>components</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TrafficManagementFeatureSpec-Components">TrafficManagementFeatureSpec.Components</a></code></td>
+<td><code><a href="#TrafficManagementFeatureSpec-Components">TrafficManagementFeatureSpec.Components</a></code></td>
 <td>
 </td>
 </tr>
@@ -1551,13 +1698,13 @@ Must be enabled to enable any sub-component.</p>
 </tr>
 <tr id="TrafficManagementFeatureSpec-Components-pilot">
 <td><code>pilot</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#PilotComponentSpec">PilotComponentSpec</a></code></td>
+<td><code><a href="#PilotComponentSpec">PilotComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="TrafficManagementFeatureSpec-Components-proxy">
 <td><code>proxy</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#ProxyComponentSpec">ProxyComponentSpec</a></code></td>
+<td><code><a href="#ProxyComponentSpec">ProxyComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -2007,7 +2154,7 @@ Namespace is always the component namespace.</p>
 </tr>
 <tr id="k8sObjectOverlay-patches">
 <td><code>patches</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#k8sObjectOverlay-PathValue">k8sObjectOverlay.PathValue[]</a></code></td>
+<td><code><a href="#k8sObjectOverlay-PathValue">k8sObjectOverlay.PathValue[]</a></code></td>
 <td>
 <p>List of patches to apply to resource.</p>
 
@@ -2039,7 +2186,7 @@ All path intermediate nodes must exist.</p>
 </tr>
 <tr id="k8sObjectOverlay-PathValue-value">
 <td><code>value</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html#TypeInterface">TypeInterface</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Value to add, delete or replace.
 For add, the path should be a new leaf.
