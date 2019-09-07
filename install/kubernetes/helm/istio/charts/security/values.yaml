@@ -10,6 +10,8 @@ selfSigned: true # indicate if self-signed CA is used.
 createMeshPolicy: true
 nodeSelector: {}
 tolerations: []
+podAnnotations: {}
+
 # Enable health checking on the Citadel CSR signing API.
 # https://istio.io/docs/tasks/security/health-check/
 citadelHealthCheck: false

@@ -30,6 +30,9 @@ spec:
 {{- else }}
         prometheus.io/path: "/{{ .Values.provider }}/metrics"
 {{- end }}
+{{- if .Values.jaeger.podAnnotations }}
+{{ toYaml .Values.jaeger.podAnnotations | indent 8 }}
+{{- end }}
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
