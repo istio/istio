@@ -54,6 +54,26 @@ case $LOCAL_OS in
 esac
 export GOOS=${GOOS:-${LOCAL_OS}}
 
+# Gets the download command supported by the system (currently either curl or wget)
+# simplify because init.sh has already decided which one is
+DOWNLOAD_COMMAND=""
+function set_download_command () {
+    # Try curl.
+    if command -v curl > /dev/null; then
+        if curl --version | grep Protocols  | grep https > /dev/null; then
+	       DOWNLOAD_COMMAND='curl -Lo '
+	       return
+        fi
+    fi
+
+    # Try wget.
+    if command -v wget > /dev/null; then
+        DOWNLOAD_COMMAND='wget -O '
+        return
+    fi
+}
+set_download_command
+
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
@@ -62,7 +82,7 @@ if [ ! -f "${ISTIO_OUT}/version.helm.${HELM_VER}" ] ; then
     TD=$(mktemp -d)
     # Install helm. Please keep it in sync with .circleci
     cd "${TD}" && \
-        curl -Lo "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
+        ${DOWNLOAD_COMMAND} "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
         tar xfz helm.tgz && \
         mv ${LOCAL_OS}-amd64/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
         cp "${ISTIO_OUT}/helm-${HELM_VER}" "${ISTIO_OUT}/helm" && \
