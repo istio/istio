@@ -448,6 +448,7 @@ func buildResourceRegexp(s string) (*regexp.Regexp, error) {
 // manifestDiff an internal function to compare the manifests difference specified in the input.
 func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string, verbose bool) (string, error) {
 	var sb strings.Builder
+	out := make(map[string]string)
 	for ak, av := range aom {
 		ay, err := av.YAML()
 		if err != nil {
@@ -455,7 +456,7 @@ func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string, verbose 
 		}
 		bo := bom[ak]
 		if bo == nil {
-			writeStringSafe(&sb, "\n\nObject "+ak+" is missing in B:\n\n")
+			out[ak] = fmt.Sprintf("\n\nObject %s is missing in B:\n\n", ak)
 			continue
 		}
 		by, err := bo.YAML()
@@ -472,17 +473,27 @@ func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string, verbose 
 		}
 
 		if diff != "" {
-			writeStringSafe(&sb, "\n\nObject "+ak+" has diffs:\n\n")
-			writeStringSafe(&sb, diff)
+			out[ak] = fmt.Sprintf("\n\nObject %s has diffs:\n\n%s", ak, diff)
 		}
 	}
 	for bk := range bom {
 		ao := aom[bk]
 		if ao == nil {
-			writeStringSafe(&sb, "\n\nObject "+bk+" is missing in A:\n\n")
+			out[bk] = fmt.Sprintf("\n\nObject %s is missing in A:\n\n", bk)
 			continue
 		}
 	}
+
+	keys := make([]string, 0, len(out))
+	for k := range out {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for i := range keys {
+		writeStringSafe(&sb, out[keys[i]])
+	}
+
 	return sb.String(), nil
 }
 
