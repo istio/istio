@@ -366,36 +366,6 @@ func TestRouteRedirectInjection(t *testing.T) {
 	}
 }
 
-func TestRouteMirroring(t *testing.T) {
-	logs := newAccessLogs()
-	cfgs := &deployableConfig{
-		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/networking/v1alpha3/rule-default-route-mirrored.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
-	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
-	}
-	defer cfgs.Teardown()
-
-	reqURL := "http://c/a"
-	for cluster := range tc.Kube.Clusters {
-		for i := 1; i <= 100; i++ {
-			resp := ClientRequest(cluster, "a", reqURL, 1, fmt.Sprintf("--key X-Request-Id --val %d", i))
-			logEntry := fmt.Sprintf("HTTP request from a in %s cluster to c.istio-system.svc.cluster.local:80", cluster)
-			if len(resp.ID) > 0 {
-				id := resp.ID[0]
-				logs.add(cluster, "c", id, logEntry)
-				logs.add(cluster, "b", id, logEntry) // Request should also be mirrored here
-			}
-		}
-	}
-
-	t.Run("check", func(t *testing.T) {
-		logs.checkLogs(t)
-	})
-}
-
 // Inject a fault filter in a normal path and check if the filters are triggered
 func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	cfgs := &deployableConfig{
