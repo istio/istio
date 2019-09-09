@@ -18,8 +18,6 @@
 set -o errexit
 set -o pipefail
 
-OUTPUT_ROOT_DIR=""
-
 TEMP_DIR_DEFAULT="/tmp"
 # TODO: these should be under a subdir
 INSTALLER_CHARTS=(crds gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security)
@@ -51,9 +49,10 @@ done
 set -x
 
 function get_version() {
-    local ver=`git rev-parse --abbrev-ref HEAD`
+    # shellcheck disable=SC2155
+    local ver=$(git rev-parse --abbrev-ref HEAD)
     if [[ "${ver}" == "HEAD" ]]; then
-      echo `git describe --tags`
+      git describe --tags
       return 0
     fi
     echo "${ver}"
@@ -62,7 +61,7 @@ function get_version() {
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
 OPERATOR_VERSION=$(get_version)
-TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio.${OPERATOR_VERSION}.XXXXXXXX)"}
+TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio."${OPERATOR_VERSION}".XXXXXXXX)"}
 
 INSTALLER_VERSION=${INSTALLER_VERSION:-"${OPERATOR_VERSION}"}
 

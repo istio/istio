@@ -20,6 +20,7 @@ set -x
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
+# shellcheck disable=SC2155
 export GOPATH=$(cd ../../../; pwd)
 cd "${ROOT}"
 
@@ -38,22 +39,23 @@ export GO111MODULE=on
 export IstioTop=${ISTIO_DIR}/../../..
 
 #kind and istioctl setup
-pushd ${ISTIO_DIR}
+pushd "${ISTIO_DIR}"
 go install ./istioctl/cmd/istioctl
 export ISTIOCTL_BIN=${GOPATH}/bin/istioctl
+# shellcheck disable=SC1091
 source "./prow/lib.sh"
-setup_kind_cluster ${NODE_IMAGE}
+setup_kind_cluster "${NODE_IMAGE}"
 popd
 
 echo "installing istio with operator CLI"
 go run ./cmd/mesh.go manifest apply
 
 function run-simple-base() {
-    kubectl create ns ${NS} || true
-    kubectl -n ${NS} apply -f prow/k8s/mtls_${MODE}.yaml
-    kubectl -n ${NS} apply -f prow/k8s/sidecar-local.yaml
-    kubectl label ns ${NS} istio-injection=disabled --overwrite
-    (cd ${ISTIO_DIR}; make e2e_simple_run ${TEST_FLAGS} \
+    kubectl create ns "${NS}" || true
+    kubectl -n "${NS}" apply -f prow/k8s/mtls_${MODE}.yaml
+    kubectl -n "${NS}" apply -f prow/k8s/sidecar-local.yaml
+    kubectl label ns "${NS}" istio-injection=disabled --overwrite
+    (cd "${ISTIO_DIR}"; make e2e_simple_run "${TEST_FLAGS}" \
     E2E_ARGS="${E2E_ARGS} --auth_enable=${SIMPLE_AUTH} --namespace=${NS}")
 }
 function run-simple() {
@@ -68,7 +70,7 @@ function run-bookinfo-demo() {
     kubectl create ns bookinfo-demo || true
     kubectl -n bookinfo-demo apply -f prow/k8s/mtls_permissive.yaml
     kubectl -n bookinfo-demo apply -f prow/k8s/sidecar-local.yaml
-    (cd ${ISTIO_DIR}; make e2e_bookinfo_run ${TEST_FLAGS} \
+    (cd "${ISTIO_DIR}"; make e2e_bookinfo_run "${TEST_FLAGS}" \
       E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 }
 

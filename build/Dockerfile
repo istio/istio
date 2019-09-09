@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi7-dev-preview/ubi-minimal:7.6
+FROM ubuntu:xenial as base_os_context
 
 ENV OPERATOR=/usr/local/bin/istio-operator \
     USER_UID=1001 \
