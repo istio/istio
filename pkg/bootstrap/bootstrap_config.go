@@ -333,7 +333,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 }
 
 func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, statsFlushInterval string, platEnv platform.Environment) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string,
+	statsFlushInterval string, platEnv platform.Environment) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
