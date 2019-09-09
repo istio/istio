@@ -183,6 +183,12 @@ var (
 		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
 	)
 
+	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
+		true,
+		"If enabled, protocol sniffing will be used for inbound listeners",
+	)
+
 	ScopePushes = env.RegisterBoolVar(
 		"PILOT_SCOPE_PUSHES",
 		true,
@@ -206,7 +212,7 @@ var (
 
 	EnableHeadlessService = env.RegisterBoolVar(
 		"PILOT_ENABLE_HEADLESS_SERVICE",
-		true,
+		false,
 		"If enabled, for a headless service, pilot will generate a single listener for each pod instance. "+
 			"For external name headless service, it does not take effect.",
 	)

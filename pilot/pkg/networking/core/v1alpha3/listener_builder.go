@@ -152,12 +152,16 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if util.IsProtocolSniffingEnabledForNode(builder.node) {
+	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: envoyListenerHTTPInspector,
 			})
 	}
+
+	timeout := features.InboundProtocolDetectionTimeout
+	builder.virtualInboundListener.ListenerFiltersTimeout = &timeout
+	builder.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
 	return builder
 }
