@@ -285,6 +285,20 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 }
 
+func TestGetProxyWorkloadLabels(t *testing.T) {
+	// If no registries return workload labels, we must return nil, rather than an empty list.
+	// This ensures callers can distinguish between no labels, and labels not found.
+	aggregateCtl := buildMockController()
+
+	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
+	if err != nil {
+		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+	}
+	if instances != nil {
+		t.Fatalf("expected nil workload labels, got: %v", instances)
+	}
+}
+
 func TestGetProxyServiceInstancesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
