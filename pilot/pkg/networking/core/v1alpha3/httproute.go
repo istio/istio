@@ -60,6 +60,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	return nil
 }
 
+const wildcardDomainPrefix = "*."
+
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
@@ -168,6 +170,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 				Hostname:     svc.Hostname,
 				Address:      svc.Address,
 				MeshExternal: svc.MeshExternal,
+				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
 			}
 		}
@@ -316,6 +319,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
 	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
+
+	if service.Resolution == model.Passthrough {
+		for _, domain := range domains {
+			domains = append(domains, wildcardDomainPrefix+domain)
+		}
+	}
 
 	if len(service.Address) > 0 && service.Address != constants.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
