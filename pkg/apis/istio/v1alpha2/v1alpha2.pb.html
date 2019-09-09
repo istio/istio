@@ -4,7 +4,7 @@ description: Configuration for Istio control plane installation through the Oper
 location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 51
+number_of_entries: 52
 ---
 <p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
@@ -1024,6 +1024,15 @@ https://kubernetes.io/docs/concepts/services-networking/service/</p>
 <td>
 <p>k8s deployment strategy.
 https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
+
+</td>
+</tr>
+<tr id="KubernetesResourcesSpec-tolerations">
+<td><code>tolerations</code></td>
+<td><code><a href="#k8s-io-api-core-v1-Toleration">k8s.io.api.core.v1.Toleration[]</a></code></td>
+<td>
+<p>k8s toleration
+https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 
 </td>
 </tr>
@@ -2084,6 +2093,77 @@ Other IP fields (loadBalancerIP, loadBalancerSourceRanges, externalIPs) and cont
 allocate external load-balancers should use the same IP family.  Endpoints for this Service will be of
 this family.  This field is immutable after creation. Assigning a ServiceIPFamily not available in the
 cluster (e.g. IPv6 in IPv4 only cluster) is an error condition and will fail during clusterIP assignment.
++optional</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="k8s-io-api-core-v1-Toleration">k8s.io.api.core.v1.Toleration</h2>
+<section>
+<p>The pod this Toleration is attached to tolerates any taint that matches
+the triple &lt;key,value,effect&gt; using the matching operator &lt;operator&gt;.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="k8s-io-api-core-v1-Toleration-key">
+<td><code>key</code></td>
+<td><code>string</code></td>
+<td>
+<p>Key is the taint key that the toleration applies to. Empty means match all taint keys.
+If the key is empty, operator must be Exists; this combination means to match all values and all keys.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Toleration-operator">
+<td><code>operator</code></td>
+<td><code>string</code></td>
+<td>
+<p>Operator represents a key&rsquo;s relationship to the value.
+Valid operators are Exists and Equal. Defaults to Equal.
+Exists is equivalent to wildcard for value, so that a pod can
+tolerate all taints of a particular category.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Toleration-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Value is the taint value the toleration matches to.
+If the operator is Exists, the value should be empty, otherwise just a regular string.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Toleration-effect">
+<td><code>effect</code></td>
+<td><code>string</code></td>
+<td>
+<p>Effect indicates the taint effect to match. Empty means match all taint effects.
+When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
++optional</p>
+
+</td>
+</tr>
+<tr id="k8s-io-api-core-v1-Toleration-tolerationSeconds">
+<td><code>tolerationSeconds</code></td>
+<td><code>int64</code></td>
+<td>
+<p>TolerationSeconds represents the period of time the toleration (which must be
+of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+it is not set, which means tolerate the taint forever (do not evict). Zero and
+negative values will be treated as 0 (evict immediately) by the system.
 +optional</p>
 
 </td>

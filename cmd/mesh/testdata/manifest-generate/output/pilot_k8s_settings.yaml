@@ -543,6 +543,12 @@ spec:
       serviceAccountName: istio-pilot-service-account
       nodeSelector:
         master: "true"
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
       volumes:
       - configMap:
           name: istio

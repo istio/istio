@@ -8,6 +8,7 @@ autoInjection:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
+        tolerations: []
         replicaCount: 1
         strategy:
           rollingUpdate:
@@ -24,6 +25,7 @@ configManagement:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
+        tolerations: []
         replicaCount: 1
         resources:
           requests:
@@ -58,6 +60,7 @@ gateways:
             kind: Deployment
             name: istio-gateways.istio-egressgateway
         nodeSelector: {}
+        tolerations: []
         podAnnotations: {}
         resources:
           limits:
@@ -93,6 +96,7 @@ gateways:
             kind: Deployment
             name: istio-gateways.istio-ingressgateway
         nodeSelector: {}
+        tolerations: []
         podAnnotations: {}
         resources:
           limits:
@@ -132,6 +136,7 @@ policy:
             kind: Deployment
             name: istio-mixer.policy
         nodeSelector: {}
+        tolerations: []
         podAnnotations: {}
         replicaCount: 1
         strategy:
@@ -151,6 +156,7 @@ security:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
+        tolerations: []
         replicaCount: 1
         strategy:
           rollingUpdate:
@@ -182,6 +188,7 @@ telemetry:
             kind: Deployment
             name: istio-mixer.telemetry
         nodeSelector: {}
+        tolerations: []
         replicaCount: 1
         resources:
           limits:
@@ -220,6 +227,7 @@ trafficManagement:
             kind: Deployment
             name: istio-pilot
         nodeSelector: {}
+        tolerations: []
         replicaCount: 1
         resources:
           requests:
@@ -241,7 +249,6 @@ values:
     tolerations: []
   galley:
     image: galley
-    tolerations: []
   gateways:
     istio-egressgateway:
       connectTimeout: 10s
@@ -261,7 +268,6 @@ values:
       - mountPath: /etc/istio/egressgateway-ca-certs
         name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
-      tolerations: []
       type: ClusterIP
       zvpn:
         suffix: global
@@ -344,7 +350,6 @@ values:
           port: 15032
           tls: false
       telemetry_domain_name: ""
-      tolerations: []
       type: LoadBalancer
       zvpn:
         suffix: global
@@ -501,7 +506,6 @@ values:
   mixer:
     policy:
       image: mixer
-      tolerations: []
     telemetry:
       image: mixer
       loadshedding:
@@ -510,7 +514,6 @@ values:
       reportBatchMaxEntries: 100
       reportBatchMaxTime: 1s
       sessionAffinityEnabled: false
-      tolerations: []
       useMCP: true
   nodeagent:
     env:
@@ -535,7 +538,6 @@ values:
       enabled: false
     telemetry:
       enabled: true
-    tolerations: []
     traceSampling: 1
     useMCP: true
   prometheus:
@@ -644,7 +646,6 @@ values:
     enableNamespacesByDefault: true
     image: citadel
     selfSigned: true
-    tolerations: []
     trustDomain: cluster.local
     workloadCertTtl: 2160h
   sidecarInjectorWebhook:
@@ -655,7 +656,6 @@ values:
     neverInjectSelector: []
     rewriteAppHTTPProbe: false
     selfSigned: false
-    tolerations: []
   tracing:
     enabled: false
     ingress:
