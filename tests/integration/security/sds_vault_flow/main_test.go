@@ -54,7 +54,6 @@ func TestMain(m *testing.M) {
 	// Integration test for the SDS Vault CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Vault CA flow.
 	framework.NewSuite("sds_vault_flow_test", m).
-		// Based on https://github.com/istio/istio/issues/14364, the flaky label is removed.
 		Label(label.CustomSetup).
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
