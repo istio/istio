@@ -354,8 +354,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true},
+				"bookinfo.com:70":   {"bookinfo.com:70": true},
 			},
 		},
 		{
@@ -364,8 +364,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true},
+				"bookinfo.com:70":   {"bookinfo.com:70": true},
 			},
 		},
 		{
@@ -374,8 +374,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true},
+				"bookinfo.com:70":   {"bookinfo.com:70": true},
 				"test.com:8080":     {"test.com:8080": true, "8.8.8.8:8080": true},
 			},
 		},
@@ -418,8 +418,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true,
-					"*.bookinfo.com:9999": true, "*.bookinfo.com": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true},
 			},
 		},
 		{
@@ -442,8 +441,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
 				},
-				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true,
-					"*.bookinfo.com": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true},
 			},
 		},
 		{
@@ -452,8 +450,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         nil,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true,
-					"*.bookinfo.com:9999": true, "*.bookinfo.com": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true},
 			},
 		},
 		{
@@ -486,8 +483,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
 				},
-				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true,
-					"*.bookinfo.com": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true},
 			},
 		},
 		{
@@ -611,14 +607,11 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		Hostname:     host.Name(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
-		Resolution:   model.DNSLB,
+		Resolution:   model.Passthrough,
 		Attributes: model.ServiceAttributes{
 			Namespace: namespace,
 			ExportTo:  map[visibility.Instance]bool{v: true},
 		},
-	}
-	if service.Address == wildcardIP {
-		service.Resolution = model.Passthrough
 	}
 
 	Ports := make([]*model.Port, 0)
