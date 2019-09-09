@@ -65,24 +65,6 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-mtls-on-no-dr.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// With no destination rule, success only when talking to naked server.
-						return opts.Target == rctx.Naked
-					},
-				},
-				{
 					ConfigFile:          "global-mtls-permissive.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
