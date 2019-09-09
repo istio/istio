@@ -21,8 +21,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -265,7 +265,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *mode
 	}
 
 	// Check the cache for pre-computed virtual host wrappers for sniffed routes
-	virtualHostWrappers = vHostWrapperCache[listenerPort]
+	virtualHostWrappers, _ = vHostWrapperCache[listenerPort]
 
 	if len(virtualHostWrappers) == 0 {
 		// Nothing found in the cache
