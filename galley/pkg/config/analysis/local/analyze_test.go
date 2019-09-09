@@ -60,7 +60,7 @@ func TestAnalyzersRun(t *testing.T) {
 	cancel := make(chan struct{})
 
 	r := createTestResource("resource", "v1")
-	msg := msg.InternalError(r, "msg")
+	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
 			ctx.Report(collection.NewName("collection"), msg)

@@ -20,22 +20,27 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// Message is a diagnostic message
-type Message struct {
+// MessageType is a type of diagnostic message
+type MessageType struct {
+	// The level of the message.
+	Level Level
+
 	// The error code of the message
 	Code string
 
-	// The level of the message.
-	Level Level
+	// TODO: Make this localizable
+	Template string
+}
+
+// Message is a specific diagnostic message
+type Message struct {
+	MessageType
 
 	// The Parameters to the message
 	Parameters []interface{}
 
 	// Origin of the message
 	Origin resource.Origin
-
-	// TODO: Make this localizable
-	template string
 }
 
 // String implements io.Stringer
@@ -54,16 +59,36 @@ func (m *Message) toString(includeOrigin bool) string {
 	if includeOrigin && m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
-	return fmt.Sprintf("%v [%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.template, m.Parameters...))
+	return fmt.Sprintf("%v [%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.Template, m.Parameters...))
 }
 
-// NewMessage returns a new Message instance.
+// NewMessage returns a new Message instance without specifying an existing type.
 func NewMessage(l Level, c string, o resource.Origin, template string, p ...interface{}) Message {
 	return Message{
-		Level:      l,
-		Code:       c,
+		MessageType: MessageType{
+			Level:    l,
+			Code:     c,
+			Template: template,
+		},
 		Origin:     o,
-		template:   template,
 		Parameters: p,
+	}
+}
+
+// NewMessageType returns a new MessageType instance.
+func NewMessageType(level Level, code, template string) MessageType {
+	return MessageType{
+		Level:    level,
+		Code:     code,
+		Template: template,
+	}
+}
+
+// NewMessage returns a new Message instance from an existing type.
+func NewMessageFromType(mt MessageType, o resource.Origin, p ...interface{}) Message {
+	return Message{
+		MessageType: mt,
+		Origin:      o,
+		Parameters:  p,
 	}
 }

@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -59,6 +60,7 @@ func TestMissingHost(t *testing.T) {
 	vsReports := ctx.Reports[metadata.IstioNetworkingV1Alpha3Virtualservices]
 	g.Expect(vsReports).To(HaveLen(1))
 	g.Expect(vsReports[0].Origin).To(BeEquivalentTo(vsName.String()))
+	g.Expect(vsReports[0].Code).To(BeEquivalentTo(msg.ReferencedResourceNotFound.Code))
 }
 
 func TestMissingSubset(t *testing.T) {
@@ -74,6 +76,7 @@ func TestMissingSubset(t *testing.T) {
 	vsReports := ctx.Reports[metadata.IstioNetworkingV1Alpha3Virtualservices]
 	g.Expect(vsReports).To(HaveLen(1))
 	g.Expect(vsReports[0].Origin).To(BeEquivalentTo(vsName.String()))
+	g.Expect(vsReports[0].Code).To(BeEquivalentTo(msg.ReferencedResourceNotFound.Code))
 }
 
 func createVirtualService(host, subset string) *v1alpha3.VirtualService {

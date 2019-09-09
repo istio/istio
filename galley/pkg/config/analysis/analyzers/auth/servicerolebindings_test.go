@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/rbac/v1alpha1"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -51,4 +52,5 @@ func TestNoMatch(t *testing.T) {
 	srbReports := ctx.Reports[metadata.IstioRbacV1Alpha1Servicerolebindings]
 	g.Expect(srbReports).To(HaveLen(1))
 	g.Expect(srbReports[0].Origin).To(BeEquivalentTo(srbName.String()))
+	g.Expect(srbReports[0].Code).To(BeEquivalentTo(msg.ReferencedResourceNotFound.Code))
 }
