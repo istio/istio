@@ -31,9 +31,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -64,7 +64,7 @@ type WebhookConfigController struct {
 	keyCertWatcher       *fsnotify.Watcher
 	configWatcher        *fsnotify.Watcher
 	webhookParameters    *WebhookParameters
-	ownerRefs            []v1.OwnerReference
+	ownerRefs            []metav1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
 
 	// test hook for informers
@@ -114,6 +114,8 @@ func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
 	} else if updated {
 		scope.Infof("%v validatingwebhookconfiguration updated", whc.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
+	} else {
+		scope.Infof("%v validatingwebhookconfiguration unchanged, no update needed", whc.webhookConfiguration.Name)
 	}
 }
 
@@ -123,7 +125,7 @@ func createOrUpdateWebhookConfigHelper(
 	client admissionregistration.ValidatingWebhookConfigurationInterface,
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration,
 ) (bool, error) {
-	current, err := client.Get(webhookConfiguration.Name, v1.GetOptions{})
+	current, err := client.Get(webhookConfiguration.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			if _, createErr := client.Create(webhookConfiguration); createErr != nil {
@@ -145,6 +147,37 @@ func createOrUpdateWebhookConfigHelper(
 		return true, err
 	}
 	return false, nil
+}
+
+// Delete validatingwebhookconfiguration if the validation is disabled
+func (whc *WebhookConfigController) deleteWebhookConfig() {
+	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	deleted, err := deleteWebhookConfigHelper(client, whc.webhookParameters.WebhookName)
+	if err != nil {
+		scope.Errorf("%v validatingwebhookconfiguration delete failed: %v", whc.webhookParameters.WebhookName, err)
+		reportValidationConfigDeleteError(err)
+	}
+	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookParameters.WebhookName, deleted)
+}
+
+// Delete validatingwebhookconfiguration if exists. otherwise, do nothing
+func deleteWebhookConfigHelper(
+	client admissionregistration.ValidatingWebhookConfigurationInterface,
+	webhookName string,
+) (bool, error) {
+	_, err := client.Get(webhookName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	err = client.Delete(webhookName, &metav1.DeleteOptions{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
@@ -199,7 +232,7 @@ func loadCaCertPem(in io.Reader) ([]byte, error) {
 // cleaned up when istio-galley is deleted.
 func rebuildWebhookConfigHelper(
 	caFile, webhookConfigFile, webhookName string,
-	ownerRefs []v1.OwnerReference,
+	ownerRefs []metav1.OwnerReference,
 ) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
@@ -219,14 +252,14 @@ func rebuildWebhookConfigHelper(
 			webhookConfig.Webhooks[i].FailurePolicy = &failurePolicy
 		}
 		if webhookConfig.Webhooks[i].NamespaceSelector == nil {
-			webhookConfig.Webhooks[i].NamespaceSelector = &v1.LabelSelector{}
+			webhookConfig.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{}
 		}
 	}
 
 	// the webhook name is fixed at startup time
 	webhookConfig.Name = webhookName
 
-	// update ownerRefs so configuration is cleaned up when the validation deployment is deleted.
+	// update ownerRefs so configuration is cleaned up when the galley's namespace is deleted.
 	webhookConfig.OwnerReferences = ownerRefs
 
 	in, err := os.Open(caFile)
@@ -310,17 +343,17 @@ func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, 
 		createInformerWebhookSource: defaultCreateInformerWebhookSource,
 	}
 
-	if galleyDeployment, err := whc.webhookParameters.Clientset.AppsV1().
-		Deployments(whc.webhookParameters.DeploymentAndServiceNamespace).
-		Get(whc.webhookParameters.DeploymentName, v1.GetOptions{}); err != nil {
-		scope.Warnf("Could not find %s/%s deployment to set ownerRef. "+
+	galleyNamespace, err := whc.webhookParameters.Clientset.CoreV1().Namespaces().Get(
+		whc.webhookParameters.DeploymentAndServiceNamespace, metav1.GetOptions{})
+	if err != nil {
+		scope.Warnf("Could not find %s namespace to set ownerRef. "+
 			"The validatingwebhookconfiguration must be deleted manually",
-			whc.webhookParameters.DeploymentAndServiceNamespace, whc.webhookParameters.DeploymentName)
+			whc.webhookParameters.DeploymentAndServiceNamespace)
 	} else {
-		whc.ownerRefs = []v1.OwnerReference{
-			*v1.NewControllerRef(
-				galleyDeployment,
-				appsv1.SchemeGroupVersion.WithKind("Deployment"),
+		whc.ownerRefs = []metav1.OwnerReference{
+			*metav1.NewControllerRef(
+				galleyNamespace,
+				corev1.SchemeGroupVersion.WithKind("Namespace"),
 			),
 		}
 	}
@@ -360,8 +393,12 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 				whc.createOrUpdateWebhookConfig()
 			}
 		case <-webhookChangedCh:
-			// reconcile the desired configuration
-			whc.createOrUpdateWebhookConfig()
+			if whc.webhookParameters.EnableValidation {
+				// reconcile the desired configuration
+				whc.createOrUpdateWebhookConfig()
+			} else {
+				whc.deleteWebhookConfig()
+			}
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)

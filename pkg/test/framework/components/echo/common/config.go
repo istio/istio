@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -45,7 +45,11 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 
 	// If no namespace was provided, use the default.
 	if c.Namespace == nil {
-		if c.Namespace, err = namespace.New(ctx, defaultNamespace, true); err != nil {
+		nsConfig := namespace.Config{
+			Prefix: defaultNamespace,
+			Inject: true,
+		}
+		if c.Namespace, err = namespace.New(ctx, nsConfig); err != nil {
 			return err
 		}
 	}
@@ -93,7 +97,7 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 }
 
 // GetPortForProtocol returns the first port found with the given protocol, or nil if none was found.
-func GetPortForProtocol(c *echo.Config, protocol model.Protocol) *echo.Port {
+func GetPortForProtocol(c *echo.Config, protocol protocol.Instance) *echo.Port {
 	for _, p := range c.Ports {
 		if p.Protocol == protocol {
 			return &p
@@ -103,7 +107,7 @@ func GetPortForProtocol(c *echo.Config, protocol model.Protocol) *echo.Port {
 }
 
 // AddPortIfMissing adds a port for the given protocol if none was found.
-func AddPortIfMissing(c *echo.Config, protocol model.Protocol) {
+func AddPortIfMissing(c *echo.Config, protocol protocol.Instance) {
 	if GetPortForProtocol(c, protocol) == nil {
 		c.Ports = append([]echo.Port{
 			{

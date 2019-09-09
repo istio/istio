@@ -69,7 +69,10 @@ EOF
 
     docker build -t              "${HUB}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}" .
     # Include the license text in the tarball as well (overwrite old $TAR_PATH).
-    docker save -o "${TAR_PATH}" "${HUB}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}"
+    TAR_FILE="${TAR_PATH%.*}"
+    rm -rf "${TAR_PATH}"
+    docker save -o "${TAR_FILE}" "${HUB}/${IMAGE_NAME}:${TAG}${VARIANT_NAME}" && \
+    gzip "${TAR_FILE}"
   done
   popd || return 1
 }

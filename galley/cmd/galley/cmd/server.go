@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	istiocmd "istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
@@ -100,11 +101,11 @@ func serverCmd() *cobra.Command {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	serverCmd.PersistentFlags().DurationVar(&serverArgs.ResyncPeriod, "resyncPeriod", serverArgs.ResyncPeriod,
 		"Resync period for rescanning Kubernetes resources")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CertificateFile, "tlsCertFile", constants.DefaultCertChain,
 		"File containing the x509 Certificate for HTTPS.")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.KeyFile, "tlsKeyFile", constants.DefaultKey,
 		"File containing the x509 private key matching --tlsCertFile.")
-	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", "/etc/certs/root-cert.pem",
+	serverCmd.PersistentFlags().StringVar(&serverArgs.CredentialOptions.CACertificateFile, "caCertFile", constants.DefaultRootCert,
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.Liveness.Path, "livenessProbePath", serverArgs.Liveness.Path,
 		"Path to the file for the Galley liveness probe.")
@@ -150,6 +151,8 @@ func serverCmd() *cobra.Command {
 		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
 	serverCmd.PersistentFlags().BoolVar(&serverArgs.EnableServiceDiscovery, "enableServiceDiscovery", false,
 		"Enable service discovery processing in Galley")
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.UseOldProcessor, "useOldProcessor", serverArgs.UseOldProcessor,
+		"Use the old processing pipeline for config processing")
 
 	// validation config
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookConfigFile,
@@ -159,6 +162,9 @@ func serverCmd() *cobra.Command {
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
 	serverCmd.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableValidation, "enable-validation", serverArgs.ValidationArgs.EnableValidation,
 		"Run galley validation mode")
+	serverCmd.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,
+		"enable-reconcileWebhookConfiguration", serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,
+		"Enable reconciliation for webhook configuration.")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentAndServiceNamespace, "deployment-namespace", "istio-system",
 		"Namespace of the deployment for the validation pod")
 	serverCmd.PersistentFlags().StringVar(&serverArgs.ValidationArgs.DeploymentName, "deployment-name", "istio-galley",

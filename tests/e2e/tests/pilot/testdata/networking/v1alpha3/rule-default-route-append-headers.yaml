@@ -38,7 +38,7 @@ spec:
           host: c
           subset: v2
         weight: 25
-      append_headers: #deprecated
+      appendHeaders: #deprecated
         istio-custom-header: user-defined-value
       appendRequestHeaders: #deprecated
         istio-custom-req-header: user-defined-value

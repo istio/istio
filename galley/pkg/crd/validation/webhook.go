@@ -38,7 +38,8 @@ import (
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -73,7 +74,7 @@ type WebhookParameters struct {
 	MixerValidator store.BackendValidator
 
 	// PilotDescriptor provides a description of all pilot configuration resources.
-	PilotDescriptor model.ConfigDescriptor
+	PilotDescriptor schema.Set
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,
 	// e.g. cluster.local.
@@ -118,8 +119,8 @@ type WebhookParameters struct {
 	// Enable galley validation mode
 	EnableValidation bool
 
-	// Disable reconcile validatingwebhookconfiguration
-	DisableReconcileWebhookConfiguration bool
+	// Enable reconcile validatingwebhookconfiguration
+	EnableReconcileWebhookConfiguration bool
 }
 
 type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
@@ -149,7 +150,7 @@ func (p *WebhookParameters) String() string {
 	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
 	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
 	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
-	fmt.Fprintf(buf, "DisableReconcileWebhookConfiguration: %v\n", p.DisableReconcileWebhookConfiguration)
+	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
 
 	return buf.String()
 }
@@ -157,16 +158,16 @@ func (p *WebhookParameters) String() string {
 // DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
-		Port:                                 443,
-		CertFile:                             "/etc/certs/cert-chain.pem",
-		KeyFile:                              "/etc/certs/key.pem",
-		CACertFile:                           "/etc/certs/root-cert.pem",
-		DeploymentAndServiceNamespace:        "istio-system",
-		DeploymentName:                       "istio-galley",
-		ServiceName:                          "istio-galley",
-		WebhookName:                          "istio-galley",
-		EnableValidation:                     true,
-		DisableReconcileWebhookConfiguration: false,
+		Port:                                443,
+		CertFile:                            constants.DefaultCertChain,
+		KeyFile:                             constants.DefaultKey,
+		CACertFile:                          constants.DefaultRootCert,
+		DeploymentAndServiceNamespace:       "istio-system",
+		DeploymentName:                      "istio-galley",
+		ServiceName:                         "istio-galley",
+		WebhookName:                         "istio-galley",
+		EnableValidation:                    true,
+		EnableReconcileWebhookConfiguration: true,
 	}
 }
 
@@ -176,7 +177,7 @@ type Webhook struct {
 	cert *tls.Certificate
 
 	// pilot
-	descriptor   model.ConfigDescriptor
+	descriptor   schema.Set
 	domainSuffix string
 
 	// mixer
@@ -344,21 +345,21 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
+	s, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)
 		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := crd.ConvertObject(schema, &obj, wh.domainSuffix)
+	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
 		scope.Infof("error decoding configuration: %v", err)
 		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+	if err := s.Validate(out.Name, out.Namespace, out.Spec); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))

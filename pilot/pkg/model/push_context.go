@@ -21,7 +21,15 @@ import (
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/monitoring"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/visibility"
+	"istio.io/pkg/monitoring"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -35,20 +43,15 @@ type PushContext struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
 
-	// Start represents the time of last config change that reset the
-	// push status.
-	Start time.Time
-	End   time.Time
-
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
 	// data should not be changed by plugins.
 	Mutex sync.Mutex `json:"-"`
 
 	// Synthesized from env.Mesh
-	defaultServiceExportTo         map[Visibility]bool
-	defaultVirtualServiceExportTo  map[Visibility]bool
-	defaultDestinationRuleExportTo map[Visibility]bool
+	defaultServiceExportTo         map[visibility.Instance]bool
+	defaultVirtualServiceExportTo  map[visibility.Instance]bool
+	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
@@ -70,13 +73,18 @@ type PushContext struct {
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
+	// envoy filters for each namespace including global config namespace
+	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
+	// gateways for each namespace
+	gatewaysByNamespace map[string][]Config
+	allGateways         []Config
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service `json:"-"`
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
+	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -85,23 +93,17 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServicePortByHostname is used to keep track of service name and port mapping.
-	// This is needed because ADS names use port numbers, while endpoints use
-	// port names. The key is the service name. If a service or port are not found,
-	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServicePortByHostname map[Hostname]PortList `json:"-"`
-
 	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
+	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
 	initDone bool
 }
 
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
-	hosts []Hostname
+	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[Hostname]*combinedDestinationRule
+	destRule map[host.Name]*combinedDestinationRule
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -123,7 +125,7 @@ type XDSUpdater interface {
 	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the registry
 	// name.
-	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
+	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
 	// SvcUpdate is called when a service port mapping definition is updated.
 	// This interface is WIP - labels, annotations and other changes to service may be
@@ -131,17 +133,93 @@ type XDSUpdater interface {
 	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
 
-	// WorkloadUpdate is called by a registry when the labels or annotations on a workload have changed.
-	// The 'id' is the IP address of the pod for k8s if the pod is in the main/default network.
-	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
-	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
-	// We use Endpoints to track the membership to a service and readiness.
-	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
-
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
-	ConfigUpdate(full bool)
+	ConfigUpdate(req *PushRequest)
+}
+
+// PushRequest defines a request to push to proxies
+// It is used to send updates to the config update debouncer and pass to the PushQueue.
+type PushRequest struct {
+	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
+	Full bool
+
+	// TargetNamespaces contains a list of namespaces that were changed in the update.
+	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
+	// Currently, this will only scope EDS updates, as config updates are more complicated.
+	// If this is empty, then proxies in all namespaces will get an update
+	// If this is present, then only proxies that import this namespace will get an update
+	TargetNamespaces map[string]struct{}
+
+	// EdsUpdates keeps track of all service updated since last full push.
+	// Key is the hostname (serviceName).
+	// This is used by incremental eds.
+	EdsUpdates map[string]struct{}
+
+	// Push stores the push context to use for the update. This may initially be nil, as we will
+	// debounce changes before a PushContext is eventually created.
+	Push *PushContext
+
+	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
+	// Note that this does not include time spent debouncing.
+	Start time.Time
+}
+
+// Merge two update requests together
+func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
+	if first == nil {
+		return other
+	}
+	if other == nil {
+		return first
+	}
+
+	merged := &PushRequest{
+		// Keep the first (older) start time
+		Start: first.Start,
+
+		// If either is full we need a full push
+		Full: first.Full || other.Full,
+
+		// The other push context is presumed to be later and more up to date
+		Push: other.Push,
+	}
+
+	// Only merge EdsUpdates when incremental eds push needed.
+	if !merged.Full {
+		merged.EdsUpdates = make(map[string]struct{})
+		// Merge the updates
+		for update := range first.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
+		for update := range other.EdsUpdates {
+			merged.EdsUpdates[update] = struct{}{}
+		}
+	} else {
+		merged.EdsUpdates = nil
+	}
+
+	if !features.ScopePushes.Get() {
+		// If push scoping is not enabled, we do not care about target namespaces
+		return merged
+	}
+
+	// If either does not specify only namespaces, this means update all namespaces
+	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
+		return merged
+	}
+
+	// Merge the target namespaces
+	merged.TargetNamespaces = make(map[string]struct{})
+	for update := range first.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
+	for update := range other.TargetNamespaces {
+		merged.TargetNamespaces[update] = struct{}{}
+	}
+
+	return merged
 }
 
 // ProxyPushStatus represents an event captured during config push to proxies.
@@ -258,6 +336,12 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
+	// totalVirtualServices tracks the total number of virtual service
+	totalVirtualServices = monitoring.NewGauge(
+		"pilot_virt_services",
+		"Total virtual services known to pilot.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -283,8 +367,9 @@ var (
 
 func init() {
 	for _, m := range metrics {
-		monitoring.MustRegisterViews(m)
+		monitoring.MustRegister(m)
 	}
+	monitoring.MustRegister(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -298,16 +383,16 @@ func NewPushContext() *PushContext {
 		namespaceLocalDestRules:           map[string]*processedDestRules{},
 		namespaceExportedDestRules:        map[string]*processedDestRules{},
 		allExportedDestRules: &processedDestRules{
-			hosts:    make([]Hostname, 0),
-			destRule: map[Hostname]*combinedDestinationRule{},
+			hosts:    make([]host.Name, 0),
+			destRule: map[host.Name]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace: map[string][]*SidecarScope{},
-
-		ServiceByHostname:     map[Hostname]*Service{},
-		ProxyStatus:           map[string]map[string]ProxyPushStatus{},
-		ServicePortByHostname: map[Hostname]PortList{},
-		ServiceAccounts:       map[Hostname]map[int][]string{},
-		Start:                 time.Now(),
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:       map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:           map[string][]Config{},
+		allGateways:                   []Config{},
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
+		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:               map[host.Name]map[int][]string{},
 	}
 }
 
@@ -349,7 +434,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 		return proxy.SidecarScope.Services()
 	}
 
-	out := []*Service{}
+	out := make([]*Service, 0)
 
 	// First add private services
 	if proxy == nil {
@@ -385,22 +470,22 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	// Second public virtual service
 	configs = append(configs, ps.publicVirtualServices...)
 
-	for _, config := range configs {
-		rule := config.Spec.(*networking.VirtualService)
+	for _, cfg := range configs {
+		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[IstioMeshGateway] {
-				out = append(out, config)
+			if gateways[constants.IstioMeshGateway] {
+				out = append(out, cfg)
 			}
 		} else {
 			for _, g := range rule.Gateways {
-				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
-				if gateways[resolveGatewayName(g, config.ConfigMeta)] {
-					out = append(out, config)
+				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
+				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
+					out = append(out, cfg)
 					break
-				} else if g == IstioMeshGateway && gateways[g] {
+				} else if g == constants.IstioMeshGateway && gateways[g] {
 					// "mesh" gateway cannot be expanded into FQDN
-					out = append(out, config)
+					out = append(out, cfg)
 					break
 				}
 			}
@@ -421,7 +506,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels LabelsCollection) *SidecarScope {
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Collection) *SidecarScope {
 
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
@@ -437,7 +522,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels LabelsCollec
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
-					workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
+					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
@@ -473,8 +558,8 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
-			return ps.allExportedDestRules.destRule[host].config
+		if hostname, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+			return ps.allExportedDestRules.destRule[hostname].config
 		}
 		return nil
 	}
@@ -498,19 +583,33 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-			if host, ok := MostSpecificHostMatch(service.Hostname,
+			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname].config
+			}
+		}
+	}
+
+	svcNs := service.Attributes.Namespace
+
+	// This can happen when finding the subset labels for a proxy in root namespace.
+	// Because based on a pure cluster name, we do not know the service and
+	// construct a fake service without setting Attributes at all.
+	if svcNs == "" {
+		for _, svc := range ps.Services(proxy) {
+			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
+				svcNs = svc.Attributes.Namespace
+				break
 			}
 		}
 	}
 
 	// if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
-	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
-			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[host].config
+	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
+		if hostname, ok := MostSpecificHostMatch(service.Hostname,
+			ps.namespaceExportedDestRules[svcNs].hosts); ok {
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
 		}
 	}
 
@@ -518,9 +617,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
+		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[host].config
+			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[hostname].config
 		}
 	}
 
@@ -528,21 +627,21 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname host.Name) labels.Collection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
-	if config == nil {
+	cfg := ps.DestinationRule(proxy, &Service{Hostname: hostname})
+	if cfg == nil {
 		return nil
 	}
 
-	rule := config.Spec.(*networking.DestinationRule)
+	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
-			return []Labels{subset.Labels}
+			return []labels.Instance{subset.Labels}
 		}
 	}
 
@@ -583,6 +682,14 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	if err = ps.initEnvoyFilters(env); err != nil {
+		return err
+	}
+
+	if err = ps.initGateways(env); err != nil {
+		return err
+	}
+
 	// Must be initialized in the end
 	if err = ps.initSidecarScopes(env); err != nil {
 		return err
@@ -604,20 +711,22 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	for _, s := range allServices {
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
-			if ps.defaultServiceExportTo[VisibilityPrivate] {
+			if ps.defaultServiceExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-			} else if ps.defaultServiceExportTo[VisibilityPublic] {
+			} else if ps.defaultServiceExportTo[visibility.Public] {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		} else {
-			if s.Attributes.ExportTo[VisibilityPrivate] {
+			if s.Attributes.ExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
 			} else {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		}
-		ps.ServiceByHostname[s.Hostname] = s
-		ps.ServicePortByHostname[s.Hostname] = s.Ports
+		if _, f := ps.ServiceByHostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceByHostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -636,19 +745,21 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		if ps.ServiceAccounts[svc.Hostname] == nil {
+			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		}
 		for _, port := range svc.Ports {
-			if port.Protocol == ProtocolUDP {
+			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}
 }
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	virtualServices, err := env.List(VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -660,6 +771,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for i := range vservices {
 		vservices[i] = virtualServices[i].DeepCopy()
 	}
+
+	totalVirtualServices.Record(float64(len(virtualServices)))
 
 	// TODO(rshriram): parse each virtual service and maintain a map of the
 	// virtualservice name, the list of registry hosts in the VS and non
@@ -676,7 +789,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
-			if g != IstioMeshGateway {
+			if g != constants.IstioMeshGateway {
 				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
@@ -684,7 +797,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -700,7 +813,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -713,7 +826,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, tls := range rule.Tls {
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
-					if g != IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -730,16 +843,16 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultVirtualServiceExportTo[VisibilityPrivate] {
+			if ps.defaultVirtualServiceExportTo[visibility.Private] {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-			} else if ps.defaultVirtualServiceExportTo[VisibilityPublic] {
+			} else if ps.defaultVirtualServiceExportTo[visibility.Public] {
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if Visibility(rule.ExportTo[0]) == VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) == visibility.Private {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
 			} else {
@@ -754,32 +867,32 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 }
 
 func (ps *PushContext) initDefaultExportMaps() {
-	ps.defaultDestinationRuleExportTo = make(map[Visibility]bool)
+	ps.defaultDestinationRuleExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
-			ps.defaultDestinationRuleExportTo[Visibility(e)] = true
+			ps.defaultDestinationRuleExportTo[visibility.Instance(e)] = true
 		}
 	} else {
 		// default to *
-		ps.defaultDestinationRuleExportTo[VisibilityPublic] = true
+		ps.defaultDestinationRuleExportTo[visibility.Public] = true
 	}
 
-	ps.defaultServiceExportTo = make(map[Visibility]bool)
+	ps.defaultServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
-			ps.defaultServiceExportTo[Visibility(e)] = true
+			ps.defaultServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultServiceExportTo[VisibilityPublic] = true
+		ps.defaultServiceExportTo[visibility.Public] = true
 	}
 
-	ps.defaultVirtualServiceExportTo = make(map[Visibility]bool)
+	ps.defaultVirtualServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
-			ps.defaultVirtualServiceExportTo[Visibility(e)] = true
+			ps.defaultVirtualServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultVirtualServiceExportTo[VisibilityPublic] = true
+		ps.defaultVirtualServiceExportTo[visibility.Public] = true
 	}
 }
 
@@ -796,20 +909,22 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(schemas.Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
 
 	sortConfigByCreationTime(sidecarConfigs)
 
-	sidecarConfigWithSelector := []Config{}
-	sidecarConfigWithoutSelector := []Config{}
+	sidecarConfigWithSelector := make([]Config, 0)
+	sidecarConfigWithoutSelector := make([]Config, 0)
+	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
+			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -840,14 +955,14 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	for _, s := range ps.ServiceByHostname {
-		ns := s.Attributes.Namespace
-		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			// use the contents from the root namespace or the default if there is no root namespace
-			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
+		for ns := range nsMap {
+			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
+				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
+			}
 		}
 	}
 
@@ -856,7 +971,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(DestinationRule.Type, NamespaceAll)
+	configs, err := env.List(schemas.DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -867,6 +982,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // SetDestinationRules is updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
+// This will not work properly for Sidecars, which will precompute their destination rules on init
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
@@ -874,8 +990,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	namespaceLocalDestRules := make(map[string]*processedDestRules)
 	namespaceExportedDestRules := make(map[string]*processedDestRules)
 	allExportedDestRules := &processedDestRules{
-		hosts:    make([]Hostname, 0),
-		destRule: map[Hostname]*combinedDestinationRule{},
+		hosts:    make([]host.Name, 0),
+		destRule: map[host.Name]*combinedDestinationRule{},
 	}
 
 	for i := range configs {
@@ -888,8 +1004,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
-				hosts:    make([]Hostname, 0),
-				destRule: map[Hostname]*combinedDestinationRule{},
+				hosts:    make([]host.Name, 0),
+				destRule: map[host.Name]*combinedDestinationRule{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
@@ -903,13 +1019,13 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultDestinationRuleExportTo[VisibilityPublic] {
+			if ps.defaultDestinationRuleExportTo[visibility.Public] {
 				isPubliclyExported = true
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if Visibility(rule.ExportTo[0]) != VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) != visibility.Private {
 				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
 				// and we currently only allow . or *. So treat this as public export
 				isPubliclyExported = true
@@ -919,8 +1035,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if isPubliclyExported {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
-					hosts:    make([]Hostname, 0),
-					destRule: map[Hostname]*combinedDestinationRule{},
+					hosts:    make([]host.Name, 0),
+					destRule: map[host.Name]*combinedDestinationRule{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
@@ -940,12 +1056,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// presort it so that we don't sort it for each DestinationRule call.
 	// sort.Sort for Hostnames will automatically sort from the most specific to least specific
 	for ns := range namespaceLocalDestRules {
-		sort.Sort(Hostnames(namespaceLocalDestRules[ns].hosts))
+		sort.Sort(host.Names(namespaceLocalDestRules[ns].hosts))
 	}
 	for ns := range namespaceExportedDestRules {
-		sort.Sort(Hostnames(namespaceExportedDestRules[ns].hosts))
+		sort.Sort(host.Names(namespaceExportedDestRules[ns].hosts))
 	}
-	sort.Sort(Hostnames(allExportedDestRules.hosts))
+	sort.Sort(host.Names(allExportedDestRules.hosts))
 
 	ps.namespaceLocalDestRules = namespaceLocalDestRules
 	ps.namespaceExportedDestRules = namespaceExportedDestRules
@@ -954,9 +1070,113 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	var err error
-	if ps.AuthzPolicies, err = NewAuthzPolicies(env); err != nil {
+	if ps.AuthzPolicies, err = GetAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 	return nil
+}
+
+// pre computes envoy filters per namespace
+func (ps *PushContext) initEnvoyFilters(env *Environment) error {
+	envoyFilterConfigs, err := env.List(schemas.EnvoyFilter.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(envoyFilterConfigs)
+
+	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
+	for _, envoyFilterConfig := range envoyFilterConfigs {
+		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
+			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
+		}
+		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
+	}
+	return nil
+}
+
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
+	// this should never happen
+	if proxy == nil {
+		return nil
+	}
+	out := make([]*EnvoyFilterWrapper, 0)
+	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
+	// First get all the filter configs from the config root namespace
+	// and then add the ones from proxy's own namespace
+	if ps.Env.Mesh.RootNamespace != "" {
+		// if there is no workload selector, the config applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
+		}
+	}
+
+	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
+	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
+		}
+	}
+
+	return out
+}
+
+// pre computes gateways per namespace
+func (ps *PushContext) initGateways(env *Environment) error {
+	gatewayConfigs, err := env.List(schemas.Gateway.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(gatewayConfigs)
+
+	ps.allGateways = gatewayConfigs
+	ps.gatewaysByNamespace = make(map[string][]Config)
+	for _, gatewayConfig := range gatewayConfigs {
+		if _, exists := ps.gatewaysByNamespace[gatewayConfig.Namespace]; !exists {
+			ps.gatewaysByNamespace[gatewayConfig.Namespace] = make([]Config, 0)
+		}
+		ps.gatewaysByNamespace[gatewayConfig.Namespace] = append(ps.gatewaysByNamespace[gatewayConfig.Namespace], gatewayConfig)
+	}
+	return nil
+}
+
+func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
+	// this should never happen
+	if proxy == nil {
+		return nil
+	}
+	out := make([]Config, 0)
+
+	var configs []Config
+	if features.ScopeGatewayToNamespace.Get() {
+		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
+	} else {
+		configs = ps.allGateways
+	}
+
+	for _, cfg := range configs {
+		gw := cfg.Spec.(*networking.Gateway)
+		if gw.GetSelector() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			out = append(out, cfg)
+		} else {
+			gatewaySelector := labels.Instance(gw.GetSelector())
+			if proxy.WorkloadLabels.IsSupersetOf(gatewaySelector) {
+				out = append(out, cfg)
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+	return MergeGateways(out...)
 }

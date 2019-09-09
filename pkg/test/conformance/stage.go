@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test/conformance/constraint"
 )
@@ -34,7 +36,37 @@ const (
 
 	// MCPFileName is the name of the MCP constraint file.
 	MCPFileName = "mcp.yaml"
+
+	// TrafficFileName is the name of the traffic test/constrains file.
+	TrafficFileName = "traffic.yaml"
 )
+
+type Traffic struct {
+	Services []Service
+	Calls    []Call
+}
+
+type Port struct {
+	Name        string
+	Protocol    string // protocol.Instance
+	ServicePort uint16
+}
+
+type Service struct {
+	Name  string
+	Ports []Port
+}
+
+type Response struct {
+	Code   int
+	Callee string
+}
+
+type Call struct {
+	Caller   string
+	URL      string
+	Response Response
+}
 
 // Stage of a test.
 type Stage struct {
@@ -46,10 +78,13 @@ type Stage struct {
 
 	// MeshConfig (if any) to apply for this stage.
 	MeshConfig *string
+
+	// Traffic definition and constraints for this stage.
+	Traffic *Traffic
 }
 
 func hasStages(dir string) (bool, error) {
-	entries, err := ioutil.ReadDir(path.Join(dir))
+	entries, err := ioutil.ReadDir(filepath.Join(dir))
 	if err != nil {
 		return false, err
 	}
@@ -64,13 +99,13 @@ func hasStages(dir string) (bool, error) {
 }
 
 func loadStage(dir string) (*Stage, error) {
-	input, err := ioutil.ReadFile(path.Join(dir, InputFileName))
+	input, err := ioutil.ReadFile(filepath.Join(dir, InputFileName))
 	if err != nil {
 		return nil, fmt.Errorf("error loading input file: %v", err)
 	}
 
 	var meshconfig *string
-	meshconfigBytes, err := ioutil.ReadFile(path.Join(dir, MeshConfigFileName))
+	meshconfigBytes, err := ioutil.ReadFile(filepath.Join(dir, MeshConfigFileName))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -83,7 +118,7 @@ func loadStage(dir string) (*Stage, error) {
 	}
 
 	var mcp *constraint.Constraints
-	mcpBytes, err := ioutil.ReadFile(path.Join(dir, MCPFileName))
+	mcpBytes, err := ioutil.ReadFile(filepath.Join(dir, MCPFileName))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -96,10 +131,23 @@ func loadStage(dir string) (*Stage, error) {
 		}
 	}
 
+	var traffic *Traffic
+	switch bs, err := ioutil.ReadFile(filepath.Join(dir, TrafficFileName)); {
+	case err == nil:
+		traffic = new(Traffic)
+		if err := yaml.UnmarshalStrict(bs, traffic); err != nil {
+			return nil, err
+		}
+	case os.IsNotExist(err):
+	default:
+		return nil, err
+	}
+
 	return &Stage{
 		Input:      string(input),
 		MeshConfig: meshconfig,
 		MCP:        mcp,
+		Traffic:    traffic,
 	}, nil
 }
 

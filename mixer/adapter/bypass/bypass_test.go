@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
-	google_rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
+
+	google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"

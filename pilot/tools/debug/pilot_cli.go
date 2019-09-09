@@ -30,20 +30,21 @@
 //
 // To get LDS or CDS, use -type lds or -type cds, and provide the pod id or app label. For example:
 // ```bash
-// go run pilot_cli.go -type lds -res httpbin-5766dd474b-2hlnx
-// go run pilot_cli.go -type lds -res httpbin
+// go run pilot_cli.go --type lds --proxytag httpbin-5766dd474b-2hlnx  # --res will be ignored
+// go run pilot_cli.go --type lds --proxytag httpbin
 // ```
 // Note If more than one pod match with the app label, one will be picked arbitrarily.
 //
-// For EDS, provide comma-separated-list of clusters. For example:
+// For EDS/RDS, provide comma-separated-list of corresponding clusters or routes name. For example:
 // ```bash
-// go run ./pilot/tools/debug/pilot_cli.go -type eds -res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
+// go run ./pilot/tools/debug/pilot_cli.go --type eds --proxytag httpbin \
+// --res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
 // ```
 //
 // Script requires kube config in order to connect to k8s registry to get pod information (for LDS and CDS type). The default
 // value for kubeconfig path is .kube/config in home folder (works for Linux only). It can be changed via -kubeconfig flag.
 // ```bash
-// go run ./pilot/debug/pilot_cli.go -type lds -res httpbin -kubeconfig path/to/kube/config
+// go run ./pilot/debug/pilot_cli.go --type lds --proxytag httpbin --kubeconfig path/to/kube/config
 // ```
 
 package main
@@ -71,8 +72,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/util/protomarshal"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -91,11 +93,11 @@ type PodInfo struct {
 }
 
 func getAllPods(kubeconfig string) (*v1.PodList, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -179,44 +181,20 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
+func (p PodInfo) appendResources(req *xdsapi.DiscoveryRequest, resources []string) *xdsapi.DiscoveryRequest {
+	req.ResourceNames = resources
+	return req
+}
+
+func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
-	if err != nil {
-		panic(err.Error())
-	}
-	err = stream.Send(p.makeRequest(configType))
-	if err != nil {
-		panic(err.Error())
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		panic(err.Error())
-	}
-	return res
-}
-
-func makeEDSRequest(resources string) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		ResourceNames: strings.Split(resources, ","),
-	}
-}
-
-func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
-	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
-	if err != nil {
-		panic(err.Error())
-	}
-	defer conn.Close()
-
-	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := edsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}
@@ -228,7 +206,7 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	if err != nil {
 		panic(err.Error())
 	}
-	return res
+	return res, err
 }
 
 var homeVar = env.RegisterStringVar("HOME", "", "")
@@ -279,7 +257,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 	for i := 0; i < 10 && !reachable; i++ {
 		conn, err := net.Dial("tcp", url)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			reachable = true
 		}
 		time.Sleep(1 * time.Second)
@@ -295,8 +273,8 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
-	// nolint: lll
-	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	proxyTag := flag.String("proxytag", "", "Pod name or app label or istio label to identify the proxy.")
+	resources := flag.String("res", "", "Resource(s) to get config for. LDS/CDS should leave it empty.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
@@ -313,19 +291,24 @@ func main() {
 			}
 		}
 	}()
+	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType)
 
 	var resp *xdsapi.DiscoveryResponse
-	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
-		resp = pod.getResource(pilot, *configType)
-	} else if *configType == "eds" {
-		resp = edsRequest(pilot, makeEDSRequest(*resources))
-	} else {
+	switch *configType {
+	case "lds", "cds":
+		resp, err = pod.getXdsResponse(pilot, pod.makeRequest(*configType))
+	case "rds", "eds":
+		resp, err = pod.getXdsResponse(pilot, pod.appendResources(pod.makeRequest(*configType), strings.Split(*resources, ",")))
+	default:
 		log.Errorf("Unknown config type: %q", *configType)
 		os.Exit(1)
 	}
 
-	strResponse, _ := model.ToJSONWithIndent(resp, " ")
+	if err != nil {
+		log.Errorf("Failed to get Xds response for %v. Error: %v", *resources, err)
+		return
+	}
+	strResponse, _ := protomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {

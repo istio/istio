@@ -17,21 +17,24 @@ package controller
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
 func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
-	cleanup(ki, fx)
+	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
 		_, err := ki.CoreV1().Namespaces().Create(&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -84,18 +87,14 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 	fx.Clear()
 }
 
-func cleanup(ki kubernetes.Interface, fx *FakeXdsUpdater) {
+func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
 		n := n
 		pods, err := ki.CoreV1().Pods(n).List(metav1.ListOptions{})
 		if err == nil {
 			// Make sure the pods don't exist
 			for _, pod := range pods.Items {
-				err := ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
-				if err == nil {
-					// pod existed before, wait for event
-					_ = fx.Wait("workload")
-				}
+				_ = ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 			}
 		}
 	}
@@ -105,7 +104,7 @@ func TestPodCache(t *testing.T) {
 	t.Run("localApiserver", func(t *testing.T) {
 		c, fx := newLocalController(t)
 		defer c.Stop()
-		defer cleanup(c.client, fx)
+		defer cleanup(c.client)
 		testPodCache(t, c, fx)
 	})
 	t.Run("fakeApiserver", func(t *testing.T) {
@@ -113,6 +112,17 @@ func TestPodCache(t *testing.T) {
 		c, fx := newFakeController(t)
 		defer c.Stop()
 		testPodCache(t, c, fx)
+	})
+}
+
+func waitForPod(c *Controller, ip string) error {
+	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		c.pods.RLock()
+		defer c.pods.RUnlock()
+		if _, ok := c.pods.keys[ip]; ok {
+			return true, nil
+		}
+		return false, nil
 	})
 }
 
@@ -132,20 +142,11 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		pod := pod
 		addPods(t, c, pod)
 		// Wait for the workload event
-
-		ev := fx.Wait("workload")
-		if ev == nil {
-			t.Error("No event ", pod.Name)
-			continue
-		}
-		if ev.ID != pod.Status.PodIP {
-			t.Error("Workload event expected ", pod.Status.PodIP, "got", ev.ID, ev.Type)
-			continue
-		}
+		waitForPod(c, pod.Status.PodIP)
 	}
 
 	// Verify podCache
-	wantLabels := map[string]model.Labels{
+	wantLabels := map[string]labels.Instance{
 		"128.0.0.1": {"app": "test-app"},
 		"128.0.0.2": {"app": "prod-app-1"},
 		"128.0.0.3": {"app": "prod-app-2"},
@@ -173,9 +174,9 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
 	c, _ := newFakeController(t)
-	cache := newPodCache(cacheHandler{handler: handler}, c)
+	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
-	f := cache.event
+	f := podCache.event
 
 	ns := "default"
 	ip := "172.0.3.35"
@@ -187,7 +188,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod1" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod1" {
 		t.Errorf("getPodKey => got %s, pod1 not found or incorrect", pod)
 	}
 
@@ -199,7 +200,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
@@ -207,7 +208,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
 
@@ -215,7 +216,7 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := cache.getPodKey(ip); exists {
+	if pod, exists := podCache.getPodKey(ip); exists {
 		t.Errorf("getPodKey => got %s, want none", pod)
 	}
 }

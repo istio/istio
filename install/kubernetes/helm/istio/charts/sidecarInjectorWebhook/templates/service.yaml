@@ -12,5 +12,8 @@ metadata:
 spec:
   ports:
   - port: 443
+    name: https-inject
+  - port: {{ .Values.global.monitoringPort }}
+    name: http-monitoring
   selector:
     istio: sidecar-injector

@@ -17,8 +17,6 @@ package docker
 import (
 	"fmt"
 	"net"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -41,13 +39,4 @@ func getIP() (net.IP, error) {
 		}
 	}
 	return nil, fmt.Errorf("unable to find IPv4 address in: %v", addrs)
-}
-
-func isGRPC(p model.Protocol) bool {
-	switch p {
-	case model.ProtocolGRPC, model.ProtocolGRPCWeb:
-		return true
-	default:
-		return false
-	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
+	"strings"
 	"testing"
 
 	k8sauth "k8s.io/api/authentication/v1"
+)
+
+var (
+	// testJwtPrefix to distinguish between test jwts and real jwts.
+	testJwtPrefix = "test-jwt"
 )
 
 type mockAPIServer struct {
@@ -47,41 +52,51 @@ func TestOnMockAPIServer(t *testing.T) {
 		expectedErr  string
 	}{
 		"Valid request": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path",
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/legacy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "fake-reviewer-token"},
+			expectedErr: "",
+		},
+		"Valid request but using legacy jwt": {
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/legacy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "fake-reviewer-token"},
+			expectedErr: "legacy JWTs are not allowed and the provided jwt is not trustworthy",
+		},
+		"Valid request with trustworthy jwt": {
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
 			expectedErr: "",
 		},
 		"Valid request without JWT": {
 			cliConfig: clientConfig{tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			expectedErr: "the service account authentication returns an error",
+			expectedErr: "failed to check if jwt is trustworthy: jwt may be invalid",
 		},
 		"Invalid JWT": {
 			cliConfig: clientConfig{jwt: ":", tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "fake-reviewer-token"},
-			expectedErr: "the service account authentication returns an error",
+			expectedErr: "failed to check if jwt is trustworthy: jwt may be invalid",
 		},
 		"Wrong review path": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "wrong-review-path",
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "wrong-review-path",
 				reviewerToken: "fake-reviewer-token"},
 			expectedCert: nil,
-			expectedErr:  "the service account authentication returns an error",
+			expectedErr:  "the request is of an invalid path",
 		},
 		"No review path": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{},
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{},
 				reviewerToken: "fake-reviewer-token"},
 			expectedCert: nil,
-			expectedErr:  "the service account authentication returns an error",
+			expectedErr:  "the request is of an invalid path",
 		},
 		"No reviewer token": {
-			cliConfig:   clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path"},
-			expectedErr: "the service account authentication returns an error",
+			cliConfig:   clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path"},
+			expectedErr: "invalid token",
 		},
 		"Wrong reviewer token": {
-			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path",
+			cliConfig: clientConfig{jwt: getJwtFromFile("testdata/trustworthy-jwt.jwt", t), tlsCert: []byte{}, reviewPath: "review-path",
 				reviewerToken: "wrong-reviewer-token"},
 			expectedCert: nil,
-			expectedErr:  "the service account authentication returns an error",
+			expectedErr:  "invalid token",
 		},
 	}
 
@@ -100,14 +115,14 @@ func TestOnMockAPIServer(t *testing.T) {
 			t.Errorf("invalid TLS certificate")
 		}
 
-		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert, tc.cliConfig.reviewerToken)
+		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert,
+			tc.cliConfig.reviewerToken)
 
 		_, err := authn.ValidateK8sJwt(tc.cliConfig.jwt)
 
 		if err != nil {
 			t.Logf("Error: %v", err.Error())
-			match, _ := regexp.MatchString(tc.expectedErr+".+", err.Error())
-			if !match {
+			if !strings.Contains(err.Error(), tc.expectedErr) {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
 			}
 		} else {
@@ -137,61 +152,33 @@ func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServe
 			body, err := ioutil.ReadAll(req.Body)
 			if err != nil {
 				t.Logf("failed to read the request body: %v", err)
-				result := &k8sauth.TokenReview{
-					Status: k8sauth.TokenReviewStatus{
-						Authenticated: false,
-						Error:         "failed to read the request body",
-					},
-				}
-				resultJSON, _ := json.Marshal(result)
-				resp.Header().Set("Content-Type", "application/json")
-				resp.Write(resultJSON)
+				simpleTokenReviewResp(resp, false, "failed to read the request body")
 				return
 			}
+
 			saReq := saValidationRequest{}
 			err = json.Unmarshal(body, &saReq)
 			if err != nil {
 				t.Logf("failed to parse the request body: %v", err)
-				result := &k8sauth.TokenReview{
-					Status: k8sauth.TokenReviewStatus{
-						Authenticated: false,
-						Error:         "failed to parse the request body",
-					},
-				}
-				resultJSON, _ := json.Marshal(result)
-				resp.Header().Set("Content-Type", "application/json")
-				resp.Write(resultJSON)
+				simpleTokenReviewResp(resp, false, "failed to parse the request body")
 				return
 			}
+
 			t.Logf("saValidationRequest: %+v", saReq)
 			if apiServer.reviewerToken != req.Header.Get("Authorization") {
 				t.Logf("invalid token: %v", req.Header.Get("Authorization"))
-				result := &k8sauth.TokenReview{
-					Status: k8sauth.TokenReviewStatus{
-						Authenticated: false,
-						Error:         "invalid token",
-					},
-				}
-				resultJSON, _ := json.Marshal(result)
-				resp.Header().Set("Content-Type", "application/json")
-				resp.Write(resultJSON)
+				simpleTokenReviewResp(resp, false, "invalid token")
 			} else {
 				t.Logf("Valid token: %v", req.Header.Get("Authorization"))
 
-				dec, err := base64.StdEncoding.DecodeString(saReq.Spec.Token)
-				if err != nil || len(dec) == 0 {
-					t.Logf("invalid JWT")
-					result := &k8sauth.TokenReview{
-						Status: k8sauth.TokenReviewStatus{
-							Authenticated: false,
-							Error:         "invalid JWT",
-						},
+				// If the test uses a real jwt, decode the header, payload, and signature.
+				if !strings.HasPrefix(saReq.Spec.Token, testJwtPrefix) {
+					if !isJwtDecodable(saReq.Spec.Token) {
+						simpleTokenReviewResp(resp, false, "invalid JWT")
+						return
 					}
-					resultJSON, _ := json.Marshal(result)
-					resp.Header().Set("Content-Type", "application/json")
-					resp.Write(resultJSON)
-					return
 				}
+
 				result := &k8sauth.TokenReview{
 					Status: k8sauth.TokenReviewStatus{
 						Authenticated: true,
@@ -210,15 +197,7 @@ func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServe
 
 		default:
 			t.Logf("The request contains invalid path: %v", req.URL.Path)
-			result := &k8sauth.TokenReview{
-				Status: k8sauth.TokenReviewStatus{
-					Authenticated: false,
-					Error:         "the request is of an invalid path",
-				},
-			}
-			resultJSON, _ := json.Marshal(result)
-			resp.Header().Set("Content-Type", "application/json")
-			resp.Write(resultJSON)
+			simpleTokenReviewResp(resp, false, "the request is of an invalid path")
 		}
 	})
 
@@ -227,4 +206,70 @@ func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServe
 	t.Logf("Serving API server at: %v", apiServer.httpServer.URL)
 
 	return apiServer
+}
+
+// nolint: unparam
+func simpleTokenReviewResp(resp http.ResponseWriter, status bool, errMsg string) {
+	result := &k8sauth.TokenReview{
+		Status: k8sauth.TokenReviewStatus{
+			Authenticated: status,
+			Error:         errMsg,
+		},
+	}
+	resultJSON, _ := json.Marshal(result)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Write(resultJSON)
+}
+
+// isJwtDecodable returns whether or not a jwt can be decoded.
+func isJwtDecodable(jwt string) bool {
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return false
+	}
+	// Try decoding the header and payload.
+	for i := 0; i < 2; i++ {
+		_, err := base64.RawStdEncoding.DecodeString(jwtSplit[i])
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func TestIsTrustworthyJwt(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Jwt            string
+		ExpectedResult bool
+	}{
+		{
+			Name:           "legacy jwt",
+			Jwt:            getJwtFromFile("testdata/legacy-jwt.jwt", t),
+			ExpectedResult: false,
+		},
+		{
+			Name:           "trustworthy jwt",
+			Jwt:            getJwtFromFile("testdata/trustworthy-jwt.jwt", t),
+			ExpectedResult: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		isTrustworthyJwt, err := isTrustworthyJwt(tc.Jwt)
+		if err != nil {
+			t.Errorf("%s failed with error %v", tc.Name, err.Error())
+		}
+		if isTrustworthyJwt != tc.ExpectedResult {
+			t.Errorf("%s failed. For ExpectedResult: want result %v, got %v\n", tc.Name, tc.ExpectedResult, isTrustworthyJwt)
+		}
+	}
+}
+
+func getJwtFromFile(filePath string, t *testing.T) string {
+	jwt, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read %q", filePath)
+	}
+	return string(jwt)
 }

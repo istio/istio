@@ -118,6 +118,9 @@ func (ci *OnPremClientImpl) GetCredentialType() string {
 
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
+// rootCertFile: the root certificate to authenticate the other end.
+// keyFile: the private key for itself to get authenticated.
+// certChainFile: the leaf cert + intermediate certs for itself to get authenticated.
 func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials.TransportCredentials, error) {
 
 	// Load the certificate from disk

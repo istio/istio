@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
 	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -214,6 +215,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 				if !status.IsOK(qr.Status) {
 					lg.Debugf("Quota denied: %v", qr.Status)
 				}
+				crqr.Status = qr.Status
 				crqr.ValidDuration = qr.ValidDuration
 				crqr.GrantedAmount = qr.Amount
 			}

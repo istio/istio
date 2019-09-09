@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime"
@@ -79,6 +81,9 @@ loop:
 			fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
 		case 5:
 			args.DisableResourceReadyCheck = true
+			findSupportedResources = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+				return nil, e
+			}
 		case 6:
 			args.Insecure = false
 			args.AccessListFile = os.TempDir()
@@ -128,4 +133,72 @@ func TestServer_Basic(t *testing.T) {
 	p.Stop()
 
 	g.Expect(p.Address()).To(BeNil())
+}
+
+func TestParseSinkMeta(t *testing.T) {
+	tests := []struct {
+		name    string
+		arg     []string
+		want    metadata.MD
+		wantErr bool
+	}{
+		{
+			name: "Simple",
+			arg:  []string{"foo=bar"},
+			want: metadata.MD{
+				"foo": []string{"bar"},
+			},
+		},
+		{
+			name: "MultipleValues",
+			arg:  []string{"foo=bar1", "foo=bar2"},
+			want: metadata.MD{
+				"foo": []string{"bar1", "bar2"},
+			},
+		},
+		{
+			name: "MultipleKeys",
+			arg:  []string{"foo1=bar", "foo2=bar"},
+			want: metadata.MD{
+				"foo1": []string{"bar"},
+				"foo2": []string{"bar"},
+			},
+		},
+		{
+			name:    "NoSeparator",
+			arg:     []string{"foo"},
+			wantErr: true,
+		},
+		{
+			name:    "NoValue",
+			arg:     []string{"foo="},
+			wantErr: true,
+		},
+		{
+			name:    "NoKey",
+			arg:     []string{"=foo"},
+			wantErr: true,
+		},
+		{
+			name:    "JustSeparator",
+			arg:     []string{"="},
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			md := make(metadata.MD)
+			err := parseSinkMeta(test.arg, md)
+			if test.wantErr {
+				if err == nil {
+					t.Fatalf("Expected to fail but succeeded with: %v", md)
+				}
+				t.Logf("Failed as expected: %v", err)
+				return
+			}
+			if got := md; !cmp.Equal(got, test.want) {
+				t.Errorf("Wrong final metadata (-want, +got):\n%s", cmp.Diff(test.want, got))
+			}
+		})
+	}
 }

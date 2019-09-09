@@ -21,13 +21,14 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
+
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
+	configKube "istio.io/istio/pkg/config/kube"
 
 	coreV1 "k8s.io/api/core/v1"
 )
@@ -83,11 +84,11 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 	}
 
 	// Check for unspecified Cluster IP
-	addr := model.UnspecifiedIP
+	addr := constants.UnspecifiedIP
 	if spec.ClusterIP != "" && spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = spec.ClusterIP
 	}
-	if addr == model.UnspecifiedIP && externalName == "" {
+	if addr == constants.UnspecifiedIP && externalName == "" {
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
@@ -132,7 +133,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *mcp.Metadata
 		outMeta.Annotations[k] = v
 	}
 	// Add an annotation for the version of the service resource.
-	outMeta.Annotations[annotations.ServiceVersion] = string(service.ID.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingServiceVersion.Name] = string(service.ID.Version)
 	return nil
 }
 
@@ -145,9 +146,9 @@ func getOrCreateStringMap(in map[string]string) map[string]string {
 
 func convertExportTo(annotations resource.Annotations) []string {
 	var exportTo map[string]struct{}
-	if annotations[kube.ServiceExportAnnotation] != "" {
+	if annotations[annotation.NetworkingExportTo.Name] != "" {
 		exportTo = make(map[string]struct{})
-		for _, e := range strings.Split(annotations[kube.ServiceExportAnnotation], ",") {
+		for _, e := range strings.Split(annotations[annotation.NetworkingExportTo.Name], ",") {
 			exportTo[strings.TrimSpace(e)] = struct{}{}
 		}
 	}
@@ -235,11 +236,11 @@ func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *mcp.Meta
 
 	// Add an annotation for the version of the Endpoints resource.
 	outMeta.Annotations = getOrCreateStringMap(outMeta.Annotations)
-	outMeta.Annotations[annotations.EndpointsVersion] = string(endpoints.ID.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingEndpointsVersion.Name] = string(endpoints.ID.Version)
 
 	// Add an annotation for any "not ready" endpoints.
 	if notReadyBuilder.Len() > 0 {
-		outMeta.Annotations[annotations.NotReadyEndpoints] = notReadyBuilder.String()
+		outMeta.Annotations[annotation.AlphaNetworkingNotReadyEndpoints.Name] = notReadyBuilder.String()
 	}
 }
 
@@ -277,6 +278,6 @@ func convertPort(port coreV1.ServicePort) *networking.Port {
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
-		Protocol: string(kube.ConvertProtocol(port.Name, port.Protocol)),
+		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
 	}
 }

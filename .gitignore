@@ -80,3 +80,4 @@ security/cmd/node_agent/na/pkey
 tests/e2e/local/minikube/docker-machine-driver-hyperkit
 # istioctl bash completion file
 tools/istioctl.bash
+vendor

@@ -49,6 +49,7 @@ const (
 	mixerDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
 	pilotDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
 	galleyDashboard      = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
+	citadelDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/citadel-dashboard.json"
 	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -136,6 +137,7 @@ func TestDashboards(t *testing.T) {
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
+		{"Citadel", citadelDashboard, citadelQueryFilterFn, nil, "istio-citadel", 15014},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 15014},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 15014},
 		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 15014},
@@ -302,6 +304,18 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "pilot_xds_push_errors") {
 			continue
 		}
+		if strings.Contains(query, "pilot_total_xds_internal_errors") {
+			continue
+		}
+		if strings.Contains(query, "pilot_xds_push_context_errors") {
+			continue
+		}
+		if strings.Contains(query, `pilot_xds_pushes{type!~\"lds|cds|rds|eds\"}`) {
+			continue
+		}
+		if strings.Contains(query, "pilot_xds_eds_instances") {
+			continue
+		}
 		if strings.Contains(query, "_reject") {
 			continue
 		}
@@ -348,6 +362,39 @@ func galleyQueryFilterFn(queries []string) []string {
 		}
 		// This is a frequent source of flakes in e2e-dashboard test. Remove from checked queries for now.
 		if strings.Contains(query, "runtime_strategy_timer_quiesce_reached_total") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
+func citadelQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "csr_err_count") {
+			continue
+		}
+		if strings.Contains(query, "svc_acc_created_cert_count") {
+			continue
+		}
+		if strings.Contains(query, "acc_deleted_cert_count") {
+			continue
+		}
+		if strings.Contains(query, "secret_deleted_cert_count") {
+			continue
+		}
+		if strings.Contains(query, "server_csr_count") {
+			continue
+		}
+
+		if strings.Contains(query, "success_cert_issuance_count") {
+			continue
+		}
+		if strings.Contains(query, "csr_parsing_err_count") {
+			continue
+		}
+		if strings.Contains(query, "authentication_failure_count") {
 			continue
 		}
 		filtered = append(filtered, query)

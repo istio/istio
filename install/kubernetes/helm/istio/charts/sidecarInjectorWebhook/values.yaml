@@ -3,10 +3,13 @@
 #
 enabled: true
 replicaCount: 1
+rollingMaxSurge: 100%
+rollingMaxUnavailable: 25%
 image: sidecar_injector
 enableNamespacesByDefault: false
 nodeSelector: {}
 tolerations: []
+podAnnotations: {}
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are

@@ -15,6 +15,7 @@
 package clusterregistry
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -46,7 +47,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 			Name:      testSecretName,
 			Namespace: testSecretNameSpace,
 			Labels: map[string]string{
-				"istio/multiCluster": "true",
+				secretcontroller.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{},
@@ -86,6 +87,10 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 }
 
 func Test_KubeSecretController(t *testing.T) {
+	if len(os.Getenv("RACE_TEST")) > 0 {
+		t.Skip("https://github.com/istio/istio/issues/15610")
+	}
+
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
 	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig

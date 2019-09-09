@@ -60,7 +60,10 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	bookinfoNsInst, err = namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNsInst, err = namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		return
 	}
@@ -125,8 +128,12 @@ func CompareTrace(t *testing.T, got, want zipkin.Span) bool {
 		t.Logf("got span %+v, want span %+v", got, want)
 		return false
 	}
-	if len(got.ChildSpans) != len(want.ChildSpans) {
+	if len(got.ChildSpans) < len(want.ChildSpans) {
 		t.Logf("got %d child spans from, want %d child spans, maybe trace has not be fully reported",
+			len(got.ChildSpans), len(want.ChildSpans))
+		return false
+	} else if len(got.ChildSpans) > len(want.ChildSpans) {
+		t.Logf("got %d child spans from, want %d child spans, maybe destination rule has not became effective",
 			len(got.ChildSpans), len(want.ChildSpans))
 		return false
 	}

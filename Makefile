@@ -17,10 +17,16 @@
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
-SHELL := /bin/bash
+SHELL := /bin/bash -o pipefail
 
-# Current version, updated after a release.
-VERSION ?= 1.0-dev
+VERSION ?= 1.4-dev
+
+# Base version of Istio image to use
+BASE_VERSION ?= 1.4
+
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
+export GOSUMDB ?= sum.golang.org
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -61,6 +67,10 @@ endif
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
 GOARCH_LOCAL := amd64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
+GOARCH_LOCAL := arm64
+else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
+GOARCH_LOCAL := arm
 else
 GOARCH_LOCAL := $(LOCAL_ARCH)
 endif
@@ -84,7 +94,7 @@ export ENABLE_COREDUMP ?= false
 export ENABLE_ISTIO_CNI ?= false
 
 # NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
+# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -130,6 +140,7 @@ export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+export ARTIFACTS ?= $(ISTIO_OUT)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -155,7 +166,7 @@ endif
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-symbol-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
 # Envoy Linux vars.
 export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
@@ -184,11 +195,11 @@ ifeq ($(USE_LOCAL_PROXY),1)
   export ISTIO_ENVOY_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
   # Point the native paths to the local envoy build.
   ifeq ($(GOOS_LOCAL), Darwin)
-    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_MACOS_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   else
-    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_LINUX_DEBUG_PATH = ${ISTIO_ENVOY_LOCAL}
     export ISTIO_ENVOY_LINUX_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   endif
@@ -319,23 +330,20 @@ precommit: format lint
 
 format:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 fmt:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
-JUNIT_LINT_TEST_XML ?= $(ISTIO_OUT)/junit_lint-tests.xml
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
-lint: $(JUNIT_REPORT) buildcache
-	mkdir -p $(dir $(JUNIT_LINT_TEST_XML))
-	set -o pipefail; \
-	SKIP_INIT=1 bin/linters.sh \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_LINT_TEST_XML))
-
+lint: buildcache
+	SKIP_INIT=1 bin/linters.sh
 
 shellcheck:
 	bin/check_shell_scripts.sh
@@ -360,11 +368,11 @@ DEBUG_LDFLAGS='-extldflags "-static"'
 # $(3): The value for LDFLAGS
 define genTargetsForNativeAndDocker
 $(ISTIO_OUT)/$(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 .PHONY: $(1)
 $(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
 
 ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
 $(ISTIO_OUT_LINUX)/$(1):
@@ -395,8 +403,12 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
 # Build targets for apps under ./pilot/cmd
-PILOT_BINS:=pilot-discovery pilot-agent sidecar-injector
+PILOT_BINS:=pilot-discovery pilot-agent
 $(foreach ITEM,$(PILOT_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+
+# Build targets for apps under ./sidecar-injector/cmd
+INJECTOR_BINS:=sidecar-injector
+$(foreach ITEM,$(INJECTOR_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./sidecar-injector/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
 # Build targets for apps under ./mixer/cmd
 MIXER_BINS:=mixs mixc
@@ -422,7 +434,7 @@ $(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker
 ISTIO_TOOLS_BINS:=hyperistio istio-iptables
 $(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
-BUILD_BINS:=$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
 .PHONY: build
@@ -432,10 +444,9 @@ build: depend $(BUILD_BINS)
 .PHONY: build-linux
 build-linux: depend $(LINUX_BUILD_BINS)
 
-.PHONY: version-test
-# Do not run istioctl since is different (connects to kubernetes)
-version-test:
-	go test ./tests/version/... -v --base-dir ${ISTIO_OUT} --binaries="$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca galley sdsclient"
+.PHONY: binaries-test
+binaries-test:
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -494,7 +505,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ARTIFACTS)/junit_unit-tests.xml
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
@@ -502,15 +513,11 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-# This is passed to mixer and other tests to limit how many builds are used.
-# In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?=
 
 TEST_APP_BINS:=server client
 $(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
@@ -535,17 +542,17 @@ localTestEnvCleanup: test-bins
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test -p 1 ${T} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: istioctl-test
 istioctl-test: istioctl
-	go test -p 1 ${T} ./istioctl/...
+	go test ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -576,6 +583,9 @@ selected-pkg-test:
 
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
+
+coverage-diff:
+	./bin/codecov_diff.sh
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -608,26 +618,24 @@ common-coverage:
 
 .PHONY: racetest
 
-JUNIT_RACE_TEST_XML ?= $(ISTIO_OUT)/junit_race-tests.xml
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_RACE_TEST_XML))
-	set -o pipefail; \
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	$(MAKE) --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_RACE_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+	RACE_TEST=true go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest: istioctl
-	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
+	RACE_TEST=true go test ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
@@ -657,15 +665,14 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: artifacts gcs.push.istioctl-all artifacts installgen
+.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
-
 push: docker.push installgen
+
+gcs.push: push gcs.push.istioctl-all gcs.push.deb
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
@@ -692,8 +699,8 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
 
@@ -708,9 +715,9 @@ istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HEL
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -745,9 +752,9 @@ $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
-		--set global.tag=${TAG_VARIANT} \
-		--set global.hub=${HUB} \
-		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set-string global.tag=${TAG_VARIANT} \
+		--set-string global.hub=${HUB} \
+		--set-string global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -796,8 +803,6 @@ ${ISTIO_OUT}/dist/Gopkg.lock:
 dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
 
 dist: dist-bin
-
-include .circleci/Makefile
 
 # deb, rpm, etc packages
 include tools/packaging/packaging.mk

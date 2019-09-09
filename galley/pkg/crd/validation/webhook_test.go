@@ -31,7 +31,6 @@ import (
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,9 +43,10 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
+	testConfig "istio.io/istio/pkg/test/config"
 )
 
 const (
@@ -99,23 +99,22 @@ var (
 		},
 	}
 
-	dummyDeployment = &appsv1.Deployment{
+	dummyNamespace = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-galley",
-			Namespace: "istio-system",
-			UID:       "deadbeef",
+			Name: "istio-system",
+			UID:  "deadbeef",
 		},
 	}
 
-	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+	dummyClient = fake.NewSimpleClientset(dummyNamespace)
 
 	createFakeWebhookSource   = fcache.NewFakeControllerSource
 	createFakeEndpointsSource = func() cache.ListerWatcher {
 		source := fcache.NewFakeControllerSource()
 		source.Add(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dummyDeployment.Name,
-				Namespace: dummyDeployment.Namespace,
+				Name:      dummyNamespace.Name,
+				Namespace: dummyNamespace.Namespace,
 			},
 			Subsets: []v1.EndpointSubset{{
 				Addresses: []v1.EndpointAddress{{
@@ -193,9 +192,9 @@ func createTestWebhook(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyDeployment.Name,
-		ServiceName:                   dummyDeployment.Name,
-		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+		DeploymentName:                dummyNamespace.Name,
+		ServiceName:                   dummyNamespace.Name,
+		DeploymentAndServiceNamespace: dummyNamespace.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
@@ -224,7 +223,7 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.MockConfig.Type,
+			Type: schemas.MockConfig.Type,
 			Name: name,
 			Labels: map[string]string{
 				"key": name,
@@ -233,15 +232,15 @@ func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool
 				"annotationkey": name,
 			},
 		},
-		Spec: &test.MockConfig{
+		Spec: &testConfig.MockConfig{
 			Key: key,
-			Pairs: []*test.ConfigPair{{
+			Pairs: []*testConfig.ConfigPair{{
 				Key:   key,
 				Value: strconv.Itoa(i),
 			}},
 		},
 	}
-	obj, err := crd.ConvertConfig(model.MockConfig, config)
+	obj, err := crd.ConvertConfig(schemas.MockConfig, config)
 	if err != nil {
 		t.Fatalf("ConvertConfig(%v) failed: %v", config.Name, err)
 	}

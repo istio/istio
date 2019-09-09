@@ -24,7 +24,7 @@ import (
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -107,8 +107,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-			appsNamespace := namespace.NewOrFail(t, ctx, "app", true)
-			serviceNamespace := namespace.NewOrFail(t, ctx, "service", true)
+			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "app",
+				Inject: true,
+			})
+			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "service",
+				Inject: true,
+			})
 
 			var client, dest echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -126,11 +132,11 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					Ports: []echo.Port{
 						{
 							Name:     "http",
-							Protocol: model.ProtocolHTTP,
+							Protocol: protocol.HTTP,
 						},
 						{
 							Name:     "https",
-							Protocol: model.ProtocolHTTPS,
+							Protocol: protocol.HTTPS,
 						},
 					},
 				}).BuildOrFail(t)
@@ -185,7 +191,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 
 func clusterName(target echo.Instance, port echo.Port) string {
 	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
+	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
 // Wait for the destination to NOT be callable by the client. This allows us to simulate external traffic.

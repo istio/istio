@@ -34,6 +34,8 @@ istio-ingressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   resources:
     requests:
       cpu: 100m
@@ -164,13 +166,15 @@ istio-egressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   resources:
     requests:
       cpu: 100m
       memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 256Mi
+      memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}
@@ -243,6 +247,8 @@ istio-ilbgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
   cpu:
     targetAverageUtilization: 80
   resources:

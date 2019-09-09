@@ -31,4 +31,6 @@ spec:
         # That image runs the servers (so it will run forever) but has the
         # fortio client
         image: {{.FortioImage}}
+        securityContext:
+          runAsUser: 0
         imagePullPolicy: Always

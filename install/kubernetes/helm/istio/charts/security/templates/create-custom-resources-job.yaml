@@ -16,7 +16,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
@@ -39,7 +39,7 @@ rules:
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "watch"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-{{ .Release.Namespace }}

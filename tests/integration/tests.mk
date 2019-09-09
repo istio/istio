@@ -15,10 +15,10 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
 endif
 
-# In Prow, ARTIFACTS_DIR points to the location where Prow captures the artifacts from the tests
+# In Prow, ARTIFACTS points to the location where Prow captures the artifacts from the tests
 INTEGRATION_TEST_WORKDIR =
-ifneq ($(ARTIFACTS_DIR),)
-	INTEGRATION_TEST_WORKDIR = ${ARTIFACTS_DIR}
+ifneq ($(ARTIFACTS),)
+	INTEGRATION_TEST_WORKDIR = ${ARTIFACTS}
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
@@ -49,7 +49,6 @@ endif
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -65,12 +64,10 @@ NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integrat
 # Runs tests using the new installer. Istio is deployed before the test and setup and cleanup are disabled.
 # For this to work, the -customsetup selector is used.
 test.integration.new.installer: | $(JUNIT_REPORT)
-	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/crds
+	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/kustomize/cluster
 	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} kubectl apply -k github.com/istio/installer/test/demo
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${NEW_INSTALLER_TARGETS} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.nocleanup \
 	--istio.test.kube.deploy=false \
 	--istio.test.select -postsubmit,-flaky,-customsetup \
 	--istio.test.kube.minikube \
@@ -85,13 +82,9 @@ test.integration.new.installer: | $(JUNIT_REPORT)
 # Generate integration test targets for local environment.
 test.integration.%.local: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... \
+	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
-JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
@@ -99,7 +92,6 @@ TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
@@ -113,7 +105,6 @@ test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 # Generate presubmit integration test targets for each component in local environment.
 test.integration.%.local.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native --istio.test.select -postsubmit,-flaky \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
@@ -122,7 +113,6 @@ test.integration.%.local.presubmit: | $(JUNIT_REPORT)
 .PHONY: test.integration.local
 test.integration.local: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
@@ -130,7 +120,6 @@ test.integration.local: | $(JUNIT_REPORT)
 .PHONY: test.integration.local.presubmit
 test.integration.local.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native --istio.test.select -postsubmit,-flaky \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
@@ -138,7 +127,6 @@ test.integration.local.presubmit: | $(JUNIT_REPORT)
 .PHONY: test.integration.kube
 test.integration.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -152,7 +140,6 @@ test.integration.kube: | $(JUNIT_REPORT)
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
  	--istio.test.env kube \
@@ -167,7 +154,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 .PHONY: test.integration.race.native
 test.integration.race.native: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
 	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))

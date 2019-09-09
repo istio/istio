@@ -17,7 +17,7 @@ package common
 import (
 	"math"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -44,23 +44,23 @@ func newPortGenerators() *portGenerators {
 // portGenerator is a utility that generates reasonable default port values
 // for a given protocol.
 type portGenerator struct {
-	next map[model.Protocol]int
+	next map[protocol.Instance]int
 	used map[int]struct{}
 }
 
 func newPortGenerator() *portGenerator {
 	return &portGenerator{
-		next: map[model.Protocol]int{
-			model.ProtocolHTTP:    httpBase,
-			model.ProtocolHTTPS:   httpsBase,
-			model.ProtocolTLS:     httpsBase,
-			model.ProtocolTCP:     tcpBase,
-			model.ProtocolGRPCWeb: grpcBase,
-			model.ProtocolGRPC:    grpcBase,
-			model.ProtocolMongo:   tcpBase,
-			model.ProtocolMySQL:   tcpBase,
-			model.ProtocolRedis:   tcpBase,
-			model.ProtocolUDP:     tcpBase,
+		next: map[protocol.Instance]int{
+			protocol.HTTP:    httpBase,
+			protocol.HTTPS:   httpsBase,
+			protocol.TLS:     httpsBase,
+			protocol.TCP:     tcpBase,
+			protocol.GRPCWeb: grpcBase,
+			protocol.GRPC:    grpcBase,
+			protocol.Mongo:   tcpBase,
+			protocol.MySQL:   tcpBase,
+			protocol.Redis:   tcpBase,
+			protocol.UDP:     tcpBase,
 		},
 		used: make(map[int]struct{}),
 	}
@@ -80,7 +80,7 @@ func (g *portGenerator) IsUsed(port int) bool {
 }
 
 // Next assigns the next port for the given protocol.
-func (g *portGenerator) Next(protocol model.Protocol) int {
+func (g *portGenerator) Next(protocol protocol.Instance) int {
 	for {
 		v := g.next[protocol]
 

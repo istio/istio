@@ -1,19 +1,25 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM scratch as default
+FROM docker.io/istio/base:${BASE_VERSION} as default
+
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static as distroless
+# hadolint ignore=DL3007
+FROM gcr.io/distroless/static:latest as distroless
 
 # This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
 # All containers need a /tmp directory
 WORKDIR /tmp/
-ADD istio_ca /usr/local/bin/istio_ca
+COPY istio_ca /usr/local/bin/istio_ca
 
 ENTRYPOINT [ "/usr/local/bin/istio_ca", "--self-signed-ca" ]

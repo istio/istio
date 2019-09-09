@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:3.6-slim
+FROM python:3.7.4-slim
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -36,5 +36,6 @@ RUN chmod 775 /opt/microservices && \
     touch /opt/microservices/microservice.log && \
     chmod 664 /opt/microservices/microservice.log
 
+# hadolint ignore=DL3025
 CMD tail -f /opt/microservices/microservice.log & \
     python productpage.py 9080

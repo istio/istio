@@ -14,43 +14,46 @@
 package v2
 
 import (
-	"istio.io/istio/pilot/pkg/monitoring"
+	"google.golang.org/grpc/codes"
+
+	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/monitoring"
 )
 
 var (
-	errTag     = monitoring.MustCreateTag("err")
-	clusterTag = monitoring.MustCreateTag("cluster")
-	nodeTag    = monitoring.MustCreateTag("node")
-	typeTag    = monitoring.MustCreateTag("type")
+	errTag     = monitoring.MustCreateLabel("err")
+	clusterTag = monitoring.MustCreateLabel("cluster")
+	nodeTag    = monitoring.MustCreateLabel("node")
+	typeTag    = monitoring.MustCreateLabel("type")
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
 		"Pilot rejected CSD configs.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	edsReject = monitoring.NewGauge(
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	edsInstances = monitoring.NewGauge(
 		"pilot_xds_eds_instances",
 		"Instances for each cluster, as of last push. Zero instances is an error.",
-		clusterTag,
+		monitoring.WithLabels(clusterTag),
 	)
 
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	rdsReject = monitoring.NewGauge(
 		"pilot_xds_rds_reject",
 		"Pilot rejected RDS.",
-		nodeTag, errTag,
+		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	rdsExpiredNonce = monitoring.NewSum(
@@ -70,11 +73,6 @@ var (
 
 	// TODO: Update all the resource stats in separate routine
 	// virtual services, destination rules, gateways, etc.
-	monVServices = monitoring.NewGauge(
-		"pilot_virt_services",
-		"Total virtual services known to pilot.",
-	)
-
 	xdsClients = monitoring.NewGauge(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
@@ -85,21 +83,11 @@ var (
 		"Pilot XDS response write timeouts.",
 	)
 
-	pushTimeouts = monitoring.NewSum(
-		"pilot_xds_push_timeout",
-		"Pilot push timeout, will retry.",
-	)
-
-	pushTimeoutFailures = monitoring.NewSum(
-		"pilot_xds_push_timeout_failures",
-		"Pilot push timeout failures after repeated attempts.",
-	)
-
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
 		"Pilot build and send errors for lds, rds, cds and eds.",
-		typeTag,
+		monitoring.WithLabels(typeTag),
 	)
 
 	cdsPushes         = pushes.With(typeTag.Value("cds"))
@@ -114,14 +102,12 @@ var (
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
-	pushErrors = monitoring.NewSum(
-		"pilot_xds_push_errors",
-		"Number of errors (timeouts) pushing to sidecars.",
-		typeTag,
+	// only supported dimension is millis, unfortunately. default to unitdimensionless.
+	proxiesQueueTime = monitoring.NewDistribution(
+		"pilot_proxy_queue_time",
+		"Time a proxy is in the push queue before being dequeued.",
+		[]float64{.1, 1, 3, 5, 10, 20, 30},
 	)
-
-	unrecoverableErrs = pushErrors.With(typeTag.Value("unrecoverable"))
-	retryErrs         = pushErrors.With(typeTag.Value("retry"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -129,6 +115,10 @@ var (
 		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
 	)
+	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
+	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
+	proxiesConvergeDelayRdsErrors = proxiesConvergeDelay.With(errTag.Value("rds"))
+	proxiesConvergeDelayLdsErrors = proxiesConvergeDelay.With(errTag.Value("lds"))
 
 	pushContextErrors = monitoring.NewSum(
 		"pilot_xds_push_context_errors",
@@ -143,14 +133,22 @@ var (
 	inboundUpdates = monitoring.NewSum(
 		"pilot_inbound_updates",
 		"Total number of updates received by pilot.",
-		typeTag,
+		monitoring.WithLabels(typeTag),
 	)
 
-	inboundConfigUpdates   = inboundUpdates.With(typeTag.Value("config"))
-	inboundEDSUpdates      = inboundUpdates.With(typeTag.Value("eds"))
-	inboundServiceUpdates  = inboundUpdates.With(typeTag.Value("svc"))
-	inboundWorkloadUpdates = inboundUpdates.With(typeTag.Value("workload"))
+	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
+	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
+	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
 )
+
+func recordSendError(metric monitoring.Metric, err error) {
+	s, ok := status.FromError(err)
+	// Unavailable code will be sent when a connection is closing down. This is very normal,
+	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
+	if !ok || s.Code() != codes.Unavailable {
+		metric.Increment()
+	}
+}
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
 	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
@@ -158,7 +156,7 @@ func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
 }
 
 func init() {
-	monitoring.MustRegisterViews(
+	monitoring.MustRegister(
 		cdsReject,
 		edsReject,
 		ldsReject,
@@ -167,14 +165,15 @@ func init() {
 		rdsExpiredNonce,
 		totalXDSRejects,
 		monServices,
-		monVServices,
 		xdsClients,
 		xdsResponseWriteTimeouts,
-		pushTimeouts,
-		pushTimeoutFailures,
 		pushes,
-		pushErrors,
 		proxiesConvergeDelay,
+		proxiesQueueTime,
+		proxiesConvergeDelayCdsErrors,
+		proxiesConvergeDelayEdsErrors,
+		proxiesConvergeDelayRdsErrors,
+		proxiesConvergeDelayLdsErrors,
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,

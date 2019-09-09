@@ -90,24 +90,24 @@ e2e_all: istioctl generate_e2e_yaml e2e_all_run
 # *_run targets do not rebuild the artifacts and test with whatever is given
 
 e2e_simple_run: out_dir
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=true \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_kiali_run: out_dir
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/kiali -args --auth_enable=false \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/kiali -args --auth_enable=false \
 	--egress=false --ingress=false \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=false \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
 	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
@@ -130,7 +130,7 @@ JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
 TARGET ?= e2e_all
 with_junit_report: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
-	set -o pipefail; $(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+	$(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 e2e_all_junit_report:
 	$(MAKE) with_junit_report TARGET=e2e_all
@@ -165,52 +165,52 @@ out_dir:
 	@mkdir -p ${OUT_DIR}/{logs,tests}
 
 test/local/auth/e2e_simple: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=true \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_simple: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=false \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_mixer: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_galley: out_dir istioctl generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/galley -args \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/galley -args \
 	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 	${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_e2e_yaml_coredump
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
 		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_e2e_yaml_coredump
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
 		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # test with MTLS using key/cert distributed through SDS
 test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_yaml_coredump
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot \
 		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 e2e_cloudfoundry: init out_dir
 	iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
 		${CAPTURE_LOG}
 	iptables -t nat -F
 
@@ -218,28 +218,28 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 	sudo apt update
 	sudo apt install -y iptables
 	sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
 		${CAPTURE_LOG}
 	sudo iptables -t nat -F
 
 test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --trust_domain_enable --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/auth/e2e_split_horizon: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/multicluster \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/multicluster \
 		--auth_enable=true --split_horizon \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: export EXTRA_HELM_SETTINGS=--set mixer.adapters.stdio.enabled=false
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
+	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
@@ -262,26 +262,26 @@ helm/install:
 	${HELM} install \
 	  install/kubernetes/helm/istio-init \
 	  --name istio-system-init --namespace istio-system \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 	sleep 10
 	${HELM} install \
 	  install/kubernetes/helm/istio \
 	  --name istio-system --namespace istio-system \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 
 # Upgrade istio. Options must be set:
 #  "make helm/upgrade HELM_ARGS="--values myoverride.yaml"
 helm/upgrade:
 	${HELM} upgrade \
-	  --set global.hub=${HUB} \
-	  --set global.tag=${TAG_VARIANT} \
-	  --set global.imagePullPolicy=Always \
+	  --set-string global.hub=${HUB} \
+	  --set-string global.tag=${TAG_VARIANT} \
+	  --set-string global.imagePullPolicy=Always \
 	  ${HELM_ARGS} \
 	  istio-system install/kubernetes/helm/istio
 

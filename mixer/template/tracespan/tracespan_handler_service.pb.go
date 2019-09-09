@@ -21,7 +21,7 @@
 //     startTime: request.time
 //     endTime: response.time
 //     clientSpan: (context.reporter.kind | "inbound") == "outbound"
-//     rewriteClientSpanId: false
+//     rewriteClientSpanId: "false"
 //     spanTags:
 //       http.method: request.method | ""
 //       http.status_code: response.code | 200
@@ -51,10 +51,13 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -98,7 +101,7 @@ func (m *HandleTraceSpanRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_HandleTraceSpanRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +236,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +278,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +410,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -545,6 +548,14 @@ type HandleTraceSpanServiceServer interface {
 	HandleTraceSpan(context.Context, *HandleTraceSpanRequest) (*v1beta11.ReportResult, error)
 }
 
+// UnimplementedHandleTraceSpanServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleTraceSpanServiceServer struct {
+}
+
+func (*UnimplementedHandleTraceSpanServiceServer) HandleTraceSpan(ctx context.Context, req *HandleTraceSpanRequest) (*v1beta11.ReportResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleTraceSpan not implemented")
+}
+
 func RegisterHandleTraceSpanServiceServer(s *grpc.Server, srv HandleTraceSpanServiceServer) {
 	s.RegisterService(&_HandleTraceSpanService_serviceDesc, srv)
 }
@@ -583,7 +594,7 @@ var _HandleTraceSpanService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleTraceSpanRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -591,45 +602,55 @@ func (m *HandleTraceSpanRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleTraceSpanRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleTraceSpanRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Instances) > 0 {
-		for _, msg := range m.Instances {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
 		}
-	}
-	if m.AdapterConfig != nil {
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+	}
+	if len(m.Instances) > 0 {
+		for iNdEx := len(m.Instances) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Instances[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
 		}
-		i += n1
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -637,194 +658,213 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.TraceId) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.TraceId)))
-		i += copy(dAtA[i:], m.TraceId)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
 	}
-	if len(m.SpanId) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanId)))
-		i += copy(dAtA[i:], m.SpanId)
+	if len(m.ApiProtocol) > 0 {
+		i -= len(m.ApiProtocol)
+		copy(dAtA[i:], m.ApiProtocol)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x9a
 	}
-	if len(m.ParentSpanId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ParentSpanId)))
-		i += copy(dAtA[i:], m.ParentSpanId)
+	if m.ResponseTotalSize != 0 {
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.ResponseTotalSize))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x90
 	}
-	if len(m.SpanName) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanName)))
-		i += copy(dAtA[i:], m.SpanName)
+	if m.ResponseSize != 0 {
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.ResponseSize))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x88
 	}
-	if m.StartTime != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.StartTime.Size()))
-		n2, err2 := m.StartTime.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
+	if m.RequestTotalSize != 0 {
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.RequestTotalSize))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x80
 	}
-	if m.EndTime != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.EndTime.Size()))
-		n3, err3 := m.EndTime.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
+	if m.RequestSize != 0 {
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.RequestSize))
+		i--
+		dAtA[i] = 0x78
 	}
-	if len(m.SpanTags) > 0 {
-		for k, _ := range m.SpanTags {
-			dAtA[i] = 0x3a
-			i++
-			v := m.SpanTags[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTracespanHandlerService(uint64(msgSize))
+	if m.DestinationIp != nil {
+		{
+			size, err := m.DestinationIp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			mapSize := 1 + len(k) + sovTracespanHandlerService(uint64(len(k))) + msgSize
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTracespanHandlerService(dAtA, i, uint64(v.Size()))
-				n4, err4 := v.MarshalTo(dAtA[i:])
-				if err4 != nil {
-					return 0, err4
-				}
-				i += n4
+			i -= size
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x72
+	}
+	if len(m.DestinationName) > 0 {
+		i -= len(m.DestinationName)
+		copy(dAtA[i:], m.DestinationName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationName)))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if m.SourceIp != nil {
+		{
+			size, err := m.SourceIp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
+			i -= size
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x62
 	}
-	if m.HttpStatusCode != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.HttpStatusCode))
-	}
-	if m.ClientSpan {
-		dAtA[i] = 0x48
-		i++
-		if m.ClientSpan {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+	if len(m.SourceName) > 0 {
+		i -= len(m.SourceName)
+		copy(dAtA[i:], m.SourceName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceName)))
+		i--
+		dAtA[i] = 0x5a
 	}
 	if m.RewriteClientSpanId {
-		dAtA[i] = 0x50
-		i++
+		i--
 		if m.RewriteClientSpanId {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x50
 	}
-	if len(m.SourceName) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceName)))
-		i += copy(dAtA[i:], m.SourceName)
-	}
-	if m.SourceIp != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.SourceIp.Size()))
-		n5, err5 := m.SourceIp.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+	if m.ClientSpan {
+		i--
+		if m.ClientSpan {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x48
 	}
-	if len(m.DestinationName) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationName)))
-		i += copy(dAtA[i:], m.DestinationName)
+	if m.HttpStatusCode != 0 {
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.HttpStatusCode))
+		i--
+		dAtA[i] = 0x40
 	}
-	if m.DestinationIp != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.DestinationIp.Size()))
-		n6, err6 := m.DestinationIp.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+	if len(m.SpanTags) > 0 {
+		for k := range m.SpanTags {
+			v := m.SpanTags[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
 		}
-		i += n6
 	}
-	if m.RequestSize != 0 {
-		dAtA[i] = 0x78
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.RequestSize))
+	if m.EndTime != nil {
+		{
+			size, err := m.EndTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.RequestTotalSize != 0 {
-		dAtA[i] = 0x80
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.RequestTotalSize))
+	if m.StartTime != nil {
+		{
+			size, err := m.StartTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.ResponseSize != 0 {
-		dAtA[i] = 0x88
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.ResponseSize))
+	if len(m.SpanName) > 0 {
+		i -= len(m.SpanName)
+		copy(dAtA[i:], m.SpanName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanName)))
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.ResponseTotalSize != 0 {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(m.ResponseTotalSize))
+	if len(m.ParentSpanId) > 0 {
+		i -= len(m.ParentSpanId)
+		copy(dAtA[i:], m.ParentSpanId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ParentSpanId)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	if len(m.ApiProtocol) > 0 {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
-		i += copy(dAtA[i:], m.ApiProtocol)
+	if len(m.SpanId) > 0 {
+		i -= len(m.SpanId)
+		copy(dAtA[i:], m.SpanId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanId)))
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.TraceId) > 0 {
+		i -= len(m.TraceId)
+		copy(dAtA[i:], m.TraceId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.TraceId)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -832,33 +872,39 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.SpanTags) > 0 {
-		for k, _ := range m.SpanTags {
-			dAtA[i] = 0x3a
-			i++
+		for k := range m.SpanTags {
 			v := m.SpanTags[k]
-			mapSize := 1 + len(k) + sovTracespanHandlerService(uint64(len(k))) + 1 + sovTracespanHandlerService(uint64(v))
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
 			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -866,154 +912,181 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.TraceId) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.TraceId)))
-		i += copy(dAtA[i:], m.TraceId)
-	}
-	if len(m.SpanId) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanId)))
-		i += copy(dAtA[i:], m.SpanId)
-	}
-	if len(m.ParentSpanId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ParentSpanId)))
-		i += copy(dAtA[i:], m.ParentSpanId)
-	}
-	if len(m.SpanName) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanName)))
-		i += copy(dAtA[i:], m.SpanName)
-	}
-	if len(m.StartTime) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.StartTime)))
-		i += copy(dAtA[i:], m.StartTime)
-	}
-	if len(m.EndTime) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.EndTime)))
-		i += copy(dAtA[i:], m.EndTime)
-	}
-	if len(m.SpanTags) > 0 {
-		for k, _ := range m.SpanTags {
-			dAtA[i] = 0x3a
-			i++
-			v := m.SpanTags[k]
-			mapSize := 1 + len(k) + sovTracespanHandlerService(uint64(len(k))) + 1 + len(v) + sovTracespanHandlerService(uint64(len(v)))
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.HttpStatusCode) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.HttpStatusCode)))
-		i += copy(dAtA[i:], m.HttpStatusCode)
-	}
-	if len(m.ClientSpan) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ClientSpan)))
-		i += copy(dAtA[i:], m.ClientSpan)
-	}
-	if len(m.RewriteClientSpanId) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RewriteClientSpanId)))
-		i += copy(dAtA[i:], m.RewriteClientSpanId)
-	}
-	if len(m.SourceName) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceName)))
-		i += copy(dAtA[i:], m.SourceName)
-	}
-	if len(m.SourceIp) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceIp)))
-		i += copy(dAtA[i:], m.SourceIp)
-	}
-	if len(m.DestinationName) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationName)))
-		i += copy(dAtA[i:], m.DestinationName)
-	}
-	if len(m.DestinationIp) > 0 {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationIp)))
-		i += copy(dAtA[i:], m.DestinationIp)
-	}
-	if len(m.RequestSize) > 0 {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RequestSize)))
-		i += copy(dAtA[i:], m.RequestSize)
-	}
-	if len(m.RequestTotalSize) > 0 {
-		dAtA[i] = 0x82
-		i++
+	if len(m.ApiProtocol) > 0 {
+		i -= len(m.ApiProtocol)
+		copy(dAtA[i:], m.ApiProtocol)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RequestTotalSize)))
-		i += copy(dAtA[i:], m.RequestTotalSize)
-	}
-	if len(m.ResponseSize) > 0 {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ResponseSize)))
-		i += copy(dAtA[i:], m.ResponseSize)
+		i--
+		dAtA[i] = 0x9a
 	}
 	if len(m.ResponseTotalSize) > 0 {
-		dAtA[i] = 0x92
-		i++
-		dAtA[i] = 0x1
-		i++
+		i -= len(m.ResponseTotalSize)
+		copy(dAtA[i:], m.ResponseTotalSize)
 		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ResponseTotalSize)))
-		i += copy(dAtA[i:], m.ResponseTotalSize)
-	}
-	if len(m.ApiProtocol) > 0 {
-		dAtA[i] = 0x9a
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
-		i += copy(dAtA[i:], m.ApiProtocol)
+		i--
+		dAtA[i] = 0x92
 	}
-	return i, nil
+	if len(m.ResponseSize) > 0 {
+		i -= len(m.ResponseSize)
+		copy(dAtA[i:], m.ResponseSize)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ResponseSize)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
+	}
+	if len(m.RequestTotalSize) > 0 {
+		i -= len(m.RequestTotalSize)
+		copy(dAtA[i:], m.RequestTotalSize)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RequestTotalSize)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x82
+	}
+	if len(m.RequestSize) > 0 {
+		i -= len(m.RequestSize)
+		copy(dAtA[i:], m.RequestSize)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RequestSize)))
+		i--
+		dAtA[i] = 0x7a
+	}
+	if len(m.DestinationIp) > 0 {
+		i -= len(m.DestinationIp)
+		copy(dAtA[i:], m.DestinationIp)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationIp)))
+		i--
+		dAtA[i] = 0x72
+	}
+	if len(m.DestinationName) > 0 {
+		i -= len(m.DestinationName)
+		copy(dAtA[i:], m.DestinationName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.DestinationName)))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if len(m.SourceIp) > 0 {
+		i -= len(m.SourceIp)
+		copy(dAtA[i:], m.SourceIp)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceIp)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.SourceName) > 0 {
+		i -= len(m.SourceName)
+		copy(dAtA[i:], m.SourceName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SourceName)))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.RewriteClientSpanId) > 0 {
+		i -= len(m.RewriteClientSpanId)
+		copy(dAtA[i:], m.RewriteClientSpanId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.RewriteClientSpanId)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.ClientSpan) > 0 {
+		i -= len(m.ClientSpan)
+		copy(dAtA[i:], m.ClientSpan)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ClientSpan)))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.HttpStatusCode) > 0 {
+		i -= len(m.HttpStatusCode)
+		copy(dAtA[i:], m.HttpStatusCode)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.HttpStatusCode)))
+		i--
+		dAtA[i] = 0x42
+	}
+	if len(m.SpanTags) > 0 {
+		for k := range m.SpanTags {
+			v := m.SpanTags[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTracespanHandlerService(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
+	if len(m.EndTime) > 0 {
+		i -= len(m.EndTime)
+		copy(dAtA[i:], m.EndTime)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.EndTime)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.StartTime) > 0 {
+		i -= len(m.StartTime)
+		copy(dAtA[i:], m.StartTime)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.StartTime)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.SpanName) > 0 {
+		i -= len(m.SpanName)
+		copy(dAtA[i:], m.SpanName)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanName)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.ParentSpanId) > 0 {
+		i -= len(m.ParentSpanId)
+		copy(dAtA[i:], m.ParentSpanId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.ParentSpanId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.SpanId) > 0 {
+		i -= len(m.SpanId)
+		copy(dAtA[i:], m.SpanId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.SpanId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.TraceId) > 0 {
+		i -= len(m.TraceId)
+		copy(dAtA[i:], m.TraceId)
+		i = encodeVarintTracespanHandlerService(dAtA, i, uint64(len(m.TraceId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTracespanHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTracespanHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleTraceSpanRequest) Size() (n int) {
 	if m == nil {
@@ -1236,14 +1309,7 @@ func (m *InstanceParam) Size() (n int) {
 }
 
 func sovTracespanHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTracespanHandlerService(x uint64) (n int) {
 	return sovTracespanHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

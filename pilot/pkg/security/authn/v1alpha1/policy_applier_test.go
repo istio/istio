@@ -197,7 +197,7 @@ func TestCollectJwtSpecs(t *testing.T) {
 }
 
 func setUseIstioJWTFilter(value string, t *testing.T) {
-	err := os.Setenv("USE_ISTIO_JWT_FILTER", value)
+	err := os.Setenv(features.UseIstioJWTFilter.Name, value)
 	if err != nil {
 		t.Fatalf("failed to set enable Istio JWT filter: %v", err)
 	}
@@ -250,12 +250,49 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 		},
 		{
 			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Jwks: test.JwtPubKey1,
+							},
+						},
+					},
+				},
+			},
+			wantName:    "jwt-auth",
+			useIstioJWT: true,
+			wantConfig: &istio_jwt.JwtAuthentication{
+				Rules: []*istio_jwt.JwtRule{
+					{
+						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
+							LocalJwks: &istio_jwt.DataSource{
+								Specifier: &istio_jwt.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+					},
+				},
+				AllowMissingOrFailed: true,
+			},
+		},
+		{
+			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
 						Jwt: &authn.Jwt{
-							Issuer:     "issuer",
+							Issuer:     "issuer-0",
 							JwksUri:    jwksURI,
 							JwtHeaders: []string{exchangedTokenHeaderName, "custom"},
+						},
+					},
+					{
+						Jwt: &authn.Jwt{
+							Issuer:  "issuer-1",
+							JwksUri: jwksURI,
 						},
 					},
 				},
@@ -270,26 +307,15 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Requires: &envoy_jwt.JwtRequirement{
-							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-								RequiresAny: &envoy_jwt.JwtRequirementOrList{
-									Requirements: []*envoy_jwt.JwtRequirement{
-										{
-											RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-												ProviderName: "origins-0",
-											},
-										},
-										{
-											RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{},
-										},
-									},
-								},
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+								AllowMissingOrFailed: &types.Empty{},
 							},
 						},
 					},
 				},
 				Providers: map[string]*envoy_jwt.JwtProvider{
 					"origins-0": {
-						Issuer: "issuer",
+						Issuer: "issuer-0",
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
@@ -298,7 +324,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           true,
-						PayloadInMetadata: "issuer",
+						PayloadInMetadata: "issuer-0",
 						FromHeaders: []*envoy_jwt.JwtHeader{
 							{
 								Name:        exchangedTokenHeaderName,
@@ -308,6 +334,61 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								Name: "custom",
 							},
 						},
+					},
+					"origins-1": {
+						Issuer: "issuer-1",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:           true,
+						PayloadInMetadata: "issuer-1",
+					},
+				},
+			},
+		},
+		{
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer: "issuer-1",
+							Jwks:   test.JwtPubKey2,
+						},
+					},
+				},
+			},
+			wantName: "envoy.filters.http.jwt_authn",
+			wantConfig: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						Requires: &envoy_jwt.JwtRequirement{
+							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+								AllowMissingOrFailed: &types.Empty{},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "issuer-1",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey2,
+								},
+							},
+						},
+						Forward:           true,
+						PayloadInMetadata: "issuer-1",
 					},
 				},
 			},
@@ -525,10 +606,18 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 	}
 }
 
+func setSkipValidateTrustDomain(value string, t *testing.T) {
+	err := os.Setenv(features.SkipValidateTrustDomain.Name, value)
+	if err != nil {
+		t.Fatalf("failed to set SkipValidateTrustDomain: %v", err)
+	}
+}
+
 func TestBuildAuthNFilter(t *testing.T) {
 	cases := []struct {
-		in                   *authn.Policy
-		expectedFilterConfig *authn_filter.FilterConfig
+		in                      *authn.Policy
+		expectedFilterConfig    *authn_filter.FilterConfig
+		skipTrustDomainValidate bool
 	}{
 
 		{
@@ -568,9 +657,61 @@ func TestBuildAuthNFilter(t *testing.T) {
 				},
 			},
 		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{},
+						},
+					},
+				},
+			},
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn.MutualTls{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{},
+						},
+					},
+				},
+			},
+			skipTrustDomainValidate: true,
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn.MutualTls{},
+							},
+						},
+					},
+				},
+				SkipValidateTrustDomain: true,
+			},
+		},
 	}
 
 	for _, c := range cases {
+		if c.skipTrustDomainValidate {
+			setSkipValidateTrustDomain("true", t)
+			defer func() {
+				setSkipValidateTrustDomain("false", t)
+			}()
+		}
 		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
@@ -625,13 +766,11 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: proto.BoolTrue,
 	}
 	cases := []struct {
-		name              string
-		in                *authn.Policy
-		sdsUdsPath        string
-		useTrustworthyJwt bool
-		useNormalJwt      bool
-		expected          []plugin.FilterChain
-		meta              map[string]string
+		name       string
+		in         *authn.Policy
+		sdsUdsPath string
+		expected   []plugin.FilterChain
+		meta       map[string]string
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -709,7 +848,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
-					ListenerFilters: []listener.ListenerFilter{
+					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
 							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
@@ -808,8 +947,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 	for _, c := range cases {
 		got := NewPolicyApplier(c.in).InboundFilterChain(
 			c.sdsUdsPath,
-			c.useTrustworthyJwt,
-			c.useNormalJwt,
 			c.meta,
 		)
 		if !reflect.DeepEqual(got, c.expected) {
@@ -819,6 +956,19 @@ func TestOnInboundFilterChains(t *testing.T) {
 }
 
 func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsudspath,
+		StatPrefix: authn_model.SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+			},
+		},
+	}
+
+	gRPCConfig.CredentialsFactoryName = authn_model.FileBasedMetadataPlugName
+	gRPCConfig.CallCredentials = authn_model.ConstructgRPCCallCredentials(authn_model.K8sSATrustworthyJwtFileName, authn_model.K8sSAJwtTokenHeaderKey)
+
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -829,22 +979,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: &core.GrpcService_GoogleGrpc{
-									TargetUri:  sdsudspath,
-									StatPrefix: authn_model.SDSStatPrefix,
-									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-										},
-									},
-									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-										{
-											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-												GoogleComputeEngine: &types.Empty{},
-											},
-										},
-									},
-								},
+								GoogleGrpc: gRPCConfig,
 							},
 						},
 					},

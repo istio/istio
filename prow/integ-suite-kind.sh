@@ -32,10 +32,47 @@ set -x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
-setup_kind_cluster
 
-echo 'Build'
-(cd "${ROOT}"; make build)
+function build_kind_images() {
+  # Build just the images needed for the tests
+  for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
+     make docker.${image}
+  done
+	# Archived local images and load it into KinD's docker daemon
+	# Kubernetes in KinD can only access local images from its docker daemon.
+	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+}
+
+while (( "$#" )); do
+  case "$1" in
+    # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
+    # For example, kindest/node:v1.14.0
+    --node-image)
+      NODE_IMAGE=$2
+      shift 2
+    ;;
+    --skip-setup)
+      SKIP_SETUP=true
+      shift
+    ;;
+    --skip-cleanup)
+      SKIP_CLEANUP=true
+      shift
+    ;;
+    --skip-build)
+      SKIP_BUILD=true
+      shift
+    ;;
+    -*)
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+    *) # preserve positional arguments
+      PARAMS+=("$1")
+      shift
+      ;;
+  esac
+done
 
 
 # KinD will not have a LoadBalancer, so we need to disable it
@@ -45,18 +82,21 @@ export TEST_ENV=kind
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
-export HUB=${HUB:-"kindtest"}
-export TAG="${TAG:-${GIT_SHA}}"
+export HUB=${HUB:-"istio-testing"}
+export TAG="${TAG:-"istio-testing"}"
+
+# Setup junit report and verbose logging
+export JUNIT_UNIT_TEST_XML="${ARTIFACTS:-$(mktemp -d)}/junit.xml"
+export T="${T:-"-v"}"
 
 make init
-make docker
 
-function build_kind_images(){
-	# Archived local images and load it into KinD's docker daemon
-	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name e2e-suite load docker-image
-}
+if [[ -z "${SKIP_SETUP:-}" ]]; then
+  time setup_kind_cluster "${NODE_IMAGE:-}"
+fi
 
-build_kind_images
+if [[ -z "${SKIP_BUILD:-}" ]]; then
+  time build_kind_images
+fi
 
-make "$@"
+make "${PARAMS[*]}"

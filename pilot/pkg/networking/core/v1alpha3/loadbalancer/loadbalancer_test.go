@@ -26,8 +26,11 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -63,7 +66,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
 				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
-				weights := []int{}
+				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
 				}
@@ -166,7 +169,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -182,21 +185,20 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 		},
 	}
 
-	configStore := fakes.IstioConfigStore{}
+	configStore := &fakes.IstioConfigStore{}
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -224,7 +226,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 				&model.Port{
 					Name:     "default",
 					Port:     8080,
-					Protocol: model.ProtocolHTTP,
+					Protocol: protocol.HTTP,
 				},
 			},
 		},
@@ -249,17 +251,16 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()
-	env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
-			Type:    model.DestinationRule.Type,
-			Version: model.DestinationRule.Version,
+			Type:    schemas.DestinationRule.Type,
+			Version: schemas.DestinationRule.Version,
 			Name:    "acme",
 		},
 			Spec: &networking.DestinationRule{
@@ -280,7 +281,7 @@ func buildFakeCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -341,7 +342,7 @@ func buildSmallCluster() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",
@@ -373,7 +374,7 @@ func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
 		Name: "outbound|8080||test.example.org",
 		LoadAssignment: &apiv2.ClusterLoadAssignment{
 			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region1",

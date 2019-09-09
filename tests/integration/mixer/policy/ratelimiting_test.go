@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/components/redis"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -58,6 +59,8 @@ func TestRateLimiting_RedisQuotaRollingWindow(t *testing.T) {
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/15686) deflake and remove label
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			destinationService := "productpage"
@@ -110,7 +113,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 }
 
 func testRedisQuota(t *testing.T, config bookinfo.ConfigFile, destinationService string) {
-	framework.Run(t, func(ctx framework.TestContext) {
+	framework.NewTest(t).Label(label.Flaky).Run(func(ctx framework.TestContext) {
 		g.ApplyConfigOrFail(
 			t,
 			bookinfoNs,
@@ -257,7 +260,10 @@ func TestMain(m *testing.M) {
 }
 
 func testsetup(ctx resource.Context) (err error) {
-	bookinfoNs, err = namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNs, err = namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		return
 	}

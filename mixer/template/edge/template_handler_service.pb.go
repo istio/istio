@@ -47,10 +47,13 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	v1beta1 "istio.io/api/policy/v1beta1"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -94,7 +97,7 @@ func (m *HandleEdgeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_HandleEdgeRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +162,7 @@ func (m *InstanceMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_InstanceMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +199,7 @@ func (m *Type) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Type.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -258,7 +261,7 @@ func (m *InstanceParam) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_InstanceParam.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -375,6 +378,14 @@ type HandleEdgeServiceServer interface {
 	HandleEdge(context.Context, *HandleEdgeRequest) (*v1beta11.ReportResult, error)
 }
 
+// UnimplementedHandleEdgeServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedHandleEdgeServiceServer struct {
+}
+
+func (*UnimplementedHandleEdgeServiceServer) HandleEdge(ctx context.Context, req *HandleEdgeRequest) (*v1beta11.ReportResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleEdge not implemented")
+}
+
 func RegisterHandleEdgeServiceServer(s *grpc.Server, srv HandleEdgeServiceServer) {
 	s.RegisterService(&_HandleEdgeService_serviceDesc, srv)
 }
@@ -413,7 +424,7 @@ var _HandleEdgeService_serviceDesc = grpc.ServiceDesc{
 func (m *HandleEdgeRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -421,45 +432,55 @@ func (m *HandleEdgeRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HandleEdgeRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HandleEdgeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Instances) > 0 {
-		for _, msg := range m.Instances {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if len(m.DedupId) > 0 {
+		i -= len(m.DedupId)
+		copy(dAtA[i:], m.DedupId)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.AdapterConfig != nil {
+		{
+			size, err := m.AdapterConfig.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
 		}
-	}
-	if m.AdapterConfig != nil {
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+	}
+	if len(m.Instances) > 0 {
+		for iNdEx := len(m.Instances) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Instances[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
 		}
-		i += n1
 	}
-	if len(m.DedupId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DedupId)))
-		i += copy(dAtA[i:], m.DedupId)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -467,129 +488,149 @@ func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Timestamp != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(m.Timestamp.Size()))
-		n2, err2 := m.Timestamp.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
-	}
-	if len(m.SourceWorkloadNamespace) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadNamespace)))
-		i += copy(dAtA[i:], m.SourceWorkloadNamespace)
-	}
-	if len(m.SourceWorkloadName) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadName)))
-		i += copy(dAtA[i:], m.SourceWorkloadName)
-	}
-	if len(m.SourceOwner) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceOwner)))
-		i += copy(dAtA[i:], m.SourceOwner)
-	}
-	if len(m.SourceUid) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceUid)))
-		i += copy(dAtA[i:], m.SourceUid)
-	}
-	if len(m.DestinationWorkloadNamespace) > 0 {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadNamespace)))
-		i += copy(dAtA[i:], m.DestinationWorkloadNamespace)
-	}
-	if len(m.DestinationWorkloadName) > 0 {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadName)))
-		i += copy(dAtA[i:], m.DestinationWorkloadName)
-	}
-	if len(m.DestinationOwner) > 0 {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationOwner)))
-		i += copy(dAtA[i:], m.DestinationOwner)
-	}
-	if len(m.DestinationUid) > 0 {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationUid)))
-		i += copy(dAtA[i:], m.DestinationUid)
-	}
-	if len(m.DestinationServiceNamespace) > 0 {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceNamespace)))
-		i += copy(dAtA[i:], m.DestinationServiceNamespace)
-	}
-	if len(m.DestinationServiceName) > 0 {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceName)))
-		i += copy(dAtA[i:], m.DestinationServiceName)
-	}
-	if len(m.ContextProtocol) > 0 {
-		dAtA[i] = 0xf2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ContextProtocol)))
-		i += copy(dAtA[i:], m.ContextProtocol)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x93
+		i--
+		dAtA[i] = 0xe4
+		i--
+		dAtA[i] = 0xd2
+		i--
+		dAtA[i] = 0xfa
 	}
 	if len(m.ApiProtocol) > 0 {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x1
-		i++
+		i -= len(m.ApiProtocol)
+		copy(dAtA[i:], m.ApiProtocol)
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
-		i += copy(dAtA[i:], m.ApiProtocol)
-	}
-	if len(m.Name) > 0 {
+		i--
+		dAtA[i] = 0x1
+		i--
 		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0xe4
-		i++
-		dAtA[i] = 0x93
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
 	}
-	return i, nil
+	if len(m.ContextProtocol) > 0 {
+		i -= len(m.ContextProtocol)
+		copy(dAtA[i:], m.ContextProtocol)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ContextProtocol)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf2
+	}
+	if len(m.DestinationServiceName) > 0 {
+		i -= len(m.DestinationServiceName)
+		copy(dAtA[i:], m.DestinationServiceName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceName)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xca
+	}
+	if len(m.DestinationServiceNamespace) > 0 {
+		i -= len(m.DestinationServiceNamespace)
+		copy(dAtA[i:], m.DestinationServiceNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceNamespace)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc2
+	}
+	if len(m.DestinationUid) > 0 {
+		i -= len(m.DestinationUid)
+		copy(dAtA[i:], m.DestinationUid)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationUid)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
+	}
+	if len(m.DestinationOwner) > 0 {
+		i -= len(m.DestinationOwner)
+		copy(dAtA[i:], m.DestinationOwner)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationOwner)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
+	}
+	if len(m.DestinationWorkloadName) > 0 {
+		i -= len(m.DestinationWorkloadName)
+		copy(dAtA[i:], m.DestinationWorkloadName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadName)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
+	}
+	if len(m.DestinationWorkloadNamespace) > 0 {
+		i -= len(m.DestinationWorkloadNamespace)
+		copy(dAtA[i:], m.DestinationWorkloadNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadNamespace)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if len(m.SourceUid) > 0 {
+		i -= len(m.SourceUid)
+		copy(dAtA[i:], m.SourceUid)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceUid)))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if len(m.SourceOwner) > 0 {
+		i -= len(m.SourceOwner)
+		copy(dAtA[i:], m.SourceOwner)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceOwner)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.SourceWorkloadName) > 0 {
+		i -= len(m.SourceWorkloadName)
+		copy(dAtA[i:], m.SourceWorkloadName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadName)))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.SourceWorkloadNamespace) > 0 {
+		i -= len(m.SourceWorkloadNamespace)
+		copy(dAtA[i:], m.SourceWorkloadNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadNamespace)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTemplateHandlerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Type) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -597,17 +638,22 @@ func (m *Type) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Type) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Type) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -615,115 +661,135 @@ func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InstanceParam) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Timestamp) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
-		i += copy(dAtA[i:], m.Timestamp)
-	}
-	if len(m.SourceWorkloadNamespace) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadNamespace)))
-		i += copy(dAtA[i:], m.SourceWorkloadNamespace)
-	}
-	if len(m.SourceWorkloadName) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadName)))
-		i += copy(dAtA[i:], m.SourceWorkloadName)
-	}
-	if len(m.SourceOwner) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceOwner)))
-		i += copy(dAtA[i:], m.SourceOwner)
-	}
-	if len(m.SourceUid) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceUid)))
-		i += copy(dAtA[i:], m.SourceUid)
-	}
-	if len(m.DestinationWorkloadNamespace) > 0 {
-		dAtA[i] = 0xa2
-		i++
+	if len(m.ApiProtocol) > 0 {
+		i -= len(m.ApiProtocol)
+		copy(dAtA[i:], m.ApiProtocol)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadNamespace)))
-		i += copy(dAtA[i:], m.DestinationWorkloadNamespace)
-	}
-	if len(m.DestinationWorkloadName) > 0 {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadName)))
-		i += copy(dAtA[i:], m.DestinationWorkloadName)
-	}
-	if len(m.DestinationOwner) > 0 {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationOwner)))
-		i += copy(dAtA[i:], m.DestinationOwner)
-	}
-	if len(m.DestinationUid) > 0 {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationUid)))
-		i += copy(dAtA[i:], m.DestinationUid)
-	}
-	if len(m.DestinationServiceNamespace) > 0 {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceNamespace)))
-		i += copy(dAtA[i:], m.DestinationServiceNamespace)
-	}
-	if len(m.DestinationServiceName) > 0 {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceName)))
-		i += copy(dAtA[i:], m.DestinationServiceName)
+		i--
+		dAtA[i] = 0xfa
 	}
 	if len(m.ContextProtocol) > 0 {
-		dAtA[i] = 0xf2
-		i++
-		dAtA[i] = 0x1
-		i++
+		i -= len(m.ContextProtocol)
+		copy(dAtA[i:], m.ContextProtocol)
 		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ContextProtocol)))
-		i += copy(dAtA[i:], m.ContextProtocol)
-	}
-	if len(m.ApiProtocol) > 0 {
-		dAtA[i] = 0xfa
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.ApiProtocol)))
-		i += copy(dAtA[i:], m.ApiProtocol)
+		i--
+		dAtA[i] = 0xf2
 	}
-	return i, nil
+	if len(m.DestinationServiceName) > 0 {
+		i -= len(m.DestinationServiceName)
+		copy(dAtA[i:], m.DestinationServiceName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceName)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xca
+	}
+	if len(m.DestinationServiceNamespace) > 0 {
+		i -= len(m.DestinationServiceNamespace)
+		copy(dAtA[i:], m.DestinationServiceNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationServiceNamespace)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc2
+	}
+	if len(m.DestinationUid) > 0 {
+		i -= len(m.DestinationUid)
+		copy(dAtA[i:], m.DestinationUid)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationUid)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
+	}
+	if len(m.DestinationOwner) > 0 {
+		i -= len(m.DestinationOwner)
+		copy(dAtA[i:], m.DestinationOwner)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationOwner)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
+	}
+	if len(m.DestinationWorkloadName) > 0 {
+		i -= len(m.DestinationWorkloadName)
+		copy(dAtA[i:], m.DestinationWorkloadName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadName)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
+	}
+	if len(m.DestinationWorkloadNamespace) > 0 {
+		i -= len(m.DestinationWorkloadNamespace)
+		copy(dAtA[i:], m.DestinationWorkloadNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.DestinationWorkloadNamespace)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if len(m.SourceUid) > 0 {
+		i -= len(m.SourceUid)
+		copy(dAtA[i:], m.SourceUid)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceUid)))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if len(m.SourceOwner) > 0 {
+		i -= len(m.SourceOwner)
+		copy(dAtA[i:], m.SourceOwner)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceOwner)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.SourceWorkloadName) > 0 {
+		i -= len(m.SourceWorkloadName)
+		copy(dAtA[i:], m.SourceWorkloadName)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadName)))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.SourceWorkloadNamespace) > 0 {
+		i -= len(m.SourceWorkloadNamespace)
+		copy(dAtA[i:], m.SourceWorkloadNamespace)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.SourceWorkloadNamespace)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.Timestamp) > 0 {
+		i -= len(m.Timestamp)
+		copy(dAtA[i:], m.Timestamp)
+		i = encodeVarintTemplateHandlerService(dAtA, i, uint64(len(m.Timestamp)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTemplateHandlerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTemplateHandlerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *HandleEdgeRequest) Size() (n int) {
 	if m == nil {
@@ -884,14 +950,7 @@ func (m *InstanceParam) Size() (n int) {
 }
 
 func sovTemplateHandlerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTemplateHandlerService(x uint64) (n int) {
 	return sovTemplateHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

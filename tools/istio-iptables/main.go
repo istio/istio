@@ -78,8 +78,11 @@ func run(args []string, flagSet *flag.FlagSet) {
 	var enableInboundIPv6s net.IP
 
 	proxyPort := env.RegisterStringVar("ENVOY_PORT", "15001", "").Get()
+	inboundCapturePort := env.RegisterStringVar("INBOUND_CAPTURE_PORT", "15006", "").Get()
 	flagSet.StringVar(&proxyPort, "p", proxyPort,
 		"Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
+	flagSet.StringVar(&inboundCapturePort, "z", inboundCapturePort,
+		"Port to which all inbound TCP traffic to the pod/VM should be redirected to (default $INBOUND_CAPTURE_PORT = 15006)")
 	flagSet.StringVar(&proxyUID, "u", proxyUID,
 		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
 	flagSet.StringVar(&proxyGID, "g", proxyGID,
@@ -197,6 +200,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 	fmt.Println("Environment:")
 	fmt.Println("------------")
 	fmt.Printf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT"))
+	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", os.Getenv("INBOUND_CAPTURE_PORT"))
 	fmt.Printf("ISTIO_INBOUND_INTERCEPTION_MODE=%s\n", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE"))
 	fmt.Printf("ISTIO_INBOUND_TPROXY_MARK=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
 	fmt.Printf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
@@ -208,8 +212,7 @@ func run(args []string, flagSet *flag.FlagSet) {
 	fmt.Println("Variables:")
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", proxyPort)
-	inboundCapturePort := env.RegisterStringVar("INBOUND_CAPTURE_PORT", proxyPort, "").Get()
-	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", inboundCapturePort)
+	fmt.Printf("PROXY_INBOUND_CAPTURE_PORT=%s\n", inboundCapturePort)
 	fmt.Printf("PROXY_UID=%s\n", proxyUID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", inboundInterceptionMode)
 	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", inboundTProxyMark)
@@ -228,6 +231,10 @@ func run(args []string, flagSet *flag.FlagSet) {
 	}
 	fmt.Println("")
 
+	if enableInboundIPv6s != nil {
+		ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+	}
+
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 	// redirects to Envoy.
@@ -236,7 +243,13 @@ func run(args []string, flagSet *flag.FlagSet) {
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+
+	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
+	if inboundPortsInclude == "*" {
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+	} else {
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+	}
 
 	var table string
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
@@ -330,10 +343,13 @@ func run(args []string, flagSet *flag.FlagSet) {
 		}
 	}
 
+	// 127.0.0.6 is bind connect from inbound passthrough cluster
+	ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "-s", "127.0.0.6/32", "-j", "RETURN")
+
 	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IPTABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", "ISTIO_IN_REDIRECT")
 	}
 
 	for _, uid := range split(proxyUID) {
@@ -407,7 +423,11 @@ func run(args []string, flagSet *flag.FlagSet) {
 		// Use this chain also for redirecting inbound traffic to the common Envoy port
 		// when not using TPROXY.
 		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-N", "ISTIO_IN_REDIRECT")
-		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+		if inboundPortsInclude == "*" {
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", inboundCapturePort)
+		} else {
+			ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_IN_REDIRECT", "-p", "tcp", "-j", "REDIRECT", "--to-port", proxyPort)
+		}
 		// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 		// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 		if inboundPortsInclude != "" {
@@ -441,9 +461,13 @@ func run(args []string, flagSet *flag.FlagSet) {
 				ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-p", "tcp", "--dport", port, "-j", "RETURN")
 			}
 		}
+
+		// ::6 is bind connect from inbound passthrough cluster
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "-s", "::6/128", "-j", "RETURN")
+
 		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_REDIRECT")
+		ext.RunOrFail(dep.IP6TABLES, "-t", "nat", "-A", "ISTIO_OUTPUT", "-o", "lo", "!", "-d", "::1/128", "-j", "ISTIO_IN_REDIRECT")
 
 		for _, uid := range split(proxyUID) {
 			// Avoid infinite loops. Don't redirect Envoy traffic directly back to

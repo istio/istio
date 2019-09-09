@@ -15,6 +15,9 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -23,9 +26,11 @@ import (
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/istioctl/pkg/install"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/operator/cmd/mesh"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 )
@@ -45,6 +50,9 @@ var (
 
 	// Create a kubernetes.ExecClient (or mockExecClient)
 	clientExecFactory = newExecClient
+
+	// Create a kubernetes.ExecClientSDS
+	clientExecSdsFactory = newSDSExecClient
 
 	loggingOptions = log.DefaultOptions()
 )
@@ -101,13 +109,33 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
-	rootCmd.AddCommand(statusCmd)
+
+	rootCmd.AddCommand(convertIngress())
+	rootCmd.AddCommand(dashboard())
+	rootCmd.AddCommand(metricsCmd)
+	rootCmd.AddCommand(statusCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(Auth())
-	experimentalCmd.AddCommand(convertIngress())
-	experimentalCmd.AddCommand(dashboard())
-	experimentalCmd.AddCommand(metricsCmd)
+	rootCmd.AddCommand(seeExperimentalCmd("auth"))
+	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
+	experimentalCmd.AddCommand(graduatedCmd("dashboard"))
+	experimentalCmd.AddCommand(uninjectCommand())
+	experimentalCmd.AddCommand(graduatedCmd("metrics"))
+	experimentalCmd.AddCommand(describe())
+	experimentalCmd.AddCommand(addToMeshCmd())
+	experimentalCmd.AddCommand(removeFromMeshCmd())
+	experimentalCmd.AddCommand(Analyze())
+
+	manifestCmd := mesh.ManifestCmd()
+	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(manifestCmd)
+
+	profileCmd := mesh.ProfileCmd()
+	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
+	experimentalCmd.AddCommand(profileCmd)
+
+	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(&kubeconfig, &configContext, &istioNamespace))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -125,6 +153,17 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
 	return rootCmd
+}
+
+func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
+	orig.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		for _, hidden := range hidden {
+			cmd.Flags().MarkHidden(hidden) // nolint: errcheck
+		}
+
+		orig.SetHelpFunc(nil)
+		orig.HelpFunc()(cmd, args)
+	})
 }
 
 func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
@@ -158,4 +197,28 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 	return context.Namespace
+}
+
+// graduatedCmd is used for commands that have graduated
+func graduatedCmd(name string) *cobra.Command {
+	msg := fmt.Sprintf("(%s has graduated.  Use `istioctl %s`)", name, name)
+	return &cobra.Command{
+		Use:   name,
+		Short: msg,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New(msg)
+		},
+	}
+}
+
+// seeExperimentalCmd is used for commands that have been around for a release but not graduated
+func seeExperimentalCmd(name string) *cobra.Command {
+	msg := fmt.Sprintf("(%s is experimental.  Use `istioctl experimental %s`)", name, name)
+	return &cobra.Command{
+		Use:   name,
+		Short: msg,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New(msg)
+		},
+	}
 }

@@ -178,7 +178,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = namespace.New(ctx, "policybackend", false)
+	c.namespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "policybackend",
+	})
 	if err != nil {
 		return nil, err
 	}
