@@ -369,8 +369,12 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
+	_ = os.Setenv("PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS", "true")
 
-	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
+	defer func() {
+		_ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE")
+		_ = os.Unsetenv("PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS")
+	}()
 
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Attributes.ServiceRegistry = string(serviceregistry.KubernetesRegistry)
