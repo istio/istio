@@ -301,8 +301,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.
 		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	uniques := make(map[string]struct{})
-	// TODO: pruning by appropriate hostname for a sniffed listener should happen at this level
-	// where vHostWrapper.Services has only one service matching the hostname in the routeName
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
