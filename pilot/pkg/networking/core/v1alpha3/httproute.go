@@ -31,11 +31,14 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
+
+const wildcardDomainPrefix = "*."
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
@@ -168,7 +171,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 				Hostname:     svc.Hostname,
 				Address:      svc.Address,
 				MeshExternal: svc.MeshExternal,
+				Resolution:   svc.Resolution,
 				Ports:        []*model.Port{svcPort},
+				Attributes: model.ServiceAttributes{
+					ServiceRegistry: svc.Attributes.ServiceRegistry,
+				},
 			}
 		}
 	}
@@ -183,6 +190,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
+
+		wildcardDomain := false
+		if listenerPort != 0 {
+			wildcardDomain = true
+		}
+
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
@@ -203,9 +216,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
+				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+				if wildcardDomain && svc.Resolution == model.Passthrough &&
+					svc.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+					for _, domain := range domains {
+						domains = append(domains, wildcardDomainPrefix+domain)
+					}
+				}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:    name,
-					Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+					Domains: domains,
 					Routes:  virtualHostWrapper.Routes,
 				})
 			} else {

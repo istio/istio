@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -699,19 +700,6 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
-// TODO(github.com/istio/pilot/issues/237)
-//
-// Sharing tcp_proxy and http_connection_manager filters on the same port for
-// different destination services doesn't work with Envoy (yet). When the
-// tcp_proxy filter's route matching fails for the http service the connection
-// is closed without falling back to the http_connection_manager.
-//
-// Temporary workaround is to add a listener for each service IP that requires
-// TCP routing
-//
-// Connections to the ports of non-load balanced services are directed to
-// the connection's original destination. This avoids costly queries of instance
-// IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
@@ -876,8 +864,28 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-						virtualServices, actualWildcard)
+					// Support Kubernetes statefulsets/headless services.
+					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
+					// for each instance.
+					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
+						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
+							for _, instance := range instances {
+								listenerOpts.bind = instance.Endpoint.Address
+								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+									virtualServices, actualWildcard)
+							}
+						} else {
+							// we can't do anything. Fallback to the usual way of constructing listeners
+							// for headless services that use 0.0.0.0:Port listener
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+						}
+					} else {
+						// Standard logic for headless and non headless services
+						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+							virtualServices, actualWildcard)
+					}
 				}
 			}
 		}
