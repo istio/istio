@@ -21,6 +21,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -675,7 +676,8 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 
-	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName)
+	vHostCache := make(map[int][]*route.VirtualHost)
+	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName, vHostCache)
 	if route == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}
