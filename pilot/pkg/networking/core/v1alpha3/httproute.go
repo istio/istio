@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	util.SortVirtualHosts(virtualHosts)
 
-	if features.EnableFallthroughRoute.Get() {
+	if features.EnableFallthroughRoute.Get() && !useSniffing {
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if isAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
@@ -251,7 +251,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.
 	var virtualServices []model.Config
 	var services []*model.Service
 
-	// this is a user supplied sidecar scope. Get the services from the egress listener
+	// Get the services from the egress listener.  When sniffing is enabled, we send
+	// route name as foo.bar.com:8080 which is going to match against the wildcard
+	// egress listener only. A route with sniffing would not have been generated if there
+	// was a sidecar with explicit port (and hence protocol declaration). A route with
+	// sniffing is generated only in the case of the catch all egress listener.
 	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 	// We should never be getting a nil egress listener because the code that setup this RDS
 	// call obviously saw an egress listener
@@ -304,11 +308,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.
 			continue
 		}
 
-		wildcardDomain := false
-		if listenerPort != 0 {
-			wildcardDomain = true
-		}
-
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
@@ -325,16 +324,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(svc.Hostname, virtualHostWrapper.Port)
+			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
-				if wildcardDomain && svc.Resolution == model.Passthrough &&
-					svc.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
-					for _, domain := range domains {
-						domains = append(domains, wildcardDomainPrefix+domain)
-					}
-				}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:    name,
 					Domains: domains,
@@ -383,6 +376,13 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
 	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
+
+	if service.Resolution == model.Passthrough &&
+		service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+		for _, domain := range domains {
+			domains = append(domains, wildcardDomainPrefix+domain)
+		}
+	}
 
 	if len(service.Address) > 0 && service.Address != constants.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
