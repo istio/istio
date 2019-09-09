@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -51,11 +52,37 @@ Listeners Match
 Routes Match
 `,
 		},
+		{ // case 4: proxy-status podName --sds
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb --sds", " "),
+			wantException:    false,
+			// nolint: lll
+			expectedString: `RESOURCE NAME     TYPE           VALID CERT     NODE AGENT     PROXY       SERIAL NUMBER                               NOT AFTER                NOT BEFORE
+default           Cert Chain     true                          ACTIVE      172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z
+default           Cert Chain     true                          WARMING     102248101821513494474081488414108563796     2019-09-05T21:18:20Z     2019-09-04T21:18:20Z`,
+		},
+		{ // case 5: supplying nonexistent pod name should result in error with --sds flag
+			args:          strings.Split("proxy-status random-gibberish-podname-61789237418234", " "),
+			wantException: true,
+		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			clientExecSdsFactory = mockClientExecSDSFactoryGenerator(c.execClientConfig)
 			verifyExecTestOutput(t, c)
 		})
 	}
+}
+
+// mockClientExecFactoryGenerator generates a function with the same signature as
+// kubernetes.NewExecClient() that returns a mock client.
+func mockClientExecSDSFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kubernetes.ExecClientSDS, error) {
+	outFactory := func(kubeconfig, configContext string) (kubernetes.ExecClientSDS, error) {
+		return mockExecConfig{
+			results: testResults,
+		}, nil
+	}
+
+	return outFactory
 }
