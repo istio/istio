@@ -270,6 +270,8 @@ spec:
           hpaSpec:
             maxReplicas: 10 # ... default 5
             minReplicas: 2  # ... default 1
+          nodeSelector: # ... default empty
+            master: "true"
 ```
 
 The K8s settings are defined in detail in the

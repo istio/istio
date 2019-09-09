@@ -57,3 +57,5 @@ spec:
             requests:
               cpu: 888m
               memory: 999Mi
+          nodeSelector:
+            master: "true"
