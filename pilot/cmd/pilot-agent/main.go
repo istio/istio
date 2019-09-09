@@ -659,7 +659,7 @@ func init() {
 		"The component log level used to start the Envoy proxy")
 	proxyCmd.PersistentFlags().StringVar(&dnsRefreshRate, "dnsRefreshRate", "300s",
 		"The dns_refresh_rate for bootstrap STRICT_DNS clusters")
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/bootstrap/v2/bootstrap.proto#envoy-api-field-config-bootstrap-v2-bootstrap-stats-flush-interval
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/bootstrap/v2/bootstrap.proto
 	proxyCmd.PersistentFlags().StringVar(&statsFlushInterval, "statsFlushInterval", "5s",
 		"The interval at which starts are flushed by configured stats sinks")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
