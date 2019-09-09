@@ -344,7 +344,8 @@ global:
     enabled: false
     # If set to true, and a given service does not have a corresponding DestinationRule configured,
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
-    # TLS configuration appropriately.
+    # TLS configuration automatically, based on the server side mTLS authentication policy and the
+    # availibity of sidecars.
     automatic: false
 
   # Lists the secrets you need to use to pull Istio images from a private registry.
