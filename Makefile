@@ -29,7 +29,7 @@
 export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-08-26T16-04-46
+IMG = gcr.io/istio-testing/build-tools:2019-09-04T21-28-42
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
@@ -66,6 +66,7 @@ RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
 	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	-v $(readlink /etc/localtime):/etc/localtime:ro \
+	-v /var/run/docker.sock:/var/run/docker.sock \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \

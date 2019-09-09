@@ -22,6 +22,8 @@ pwd := $(shell pwd)
 # make targets
 .PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
+build: mesh
+
 lint: lint-copyright-banner lint-go
 
 test:
@@ -33,8 +35,6 @@ test_with_coverage:
 
 mandiff: update-charts
 	@PATH=${PATH}:${GOPATH}/bin scripts/run_mandiff.sh
-
-build: mesh
 
 fmt: format-go
 
@@ -64,7 +64,7 @@ TMPDIR := $(shell mktemp -d)
 
 repo_dir := .
 out_path = ${TMPDIR}
-protoc = protoc -I/usr/include/protobuf -I.
+protoc = protoc -Icommon-protos -I.
 
 go_plugin_prefix := --go_out=plugins=grpc,
 go_plugin := $(go_plugin_prefix):$(out_path)
