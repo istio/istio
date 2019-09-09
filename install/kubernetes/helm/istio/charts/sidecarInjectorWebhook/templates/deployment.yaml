@@ -45,9 +45,9 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
-            - --caCertFile=/etc/istio/certs/root-cert.pem
-            - --tlsCertFile=/etc/istio/certs/cert-chain.pem
-            - --tlsKeyFile=/etc/istio/certs/key.pem
+            - --caCertFile={{ .Vallues.caCertFile }}
+            - --tlsCertFile={{ .Vallues.tlsCertFile }}
+            - --tlsKeyFile={{ .Vallues.tlsKeyFile }}
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s

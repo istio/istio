@@ -7,6 +7,9 @@ rollingMaxSurge: 100%
 rollingMaxUnavailable: 25%
 image: sidecar_injector
 enableNamespacesByDefault: false
+caCertFile: /etc/istio/certs/root-cert.pem
+tlsCertFile: /etc/istio/certs/cert-chain.pem
+tlsKeyFile: /etc/istio/certs/key.pem
 nodeSelector: {}
 tolerations: []
 podAnnotations: {}
