@@ -59,3 +59,9 @@ spec:
               memory: 999Mi
           nodeSelector:
             master: "true"
+          tolerations:
+          - key: dedicated
+            operator: Exists
+            effect: NoSchedule
+          - key: CriticalAddonsOnly
+            operator: Exists

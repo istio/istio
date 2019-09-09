@@ -171,6 +171,10 @@ var (
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.strategy",
 					nil,
 				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations",
+					nil,
+				},
 			},
 			ToFeature: map[name.ComponentName]name.FeatureName{
 				name.IstioBaseComponentName:       name.IstioBaseFeatureName,
