@@ -586,6 +586,7 @@
       }
     },
     {{ end }}
-  ]
+  ],
+  "stats_flush_interval": "{{ .stats_flush_interval }}"
   {{ end }}
 }
