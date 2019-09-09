@@ -156,18 +156,25 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 	configStore := newFakeStore()
 	for key, value := range authNPolicies {
-		cfg := &Config{
+		cfg := Config{
 			ConfigMeta: ConfigMeta{
-				Type:      schemas.AuthenticationPolicy.Type,
-				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha1",
-				Namespace: "default",
-				Domain:    "cluster.local",
+				Name:    key,
+				Group:   "authentication",
+				Version: "v1alpha2",
+				Domain:  "cluster.local",
 			},
 			Spec: value,
 		}
-		_, _ = configStore.Create(*cfg)
+		if key == constants.DefaultAuthenticationPolicyName {
+			// Cluster-scoped policy
+			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+		} else {
+			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
+			cfg.ConfigMeta.Namespace = "default"
+		}
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Error(err)
+		}
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
@@ -229,7 +236,8 @@ func TestAuthNPolicies(t *testing.T) {
 			Hostname:   c.hostname,
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
-		if got := ps.AuthenticationPolicyForWorkload(service, nil, c.port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
+		port := &Port{Port: c.port}
+		if got := ps.AuthenticationPolicyForWorkload(service, nil, port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
 			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
 		}
 	}
