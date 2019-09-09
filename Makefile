@@ -308,13 +308,6 @@ endif
 $(OUTPUT_DIRS):
 	@mkdir -p $@
 
-# Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
-go.generate.diff: $(ISTIO_OUT)
-	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
-	-go generate ./...
-	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
-	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
-
 .PHONY: ${GEN_CERT}
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
@@ -347,8 +340,6 @@ lint: buildcache
 
 shellcheck:
 	bin/check_shell_scripts.sh
-
-# @todo gometalinter targets?
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -793,17 +784,6 @@ show.%: ; $(info $* $(H) $($*))
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution
 #-----------------------------------------------------------------------------
-.PHONY: dist dist-bin
-
-${ISTIO_OUT}/dist/Gopkg.lock:
-	mkdir -p ${ISTIO_OUT}/dist
-	cp Gopkg.lock ${ISTIO_OUT}/dist/
-
-# Binary/built artifacts of the distribution
-dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
-
-dist: dist-bin
-
 # deb, rpm, etc packages
 include tools/packaging/packaging.mk
 
@@ -816,13 +796,5 @@ include tests/istio.mk
 # Target: integration tests
 #-----------------------------------------------------------------------------
 include tests/integration/tests.mk
-
-#-----------------------------------------------------------------------------
-# Target: bench check
-#-----------------------------------------------------------------------------
-
-.PHONY: benchcheck
-benchcheck:
-	bin/perfcheck.sh
 
 include Makefile.common.mk
