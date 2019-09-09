@@ -89,7 +89,7 @@ func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destinat
 	if _, ok := serviceEntryHosts[name]; ok {
 		return true
 	}
-	if ctx.Find(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) != nil {
+	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
 		return true
 	}
 

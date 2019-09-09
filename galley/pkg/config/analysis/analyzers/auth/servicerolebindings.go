@@ -46,7 +46,7 @@ func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Entry, ctx a
 	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-	if ctx.Find(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewName(ns, srb.RoleRef.Name)) == nil {
+	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewName(ns, srb.RoleRef.Name)) {
 		ctx.Report(metadata.IstioRbacV1Alpha1Servicerolebindings, msg.ReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
 	}
 }

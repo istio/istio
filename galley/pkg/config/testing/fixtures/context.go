@@ -55,6 +55,11 @@ func (ctx *Context) Find(c collection.Name, name resource.Name) *resource.Entry 
 	return nil
 }
 
+// Exists implements analysis.Context
+func (ctx *Context) Exists(c collection.Name, name resource.Name) bool {
+	return ctx.Find(c, name) != nil
+}
+
 // ForEach implements analysis.Context
 func (ctx *Context) ForEach(c collection.Name, fn analysis.IteratorFn) {
 	for _, r := range ctx.Collections[c] {
