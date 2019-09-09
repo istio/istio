@@ -55,6 +55,7 @@ RUN useradd -m --uid 1337 istio-proxy && \
 # istio-proxy" will not match connections from those processes anymore.
 # Instead, rely on the process's effective gid being istio-proxy and create a
 # "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
+# hadolint ignore=DL3002
 USER 0:1337
 
 # The pilot-agent will bootstrap Envoy.
