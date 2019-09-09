@@ -368,8 +368,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService4 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.VirtualService.Type,
-			Version:   schemas.VirtualService.Version,
+			Type:      model.VirtualService.Type,
+			Version:   model.VirtualService.Version,
 			Name:      "acme-v4",
 			Namespace: "not-default",
 		},

@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -1246,6 +1247,9 @@ func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
 func TestEndpointUpdate(t *testing.T) {
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
+
+	os.Setenv("PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS", "true")
+	defer os.Unsetenv("PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS")
 
 	// 1. incremental eds for normal service endpoint update
 
