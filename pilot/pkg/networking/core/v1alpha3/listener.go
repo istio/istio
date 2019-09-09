@@ -864,11 +864,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					// Support Kubernetes statefulsets/headless services.
+					// Support Kubernetes statefulsets/headless services with TCP ports only.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
-					// for each instance.
+					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
+					// wildcard route match to get to the appropriate pod through original dst clusters.
 					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
-						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
 								listenerOpts.bind = instance.Endpoint.Address
