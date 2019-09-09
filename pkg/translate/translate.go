@@ -140,7 +140,7 @@ var (
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {

@@ -541,6 +541,8 @@ spec:
         - mountPath: /var/lib/envoy
           name: pilot-envoy-config
       serviceAccountName: istio-pilot-service-account
+      nodeSelector:
+        master: "true"
       volumes:
       - configMap:
           name: istio
