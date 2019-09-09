@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -57,4 +58,40 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
+}
+
+// PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
+func (c *ConfigWriter) PrintSecretDump() error {
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return fmt.Errorf("sidecar doesn't support secrets: %v", err)
+	}
+	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	if err := jsonm.Marshal(c.Stdout, secretDump); err != nil {
+		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
+	}
+	return nil
+}
+
+// PrintSecretSummary prints a summary of dynamic active secrets from the config dump
+func (c *ConfigWriter) PrintSecretSummary() error {
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return err
+	}
+	if len(secretDump.DynamicActiveSecrets) == 0 &&
+		len(secretDump.DynamicWarmingSecrets) == 0 {
+		fmt.Fprintln(c.Stdout, "No active or warming secrets found.")
+		return nil
+	}
+	secretItems, err := sdscompare.GetEnvoySecrets(c.configDump)
+	if err != nil {
+		return err
+	}
+
+	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
+	return secretWriter.PrintSecretItems(secretItems)
 }
