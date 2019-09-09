@@ -1,0 +1,22 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
+spec:
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "security.name" . }}
+      release: {{ .Release.Name }}
+      istio: citadel
+{{- end }}
