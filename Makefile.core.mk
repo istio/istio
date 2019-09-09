@@ -24,7 +24,7 @@ pwd := $(shell pwd)
 
 build: mesh
 
-lint: lint-copyright-banner lint-go
+lint: lint-copyright-banner lint-go lint-python lint-scripts lint-yaml lint-dockerfiles
 
 test:
 	@go test -race ./...

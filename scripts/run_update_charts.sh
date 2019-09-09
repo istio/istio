@@ -26,7 +26,7 @@ ROOTDIR=$(dirname "${SCRIPTPATH}")
 OPERATOR_DIR="${ROOTDIR}"
 INSTALLER_DIR=$(mktemp -d)
 OUT_DIR="${OPERATOR_DIR}/data/charts"
-SHA=`cat ${OPERATOR_DIR}/installer.sha`
+SHA="$(cat "${OPERATOR_DIR}"/installer.sha)"
 
 if [[ "$#" -eq 1 ]]; then
     SHA="${1}"
