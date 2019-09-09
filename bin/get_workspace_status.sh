@@ -35,7 +35,7 @@ if [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-GIT_DESCRIBE_TAG=$(git describe --tags)
+GIT_DESCRIBE_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
 
 # used by bin/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION}"
