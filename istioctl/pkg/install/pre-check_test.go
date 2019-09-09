@@ -48,10 +48,10 @@ var (
 		Minor:      "8",
 		GitVersion: "1.8",
 	}
-	version1_12GKE = &version.Info{
+	version1_13GKE = &version.Info{
 		Major:      "1",
-		Minor:      "12+",
-		GitVersion: "v1.12.7-gke.10",
+		Minor:      "13+",
+		GitVersion: "v1.13.7-gke.10",
 	}
 	version1_8GKE = &version.Info{
 		Major:      "1",
@@ -86,7 +86,7 @@ func TestPreCheck(t *testing.T) {
 		{
 			description: "Valid Kubernetes Version against GKE",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_12GKE,
+				version:   version1_13GKE,
 				namespace: "test",
 			},
 			expectedException: false,

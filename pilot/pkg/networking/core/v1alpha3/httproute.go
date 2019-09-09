@@ -115,6 +115,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	return r
 }
 
+// domainName builds the domain name for a given host and port
+func domainName(host string, port int) string {
+	return host + ":" + strconv.Itoa(port)
+}
+
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy,
@@ -295,12 +300,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *mode
 
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualServiceHosts)+len(registryServices))
 		for _, hostname := range virtualServiceHosts {
-			name := fmt.Sprintf("%s:%d", hostname, virtualHostWrapper.Port)
+			name := domainName(hostname, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:    name,
-					Domains: []string{hostname, fmt.Sprintf("%s:%d", hostname, virtualHostWrapper.Port)},
+					Domains: []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
 					Routes:  virtualHostWrapper.Routes,
 				})
 			} else {
@@ -309,7 +314,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *mode
 		}
 
 		for _, svc := range registryServices {
-			name := fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
+			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
@@ -368,7 +373,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVHostWrappers(_ *model
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
-	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
+	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 	// Workaround for stateful sets in kubernetes as they are resolvable using
 	// 0.name.ns.svc.cluster.local, 1.name.ns.svc.cluster.local, etc.
@@ -386,7 +391,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr, fmt.Sprintf("%s:%d", svcAddr, port))
+			domains = append(domains, svcAddr, domainName(svcAddr, port))
 		}
 	}
 	return domains
@@ -419,13 +424,13 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	}
 
 	// adds the uniq piece foo, foo:80
-	vhosts = append(vhosts, uniqHostname, fmt.Sprintf("%s:%d", uniqHostname, port))
+	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 
 	// adds all the other variants (foo.local, foo.local:80)
 	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
 		if sharedDNSDomain[i] == '.' {
-			variant := fmt.Sprintf("%s.%s", uniqHostname, sharedDNSDomain[:i])
-			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+			variant := uniqHostname + "." + sharedDNSDomain[:i]
+			variantWithPort := domainName(variant, port)
 			vhosts = append(vhosts, variant, variantWithPort)
 		}
 	}
