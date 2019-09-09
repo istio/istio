@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	fqdnPattern = regexp.MustCompile("^(.+)\\.(.+)\\.svc\\.cluster\\.local$")
+	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
 )
 
 // DestinationAnalyzer checks the destinations associated with each virtual service
@@ -55,7 +55,9 @@ func (da *DestinationAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
-func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context, serviceEntryHosts map[resource.Name]bool, destHostsAndSubsets map[hostAndSubset]bool) {
+func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
+	serviceEntryHosts map[resource.Name]bool, destHostsAndSubsets map[hostAndSubset]bool) {
+
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
@@ -67,16 +69,20 @@ func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx anal
 
 	for _, destination := range destinations {
 		if !da.checkDestinationHost(ns, destination, ctx, serviceEntryHosts) {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.ReferencedResourceNotFound(r, "host", destination.GetHost()))
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+				msg.ReferencedResourceNotFound(r, "host", destination.GetHost()))
 			continue
 		}
-		if !da.checkDestinationSubset(ns, destination, ctx, destHostsAndSubsets) {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.ReferencedResourceNotFound(r, "host+subset", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+		if !da.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+				msg.ReferencedResourceNotFound(r, "host+subset", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
 }
 
-func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination, ctx analysis.Context, serviceEntryHosts map[resource.Name]bool) bool {
+func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
+	ctx analysis.Context, serviceEntryHosts map[resource.Name]bool) bool {
+
 	name := getResourceNameFromHost(vsNamespace, destination.GetHost())
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
@@ -90,7 +96,7 @@ func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destinat
 	return false
 }
 
-func (da *DestinationAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination, ctx analysis.Context, destHostsAndSubsets map[hostAndSubset]bool) bool {
+func (da *DestinationAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination, destHostsAndSubsets map[hostAndSubset]bool) bool {
 	name := getResourceNameFromHost(vsNamespace, destination.GetHost())
 
 	subset := destination.GetSubset()
