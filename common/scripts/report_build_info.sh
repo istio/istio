@@ -15,11 +15,11 @@
 #   limitations under the License.
 
 if BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null); then
-    if ! git diff-index --quiet HEAD; then
-        BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
-    fi
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
+  fi
 else
-    BUILD_GIT_REVISION=unknown
+  BUILD_GIT_REVISION=unknown
 fi
 
 # Check for local changes
@@ -40,15 +40,7 @@ elif [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-DOCKER_HUB="docker.io/istio"
-if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
-  DOCKER_HUB="${ISTIO_DOCKER_HUB}"
-fi
-
 # used by common/scripts/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION}"
 echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-echo "istio.io/pkg/version.buildUser=$(whoami)"
-echo "istio.io/pkg/version.buildHost=$(hostname -f)"
-echo "istio.io/pkg/version.buildDockerHub=${DOCKER_HUB}"
 echo "istio.io/pkg/version.buildStatus=${tree_status}"
