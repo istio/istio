@@ -21,9 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -242,7 +240,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 
 	var virtualServices []model.Config
@@ -318,7 +316,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *mode
 				})
 			} else {
 				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
-				//log.Debugf("Dropping duplicate route entry %v for %s", name, node.ID)
 			}
 		}
 
@@ -340,7 +337,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(env *mode
 				})
 			} else {
 				push.Add(model.DuplicatedDomains, name, node, fmt.Sprintf("duplicate domain from virtual service: %s", name))
-				log.Debugf("Dropping duplicate route entry %v.", name)
 			}
 		}
 
