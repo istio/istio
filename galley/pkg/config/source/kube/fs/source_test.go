@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/data/builtin"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/pkg/appsignals"
