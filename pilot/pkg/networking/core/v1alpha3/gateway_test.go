@@ -517,199 +517,172 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
-				{
-					name: "Duplicate hosts in TLS filterChain",
-					node: &model.Proxy{},
-					server: &networking.Server{
-						Port: &networking.Port{
-							Protocol: "HTTPS",
-						},
-						Hosts: []string{"example.org", "example.org"},
-						Tls: &networking.Server_TLSOptions{
-							Mode: networking.Server_TLSOptions_MUTUAL,
-						},
+		{
+			name: "Duplicate hosts in TLS filterChain",
+			node: &model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org", "example.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
 					},
-					routeName: "some-route",
-					result: &filterChainOpts{
-						sniHosts: []string{"example.org"},
-						tlsContext: &auth.DownstreamTlsContext{
-							RequireClientCertificate: &types.BoolValue{
-								Value: true,
-							},
-							CommonTlsContext: &auth.CommonTlsContext{
-								TlsCertificates: []*auth.TlsCertificate{
-									{
-										CertificateChain: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/cert-chain.pem",
-											},
-										},
-										PrivateKey: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/key.pem",
-											},
-										},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
 									},
 								},
-								ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-									ValidationContext: &auth.CertificateValidationContext{
-										TrustedCa: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/root-cert.pem",
-											},
-										},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
 									},
 								},
-								AlpnProtocols: []string{"h2", "http/1.1"},
 							},
 						},
-						httpOpts: &httpListenerOpts{
-							rds:              "some-route",
-							useRemoteAddress: true,
-							direction:        http_conn.EGRESS,
-							connectionManager: &http_conn.HttpConnectionManager{
-								ForwardClientCertDetails: http_conn.SANITIZE_SET,
-								SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-									Subject: proto.BoolTrue,
-									Cert:    true,
-									Uri:     true,
-									Dns:     true,
-								},
-								ServerName:          EnvoyServerName,
-								HttpProtocolOptions: &core.Http1ProtocolOptions{},
-							},
-						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
 					},
 				},
-				{
-					name: "Unique hosts in TLS filterChain",
-					node: &model.Proxy{},
-					server: &networking.Server{
-						Port: &networking.Port{
-							Protocol: "HTTPS",
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
 						},
-						Hosts: []string{"example.org", "test.org"},
-						Tls: &networking.Server_TLSOptions{
-							Mode: networking.Server_TLSOptions_MUTUAL,
-						},
-					},
-					routeName: "some-route",
-					result: &filterChainOpts{
-						sniHosts: []string{"example.org", "test.org"},
-						tlsContext: &auth.DownstreamTlsContext{
-							RequireClientCertificate: &types.BoolValue{
-								Value: true,
-							},
-							CommonTlsContext: &auth.CommonTlsContext{
-								TlsCertificates: []*auth.TlsCertificate{
-									{
-										CertificateChain: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/cert-chain.pem",
-											},
-										},
-										PrivateKey: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/key.pem",
-											},
-										},
-									},
-								},
-								ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-									ValidationContext: &auth.CertificateValidationContext{
-										TrustedCa: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/root-cert.pem",
-											},
-										},
-									},
-								},
-								AlpnProtocols: []string{"h2", "http/1.1"},
-							},
-						},
-						httpOpts: &httpListenerOpts{
-							rds:              "some-route",
-							useRemoteAddress: true,
-							direction:        http_conn.EGRESS,
-							connectionManager: &http_conn.HttpConnectionManager{
-								ForwardClientCertDetails: http_conn.SANITIZE_SET,
-								SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-									Subject: proto.BoolTrue,
-									Cert:    true,
-									Uri:     true,
-									Dns:     true,
-								},
-								ServerName:          EnvoyServerName,
-								HttpProtocolOptions: &core.Http1ProtocolOptions{},
-							},
-						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 					},
 				},
-				{
-					name: "Wildcard hosts in TLS filterChain are not duplicates",
-					node: &model.Proxy{},
-					server: &networking.Server{
-						Port: &networking.Port{
-							Protocol: "HTTPS",
-						},
-						Hosts: []string{"*.example.org", "example.org"},
-						Tls: &networking.Server_TLSOptions{
-							Mode: networking.Server_TLSOptions_MUTUAL,
-						},
+			},
+		},
+		{
+			name: "Unique hosts in TLS filterChain",
+			node: &model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org", "test.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org", "test.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
 					},
-					routeName: "some-route",
-					result: &filterChainOpts{
-						sniHosts: []string{"*.example.org", "example.org"},
-						tlsContext: &auth.DownstreamTlsContext{
-							RequireClientCertificate: &types.BoolValue{
-								Value: true,
-							},
-							CommonTlsContext: &auth.CommonTlsContext{
-								TlsCertificates: []*auth.TlsCertificate{
-									{
-										CertificateChain: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/cert-chain.pem",
-											},
-										},
-										PrivateKey: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/key.pem",
-											},
-										},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
 									},
 								},
-								ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-									ValidationContext: &auth.CertificateValidationContext{
-										TrustedCa: &core.DataSource{
-											Specifier: &core.DataSource_Filename{
-												Filename: "/etc/certs/root-cert.pem",
-											},
-										},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
 									},
 								},
-								AlpnProtocols: []string{"h2", "http/1.1"},
 							},
 						},
-						httpOpts: &httpListenerOpts{
-							rds:              "some-route",
-							useRemoteAddress: true,
-							direction:        http_conn.EGRESS,
-							connectionManager: &http_conn.HttpConnectionManager{
-								ForwardClientCertDetails: http_conn.SANITIZE_SET,
-								SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-									Subject: proto.BoolTrue,
-									Cert:    true,
-									Uri:     true,
-									Dns:     true,
-								},
-								ServerName:          EnvoyServerName,
-								HttpProtocolOptions: &core.Http1ProtocolOptions{},
-							},
-						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
 					},
 				},
-			}
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+		{
+			name: "Wildcard hosts in TLS filterChain are not duplicates",
+			node: &model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"*.example.org", "example.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"*.example.org", "example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
+					},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+	}
 
 	for _, tc := range testCases {
 		cgi := NewConfigGenerator([]plugin.Plugin{})
