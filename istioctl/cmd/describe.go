@@ -67,7 +67,7 @@ var (
 
 func podDescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "pod",
+		Use:   "pod <pod>",
 		Short: "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.
