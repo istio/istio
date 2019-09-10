@@ -36,7 +36,3 @@ RUN apt-get update && \
 # knot-dnsutils (4.5M): dig/nslookup
 
 # Alternative: dnsutils(44M) for dig/nslookup
-
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
