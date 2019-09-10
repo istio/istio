@@ -188,7 +188,9 @@ CNI_REPO_SHA=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 
 TEMP_DIR=$(mktemp -d)
 pushd "${TEMP_DIR}"
   git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
-  git --work-tree=cni checkout ${CNI_REPO_SHA}
+  pushd cni
+    git checkout ${CNI_REPO_SHA}
+  popd cni
   cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
 
   git clone -b "${CB_BRANCH}" https://github.com/istio/operator.git

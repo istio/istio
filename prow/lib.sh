@@ -92,7 +92,8 @@ function clone_cni() {
       TMP_DIR=$PWD
       cd ../ || return
       git clone -b master "https://github.com/istio/cni.git"
-      git --work-tree=cni checkout ${CNI_REPO_SHA}
+      cd cni || return
+      git checkout ${CNI_REPO_SHA}
       cd "${TMP_DIR}" || return
   fi
 }
