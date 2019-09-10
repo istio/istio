@@ -41,3 +41,8 @@ func GetService() string {
 func GetNamespace() string {
 	return string(MustAsset("builtin/namespace.yaml"))
 }
+
+// GetIngress returns Ingress test data
+func GetIngress() string {
+	return string(MustAsset("builtin/ingress.yaml"))
+}
