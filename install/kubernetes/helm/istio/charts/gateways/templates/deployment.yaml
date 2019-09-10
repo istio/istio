@@ -1,18 +1,16 @@
 {{- range $key, $spec := .Values }}
 {{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
+
+{{- $labels := dict "release" $.Release.Name "chart" (include "gateway.chart" $) "heritage" $.Release.Service }}
+{{- $labels = merge $labels $spec.labels }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    chart: {{ template "gateway.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
-    {{- range $key, $val := $spec.labels }}
-    {{ $key }}: {{ $val }}
-    {{- end }}
+{{ $labels | toYaml | indent 4 }}
 spec:
 {{- if not $spec.autoscaleEnabled }}
 {{- if $spec.replicaCount }}
@@ -33,12 +31,7 @@ spec:
   template:
     metadata:
       labels:
-        chart: {{ template "gateway.chart" $ }}
-        heritage: {{ $.Release.Service }}
-        release: {{ $.Release.Name }}
-        {{- range $key, $val := $spec.labels }}
-        {{ $key }}: {{ $val }}
-        {{- end }}
+{{ $labels | toYaml | indent 8 }}
       annotations:
         sidecar.istio.io/inject: "false"
 {{- if $spec.podAnnotations }}
@@ -236,6 +229,11 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {{ $labels | toJson}}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           - name: SDS_ENABLED
             value: "{{ $.Values.global.sds.enabled }}"
           - name: ISTIO_META_WORKLOAD_NAME
