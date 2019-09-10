@@ -107,6 +107,12 @@ type Instance interface {
 
 	// Epoch used to start Envoy.
 	Epoch() Epoch
+
+	// ConfigPath value used to start Envoy.
+	ConfigPath() string
+
+	// ConfigYaml value used to start Envoy.
+	ConfigYaml() string
 }
 
 // FactoryFunc is a function that manufactures Envoy Instances.
@@ -151,25 +157,29 @@ func New(cfg Config) (Instance, error) {
 	}
 
 	return &instance{
-		name:      cfg.Name,
-		config:    cfg,
-		cmd:       cmd,
-		adminPort: adminPort,
-		baseID:    ctx.baseID,
-		epoch:     ctx.epoch,
-		waitCh:    make(chan struct{}, 1),
+		name:       cfg.Name,
+		config:     cfg,
+		cmd:        cmd,
+		adminPort:  adminPort,
+		baseID:     ctx.baseID,
+		epoch:      ctx.epoch,
+		configPath: ctx.configPath,
+		configYaml: ctx.configYaml,
+		waitCh:     make(chan struct{}, 1),
 	}, nil
 }
 
 type instance struct {
-	config    Config
-	name      string
-	waitErr   error
-	cmd       *exec.Cmd
-	waitCh    chan struct{}
-	adminPort uint32
-	baseID    BaseID
-	epoch     Epoch
+	config     Config
+	name       string
+	waitErr    error
+	cmd        *exec.Cmd
+	waitCh     chan struct{}
+	adminPort  uint32
+	baseID     BaseID
+	epoch      Epoch
+	configPath string
+	configYaml string
 }
 
 func (i *instance) Config() Config {
@@ -245,6 +255,14 @@ func (i *instance) BaseID() BaseID {
 
 func (i *instance) Epoch() Epoch {
 	return i.epoch
+}
+
+func (i *instance) ConfigPath() string {
+	return i.configPath
+}
+
+func (i *instance) ConfigYaml() string {
+	return i.configYaml
 }
 
 func (i *instance) GetServerInfo() (*envoyAdmin.ServerInfo, error) {

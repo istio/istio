@@ -51,11 +51,17 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/envoy/restart"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+const (
+	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+
+	// proxyDrainConfigPath is the location of the bootstrap config used for draining on istio-proxy termination
+	proxyDrainConfigPath = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
+)
 
 var (
 	role             = &model.Proxy{Metadata: map[string]string{}}
@@ -99,13 +105,16 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	instanceIPVar         = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar            = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar       = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar     = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar  = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar         = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar         = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	useNewEnvoyManager    = env.RegisterBoolVar("ENVOY_MANAGER_ENABLED", false, "Use the new Envoy manager")
+	bootstrapOverrideFile = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "",
+		"Specifies Envoy bootstrap YAML that should override and be merged with the main bootstrap configuration")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -413,12 +422,80 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
-			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
+			// TODO(nmittler): Once the new Envoy manager has baked, get rid of the variable and the old code.
+			if useNewEnvoyManager.Get() {
+				// Create a function for running the Envoy restart manager.
+				runEnvoyManager := func() restart.Manager {
+					mgr := restart.NewManager(restart.ManagerConfig{
+						MaxRestartAttempts:       uint(envoy.DefaultRetry.MaxRetries),
+						InitialRestartInterval:   envoy.DefaultRetry.InitialInterval,
+						DrainConfigPath:          proxyDrainConfigPath,
+						Proxy:                    &proxyConfig,
+						ConfigOverride:           bootstrapOverrideFile.Get(),
+						PilotSAN:                 pilotSAN,
+						Node:                     role.ServiceNode(),
+						Options:                  opts,
+						NodeIPs:                  role.IPAddresses,
+						DNSRefreshRate:           dnsRefreshRate,
+						LogLevel:                 envoy.LogLevel(proxyLogLevel),
+						ComponentLogLevels:       envoy.ParseComponentLogLevels(proxyComponentLogLevel),
+						TerminationDrainDuration: features.TerminationDrainDuration(),
+					})
 
-			go waitForCompletion(ctx, agent.Run)
-			go waitForCompletion(ctx, watcher.Run)
+					// Run the manager and the certificate watcher.
+					go waitForCompletion(ctx, func(ctx context.Context) {
+						if err := mgr.Run(ctx); err != nil {
+							// Manager exited with an error, terminate the process.
+							os.Exit(1)
+						}
+					})
+
+					return mgr
+				}
+
+				if sdsEnabled {
+					// When SDS is enabled, Envoy is getting certificates dynamically and no restart of Envoy
+					// is required (i.e. we don't need a watcher).
+					_ = runEnvoyManager()
+				} else {
+					// SDS is disabled which means we need to watch for updates to the certificate files
+					// and restart Envoy when this occurs.
+
+					// Create an event handler for when certificate files change.
+					var mgr restart.Manager
+					onCertsChanged := func(_ interface{}) {
+						if mgr == nil {
+							// This is the first update, create and start the manager (and Envoy).
+							mgr = runEnvoyManager()
+						} else {
+							// Not the first update, restart Envoy with the new certs.
+							mgr.Restart()
+						}
+					}
+
+					// Create and start the certificate file watcher.
+					watcher := envoy.NewWatcher(tlsCertsToWatch, onCertsChanged)
+					go waitForCompletion(ctx, watcher.Run)
+				}
+			} else {
+				envoyProxy := envoy.NewProxy(proxyConfig,
+					bootstrapOverrideFile.Get(),
+					role.ServiceNode(),
+					proxyLogLevel,
+					proxyComponentLogLevel,
+					pilotSAN,
+					role.IPAddresses,
+					dnsRefreshRate,
+					opts)
+				agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
+				handler := func(update interface{}) {
+					agent.ConfigCh() <- update
+				}
+				watcher := envoy.NewWatcher(tlsCertsToWatch, handler)
+
+				go waitForCompletion(ctx, agent.Run)
+				go waitForCompletion(ctx, watcher.Run)
+			}
 
 			cmd.WaitSignal(make(chan struct{}))
 			return nil

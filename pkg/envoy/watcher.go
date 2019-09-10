@@ -33,6 +33,9 @@ const (
 	defaultMinDelay = 10 * time.Second
 )
 
+// WatcherHandler is a handler for updates from the Watcher
+type WatcherHandler func(update interface{})
+
 // Watcher triggers reloads on changes to the proxy config
 type Watcher interface {
 	// Run the watcher loop (blocking call)
@@ -41,16 +44,16 @@ type Watcher interface {
 
 type watcher struct {
 	certs   []string
-	updates chan<- interface{}
+	handler WatcherHandler
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate file paths
 func NewWatcher(
 	certs []string,
-	updates chan<- interface{}) Watcher {
+	handler WatcherHandler) Watcher {
 	return &watcher{
 		certs:   certs,
-		updates: updates,
+		handler: handler,
 	}
 }
 
@@ -68,7 +71,7 @@ func (w *watcher) Run(ctx context.Context) {
 func (w *watcher) SendConfig() {
 	h := sha256.New()
 	generateCertHash(h, w.certs)
-	w.updates <- h.Sum(nil)
+	w.handler(h.Sum(nil))
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,

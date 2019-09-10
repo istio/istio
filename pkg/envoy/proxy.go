@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/bootstrap"
@@ -41,17 +40,18 @@ const (
 )
 
 type envoy struct {
-	config         meshconfig.ProxyConfig
-	node           string
-	extraArgs      []string
-	pilotSAN       []string
-	opts           map[string]interface{}
-	nodeIPs        []string
-	dnsRefreshRate string
+	config                meshconfig.ProxyConfig
+	bootstrapOverrideFile string
+	node                  string
+	extraArgs             []string
+	pilotSAN              []string
+	opts                  map[string]interface{}
+	nodeIPs               []string
+	dnsRefreshRate        string
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
+func NewProxy(config meshconfig.ProxyConfig, bootstrapOverrideFile string, node string, logLevel string,
 	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, opts map[string]interface{}) Proxy {
 	// inject tracing flag for higher levels
 	var args []string
@@ -63,17 +63,18 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
 	}
 
 	return &envoy{
-		config:         config,
-		node:           node,
-		extraArgs:      args,
-		pilotSAN:       pilotSAN,
-		nodeIPs:        nodeIPs,
-		dnsRefreshRate: dnsRefreshRate,
-		opts:           opts,
+		config:                config,
+		bootstrapOverrideFile: bootstrapOverrideFile,
+		node:                  node,
+		extraArgs:             args,
+		pilotSAN:              pilotSAN,
+		nodeIPs:               nodeIPs,
+		dnsRefreshRate:        dnsRefreshRate,
+		opts:                  opts,
 	}
 }
 
-func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
+func (e *envoy) args(fname string, epoch int, bootstrapOverrideFile string) []string {
 	proxyLocalAddressType := "v4"
 	if isIPv6Proxy(e.nodeIPs) {
 		proxyLocalAddressType = "v6"
@@ -91,10 +92,10 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 	startupArgs = append(startupArgs, e.extraArgs...)
 
-	if bootstrapConfig != "" {
-		bytes, err := ioutil.ReadFile(bootstrapConfig)
+	if bootstrapOverrideFile != "" {
+		bytes, err := ioutil.ReadFile(bootstrapOverrideFile)
 		if err != nil {
-			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapOverrideFile, err)
 		} else {
 			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
 		}
@@ -106,8 +107,6 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 	return startupArgs
 }
-
-var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
@@ -132,7 +131,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch, istioBootstrapOverrideVar.Get())
+	args := e.args(fname, epoch, e.bootstrapOverrideFile)
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */

@@ -44,7 +44,10 @@ func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
-	watcher := NewWatcher([]string{"/random"}, agent.ConfigCh())
+	handler := func(update interface{}) {
+		agent.ConfigCh() <- update
+	}
+	watcher := NewWatcher([]string{"/random"}, handler)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update

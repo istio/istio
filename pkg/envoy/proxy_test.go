@@ -42,6 +42,7 @@ func TestEnvoyArgs(t *testing.T) {
 
 	testProxy := NewProxy(
 		proxyConfig,
+		"",
 		"my-node",
 		"trace",
 		"misc:error",
