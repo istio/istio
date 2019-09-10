@@ -106,7 +106,7 @@ type PushContext struct {
 }
 
 const (
-	noPortProvided  = -1
+	noPortProvided = -1
 )
 
 type processedDestRules struct {
@@ -1074,32 +1074,19 @@ func authenticationPolicyForWorkload(specsByPort map[int][]*Config, service *Ser
 	if specsByPort == nil {
 		return matchedPolicy
 	}
-	if matchedPolicy = matchPolicyByLabels(specsByPort[port.Port], service, l); matchedPolicy == nil {
-		matchedPolicy = matchPolicyByLabels(specsByPort[noPortProvided], service, l)
-	}
-	return matchedPolicy
-}
 
-func matchPolicyByLabels(specs []*Config, service *Service, l labels.Instance) *authn.Policy {
-	var matchedPolicy *authn.Policy
-	for _, spec := range specs {
-		if spec.Namespace != service.Attributes.Namespace {
-			continue
-		}
-		policy := spec.Spec.(*authn.Policy)
-
-		if len(l) > 0 {
-			for _, dest := range policy.Targets {
-				if len(dest.Labels) != 0 {
-					destLabels := labels.Instance(dest.Labels)
-					if !destLabels.SubsetOf(l) {
-						continue
-					}
-				}
-			}
-		}
-		matchedPolicy = policy
+	specs := specsByPort[port.Port]
+	if len(specs) == 0 {
+		specs = specsByPort[noPortProvided]
 	}
+
+	if len(specs) > 0 {
+		// TODO GregHanson add support for authn policy label matching
+		// for now return first matching config based on sortConfigByCreationTime()
+		// performed during init
+		matchedPolicy = specs[0].Spec.(*authn.Policy)
+	}
+
 	return matchedPolicy
 }
 
