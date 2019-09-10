@@ -90,7 +90,7 @@ function make_istio() {
   MAKE_TARGETS=(istio-archive)
   MAKE_TARGETS+=(sidecar.deb)
   
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make "${MAKE_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make "${MAKE_TARGETS[@]}"
   mkdir -p "${OUTPUT_PATH}/deb"
   sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
   cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
@@ -106,7 +106,7 @@ function make_istio() {
   rm -r "${ISTIO_OUT}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
 
   # preserve the source from the root of the code
   pushd "${ROOT}/../../../.." || exit
@@ -129,9 +129,9 @@ function make_istio() {
     CNI_OUT=$(make DEBUG=0 where-is-out)
     rm -r "${CNI_OUT}/docker" || true
     # CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
-    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
+    CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
   
-    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
+    CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
 
     cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
     git status
