@@ -19,6 +19,11 @@ data:
     disablePolicyChecks: true
     {{- end }}
 
+    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
+    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
+    {{- end }}
+
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
 
