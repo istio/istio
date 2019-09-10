@@ -188,7 +188,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 		event.FullSyncFor(k8smeta.K8SCoreV1Services)))
 
 	acc.Clear()
-	copyFile(t, dir, "bar.yaml", builtin.GetService())
+	copyFile(t, dir, "bar.yaml", data.GetService())
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))

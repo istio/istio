@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/data/builtin"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/config/util/kubeyaml"
@@ -261,7 +260,7 @@ func TestKubeSource_Service(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", builtin.GetService())
+	err := s.ApplyContent("foo", data.GetService())
 	g.Expect(err).To(BeNil())
 
 	actual := s.Get(k8smeta.K8SCoreV1Services).AllSorted()
