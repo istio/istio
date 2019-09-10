@@ -3,13 +3,13 @@
 package attribute
 
 func GlobalList() []string {
-	tmp := make([]string, len(globalList))
-	copy(tmp, globalList)
-	return tmp
+    tmp := make([]string, len(globalList))
+    copy(tmp, globalList)
+    return tmp
 }
 
 var (
-	globalList = []string{
+    globalList = []string{
 		"source.ip",
 		"source.port",
 		"source.name",
@@ -232,5 +232,5 @@ var (
 		"inbound",
 		"outbound",
 		"context.proxy_version",
-	}
+    }
 )

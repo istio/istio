@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -614,17 +613,17 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"../../../testdata/config/attributes.yaml":                TestdataConfigAttributesYaml,
-	"../../../template/apikey/template.yaml":                  TemplateApikeyTemplateYaml,
-	"../../../template/authorization/template.yaml":           TemplateAuthorizationTemplateYaml,
-	"../../../template/checknothing/template.yaml":            TemplateChecknothingTemplateYaml,
-	"../../../template/listentry/template.yaml":               TemplateListentryTemplateYaml,
-	"../../../template/logentry/template.yaml":                TemplateLogentryTemplateYaml,
-	"../../../template/metric/template.yaml":                  TemplateMetricTemplateYaml,
-	"../../../template/quota/template.yaml":                   TemplateQuotaTemplateYaml,
-	"../../../template/reportnothing/template.yaml":           TemplateReportnothingTemplateYaml,
-	"../../../template/tracespan/tracespan.yaml":              TemplateTracespanTracespanYaml,
-	"../../../test/spyAdapter/template/apa/tmpl.yaml":         TestSpyadapterTemplateApaTmplYaml,
+	"../../../testdata/config/attributes.yaml": TestdataConfigAttributesYaml,
+	"../../../template/apikey/template.yaml": TemplateApikeyTemplateYaml,
+	"../../../template/authorization/template.yaml": TemplateAuthorizationTemplateYaml,
+	"../../../template/checknothing/template.yaml": TemplateChecknothingTemplateYaml,
+	"../../../template/listentry/template.yaml": TemplateListentryTemplateYaml,
+	"../../../template/logentry/template.yaml": TemplateLogentryTemplateYaml,
+	"../../../template/metric/template.yaml": TemplateMetricTemplateYaml,
+	"../../../template/quota/template.yaml": TemplateQuotaTemplateYaml,
+	"../../../template/reportnothing/template.yaml": TemplateReportnothingTemplateYaml,
+	"../../../template/tracespan/tracespan.yaml": TemplateTracespanTracespanYaml,
+	"../../../test/spyAdapter/template/apa/tmpl.yaml": TestSpyadapterTemplateApaTmplYaml,
 	"../../../test/spyAdapter/template/checkoutput/tmpl.yaml": TestSpyadapterTemplateCheckoutputTmplYaml,
 }
 
@@ -667,7 +666,6 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
-
 var _bintree = &bintree{nil, map[string]*bintree{
 	"..": &bintree{nil, map[string]*bintree{
 		"..": &bintree{nil, map[string]*bintree{
@@ -769,3 +767,4 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
+
