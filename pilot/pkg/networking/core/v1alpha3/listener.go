@@ -269,7 +269,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 
 	switch node.Type {
 	case model.SidecarProxy:
-		builder = configgen.buildSidecarListeners(env, node, push, builder)
+		builder = configgen.buildSidecarListeners(env, push, builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(env, node, push, builder)
 	}
@@ -281,7 +281,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
 	env *model.Environment,
-	node *model.Proxy,
 	push *model.PushContext,
 	builder *ListenerBuilder) *ListenerBuilder {
 	mesh := env.Mesh
