@@ -24,7 +24,6 @@ import (
 )
 
 // ServiceRoleBindingAnalyzer checks the validity of service role bindings
-//TODO: Unit tests
 type ServiceRoleBindingAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceRoleBindingAnalyzer{}
