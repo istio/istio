@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/data/builtin"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/pkg/appsignals"
@@ -188,7 +187,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 		event.FullSyncFor(k8smeta.K8SCoreV1Services)))
 
 	acc.Clear()
-	copyFile(t, dir, "bar.yaml", builtin.GetService())
+	copyFile(t, dir, "bar.yaml", data.GetService())
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
