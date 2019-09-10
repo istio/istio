@@ -190,7 +190,7 @@ pushd "${TEMP_DIR}"
   git clone -b "${CB_BRANCH}" https://github.com/istio/cni.git
   pushd cni
     git checkout ${CNI_REPO_SHA}
-  popd cni
+  popd
   cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
 
   git clone -b "${CB_BRANCH}" https://github.com/istio/operator.git
