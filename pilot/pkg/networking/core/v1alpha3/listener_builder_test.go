@@ -19,7 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,73 +27,25 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-type LdsEnv struct {
-	configgen *ConfigGeneratorImpl
-}
-
-func getDefaultLdsEnv() *LdsEnv {
-	listenerEnv := LdsEnv{
-		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}),
-	}
-	return &listenerEnv
-}
-
-func getDefaultProxy() model.Proxy {
-	return model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
-		},
-		IstioVersion:    model.ParseIstioVersion("1.3"),
-		ConfigNamespace: "not-default",
-	}
-}
-
-func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
-	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(pushContext, "not-default")
-}
-
 func TestListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
+	builder, env := prepareListenerBuilder(t, false)
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
-
-	if err := env.PushContext.InitContext(&env); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
-	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
-	}
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(&proxy, env.PushContext)
-
-	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
+	listeners := builder.
+		buildSidecarInboundListeners(ldsEnv.configgen, &env, env.PushContext).
 		getListeners()
 
 	// the listener for app
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
-	p := service.Ports[0].Protocol
-	if p != protocol.HTTP && isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener, found HTTP")
-	} else if p == protocol.HTTP && !isHTTPListener(listeners[0]) {
+
+	if !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
+
 	verifyInboundHTTPListenerServerName(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
@@ -106,28 +57,11 @@ func TestListenerBuilder(t *testing.T) {
 func TestVirtualListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
+	builder, env := prepareListenerBuilder(t, false)
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
-	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
-	}
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(&proxy, env.PushContext)
-
-	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, env.PushContext).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -146,45 +80,16 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 }
 
-func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
-	proxy.Metadata[model.NodeMetadataInterceptionMode] = "REDIRECT"
-	proxy.Metadata[model.IstioIncludeInboundPorts] = model.AllPortsLiteral
-}
-
-func prepareListeners(t *testing.T) []*v2.Listener {
-	// prepare
-	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
-
-	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
-	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
-	}
-
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	setInboundCaptureAllOnThisNode(&proxy)
-	setNilSidecarOnProxy(&proxy, env.PushContext)
-
-	builder := NewListenerBuilder(&proxy)
-	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		buildVirtualInboundListener(ldsEnv.configgen, &env, &proxy, env.PushContext).
-		getListeners()
-}
-
 func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	builder, env := prepareListenerBuilder(t, true)
+	ldsEnv := getDefaultLdsEnv()
+
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, env.PushContext).
+		buildVirtualInboundListener(ldsEnv.configgen, &env, env.PushContext).
+		getListeners()
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
@@ -226,7 +131,13 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	builder, env := prepareListenerBuilder(t, true)
+	ldsEnv := getDefaultLdsEnv()
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &env, env.PushContext).
+		buildVirtualOutboundListener(ldsEnv.configgen, &env, env.PushContext).
+		buildVirtualInboundListener(ldsEnv.configgen, &env, env.PushContext).
+		getListeners()
+
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
@@ -283,4 +194,66 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
 			xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
 	}
+}
+
+type LdsEnv struct {
+	configgen *ConfigGeneratorImpl
+}
+
+func getDefaultLdsEnv() *LdsEnv {
+	listenerEnv := LdsEnv{
+		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}),
+	}
+	return &listenerEnv
+}
+
+func getDefaultProxy() model.Proxy {
+	return model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_VERSION":                   "1.3",
+		},
+		IstioVersion:    model.ParseIstioVersion("1.3"),
+		ConfigNamespace: "not-default",
+	}
+}
+
+func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
+	proxy.Metadata[model.NodeMetadataInterceptionMode] = "REDIRECT"
+	proxy.Metadata[model.IstioIncludeInboundPorts] = model.AllPortsLiteral
+}
+
+func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(pushContext, "not-default")
+}
+
+func prepareListenerBuilder(t *testing.T, setInboundCaptureAll bool) (*ListenerBuilder, model.Environment) {
+	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
+	services := []*model.Service{service}
+
+	env := buildListenerEnv(services)
+	if err := env.PushContext.InitContext(&env); err != nil {
+		t.Fatalf("init push context error: %s", err.Error())
+	}
+
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service:  s,
+			Endpoint: buildEndpoint(s),
+		}
+	}
+	proxy := getDefaultProxy()
+	proxy.ServiceInstances = instances
+
+	if setInboundCaptureAll == true {
+		setInboundCaptureAllOnThisNode(&proxy)
+	}
+	setNilSidecarOnProxy(&proxy, env.PushContext)
+
+	return NewListenerBuilder(&proxy), env
 }

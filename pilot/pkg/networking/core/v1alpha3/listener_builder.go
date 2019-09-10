@@ -176,20 +176,21 @@ func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 }
 
 func (builder *ListenerBuilder) buildSidecarInboundListeners(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder.inboundListeners = configgen.buildSidecarInboundListeners(env, node, push)
+	env *model.Environment, push *model.PushContext) *ListenerBuilder {
+	builder.inboundListeners = configgen.buildSidecarInboundListeners(env, builder.node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder.outboundListeners = configgen.buildSidecarOutboundListeners(env, node, push)
+	env *model.Environment, push *model.PushContext) *ListenerBuilder {
+	builder.outboundListeners = configgen.buildSidecarOutboundListeners(env, builder.node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, _ *model.PushContext) *ListenerBuilder {
+	env *model.Environment, _ *model.PushContext) *ListenerBuilder {
 
+	node := builder.node
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
@@ -241,8 +242,9 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 
 func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	env *model.Environment, push *model.PushContext) *ListenerBuilder {
 
+	node := builder.node
 	var isTransparentProxy *types.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -296,8 +298,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
 func (builder *ListenerBuilder) buildVirtualInboundListener(
 	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	env *model.Environment, push *model.PushContext) *ListenerBuilder {
 	var isTransparentProxy *types.BoolValue
+	node := builder.node
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}

@@ -288,11 +288,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
 
 	if mesh.ProxyListenPort > 0 {
 		// Any build order change need a careful code review
-		builder.buildSidecarInboundListeners(configgen, env, node, push).
-			buildSidecarOutboundListeners(configgen, env, node, push).
-			buildManagementListeners(configgen, env, node, push).
-			buildVirtualOutboundListener(configgen, env, node, push).
-			buildVirtualInboundListener(configgen, env, node, push)
+		builder.buildSidecarInboundListeners(configgen, env, push).
+			buildSidecarOutboundListeners(configgen, env, push).
+			buildManagementListeners(configgen, env, push).
+			buildVirtualOutboundListener(configgen, env, push).
+			buildVirtualInboundListener(configgen, env, push)
 	}
 
 	return builder
