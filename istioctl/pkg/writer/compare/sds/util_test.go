@@ -66,7 +66,7 @@ var (
 				{
 					ConnectionID: "connection-id",
 					ProxyID:      "proxy-id",
-					ResourceName: "resource-name",
+					ResourceName: "resource-name-a",
 					RootCert:     exampleCACert,
 				},
 			},
@@ -76,7 +76,7 @@ var (
 				{
 					ConnectionID: "connection-id",
 					ProxyID:      "proxy-id",
-					ResourceName: "resource-name",
+					ResourceName: "resource-name-b",
 					RootCert:     exampleCACert,
 				},
 			},
@@ -121,7 +121,7 @@ func TestGetNodeAgentSecrets(t *testing.T) {
 			connNameFilter: filterNone,
 			expectedOutput: []SecretItem{
 				{
-					Name:        "resource-name",
+					Name:        "resource-name-a",
 					Source:      "test-agent-1",
 					Destination: "proxy-id",
 					Data:        exampleCACert,
@@ -134,7 +134,7 @@ func TestGetNodeAgentSecrets(t *testing.T) {
 					},
 				},
 				{
-					Name:        "resource-name",
+					Name:        "resource-name-b",
 					Source:      "test-agent-2",
 					Destination: "proxy-id",
 					Data:        exampleCACert,
@@ -157,11 +157,25 @@ func TestGetNodeAgentSecrets(t *testing.T) {
 			if tc.wantErr != (err != nil) {
 				t.Errorf("expected error: %t, but got: %t, error: %v", tc.wantErr, err != nil, err)
 			}
-			if !reflect.DeepEqual(tc.expectedOutput, output) {
-				t.Errorf("expected output: %v, but got: %v", tc.expectedOutput, output)
+			for _, secret := range tc.expectedOutput {
+				if !secretItemPresent(secret, output) {
+					t.Errorf("couldn't find expected secret item: %v", secret)
+				}
+			}
+			if len(tc.expectedOutput) != len(output) {
+				t.Errorf("expected secret count: %d, but got: %d", len(tc.expectedOutput), len(output))
 			}
 		})
 	}
+}
+
+func secretItemPresent(item SecretItem, l []SecretItem) bool {
+	for _, secretItem := range l {
+		if reflect.DeepEqual(item, secretItem) {
+			return true
+		}
+	}
+	return false
 }
 
 func filterNone(n string) bool { return true }
