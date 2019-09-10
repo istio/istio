@@ -86,11 +86,13 @@ function setup_e2e_cluster() {
 }
 
 function clone_cni() {
+  CNI_REPO_SHA=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   # Clone the CNI repo so the CNI artifacts can be built.
   if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
       TMP_DIR=$PWD
       cd ../ || return
       git clone -b master "https://github.com/istio/cni.git"
+      git --work-tree=cni checkout ${CNI_REPO_SHA}
       cd "${TMP_DIR}" || return
   fi
 }
