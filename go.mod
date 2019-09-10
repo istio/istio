@@ -9,6 +9,7 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 require (
+	cloud.google.com/go v0.38.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
@@ -61,8 +62,10 @@ require (
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/protobuf v1.3.1
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
+	github.com/google/go-cmp v0.3.0
 	github.com/google/go-github v15.0.0+incompatible
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/google/uuid v1.1.1
@@ -113,6 +116,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.4.0
 	github.com/prometheus/prom2json v1.2.1
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
@@ -138,9 +142,12 @@ require (
 	go.uber.org/atomic v1.4.0
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
+	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/api v0.8.0
+	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 	google.golang.org/grpc v1.23.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/ini.v1 v1.42.0 // indirect
