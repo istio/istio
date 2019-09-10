@@ -111,6 +111,20 @@ data:
         action: keep
         regex: istio-citadel;http-monitoring
 
+{{- if .Values.global.sds.enabled }}
+    - job_name: 'citadel-nodeagent'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - {{ .Release.Namespace }}
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-nodeagent;http-monitoring
+{{- end }}
+
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
       kubernetes_sd_configs:
