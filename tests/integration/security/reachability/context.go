@@ -111,6 +111,7 @@ func (rc *Context) Run(testCases []TestCase) {
 	}
 
 	for _, c := range testCases {
+		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		test := rc.ctx.NewSubTest(testName)
 
