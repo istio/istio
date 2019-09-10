@@ -216,7 +216,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			authenticators = append(authenticators, authenticator)
 			log.Info("added K8s JWT authenticator")
 		} else {
-			log.Warnf("failed to add create JWT authenticator: %v", err)
+			log.Warnf("failed to add JWT authenticator: %v", err)
 		}
 	}
 
@@ -257,7 +257,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			if s.certificate == nil || shouldRefresh(s.certificate) {
 				// Apply new certificate if there isn't one yet, or the one has become invalid.
-				newCert, err := s.applyServerCertificate()
+				newCert, err := s.getServerCertificate()
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply TLS server certificate (%v)", err)
 				}
@@ -269,7 +269,9 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(config))
 }
 
-func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
+// getServerCertificate returns a valid server TLS certificate and the intermediate CA certificates,
+// signed by the current CA root.
+func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
 		RSAKeySize: 2048,
 	}
@@ -279,7 +281,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, signErr := s.ca.Sign(csrPEM, s.hostnames, s.serverCertTTL, false)
+	certPEM, signErr := s.ca.SignWithCertChain(csrPEM, s.hostnames, s.serverCertTTL, false)
 	if signErr != nil {
 		return nil, signErr.(*ca.Error)
 	}
