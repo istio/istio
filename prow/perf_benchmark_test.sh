@@ -46,7 +46,7 @@ function collect_metrics() {
 
   CSV_OUTPUT="$(mktemp /tmp/benchmark_XXXX.csv)"
   pipenv install
-  pipenv run python fortio.py $FORTIO_CLIENT_URL --csv_output=$CSV_OUTPUT --prometheus=$PROMETHEUS_URL \
+  pipenv run python fortio.py $FORTIO_CLIENT_URL --csv_output="$CSV_OUTPUT" --prometheus=$PROMETHEUS_URL \
    --csv StartTime,ActualDuration,Labels,NumThreads,ActualQPS,p50,p90,p99,cpu_mili_avg_telemetry_mixer,cpu_mili_max_telemetry_mixer,\
 mem_MB_max_telemetry_mixer,cpu_mili_avg_fortioserver_deployment_proxy,cpu_mili_max_fortioserver_deployment_proxy,\
 mem_MB_max_fortioserver_deployment_proxy,cpu_mili_avg_ingressgateway_proxy,cpu_mili_max_ingressgateway_proxy,mem_MB_max_ingressgateway_proxy
@@ -75,7 +75,7 @@ popd
 
 echo "Start running perf benchmark test."
 # run towards all combinations of the parameter
-pipenv run python runner.py ${CONN} ${QPS} ${DURATION} ${EXTRA_ARGS}
+pipenv run python runner.py ${CONN} ${QPS} ${DURATION} "${EXTRA_ARGS}"
 collect_metrics true
 
 echo "perf benchmark test is done."
