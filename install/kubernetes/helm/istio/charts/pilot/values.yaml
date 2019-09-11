@@ -12,9 +12,9 @@ rollingMaxUnavailable: 25%
 image: pilot
 sidecar: true
 traceSampling: 1.0
-# if protocol sniffing is enabled for outbound. Default to true.
+# if protocol sniffing is enabled for outbound
 enableProtocolSniffingForOutbound: true
-# if protocol sniffing is enabled for inbound. Default to true.
+# if protocol sniffing is enabled for inbound
 enableProtocolSniffingForInbound: false
 # Resources for a small pilot install
 resources:
