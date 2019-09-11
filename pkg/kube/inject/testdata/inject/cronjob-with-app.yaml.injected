@@ -11,6 +11,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
     spec:
       template:
         metadata:
