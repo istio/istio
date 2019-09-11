@@ -671,14 +671,17 @@ type EgressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 	//
 	// Examples:
+	//
+	// ```yaml
 	// podAntiAffinityLabelSelector:
 	//  - key: security
 	//    operator: In
 	//    values: S1,S2
 	//    topologyKey: "kubernetes.io/hostname"
-	//  This pod anti-affinity rule says that the pod requires not to be scheduled
-	//  onto a node if that node is already running a pod with label having key
-	//  “security” and value “S1”.
+	// ```
+	// This pod anti-affinity rule says that the pod requires not to be scheduled
+	// onto a node if that node is already running a pod with label having key
+	// “security” and value “S1”.
 	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See PodAntiAffinityLabelSelector.
 	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
@@ -1160,6 +1163,7 @@ type GlobalConfig struct {
 	// endpoints based on the localities of where the traffic originates and where it will terminate.
 	// Please set either failover or distribute configuration but not both.
 	//
+	// ```yaml
 	// localityLbSetting:
 	//   distribute:
 	//   - from: "us-central1/*"
@@ -1173,6 +1177,7 @@ type GlobalConfig struct {
 	//     to: eu-west
 	//   - from: us-west
 	//     to: us-east
+	// ```
 	LocalityLbSetting map[string]string `protobuf:"bytes,15,rep,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies the Configuration for the legacy kubernetes Ingress.
 	K8SIngress *KubernetesIngressConfig `protobuf:"bytes,16,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
@@ -1193,6 +1198,7 @@ type GlobalConfig struct {
 	// LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
 	// it still need to be configured manually).
 	//
+	// ```yaml
 	// meshNetworks:
 	//   network1:
 	//     endpoints:
@@ -1206,7 +1212,7 @@ type GlobalConfig struct {
 	//     gateways:
 	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
 	//       port: 443
-	//
+	// ```
 	MeshNetworks *TypeMapStringInterface `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the monitor port number for all Istio control plane components.
 	MonitoringPort uint32 `protobuf:"varint,20,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
