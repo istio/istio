@@ -123,7 +123,7 @@ func (m *consulMonitor) updateInstanceRecord() {
 	for name := range svcs {
 		endpoints, _, err := m.discovery.Catalog().Service(name, "", nil)
 		if err != nil {
-			log.Warnf("Could not retrieve service catalogue from consul: %v", err)
+			log.Warnf("Could not retrieve service catalog from consul: %v", err)
 			continue
 		}
 		instances = append(instances, endpoints...)

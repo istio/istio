@@ -310,7 +310,7 @@ func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpda
 	var err error
 	for {
 		if time.Since(start) > timeout {
-			return fmt.Errorf("sds stats does not meet expection in %v: Expected %v, Last stats: %v",
+			return fmt.Errorf("sds stats does not meet expectation in %v: Expected %v, Last stats: %v",
 				timeout, expectedUpdates, sdsUpdates)
 		}
 		sdsUpdates, err = GetStatsByName(t, ing, "listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds")
@@ -334,7 +334,7 @@ func WaitUntilGatewayActiveListenerStatsGE(t *testing.T, ing ingress.Instance, e
 	var err error
 	for {
 		if time.Since(start) > timeout {
-			return fmt.Errorf("active listener stats does not meet expection in %v: Expected %v, "+
+			return fmt.Errorf("active listener stats does not meet expectation in %v: Expected %v, "+
 				"Last stats: %v", timeout, expectedListeners, activeListeners)
 		}
 		activeListeners, err = GetStatsByName(t, ing, "listener_manager.total_listeners_active")

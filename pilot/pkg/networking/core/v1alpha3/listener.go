@@ -1434,43 +1434,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	}
 }
 
-// TODO(silentdai): duplicate with listener_builder.go. Remove this one once split is verified.
-func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
-	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
-	// Do not generate any management port listeners if the user has specified a SidecarScope object
-	// with ingress listeners. Specifying the ingress listener implies that the user wants
-	// to only have those specific listeners and nothing else, in the inbound path.
-	generateManagementListeners := true
-	if node.SidecarScope.HasCustomIngressListeners || noneMode {
-		generateManagementListeners = false
-	}
-	if generateManagementListeners {
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		mgmtListeners := make([]*xdsapi.Listener, 0)
-		for _, ip := range node.IPAddresses {
-			managementPorts := env.ManagementPorts(ip)
-			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-			mgmtListeners = append(mgmtListeners, management...)
-		}
-
-		// If management listener port and service port are same, bad things happen
-		// when running in kubernetes, as the probes stop responding. So, append
-		// non overlapping listeners only.
-		for i := range mgmtListeners {
-			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, *m.Address)
-			if l != nil {
-				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
-					m.Name, l.Name)
-				continue
-			}
-			listeners = append(listeners, m)
-		}
-	}
-	return listeners
-}
-
 // onVirtualOutboundListener calls the plugin API for the outbound virtual listener
 func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Environment,
 	node *model.Proxy,
