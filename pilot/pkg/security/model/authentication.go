@@ -171,7 +171,7 @@ func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: FileBasedMetadataPlugName,
 					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-					Config: util.MessageToStruct(config)},
+						Config: util.MessageToStruct(config)},
 				},
 			},
 		},
