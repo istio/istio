@@ -124,7 +124,7 @@ func readMetadata(path string) (*metadata, error) {
 	var m metadata
 
 	if err = yaml.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("error marshalling input file: %v", err)
+		return nil, fmt.Errorf("error marshaling input file: %v", err)
 	}
 
 	// Auto-complete listkind fields with defaults.

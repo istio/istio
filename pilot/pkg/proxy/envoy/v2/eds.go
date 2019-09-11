@@ -757,25 +757,6 @@ func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterNam
 	return false
 }
 
-// addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
-
-	s.getOrAddEdsCluster(clusterName, node, connection)
-	// TODO: left the code here so we can skip sending the already-sent clusters.
-	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
-	// previous version sent all the clusters from CDS in bulk).
-
-	//c.mutex.Lock()
-	//existing := c.EdsClients[node]
-	//c.mutex.Unlock()
-	//
-	//// May replace an existing connection: this happens when Envoy adds more clusters
-	//// one by one, creating new grpc requests each time it adds one more cluster.
-	//if existing != nil {
-	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
-	//}
-}
-
 // getEdsCluster returns a cluster.
 func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	// separate method only to have proper lock.
@@ -784,6 +765,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
+// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()

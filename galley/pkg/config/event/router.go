@@ -131,6 +131,6 @@ func AddToRouter(r Router, source collection.Name, handler Handler) Router {
 		return s
 
 	default:
-		panic(fmt.Sprintf("unkown Router: %T", v))
+		panic(fmt.Sprintf("unknown Router: %T", v))
 	}
 }

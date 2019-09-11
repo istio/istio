@@ -352,15 +352,6 @@ func TestStaticBag(t *testing.T) {
 	b.Done()
 }
 
-func TestBuildHandler_ConnectError(t *testing.T) {
-	/*
-		h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: ""}, false, []*adapter.DynamicInstance{}, false,)
-		if err != nil {
-			t.Fatalf("unable to build handler: %v", err)
-		}
-		h.Close()*/
-}
-
 func TestHandlerTimeout(t *testing.T) {
 	args := spy.DefaultArgs()
 	args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
