@@ -53,9 +53,6 @@ kiali:
     grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
     jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
 
-  # Optional: prometheus may be deployed in a different namespace
-  prometheusNamespace:
-
   # When true, a secret will be created with a default username and password. Useful for demos.
   createDemoSecret: true
 
