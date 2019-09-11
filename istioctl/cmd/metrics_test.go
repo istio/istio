@@ -48,18 +48,13 @@ func TestMetricsNoPrometheus(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("metrics", " "),
+			args:           strings.Split("experimental metrics", " "),
 			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("metrics details", " "),
-			expectedOutput: "Error: no Prometheus pods found\n",
-			wantException:  true,
-		},
-		{ // case 2
 			args:           strings.Split("experimental metrics details", " "),
-			expectedOutput: "Error: (metrics has graduated.  Use `istioctl metrics`)\n",
+			expectedOutput: "Error: no Prometheus pods found\n",
 			wantException:  true,
 		},
 	}
@@ -76,8 +71,9 @@ func TestMetrics(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:          strings.Split("experimental metrics details", " "),
-			wantException: true,
+			args:           strings.Split("experimental metrics details", " "),
+			expectedRegexp: regexp.MustCompile("Error: could not build port forwarder for prometheus"),
+			wantException:  true,
 		},
 	}
 
