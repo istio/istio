@@ -70,6 +70,13 @@
     "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
   },
   {
+    "op": "add",
+    "path": "/metadata/labels",
+    "value": {
+      "security.istio.io/mtlsReady": "true"
+    }
+  },
+  {
     "op": "replace",
     "path": "/spec/containers/1/readinessProbe/httpGet",
     "value": {

@@ -14,14 +14,11 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"3ae2237c99cecd220c8a89781e3929298793b967a9e628986e30bf4ec51a57db","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/mtlsReady: "false"
         tier: backend
         track: stable
     spec:
@@ -31,10 +28,6 @@ spec:
         ports:
         - containerPort: 80
           name: http
-        readinessProbe:
-          httpGet:
-            path: /app-health/hello/readyz
-            port: 15020
         resources: {}
       - args:
         - proxy
@@ -53,6 +46,8 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
+        - --zipkinAddress
+        - ""
         - --dnsRefreshRate
         - 300s
         - --connectTimeout
@@ -105,16 +100,7 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
           value: "80"
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"hello","tier":"backend","track":"stable"}
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: hello
-        - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/readyz":{"port":3333}}'
-        image: docker.io/istio/proxyv2:unittest
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -126,8 +112,8 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 2
-          periodSeconds: 30
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -155,14 +141,14 @@ spec:
         - -m
         - REDIRECT
         - -i
-        - ""
+        - '*'
         - -x
         - ""
         - -b
         - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -187,4 +173,5 @@ spec:
           optional: true
           secretName: istio.default
 status: {}
+
 ---
