@@ -15,9 +15,12 @@
 package v1alpha3
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
@@ -182,6 +185,9 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
@@ -224,6 +230,8 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)

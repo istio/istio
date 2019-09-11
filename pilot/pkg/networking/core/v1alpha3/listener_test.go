@@ -152,8 +152,8 @@ var (
 )
 
 func TestInboundListenerConfigProxyV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
 		testInboundListenerConfigV13(t, p,
