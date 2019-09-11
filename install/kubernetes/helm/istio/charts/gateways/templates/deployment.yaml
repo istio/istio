@@ -2,8 +2,7 @@
 {{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 
-{{- $labels := dict "release" $.Release.Name "chart" (include "gateway.chart" $) "heritage" $.Release.Service }}
-{{- $labels = merge $labels $spec.labels }}
+{{- $labels := merge (dict "release" $.Release.Name "chart" (include "gateway.chart" $) "heritage" $.Release.Service) $spec.labels }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
