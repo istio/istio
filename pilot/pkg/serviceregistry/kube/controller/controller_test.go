@@ -173,10 +173,8 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		stop:             make(chan struct{}),
 	})
 	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
-		t.Log("Instance event received")
 	})
 	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {
-		t.Log("Service event received")
 	})
 	c.Env = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
