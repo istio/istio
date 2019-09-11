@@ -15,12 +15,10 @@
 package model
 
 import (
-	"sync"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -167,47 +165,15 @@ func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		HeaderKey: headerKey,
 	}
 
-	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
-
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: FileBasedMetadataPlugName,
-					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-						TypedConfig: any},
+					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+					Config: util.MessageToStruct(config)},
 				},
 			},
 		},
 	}
-}
-
-type fbMetadataAnyKey struct {
-	tokenFileName string
-	headerKey     string
-}
-
-var fileBasedMetadataConfigAnyMap sync.Map
-
-// findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
-// by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
-// it takes the fbMetadata and marshals it into google.protobuf.Any, and stores this new
-// google.protobuf.Any into fileBasedMetadataConfigAnyMap.
-// FileBasedMetadataConfig only supports non-deterministic marshaling. As each SDS config contains
-// marshaled FileBasedMetadataConfig, the SDS config would differ if marshaling FileBasedMetadataConfig
-// returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
-// same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
-// FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
-func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *v2alpha.FileBasedMetadataConfig) *types.Any {
-	key := fbMetadataAnyKey{
-		tokenFileName: tokenFileName,
-		headerKey:     headerKey,
-	}
-	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		marshalAny := v.(types.Any)
-		return &marshalAny
-	}
-	any, _ := types.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap.Store(key, *any)
-	return any
 }
