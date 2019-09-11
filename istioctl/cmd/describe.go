@@ -41,6 +41,7 @@ import (
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -267,9 +268,7 @@ func containerPortOptional(istioVersion *model.IstioVersion) bool {
 }
 
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	// See pilot/pkg/networking/util/IsIstioVersionGE13()
-	return istioVersion == nil ||
-		istioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
+	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
