@@ -131,7 +131,7 @@ func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCrede
 	}
 }
 
-func constructSdsConfigHelper(metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
+func constructSdsConfigHelper(metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource { // nolint:interfacer
 	return &core.ConfigSource{
 		InitialFetchTimeout: features.InitialFetchTimeout,
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
