@@ -595,7 +595,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.CDSWatch {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
@@ -603,21 +602,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
-			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}

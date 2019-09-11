@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -23,8 +24,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) (err error) {
 	// TODO: Modify interface to take services, and config instead of making library query registry
+	pushStart := time.Now()
+	defer func() {
+		if err != nil {
+			proxiesConvergeDelayLdsErrors.Record(time.Since(pushStart).Seconds())
+		} else {
+			proxiesConvergeDelayLds.Record(time.Since(pushStart).Seconds())
+		}
+	}()
 
 	rawListeners := s.generateRawListeners(con, push)
 
@@ -32,16 +41,16 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
-	err := con.send(response)
+	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(ldsSendErrPushes, err)
-		return err
+		return
 	}
 	ldsPushes.Increment()
 
 	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.modelNode.ID, len(rawListeners))
-	return nil
+	return
 }
 
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {

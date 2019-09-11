@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -45,26 +46,34 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) (err error) {
 	// TODO: Modify interface to take services, and config instead of making library query registry
+	pushStart := time.Now()
+	defer func() {
+		if err != nil {
+			proxiesConvergeDelayCdsErrors.Record(time.Since(pushStart).Seconds())
+		} else {
+			proxiesConvergeDelayCds.Record(time.Since(pushStart).Seconds())
+		}
+	}()
 	rawClusters := s.generateRawClusters(con.modelNode, push)
 
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
 	response := con.clusters(rawClusters)
-	err := con.send(response)
+	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(cdsSendErrPushes, err)
-		return err
+		return
 	}
 	cdsPushes.Increment()
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
 		con.modelNode.ID, len(rawClusters), len(push.Services(nil)), version)
-	return nil
+	return
 }
 
 func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) []*xdsapi.Cluster {

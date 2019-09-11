@@ -114,7 +114,13 @@ var (
 		"pilot_proxy_convergence_time",
 		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
+		monitoring.WithLabels(typeTag, errTag),
 	)
+	proxiesConvergeDelayCds = proxiesConvergeDelay.With(typeTag.Value("cds"))
+	proxiesConvergeDelayEds = proxiesConvergeDelay.With(typeTag.Value("eds"))
+	proxiesConvergeDelayRds = proxiesConvergeDelay.With(typeTag.Value("rds"))
+	proxiesConvergeDelayLds = proxiesConvergeDelay.With(typeTag.Value("lds"))
+
 	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
 	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
 	proxiesConvergeDelayRdsErrors = proxiesConvergeDelay.With(errTag.Value("rds"))
@@ -170,10 +176,6 @@ func init() {
 		pushes,
 		proxiesConvergeDelay,
 		proxiesQueueTime,
-		proxiesConvergeDelayCdsErrors,
-		proxiesConvergeDelayEdsErrors,
-		proxiesConvergeDelayRdsErrors,
-		proxiesConvergeDelayLdsErrors,
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,

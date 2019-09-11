@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -26,7 +27,15 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) (err error) {
+	pushStart := time.Now()
+	defer func() {
+		if err != nil {
+			proxiesConvergeDelayRdsErrors.Record(time.Since(pushStart).Seconds())
+		} else {
+			proxiesConvergeDelayRds.Record(time.Since(pushStart).Seconds())
+		}
+	}()
 	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
@@ -39,16 +48,16 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	}
 
 	response := routeDiscoveryResponse(rawRoutes, version)
-	err := con.send(response)
+	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
 		recordSendError(rdsSendErrPushes, err)
-		return err
+		return
 	}
 	rdsPushes.Increment()
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.modelNode.ID, len(rawRoutes))
-	return nil
+	return
 }
 
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
