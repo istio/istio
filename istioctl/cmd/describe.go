@@ -53,7 +53,8 @@ type myGogoValue struct {
 }
 
 const (
-	k8sSuffix = ".svc.cluster.local"
+	k8sSuffix         = ".svc.cluster.local"
+	noVersionMetadata = "no-metadata"
 )
 
 var (
@@ -148,6 +149,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return fmt.Errorf("can't parse sidecar config_dump: %v", err)
 			}
 
+			// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
+			istioVersion := getIstioVersion(&cd)
+
 			var configClient model.ConfigStore
 			if configClient, err = clientFactory(); err != nil {
 				return err
@@ -155,7 +159,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			for _, svc := range matchingServices {
 				fmt.Fprintf(writer, "--------------------\n")
-				printService(writer, svc, pod)
+				printService(writer, svc, pod, istioVersion)
 
 				for _, port := range svc.Spec.Ports {
 					matchingSubsets := []string{}
@@ -235,7 +239,41 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
-func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
+func getIstioVersion(cd *configdump.Wrapper) string {
+	bootstrapDump, err := cd.GetBootstrapConfigDump()
+	if err == nil {
+		bootstrapNode := bootstrapDump.GetBootstrap().Node
+		if bootstrapNode.Metadata == nil {
+			// Happens if there has been no dynamic config, e.g. on Pilot itself
+			return noVersionMetadata
+		}
+
+		return asMyGogoValue(bootstrapNode.Metadata).keyAsString("ISTIO_VERSION")
+	}
+
+	return "undetected"
+}
+
+func containerPortOptional(istioVersion string) bool {
+	if istioVersion == noVersionMetadata {
+		return true
+	}
+	return supportsProtocolDetection(istioVersion)
+}
+
+func supportsProtocolDetection(istioVersion string) bool {
+	if istioVersion != "" && istioVersion != "undetected" &&
+		!strings.HasPrefix(istioVersion, "0") &&
+		!strings.HasPrefix(istioVersion, "1.0.") &&
+		!strings.HasPrefix(istioVersion, "1.1.") &&
+		!strings.HasPrefix(istioVersion, "1.2.") {
+		return true
+	}
+
+	return false
+}
+
+func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion string) []string {
 	retval := []string{}
 
 	// Build list of ports exposed by pod
@@ -253,14 +291,18 @@ func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 	} else {
 		_, ok := containerPorts[nport]
 		if !ok {
-			retval = append(retval,
-				fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
+			if !containerPortOptional(istioVersion) {
+				retval = append(retval,
+					fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
+			}
 		}
 	}
 
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
-		retval = append(retval,
-			fmt.Sprintf("%s is named %q which does not follow Istio conventions", port.TargetPort.String(), port.Name))
+		if !supportsProtocolDetection(istioVersion) {
+			retval = append(retval,
+				fmt.Sprintf("%s is named %q which does not follow Istio %s conventions", port.TargetPort.String(), port.Name, istioVersion))
+		}
 	}
 
 	return retval
@@ -562,7 +604,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
+func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion string) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -572,9 +614,16 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 		// Get port number
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
-			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, servicePortProtocol(port.Name))
+			var protocol string
+			if port.Name == "" && supportsProtocolDetection(istioVersion) {
+				protocol = "auto-detect"
+			} else {
+				protocol = string(servicePortProtocol(port.Name))
+			}
+
+			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, protocol)
 		}
-		msgs := validatePort(port, pod)
+		msgs := validatePort(port, pod, istioVersion)
 		for _, msg := range msgs {
 			fmt.Fprintf(writer, "   %s\n", msg)
 		}
