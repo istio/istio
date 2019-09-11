@@ -153,8 +153,8 @@ var (
 )
 
 func TestInboundListenerConfigProxyV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
 		testInboundListenerConfigV13(t, p,
@@ -169,8 +169,8 @@ func TestInboundListenerConfigProxyV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -181,8 +181,8 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -195,8 +195,8 @@ func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -207,8 +207,8 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -219,8 +219,8 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -231,8 +231,8 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 }
 
 func TestOutboundListenerRouteV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	testOutboundListenerRouteV13(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
@@ -241,8 +241,8 @@ func TestOutboundListenerRouteV13(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// Add a service and verify it's config
 	services := []*model.Service{

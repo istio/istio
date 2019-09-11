@@ -133,9 +133,9 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 				_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
 			}
 			if tt.sniffingEnabledForOutbound {
-				_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+				_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
 			} else {
-				_ = os.Setenv(features.EnableProtocolSniffing.Name, "false")
+				_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "false")
 			}
 
 			if got := ModelProtocolToListenerProtocol(tt.node, tt.protocol, tt.direction); got != tt.want {
@@ -143,7 +143,7 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			}
 
 			_ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name)
-			_ = os.Unsetenv(features.EnableProtocolSniffing.Name)
+			_ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name)
 		})
 	}
 }
