@@ -110,8 +110,6 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			// TODO(crazyxy): When a HCM is installed in a auto listener that is bound to x.x.x.x:port (where x.x.x.x != 0.0.0.0),
-			//  then the RDS response from Pilot will return all possible hosts from that port. Not just the host for the specific service.
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)

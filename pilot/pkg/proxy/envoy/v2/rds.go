@@ -18,11 +18,9 @@ import (
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -52,35 +50,20 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 }
 
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
-	rc := make([]*xdsapi.RouteConfiguration, 0)
-	// TODO: Follow this logic for other xDS resources as well
-	// TODO: once per config update
-	for _, routeName := range con.Routes {
-		r := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
-
-		if r == nil {
-			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
-
-			// Explicitly send an empty route configuration
-			r = &xdsapi.RouteConfiguration{
-				Name:             routeName,
-				VirtualHosts:     []*route.VirtualHost{},
-				ValidateClusters: proto.BoolFalse,
-			}
-		}
-
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, con.Routes)
+	// Now validate each route
+	for _, r := range rawRoutes {
 		if err := r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
+			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", r.Name, con.modelNode, err)
+			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.modelNode.ID, err, r)
 			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
 			panic(retErr.Error())
 		}
-		rc = append(rc, r)
 	}
-	return rc
+	return rawRoutes
 }
 
 func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
