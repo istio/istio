@@ -62,7 +62,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 				p = protocol.TCP
 			}
 		case core.TrafficDirection_OUTBOUND:
-			if !util.IsProtocolSniffingEnabledForNode(node) {
+			if !util.IsProtocolSniffingEnabledForOutbound(node) {
 				p = protocol.TCP
 			}
 		default:
