@@ -112,7 +112,6 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(convertIngress())
 	rootCmd.AddCommand(dashboard())
-	rootCmd.AddCommand(metricsCmd)
 	rootCmd.AddCommand(statusCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
@@ -121,7 +120,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
 	experimentalCmd.AddCommand(graduatedCmd("dashboard"))
 	experimentalCmd.AddCommand(uninjectCommand())
-	experimentalCmd.AddCommand(graduatedCmd("metrics"))
+	experimentalCmd.AddCommand(metricsCmd)
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
