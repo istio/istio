@@ -57,17 +57,20 @@ type Options struct {
 	// configured maximum for a period of time. This allows for handling bursty
 	// traffic patterns. If this is set to 0, no traffic will be allowed.
 	BurstSize int
+
+	LatencyEnforcementThreshold rate.Limit
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() Options {
 	return Options{
-		AverageLatencyThreshold: 0,
-		SamplesPerSecond:        DefaultSampleFrequency,
-		SampleHalfLife:          DefaultHalfLife,
-		MaxRequestsPerSecond:    0,
-		BurstSize:               0,
-		Mode:                    Disabled,
+		AverageLatencyThreshold:     0,
+		SamplesPerSecond:            DefaultSampleFrequency,
+		SampleHalfLife:              DefaultHalfLife,
+		MaxRequestsPerSecond:        0,
+		BurstSize:                   0,
+		Mode:                        Disabled,
+		LatencyEnforcementThreshold: DefaultEnforcementThreshold,
 	}
 }
 
@@ -94,6 +97,9 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().IntVarP(&o.BurstSize, "burstSize", "", 0,
 		"Number of requests that are permitted beyond the configured maximum for a period of time. Only valid when used with 'maxRequestsPerSecond'.")
+
+	cmd.PersistentFlags().VarP(newLimitValue(DefaultEnforcementThreshold, &o.LatencyEnforcementThreshold), "latencyEnforcementThreshold", "",
+		"Controls the threshold, in requests per second, above which the average latency threshold will be enforced for load-shedding")
 }
 
 type modeValue ThrottlerMode
