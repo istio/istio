@@ -324,16 +324,25 @@ func getNodeMetaData(envs []string, plat platform.Environment) map[string]interf
 
 var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 
+// ProxyCert defines the certificate file paths for a proxy instance.
+type ProxyCert struct {
+	CertChain  string
+	PrivateKey string
+	CACerts    string
+}
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string,
+	clientCert ProxyCert, serverCert ProxyCert) (string, error) {
 	// currently, only the GCP Platform is supported, so this is hardcorded and the writeBootstrapForPlatform method is private.
-	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, platform.NewGCP())
+	return writeBootstrapForPlatform(config, node, epoch, pilotSAN, opts, localEnv, nodeIPs, dnsRefreshRate, clientCert, serverCert, platform.NewGCP())
 }
 
 func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string, platEnv platform.Environment) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, dnsRefreshRate string,
+	clientCert ProxyCert, serverCert ProxyCert, platEnv platform.Environment) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -377,6 +386,9 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
+
+	opts["clientCert"] = clientCert
+	opts["serverCert"] = serverCert
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv, platEnv)

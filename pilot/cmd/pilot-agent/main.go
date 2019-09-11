@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy"
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -408,7 +409,19 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, opts)
+			clientCert := bootstrap.ProxyCert{
+				CertChain:  tlsClientCertChain,
+				PrivateKey: tlsClientKey,
+				CACerts:    tlsClientRootCert,
+			}
+
+			serverCert := bootstrap.ProxyCert{
+				CertChain:  tlsServerCertChain,
+				PrivateKey: tlsServerKey,
+				CACerts:    tlsServerRootCert,
+			}
+
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses, dnsRefreshRate, clientCert, serverCert, opts)
 			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 

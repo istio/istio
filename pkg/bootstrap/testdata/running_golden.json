@@ -231,16 +231,16 @@
             "tls_certificates": [
               {
                 "certificate_chain": {
-                  "filename": "/etc/certs/cert-chain.pem"
+                  "filename": "/etc/certs/client-chain.pem"
                 },
                 "private_key": {
-                  "filename": "/etc/certs/key.pem"
+                  "filename": "/etc/certs/client-key.pem"
                 }
               }
             ],
             "validation_context": {
               "trusted_ca": {
-                "filename": "/etc/certs/root-cert.pem"
+                "filename": "/etc/certs/client-ca.pem"
               },
               "verify_subject_alt_name": [
                 "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"

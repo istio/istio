@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -31,6 +32,18 @@ func TestEnvoyArgs(t *testing.T) {
 	opts["sds_uds_path"] = "udspath"
 	opts["sds_token_path"] = "tokenpath"
 
+	clientCert := bootstrap.ProxyCert{
+		CertChain: "/etc/cert/client-chain.pem",
+		PrivateKey: "/etc/cert/client-key.pem",
+		CACerts: "/etc/cert/client-ca.pem",
+	}
+
+	serverCert := bootstrap.ProxyCert{
+		CertChain: "/etc/cert/server-chain.pem",
+		PrivateKey: "/etc/cert/server-key.pem",
+		CACerts: "/etc/cert/server-ca.pem",
+	}
+
 	test := &envoy{
 		config:         proxyConfig,
 		node:           "my-node",
@@ -38,6 +51,9 @@ func TestEnvoyArgs(t *testing.T) {
 		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
 		dnsRefreshRate: "60s",
 		opts:           opts,
+
+		clientCert: clientCert,
+		serverCert: serverCert,
 	}
 
 	testProxy := NewProxy(
@@ -48,6 +64,8 @@ func TestEnvoyArgs(t *testing.T) {
 		nil,
 		[]string{"10.75.2.9", "192.168.11.18"},
 		"60s",
+		clientCert,
+		serverCert,
 		opts,
 	)
 	if !reflect.DeepEqual(testProxy, test) {

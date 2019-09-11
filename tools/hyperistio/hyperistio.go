@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -123,7 +124,12 @@ func startEnvoy() error {
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ(), []string{}, "60s")
+	cert := agent.ProxyCert{
+		CertChain:  constants.DefaultCertChain,
+		PrivateKey: constants.DefaultKey,
+		CACerts:    constants.DefaultRootCert,
+	}
+	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ(), []string{}, "60s", cert, cert)
 	if err != nil {
 		return err
 	}

@@ -304,16 +304,16 @@
             "tls_certificates": [
               {
                 "certificate_chain": {
-                  "filename": "/etc/certs/cert-chain.pem"
+                  "filename": "{{ .clientCert.CertChain}}"
                 },
                 "private_key": {
-                  "filename": "/etc/certs/key.pem"
+                  "filename": "{{ .clientCert.PrivateKey }}"
                 }
               }
             ],
             "validation_context": {
               "trusted_ca": {
-                "filename": "/etc/certs/root-cert.pem"
+                "filename": "{{ .clientCert.CACerts }}"
               },
               "verify_subject_alt_name": [
                 {{- range $a, $s := .pilot_SAN }}

@@ -258,9 +258,22 @@ func TestGolden(t *testing.T) {
 				localEnv = append(localEnv, k+"="+v)
 			}
 
+			clientCert := ProxyCert{
+				CertChain: "/etc/cert/client-chain.pem",
+				PrivateKey: "/etc/cert/client-key.pem",
+				CACerts: "/etc/cert/client-ca.pem",
+			}
+		
+			serverCert := ProxyCert{
+				CertChain: "/etc/cert/server-chain.pem",
+				PrivateKey: "/etc/cert/server-key.pem",
+				CACerts: "/etc/cert/server-ca.pem",
+			}
+
 			fn, err := writeBootstrapForPlatform(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, c.opts, localEnv,
-				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", &fakePlatform{})
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s",
+				clientCert, serverCert, &fakePlatform{})
 			if err != nil {
 				t.Fatal(err)
 			}
