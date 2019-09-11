@@ -66,101 +66,101 @@ EXAMPLES
 
 1. Default Istio install
 
-```yaml
-spec:
-```
+    ```yaml
+    spec:
+    ```
 
-2. Default minimal profile install
+1. Default minimal profile install
 
-```yaml
-spec:
-  profile: minimal
-```
+    ```yaml
+    spec:
+      profile: minimal
+    ```
 
-3. Default install with telemetry disabled
+1. Default install with telemetry disabled
 
-```yaml
-spec:
-  telemetry:
-    enabled: false
-```
+    ```yaml
+    spec:
+      telemetry:
+        enabled: false
+    ```
 
-4. Default install with each feature installed to different namespace and security components in separate namespaces
+1. Default install with each feature installed to different namespace and security components in separate namespaces
 
-```yaml
-spec:
-  traffic_management:
-    components:
-      namespace: istio-traffic-management
-  policy:
-    components:
-      namespace: istio-policy
-  telemetry:
-    components:
-      namespace: istio-telemetry
-  config_management:
-    components:
-      namespace: istio-config-management
-  security:
-    components:
-      citadel:
-        namespace: istio-citadel
-      cert_manager:
-        namespace: istio-cert-manager
-      node_agent:
-        namespace: istio-node-agent
-```
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          namespace: istio-traffic-management
+      policy:
+        components:
+          namespace: istio-policy
+      telemetry:
+        components:
+          namespace: istio-telemetry
+      config_management:
+        components:
+          namespace: istio-config-management
+      security:
+        components:
+          citadel:
+            namespace: istio-citadel
+          cert_manager:
+            namespace: istio-cert-manager
+          node_agent:
+            namespace: istio-node-agent
+    ```
 
-5. Default install with specialized k8s settings for pilot
+1. Default install with specialized k8s settings for pilot
 
-```yaml
-spec:
-  traffic_management:
-    components:
-      pilot:
-        k8s:
-          resources:
-            limits:
-              cpu: 444m
-              memory: 333Mi
-            requests:
-              cpu: 222m
-              memory: 111Mi
-          readinessProbe:
-            failureThreshold: 44
-            initialDelaySeconds: 11
-            periodSeconds: 22
-            successThreshold: 33
-```
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          pilot:
+            k8s:
+              resources:
+                limits:
+                  cpu: 444m
+                  memory: 333Mi
+                requests:
+                  cpu: 222m
+                  memory: 111Mi
+              readinessProbe:
+                failureThreshold: 44
+                initialDelaySeconds: 11
+                periodSeconds: 22
+                successThreshold: 33
+    ```
 
-6. Default install with values.yaml customizations for proxy
+1. Default install with values.yaml customizations for proxy
 
-```yaml
-spec:
-  traffic_management:
-    components:
-      proxy:
-        values:
-        - global.proxy.enableCoreDump: true
-        - global.proxy.dnsRefreshRate: 10s
-```
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          proxy:
+            values:
+            - global.proxy.enableCoreDump: true
+            - global.proxy.dnsRefreshRate: 10s
+    ```
 
-7. Default install with modification to container flag in galley
+1. Default install with modification to container flag in galley
 
-```yaml
-spec:
-  configuration_management:
-    components:
-      galley:
-        k8s:
-          overlays:
-          - apiVersion: extensions/v1beta1
-            kind: Deployment
-            name: istio-galley
-            patches:
-            - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
-              value: --livenessProbeInterval=123s
-```
+    ```yaml
+    spec:
+      configuration_management:
+        components:
+          galley:
+            k8s:
+              overlays:
+              - apiVersion: extensions/v1beta1
+                kind: Deployment
+                name: istio-galley
+                patches:
+                - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+                  value: --livenessProbeInterval=123s
+    ```
 */
 package v1alpha2;
 
@@ -194,12 +194,12 @@ message IstioControlPlaneSpec {
     // Unvalidated overrides for default global values.yaml.
     TypeMapStringInterface unvalidatedValues = 51;
     // Path or name for the profile e.g.
-    //   minimal (looks in profiles dir for a file called minimal.yaml)
-    //   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+    //     - minimal (looks in profiles dir for a file called minimal.yaml)
+    //     - /tmp/istio/install/values/custom/custom-install.yaml (local file path)
     // default profile is used if this field is unset.
     string profile = 100;
     // Path for the install package. e.g.
-    //   /tmp/istio-installer/nightly (local file path)
+    //     - /tmp/istio-installer/nightly (local file path)
     string install_package_path = 102;
     // Root for docker image paths e.g. docker.io/istio-release.
     // Releases are published to docker hub under 'istio' project.

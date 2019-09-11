@@ -42,14 +42,14 @@
 //spec:
 //```
 //
-//2. Default minimal profile install
+//1. Default minimal profile install
 //
 //```yaml
 //spec:
 //profile: minimal
 //```
 //
-//3. Default install with telemetry disabled
+//1. Default install with telemetry disabled
 //
 //```yaml
 //spec:
@@ -57,7 +57,7 @@
 //enabled: false
 //```
 //
-//4. Default install with each feature installed to different namespace and security components in separate namespaces
+//1. Default install with each feature installed to different namespace and security components in separate namespaces
 //
 //```yaml
 //spec:
@@ -83,7 +83,7 @@
 //namespace: istio-node-agent
 //```
 //
-//5. Default install with specialized k8s settings for pilot
+//1. Default install with specialized k8s settings for pilot
 //
 //```yaml
 //spec:
@@ -105,7 +105,7 @@
 //successThreshold: 33
 //```
 //
-//6. Default install with values.yaml customizations for proxy
+//1. Default install with values.yaml customizations for proxy
 //
 //```yaml
 //spec:
@@ -117,7 +117,7 @@
 //- global.proxy.dnsRefreshRate: 10s
 //```
 //
-//7. Default install with modification to container flag in galley
+//1. Default install with modification to container flag in galley
 //
 //```yaml
 //spec:
@@ -260,12 +260,12 @@ type IstioControlPlaneSpec struct {
 	// Unvalidated overrides for default global values.yaml.
 	UnvalidatedValues map[string]interface{} `protobuf:"bytes,51,opt,name=unvalidatedValues,proto3" json:"unvalidatedValues,omitempty"`
 	// Path or name for the profile e.g.
-	//   minimal (looks in profiles dir for a file called minimal.yaml)
-	//   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+	//     - minimal (looks in profiles dir for a file called minimal.yaml)
+	//     - /tmp/istio/install/values/custom/custom-install.yaml (local file path)
 	// default profile is used if this field is unset.
 	Profile string `protobuf:"bytes,100,opt,name=profile,proto3" json:"profile,omitempty"`
 	// Path for the install package. e.g.
-	//   /tmp/istio-installer/nightly (local file path)
+	//     - /tmp/istio-installer/nightly (local file path)
 	InstallPackagePath string `protobuf:"bytes,102,opt,name=install_package_path,json=installPackagePath,proto3" json:"install_package_path,omitempty"`
 	// Root for docker image paths e.g. docker.io/istio-release.
 	// Releases are published to docker hub under 'istio' project.

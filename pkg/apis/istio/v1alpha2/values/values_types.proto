@@ -162,14 +162,17 @@ message EgressGatewayConfig {
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   //
   // Examples:
+  //
+  // ```yaml
   // podAntiAffinityLabelSelector:
   //  - key: security
   //    operator: In
   //    values: S1,S2
   //    topologyKey: "kubernetes.io/hostname"
-  //  This pod anti-affinity rule says that the pod requires not to be scheduled
-  //  onto a node if that node is already running a pod with label having key
-  //  “security” and value “S1”.
+  // ```
+  // This pod anti-affinity rule says that the pod requires not to be scheduled
+  // onto a node if that node is already running a pod with label having key
+  // “security” and value “S1”.
   TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12;
 
   // See PodAntiAffinityLabelSelector.
@@ -318,6 +321,7 @@ message GlobalConfig {
   // endpoints based on the localities of where the traffic originates and where it will terminate.
   // Please set either failover or distribute configuration but not both.
   //
+  // ```yaml
   // localityLbSetting:
   //   distribute:
   //   - from: "us-central1/*"
@@ -331,6 +335,7 @@ message GlobalConfig {
   //     to: eu-west
   //   - from: us-west
   //     to: us-east
+  // ```
   map<string, string> localityLbSetting = 15;
   // 	LocalityLbSetting map[string]interface{}    `json:"localityLbSetting"`
 
@@ -356,6 +361,7 @@ message GlobalConfig {
   // LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
   // it still need to be configured manually).
   //
+  // ```yaml
   // meshNetworks:
   //   network1:
   //     endpoints:
@@ -369,7 +375,7 @@ message GlobalConfig {
   //     gateways:
   //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   //       port: 443
-  //
+  // ```
   TypeMapStringInterface meshNetworks = 19;
 
   // Specifies the monitor port number for all Istio control plane components.

@@ -398,15 +398,18 @@ in &ldquo;podAntiAffinityLabelSelector&rdquo; and &ldquo;podAntiAffinityTermLabe
 correspondingly.
 See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
 
-<p>Examples:
-podAntiAffinityLabelSelector:
+<p>Examples:</p>
+
+<pre><code class="language-yaml">podAntiAffinityLabelSelector:
  - key: security
    operator: In
    values: S1,S2
-   topologyKey: &ldquo;kubernetes.io/hostname&rdquo;
- This pod anti-affinity rule says that the pod requires not to be scheduled
- onto a node if that node is already running a pod with label having key
- “security” and value “S1”.</p>
+   topologyKey: &quot;kubernetes.io/hostname&quot;
+</code></pre>
+
+<p>This pod anti-affinity rule says that the pod requires not to be scheduled
+onto a node if that node is already running a pod with label having key
+“security” and value “S1”.</p>
 
 </td>
 </tr>
@@ -798,19 +801,20 @@ Locality-weighted load balancing allows administrators to control the distributi
 endpoints based on the localities of where the traffic originates and where it will terminate.
 Please set either failover or distribute configuration but not both.</p>
 
-<p>localityLbSetting:
+<pre><code class="language-yaml">localityLbSetting:
   distribute:
-  - from: &ldquo;us-central1/<em>&rdquo;
+  - from: &quot;us-central1/*&quot;
     to:
-      &ldquo;us-central1/</em>&rdquo;: 80
-      &ldquo;us-central2/*&rdquo;: 20</p>
+      &quot;us-central1/*&quot;: 80
+      &quot;us-central2/*&quot;: 20
 
-<p>localityLbSetting:
+localityLbSetting:
   failover:
   - from: us-east
     to: eu-west
   - from: us-west
-    to: us-east</p>
+    to: us-east
+</code></pre>
 
 </td>
 </tr>
@@ -855,10 +859,10 @@ cluster. The public IP for the gateway will be determined from that remote servi
 LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
 it still need to be configured manually).</p>
 
-<p>meshNetworks:
+<pre><code class="language-yaml">meshNetworks:
   network1:
     endpoints:
-    - fromCidr: &ldquo;192.168.0.<sup>1</sup>&frasl;<sub>24</sub>&rdquo;
+    - fromCidr: &quot;192.168.0.1/24&quot;
     gateways:
     - address: 1.1.1.1
       port: 80
@@ -867,7 +871,8 @@ it still need to be configured manually).</p>
     - fromRegistry: reg1
     gateways:
     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
-      port: 443</p>
+      port: 443
+</code></pre>
 
 </td>
 </tr>
