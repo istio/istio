@@ -151,7 +151,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 
 			// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
-			istioVersion := getIstioVersion(&cd)
+			istioVersion := model.ParseIstioVersion(getIstioVersion(&cd))
 
 			var configClient model.ConfigStore
 			if configClient, err = clientFactory(); err != nil {
@@ -240,6 +240,14 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
+// proxyVersionToString converts IstioVersion to a semver format string (from mixer.go)
+func proxyVersionToString(v *model.IstioVersion) string {
+	major := strconv.Itoa(v.Major)
+	minor := strconv.Itoa(v.Minor)
+	patch := strconv.Itoa(v.Patch)
+	return strings.Join([]string{major, minor, patch}, ".")
+}
+
 func getIstioVersion(cd *configdump.Wrapper) string {
 	bootstrapDump, err := cd.GetBootstrapConfigDump()
 	if err == nil {
@@ -255,26 +263,17 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 	return "undetected"
 }
 
-func containerPortOptional(istioVersion string) bool {
-	if istioVersion == noVersionMetadata {
-		return true
-	}
+func containerPortOptional(istioVersion *model.IstioVersion) bool {
 	return supportsProtocolDetection(istioVersion)
 }
 
-func supportsProtocolDetection(istioVersion string) bool {
-	if istioVersion != "" && istioVersion != "undetected" &&
-		!strings.HasPrefix(istioVersion, "0") &&
-		!strings.HasPrefix(istioVersion, "1.0.") &&
-		!strings.HasPrefix(istioVersion, "1.1.") &&
-		!strings.HasPrefix(istioVersion, "1.2.") {
-		return true
-	}
-
-	return false
+func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
+	// See pilot/pkg/networking/util/IsIstioVersionGE13()
+	return istioVersion == nil ||
+		istioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
-func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion string) []string {
+func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
 	retval := []string{}
 
 	// Build list of ports exposed by pod
@@ -302,7 +301,8 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion string) []strin
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
 		if !supportsProtocolDetection(istioVersion) {
 			retval = append(retval,
-				fmt.Sprintf("%s is named %q which does not follow Istio %s conventions", port.TargetPort.String(), port.Name, istioVersion))
+				fmt.Sprintf("%s is named %q which does not follow Istio %s conventions",
+					port.TargetPort.String(), port.Name, proxyVersionToString(istioVersion)))
 		}
 	}
 
@@ -605,7 +605,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion string) {
+func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *model.IstioVersion) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -1055,7 +1055,7 @@ func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.Authentic
 	}
 
 	if count == 0 {
-		fmt.Fprintf(writer, "None\n")
+		fmt.Fprintf(writer, "Authn: None\n")
 	}
 }
 
