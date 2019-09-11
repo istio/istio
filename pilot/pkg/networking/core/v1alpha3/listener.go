@@ -364,7 +364,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol),
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol,
+					core.TrafficDirection_INBOUND),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -447,7 +448,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// Validation ensures that the protocol specified in Sidecar.ingress
 			// is always a valid known protocol
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+					core.TrafficDirection_INBOUND),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -659,7 +661,7 @@ type outboundListenerEntry struct {
 }
 
 func protocolName(node *model.Proxy, p protocol.Instance) string {
-	switch plugin.ModelProtocolToListenerProtocol(node, p) {
+	switch plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND) {
 	case plugin.ListenerProtocolHTTP:
 		return "HTTP"
 	case plugin.ListenerProtocolTCP:
@@ -795,7 +797,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				// The listener protocol is determined by the protocol of egress listener port.
 				pluginParams := &plugin.InputParams{
-					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
+					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+						core.TrafficDirection_OUTBOUND),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 					Env:                        env,
 					Node:                       node,
@@ -854,7 +857,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 					// The listener protocol is determined by the protocol of service port.
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, servicePort.Protocol),
+						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
+							core.TrafficDirection_OUTBOUND),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 						Env:                        env,
 						Node:                       node,
