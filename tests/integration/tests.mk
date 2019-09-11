@@ -105,7 +105,7 @@ test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 # Generate presubmit integration test targets for each component in local environment.
 test.integration.%.local.presubmit: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... \
+	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native --istio.test.select -postsubmit,-flaky \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
