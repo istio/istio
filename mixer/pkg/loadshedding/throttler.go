@@ -104,7 +104,7 @@ func NewThrottler(opts Options) *Throttler {
 	}
 
 	if opts.AverageLatencyThreshold > 0 {
-		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife)
+		e := NewGRPCLatencyEvaluatorWithThreshold(opts.SamplesPerSecond, opts.SampleHalfLife, opts.LatencyEnforcementThreshold)
 		t.evaluators[e.Name()] = e
 		t.thresholds[e.Name()] = opts.AverageLatencyThreshold.Seconds()
 	}
