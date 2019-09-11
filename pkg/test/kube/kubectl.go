@@ -81,15 +81,30 @@ func (c *kubectl) apply(namespace string, filename string) error {
 
 func (c *kubectl) applyInternal(namespace string, files []string) error {
 	for _, f := range files {
-		command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
-		scopes.CI.Infof("Applying YAML: %s", command)
-		s, err := shell.Execute(true, command)
-		if err != nil {
-			scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
-			return fmt.Errorf("%v: %s", err, s)
+		if !isEmpty(f) {
+			command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
+			scopes.CI.Infof("Applying YAML: %s", command)
+			s, err := shell.Execute(true, command)
+			if err != nil {
+				scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
+				return fmt.Errorf("%v: %s", err, s)
+			}
 		}
 	}
 	return nil
+}
+
+func isEmpty(f string) bool {
+	fileInfo, err := os.Stat(f)
+	if err != nil {
+		scopes.CI.Warnf("Error stating file %s prior to applying: %v", f, err)
+		return true
+	}
+	if fileInfo.Size() == 0 {
+		scopes.CI.Warnf("Unable to apply empty YAML file: %s", f)
+		return true
+	}
+	return false
 }
 
 func (c *kubectl) scale(namespace, deployment string, replicas int) error {
