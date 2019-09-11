@@ -305,7 +305,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains := newInboundPassthroughFilterChains(env, node)
-	if util.IsProtocolSniffingEnabledForNode(node) {
+	if util.IsProtocolSniffingEnabledForInbound(node) {
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{

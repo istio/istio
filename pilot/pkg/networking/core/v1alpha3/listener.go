@@ -364,7 +364,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol),
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol,
+					core.TrafficDirection_INBOUND),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -447,7 +448,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// Validation ensures that the protocol specified in Sidecar.ingress
 			// is always a valid known protocol
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+					core.TrafficDirection_INBOUND),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Env:                        env,
 				Node:                       node,
@@ -659,7 +661,7 @@ type outboundListenerEntry struct {
 }
 
 func protocolName(node *model.Proxy, p protocol.Instance) string {
-	switch plugin.ModelProtocolToListenerProtocol(node, p) {
+	switch plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND) {
 	case plugin.ListenerProtocolHTTP:
 		return "HTTP"
 	case plugin.ListenerProtocolTCP:
@@ -795,7 +797,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				// The listener protocol is determined by the protocol of egress listener port.
 				pluginParams := &plugin.InputParams{
-					ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol),
+					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+						core.TrafficDirection_OUTBOUND),
 					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 					Env:                        env,
 					Node:                       node,
@@ -854,7 +857,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 					// The listener protocol is determined by the protocol of service port.
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol:           plugin.ModelProtocolToListenerProtocol(node, servicePort.Protocol),
+						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
+							core.TrafficDirection_OUTBOUND),
 						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
 						Env:                        env,
 						Node:                       node,
@@ -1024,7 +1028,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 			return false, nil
 		}
 
-		if !util.IsProtocolSniffingEnabledForNode(node) {
+		if !util.IsProtocolSniffingEnabledForOutbound(node) {
 			if pluginParams.Service != nil {
 				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 					outboundListenerConflict{
@@ -1051,7 +1055,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
 		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
-			util.IsProtocolSniffingEnabledForNode(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			util.IsProtocolSniffingEnabledForOutbound(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
 			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
 		} else {
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
@@ -1138,7 +1142,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			return false, nil
 		}
 
-		if !util.IsProtocolSniffingEnabledForNode(node) {
+		if !util.IsProtocolSniffingEnabledForOutbound(node) {
 			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
@@ -1212,7 +1216,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 
 		// Check if conflict happens
-		if util.IsProtocolSniffingEnabledForNode(node) && currentListenerEntry != nil {
+		if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
 			// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 			// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 			if currentListenerEntry.protocol.IsHTTP() {
@@ -1233,7 +1237,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 
 		// Check if conflict happens
-		if util.IsProtocolSniffingEnabledForNode(node) && currentListenerEntry != nil {
+		if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
 			// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
 			// If current listener is using protocol sniffing, merge the TCP filter chains.
 			if currentListenerEntry.protocol.IsHTTP() {
