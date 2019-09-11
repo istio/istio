@@ -112,7 +112,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 
 	// Set the cluster id
 	config := strings.Split(k.RemoteKubeConfig, "/")
-	helmSetContent += " --set global.multicluster.clusterName=" + config[len(config)-1]
+	helmSetContent += " --set global.multiCluster.clusterName=" + config[len(config)-1]
 
 	// Enabling access log because some tests (e.g. TestGrpc) are validating
 	// based on the pods logs
