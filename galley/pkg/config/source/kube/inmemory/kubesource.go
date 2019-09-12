@@ -148,11 +148,13 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	for _, r := range resources {
 		// If namespace is blank and we have a default set, fill in the default
 		// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
-		//TODO: Scope this only to resources where it makes sense?
-		ns, n := r.entry.Metadata.Name.InterpretAsNamespaceAndName()
-		if ns == "" && s.defaultNs != "" {
-			scope.Source.Debugf("KubeSource.ApplyContent: namespace not specified for %q, using %q", r.entry.Metadata.Name, s.defaultNs)
-			r.entry.Metadata.Name = resource.NewName(s.defaultNs, n)
+		// Don't do this for cluster scoped resources
+		if !r.spec.ClusterScoped {
+			ns, n := r.entry.Metadata.Name.InterpretAsNamespaceAndName()
+			if ns == "" && s.defaultNs != "" {
+				scope.Source.Debugf("KubeSource.ApplyContent: namespace not specified for %q, using %q", r.entry.Metadata.Name, s.defaultNs)
+				r.entry.Metadata.Name = resource.NewName(s.defaultNs, n)
+			}
 		}
 
 		key := r.newKey()
@@ -217,7 +219,7 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 	// Convert to JSON
 	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON")
+		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to
