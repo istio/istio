@@ -205,6 +205,10 @@ global:
     # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
     dnsRefreshRate: 300s
 
+    # Configure the interval at which stats are flushed to Stat Sinks. 
+    # This must be at least 1ms and at most 5 min.
+    statsFlushInterval: 5s
+
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
