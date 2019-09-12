@@ -50,8 +50,8 @@ func fullPermission(tag string) Permission {
 		NotPaths:   []string{"not-paths-" + tag},
 		Methods:    []string{"methods-" + tag},
 		NotMethods: []string{"not-methods-" + tag},
-		Ports:      []int32{1},
-		NotPorts:   []int32{2},
+		Ports:      []string{"1"},
+		NotPorts:   []string{"2"},
 		Constraints: []KeyValues{
 			{
 				"constraint-" + tag: []string{"value1-" + tag, "value2-" + tag},

@@ -40,6 +40,7 @@ type Principal struct {
 	NotNamespaces []string
 	IPs           []string
 	NotIPs        []string
+	RequestPrincipals []string
 	Properties    []KeyValues
 }
 
@@ -132,6 +133,11 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 		pg.append(principalNot(principal))
 	}
 
+	if len(principal.RequestPrincipals) > 0 {
+		principal := principalForKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
+		pg.append(principal)
+	}
+
 	for _, p := range principal.Properties {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated
 		// config is stable.
@@ -160,6 +166,20 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	return pg.andPrincipals(), nil
+}
+
+func keySupportedForPrincipal(key string) bool {
+	switch {
+	case attrSrcIP == key:
+	case attrSrcNamespace == key:
+	case attrSrcPrincipal == key:
+	case found(key, []string{attrRequestPrincipal, attrRequestAudiences, attrRequestPresenter, attrSrcUser}):
+	case strings.HasPrefix(key, attrRequestHeader):
+	case strings.HasPrefix(key, attrRequestClaims):
+	default:
+		return false
+	}
+	return true
 }
 
 // principalForKeyValues converts a key-values pair to envoy RBAC principal. The key specify the

@@ -35,8 +35,8 @@ type Permission struct {
 	NotPaths    []string
 	Methods     []string
 	NotMethods  []string
-	Ports       []int32
-	NotPorts    []int32
+	Ports       []string
+	NotPorts    []string
 	Constraints []KeyValues
 }
 
@@ -159,12 +159,12 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	if len(permission.Ports) > 0 {
-		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.Ports))
+		permission := permissionForKeyValues(attrDestPort, permission.Ports)
 		pg.append(permission)
 	}
 
 	if len(permission.NotPorts) > 0 {
-		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.NotPorts))
+		permission := permissionForKeyValues(attrDestPort, permission.NotPorts)
 		pg.append(permissionNot(permission))
 	}
 
@@ -191,6 +191,20 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	return pg.andPermissions(), nil
+}
+
+func keySupportedForPermission(key string) bool {
+	switch {
+	case key == attrDestIP:
+	case key == attrDestPort:
+	case key == pathHeader || key == methodHeader || key == hostHeader:
+	case strings.HasPrefix(key, attrRequestHeader):
+	case key == attrConnSNI:
+	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
+	default:
+		return false
+	}
+	return true
 }
 
 // permissionForKeyValues converts a key-values pair to an envoy RBAC permission. The key specify the
