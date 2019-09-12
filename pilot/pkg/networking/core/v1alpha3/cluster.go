@@ -188,7 +188,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
 
-			setUpstreamProtocol(defaultCluster, port, proxy)
+			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -208,7 +208,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy)
-					setUpstreamProtocol(subsetCluster, port, proxy)
+					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound, proxy)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
@@ -423,7 +423,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy)
-			setUpstreamProtocol(mgmtCluster, port, proxy)
+			setUpstreamProtocol(mgmtCluster, port)
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
@@ -533,7 +533,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
 	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, pluginParams.Node)
-	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort, pluginParams.Node)
+	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 	// call plugins
 	for _, p := range configgen.Plugins {
 		p.OnInboundCluster(pluginParams, localCluster)
@@ -986,7 +986,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 }
 
-func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port, proxy *model.Proxy) {
+func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
@@ -994,12 +994,12 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port, proxy *model.
 				Value: 1073741824,
 			},
 		}
-		if s, f := pilot.InitialStreamWindowSize(); f {
+		if s := pilot.InitialStreamWindowSize; s > 0 {
 			cluster.Http2ProtocolOptions.InitialStreamWindowSize = &types.UInt32Value{
 				Value: uint32(s),
 			}
 		}
-		if s, f := pilot.InitialConnectionWindowSize(); f {
+		if s := pilot.InitialConnectionWindowSize; s > 0 {
 			cluster.Http2ProtocolOptions.InitialConnectionWindowSize = &types.UInt32Value{
 				Value: uint32(s),
 			}
