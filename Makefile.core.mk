@@ -341,6 +341,10 @@ lint: buildcache
 shellcheck:
 	bin/check_shell_scripts.sh
 
+MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
+
+lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown
+
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
