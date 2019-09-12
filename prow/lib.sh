@@ -156,7 +156,7 @@ function cni_run_daemon_kind() {
   chartdir=$(mktemp -d)
   helm init --client-only
   helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
-  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
 
   helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
     --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
@@ -174,7 +174,7 @@ function cni_run_daemon() {
   mkdir "${chartdir}"
   helm init --client-only
   helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
-  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
  
   helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
 
