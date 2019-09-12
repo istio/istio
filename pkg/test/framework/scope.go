@@ -106,8 +106,10 @@ func (s *scope) done(nocleanup bool) error {
 			scopes.Framework.Debugf("Cleanup complete for %s", name)
 		}
 	}
+	s.mu.Lock()
 	s.resources = nil
 	s.closers = nil
+	s.mu.Unlock()
 
 	scopes.Framework.Debugf("Done cleaning up scope: %v", s.id)
 	return err
@@ -118,10 +120,11 @@ func (s *scope) waitForDone() {
 }
 
 func (s *scope) dump() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, c := range s.children {
 		c.dump()
 	}
-
 	for _, c := range s.resources {
 		if d, ok := c.(resource.Dumper); ok {
 			d.Dump()
