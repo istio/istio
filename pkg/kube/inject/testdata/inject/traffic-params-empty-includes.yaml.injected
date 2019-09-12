@@ -47,6 +47,8 @@ spec:
         - istio-pilot:15010
         - --dnsRefreshRate
         - 300s
+        - --statsFlushInterval
+        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
