@@ -15,13 +15,10 @@
 package loadshedding
 
 import (
-	"context"
 	"fmt"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -71,22 +68,17 @@ var (
 		"enforce":  Enforce,
 	}
 
-	throttled = stats.Int64(
-		"loadshedding/requests_throttled",
-		"The number of requests that have been dropped by the loadshedder.",
-		stats.UnitDimensionless)
+	predictedCost = monitoring.NewSum(
+		"mixer/loadshedding/predicted_cost_shed_total",
+		"The total predicted cost of all requests that have been dropped.")
 
-	throttledView = &view.View{
-		Name:        "mixer/" + throttled.Name(),
-		Measure:     throttled,
-		Aggregation: view.Count(),
-	}
+	throttled = monitoring.NewSum(
+		"mixer/loadshedding/requests_throttled",
+		"The number of requests that have been dropped by the loadshedder.")
 )
 
 func init() {
-	if err := view.Register(throttledView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegister(throttled, predictedCost)
 }
 
 // NewThrottler builds a Throttler based on the configured options.
@@ -145,7 +137,8 @@ func (t *Throttler) Throttle(ri RequestInfo) bool {
 				scope.Infoa("LogOnly - ", msg)
 				continue
 			}
-			stats.Record(context.Background(), throttled.M(1))
+			throttled.Increment()
+			predictedCost.Record(ri.PredictedCost)
 			scope.Warn(msg)
 			return true
 		}
