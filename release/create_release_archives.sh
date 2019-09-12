@@ -154,9 +154,9 @@ find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --p
 popd
 
 # get yq to merge values-istio-demo-common.yaml into values-istio-demo yaml files
-go get -u gopkg.in/mikefarah/yq.v2
-${GOPATH}/bin/yq.v2 merge "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml"
-${GOPATH}/bin/yq.v2 merge "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml"
+GO111MODULE=off go get -u gopkg.in/mikefarah/yq.v2
+"${GOPATH}"/bin/yq.v2 merge "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml"
+"${GOPATH}"/bin/yq.v2 merge "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml"
 mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"
 mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml"
 
