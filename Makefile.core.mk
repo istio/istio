@@ -329,7 +329,7 @@ ${TOP}/bin/dep:
 lint:
 	$(MAKE) kind-run TARGET="run-lint"
 
-lint_modern: lint-go lint-pyhton lint-copyright-banner
+lint_modern: lint-go lint-pyhton lint-copyright-banner lint-markdown lint-protos
 
 include test/install.mk
 include test/tests.mk

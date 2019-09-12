@@ -76,40 +76,38 @@ The new installer recommends isolating components in different namespaces with d
 Recommended mode:
 
 Singleton:
+
 - `istio-system`: root CA and cert provisioning components.
 - `istio-cni`: optional CNI (avoids requiring root/netadmin from workload pods)
 
 Multi-environment components:
+
 - `istio-control`: config, discovery, auto-inject. All impact the generated config including enforcement of policies
 and secure naming.
 - `istio-telemetry`: mixer, kiali, tracing providers, grafana, prometheus. Custom install of prometheus, grafana can
 be used instead in dedicated namespaces.
 - `istio-policy`
-- `istio-gateways` - production domains should be in a separate namespace, to restrict access. It is possible to
+- `istio-gateways`: production domains should be in a separate namespace, to restrict access. It is possible to
 segregate gateways by the team that control access to the domain. Access to the gateway namespace provides access
 to certificates and control over domain delegation. The optional egress gateway provides control over outbound
 traffic.
 
 In addition, it is recommended to have a second set of the multi-environment components to use
 for canary/testing new versions. In this doc we will use an environment based on the `istio-master` namespace:
+
 - `istio-master`: config, discovery, etc
 - `istio-telemetry-master`
 - `istio-gateway-master`
 - `istio-policy-master`
 ...
 
-
-# Installing
-
 For each component, there are 2 styles of installing, using 'helm + tiller' or '`helm template` + `kubectl apply --prune`'.
 
 Using `kubectl --prune` is recommended:
 
 ```bash
-
 helm template --namespace $NAMESPACE -n $COMPONENT $CONFIGDIR -f global.yaml | \
    kubectl apply -n $NAMESPACE --prune -l release=$COMPONENT -f -
-
 ```
 
 Using helm:
@@ -137,13 +135,13 @@ Istio has strong integration with certmanager.  Some operators may want to keep 
 CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
 
 ```bash
- kubectl apply -k github.com/istio/installer/crds
+kubectl apply -k github.com/istio/installer/crds
 ```
 
 or
 
 ```bash
- kubectl apply -f crds/files
+kubectl apply -f crds/files
 ```
 
 ## Install Security
@@ -198,10 +196,10 @@ Galley provides config access and validation. Only one environment should enable
 currently supported in multiple namespaces.
 
 ```bash
-     iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
+iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
 
-    # Second Galley, using master version of istio
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
+# Second Galley, using master version of istio
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
 ```
 
 Other MCP providers can be used - currently the address and credentials need to match what galley is using.
@@ -209,25 +207,23 @@ Other MCP providers can be used - currently the address and credentials need to 
 Discovery, Policy and Telemetry components will need to be configured with the address of the config
 server - either in the local cluster or in a central cluster.
 
-
 ### Discovery (Pilot)
 
 This can run in any cluster. A mesh should have at least one cluster should run Pilot or equivalent XDS server,
 and it is recommended to have Pilot running in each region and in multiple availability zones for multi cluster.
 
 ```bash
-    iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
-                --set global.istioNamespace=istio-system \
-                --set global.configNamespace=istio-control \
-                --set global.telemetryNamespace=istio-telemetry \
-                --set global.policyNamespace=istio-policy
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
-                --set policy.enable=false \
-                --set global.istioNamespace=istio-master \
-                --set global.configNamespace=istio-master \
-                --set global.telemetryNamespace=istio-telemetry-master \
-                --set global.policyNamespace=istio-policy-master
-
+iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
+            --set global.istioNamespace=istio-system \
+            --set global.configNamespace=istio-control \
+            --set global.telemetryNamespace=istio-telemetry \
+            --set global.policyNamespace=istio-policy
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+            --set policy.enable=false \
+            --set global.istioNamespace=istio-master \
+            --set global.configNamespace=istio-master \
+            --set global.telemetryNamespace=istio-telemetry-master \
+            --set global.policyNamespace=istio-policy-master
 ```
 
 ### Auto-injection
@@ -243,17 +239,15 @@ If `istio-system` has set `enableNamespaceByDefault` you must set `istio-inject:
 istio-system from taking over. In this case, it is recommended to first install `istio-control` autoinject with
 the default disabled, test it, and move the default from `istio-system` to `istio-control`.
 
-
 ```bash
-    # ENABLE_CNI is set to true if istio-cni is installed
-    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set sidecarInjectorWebhook.enableNamespacesByDefault=true --set global.configNamespace=istio-control \
-        --set istio_cni.enabled=${ENABLE_CNI}
+# ENABLE_CNI is set to true if istio-cni is installed
+iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set sidecarInjectorWebhook.enableNamespacesByDefault=true --set global.configNamespace=istio-control \
+    --set istio_cni.enabled=${ENABLE_CNI}
 
-    # Second auto-inject using master version of istio
-    # Notice the different options
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
-             --set global.configNamespace=istio-master
-
+# Second auto-inject using master version of istio
+# Notice the different options
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
+         --set global.configNamespace=istio-master
 ```
 
 ## Gateways
@@ -265,7 +259,6 @@ gateway in a dedicated namespace and restrict access.
 
 For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
 
-
 ## K8S Ingress
 
 To support K8S ingress we currently use a separate namespace. In Istio 1.1, this requires using a dedicated
@@ -275,42 +268,27 @@ Note that running a dedicated Pilot for ingress/gateways is supported and recomm
 but in the case of K8S ingress it is currently required.
 
 ```bash
-    iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress --set global.configNamespace=istio-control
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-ingress-master istio-ingress $IBASE/gateways/istio-ingress \
-            --set global.configNamespace=istio-master\
-
+iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress --set global.configNamespace=istio-control
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-ingress-master istio-ingress $IBASE/gateways/istio-ingress \
+        --set global.configNamespace=istio-master\
 ```
 
 ## Telemetry
 
 ```bash
-    iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.configNamespace=istio-control
-    iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.configNamespace=istio-control
-    iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.configNamespace=istio-control
-    
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
-            --set global.configNamespace=istio-master
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
-            --set global.configNamespace=istio-master
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
-            --set global.configNamespace=istio-master
+iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.configNamespace=istio-control
+iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.configNamespace=istio-control
+iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.configNamespace=istio-control
+
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
+        --set global.configNamespace=istio-master
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.configNamespace=istio-master
+TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
+        --set global.configNamespace=istio-master
 ```
-
-## Policy
-
-TODO - see example
-
-## Egress
-
-
-## Other components
-
-### Kiali
-
-###
 
 ## Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
 Istio works properly and allow testing the specific install.
-
