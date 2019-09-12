@@ -103,11 +103,15 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 	}
 
 	for cn := range manifests {
-		cs := fmt.Sprintf("Output for component %s:", cn)
-		l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
 		if out[cn].Err != nil {
+			cs := fmt.Sprintf("Component %s failed install:", cn)
+			l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
+		} else {
+			cs := fmt.Sprintf("Component %s installed successfully:", cn)
+			l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
 		}
+
 		if strings.TrimSpace(out[cn].Stderr) != "" {
 			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
 		}
