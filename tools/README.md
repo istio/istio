@@ -156,7 +156,6 @@ The following arguments are passed to the Fortio server running on the GCE VM:
 | qps=-1                                  | Requested queries per second to "max"   |
 | t=30s                                   | Requested duration to run load test     |
 | c=48                                    | Number of connections/goroutine/threads |
-| qps=-1                                  | Requested queries per second to "max"   |
 | load=Start                              | Tells Fortio to be a load generator     |
 | url=http://$K8S_FORTIO_EXT_IP:8080/echo | The target to load test                 |
 
