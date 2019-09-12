@@ -161,7 +161,7 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 	return m
 }
 
-// NewModel constructs a Model from a single v1beta1 Rule.
+// NewModel constructs a Model from v1beta1 Rule.
 func NewModelFromV1beta1(rule *security.Rule) *Model {
 	m := &Model{}
 
@@ -189,6 +189,11 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 			m.Principals = append(m.Principals, principal)
 		}
 	}
+	if len(rule.From) == 0 {
+		m.Principals = []Principal{{
+			AllowAll: true,
+		}}
+	}
 
 	for _, to := range rule.To {
 		if operation := to.Operation; operation != nil {
@@ -201,6 +206,11 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 			}
 			m.Permissions = append(m.Permissions, permission)
 		}
+	}
+	if len(rule.To) == 0 {
+		m.Permissions = []Permission{{
+			AllowAll: true,
+		}}
 	}
 
 	return m

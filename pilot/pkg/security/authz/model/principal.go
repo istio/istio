@@ -42,6 +42,7 @@ type Principal struct {
 	NotIPs            []string
 	RequestPrincipals []string
 	Properties        []KeyValues
+	AllowAll          bool
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
@@ -82,6 +83,12 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	pg := principalGenerator{}
+
+	if principal.AllowAll {
+		pg.append(principalAny(true))
+		return pg.andPrincipals(), nil
+	}
+
 	if principal.User != "" {
 		principal := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
 		pg.append(principal)
@@ -95,6 +102,11 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	if len(principal.NotNames) > 0 {
 		principal := principalForKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
 		pg.append(principalNot(principal))
+	}
+
+	if len(principal.RequestPrincipals) > 0 {
+		principal := principalForKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
+		pg.append(principal)
 	}
 
 	if principal.Group != "" {
@@ -131,11 +143,6 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	if len(principal.NotIPs) > 0 {
 		principal := principalForKeyValues(attrSrcIP, principal.NotIPs, forTCPFilter)
 		pg.append(principalNot(principal))
-	}
-
-	if len(principal.RequestPrincipals) > 0 {
-		principal := principalForKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
-		pg.append(principal)
 	}
 
 	for _, p := range principal.Properties {

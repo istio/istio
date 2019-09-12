@@ -102,8 +102,9 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			name: "v1beta1 only",
 			policies: []*model.Config{
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
+				policy.SimpleAuthzPolicy("authz-foo", "a"),
 			},
-			wantPolicies: []string{"authz-bar[0]"},
+			wantPolicies: []string{"authz-bar[0]", "authz-foo[0]"},
 		},
 		{
 			name: "v1alpha1 and v1beta1",
@@ -151,6 +152,9 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 								if _, found := rbacConfig.GetRules().GetPolicies()[want]; !found {
 									t.Errorf("got rules with policies %v but want %v", rbacConfig.GetRules().GetPolicies(), want)
 								}
+							}
+							if len(tc.wantPolicies) != len(rbacConfig.GetRules().GetPolicies()) {
+								t.Errorf("got %d policies but want %d", len(rbacConfig.GetRules().GetPolicies()), len(tc.wantPolicies))
 							}
 						}
 					}

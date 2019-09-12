@@ -38,6 +38,7 @@ type Permission struct {
 	Ports       []string
 	NotPorts    []string
 	Constraints []KeyValues
+	AllowAll    bool
 }
 
 // Match returns True if the calling service's attributes and/or labels match to the ServiceRole constraints.
@@ -127,6 +128,11 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 		return nil, err
 	}
 	pg := permissionGenerator{}
+
+	if permission.AllowAll {
+		pg.append(permissionAny(true))
+		return pg.andPermissions(), nil
+	}
 
 	if len(permission.Hosts) > 0 {
 		permission := permissionForKeyValues(hostHeader, permission.Hosts)

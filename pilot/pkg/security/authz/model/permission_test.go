@@ -209,6 +209,17 @@ func TestPermission_Generate(t *testing.T) {
           - any: true`,
 		},
 		{
+			name: "allowAll permission",
+			permission: &Permission{
+				Hosts:    []string{"ignored"},
+				AllowAll: true,
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - any: true`,
+		},
+		{
 			name: "permission with hosts",
 			permission: &Permission{
 				Hosts: []string{"host-1", "host-2"},
