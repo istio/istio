@@ -333,6 +333,23 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
+BINARIES:=./istioctl/cmd/istioctl \
+  ./pilot/cmd/pilot-discovery \
+  ./pilot/cmd/pilot-agent \
+  ./sidecar-injector/cmd/sidecar-injector \
+  ./mixer/cmd/mixs \
+  ./mixer/cmd/mixc \
+  ./mixer/tools/mixgen \
+  ./galley/cmd/galley \
+  ./security/cmd/node_agent \
+  ./security/cmd/node_agent_k8s \
+  ./security/cmd/istio_ca \
+  ./security/tools/sdsclient \
+
+.PHONY: build
+build: depend
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
 lint: buildcache
@@ -432,9 +449,6 @@ $(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(
 BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
-.PHONY: build
-# Build will rebuild the go binaries.
-build: depend $(BUILD_BINS)
 
 .PHONY: build-linux
 build-linux: depend $(LINUX_BUILD_BINS)
