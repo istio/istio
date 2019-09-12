@@ -43,6 +43,13 @@ type Options struct {
 	// SampleHalfLife controls the decay rate of observations of response latencies.
 	SampleHalfLife time.Duration
 
+	// LatencyEnforcementThreshold is the threshold for enforcement of response
+	// latency. Above the threshold, requests will be throttled based on average
+	// respone latency. Below the threshold, no load-shedding will take place.
+	// This provides an option for ignoring load-shedding at low request volumes
+	// while preserving the protection at volume.
+	LatencyEnforcementThreshold rate.Limit
+
 	// Options for the rate limit evaluator
 
 	// MaxRequestsPerSecond controls the rate of requests over which the
@@ -57,8 +64,6 @@ type Options struct {
 	// configured maximum for a period of time. This allows for handling bursty
 	// traffic patterns. If this is set to 0, no traffic will be allowed.
 	BurstSize int
-
-	LatencyEnforcementThreshold rate.Limit
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults

@@ -28,9 +28,8 @@ const (
 	DefaultSampleFrequency = rate.Inf
 	// DefaultHalfLife controls the decay rate of an individual sample.
 	DefaultHalfLife = 1 * time.Second // Impact of each sample is expected to last ~2s.
-
+	// DefaultEnforcementThreshold controls the RPS limit under which no load shedding will occur.
 	DefaultEnforcementThreshold = rate.Limit(100.0)
-
 	// GRPCLatencyEvaluatorName is the name of the gRPC Response Latency LoadEvaluator.
 	GRPCLatencyEvaluatorName = "grpcResponseLatency"
 )
@@ -53,6 +52,8 @@ func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Du
 	return NewGRPCLatencyEvaluatorWithThreshold(sampleFrequency, averageHalfLife, DefaultEnforcementThreshold)
 }
 
+// NewGRPCLatencyEvaluatorWithThreshold creates a new LoadEvaluator that uses an average of gRPC Response Latency above
+// the specified RPS limit.
 func NewGRPCLatencyEvaluatorWithThreshold(sampleFrequency rate.Limit, averageHalfLife time.Duration, enforcementThreshold rate.Limit) *GRPCLatencyEvaluator {
 
 	sf := sampleFrequency
@@ -65,11 +66,8 @@ func NewGRPCLatencyEvaluatorWithThreshold(sampleFrequency rate.Limit, averageHal
 		hl = DefaultHalfLife
 	}
 
-	thresholdLimiter := &rate.Limiter{}
-	if enforcementThreshold != 0 {
-		// allow burstiness in enforcement threshold evaluation -- up to 100% of threshold (all simultaneous requests)
-		thresholdLimiter = rate.NewLimiter(enforcementThreshold, int(enforcementThreshold))
-	}
+	// allow burstiness in enforcement threshold evaluation -- up to 100% of threshold (all simultaneous requests)
+	thresholdLimiter := rate.NewLimiter(enforcementThreshold, int(enforcementThreshold))
 
 	return &GRPCLatencyEvaluator{
 		sampler:                     rate.NewLimiter(sf, 1), // no need to support burstiness beyond 1 event per Allow()
