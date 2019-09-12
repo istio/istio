@@ -157,6 +157,34 @@ var (
 		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
 	}
 
+	// InitialConnectionWindowSize specifies the window size to use for http2 connections
+	// Must be 65535 - 2147483647, default 268435456 (256mb)
+	InitialConnectionWindowSize = func() (int, bool) {
+		raw, f := os.LookupEnv("PILOT_INITIAL_CONNECTION_WINDOW_SIZE")
+		if !f {
+			return 0, false
+		}
+		i, err := strconv.Atoi(raw)
+		if err != nil {
+			log.Warnf("failed to parse PILOT_INITIAL_CONNECTION_WINDOW_SIZE: %v", err)
+		}
+		return i, true
+	}
+
+	// InitialStreamWindowSize specifies the window size to use for http2 connections
+	// Must be 65535 - 2147483647, default 268435456
+	InitialStreamWindowSize = func() (int, bool) {
+		raw, f := os.LookupEnv("PILOT_INITIAL_STREAM_WINDOW_SIZE")
+		if !f {
+			return 0, false
+		}
+		i, err := strconv.Atoi(raw)
+		if err != nil {
+			log.Warnf("failed to parse PILOT_INITIAL_STREAM_WINDOW_SIZE: %v", err)
+		}
+		return i, true
+	}
+
 	// DisableSplitHorizonEdsProxyNetworkCompare provides an option to disable
 	// matching proxy and pod network id.
 	DisableSplitHorizonEdsProxyNetworkCompare = func() bool {
