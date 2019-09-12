@@ -1,0 +1,51 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter
+spec:
+  filters:
+    - filterConfig:
+        configuration: |
+          {
+            "debug": "false",
+            "stat_prefix": "istio",
+          }
+        vm_config:
+          code:
+            inline_string: envoy.wasm.stats
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: GATEWAY
+    - filterConfig:
+        configuration: |
+          {
+            "debug": "false",
+            "stat_prefix": "istio",
+          }
+        vm_config:
+          code:
+            inline_string: envoy.wasm.stats
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: SIDECAR_INBOUND
+    - filterConfig:
+        configuration: |
+          {
+            "debug": "false",
+            "stat_prefix": "istio",
+          }
+        vm_config:
+          code:
+            inline_string: envoy.wasm.stats
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: SIDECAR_OUTBOUND
