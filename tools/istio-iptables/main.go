@@ -171,31 +171,6 @@ func run(args []string, flagSet *flag.FlagSet) {
 		panic(err)
 	}
 
-	// Remove the old chains, to generate new configs.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
-	// Flush and delete the istio chains.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
-	// Must be last, the others refer to it
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
-
-	if len(flagSet.Args()) > 0 && flagSet.Arg(0) == "clean" {
-		fmt.Println("Only cleaning, no new rules added")
-		return
-	}
 	// Dump out our environment for debugging purposes.
 	fmt.Println("Environment:")
 	fmt.Println("------------")

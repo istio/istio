@@ -15,6 +15,5 @@ iptables -t nat -F ISTIO_REDIRECT
 iptables -t nat -X ISTIO_REDIRECT
 iptables -t nat -F ISTIO_IN_REDIRECT
 iptables -t nat -X ISTIO_IN_REDIRECT
-Only cleaning, no new rules added
 iptables-save 
 ip6tables-save 
