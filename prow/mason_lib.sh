@@ -24,9 +24,8 @@ function mason_cleanup() {
 }
 
 function get_resource() {
-  go get istio.io/test-infra/boskos/cmd/mason_client
-  # TODO: Remove once submitted
-  # go install istio.io/test-infra/boskos/cmd/mason_client
+  # Turn off modules, otherwise the go.mod file will be updated
+  GO111MODULE=off go get istio.io/test-infra/boskos/cmd/mason_client
   local type="${1}"
   local owner="${2}"
   local info_path="${3}"
