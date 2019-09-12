@@ -135,7 +135,9 @@ spec:
         {{- end }}
         {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
           - --envoyMetricsService
+          {{- with  $.Values.global.proxy.envoyMetricsService }}
           - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
         {{- end}}
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
           - --envoyAccessLogService
