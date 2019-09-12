@@ -68,35 +68,34 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath                 string
-	controlPlaneBootstrap      bool
-	binaryPath                 string
-	serviceCluster             string
-	drainDuration              time.Duration
-	parentShutdownDuration     time.Duration
-	discoveryAddress           string
-	zipkinAddress              string
-	lightstepAddress           string
-	lightstepAccessToken       string
-	lightstepSecure            bool
-	lightstepCacertPath        string
-	datadogAgentAddress        string
-	connectTimeout             time.Duration
-	statsdUDPAddress           string
-	envoyMetricsServiceAddress string
-	envoyMetricsService        string
-	envoyAccessLogService      string
-	proxyAdminPort             uint16
-	controlPlaneAuthPolicy     string
-	customConfigFile           string
-	proxyLogLevel              string
-	proxyComponentLogLevel     string
-	dnsRefreshRate             string
-	concurrency                int
-	templateFile               string
-	disableInternalTelemetry   bool
-	tlsCertsToWatch            []string
-	loggingOptions             = log.DefaultOptions()
+	configPath               string
+	controlPlaneBootstrap    bool
+	binaryPath               string
+	serviceCluster           string
+	drainDuration            time.Duration
+	parentShutdownDuration   time.Duration
+	discoveryAddress         string
+	zipkinAddress            string
+	lightstepAddress         string
+	lightstepAccessToken     string
+	lightstepSecure          bool
+	lightstepCacertPath      string
+	datadogAgentAddress      string
+	connectTimeout           time.Duration
+	statsdUDPAddress         string
+	envoyMetricsService      string
+	envoyAccessLogService    string
+	proxyAdminPort           uint16
+	controlPlaneAuthPolicy   string
+	customConfigFile         string
+	proxyLogLevel            string
+	proxyComponentLogLevel   string
+	dnsRefreshRate           string
+	concurrency              int
+	templateFile             string
+	disableInternalTelemetry bool
+	tlsCertsToWatch          []string
+	loggingOptions           = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -201,9 +200,6 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
-			if len(envoyMetricsServiceAddress) > 0 {
-				proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
-			}
 			if envoyMetricsService != "" {
 				if ms := fromJSON(envoyMetricsService); ms != nil {
 					proxyConfig.EnvoyMetricsService = ms
@@ -647,8 +643,6 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
-	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsService.Address,
-		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
 	proxyCmd.PersistentFlags().StringVar(&envoyMetricsService, "envoyMetricsService", "",
 		"Settings of an Envoy gRPC Metrics Service API implementation")
 	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogService, "envoyAccessLogService", "",
