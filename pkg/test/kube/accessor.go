@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -391,6 +392,11 @@ func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 
 func (a *Accessor) GetServiceAccount(namespace string) kubeClientCore.ServiceAccountInterface {
 	return a.set.CoreV1().ServiceAccounts(namespace)
+}
+
+// GetKubernetesVersion returns the Kubernetes server version
+func (a *Accessor) GetKubernetesVersion() (*version.Info, error) {
+	return a.extSet.ServerVersion()
 }
 
 // GetEndpoints returns the endpoints for the given service.

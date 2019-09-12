@@ -56,6 +56,8 @@ func TestMain(m *testing.M) {
 	framework.NewSuite("sds_vault_flow_test", m).
 		// TODO(https://github.com/istio/istio/issues/14364) remove flaky label
 		Label(label.CustomSetup, label.Flaky).
+		// SDS requires Kubernetes 1.13
+		RequireEnvironmentVersion("1.13").
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {

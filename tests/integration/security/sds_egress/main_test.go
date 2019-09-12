@@ -39,6 +39,8 @@ func TestMain(m *testing.M) {
 		NewSuite("sds_egress_workload_mtls_istio_mutual_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
+		// SDS requires Kubernetes 1.13
+		RequireEnvironmentVersion("1.13").
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
