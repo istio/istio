@@ -188,6 +188,10 @@ var (
 			"could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes "+
 			"and will be removed in the near future.",
 	)
+
+	InitialConnectionWindowSize = env.RegisterIntVar("PILOT_INITIAL_CONNECTION_WINDOW_SIZE", 0, "specifies the window size to use for http2 connections").Get()
+
+	InitialStreamWindowSize = env.RegisterIntVar("PILOT_INITIAL_Stream_WINDOW_SIZE", 0, "specifies the window size to use for http2 streams").Get()
 )
 
 var (
