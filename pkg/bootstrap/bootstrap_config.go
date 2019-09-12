@@ -514,7 +514,7 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	}
 
 	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
-		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsService.Address)
+		h, p, err = GetHostPort("envoy metrics service address", config.EnvoyMetricsService.Address)
 		if err != nil {
 			return "", err
 		}
