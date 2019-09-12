@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -108,12 +107,8 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 	return s
 }
 
-func compareKubernetesVersion(kuberetesVersion string, minimumVersion int) bool {
-	return kuberetesVersion >= strconv.Itoa(minimumVersion)
-}
-
 // RequireEnvironmentVersion validates the environment meets a minimum version
-func (s *Suite) RequireEnvironmentVersion(version int) *Suite {
+func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 	setupFn := func(ctx resource.Context) error {
 
 		if ctx.Environment().EnvironmentName() == environment.Kube {
@@ -122,7 +117,7 @@ func (s *Suite) RequireEnvironmentVersion(version int) *Suite {
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
-			if !compareKubernetesVersion(ver.Minor, version) {
+			if fmt.Sprintf("%s.%s", ver.Major, ver.Minor) >= version {
 				scopes.Framework.Infof("Skipping suite %q: Required Kubernetes version (%v) is greater than current: %v",
 					ctx.Settings().TestID, version, ver.Minor)
 				s.osExit(0)
