@@ -140,23 +140,12 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	resources := parseContent(s.resources, name, yamlText)
+	resources := s.parseContent(s.resources, name, yamlText)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]collection.Name)
 
 	for _, r := range resources {
-		// If namespace is blank and we have a default set, fill in the default
-		// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
-		// Don't do this for cluster scoped resources
-		if !r.spec.ClusterScoped {
-			ns, n := r.entry.Metadata.Name.InterpretAsNamespaceAndName()
-			if ns == "" && s.defaultNs != "" {
-				scope.Source.Debugf("KubeSource.ApplyContent: namespace not specified for %q, using %q", r.entry.Metadata.Name, s.defaultNs)
-				r.entry.Metadata.Name = resource.NewName(s.defaultNs, n)
-			}
-		}
-
 		key := r.newKey()
 
 		oldSha, found := s.shas[key]
@@ -198,12 +187,12 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func parseContent(r schema.KubeResources, name, yamlText string) []kubeResource {
+func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) []kubeResource {
 	var resources []kubeResource
 	for i, chunk := range kubeyaml.Split([]byte(yamlText)) {
 		chunk = bytes.TrimSpace(chunk)
 
-		r, err := parseChunk(r, chunk)
+		r, err := s.parseChunk(r, chunk)
 		if err != nil {
 			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
 			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
@@ -215,7 +204,7 @@ func parseContent(r schema.KubeResources, name, yamlText string) []kubeResource 
 	return resources
 }
 
-func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
 	if err != nil {
@@ -239,6 +228,16 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
 	objMeta := t.ExtractObject(obj)
+
+	// If namespace is blank and we have a default set, fill in the default
+	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
+	// Don't do this for cluster scoped resources
+	if !resourceSpec.ClusterScoped {
+		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
+			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
+			objMeta.SetNamespace(s.defaultNs)
+		}
+	}
 
 	item, err := t.ExtractResource(obj)
 	if err != nil {
