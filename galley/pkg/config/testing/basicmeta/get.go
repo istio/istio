@@ -35,7 +35,7 @@ func Get() (*schema.Metadata, error) {
 	return m, nil
 }
 
-// Get returns the contained baiscmeta.yaml file, in parsed form.
+// Get returns the contained baiscmeta2.yaml file, in parsed form.
 func Get2() (*schema.Metadata, error) {
 	b, err := Asset("basicmeta2.yaml")
 	if err != nil {
