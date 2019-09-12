@@ -84,6 +84,7 @@ var (
 	connectTimeout             time.Duration
 	statsdUDPAddress           string
 	envoyMetricsServiceAddress string
+	envoyMetricsService        string
 	envoyAccessLogService      string
 	proxyAdminPort             uint16
 	controlPlaneAuthPolicy     string
@@ -200,7 +201,15 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
-			proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
+			if len(envoyMetricsServiceAddress) > 0 {
+				proxyConfig.EnvoyMetricsService = &meshconfig.RemoteService{Address: envoyMetricsServiceAddress}
+			}
+			if envoyMetricsService != "" {
+				if ms := fromJSON(envoyMetricsService); ms != nil {
+					proxyConfig.EnvoyMetricsService = ms
+					appendTLSCerts(ms)
+				}
+			}
 			if envoyAccessLogService != "" {
 				if rs := fromJSON(envoyAccessLogService); rs != nil {
 					proxyConfig.EnvoyAccessLogService = rs
@@ -640,6 +649,8 @@ func init() {
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsService.Address,
 		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsService, "envoyMetricsService", "",
+		"Settings of an Envoy gRPC Metrics Service API implementation")
 	proxyCmd.PersistentFlags().StringVar(&envoyAccessLogService, "envoyAccessLogService", "",
 		"Settings of an Envoy gRPC Access Log Service API implementation")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
