@@ -61,11 +61,7 @@ func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx anal
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-	routeProtocols := []string{"http", "tcp", "tls"}
-	destinations := make([]*v1alpha3.Destination, 0)
-	for _, protocol := range routeProtocols {
-		destinations = append(destinations, getRouteDestinationsForProtocol(vs, protocol)...)
-	}
+	destinations := getRouteDestinations(vs)
 
 	for _, destination := range destinations {
 		if !da.checkDestinationHost(ns, destination, ctx, serviceEntryHosts) {
@@ -172,27 +168,22 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 	return result[0][2], result[0][1]
 }
 
-func getRouteDestinationsForProtocol(vs *v1alpha3.VirtualService, protocol string) []*v1alpha3.Destination {
+func getRouteDestinations(vs *v1alpha3.VirtualService) []*v1alpha3.Destination {
 	destinations := make([]*v1alpha3.Destination, 0)
 
-	switch protocol {
-	case "tcp":
-		for _, r := range vs.GetTcp() {
-			for _, rd := range r.GetRoute() {
-				destinations = append(destinations, rd.GetDestination())
-			}
+	for _, r := range vs.GetTcp() {
+		for _, rd := range r.GetRoute() {
+			destinations = append(destinations, rd.GetDestination())
 		}
-	case "tls":
-		for _, r := range vs.GetTls() {
-			for _, rd := range r.GetRoute() {
-				destinations = append(destinations, rd.GetDestination())
-			}
+	}
+	for _, r := range vs.GetTls() {
+		for _, rd := range r.GetRoute() {
+			destinations = append(destinations, rd.GetDestination())
 		}
-	case "http":
-		for _, r := range vs.GetHttp() {
-			for _, rd := range r.GetRoute() {
-				destinations = append(destinations, rd.GetDestination())
-			}
+	}
+	for _, r := range vs.GetHttp() {
+		for _, rd := range r.GetRoute() {
+			destinations = append(destinations, rd.GetDestination())
 		}
 	}
 

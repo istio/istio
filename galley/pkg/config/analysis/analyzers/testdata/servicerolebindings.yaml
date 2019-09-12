@@ -11,7 +11,7 @@ spec:
   mode: PERMISSIVE
   roleRef:
     kind: ServiceRole
-    name: service-role
+    name: service-role  # Expected: no validation error since this role exists
   subjects:
   - user: cluster.local/ns/default/sa/bookinfo-productpage
 ---
@@ -23,6 +23,6 @@ spec:
   mode: PERMISSIVE
   roleRef:
     kind: ServiceRole
-    name: bogus-service-role
+    name: bogus-service-role  # Expected: validation error since this role does not exist
   subjects:
   - user: cluster.local/ns/default/sa/bookinfo-productpage

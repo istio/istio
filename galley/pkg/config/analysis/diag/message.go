@@ -23,18 +23,27 @@ import (
 // MessageType is a type of diagnostic message
 type MessageType struct {
 	// The level of the message.
-	Level Level
+	level Level
 
 	// The error code of the message
-	Code string
+	code string
 
 	// TODO: Make this localizable
-	Template string
+	template string
 }
+
+//Level returns the level of the MessageType
+func (m *MessageType) Level() Level { return m.level }
+
+//Code returns the code of the MessageType
+func (m *MessageType) Code() string { return m.code }
+
+//Template returns the message template used by the MessageType
+func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
 type Message struct {
-	MessageType
+	Type *MessageType
 
 	// The Parameters to the message
 	Parameters []interface{}
@@ -59,36 +68,23 @@ func (m *Message) toString(includeOrigin bool) string {
 	if includeOrigin && m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
-	return fmt.Sprintf("%v [%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.Template, m.Parameters...))
-}
-
-// NewMessage returns a new Message instance without specifying an existing type.
-func NewMessage(l Level, c string, o resource.Origin, template string, p ...interface{}) Message {
-	return Message{
-		MessageType: MessageType{
-			Level:    l,
-			Code:     c,
-			Template: template,
-		},
-		Origin:     o,
-		Parameters: p,
-	}
+	return fmt.Sprintf("%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
 // NewMessageType returns a new MessageType instance.
-func NewMessageType(level Level, code, template string) MessageType {
-	return MessageType{
-		Level:    level,
-		Code:     code,
-		Template: template,
+func NewMessageType(level Level, code, template string) *MessageType {
+	return &MessageType{
+		level:    level,
+		code:     code,
+		template: template,
 	}
 }
 
 // NewMessage returns a new Message instance from an existing type.
-func NewMessageFromType(mt MessageType, o resource.Origin, p ...interface{}) Message {
+func NewMessage(mt *MessageType, o resource.Origin, p ...interface{}) Message {
 	return Message{
-		MessageType: mt,
-		Origin:      o,
-		Parameters:  p,
+		Type:       mt,
+		Origin:     o,
+		Parameters: p,
 	}
 }

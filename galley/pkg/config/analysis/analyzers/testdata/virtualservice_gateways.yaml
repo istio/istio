@@ -16,7 +16,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - httpbin-gateway
+  - httpbin-gateway # Expected: no validation error since this gateway exists
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -26,4 +26,4 @@ spec:
   hosts:
   - "*"
   gateways:
-  - httpbin-gateway-bogus
+  - httpbin-gateway-bogus # Expected: validation error since this gateway does not exist

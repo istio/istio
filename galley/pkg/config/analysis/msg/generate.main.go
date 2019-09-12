@@ -136,7 +136,7 @@ var (
 {{range .Messages}}
 // New{{.Name}} returns a new diag.Message based on {{.Name}}.
 func New{{.Name}}(entry *resource.Entry{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		{{.Name}},
 		originOrNil(entry),
 		{{- range .Args}}

@@ -29,7 +29,7 @@ import (
 )
 
 type message struct {
-	messageType diag.MessageType
+	messageType *diag.MessageType
 	origin      string
 }
 
@@ -79,7 +79,7 @@ var testGrid = []testCase{
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
 	for _, testCase := range testGrid {
-		testCase := testCase //Capture range variable so subtests work correctly
+		testCase := testCase // Capture range variable so subtests work correctly
 		t.Run(testCase.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
@@ -101,7 +101,7 @@ func extractFields(msgs []diag.Message) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
 		result = append(result, message{
-			messageType: m.MessageType,
+			messageType: m.Type,
 			origin:      m.Origin.FriendlyName(),
 		})
 	}

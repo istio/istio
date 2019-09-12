@@ -32,7 +32,7 @@ var (
 
 // NewInternalError returns a new diag.Message based on InternalError.
 func NewInternalError(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		InternalError,
 		originOrNil(entry),
 		detail,
@@ -41,7 +41,7 @@ func NewInternalError(entry *resource.Entry, detail string) diag.Message {
 
 // NewNotYetImplemented returns a new diag.Message based on NotYetImplemented.
 func NewNotYetImplemented(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		NotYetImplemented,
 		originOrNil(entry),
 		detail,
@@ -50,7 +50,7 @@ func NewNotYetImplemented(entry *resource.Entry, detail string) diag.Message {
 
 // NewParseError returns a new diag.Message based on ParseError.
 func NewParseError(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		ParseError,
 		originOrNil(entry),
 		detail,
@@ -59,7 +59,7 @@ func NewParseError(entry *resource.Entry, detail string) diag.Message {
 
 // NewDeprecated returns a new diag.Message based on Deprecated.
 func NewDeprecated(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		Deprecated,
 		originOrNil(entry),
 		detail,
@@ -68,7 +68,7 @@ func NewDeprecated(entry *resource.Entry, detail string) diag.Message {
 
 // NewReferencedResourceNotFound returns a new diag.Message based on ReferencedResourceNotFound.
 func NewReferencedResourceNotFound(entry *resource.Entry, reftype string, refval string) diag.Message {
-	return diag.NewMessageFromType(
+	return diag.NewMessage(
 		ReferencedResourceNotFound,
 		originOrNil(entry),
 		reftype,
