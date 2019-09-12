@@ -51,6 +51,8 @@ spec:
         - ""
         - --dnsRefreshRate
         - 300s
+        - --statsFlushInterval
+        - 5s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
