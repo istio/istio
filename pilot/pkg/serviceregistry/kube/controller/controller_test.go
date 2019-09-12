@@ -162,7 +162,7 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	return ctl, fx
 }
 
-func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
+func newFakeController(_ *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	clientSet := fake.NewSimpleClientset()
 	c := NewController(clientSet, Options{
@@ -172,12 +172,8 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		XDSUpdater:       fx,
 		stop:             make(chan struct{}),
 	})
-	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
-		t.Log("Instance event received")
-	})
-	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {
-		t.Log("Service event received")
-	})
+	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
+	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
 	c.Env = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer: "mixer",

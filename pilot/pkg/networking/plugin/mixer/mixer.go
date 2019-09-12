@@ -607,15 +607,10 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.Se
 	return filterConfigs
 }
 
-func addVirtualDestinationServiceAttributes(attrs attributes, destinationHostname host.Name) attributes {
-	if destinationHostname == "" {
-		return attrs
-	}
-
-	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
-
-	if destinationHostname == util.PassthroughCluster || destinationHostname == util.BlackHoleCluster {
-		attrs["destination.service.name"] = attrStringValue(string(destinationHostname))
+func addVirtualDestinationServiceAttributes(attrs attributes, destinationServiceName host.Name) attributes {
+	if destinationServiceName == util.PassthroughCluster || destinationServiceName == util.BlackHoleCluster {
+		// Add destination service name for passthrough and blackhole cluster.
+		attrs["destination.service.name"] = attrStringValue(string(destinationServiceName))
 	}
 
 	return attrs

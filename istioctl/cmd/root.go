@@ -51,6 +51,9 @@ var (
 	// Create a kubernetes.ExecClient (or mockExecClient)
 	clientExecFactory = newExecClient
 
+	// Create a kubernetes.ExecClientSDS
+	clientExecSdsFactory = newSDSExecClient
+
 	loggingOptions = log.DefaultOptions()
 )
 
@@ -106,10 +109,10 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
-	rootCmd.AddCommand(statusCmd)
+
 	rootCmd.AddCommand(convertIngress())
 	rootCmd.AddCommand(dashboard())
-	rootCmd.AddCommand(metricsCmd)
+	rootCmd.AddCommand(statusCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(Auth())
@@ -117,7 +120,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
 	experimentalCmd.AddCommand(graduatedCmd("dashboard"))
 	experimentalCmd.AddCommand(uninjectCommand())
-	experimentalCmd.AddCommand(graduatedCmd("metrics"))
+	experimentalCmd.AddCommand(metricsCmd)
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())

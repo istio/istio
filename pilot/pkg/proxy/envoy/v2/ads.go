@@ -432,7 +432,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				for _, cn := range clusters {
-					s.addEdsCon(cn, con.ConID, con)
+					s.getOrAddEdsCluster(cn, con.ConID, con)
 				}
 
 				con.Clusters = clusters

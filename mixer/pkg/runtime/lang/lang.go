@@ -50,7 +50,7 @@ const (
 	COMPAT
 )
 
-var langVar = env.RegisterStringVar("ISTIO_LANG", "", "Selects the attribute expression langauge runtime for Mixer.")
+var langVar = env.RegisterStringVar("ISTIO_LANG", "", "Selects the attribute expression language runtime for Mixer.")
 
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {

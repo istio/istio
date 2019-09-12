@@ -121,8 +121,8 @@ func (rc *Context) Run(testCases []TestCase) {
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.
 			policyYAML := file.AsStringOrFail(ctx, filepath.Join("../testdata", c.ConfigFile))
-			rc.g.ApplyConfigOrFail(rc.ctx, c.Namespace, policyYAML)
-			rc.ctx.WhenDone(func() error {
+			rc.g.ApplyConfigOrFail(ctx, c.Namespace, policyYAML)
+			ctx.WhenDone(func() error {
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
 			})
 

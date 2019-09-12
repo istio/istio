@@ -33,7 +33,7 @@ type ConfigGenerator interface {
 	BuildClusters(env *model.Environment, node *model.Proxy, push *model.PushContext) []*v2.Cluster
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
-	BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext, routeName string) *v2.RouteConfiguration
+	BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
