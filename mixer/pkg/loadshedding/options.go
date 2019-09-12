@@ -45,7 +45,7 @@ type Options struct {
 
 	// LatencyEnforcementThreshold is the threshold for enforcement of response
 	// latency. Above the threshold, requests will be throttled based on average
-	// respone latency. Below the threshold, no load-shedding will take place.
+	// response latency. Below the threshold, no load-shedding will take place.
 	// This provides an option for ignoring load-shedding at low request volumes
 	// while preserving the protection at volume.
 	LatencyEnforcementThreshold rate.Limit
