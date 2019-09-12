@@ -31,10 +31,10 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	pushStart := time.Now()
 	defer func() {
 		if err != nil {
-			proxiesConvergeDelayRdsErrors.Record(time.Since(pushStart).Seconds())
-		} else {
-			proxiesConvergeDelayRds.Record(time.Since(pushStart).Seconds())
+			rdsPushErrTime.Record(time.Since(pushStart).Seconds())
+			return
 		}
+		rdsPushTime.Record(time.Since(pushStart).Seconds())
 	}()
 	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {

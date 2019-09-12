@@ -643,10 +643,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	pushStart := time.Now()
 	defer func() {
 		if err != nil {
-			proxiesConvergeDelayEdsErrors.Record(time.Since(pushStart).Seconds())
-		} else {
-			proxiesConvergeDelayEds.Record(time.Since(pushStart).Seconds())
+			edsPushErrTime.Record(time.Since(pushStart).Seconds())
+			return
 		}
+		edsPushTime.Record(time.Since(pushStart).Seconds())
 	}()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0

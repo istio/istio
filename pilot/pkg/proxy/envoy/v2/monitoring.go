@@ -102,6 +102,22 @@ var (
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
+	pushTime = monitoring.NewDistribution(
+		"pilot_xds_push_time",
+		"Total time Pilot takes to push lds, rds, cds and eds.",
+		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
+		monitoring.WithLabels(typeTag),
+	)
+
+	cdsPushTime    = pushTime.With(typeTag.Value("cds"))
+	cdsPushErrTime = pushTime.With(typeTag.Value("cds_pusherr"))
+	edsPushTime    = pushTime.With(typeTag.Value("eds"))
+	edsPushErrTime = pushTime.With(typeTag.Value("eds_pusherr"))
+	ldsPushTime    = pushTime.With(typeTag.Value("lds"))
+	ldsPushErrTime = pushTime.With(typeTag.Value("lds_pusherr"))
+	rdsPushTime    = pushTime.With(typeTag.Value("rds"))
+	rdsPushErrTime = pushTime.With(typeTag.Value("rds_pusherr"))
+
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
@@ -114,12 +130,8 @@ var (
 		"pilot_proxy_convergence_time",
 		"Delay between config change and all proxies converging.",
 		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
-		monitoring.WithLabels(typeTag, errTag),
+		monitoring.WithLabels(errTag),
 	)
-	proxiesConvergeDelayCds = proxiesConvergeDelay.With(typeTag.Value("cds"))
-	proxiesConvergeDelayEds = proxiesConvergeDelay.With(typeTag.Value("eds"))
-	proxiesConvergeDelayRds = proxiesConvergeDelay.With(typeTag.Value("rds"))
-	proxiesConvergeDelayLds = proxiesConvergeDelay.With(typeTag.Value("lds"))
 
 	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
 	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
@@ -174,6 +186,7 @@ func init() {
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,
+		pushTime,
 		proxiesConvergeDelay,
 		proxiesQueueTime,
 		pushContextErrors,

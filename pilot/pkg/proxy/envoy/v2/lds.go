@@ -29,10 +29,10 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	pushStart := time.Now()
 	defer func() {
 		if err != nil {
-			proxiesConvergeDelayLdsErrors.Record(time.Since(pushStart).Seconds())
-		} else {
-			proxiesConvergeDelayLds.Record(time.Since(pushStart).Seconds())
+			ldsPushErrTime.Record(time.Since(pushStart).Seconds())
+			return
 		}
+		ldsPushTime.Record(time.Since(pushStart).Seconds())
 	}()
 
 	rawListeners := s.generateRawListeners(con, push)

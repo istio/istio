@@ -51,10 +51,10 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	pushStart := time.Now()
 	defer func() {
 		if err != nil {
-			proxiesConvergeDelayCdsErrors.Record(time.Since(pushStart).Seconds())
-		} else {
-			proxiesConvergeDelayCds.Record(time.Since(pushStart).Seconds())
+			cdsPushErrTime.Record(time.Since(pushStart).Seconds())
+			return
 		}
+		cdsPushTime.Record(time.Since(pushStart).Seconds())
 	}()
 	rawClusters := s.generateRawClusters(con.modelNode, push)
 
