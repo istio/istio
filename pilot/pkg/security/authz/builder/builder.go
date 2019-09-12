@@ -40,48 +40,41 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection,
+func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
-	if serviceInstance.Service == nil {
-		rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
+	var generator policy.Generator
+
+	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
+		generator = v1beta1.NewGenerator(p)
+		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
+	} else {
+		if serviceInstance.Service == nil {
+			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
+			return nil
+		}
+		serviceName := serviceInstance.Service.Attributes.Name
+		serviceNamespace := serviceInstance.Service.Attributes.Namespace
+		serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
+		if err != nil {
+			rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
+			return nil
+		}
+
+		serviceHostname := string(serviceInstance.Service.Hostname)
+		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
+			generator = v1alpha1.NewGenerator(serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
+		}
+	}
+
+	if generator == nil {
 		return nil
 	}
 
-	serviceName := serviceInstance.Service.Attributes.Name
-	serviceNamespace := serviceInstance.Service.Attributes.Namespace
-	serviceHostname := string(serviceInstance.Service.Hostname)
-	serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
-	if err != nil {
-		rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
-		return nil
-	}
-
-	isGlobalPermissiveEnabled := policies.IsGlobalPermissiveEnabled()
-
-	builder := &Builder{
+	return &Builder{
 		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
+		generator:                   generator,
 	}
-
-	if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-		builder.generator = v1alpha1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
-	} else {
-		rbacLog.Debugf("v1alpha1 RBAC policy disabled for service %s", serviceHostname)
-	}
-
-	// TODO: support policy in root namespace.
-	matchedPolicies := policies.ListAuthorizationPolicies(serviceNamespace, workloadLabels)
-	if len(matchedPolicies) > 0 {
-		builder.generator = v1beta1.NewGenerator(matchedPolicies)
-	} else {
-		rbacLog.Debugf("v1beta1 authorization policies disabled for workload %v in %s",
-			workloadLabels, serviceNamespace)
-	}
-
-	if builder.generator == nil {
-		return nil
-	}
-
-	return builder
 }
 
 // BuildHTTPFilter builds the RBAC HTTP filter.

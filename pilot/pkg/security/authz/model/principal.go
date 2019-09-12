@@ -30,18 +30,18 @@ import (
 )
 
 type Principal struct {
-	User          string // For backward-compatible only.
-	Names         []string
-	NotNames      []string
-	Group         string // For backward-compatible only.
-	Groups        []string
-	NotGroups     []string
-	Namespaces    []string
-	NotNamespaces []string
-	IPs           []string
-	NotIPs        []string
+	User              string // For backward-compatible only.
+	Names             []string
+	NotNames          []string
+	Group             string // For backward-compatible only.
+	Groups            []string
+	NotGroups         []string
+	Namespaces        []string
+	NotNamespaces     []string
+	IPs               []string
+	NotIPs            []string
 	RequestPrincipals []string
-	Properties    []KeyValues
+	Properties        []KeyValues
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP

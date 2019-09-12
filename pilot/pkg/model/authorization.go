@@ -45,6 +45,9 @@ type AuthorizationPolicies struct {
 
 	// Maps from namespace to the v1beta1 Authorization policies.
 	namespaceToV1beta1Policies map[string][]Config
+
+	// v1beta1 policy in root namespace applies to all workloads.
+	rootNamespace string
 }
 
 // GetAuthorizationPolicies gets the authorization policies in the mesh.
@@ -52,6 +55,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	policy := &AuthorizationPolicies{
 		namespaceToV1alpha1Policies: map[string]*RolesAndBindings{},
 		namespaceToV1beta1Policies:  map[string][]Config{},
+		rootNamespace:               env.Mesh.GetRootNamespace(),
 	}
 
 	rbacConfig := env.IstioConfigStore.ClusterRbacConfig()
@@ -78,6 +82,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(policies)
 	policy.addAuthorizationPolicies(policies)
 
 	return policy, nil
@@ -135,19 +140,30 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 	return rolesAndBindings.Bindings
 }
 
-// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(ns string, workloadLabels labels.Collection) []Config {
+// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
+	workloadLabels labels.Collection) []Config {
 	if policy == nil {
 		return nil
 	}
 
-	var ret []Config
+	var namespaces []string
+	if policy.rootNamespace != "" {
+		namespaces = append(namespaces, policy.rootNamespace)
+	}
+	// To prevent duplicate policies in case root namespace equals proxy's namespace.
+	if configNamespace != policy.rootNamespace {
+		namespaces = append(namespaces, configNamespace)
+	}
 
-	for _, config := range policy.namespaceToV1beta1Policies[ns] {
-		spec := config.Spec.(*authpb.AuthorizationPolicy)
-		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workloadLabels.IsSupersetOf(selector) {
-			ret = append(ret, config)
+	var ret []Config
+	for _, ns := range namespaces {
+		for _, config := range policy.namespaceToV1beta1Policies[ns] {
+			spec := config.Spec.(*authpb.AuthorizationPolicy)
+			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+			if workloadLabels.IsSupersetOf(selector) {
+				ret = append(ret, config)
+			}
 		}
 	}
 
