@@ -134,7 +134,6 @@ containers:
   - --envoyMetricsService
   - '{{ structToJSON .ProxyConfig.EnvoyMetricsService }}'
 {{- end }}
-{{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogService
   - '{{ structToJSON .ProxyConfig.EnvoyAccessLogService }}'
