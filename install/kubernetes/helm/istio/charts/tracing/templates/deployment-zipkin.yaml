@@ -24,6 +24,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- if .Values.zipkin.podAnnotations }}
+{{ toYaml .Values.zipkin.podAnnotations | indent 8 }}
+{{- end }}
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"

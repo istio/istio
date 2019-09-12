@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -48,7 +49,7 @@ func TestMetricsNoPrometheus(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			args:           strings.Split("experimental metrics", " "),
-			expectedOutput: "Error: requires at least 1 arg(s), only received 0\n",
+			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
@@ -70,8 +71,9 @@ func TestMetrics(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:          strings.Split("experimental metrics details", " "),
-			wantException: true,
+			args:           strings.Split("experimental metrics details", " "),
+			expectedRegexp: regexp.MustCompile("Error: could not build port forwarder for prometheus"),
+			wantException:  true,
 		},
 	}
 

@@ -37,6 +37,9 @@ spec:
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
+         {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
@@ -62,11 +65,9 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if $.Values.global.controlPlaneSecurityEnabled}}
-    {{- if not .Values.sidecar }}
+{{- if and $.Values.global.controlPlaneSecurityEnabled (not .Values.sidecar)}}
           - --secureGrpcAddr
           - ":15011"
-    {{- end }}
 {{- else }}
           - --secureGrpcAddr
           - ""
@@ -110,10 +111,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
-{{- if .Values.enableProtocolSniffing }}
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
-            value: "{{ .Values.enableProtocolSniffing }}"
-{{- end }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "{{ .Values.enableProtocolSniffingForOutbound }}"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "{{ .Values.enableProtocolSniffingForInbound }}"
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -173,6 +174,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -200,7 +203,7 @@ spec:
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}

@@ -38,7 +38,8 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -75,10 +76,10 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio)
+		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio), 15006 (virtual inbound)
 		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 4 {
+		if len(ldsr.GetHTTPListeners()) != 5 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
 			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
@@ -233,11 +234,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
-	// Expect 12 CDS clusters:
-	// 3 inbound(http, inbound passthroughipv4 and inbound passthroughipv6)
+	// Expect 11 CDS clusters:
+	// 2 inbound(http, inbound passthroughipv4) notes: no passthroughipv6
 	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
-	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 12 {
+	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 11 {
 		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
 	}
 
@@ -345,7 +346,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cancel()
-		err = sendLDSReq(gatewayID(gatewayIP), ldsr)
+		err = sendLDSReqWithLabels(gatewayID(gatewayIP), ldsr, map[string]string{"version": "v2", "app": "my-gateway-controller"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -457,6 +458,8 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
@@ -527,8 +530,8 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				return
 			}
 
-			// Expect 1 HTTP listeners for 8081
-			if len(adsResponse.GetHTTPListeners()) != 1 {
+			// Expect 1 HTTP listeners for 8081, 1 hybrid listeners for 15006 (virtual inbound)
+			if len(adsResponse.GetHTTPListeners()) != 2 {
 				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 			}
 			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener

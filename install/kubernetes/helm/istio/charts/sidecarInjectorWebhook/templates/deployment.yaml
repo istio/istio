@@ -28,6 +28,9 @@ spec:
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
 {{- if .Values.global.priorityClassName }}

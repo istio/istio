@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
@@ -178,12 +180,36 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string))
+	return buildTestClustersWithProxyMetadata(
+		serviceHostname,
+		serviceResolution,
+		nodeType,
+		locality,
+		mesh,
+		destRule,
+		make(map[string]string),
+		model.MaxIstioVersion)
+}
+
+func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
+	destRule proto.Message, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string), istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution,
+		nodeType, locality, mesh,
+		destRule, meta, istioVersion,
+		// Add default sidecar proxy meta
+		[]string{"6.6.6.6", "::1"})
+}
+
+func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
+	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -259,21 +285,23 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 	switch nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
-			ClusterID:   "some-cluster-id",
-			Type:        model.SidecarProxy,
-			IPAddresses: []string{"6.6.6.6"},
-			Locality:    locality,
-			DNSDomain:   "com",
-			Metadata:    meta,
+			ClusterID:    "some-cluster-id",
+			Type:         model.SidecarProxy,
+			IPAddresses:  proxyIps,
+			Locality:     locality,
+			DNSDomain:    "com",
+			Metadata:     meta,
+			IstioVersion: istioVersion,
 		}
 	case model.Router:
 		proxy = &model.Proxy{
-			ClusterID:   "some-cluster-id",
-			Type:        model.Router,
-			IPAddresses: []string{"6.6.6.6"},
-			Locality:    locality,
-			DNSDomain:   "default.example.org",
-			Metadata:    meta,
+			ClusterID:    "some-cluster-id",
+			Type:         model.Router,
+			IPAddresses:  []string{"6.6.6.6"},
+			Locality:     locality,
+			DNSDomain:    "default.example.org",
+			Metadata:     meta,
+			IstioVersion: istioVersion,
 		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
@@ -428,7 +456,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	}
 
 	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
-		nil, testMesh, destRule, envoyMetadata)
+		nil, testMesh, destRule, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(7))
@@ -486,6 +514,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) (
 			},
 		},
 		meta,
+		model.MaxIstioVersion,
 	)
 }
 
@@ -753,6 +782,28 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 	}
 }
 
+func TestStatNamePattern(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	statConfigMesh := meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		InboundClusterStatName:  "LocalService_%SERVICE%",
+		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+	}
+
+	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{}, statConfigMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
+	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
+}
+
 func TestLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
@@ -893,7 +944,7 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 		})
 
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 }
 
@@ -915,6 +966,31 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 			},
 		})
 
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+}
+
+func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClustersWithIstioVersion("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		}, &model.IstioVersion{Major: 1, Minor: 2})
+
+	fmt.Printf("%+v\n", clusters[0])
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
 	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
@@ -974,7 +1050,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
 			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 		}
 	}
@@ -1020,5 +1096,166 @@ func TestRedisProtocolCluster(t *testing.T) {
 			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
+	}
+}
+
+func TestAltStatName(t *testing.T) {
+	tests := []struct {
+		name        string
+		statPattern string
+		host        string
+		subsetName  string
+		dnsDomain   string
+		port        *model.Port
+		want        string
+	}{
+		{
+			"Service only pattern",
+			"%SERVICE%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default",
+		},
+		{
+			"Service FQDN only pattern",
+			"%SERVICE_FQDN%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local",
+		},
+		{
+			"Service With Port pattern",
+			"%SERVICE%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default_7443",
+		},
+		{
+			"Service With Port Name pattern",
+			"%SERVICE%_%SERVICE_PORT_NAME%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default_grpc-svc",
+		},
+		{
+			"Service With Port and Port Name pattern",
+			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Port pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local_7443",
+		},
+		{
+			"Service FQDN With Port Name pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local_grpc-svc",
+		},
+		{
+			"Service FQDN With Port and Port Name pattern",
+			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Empty Subset, Port and Port Name pattern",
+			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local_grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Subset, Port and Port Name pattern",
+			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"reviews.default.svc.cluster.local",
+			"v1",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
+		},
+		{
+			"Service FQDN With Unknown Pattern",
+			"%SERVICE_FQDN%.%DUMMY%",
+			"reviews.default.svc.cluster.local",
+			"v1",
+			"default.svc.cluster.local",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			"reviews.default.svc.cluster.local.%DUMMY%",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.dnsDomain, tt.port)
+			if got != tt.want {
+				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
+
+	validation := func(clusters []*apiv2.Cluster) []bool {
+		hasIpv4, hasIpv6 := false, false
+		for _, c := range clusters {
+			hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
+			hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
+		}
+		return []bool{hasIpv4, hasIpv6}
+	}
+	for _, inAndOut := range []struct {
+		ips      []string
+		features []bool
+	}{
+		{[]string{"6.6.6.6", "::1"}, []bool{true, true}},
+		{[]string{"6.6.6.6"}, []bool{true, false}},
+		{[]string{"::1"}, []bool{false, true}},
+	} {
+		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests: 1,
+							IdleTimeout:             &types.Duration{Seconds: 15},
+						},
+					},
+				},
+			},
+			make(map[string]string),
+			model.MaxIstioVersion,
+			inAndOut.ips,
+		)
+		g := NewGomegaWithT(t)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
 	}
 }

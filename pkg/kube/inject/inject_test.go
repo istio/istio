@@ -29,6 +29,8 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -100,6 +102,16 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:                           "hello.yaml.injected",
 			want:                         "hello.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			in:                           "hello-mtls-not-ready.yaml",
+			want:                         "hello-mtls-not-ready.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
@@ -774,6 +786,86 @@ func TestInvalidAnnotations(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestSkipUDPPorts(t *testing.T) {
+	cases := []struct {
+		c     corev1.Container
+		ports []string
+	}{
+		{
+			c: corev1.Container{
+				Ports: []corev1.ContainerPort{},
+			},
+		},
+		{
+			c: corev1.Container{
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 80,
+						Protocol:      corev1.ProtocolTCP,
+					},
+					{
+						ContainerPort: 8080,
+						Protocol:      corev1.ProtocolTCP,
+					},
+				},
+			},
+			ports: []string{"80", "8080"},
+		},
+		{
+			c: corev1.Container{
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 53,
+						Protocol:      corev1.ProtocolTCP,
+					},
+					{
+						ContainerPort: 53,
+						Protocol:      corev1.ProtocolUDP,
+					},
+				},
+			},
+			ports: []string{"53"},
+		},
+		{
+			c: corev1.Container{
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 80,
+						Protocol:      corev1.ProtocolTCP,
+					},
+					{
+						ContainerPort: 53,
+						Protocol:      corev1.ProtocolUDP,
+					},
+				},
+			},
+			ports: []string{"80"},
+		},
+		{
+			c: corev1.Container{
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 53,
+						Protocol:      corev1.ProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+	for i := range cases {
+		expectPorts := cases[i].ports
+		ports := getPortsForContainer(cases[i].c)
+		if len(ports) != len(expectPorts) {
+			t.Fatalf("unexpect ports result for case %d", i)
+		}
+		for j := 0; j < len(ports); j++ {
+			if ports[j] != expectPorts[j] {
+				t.Fatalf("unexpect ports result for case %d: expect %v, got %v", i, expectPorts, ports)
+			}
+		}
 	}
 }
 

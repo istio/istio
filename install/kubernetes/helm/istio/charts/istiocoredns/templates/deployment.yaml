@@ -27,6 +27,9 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istiocoredns-service-account
 {{- if .Values.global.priorityClassName }}
@@ -34,7 +37,7 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: {{ .Values.coreDNSImage }}
+        image: {{ .Values.coreDNSImage }}:{{ .Values.coreDNSTag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:

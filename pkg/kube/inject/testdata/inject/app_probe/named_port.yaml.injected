@@ -15,12 +15,13 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"48223a2bdf0874fbf126b9de064f387c42898c5f6d6bfdc41457caef22593b82","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3ae2237c99cecd220c8a89781e3929298793b967a9e628986e30bf4ec51a57db","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -71,6 +72,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -91,6 +99,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -101,7 +111,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployment/hello
+          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/readyz":{"port":80}}'
         image: docker.io/istio/proxyv2:unittest
@@ -149,7 +159,7 @@ spec:
         - -x
         - ""
         - -b
-        - "80"
+        - '*'
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest

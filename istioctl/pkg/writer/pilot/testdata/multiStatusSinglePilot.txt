@@ -1,3 +1,3 @@
-NAME       CDS                LDS        EDS                RDS          PILOT      VERSION
-proxy1     STALE (1h0m0s)     SYNCED     SYNCED             NOT SENT     pilot1     1.1
-proxy2     STALE (1h0m0s)     SYNCED     STALE (1h0m0s)     SYNCED       pilot1     1.1
+NAME       CDS       LDS        EDS        RDS          PILOT      VERSION
+proxy1     STALE     SYNCED     SYNCED     NOT SENT     pilot1     1.1
+proxy2     STALE     SYNCED     STALE      SYNCED       pilot1     1.1

@@ -12,6 +12,8 @@ spec:
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
+      labels:
+        security.istio.io/mtlsReady: "true"
       name: pi
     spec:
       containers:
@@ -59,6 +61,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -79,13 +87,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/batch/v1/namespaces/default/job/pi
+          value: kubernetes://api/batch/v1/namespaces/default/jobs/pi
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -131,7 +141,7 @@ spec:
         - -x
         - ""
         - -b
-        - ""
+        - '*'
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest

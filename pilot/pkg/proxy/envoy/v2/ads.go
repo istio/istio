@@ -84,9 +84,9 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Sending on this channel triggers a check whether the proxy associated
-	// with the connection needs an xDS update.
-	updateChannel chan struct{}
+	// Sending on this channel results in a reset on proxy attributes.
+	// Generally it comes before a XdsEvent.
+	updateChannel chan *UpdateEvent
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
@@ -191,10 +191,16 @@ type XdsEvent struct {
 	done func()
 }
 
+// UpdateEvent represents a update request for the proxy.
+// This will trigger proxy specific attributes reset before each push.
+type UpdateEvent struct {
+	workloadLabel bool
+}
+
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:   make(chan *XdsEvent),
-		updateChannel: make(chan struct{}),
+		updateChannel: make(chan *UpdateEvent, 1),
 		PeerAddr:      peerAddr,
 		Clusters:      []string{},
 		Connect:       time.Now(),
@@ -426,7 +432,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				for _, cn := range clusters {
-					s.addEdsCon(cn, con.ConID, con)
+					s.getOrAddEdsCluster(cn, con.ConID, con)
 				}
 
 				con.Clusters = clusters
@@ -449,6 +455,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			} else {
 				con.mu.Unlock()
 			}
+		case updateEv := <-con.updateChannel:
+			if updateEv.workloadLabel && con.modelNode != nil {
+				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
+			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
@@ -464,11 +474,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			pushEv.done()
 			if err != nil {
 				return nil
-			}
-		case <-con.updateChannel:
-			err := s.doUpdateProxyServiceInstances(con)
-			if err != nil {
-				adsLog.Errorf("Error updating proxy service instances for proxy %s: %v", con.modelNode.IPAddresses[0], err)
 			}
 		}
 	}
@@ -510,12 +515,13 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 
-	// Set the sidecarScope associated with this proxy
+	// Set the sidecarScope and merged gateways associated with this proxy
 	nt.SetSidecarScope(s.globalPushContext())
+	nt.SetGatewaysForProxy(s.globalPushContext())
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -553,7 +559,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 
@@ -568,11 +574,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	// Precompute the sidecar scope associated with this proxy.
+	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	con.modelNode.SetSidecarScope(pushEv.push)
+	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !proxyNeedsPush(con, pushEv.targetNamespaces) {
@@ -714,44 +721,6 @@ func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bo
 	return false
 }
 
-// updateProxyServiceInstances triggers a check whether the proxy associated with the given service instance
-// needs to refresh its local inbound listeners.
-func (s *DiscoveryServer) updateProxyServiceInstances(instance *model.ServiceInstance) {
-	instanceIP := instance.Endpoint.Address
-
-	// Check whether there's an existing connection from that IP address
-	adsClientsMutex.RLock()
-	con, ok := s.connectionsByIP[instanceIP]
-	adsClientsMutex.RUnlock()
-
-	if ok {
-		con.updateChannel <- struct{}{}
-	}
-}
-
-// doUpdateProxyServiceInstances determines whether the proxy associated with the given service instance
-// needs to refresh its local inbound listeners, and if so, triggers a push to that proxy.
-func (s *DiscoveryServer) doUpdateProxyServiceInstances(con *XdsConnection) error {
-	proxy := con.modelNode
-	instances, err := s.Env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		adsLog.Errorf("Error getting proxy %s service instances: %v", proxy.ID, err)
-		return err
-	}
-
-	if reflect.DeepEqual(instances, proxy.ServiceInstances) {
-		// no changes detected - nothing to update
-		return nil
-	}
-
-	proxy.ServiceInstances = instances
-
-	// Trigger an update to that particular proxy
-	s.pushQueue.Enqueue(con, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-
-	return nil
-}
-
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
@@ -765,8 +734,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 		} else {
 			adsSidecarIDConnectionsMap[node.ID][conID] = con
 		}
-
-		s.connectionsByIP[node.IPAddresses[0]] = con
 	}
 }
 
@@ -793,8 +760,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {
 			delete(adsSidecarIDConnectionsMap, node.ID)
 		}
-
-		delete(s.connectionsByIP, node.IPAddresses[0])
 	}
 }
 

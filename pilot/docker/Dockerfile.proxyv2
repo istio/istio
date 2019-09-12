@@ -1,9 +1,11 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
 # The following section is used as base image if BASE_DISTRIBUTION=default
-# hadolint ignore=DL3006
-FROM istionightly/base_debug as default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # Add CA certificates for SSL connections.
 # obtained from debian ca-certs deb using fetch_cacerts.sh
@@ -34,11 +36,6 @@ FROM ${BASE_DISTRIBUTION}
 
 ARG proxy_version
 ARG istio_version
-
-ARG ISTIO_API_SHA=unknown
-ARG ENVOY_SHA=unknown
-LABEL istio-api-vcs-ref=$ISTIO_API_SHA \
-    envoy-vcs-ref=$ENVOY_SHA
 
 # Install Envoy.
 COPY envoy /usr/local/bin/envoy

@@ -21,6 +21,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -82,9 +83,10 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:      hostname,
-							Namespace: cfg.Namespace,
-							ExportTo:  exportTo,
+							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							Name:            hostname,
+							Namespace:       cfg.Namespace,
+							ExportTo:        exportTo,
 						},
 					})
 				} else if net.ParseIP(address) != nil {
@@ -96,9 +98,10 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:      hostname,
-							Namespace: cfg.Namespace,
-							ExportTo:  exportTo,
+							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							Name:            hostname,
+							Namespace:       cfg.Namespace,
+							ExportTo:        exportTo,
 						},
 					})
 				}
@@ -112,9 +115,10 @@ func convertServices(cfg model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					Name:      hostname,
-					Namespace: cfg.Namespace,
-					ExportTo:  exportTo,
+					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					Name:            hostname,
+					Namespace:       cfg.Namespace,
+					ExportTo:        exportTo,
 				},
 			})
 		}

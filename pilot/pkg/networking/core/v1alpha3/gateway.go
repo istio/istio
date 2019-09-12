@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,9 +37,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -49,23 +50,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	push *model.PushContext,
 	builder *ListenerBuilder) *ListenerBuilder {
 
-	var gatewaysForWorkload []model.Config
-	if features.ScopeGatewayToNamespace.Get() {
-		gatewaysForWorkload = push.Gateways(node)
-	} else {
-		var workloadLabels labels.Collection
-		for _, w := range node.ServiceInstances {
-			workloadLabels = append(workloadLabels, w.Labels)
-		}
-		gatewaysForWorkload = env.Gateways(workloadLabels)
-	}
-
-	if len(gatewaysForWorkload) == 0 {
+	if node.MergedGateway == nil {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
 		return builder
 	}
 
-	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
+	mergedGateway := node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
@@ -83,13 +73,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			routeName := mergedGateway.RouteNamesByServer[servers[0]]
-			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName)}
+			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "")}
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
 			// build listener with tcp proxy, with or without TLS context, for TCP servers
@@ -102,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 				if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, env.Mesh.SdsUdsPath))
 				} else {
 					// passthrough or tcp, yields multiple filter chains
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push,
@@ -138,11 +128,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// end shady logic
 
 		var si *model.ServiceInstance
+		serviceInstances := make([]*model.ServiceInstance, 0, len(node.ServiceInstances))
 		for _, w := range node.ServiceInstances {
 			if w.Endpoint.Port == int(portNumber) {
-				si = w
-				break
+				if si == nil {
+					si = w
+				}
+				serviceInstances = append(serviceInstances, w)
 			}
+		}
+		if len(serviceInstances) != 1 {
+			names := make([]host.Name, 0, len(serviceInstances))
+			for _, s := range serviceInstances {
+				names = append(names, s.Service.Hostname)
+			}
+			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
+				len(serviceInstances), portNumber, names)
 		}
 
 		pluginParams := &plugin.InputParams{
@@ -207,23 +208,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 
-	// collect workload labels
-	var workloadLabels labels.Collection
-	for _, w := range proxyInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	gateways := env.Gateways(workloadLabels)
-	if len(gateways) == 0 {
+	if node.MergedGateway == nil {
 		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil
 	}
 
-	merged := model.MergeGateways(gateways...)
+	merged := node.MergedGateway
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
 	// make sure that there is some server listening on this port
@@ -259,7 +253,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 				continue
 			}
 
-			routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, nil, map[string]bool{gatewayName: true})
+			routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, map[string]bool{gatewayName: true})
 			if err != nil {
 				log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, virtualService, err)
 				continue
@@ -340,7 +334,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
+	node *model.Proxy, server *networking.Server, routeName string, sdsPath string) *filterChainOpts {
 
 	serverProto := protocol.Parse(server.Port.Protocol)
 
@@ -393,7 +387,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   getSNIHostsForServer(server),
-		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
+		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent, sdsPath, node.Metadata),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -414,7 +408,24 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	}
 }
 
-func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
+// enableIngressSds: signifies whether this is an SDS enabled ingress controller, with an embedded node agent running
+// alongside the gateway pod (https://istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/)
+// sdsPath: is the path to the mesh-wide workload sds uds path, and it is assumed that if this path is unset, that sds is
+// disabled mesh-wide
+// metadata: map of miscellaneous configuration values sent from the Envoy instance back to Pilot, could include the field
+// USER_SDS which signifies that the proxy is an SDS-enabled ingress gateway
+//
+// Below is a table of potential scenarios for the gateway configuration:
+//
+// TLS mode      | Mesh-wide SDS | Ingress SDS | Resulting Configuration
+// SIMPLE/MUTUAL |    ENABLED    |   ENABLED   | support SDS at ingress gateway to terminate SSL communication outside the mesh
+// ISTIO_MUTUAL  |    ENABLED    |   DISABLED  | support SDS at gateway to terminate workload mTLS, with internal workloads
+// 											   | for egress or with another trusted cluster for ingress)
+// ISTIO_MUTUAL  |    DISABLED   |   DISABLED  | use file-mounted secret paths to terminate workload mTLS from gateway
+//
+// Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
+func buildGatewayListenerTLSContext(
+	server *networking.Server, enableIngressSds bool, sdsPath string, metadata map[string]string) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -426,7 +437,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	if enableSds && server.Tls.CredentialName != "" {
+	if enableIngressSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
@@ -451,6 +462,52 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: &auth.CertificateValidationContext{
 					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
+		}
+	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		// global SDS must be enabled if the sds path is non-default, configure TLS with SDS
+		if sdsPath != "" {
+			// configure egress with SDS
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
+						authn_model.SDSRootResourceName, sdsPath, metadata),
+				},
+			}
+			tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+				authn_model.ConstructSdsSecretConfig(
+					authn_model.SDSDefaultResourceName, sdsPath, metadata)}
+		} else {
+			// global SDS disabled, fall back on using mounted certificates
+			caCertificates := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerRootCert, constants.DefaultRootCert)
+			trustedCa := &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: caCertificates,
+				},
+			}
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa:            trustedCa,
+					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
+
+			certChainPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerCertChain, constants.DefaultCertChain)
+			privateKeyPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerKey, constants.DefaultKey)
+			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: certChainPath,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: privateKeyPath,
+						},
+					},
 				},
 			}
 		}
@@ -489,7 +546,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	}
 
 	tls.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL ||
+		server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
 		tls.RequireClientCertificate = proto.BoolTrue
 	}
 
@@ -551,7 +609,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
+					tlsContext:     buildGatewayListenerTLSContext(server, enableIngressSdsAgent, env.Mesh.SdsUdsPath, node.Metadata),
 					networkFilters: filters,
 				},
 			}
@@ -749,15 +807,22 @@ func getSNIHostsForServer(server *networking.Server) []string {
 		return nil
 	}
 	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := make([]string, 0)
+	sniHosts := make(map[string]bool)
 	for _, h := range server.Hosts {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")
-			sniHosts = append(sniHosts, parts[1])
-		} else {
-			sniHosts = append(sniHosts, h)
+			h = parts[1]
+		}
+		// do not add hosts, that have already been added
+		if !sniHosts[h] {
+			sniHosts[h] = true
 		}
 	}
+	sniHostsSlice := make([]string, 0, len(sniHosts))
+	for host := range sniHosts {
+		sniHostsSlice = append(sniHostsSlice, host)
+	}
+	sort.Strings(sniHostsSlice)
 
-	return sniHosts
+	return sniHostsSlice
 }

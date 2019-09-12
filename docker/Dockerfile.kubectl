@@ -1,9 +1,12 @@
-# hadolint ignore=DL3006
-FROM istionightly/base_debug
 # Image for post install jobs
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
 
-# This container should only contain kubectl.  Hard-coding to use Linux K8s 1.11.1 version.
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl /usr/bin/kubectl
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
+
+# This container should only contain kubectl.  Hard-coding to use Linux K8s 1.13.10 version.
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/amd64/kubectl /usr/bin/kubectl
 RUN chmod +x /usr/bin/kubectl
 
 # Ensure a kubectl compatible with the container OS was used.  This is a safety

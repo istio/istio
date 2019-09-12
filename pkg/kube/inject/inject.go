@@ -542,7 +542,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
-	if spec.DNSPolicy != corev1.DNSClusterFirst {
+	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
 		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
 			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
 	}
@@ -670,7 +670,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -710,7 +710,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+// IntoObject convert the incoming resources into Injected resources
+func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -731,7 +732,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -785,6 +786,10 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
 
+	name := metadata.Name
+	if name == "" {
+		name = deploymentMetadata.Name
+	}
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -793,7 +798,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// additional pod failures.
 	if podSpec.HostNetwork {
 		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n",
-			metadata.Name)
+			name)
 		return out, nil
 	}
 
@@ -802,7 +807,7 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName {
 				_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n",
-					metadata.Name, ProxyContainerName)
+					name, ProxyContainerName)
 				return out, nil
 			}
 		}
@@ -852,6 +857,12 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
+	if status != "" && metadata.Labels[model.MTLSReadyLabelName] == "" {
+		if metadata.Labels == nil {
+			metadata.Labels = make(map[string]string)
+		}
+		metadata.Labels[model.MTLSReadyLabelName] = "true"
+	}
 
 	return out, nil
 }
@@ -859,6 +870,9 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 func getPortsForContainer(container corev1.Container) []string {
 	parts := make([]string, 0)
 	for _, p := range container.Ports {
+		if p.Protocol == corev1.ProtocolUDP || p.Protocol == corev1.ProtocolSCTP {
+			continue
+		}
 		parts = append(parts, strconv.Itoa(int(p.ContainerPort)))
 	}
 	return parts

@@ -25,6 +25,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          security.istio.io/mtlsReady: "true"
           tier: backend
           track: stable
           version: v1
@@ -72,6 +73,13 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_POD_PORTS
+            value: |-
+              [
+                  {"name":"http","containerPort":80}
+              ]
+          - name: ISTIO_META_CLUSTER_ID
+            value: Kubernetes
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
@@ -92,6 +100,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: SDS_ENABLED
+            value: "false"
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -102,7 +112,7 @@ items:
           - name: ISTIO_META_WORKLOAD_NAME
             value: hello-v1
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/default/deployment/hello-v1
+            value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v1
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -148,7 +158,7 @@ items:
           - -x
           - ""
           - -b
-          - "80"
+          - '*'
           - -d
           - "15020"
           image: docker.io/istio/proxy_init:unittest
@@ -201,6 +211,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          security.istio.io/mtlsReady: "true"
           tier: backend
           track: stable
           version: v2
@@ -248,6 +259,13 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_POD_PORTS
+            value: |-
+              [
+                  {"name":"http","containerPort":81}
+              ]
+          - name: ISTIO_META_CLUSTER_ID
+            value: Kubernetes
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
@@ -268,6 +286,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: SDS_ENABLED
+            value: "false"
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -278,7 +298,7 @@ items:
           - name: ISTIO_META_WORKLOAD_NAME
             value: hello-v2
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/default/deployment/hello-v2
+            value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v2
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -324,7 +344,7 @@ items:
           - -x
           - ""
           - -b
-          - "81"
+          - '*'
           - -d
           - "15020"
           image: docker.io/istio/proxy_init:unittest

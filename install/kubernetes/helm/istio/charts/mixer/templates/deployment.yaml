@@ -17,7 +17,7 @@
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -78,6 +78,11 @@
           {{- end }}
         {{- if .Values.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         {{- range $key, $val := .Values.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -152,6 +157,8 @@
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "{{ $.Values.global.sds.enabled }}"
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
@@ -195,7 +202,7 @@
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -262,6 +269,11 @@
           - {{ $.Values.telemetry.loadshedding.mode }}
         {{- if .Values.env }}
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         {{- range $key, $val := .Values.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
@@ -336,6 +348,8 @@
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "{{ $.Values.global.sds.enabled }}"
         resources:
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}

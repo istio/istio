@@ -18,6 +18,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: frontend
         track: stable
     spec:
@@ -70,6 +71,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -90,6 +97,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -138,7 +147,7 @@ spec:
         - -x
         - ""
         - -b
-        - ""
+        - '*'
         - -d
         - "15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily

@@ -35,7 +35,13 @@ func register() *cobra.Command {
 	registerCmd := &cobra.Command{
 		Use:   "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
 		Short: "Registers a service instance (e.g. VM) joining the mesh",
-		Args:  cobra.MinimumNArgs(3),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 3 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("register requires service name, IP, and port")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]

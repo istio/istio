@@ -15,10 +15,16 @@
 package model_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"testing"
 
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/stretchr/testify/assert"
+
+	"istio.io/istio/pkg/config/labels"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -72,6 +78,85 @@ func TestServiceNode(t *testing.T) {
 			t.Errorf("ParseServiceNode(%q) => Got %#v, want %#v", node.out, in, node.in)
 		}
 	}
+}
+
+func TestParseMetadata(t *testing.T) {
+	cases := []struct {
+		name     string
+		metadata map[string]interface{}
+		out      model.Proxy
+	}{
+		{
+			name: "Basic Case",
+			out:  model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion},
+		},
+		{
+			name:     "Capture Arbitrary Metadata",
+			metadata: map[string]interface{}{"foo": "bar"},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: map[string]string{
+					"foo": "bar",
+				}},
+		},
+		{
+			name: "Capture Labels",
+			metadata: map[string]interface{}{
+				"LABELS": map[string]string{
+					"foo": "bar",
+				},
+			},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: map[string]string{
+					"LABELS": `{"foo":"bar"}`,
+				},
+				WorkloadLabels: labels.Collection{map[string]string{
+					"foo": "bar",
+				}}},
+		},
+		{
+			name: "Capture Pod Ports",
+			metadata: map[string]interface{}{
+				"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+			},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: map[string]string{
+					"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+				}},
+		},
+	}
+
+	nodeID := "sidecar~1.1.1.1~id~domain"
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			meta, err := mapToStruct(tt.metadata)
+			if err != nil {
+				t.Fatalf("failed to setup metadata: %v", err)
+			}
+			parsed := model.ParseMetadata(meta)
+			node, err := model.ParseServiceNodeWithMetadata(nodeID, parsed)
+			if err != nil {
+				t.Fatalf("failed to parse service node: %v", err)
+			}
+			if !reflect.DeepEqual(&tt.out, node) {
+				t.Errorf("Got %+v, want %+v", node, tt.out)
+			}
+		})
+	}
+}
+
+func mapToStruct(msg map[string]interface{}) (*types.Struct, error) {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	pbs := &types.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewBuffer(b), pbs); err != nil {
+		return nil, err
+	}
+
+	return pbs, nil
 }
 
 func TestParsePort(t *testing.T) {

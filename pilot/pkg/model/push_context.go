@@ -77,12 +77,13 @@ type PushContext struct {
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	// gateways for each namespace
 	gatewaysByNamespace map[string][]Config
+	allGateways         []Config
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namesace.
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
 	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
@@ -131,13 +132,6 @@ type XDSUpdater interface {
 	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
 	// LDS/RDS.
 	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
-
-	// WorkloadUpdate is called by a registry when the labels or annotations on a workload have changed.
-	// The 'id' is the IP address of the pod for k8s if the pod is in the main/default network.
-	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
-	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
-	// We use Endpoints to track the membership to a service and readiness.
-	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
@@ -392,10 +386,10 @@ func NewPushContext() *PushContext {
 			hosts:    make([]host.Name, 0),
 			destRule: map[host.Name]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace:     map[string][]*SidecarScope{},
-		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
-		gatewaysByNamespace:     map[string][]Config{},
-
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:       map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:           map[string][]Config{},
+		allGateways:                   []Config{},
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
@@ -596,12 +590,26 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
+	svcNs := service.Attributes.Namespace
+
+	// This can happen when finding the subset labels for a proxy in root namespace.
+	// Because based on a pure cluster name, we do not know the service and
+	// construct a fake service without setting Attributes at all.
+	if svcNs == "" {
+		for _, svc := range ps.Services(proxy) {
+			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
+				svcNs = svc.Attributes.Namespace
+				break
+			}
+		}
+	}
+
 	// if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
-	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
+	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
-			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[hostname].config
+			ps.namespaceExportedDestRules[svcNs].hosts); ok {
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
 		}
 	}
 
@@ -678,10 +686,8 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	if features.ScopeGatewayToNamespace.Get() {
-		if err = ps.initGateways(env); err != nil {
-			return err
-		}
+	if err = ps.initGateways(env); err != nil {
+		return err
 	}
 
 	// Must be initialized in the end
@@ -739,7 +745,9 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		if ps.ServiceAccounts[svc.Hostname] == nil {
+			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		}
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -910,11 +918,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]Config, 0)
 	sidecarConfigWithoutSelector := make([]Config, 0)
+	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
+			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -945,14 +955,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
 		for ns := range nsMap {
-			if len(ps.sidecarsByNamespace[ns]) == 0 {
-				// use the contents from the root namespace or the default if there is no root namespace
-				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
+			if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
+				ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
 			}
 		}
 	}
@@ -1061,7 +1070,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	var err error
-	if ps.AuthzPolicies, err = NewAuthzPolicies(env); err != nil {
+	if ps.AuthzPolicies, err = GetAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
@@ -1097,7 +1106,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
-	if ps.Env.Mesh.RootNamespace != "" && len(ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace]) > 0 {
+	if ps.Env.Mesh.RootNamespace != "" {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
@@ -1107,11 +1116,15 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 		}
 	}
 
-	for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-		if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-			out = append(out, efw)
+	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
+	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
+			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
+				out = append(out, efw)
+			}
 		}
 	}
+
 	return out
 }
 
@@ -1124,6 +1137,7 @@ func (ps *PushContext) initGateways(env *Environment) error {
 
 	sortConfigByCreationTime(gatewayConfigs)
 
+	ps.allGateways = gatewayConfigs
 	ps.gatewaysByNamespace = make(map[string][]Config)
 	for _, gatewayConfig := range gatewayConfigs {
 		if _, exists := ps.gatewaysByNamespace[gatewayConfig.Namespace]; !exists {
@@ -1134,13 +1148,21 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) Gateways(proxy *Proxy) []Config {
+func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
 	out := make([]Config, 0)
-	for _, cfg := range ps.gatewaysByNamespace[proxy.ConfigNamespace] {
+
+	var configs []Config
+	if features.ScopeGatewayToNamespace.Get() {
+		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
+	} else {
+		configs = ps.allGateways
+	}
+
+	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
 		if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
@@ -1152,5 +1174,9 @@ func (ps *PushContext) Gateways(proxy *Proxy) []Config {
 			}
 		}
 	}
-	return out
+
+	if len(out) == 0 {
+		return nil
+	}
+	return MergeGateways(out...)
 }

@@ -116,6 +116,11 @@ const (
 	k8sSeparator = "."
 )
 
+const (
+	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
+	MTLSReadyLabelName = "security.istio.io/mtlsReady"
+)
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.
@@ -344,6 +349,10 @@ type IstioEndpoint struct {
 
 // ServiceAttributes represents a group of custom attributes of the service.
 type ServiceAttributes struct {
+	// ServiceRegistry indicates the backing service registry system where this service
+	// was sourced from.
+	// TODO: move the ServiceRegistry type from platform.go to model
+	ServiceRegistry string
 	// Name is "destination.service.name" attribute
 	Name string
 	// Namespace is "destination.service.namespace" attribute

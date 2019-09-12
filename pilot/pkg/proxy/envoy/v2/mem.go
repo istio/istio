@@ -235,6 +235,11 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
+// UpdateWorkloadLabels updates the workload labels, similar with K8S controller.
+func (sd *MemServiceDiscovery) UpdateWorkloadLabels(ip string, labels labels.Instance) {
+	sd.AddWorkload(ip, labels)
+}
+
 // Services implements discovery interface
 // Each call to Services() should return a list of new *model.Service
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {

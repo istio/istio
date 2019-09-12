@@ -49,10 +49,11 @@ func TestClientTracing(t *testing.T) {
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
 			extraHeader := fmt.Sprintf("%s: %s", traceHeader, id)
-			// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
-			// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
-			util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 200)
+
 			retry.UntilSuccessOrFail(t, func() error {
+				// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
+				// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
+				util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 200)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), fmt.Sprintf("guid:x-client-trace-id=%s", id))
 				if err != nil {

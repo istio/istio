@@ -188,7 +188,7 @@ func (s *session) terminate() {
 	scope.Processing.Debug("session.terminate: stopping sources...")
 	s.options.Source.Stop()
 
-	scope.Processing.Debug("session.terminate: signalling session termination...")
+	scope.Processing.Debug("session.terminate: signaling session termination...")
 	s.mu.Lock()
 	if s.doneCh != nil {
 		close(s.doneCh)

@@ -90,7 +90,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 	anyTypes, err := b.getInferredTypes()
 	if err != nil {
-		ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
+		ce = ce.Appendf("infrerred_types", "Error marshaling to any: %v", err)
 		return
 	}
 

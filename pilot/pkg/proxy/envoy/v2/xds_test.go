@@ -15,14 +15,12 @@ package v2_test
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -280,8 +278,6 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
-	// Set the initial workload labels
-	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
 
 	// Update cache
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -449,10 +445,4 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServiceAccount:  account,
 		},
 	}
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	// Run all tests.
-	os.Exit(m.Run())
 }

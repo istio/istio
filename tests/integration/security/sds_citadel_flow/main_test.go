@@ -58,6 +58,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+
 	// Helm values from install/kubernetes/helm/istio/values-istio-sds-auth.yaml
 	cfg.ValuesFile = "values-istio-sds-auth.yaml"
 }
