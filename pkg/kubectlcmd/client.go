@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -89,14 +90,16 @@ func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace stri
 	log.Infof("applying to namespace %s:\n%s\n", namespace, cmdStr)
 
 	err := c.cmdSite.Run(cmd)
+	csError := util.ConsolidateLog(stderr.String())
+
 	if err != nil {
 		logAndPrint("error running kubectl apply: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error running kubectl apply: %s", err)
+		return stdout.String(), csError, fmt.Errorf("error running kubectl apply: %s", err)
 	}
 
 	logAndPrint("kubectl apply success")
 
-	return stdout.String(), stderr.String(), nil
+	return stdout.String(), csError, nil
 }
 
 // GetConfig runs the kubectl get cm command with the provided argument
