@@ -249,17 +249,17 @@ data:
     {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-        #
-        # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
-        envoyMetricsService:
-          address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+      #
+      # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
+      envoyMetricsService:
+        address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
     {{- if .Values.global.proxy.envoyMetricsService.tlsSettings }}
-          tlsSettings:  
-  {{ toYaml .Values.global.proxy.envoyMetricsService.tlsSettings | indent 10 }}
+        tlsSettings:  
+{{ toYaml .Values.global.proxy.envoyMetricsService.tlsSettings | indent 10 }}
     {{- end}}
     {{- if .Values.global.proxy.envoyMetricsService.tcpKeepalive }}
           tcpKeepalive:
-  {{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | indent 10 }}
+{{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | indent 10 }}
     {{- end}}
     {{- end}}
     
