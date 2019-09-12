@@ -62,17 +62,6 @@ api ${API_SHA}
 cni ${CNI_REPO_SHA}
 tools ${TOOLS_HEAD_SHA}
 EOF
-
-
-  if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
-     pushd ../proxy || exit
-       PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-     popd || exit
-     if [[ "$PROXY_API_SHA" != "$API_REPO_SHA"* ]]; then
-       echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
-       exit 17
-     fi
-  fi
 }
 
 function make_istio() {
