@@ -4,12 +4,18 @@
 enabled: false
 image: node-agent-k8s
 env:
-  # name of authentication provider.
+  # Name of authentication provider.
   CA_PROVIDER: ""
   # CA endpoint.
   CA_ADDR: ""  
-  # names of authentication provider's plugins.
+  # Names of authentication provider's plugins.
   PLUGINS: ""
+  # The agent will retrieve secrets from the API server with the frequency
+  # specified in this configuration.
+  SECRET_WATCHER_RESYNC_PERIOD: ""
+  # When a secret cannot be found with the expected suffix in the ingress namespace
+  # a secret with this name will be used instead as a fallback.
+  INGRESS_GATEWAY_FALLBACK_SECRET: "gateway-fallback"
 nodeSelector: {}
 tolerations: []
 

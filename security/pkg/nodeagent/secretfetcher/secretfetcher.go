@@ -68,14 +68,16 @@ const (
 )
 
 var (
-	// TODO(JimmyCYJ): Configure these two env variables in Helm
+	secretFetcherLog = log.RegisterScope("secretFetcherLog", "secret fetcher debugging", 0)
 	// secretControllerResyncPeriod specifies the time period in seconds that secret controller
 	// resyncs to API server.
 	// example value format like "30s"
-	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "", "").Get()
+	secretControllerResyncPeriod = env.RegisterStringVar("SECRET_WATCHER_RESYNC_PERIOD", "",
+		"Interval at which the agent will retrieve secrets from the API server").Get()
+
 	// ingressFallbackSecret specifies the name of fallback secret for ingress gateway.
-	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback", "").Get()
-	secretFetcherLog      = log.RegisterScope("secretFetcherLog", "secret fetcher debugging", 0)
+	ingressFallbackSecret = env.RegisterStringVar("INGRESS_GATEWAY_FALLBACK_SECRET", "gateway-fallback",
+		"Secret to be used in the case that agent cannot find seret with expected suffix in ingress namespace").Get()
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
