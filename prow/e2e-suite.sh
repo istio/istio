@@ -95,10 +95,6 @@ else
   ARTIFACTS=${ARTIFACTS:-/tmp}
 fi
 
-if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
-   cni_run_daemon
-fi
-
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
 
 echo "Run test."
