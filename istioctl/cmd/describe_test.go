@@ -371,7 +371,7 @@ Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
-		{ // case 5 has 1.3 data, and a service with unnamed port
+		{ // case 6 has 1.3 data, and a service with unnamed port
 			execClientConfig: cannedConfig,
 			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedK8sEnv,
@@ -380,11 +380,12 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/auto-detect
+   Port:  9080/UnsupportedProtocol
+   9080 is named "" which does not follow Istio conventions
 Authn: None
 `,
 		},
-		{ // case 6 has 1.2 data, and a service with unnamed port, and no containerPort
+		{ // case 7 has 1.2 data, and a service with unnamed port, and no containerPort
 			execClientConfig: cannedConfig,
 			configs:          []model.Config{},
 			k8sConfigs:       cannedNoPortNameK8sEnv,
@@ -395,7 +396,7 @@ Authn: None
 Service: ratings
    Port:  9080/UnsupportedProtocol
    Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
-   9080 is named "" which does not follow Istio 1.2.0 conventions
+   9080 is named "" which does not follow Istio conventions
 Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
