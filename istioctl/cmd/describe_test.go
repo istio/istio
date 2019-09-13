@@ -379,7 +379,7 @@ RBAC policies: ratings-reader
 --------------------
 Service: productpage
    Port:  9080/UnsupportedProtocol
-   9080 is named "" which does not follow Istio conventions
+   9080 is unnamed which does not follow Istio conventions
 Authn: None
 `,
 		},
@@ -394,7 +394,7 @@ Authn: None
 Service: ratings
    Port:  9080/UnsupportedProtocol
    Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
-   9080 is named "" which does not follow Istio conventions
+   9080 is unnamed which does not follow Istio conventions
 Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
