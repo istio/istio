@@ -37,7 +37,7 @@ popd
 function collect_metrics() {
   local GENERATE_GRAPH=$1
   FORTIO_CLIENT_URL=http://$(kubectl get services -n twopods fortioclient -o jsonpath="{.status.loadBalancer.ingress[0].ip}"):8080
-  if [ -z "$FORTIO_CLIENT_URL" ];then
+  if [[ -z "$FORTIO_CLIENT_URL" ]];then
     kubectl -n twopods port-forward svc/fortioclient 8080:8080 &
     export FORTIO_CLIENT_URL=http://localhost:8080
   fi
@@ -51,13 +51,16 @@ function collect_metrics() {
 mem_MB_max_telemetry_mixer,cpu_mili_avg_fortioserver_deployment_proxy,cpu_mili_max_fortioserver_deployment_proxy,\
 mem_MB_max_fortioserver_deployment_proxy,cpu_mili_avg_ingressgateway_proxy,cpu_mili_max_ingressgateway_proxy,mem_MB_max_ingressgateway_proxy
 
-  if [ "$GENERATE_GRAPH" = true ];then
+  if [[ "$GENERATE_GRAPH" = true ]];then
     METRICS=(p99 mem cpu)
     for metric in "${METRICS[@]}"
     do
       BENCHMARK_GRAPH="$(mktemp /tmp/benchmark_graph_XXXX.html)"
       pipenv run python graph.py "${CSV_OUTPUT}" "${metric}" "${BENCHMARK_GRAPH}"
-      gsutil -q cp "${BENCHMARK_GRAPH}" "gs://$CB_GCS_BUILD_PATH/${BENCHMARK_GRAPH}"
+      dt=$(date +'%m-%d-%Y-%H')
+      RELEASE="$(cut -d'/' -f3 <<<"${CB_GCS_FULL_STAGING_PATH}")"
+      GRAPH_NAME="${RELEASE}.${dt}"
+      gsutil -q cp "${BENCHMARK_GRAPH}" "gs://$CB_GCS_BUILD_PATH/${GRAPH_NAME}"
     done
   fi
 }
