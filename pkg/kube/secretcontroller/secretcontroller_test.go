@@ -29,7 +29,7 @@ import (
 )
 
 const secretName string = "testSecretName"
-const secretNameSpace string = "istio-system"
+const secretNamespace string = "istio-system"
 
 var testCreateControllerCalled int32
 var testDeleteControllerCalled int32
@@ -49,7 +49,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: secretNameSpace,
+			Namespace: secretNamespace,
 			Labels: map[string]string{
 				MultiClusterSecretLabel: "true",
 			},
@@ -59,14 +59,14 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 
 	data["testRemoteCluster"] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(secretNameSpace).Create(&secret)
+	_, err := k8s.CoreV1().Secrets(secretNamespace).Create(&secret)
 	return err
 }
 
 func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 	var immediate int64
 
-	return k8s.CoreV1().Secrets(secretNameSpace).Delete(
+	return k8s.CoreV1().Secrets(secretNamespace).Delete(
 		secretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
@@ -103,7 +103,7 @@ func Test_SecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	err := StartSecretController(
-		clientset, testCreateController, testDeleteController, secretNameSpace)
+		clientset, testCreateController, testDeleteController, secretNamespace)
 	if err != nil {
 		t.Fatalf("Could not start secret controller: %v", err)
 	}
