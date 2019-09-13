@@ -179,6 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			}
 
 			setUpstreamProtocol(defaultCluster, port)
+			setProtocolSelection(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
 
 			if destRule != nil {
@@ -212,6 +213,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
 					}
 					setUpstreamProtocol(subsetCluster, port)
+					setProtocolSelection(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
 					opts := buildClusterOpts{
 						env:             env,
@@ -515,6 +517,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy, nil)
 			setUpstreamProtocol(mgmtCluster, port)
+			setProtocolSelection(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
@@ -625,6 +628,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			string(instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
 	}
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+	setProtocolSelection(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
 	for _, p := range configgen.Plugins {
 		p.OnInboundCluster(pluginParams, localCluster)
@@ -1091,7 +1095,6 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 }
 
 func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
-	// TODO(yxue): remove if check after apply USE_DOWNSTREAM_PROTOCOL
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
@@ -1100,11 +1103,16 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 			},
 		}
 	}
+}
 
-	// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
-	// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
-	// the upstream cluster will use HTTP2.
-	cluster.ProtocolSelection = apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL
+func setProtocolSelection(node *model.Proxy, cluster *apiv2.Cluster, port *model.Port, direction model.TrafficDirection) {
+	if (util.IsProtocolSniffingEnabledForInboundPort(node, port) && direction == model.TrafficDirectionInbound) ||
+		(util.IsProtocolSniffingEnabledForOutboundPort(node, port) && direction == model.TrafficDirectionOutbound) {
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		cluster.ProtocolSelection = apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL
+	}
 }
 
 // generates a cluster that sends traffic to dummy localport 0
