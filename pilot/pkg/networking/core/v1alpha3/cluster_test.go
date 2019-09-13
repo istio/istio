@@ -697,7 +697,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
 			tlsSettings,
@@ -712,7 +712,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
@@ -720,7 +720,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 		},
