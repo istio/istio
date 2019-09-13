@@ -30,11 +30,7 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 		return "", fmt.Errorf("invalid k8s jwt token")
 	}
 
-	payload := strs[1]
-	if l := len(payload) % 4; l > 0 {
-		payload += strings.Repeat("=", 4-l)
-	}
-	dp, err := base64.URLEncoding.DecodeString(payload)
+	dp, err := base64.RawStdEncoding.DecodeString(strs[1])
 	if err != nil {
 		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
 	}
@@ -77,4 +73,32 @@ func isRetryableErr(c codes.Code, httpRespCode int, isGrpc bool) bool {
 func cacheLogPrefix(conID, resourceName string) string {
 	lPrefix := fmt.Sprintf("CONNECTION ID: %s, RESOURCE NAME: %s, EVENT:", conID, resourceName)
 	return lPrefix
+}
+
+// isTrustworthyJwt checks if a jwt is a trustworthy jwt type.
+func isTrustworthyJwt(jwt string) (bool, error) {
+	type trustWorthyJwtPayload struct {
+		Aud []string `json:"aud"`
+		Exp int      `json:"exp"`
+	}
+
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return false, fmt.Errorf("jwt may be invalid: %s", jwt)
+	}
+	payload := jwtSplit[1]
+
+	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode jwt: %v", err.Error())
+	}
+
+	structuredPayload := &trustWorthyJwtPayload{}
+	err = json.Unmarshal(payloadBytes, &structuredPayload)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal jwt: %v", err.Error())
+	}
+	// Trustworthy JWTs are JWTs with expiration and audiences, whereas legacy JWTs do not have these
+	// fields.
+	return structuredPayload.Aud != nil && structuredPayload.Exp > 0, nil
 }

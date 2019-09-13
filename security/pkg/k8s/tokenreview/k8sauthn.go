@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -117,15 +116,6 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
 func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, error) {
-	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
-	isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
-	}
-	if !isTrustworthyJwt {
-		return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
-	}
-
 	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
@@ -192,32 +182,4 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, erro
 	saName := subStrings[3]
 
 	return []string{namespace, saName}, nil
-}
-
-// isTrustworthyJwt checks if a jwt is a trustworthy jwt type.
-func isTrustworthyJwt(jwt string) (bool, error) {
-	type trustWorthyJwtPayload struct {
-		Aud []string `json:"aud"`
-		Exp int      `json:"exp"`
-	}
-
-	jwtSplit := strings.Split(jwt, ".")
-	if len(jwtSplit) != 3 {
-		return false, fmt.Errorf("jwt may be invalid: %s", jwt)
-	}
-	payload := jwtSplit[1]
-
-	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
-	if err != nil {
-		return false, fmt.Errorf("failed to decode jwt: %v", err.Error())
-	}
-
-	structuredPayload := &trustWorthyJwtPayload{}
-	err = json.Unmarshal(payloadBytes, &structuredPayload)
-	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal jwt: %v", err.Error())
-	}
-	// Trustworthy JWTs are JWTs with expiration and audiences, whereas legacy JWTs do not have these
-	// fields.
-	return structuredPayload.Aud != nil && structuredPayload.Exp > 0, nil
 }

@@ -566,6 +566,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
+	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod) regardless if the token
+	// is for a CA or Kubernetes secret fetch.
+	isTrustworthyJwt, err := isTrustworthyJwt(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
+	}
+	if !isTrustworthyJwt {
+		return nil, fmt.Errorf("the provided JWT is not trustworthy")
+	}
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
