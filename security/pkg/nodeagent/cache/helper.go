@@ -27,22 +27,26 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
 	strs := strings.Split(token, ".")
 	if len(strs) != 3 {
+		cacheLog.Warnf("Invalid k8s jwt token: %s", token)
 		return "", fmt.Errorf("invalid k8s jwt token")
 	}
 
 	dp, err := base64.RawStdEncoding.DecodeString(strs[1])
 	if err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+		cacheLog.Warnf("Failed to decode k8s jwt token: %s", token)
+		return "", fmt.Errorf("failed to decode k8s jwt token: %v", err)
 	}
 
 	var jp k8sJwtPayload
 	if err = json.Unmarshal(dp, &jp); err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+		cacheLog.Warnf("Failed to unmarshal k8s jwt: %s", token)
+		return "", fmt.Errorf("failed to unmarshal k8s jwt token: %v", err)
 	}
 
 	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
 	ss := strings.Split(jp.Sub, ":")
 	if len(ss) != 4 {
+		cacheLog.Warnf("Invalid sub field in k8s jwt token: %s", token)
 		return "", fmt.Errorf("invalid sub field in k8s jwt token")
 	}
 	ns := ss[2] //namespace
