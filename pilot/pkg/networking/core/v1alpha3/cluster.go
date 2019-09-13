@@ -994,6 +994,16 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 				Value: 1073741824,
 			},
 		}
+		if s := pilot.InitialStreamWindowSize; s > 0 {
+			cluster.Http2ProtocolOptions.InitialStreamWindowSize = &types.UInt32Value{
+				Value: uint32(s),
+			}
+		}
+		if s := pilot.InitialConnectionWindowSize; s > 0 {
+			cluster.Http2ProtocolOptions.InitialConnectionWindowSize = &types.UInt32Value{
+				Value: uint32(s),
+			}
+		}
 	}
 }
 

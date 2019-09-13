@@ -157,6 +157,46 @@ var (
 		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
 	}
 
+	// InitialConnectionWindowSize specifies the window size to use for http2 connections
+	// Must be 65535 - 2147483647, default 268435456 (256mb)
+	initialConnectionWindowSize = func() int {
+		raw, f := os.LookupEnv("PILOT_INITIAL_CONNECTION_WINDOW_SIZE")
+		if !f {
+			return 0
+		}
+		i, err := strconv.Atoi(raw)
+		if err != nil {
+			log.Warnf("failed to parse PILOT_INITIAL_CONNECTION_WINDOW_SIZE: %v", err)
+			return 0
+		}
+		if i < 65535 || i > 2147483647 {
+			log.Warnf("PILOT_INITIAL_CONNECTION_WINDOW_SIZE invalid, must be 65535 - 2147483647: %v", i)
+			return 0
+		}
+		return i
+	}
+	InitialConnectionWindowSize = initialConnectionWindowSize()
+
+	// InitialStreamWindowSize specifies the window size to use for http2 connections
+	// Must be 65535 - 2147483647, default 268435456
+	initialStreamWindowSize = func() int {
+		raw, f := os.LookupEnv("PILOT_INITIAL_STREAM_WINDOW_SIZE")
+		if !f {
+			return 0
+		}
+		i, err := strconv.Atoi(raw)
+		if err != nil {
+			log.Warnf("failed to parse PILOT_INITIAL_STREAM_WINDOW_SIZE: %v", err)
+			return 0
+		}
+		if i < 65535 || i > 2147483647 {
+			log.Warnf("PILOT_INITIAL_STREAM_WINDOW_SIZE invalid, must be 65535 - 2147483647: %v", i)
+			return 0
+		}
+		return i
+	}
+	InitialStreamWindowSize = initialStreamWindowSize()
+
 	// DisableSplitHorizonEdsProxyNetworkCompare provides an option to disable
 	// matching proxy and pod network id.
 	DisableSplitHorizonEdsProxyNetworkCompare = func() bool {

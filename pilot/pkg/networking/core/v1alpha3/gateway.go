@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pkg/features/pilot"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -333,6 +335,37 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpProtoOpts.AcceptHttp_10 = true
 	}
 
+	httpOpts := &httpListenerOpts{
+		rds:              routeName,
+		useRemoteAddress: true,
+		direction:        http_conn.EGRESS, // viewed as from gateway to internal
+		connectionManager: &http_conn.HttpConnectionManager{
+			// Forward client cert if connection is mTLS
+			ForwardClientCertDetails: http_conn.SANITIZE_SET,
+			SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+				Subject: proto.BoolTrue,
+				Uri:     true,
+				Dns:     true,
+			},
+			ServerName:          EnvoyServerName,
+			HttpProtocolOptions: httpProtoOpts,
+		},
+	}
+	if s := pilot.InitialStreamWindowSize; s > 0 {
+		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		httpOpts.connectionManager.Http2ProtocolOptions.InitialStreamWindowSize = &types.UInt32Value{
+			Value: uint32(s),
+		}
+	}
+	if s := pilot.InitialConnectionWindowSize; s > 0 {
+		if httpOpts.connectionManager.Http2ProtocolOptions == nil {
+			httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		}
+		httpOpts.connectionManager.Http2ProtocolOptions.InitialConnectionWindowSize = &types.UInt32Value{
+			Value: uint32(s),
+		}
+	}
+
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
@@ -342,22 +375,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			// Validation is done per gateway and also during merging
 			sniHosts:   nil,
 			tlsContext: nil,
-			httpOpts: &httpListenerOpts{
-				rds:              routeName,
-				useRemoteAddress: true,
-				direction:        http_conn.EGRESS, // viewed as from gateway to internal
-				connectionManager: &http_conn.HttpConnectionManager{
-					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: http_conn.SANITIZE_SET,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: proto.BoolTrue,
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName:          EnvoyServerName,
-					HttpProtocolOptions: httpProtoOpts,
-				},
-			},
+			httpOpts:   httpOpts,
 		}
 	}
 
@@ -376,22 +394,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// Validation is done per gateway and also during merging
 		sniHosts:   getSNIHostsForServer(server),
 		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
-		httpOpts: &httpListenerOpts{
-			rds:              routeName,
-			useRemoteAddress: true,
-			direction:        http_conn.EGRESS, // viewed as from gateway to internal
-			connectionManager: &http_conn.HttpConnectionManager{
-				// Forward client cert if connection is mTLS
-				ForwardClientCertDetails: http_conn.SANITIZE_SET,
-				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-					Subject: proto.BoolTrue,
-					Uri:     true,
-					Dns:     true,
-				},
-				ServerName:          EnvoyServerName,
-				HttpProtocolOptions: httpProtoOpts,
-			},
-		},
+		httpOpts:   httpOpts,
 	}
 }
 
