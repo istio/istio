@@ -240,14 +240,6 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
-// proxyVersionToString converts IstioVersion to a semver format string (from mixer.go)
-func proxyVersionToString(v *model.IstioVersion) string {
-	major := strconv.Itoa(v.Major)
-	minor := strconv.Itoa(v.Minor)
-	patch := strconv.Itoa(v.Patch)
-	return strings.Join([]string{major, minor, patch}, ".")
-}
-
 func getIstioVersion(cd *configdump.Wrapper) string {
 	bootstrapDump, err := cd.GetBootstrapConfigDump()
 	if err == nil {
@@ -264,11 +256,12 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 }
 
 func containerPortOptional(istioVersion *model.IstioVersion) bool {
-	return supportsProtocolDetection(istioVersion)
+	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
 }
 
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
+	// No version of Istio currently detects inbound protocol
+	return false
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
@@ -299,8 +292,8 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
 		if !supportsProtocolDetection(istioVersion) {
 			retval = append(retval,
-				fmt.Sprintf("%s is named %q which does not follow Istio %s conventions",
-					port.TargetPort.String(), port.Name, proxyVersionToString(istioVersion)))
+				fmt.Sprintf("%s is named %q which does not follow Istio conventions",
+					port.TargetPort.String(), port.Name))
 		}
 	}
 
@@ -567,7 +560,7 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	}
 
 	if !isMeshed(pod) {
-		fmt.Fprintf(writer, "WARNING: %s is part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
+		fmt.Fprintf(writer, "WARNING: %s is not part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
 		return
 	}
 
