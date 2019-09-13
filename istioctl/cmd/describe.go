@@ -292,9 +292,15 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
 		if !supportsProtocolDetection(istioVersion) {
-			retval = append(retval,
-				fmt.Sprintf("%s is named %q which does not follow Istio conventions",
-					port.TargetPort.String(), port.Name))
+			if port.Name == "" {
+				retval = append(retval,
+					fmt.Sprintf("%s is unnamed which does not follow Istio conventions",
+						port.TargetPort.String()))
+			} else {
+				retval = append(retval,
+					fmt.Sprintf("%s is named %q which does not follow Istio conventions",
+						port.TargetPort.String(), port.Name))
+			}
 		}
 	}
 
