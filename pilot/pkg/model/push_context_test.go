@@ -158,19 +158,20 @@ func TestAuthNPolicies(t *testing.T) {
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
-				Name:    key,
-				Group:   "authentication",
-				Version: "v1alpha2",
-				Domain:  "cluster.local",
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Domain:    "cluster.local",
+				Namespace: "default",
 			},
 			Spec: value,
 		}
 		if key == constants.DefaultAuthenticationPolicyName {
 			// Cluster-scoped policy
 			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Namespace = NamespaceAll
 		} else {
 			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
-			cfg.ConfigMeta.Namespace = "default"
 		}
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Error(err)
@@ -179,7 +180,7 @@ func TestAuthNPolicies(t *testing.T) {
 
 	store := istioConfigStore{ConfigStore: configStore}
 	env.IstioConfigStore = &store
-	if err := ps.initAuthNPolicies(env); err != nil {
+	if err := ps.initAuthnPolicies(env); err != nil {
 		t.Fatalf("init authn policies failed: %v", err)
 	}
 
@@ -237,7 +238,7 @@ func TestAuthNPolicies(t *testing.T) {
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
 		port := &Port{Port: c.port}
-		if got := ps.AuthenticationPolicyForWorkload(service, nil, port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
+		if got := ps.AuthenticationPolicyForWorkload(service, port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
 			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
 		}
 	}

@@ -26,8 +26,8 @@ func NewPolicyApplier(push *model.PushContext,
 	serviceInstance *model.ServiceInstance) authn.PolicyApplier {
 	// TODO: check v1alpha2 policy and returns alpha2 applier, if exists.
 	service := serviceInstance.Service
-	labels := serviceInstance.Labels
+	// TODO GregHanson add support for authn policy label matching
 	port := serviceInstance.Endpoint.ServicePort
-	authnPolicy := push.AuthenticationPolicyForWorkload(service, labels, port)
+	authnPolicy := push.AuthenticationPolicyForWorkload(service, port)
 	return v1alpha1.NewPolicyApplier(authnPolicy)
 }
