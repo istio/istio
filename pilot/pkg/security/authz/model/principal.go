@@ -175,7 +175,8 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	return pg.andPrincipals(), nil
 }
 
-func keySupportedForPrincipal(key string) bool {
+// isSupportedPrincipal returns true if the key is supported to be used in principal.
+func isSupportedPrincipal(key string) bool {
 	switch {
 	case attrSrcIP == key:
 	case attrSrcNamespace == key:

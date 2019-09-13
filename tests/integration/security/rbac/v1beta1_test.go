@@ -17,7 +17,6 @@ package rbac
 import (
 	"testing"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
@@ -39,37 +39,12 @@ func TestV1Beta1_OverrideV1alpha1(t *testing.T) {
 				Prefix: "v1beta1-override-v1alpha1",
 				Inject: true,
 			})
-			ports := []echo.Port{
-				{
-					Name:        "http",
-					Protocol:    protocol.HTTP,
-					ServicePort: 80,
-				},
-			}
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, echo.Config{
-					Service:   "a",
-					Namespace: ns,
-					Ports:     ports,
-					Galley:    g,
-					Pilot:     p,
-				}).
-				With(&b, echo.Config{
-					Service:   "b",
-					Namespace: ns,
-					Ports:     ports,
-					Galley:    g,
-					Pilot:     p,
-				}).
-				With(&c, echo.Config{
-					Service:   "c",
-					Namespace: ns,
-					Ports:     ports,
-					Galley:    g,
-					Pilot:     p,
-				}).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) TestCase {

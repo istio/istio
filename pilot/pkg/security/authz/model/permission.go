@@ -199,7 +199,8 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	return pg.andPermissions(), nil
 }
 
-func keySupportedForPermission(key string) bool {
+// isSupportedPermission returns true if the key is supported to be used in permission.
+func isSupportedPermission(key string) bool {
 	switch {
 	case key == attrDestIP:
 	case key == attrDestPort:

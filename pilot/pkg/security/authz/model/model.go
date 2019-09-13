@@ -168,9 +168,9 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 	conditionsForPrincipal := make([]KeyValues, 0)
 	conditionsForPermission := make([]KeyValues, 0)
 	for _, when := range rule.When {
-		if keySupportedForPrincipal(when.Key) {
+		if isSupportedPrincipal(when.Key) {
 			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: when.Values})
-		} else if keySupportedForPermission(when.Key) {
+		} else if isSupportedPermission(when.Key) {
 			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
 		} else {
 			rbacLog.Errorf("ignored unsupported condition: %v", when)
