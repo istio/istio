@@ -53,7 +53,7 @@ data:
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
     {{- if .Values.global.istioRemote }}
-    
+
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -68,7 +68,7 @@ data:
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
     {{- end }}
     {{- end }}
-    
+
     {{- else }}
 
     {{- if .Values.mixer.policy.enabled }}
@@ -85,7 +85,7 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-    
+
     {{- end }}
 
     {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
@@ -127,7 +127,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: {{ .Values.global.mtls.automatic }}
+    enableAutoMtls: {{ .Values.global.mtls.auto }}
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
@@ -266,7 +266,7 @@ data:
       envoyAccessLogService:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
-        tlsSettings:  
+        tlsSettings:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | indent 10 }}
     {{- end}}
     {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
