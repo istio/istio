@@ -79,8 +79,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
 	src := inmemory.NewKubeSource(sa.m.KubeSource().Resources())
-
 	src.SetDefaultNamespace(defaultNs)
+
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)
 		if err != nil {
