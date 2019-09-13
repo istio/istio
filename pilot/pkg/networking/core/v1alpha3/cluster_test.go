@@ -168,6 +168,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			g.Expect(len(clusters)).To(Equal(6))
 			cluster := clusters[directionInfo.clusterIndex]
 			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
+			g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL))
 			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
 
 			// Verify that the values were set correctly.

@@ -1091,6 +1091,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 }
 
 func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
+	// TODO(yxue): remove if check after apply USE_DOWNSTREAM_PROTOCOL
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
@@ -1099,6 +1100,11 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 			},
 		}
 	}
+
+	// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+	// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+	// the upstream cluster will use HTTP2.
+	cluster.ProtocolSelection = apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL
 }
 
 // generates a cluster that sends traffic to dummy localport 0
