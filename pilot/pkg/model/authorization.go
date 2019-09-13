@@ -46,7 +46,8 @@ type AuthorizationPolicies struct {
 	// Maps from namespace to the v1beta1 Authorization policies.
 	namespaceToV1beta1Policies map[string][]Config
 
-	// v1beta1 policy in root namespace applies to all workloads.
+	// The name of the root namespace. Policy in the root namespace applies to workloads in all
+	// namespaces. Only used for v1beta1 Authorization policy.
 	rootNamespace string
 }
 
