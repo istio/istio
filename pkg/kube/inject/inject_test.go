@@ -646,6 +646,11 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
+		{
+			in:                  "ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "ready_live.yaml.injected",
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
