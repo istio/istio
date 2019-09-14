@@ -22,17 +22,20 @@ The chart deploys pods that consume minimal resources.
 ## Installing the Chart
 
 1. If a service account has not already been installed for Tiller, install one:
-    ```
+
+    ```bash
     $ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
     ```
 
 1. If Tiller has not already been installed in your cluster, Install Tiller on your cluster with the service account:
-    ```
+
+    ```bash
     $ helm init --service-account tiller
     ```
 
 1. Install the Istio initializer chart:
-    ```
+
+    ```bash
     $ helm install install/kubernetes/helm/istio-init --name istio-init --namespace istio-system
     ```
 
@@ -51,7 +54,6 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.tag` | Specifies the TAG for most images used by Istio | valid image tag | `0.8.latest` |
 | `global.imagePullPolicy` | Specifies the image pull policy | valid image pull policy | `IfNotPresent` |
 
-
 ## Uninstalling the Chart
 
 > Uninstalling this chart does not delete Istio's registered CRDs.  Istio by design expects
@@ -60,18 +62,21 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 > configuration rather then unexpectedly lose it.
 
 To uninstall/delete the `istio-init` release but continue to track the release:
-    ```
+
+    ```bash
     $ helm delete istio-init
     ```
 
 To uninstall/delete the `istio-init` release completely and make its name free for later use:
-    ```
+
+    ```bash
     $ helm delete --purge istio-init
     ```
 
 > Warning: Deleting CRDs will delete any configuration that you have made to Istio.
 
 To delete all CRDs, run the following command
-    ```
+
+    ```bash
     $ for i in istio-init/files/*crd*yaml; do kubectl delete -f $i; done
     ```

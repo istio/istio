@@ -20,7 +20,7 @@ We can create our helloworld app, using the custom config, with:
 kubectl apply -f example-app.yaml
 ```
 
-If you don't have [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection.html#automatic-sidecar-injection)
+If you don't have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection)
 set in your cluster you will need to manually inject it to the services instead:
 
 ```bash

@@ -40,26 +40,26 @@ curl --header "Authorization: Bearer $TOKEN" $INGRESS_HOST/headers -s -o /dev/nu
 
 Alternatively, you can use the `gen-jwt.py` script to create new test token:
 
-```
+```bash
 TOKEN=$(./gen-jwt.py key.pem --expire=300 --iss "new-issuer@secure.istio.io")
 ```
 
 > Before you start, run the following command to install python dependences.
 
-    ```
-    pip install jwcrypto
-    ```
+```bash
+pip install jwcrypto
+```
 
 ## Regenerate private key and JWKS (for developer use only)
 
 1. Regenerate private key using `openssl`
 
-```
-openssl genrsa -out key.pem 2048
-```
+    ```bash
+    openssl genrsa -out key.pem 2048
+    ```
 
-2. Run gen-jwt.py with `--jkws` to create new public key set and demo JWT
+1. Run gen-jwt.py with `--jkws` to create new public key set and demo JWT
 
-```
-gen-jwt.py key.pem -jwks=./jwks.json --expire=3153600000 --claims=foo:bar > demo.jwt
-```
+    ```bash
+    gen-jwt.py key.pem -jwks=./jwks.json --expire=3153600000 --claims=foo:bar > demo.jwt
+    ```
