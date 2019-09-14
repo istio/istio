@@ -37,6 +37,7 @@ $(foreach DEP,$(SIDECAR_DEB_DEPS),\
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
 		${ISTIO_DEB_BIN}/istio-iptables.sh \
+		${ISTIO_DEB_BIN}/istio-clean-iptables.sh \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env

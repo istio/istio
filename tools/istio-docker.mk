@@ -49,7 +49,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables
+                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -59,7 +59,8 @@ $(ISTIO_DOCKER)/certs:
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh tools/packaging/common/istio-clean-iptables.sh \
+			  docker/ca-certificates.tgz \
                           tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
 # $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
@@ -83,7 +84,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 docker.proxy_init: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxy_init: pilot/docker/Dockerfile.proxy_init
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
+docker.proxy_init: $(ISTIO_DOCKER)/istio-clean-iptables.sh
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -127,6 +129,7 @@ docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/packaging/common/istio-iptables.sh
+docker.proxyv2: tools/packaging/common/istio-clean-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
@@ -142,6 +145,7 @@ docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxytproxy: tools/packaging/common/istio-iptables.sh
+docker.proxytproxy: tools/packaging/common/istio-clean-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
@@ -172,6 +176,7 @@ endif
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
+docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
