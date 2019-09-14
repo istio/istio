@@ -51,7 +51,7 @@ function assert_equals() {
 function compareWithGolden() {
   local TEST_NAME="$1"
   local TEST_MODE="$2"
-  local PARAMS="$3"
+  local PARAMS="${3:-}"
   local ACTUAL_OUTPUT
   local FILE_UNDER_TEST
 
