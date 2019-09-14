@@ -28,7 +28,8 @@ const (
 	DefaultSampleFrequency = rate.Inf
 	// DefaultHalfLife controls the decay rate of an individual sample.
 	DefaultHalfLife = 1 * time.Second // Impact of each sample is expected to last ~2s.
-
+	// DefaultEnforcementThreshold controls the RPS limit under which no load shedding will occur.
+	DefaultEnforcementThreshold = rate.Limit(100.0)
 	// GRPCLatencyEvaluatorName is the name of the gRPC Response Latency LoadEvaluator.
 	GRPCLatencyEvaluatorName = "grpcResponseLatency"
 )
@@ -41,12 +42,19 @@ var (
 // GRPCLatencyEvaluator calculates the moving average of response latency (as reported via the gRPC stats.Handler interface).
 // It then evaluates incoming requests by comparing the average response latency against a threshold.
 type GRPCLatencyEvaluator struct {
-	sampler     *rate.Limiter
-	loadAverage *exponentialMovingAverage
+	sampler                     *rate.Limiter
+	enforcementThresholdLimiter *rate.Limiter
+	loadAverage                 *exponentialMovingAverage
 }
 
 // NewGRPCLatencyEvaluator creates a new LoadEvaluator that uses an average of gRPC Response Latency.
 func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Duration) *GRPCLatencyEvaluator {
+	return NewGRPCLatencyEvaluatorWithThreshold(sampleFrequency, averageHalfLife, DefaultEnforcementThreshold)
+}
+
+// NewGRPCLatencyEvaluatorWithThreshold creates a new LoadEvaluator that uses an average of gRPC Response Latency above
+// the specified RPS limit.
+func NewGRPCLatencyEvaluatorWithThreshold(sampleFrequency rate.Limit, averageHalfLife time.Duration, enforcementThreshold rate.Limit) *GRPCLatencyEvaluator {
 
 	sf := sampleFrequency
 	if sf == 0 {
@@ -58,9 +66,13 @@ func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Du
 		hl = DefaultHalfLife
 	}
 
+	// allow burstiness in enforcement threshold evaluation -- up to 100% of threshold (all simultaneous requests)
+	thresholdLimiter := rate.NewLimiter(enforcementThreshold, int(enforcementThreshold))
+
 	return &GRPCLatencyEvaluator{
-		sampler:     rate.NewLimiter(sf, 1), // no need to support burstiness beyond 1 event per Allow()
-		loadAverage: newExponentialMovingAverage(hl, 0, time.Now()),
+		sampler:                     rate.NewLimiter(sf, 1), // no need to support burstiness beyond 1 event per Allow()
+		enforcementThresholdLimiter: thresholdLimiter,
+		loadAverage:                 newExponentialMovingAverage(hl, 0, time.Now()),
 	}
 }
 
@@ -71,6 +83,12 @@ func (g GRPCLatencyEvaluator) Name() string {
 
 // EvaluateAgainst implements the LoadEvaluator interface.
 func (g *GRPCLatencyEvaluator) EvaluateAgainst(ri RequestInfo, threshold float64) LoadEvaluation {
+
+	if g.enforcementThresholdLimiter.Allow() {
+		// if we haven't hit the enforcement limit, then just allow
+		return LoadEvaluation{Status: BelowThreshold}
+	}
+
 	load := g.currentLoad()
 	if load < threshold {
 		return LoadEvaluation{Status: BelowThreshold}
