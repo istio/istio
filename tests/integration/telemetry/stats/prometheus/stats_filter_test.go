@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -134,6 +136,7 @@ func TestStatsFilter(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("stats_filter_test", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
