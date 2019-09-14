@@ -422,7 +422,7 @@ SECURITY_TOOLS_BINS:=sdsclient
 $(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/tools/$(ITEM),$(RELEASE_LDFLAGS))))
 
 # Build targets for apps under ./tools
-ISTIO_TOOLS_BINS:=hyperistio istio-iptables
+ISTIO_TOOLS_BINS:=hyperistio istio-iptables istio-clean-iptables
 $(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
 BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
@@ -555,7 +555,7 @@ security-test:
 	go test ${T} ./security/cmd/...
 
 .PHONY: common-test
-common-test: istio-iptables
+common-test: istio-iptables istio-clean-iptables
 	go test ${T} ./pkg/...
 	go test ${T} ./tests/common/...
 	# Execute bash shell unit tests scripts
