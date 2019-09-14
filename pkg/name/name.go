@@ -390,3 +390,77 @@ func Set(val, out interface{}) error {
 	reflect.ValueOf(out).Set(reflect.ValueOf(val))
 	return nil
 }
+
+// CreatePatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
+// eg. node:
+//     - name: NEW_VAR
+//       value: new_value
+// and path:
+//       spec.template.spec.containers.[name:discovery].env
+//     will constructs the following patch object:
+//       spec:
+//         template:
+//           spec:
+//             containers:
+//             - name: discovery
+//               env:
+//               - name: NEW_VAR
+//                 value: new_value
+func CreatePatchObjectFromPath(node interface{}, path util.Path) (map[string]interface{}, error) {
+	if len(path) == 0 {
+		return nil, fmt.Errorf("empty path %s", path)
+	}
+	if util.IsKVPathElement(path[0]) {
+		return nil, fmt.Errorf("path %s has an unexpected first element %s", path, path[0])
+	}
+	length := len(path)
+	if util.IsKVPathElement(path[length-1]) {
+		return nil, fmt.Errorf("path %s has an unexpected last element %s", path, path[length-1])
+	}
+
+	patchObj := make(map[string]interface{})
+	var currentNode, nextNode interface{}
+	nextNode = patchObj
+	for i, pe := range path {
+		currentNode = nextNode
+		// last path element
+		if i == length-1 {
+			currentNode, ok := currentNode.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
+			}
+			currentNode[pe] = node
+			break
+		}
+
+		if util.IsKVPathElement(pe) {
+			currentNode, ok := currentNode.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("path %s has an unexpected KV element %s", path, pe)
+			}
+			k, v, err := util.PathKV(pe)
+			if err != nil {
+				return nil, err
+			}
+			if k == "" || v == "" {
+				return nil, fmt.Errorf("path %s has an invalid KV element %s", path, pe)
+			}
+			currentNode[0] = map[string]interface{}{k: v}
+			nextNode = currentNode[0]
+			continue
+		}
+
+		currentNode, ok := currentNode.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
+		}
+		// next path element determines the next node type
+		if util.IsKVPathElement(path[i+1]) {
+			currentNode[pe] = make([]interface{}, 1)
+		} else {
+			currentNode[pe] = make(map[string]interface{})
+		}
+		nextNode = currentNode[pe]
+	}
+	return patchObj, nil
+}

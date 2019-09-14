@@ -1324,10 +1324,17 @@ spec:
         - --useTemplateCRDs=false
         - --trace_zipkin_url=http://zipkin.istio-telemetry:9411/api/v1/spans
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: GODEBUG
           value: gctrace=111
         - name: NEW_VAR
           value: new_value
+        - name: GOMAXPROCS
+          value: "6"
         image: docker.io/istio/mixer:1.1.4
         imagePullPolicy: Always
         livenessProbe:
