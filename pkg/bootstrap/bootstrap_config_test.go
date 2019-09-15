@@ -466,7 +466,7 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 }
 
 func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
-	content, err := ioutil.ReadFile("testdata/" + base + ".proto")
+	content, err := ioutil.ReadFile("testdata/" + base + ".proxycfg")
 	if err != nil {
 		return nil, err
 	}
