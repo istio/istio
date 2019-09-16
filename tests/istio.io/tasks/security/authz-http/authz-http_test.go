@@ -61,54 +61,48 @@ func TestAuthzHTTP(t *testing.T) {
 }
 
 func setup(t *testing.T) {
-	ex := examples.New(t, "Setup")
-	defer ex.Run()
-
-	ex.RunScript("setup.sh", examples.TextOutput)
-	ex.Apply(ns, "samples/bookinfo/platform/kube/bookinfo.yaml")
-	ex.Apply(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml")
-	ex.Apply(ns, "samples/sleep/sleep.yaml")
-	ex.RunScript("wait.sh", examples.TextOutput)
+	examples.New(t, "Setup").
+		RunScript("setup.sh", examples.TextOutput, nil).
+		Apply(ns, "samples/bookinfo/platform/kube/bookinfo.yaml").
+		Apply(ns, "samples/bookinfo/networking/bookinfo-gateway.yaml").
+		Apply(ns, "samples/sleep/sleep.yaml").
+		RunScript("wait.sh", examples.TextOutput, nil).
+		Run()
 }
 
 func enablingIstioAuthorization(t *testing.T) {
-	ex := examples.New(t, "Enabling Istio authorization")
-	defer ex.Run()
-
-	ex.Apply("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml")
-	ex.RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput)
+	examples.New(t, "Enabling Istio authorization").
+		Apply("", "samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml").
+		RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput, nil).
+		Run()
 }
 
 func enforcingNamespaceLevelAccessControl(t *testing.T) {
-	ex := examples.New(t, "Enforcing Namespace-level access control")
-	defer ex.Run()
-
-	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
-	ex.RunScript("verify-enforcingNamespaceLevelAccessControl.sh", examples.TextOutput)
-	ex.Delete(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml")
-	ex.RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput)
+	examples.New(t, "Enforcing Namespace-level access control").
+		Apply(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml").
+		RunScript("verify-enforcingNamespaceLevelAccessControl.sh", examples.TextOutput, nil).
+		Delete(ns, "samples/bookinfo/platform/kube/rbac/namespace-policy.yaml").
+		RunScript("verify-enablingIstioAuthorization.sh", examples.TextOutput, nil).
+		Run()
 }
 
 func enforcingServiceLevelAccessControlStep1(t *testing.T) {
-	ex := examples.New(t, "Enforcing Service-level access control Step 1")
-	defer ex.Run()
-
-	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")
-	ex.RunScript("verify-enforcingServiceLevelAccessControlStep1.sh", examples.TextOutput)
+	examples.New(t, "Enforcing Service-level access control Step 1").
+		Apply(ns, "samples/bookinfo/platform/kube/rbac/productpage-policy.yaml").
+		RunScript("verify-enforcingServiceLevelAccessControlStep1.sh", examples.TextOutput, nil).
+		Run()
 }
 
 func enforcingServiceLevelAccessControlStep2(t *testing.T) {
-	ex := examples.New(t, "Enforcing Service-level access control Step 2")
-	defer ex.Run()
-
-	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml")
-	ex.RunScript("verify-enforcingServiceLevelAccessControlStep2.sh", examples.TextOutput)
+	examples.New(t, "Enforcing Service-level access control Step 2").
+		Apply(ns, "samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml").
+		RunScript("verify-enforcingServiceLevelAccessControlStep2.sh", examples.TextOutput, nil).
+		Run()
 }
 
 func enforcingServiceLevelAccessControlStep3(t *testing.T) {
-	ex := examples.New(t, "Enforcing Service-level access control Step 3")
-	defer ex.Run()
-
-	ex.Apply(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml")
-	ex.RunScript("verify-enforcingServiceLevelAccessControlStep3.sh", examples.TextOutput)
+	examples.New(t, "Enforcing Service-level access control Step 3").
+		Apply(ns, "samples/bookinfo/platform/kube/rbac/ratings-policy.yaml").
+		RunScript("verify-enforcingServiceLevelAccessControlStep3.sh", examples.TextOutput, nil).
+		Run()
 }

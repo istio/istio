@@ -14,35 +14,34 @@
 package examples
 
 import (
-	"io"
-	"os"
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
 
-type testStep interface {
-	Run(*kube.Environment, *testing.T) (string, error)
-	Copy(path string) error
-	String() string
+type functionTestType struct {
+	testFunction testFunc
 }
 
-func copyFile(src string, dest string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return err
+func newStepFunction(testFunction testFunc) testStep {
+	return functionTestType{
+		testFunction: testFunction,
 	}
-	defer sourceFile.Close()
+}
 
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
+func (test functionTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
+	t.Logf("Executing function")
+	err := test.testFunction(t)
 
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return err
-	}
+	//TODO: Should function allow output?
+	return "", err
+}
+
+func (test functionTestType) Copy(destination string) error {
 	return nil
+}
+
+func (test functionTestType) String() string {
+	return fmt.Sprintf("test function")
 }
