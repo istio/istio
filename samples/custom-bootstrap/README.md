@@ -12,7 +12,7 @@ kubectl apply -f custom-bootstrap.yaml
 
 Next, we can create a service that uses this bootstrap configuration.
 
-To do this, we need to set the helm value `proxy.customBootstrap.configMap` 
+To do this, eithewr we need to set the helm value `proxy.customBootstrap.configMap`, 
 or add an annotation, `sidecar.istio.io/bootstrapOverride`, with the name of our ConfigMap as the value.
 
 We can create our helloworld app, using the custom config, with:
