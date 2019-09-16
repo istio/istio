@@ -1,3 +1,5 @@
+# For details about using this yaml file, please refer to:
+# https://istio.io/docs/tasks/security/auth-sds/#increasing-security-with-pod-security-policies
 apiVersion: extensions/v1beta1
 kind: PodSecurityPolicy
 metadata:
@@ -24,7 +26,7 @@ spec:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: istio-sds-uds
+  name: istio-sds-uds-psp
 rules:
   - apiGroups:
       - extensions
@@ -38,11 +40,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-sds-uds
+  name: istio-sds-uds-psp
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-sds-uds
+  name: istio-sds-uds-psp
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
