@@ -146,6 +146,10 @@ global:
           memory: 10Mi
     image: proxyv2
 
+    # Indicates whether a custom bootstrap exists for proxies.
+    customBootstrap: 
+      configMap: ""
+
     # cluster domain. Default value is "cluster.local".
     clusterDomain: "cluster.local"
 

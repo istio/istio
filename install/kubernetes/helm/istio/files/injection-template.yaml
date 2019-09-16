@@ -231,7 +231,7 @@ containers:
   - name: ISTIO_META_OWNER
     value: kubernetes://api/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
    {{- end}}
-  {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+  {{- if or (.Values.global.proxy.customBoostrap.configMap) (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: ISTIO_BOOTSTRAP_OVERRIDE
     value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
   {{- end }}
@@ -289,7 +289,7 @@ containers:
 {{- end }}
   {{  end -}}
   volumeMounts:
-  {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+  {{ if or (.Values.global.proxy.customBoostrap.configMap) (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - mountPath: /etc/istio/custom-bootstrap
     name: custom-bootstrap-volume
   {{- end }}
@@ -327,6 +327,11 @@ volumes:
 - name: custom-bootstrap-volume
   configMap:
     name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+{{- else }}
+{{- if .Values.global.proxy.customBootstrap.configMap }}
+- name: custom-bootstrap-volume
+  configMap:
+    name: {{ .Values.global.proxy.customBootstrap.configMap }}
 {{- end }}
 - emptyDir:
     medium: Memory
