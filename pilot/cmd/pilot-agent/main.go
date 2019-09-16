@@ -52,7 +52,7 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
@@ -293,7 +293,7 @@ var (
 				return err
 			}
 
-			if out, err := protomarshal.ToYAML(&proxyConfig); err != nil {
+			if out, err := gogoprotomarshal.ToYAML(&proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)

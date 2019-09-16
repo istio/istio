@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/pkg/config/labels"
@@ -145,13 +145,13 @@ func TestParseMetadata(t *testing.T) {
 	}
 }
 
-func mapToStruct(msg map[string]interface{}) (*types.Struct, error) {
+func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	pbs := &types.Struct{}
+	pbs := &structpb.Struct{}
 	if err := jsonpb.Unmarshal(bytes.NewBuffer(b), pbs); err != nil {
 		return nil, err
 	}

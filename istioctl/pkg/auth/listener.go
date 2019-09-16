@@ -15,20 +15,25 @@
 package auth
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwt_filter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
@@ -63,11 +68,11 @@ type ParsedListener struct {
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
-		if err := util.StructToMessage(c.Config, out); err != nil {
+		if err := conversion.StructToMessage(c.Config, out); err != nil {
 			return err
 		}
 	case *listener.Filter_TypedConfig:
-		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}
 	}
@@ -86,11 +91,38 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *hcm_filter.HttpFilter_Config:
-		if err := util.StructToMessage(c.Config, out); err != nil {
+		if err := conversion.StructToMessage(c.Config, out); err != nil {
 			return err
 		}
 	case *hcm_filter.HttpFilter_TypedConfig:
-		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func StructToGoGoMessage(pbst *structpb.Struct, out proto.Message) error {
+	if pbst == nil {
+		return errors.New("nil struct")
+	}
+
+	buf := &bytes.Buffer{}
+	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
+		return err
+	}
+
+	return gogojsonpb.Unmarshal(buf, out)
+}
+
+func getGogoHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
+	switch c := filter.ConfigType.(type) {
+	case *hcm_filter.HttpFilter_Config:
+		if err := StructToGoGoMessage(c.Config, out); err != nil {
+			return err
+		}
+	case *hcm_filter.HttpFilter_TypedConfig:
+		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}
 	}
@@ -115,14 +147,14 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 						switch httpFilter.GetName() {
 						case "istio_authn":
 							authN := &authn_filter.FilterConfig{}
-							if err := getHTTPFilterConfig(httpFilter, authN); err != nil {
+							if err := getGogoHTTPFilterConfig(httpFilter, authN); err != nil {
 								log.Errorf("found AuthN filter but failed to parse: %s", err)
 							} else {
 								parsedFC.authN = authN
 							}
 						case "jwt-auth":
 							jwt := &jwt_filter.JwtAuthentication{}
-							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
+							if err := getGogoHTTPFilterConfig(httpFilter, jwt); err != nil {
 								log.Errorf("found JWT filter but failed to parse: %s", err)
 							} else {
 								parsedFC.jwt = jwt

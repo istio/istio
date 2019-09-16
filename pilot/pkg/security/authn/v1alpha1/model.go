@@ -15,10 +15,29 @@
 package v1alpha1
 
 import (
+	"github.com/golang/protobuf/proto"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
+
+// XDS protos use golang/protobuf, but the istio APIs use gogo protos. This means the golang/protobuf
+// backend needs to register the authn filter protos.
+func init() {
+	proto.RegisterEnum("istio.authentication.v1alpha1.PrincipalBinding", authn.PrincipalBinding_name, authn.PrincipalBinding_value)
+	proto.RegisterEnum("istio.authentication.v1alpha1.MutualTls_Mode", authn.MutualTls_Mode_name, authn.MutualTls_Mode_value)
+	proto.RegisterType((*authn.StringMatch)(nil), "istio.authentication.v1alpha1.StringMatch")
+	proto.RegisterType((*authn.MutualTls)(nil), "istio.authentication.v1alpha1.MutualTls")
+	proto.RegisterType((*authn.Jwt)(nil), "istio.authentication.v1alpha1.Jwt")
+	proto.RegisterType((*authn.Jwt_TriggerRule)(nil), "istio.authentication.v1alpha1.Jwt.TriggerRule")
+	proto.RegisterType((*authn.PeerAuthenticationMethod)(nil), "istio.authentication.v1alpha1.PeerAuthenticationMethod")
+	proto.RegisterType((*authn.OriginAuthenticationMethod)(nil), "istio.authentication.v1alpha1.OriginAuthenticationMethod")
+	proto.RegisterType((*authn.Policy)(nil), "istio.authentication.v1alpha1.Policy")
+	proto.RegisterType((*authn.TargetSelector)(nil), "istio.authentication.v1alpha1.TargetSelector")
+	proto.RegisterMapType((map[string]string)(nil), "istio.authentication.v1alpha1.TargetSelector.LabelsEntry")
+	proto.RegisterType((*authn.PortSelector)(nil), "istio.authentication.v1alpha1.PortSelector")
+}
 
 // GetConsolidateAuthenticationPolicy returns the v1alpha1 authentication policy for workload specified by
 // hostname (or label selector if specified) and port, if defined.

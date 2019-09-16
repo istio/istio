@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -312,7 +312,7 @@ func GetNetworkView(node *Proxy) map[string]bool {
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
-func ParseMetadata(metadata *types.Struct) map[string]string {
+func ParseMetadata(metadata *structpb.Struct) map[string]string {
 	if metadata == nil {
 		return nil
 	}
@@ -320,7 +320,7 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 	res := make(map[string]string, len(fields))
 	for k, v := range fields {
 		switch s := v.GetKind().(type) {
-		case *types.Value_StringValue:
+		case *structpb.Value_StringValue:
 			res[k] = s.StringValue
 		default:
 			// Some fields are not simple strings, dump these to json strings.

@@ -18,10 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -605,9 +604,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.EGRESS,
+					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
-						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
@@ -638,9 +637,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: &types.BoolValue{
-						Value: true,
-					},
+					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
 						TlsCertificates: []*auth.TlsCertificate{
 							{
@@ -671,9 +668,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.EGRESS,
+					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
-						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
@@ -702,9 +699,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: &types.BoolValue{
-						Value: true,
-					},
+					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
 						TlsCertificates: []*auth.TlsCertificate{
 							{
@@ -735,9 +730,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.EGRESS,
+					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
-						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
@@ -766,9 +761,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"*.example.org", "example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: &types.BoolValue{
-						Value: true,
-					},
+					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
 						TlsCertificates: []*auth.TlsCertificate{
 							{
@@ -799,9 +792,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.EGRESS,
+					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
-						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,

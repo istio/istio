@@ -20,14 +20,15 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	protobuf "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/empty"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -308,7 +309,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						},
 						Requires: &envoy_jwt.JwtRequirement{
 							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &types.Empty{},
+								AllowMissingOrFailed: &empty.Empty{},
 							},
 						},
 					},
@@ -372,7 +373,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						},
 						Requires: &envoy_jwt.JwtRequirement{
 							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &types.Empty{},
+								AllowMissingOrFailed: &empty.Empty{},
 							},
 						},
 					},
@@ -851,7 +852,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
 						},
 					},
 				},

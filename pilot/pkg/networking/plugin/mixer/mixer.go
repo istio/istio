@@ -22,24 +22,28 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
-
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/gogo"
 )
 
 type mixerplugin struct{}
@@ -414,7 +418,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
 	} else {
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
@@ -438,7 +442,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
 	} else {
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
@@ -564,12 +568,24 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
 	} else {
 		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
+}
+
+// XDS protos use golang/protobuf, but the istio APIs use gogo protos. This means the golang/protobuf
+// backend needs to register the mixer client filter protos.
+func init() {
+	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", mccpb.NetworkFailPolicy_FailPolicy_name, mccpb.NetworkFailPolicy_FailPolicy_value)
+	proto.RegisterType((*mccpb.NetworkFailPolicy)(nil), "istio.mixer.v1.config.client.NetworkFailPolicy")
+	proto.RegisterType((*mccpb.ServiceConfig)(nil), "istio.mixer.v1.config.client.ServiceConfig")
+	proto.RegisterType((*mccpb.TransportConfig)(nil), "istio.mixer.v1.config.client.TransportConfig")
+	proto.RegisterType((*mccpb.HttpClientConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig")
+	proto.RegisterMapType((map[string]*mccpb.ServiceConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
+	proto.RegisterType((*mccpb.TcpClientConfig)(nil), "istio.mixer.v1.config.client.TcpClientConfig")
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *listener.Filter {
@@ -583,7 +599,7 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
 	} else {
 		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
@@ -591,17 +607,18 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	return out
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfig(filterConfigs map[string]*pstruct.Struct, config *mccpb.ServiceConfig) map[string]*pstruct.Struct {
 	if filterConfigs == nil {
-		filterConfigs = make(map[string]*types.Struct)
+		filterConfigs = make(map[string]*pstruct.Struct)
 	}
-	filterConfigs[mixer] = util.MessageToStruct(config)
+	s, _ := conversion.MessageToStruct(config)
+	filterConfigs[mixer] = s
 	return filterConfigs
 }
 
-func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.ServiceConfig) map[string]*types.Any {
+func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.ServiceConfig) map[string]*any.Any {
 	if filterConfigs == nil {
-		filterConfigs = make(map[string]*types.Any)
+		filterConfigs = make(map[string]*any.Any)
 	}
 	filterConfigs[mixer] = util.MessageToAny(config)
 	return filterConfigs

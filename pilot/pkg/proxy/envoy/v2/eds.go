@@ -21,9 +21,11 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 
@@ -118,7 +120,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 		epWeight = 1
 	}
 	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &types.UInt32Value{
+		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: epWeight,
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -148,7 +150,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 		epWeight = 1
 	}
 	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &types.UInt32Value{
+		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: epWeight,
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -172,19 +174,19 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 	}
 
 	metadata := &core.Metadata{
-		FilterMetadata: map[string]*types.Struct{
+		FilterMetadata: map[string]*structpb.Struct{
 			util.IstioMetadataKey: {
-				Fields: map[string]*types.Value{},
+				Fields: map[string]*structpb.Value{},
 			},
 		},
 	}
 
 	if uid != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
+		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: uid}}
 	}
 
 	if network != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: network}}
+		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: network}}
 	}
 
 	return metadata
@@ -367,7 +369,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		for _, ep := range locEps[i].LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locEps[i].LoadBalancingWeight = &types.UInt32Value{
+		locEps[i].LoadBalancingWeight = &wrappers.UInt32Value{
 			Value: weight,
 		}
 	}
@@ -823,7 +825,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 		Nonce:       nonce(),
 	}
 	for _, loadAssignment := range loadAssignments {
-		resource, _ := types.MarshalAny(loadAssignment)
+		resource, _ := ptypes.MarshalAny(loadAssignment)
 		out.Resources = append(out.Resources, resource)
 	}
 
@@ -874,7 +876,7 @@ func buildLocalityLbEndpointsFromShards(
 		for _, ep := range locLbEps.LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+		locLbEps.LoadBalancingWeight = &wrappers.UInt32Value{
 			Value: weight,
 		}
 		locEps = append(locEps, locLbEps)

@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -82,7 +82,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
-	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -95,11 +95,11 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := protomarshal.ToYAML(prevDefaultConfig)
+		origProxyConfigYAML, err := gogoprotomarshal.ToYAML(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := protomarshal.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
@@ -122,7 +122,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 

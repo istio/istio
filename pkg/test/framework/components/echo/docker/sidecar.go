@@ -23,7 +23,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/docker"
@@ -53,7 +53,7 @@ func newSidecar(container *docker.Container) (*sidecar, error) {
 		for _, c := range cfg.Configs {
 			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := types.UnmarshalAny(c, &cd); err != nil {
+				if err := ptypes.UnmarshalAny(c, &cd); err != nil {
 					return false, err
 				}
 

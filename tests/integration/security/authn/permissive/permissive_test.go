@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/tests/integration/security/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pkg/test/framework"

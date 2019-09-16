@@ -18,15 +18,16 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ldsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/empty"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -166,7 +167,7 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 				},
 				Requires: &envoy_jwt.JwtRequirement{
 					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &types.Empty{},
+						AllowMissingOrFailed: &empty.Empty{},
 					},
 				},
 			},
@@ -400,7 +401,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[st
 				ListenerFilters: []*ldsv2.ListenerFilter{
 					{
 						Name:       xdsutil.TlsInspector,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
+						ConfigType: &ldsv2.ListenerFilter_Config{Config: &structpb.Struct{}},
 					},
 				},
 			},

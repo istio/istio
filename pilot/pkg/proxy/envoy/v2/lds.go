@@ -19,7 +19,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -76,7 +76,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 			totalXDSInternalErrors.Increment()
 			continue
 		}
-		lr, _ := types.MarshalAny(ll)
+		lr, _ := ptypes.MarshalAny(ll)
 		resp.Resources = append(resp.Resources, lr)
 	}
 

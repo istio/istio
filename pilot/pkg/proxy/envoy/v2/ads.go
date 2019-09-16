@@ -25,7 +25,8 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -132,7 +133,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
 	}
-	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+	clustersAny, err := ptypes.MarshalAny(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
@@ -145,7 +146,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range listeners {
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
 	}
-	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+	listenersAny, err := ptypes.MarshalAny(&adminapi.ListenersConfigDump{
 		VersionInfo:            versionInfo(),
 		DynamicActiveListeners: dynamicActiveListeners,
 	})
@@ -154,22 +155,22 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
-	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
+	routeConfigAny, _ := ptypes.MarshalAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = ptypes.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	bootstrapAny, _ := ptypes.MarshalAny(&adminapi.BootstrapConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
 }
 

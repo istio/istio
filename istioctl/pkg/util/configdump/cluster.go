@@ -18,7 +18,7 @@ import (
 	"sort"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 )
 
 // GetDynamicClusterDump retrieves a cluster dump with just dynamic active clusters in it
@@ -47,7 +47,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err = proto.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err = ptypes.UnmarshalAny(&clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

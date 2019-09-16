@@ -19,10 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	"github.com/golang/protobuf/proto"
+
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -230,7 +233,7 @@ func TestAdsUpdate(t *testing.T) {
 	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
-	strResponse, _ := protomarshal.ToJSONWithIndent(res1, " ")
+	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
@@ -244,7 +247,7 @@ func TestAdsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	strResponse, _ = protomarshal.ToJSONWithIndent(res1, " ")
+	strResponse, _ = gogoprotomarshal.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 }
 
@@ -329,7 +332,10 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal("No routes returned")
 	}
 	route1, err := unmarshallRoute(res.Resources[0].Value)
-	if err != nil || len(res.Resources) != 1 || route1.Name != routeA {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Resources) != 1 || route1.Name != routeA {
 		t.Fatal("Expected only the http.80 route to be returned")
 	}
 
@@ -422,7 +428,8 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
 	route := &xdsapi.RouteConfiguration{}
-	err := route.Unmarshal(value)
+
+	err := proto.Unmarshal(value, route)
 	if err != nil {
 		return nil, err
 	}

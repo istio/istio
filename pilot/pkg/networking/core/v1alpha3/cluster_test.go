@@ -22,10 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -206,7 +208,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 
 			// Verify that the values were set correctly.
 			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(*commonHTTPProtocolOptions.IdleTimeout).To(Equal(time.Duration(15000000000)))
+			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
 		})
 	}
 }
@@ -395,7 +397,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout.Nanoseconds()).To(Equal(int64(10000000001)))
+	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
@@ -428,7 +430,7 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout.Nanoseconds()).To(Equal(int64(10000000001)))
+	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {

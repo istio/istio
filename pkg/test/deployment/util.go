@@ -20,7 +20,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"

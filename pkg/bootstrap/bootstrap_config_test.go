@@ -23,19 +23,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/type/matcher"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	ocv1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
@@ -166,15 +166,15 @@ func TestGolden(t *testing.T) {
 			check: func(got *v2.Bootstrap, t *testing.T) {
 				cfg := got.Tracing.Http.GetConfig()
 				sdMsg := tracev2.OpenCensusConfig{}
-				if err := util.StructToMessage(cfg, &sdMsg); err != nil {
+				if err := conversion.StructToMessage(cfg, &sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
 				}
 
 				want := tracev2.OpenCensusConfig{
-					TraceConfig: &ocv1.TraceConfig{
-						Sampler: &ocv1.TraceConfig_ConstantSampler{
-							ConstantSampler: &ocv1.ConstantSampler{
-								Decision: ocv1.ConstantSampler_ALWAYS_PARENT,
+					TraceConfig: &v1.TraceConfig{
+						Sampler: &v1.TraceConfig_ConstantSampler{
+							ConstantSampler: &v1.ConstantSampler{
+								Decision: v1.ConstantSampler_ALWAYS_PARENT,
 							},
 						},
 						MaxNumberOfAttributes:    200,
@@ -355,7 +355,7 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
+func checkListStringMatcher(t *testing.T, got *envoy_type_matcher.ListStringMatcher, want string, typ string) {
 	var patterns []string
 	for _, pattern := range got.GetPatterns() {
 		var pat string

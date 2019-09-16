@@ -29,8 +29,9 @@ import (
 	"time"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2/google"
 
@@ -687,15 +688,15 @@ func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_
 	}
 
 	if tcpKeepalive.Probes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: tcpKeepalive.Probes}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: tcpKeepalive.Probes}
 	}
 
 	if tcpKeepalive.Time != nil && tcpKeepalive.Time.Seconds > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
 	}
 
 	if tcpKeepalive.Interval != nil && tcpKeepalive.Interval.Seconds > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
 	}
 	upstreamConnectionOptionsStr := convertToJSON(upstreamConnectionOptions)
 	if upstreamConnectionOptionsStr == "" {

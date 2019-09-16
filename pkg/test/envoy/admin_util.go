@@ -26,7 +26,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	routeApi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )

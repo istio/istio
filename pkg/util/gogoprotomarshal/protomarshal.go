@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protomarshal
+package gogoprotomarshal
 
 import (
 	"encoding/json"
@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/pkg/log"
 )

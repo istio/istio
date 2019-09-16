@@ -20,6 +20,7 @@ import (
 	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -111,7 +112,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  &ttl,
+					Ttl:  ptypes.DurationProto(ttl),
 				},
 			},
 		}
