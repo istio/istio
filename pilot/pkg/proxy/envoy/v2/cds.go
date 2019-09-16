@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -47,6 +48,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
+	pushStart := time.Now()
 	rawClusters := s.generateRawClusters(con.modelNode, push)
 
 	if s.DebugConfigs {
@@ -54,6 +56,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	}
 	response := con.clusters(rawClusters)
 	err := con.send(response)
+	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(cdsSendErrPushes, err)
