@@ -1,3 +1,5 @@
+# For details about using this yaml file, please refer to:
+# https://istio.io/docs/tasks/security/auth-sds/#increasing-security-with-pod-security-policies
 apiVersion: extensions/v1beta1
 kind: PodSecurityPolicy
 metadata:
@@ -19,7 +21,7 @@ spec:
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: istio-nodeagent
+  name: istio-nodeagent-istio-system-psp
   namespace: istio-system
 rules:
   - apiGroups:
@@ -34,12 +36,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istio-nodeagent
+  name: istio-nodeagent-istio-system-psp
   namespace: istio-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istio-nodeagent
+  name: istio-nodeagent-istio-system-psp
 subjects:
   - kind: ServiceAccount
     name: istio-nodeagent-service-account
