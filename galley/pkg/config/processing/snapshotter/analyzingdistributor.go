@@ -139,6 +139,11 @@ func (c *context) Find(cpl collection.Name, name resource.Name) *resource.Entry 
 	return c.sn.Find(cpl, name)
 }
 
+// Exists implements analysis.Context
+func (c *context) Exists(cpl collection.Name, name resource.Name) bool {
+	return c.Find(cpl, name) != nil
+}
+
 // ForEach implements analysis.Context
 func (c *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
 	c.sn.ForEach(col, fn)

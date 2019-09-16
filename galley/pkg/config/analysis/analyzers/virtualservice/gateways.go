@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package analyzers
+package virtualservice
 
 import (
 	"istio.io/api/networking/v1alpha3"
@@ -23,33 +23,31 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// SampleAnalyzer is a sample analyzer
-type SampleAnalyzer struct {
+// GatewayAnalyzer checks the gateways associated with each virtual service
+type GatewayAnalyzer struct{}
+
+var _ analysis.Analyzer = &GatewayAnalyzer{}
+
+// Name implements Analyzer
+func (s *GatewayAnalyzer) Name() string {
+	return "virtualservice.GatewayAnalyzer"
 }
 
-var _ analysis.Analyzer = &SampleAnalyzer{}
-
-// Name implements SampleAnalyzer
-func (s *SampleAnalyzer) Name() string {
-	return "sample"
-}
-
-// Analyze implements SampleAnalyzer
-func (s *SampleAnalyzer) Analyze(c analysis.Context) {
+// Analyze implements Analyzer
+func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
 }
 
-func (s *SampleAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
 	vs := r.Item.(*v1alpha3.VirtualService)
 
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	for _, gwName := range vs.Gateways {
-		gw := c.Find(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName))
-		if gw == nil {
-			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.ReferencedResourceNotFound(r, "gateway", gwName))
+		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
+			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
 }
