@@ -260,7 +260,7 @@ func TestGolden(t *testing.T) {
 
 			fn, err := writeBootstrapForPlatform(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, c.opts, localEnv,
-				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", "120s", &fakePlatform{})
+				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", &fakePlatform{})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -324,6 +324,8 @@ func getNodeMetaData(envs []string, plat platform.Environment) map[string]interf
 
 var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
 
+var statsFlushInterval = env.RegisterStringVar("STATS_FLUSH_INTERVAL", "5s", "Stats Flush Interval")
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
@@ -377,6 +379,8 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
+
+	opts["stats_flush_interval"] = statsFlushInterval.Get()
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv, platEnv)

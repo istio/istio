@@ -391,5 +391,5 @@
     }
 
   ],
-  "stats_flush_interval": "120s"
+  "stats_flush_interval": "5s"
 }

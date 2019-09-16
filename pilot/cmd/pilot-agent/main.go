@@ -106,7 +106,6 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
-	statsFlushInterval   = env.RegisterStringVar("STATS_FLUSH_INTERVAL", "5s", "Stats Flush Interval")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -323,8 +322,6 @@ var (
 				opts["sds_uds_path"] = sdsUdsPathVar.Get()
 				opts["sds_token_path"] = sdsTokenPath
 			}
-
-			opts["stats_flush_interval"] = statsFlushInterval.Get()
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
