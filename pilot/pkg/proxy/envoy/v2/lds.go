@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -25,7 +26,7 @@ import (
 
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-
+	pushStart := time.Now()
 	rawListeners := s.generateRawListeners(con, push)
 
 	if s.DebugConfigs {
@@ -33,6 +34,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
 	err := con.send(response)
+	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(ldsSendErrPushes, err)
