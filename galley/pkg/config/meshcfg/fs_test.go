@@ -111,7 +111,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
@@ -161,7 +161,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
