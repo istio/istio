@@ -27,15 +27,8 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) (err error) {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	defer func() {
-		if err != nil {
-			rdsPushErrTime.Record(time.Since(pushStart).Seconds())
-			return
-		}
-		rdsPushTime.Record(time.Since(pushStart).Seconds())
-	}()
 	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
@@ -48,16 +41,17 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	}
 
 	response := routeDiscoveryResponse(rawRoutes, version)
-	err = con.send(response)
+	err := con.send(response)
+	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
 		recordSendError(rdsSendErrPushes, err)
-		return
+		return err
 	}
 	rdsPushes.Increment()
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.modelNode.ID, len(rawRoutes))
-	return
+	return nil
 }
 
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {

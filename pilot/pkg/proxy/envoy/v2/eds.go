@@ -639,15 +639,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) (err error) {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
-	defer func() {
-		if err != nil {
-			edsPushErrTime.Record(time.Since(pushStart).Seconds())
-			return
-		}
-		edsPushTime.Record(time.Since(pushStart).Seconds())
-	}()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
 	empty := make([]string, 0)
@@ -704,11 +697,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	}
 
 	response := endpointDiscoveryResponse(loadAssignments, version)
-	err = con.send(response)
+	err := con.send(response)
+	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(edsSendErrPushes, err)
-		return
+		return err
 	}
 	edsPushes.Increment()
 
@@ -719,7 +713,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
 			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	}
-	return
+	return nil
 }
 
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,

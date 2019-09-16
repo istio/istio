@@ -24,33 +24,26 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) (err error) {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	defer func() {
-		if err != nil {
-			ldsPushErrTime.Record(time.Since(pushStart).Seconds())
-			return
-		}
-		ldsPushTime.Record(time.Since(pushStart).Seconds())
-	}()
-
 	rawListeners := s.generateRawListeners(con, push)
 
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
-	err = con.send(response)
+	err := con.send(response)
+	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(ldsSendErrPushes, err)
-		return
+		return err
 	}
 	ldsPushes.Increment()
 
 	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.modelNode.ID, len(rawListeners))
-	return
+	return nil
 }
 
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
