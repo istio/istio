@@ -681,6 +681,8 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
 		case *route.RouteMatch_Regex:
+			// Migration tracked in https://github.com/istio/istio/issues/17127
+			//nolint: staticcheck
 			path = m.GetRegex()
 		}
 	}

@@ -40,6 +40,9 @@ func AnyToProtoAny(gogo *types.Any) *any.Any {
 }
 
 func BoolToProtoBool(gogo *types.BoolValue) *wrappers.BoolValue {
+	if gogo == nil {
+		return nil
+	}
 	if gogo.Value {
 		return proto.BoolTrue
 	}
@@ -52,5 +55,4 @@ func DurationToProtoDuration(gogo *types.Duration) *duration.Duration {
 	}
 	x := duration.Duration(*gogo)
 	return &x
-	//return ptypes.DurationProto(*util.GogoDurationToDuration(gogo))
 }

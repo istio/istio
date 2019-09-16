@@ -579,12 +579,13 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 // XDS protos use golang/protobuf, but the istio APIs use gogo protos. This means the golang/protobuf
 // backend needs to register the mixer client filter protos.
 func init() {
+	//nolint: lll
 	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", mccpb.NetworkFailPolicy_FailPolicy_name, mccpb.NetworkFailPolicy_FailPolicy_value)
 	proto.RegisterType((*mccpb.NetworkFailPolicy)(nil), "istio.mixer.v1.config.client.NetworkFailPolicy")
 	proto.RegisterType((*mccpb.ServiceConfig)(nil), "istio.mixer.v1.config.client.ServiceConfig")
 	proto.RegisterType((*mccpb.TransportConfig)(nil), "istio.mixer.v1.config.client.TransportConfig")
 	proto.RegisterType((*mccpb.HttpClientConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig")
-	proto.RegisterMapType((map[string]*mccpb.ServiceConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
+	proto.RegisterMapType(map[string]*mccpb.ServiceConfig(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
 	proto.RegisterType((*mccpb.TcpClientConfig)(nil), "istio.mixer.v1.config.client.TcpClientConfig")
 }
 

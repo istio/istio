@@ -365,6 +365,8 @@ func checkListStringMatcher(t *testing.T, got *envoy_type_matcher.ListStringMatc
 		case "suffix":
 			pat = pattern.GetSuffix()
 		case "regexp":
+			// Migration tracked in https://github.com/istio/istio/issues/17127
+			//nolint: staticcheck
 			pat = pattern.GetRegex()
 		}
 

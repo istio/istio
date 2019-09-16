@@ -35,7 +35,7 @@ func init() {
 	proto.RegisterType((*authn.OriginAuthenticationMethod)(nil), "istio.authentication.v1alpha1.OriginAuthenticationMethod")
 	proto.RegisterType((*authn.Policy)(nil), "istio.authentication.v1alpha1.Policy")
 	proto.RegisterType((*authn.TargetSelector)(nil), "istio.authentication.v1alpha1.TargetSelector")
-	proto.RegisterMapType((map[string]string)(nil), "istio.authentication.v1alpha1.TargetSelector.LabelsEntry")
+	proto.RegisterMapType(map[string]string(nil), "istio.authentication.v1alpha1.TargetSelector.LabelsEntry")
 	proto.RegisterType((*authn.PortSelector)(nil), "istio.authentication.v1alpha1.PortSelector")
 }
 

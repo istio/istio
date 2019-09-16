@@ -1111,7 +1111,7 @@ func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.
 		// setup http2 protocol options for upstream connection.
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
+			MaxConcurrentStreams: &wrappers.UInt32Value{
 				Value: 1073741824,
 			},
 		}
