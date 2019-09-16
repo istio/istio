@@ -327,8 +327,7 @@ volumes:
 - name: custom-bootstrap-volume
   configMap:
     name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
-{{- else }}
-{{- if .Values.global.proxy.customBootstrap.configMap }}
+{{- else if .Values.global.proxy.customBootstrap.configMap }}
 - name: custom-bootstrap-volume
   configMap:
     name: {{ .Values.global.proxy.customBootstrap.configMap }}
