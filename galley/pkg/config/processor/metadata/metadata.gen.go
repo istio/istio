@@ -623,11 +623,13 @@ sources:
       kind: "Namespace"
       plural: "namespaces"
       version: "v1"
+      clusterScoped: true
 
     - collection: "k8s/core/v1/nodes"
       kind: "Node"
       plural: "nodes"
       version: "v1"
+      clusterScoped: true
 
     - collection: "k8s/core/v1/pods"
       kind: "Pod"
@@ -710,6 +712,7 @@ sources:
       plural: "meshpolicies"
       group: "authentication.istio.io"
       version: "v1alpha1"
+      clusterScoped: true
 
     - collection: "k8s/rbac.istio.io/v1alpha1/serviceroles"
       kind: "ServiceRole"
@@ -734,6 +737,7 @@ sources:
       plural: "clusterrbacconfigs"
       group: "rbac.istio.io"
       version: "v1alpha1"
+      clusterScoped: true
 
     - collection: "k8s/security.istio.io/v1beta1/authorizationpolicies"
       kind: "AuthorizationPolicy"

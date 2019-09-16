@@ -153,6 +153,7 @@ sources:
         group: "testdata.istio.io"
         version: "v1alpha1"
         optional: true
+        clusterScoped: true
 
 
 # Transform specific configurations
