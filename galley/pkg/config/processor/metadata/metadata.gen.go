@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -600,174 +599,178 @@ sources:
   # Kubernetes specific configuration.
   - type: kubernetes
     resources:
-    - collection:   "k8s/extensions/v1beta1/ingresses"
-      kind:         "Ingress"
-      plural:       "ingresses"
-      group:        "extensions"
-      version:      "v1beta1"
-  
-    - collection:   "k8s/core/v1/services"
-      kind:         "Service"
-      plural:       "services"
-      version:      "v1"
+    - collection: "k8s/extensions/v1beta1/ingresses"
+      kind: "Ingress"
+      plural: "ingresses"
+      group: "extensions"
+      version: "v1beta1"
 
-    - collection:   "k8s/core/v1/namespaces"
-      kind:         "Namespace"
-      plural:       "namespaces"
-      version:      "v1"
+    - collection: "k8s/core/v1/services"
+      kind: "Service"
+      plural: "services"
+      version: "v1"
 
-    - collection:   "k8s/core/v1/nodes"
-      kind:         "Node"
-      plural:       "nodes"
-      version:      "v1"
-  
-    - collection:   "k8s/core/v1/pods"
-      kind:         "Pod"
-      plural:       "pods"
-      version:      "v1"
-  
-    - collection:   "k8s/core/v1/endpoints"
-      kind:         "Endpoints"
-      plural:       "endpoints"
-      version:      "v1"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/virtualservices"
-      kind:         "VirtualService"
-      plural:       "virtualservices"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/gateways"
-      kind:         "Gateway"
-      plural:       "gateways"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/serviceentries"
-      kind:         "ServiceEntry"
-      plural:       "serviceentries"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/destinationrules"
-      kind:         "DestinationRule"
-      plural:       "destinationrules"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/envoyfilters"
-      kind:         "EnvoyFilter"
-      plural:       "envoyfilters"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/networking.istio.io/v1alpha3/sidecars"
-      kind:         "Sidecar"
-      plural:       "sidecars"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/httpapispecs"
-      kind:         "HTTPAPISpec"
-      plural:       "httpapispecs"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/httpapispecbindings"
-      kind:         "HTTPAPISpecBinding"
-      plural:       "httpapispecbindings"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/quotaspecs"
-      kind:         "QuotaSpec"
-      plural:       "quotaspecs"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/quotaspecbindings"
-      kind:         "QuotaSpecBinding"
-      plural:       "quotaspecbindings"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/authentication.istio.io/v1alpha1/policies"
-      kind:         "Policy"
-      plural:       "policies"
-      group:        "authentication.istio.io"
-      version:      "v1alpha1"
+    - collection: "k8s/core/v1/namespaces"
+      kind: "Namespace"
+      plural: "namespaces"
+      version: "v1"
+      clusterScoped: true
 
-    - collection:   "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-      kind:         "MeshPolicy"
-      plural:       "meshpolicies"
-      group:        "authentication.istio.io"
-      version:      "v1alpha1"
+    - collection: "k8s/core/v1/nodes"
+      kind: "Node"
+      plural: "nodes"
+      version: "v1"
+      clusterScoped: true
 
-    - collection:   "k8s/rbac.istio.io/v1alpha1/serviceroles"
-      kind:         "ServiceRole"
-      plural:       "serviceroles"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
-  
-    - collection:   "k8s/rbac.istio.io/v1alpha1/policy"
-      kind:         "ServiceRoleBinding"
-      plural:       "servicerolebindings"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
+    - collection: "k8s/core/v1/pods"
+      kind: "Pod"
+      plural: "pods"
+      version: "v1"
 
-    - collection:   "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
-      kind:         "RbacConfig"
-      plural:       "rbacconfigs"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
-  
-    - collection:   "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
-      kind:         "ClusterRbacConfig"
-      plural:       "clusterrbacconfigs"
-      group:        "rbac.istio.io"
-      version:      "v1alpha1"
+    - collection: "k8s/core/v1/endpoints"
+      kind: "Endpoints"
+      plural: "endpoints"
+      version: "v1"
 
-    - collection:   "k8s/config.istio.io/v1alpha2/rules"
-      kind:         "rule"
-      plural:       "rules"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/attributemanifests"
-      kind:         "attributemanifest"
-      plural:       "attributemanifests"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/instances"
-      kind:         "instance"
-      plural:       "instances"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/handlers"
-      kind:         "handler"
-      plural:       "handlers"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
-  
-    - collection:   "k8s/config.istio.io/v1alpha2/templates"
-      kind:         "template"
-      plural:       "templates"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
+    - collection: "k8s/networking.istio.io/v1alpha3/virtualservices"
+      kind: "VirtualService"
+      plural: "virtualservices"
+      group: "networking.istio.io"
+      version: "v1alpha3"
 
-    - collection:   "k8s/config.istio.io/v1alpha2/adapters"
-      kind:         "adapter"
-      plural:       "adapters"
-      group:        "config.istio.io"
-      version:      "v1alpha2"
+    - collection: "k8s/networking.istio.io/v1alpha3/gateways"
+      kind: "Gateway"
+      plural: "gateways"
+      group: "networking.istio.io"
+      version: "v1alpha3"
 
-    - collection:    "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-      kind:          "MeshPolicy"
-      plural:        "meshpolicies"
-      group:         "authentication.istio.io"
-      version:       "v1alpha1"
+    - collection: "k8s/networking.istio.io/v1alpha3/serviceentries"
+      kind: "ServiceEntry"
+      plural: "serviceentries"
+      group: "networking.istio.io"
+      version: "v1alpha3"
+
+    - collection: "k8s/networking.istio.io/v1alpha3/destinationrules"
+      kind: "DestinationRule"
+      plural: "destinationrules"
+      group: "networking.istio.io"
+      version: "v1alpha3"
+
+    - collection: "k8s/networking.istio.io/v1alpha3/envoyfilters"
+      kind: "EnvoyFilter"
+      plural: "envoyfilters"
+      group: "networking.istio.io"
+      version: "v1alpha3"
+
+    - collection: "k8s/networking.istio.io/v1alpha3/sidecars"
+      kind: "Sidecar"
+      plural: "sidecars"
+      group: "networking.istio.io"
+      version: "v1alpha3"
+
+    - collection: "k8s/config.istio.io/v1alpha2/httpapispecs"
+      kind: "HTTPAPISpec"
+      plural: "httpapispecs"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/httpapispecbindings"
+      kind: "HTTPAPISpecBinding"
+      plural: "httpapispecbindings"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/quotaspecs"
+      kind: "QuotaSpec"
+      plural: "quotaspecs"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/quotaspecbindings"
+      kind: "QuotaSpecBinding"
+      plural: "quotaspecbindings"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/authentication.istio.io/v1alpha1/policies"
+      kind: "Policy"
+      plural: "policies"
+      group: "authentication.istio.io"
+      version: "v1alpha1"
+
+    - collection: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
+      kind: "MeshPolicy"
+      plural: "meshpolicies"
+      group: "authentication.istio.io"
+      version: "v1alpha1"
+      clusterScoped: true
+
+    - collection: "k8s/rbac.istio.io/v1alpha1/serviceroles"
+      kind: "ServiceRole"
+      plural: "serviceroles"
+      group: "rbac.istio.io"
+      version: "v1alpha1"
+
+    - collection: "k8s/rbac.istio.io/v1alpha1/policy"
+      kind: "ServiceRoleBinding"
+      plural: "servicerolebindings"
+      group: "rbac.istio.io"
+      version: "v1alpha1"
+
+    - collection: "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
+      kind: "RbacConfig"
+      plural: "rbacconfigs"
+      group: "rbac.istio.io"
+      version: "v1alpha1"
+
+    - collection: "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
+      kind: "ClusterRbacConfig"
+      plural: "clusterrbacconfigs"
+      group: "rbac.istio.io"
+      version: "v1alpha1"
+      clusterScoped: true
+
+    - collection: "k8s/config.istio.io/v1alpha2/rules"
+      kind: "rule"
+      plural: "rules"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/attributemanifests"
+      kind: "attributemanifest"
+      plural: "attributemanifests"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/instances"
+      kind: "instance"
+      plural: "instances"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/handlers"
+      kind: "handler"
+      plural: "handlers"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/templates"
+      kind: "template"
+      plural: "templates"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/config.istio.io/v1alpha2/adapters"
+      kind: "adapter"
+      plural: "adapters"
+      group: "config.istio.io"
+      version: "v1alpha2"
+
+    - collection: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
+      kind: "MeshPolicy"
+      plural: "meshpolicies"
+      group: "authentication.istio.io"
+      version: "v1alpha1"
 
     # Legacy Mixer CRD Types
     - collection:    "k8s/config.istio.io/v1alpha2/apikeys"
@@ -1158,7 +1161,6 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
-
 var _bintree = &bintree{nil, map[string]*bintree{
 	"metadata.yaml": &bintree{metadataYaml, map[string]*bintree{}},
 }}
@@ -1209,3 +1211,4 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
+
