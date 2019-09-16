@@ -84,7 +84,7 @@ func TestAnalyzers(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer)
-			sa.AddFileKubeSource(testCase.inputFiles)
+			sa.AddFileKubeSource(testCase.inputFiles, "")
 			cancel := make(chan struct{})
 			msgs, err := sa.Analyze(cancel)
 			if err != nil {
