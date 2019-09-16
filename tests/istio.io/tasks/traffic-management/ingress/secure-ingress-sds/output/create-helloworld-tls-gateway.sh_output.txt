@@ -1,0 +1,2 @@
+gateway.networking.istio.io/mygateway configured
+virtualservice.networking.istio.io/helloworld-v1 unchanged

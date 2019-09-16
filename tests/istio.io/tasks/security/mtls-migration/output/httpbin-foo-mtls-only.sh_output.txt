@@ -1,0 +1,1 @@
+policy.authentication.istio.io/example-httpbin-strict created

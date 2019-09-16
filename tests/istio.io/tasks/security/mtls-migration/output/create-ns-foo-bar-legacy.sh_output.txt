@@ -1,0 +1,16 @@
+namespace/foo created
+service/httpbin created
+deployment.apps/httpbin created
+serviceaccount/sleep created
+service/sleep created
+deployment.apps/sleep created
+namespace/bar created
+service/httpbin created
+deployment.apps/httpbin created
+serviceaccount/sleep created
+service/sleep created
+deployment.apps/sleep created
+namespace/legacy created
+serviceaccount/sleep created
+service/sleep created
+deployment.apps/sleep created

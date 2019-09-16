@@ -1,0 +1,2 @@
+service/helloworld-v1 unchanged
+deployment.extensions/helloworld-v1 unchanged

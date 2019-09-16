@@ -1,0 +1,3 @@
+sleep.foo to httpbin.foo: 200
+sleep.bar to httpbin.foo: 200
+sleep.legacy to httpbin.foo: 200

@@ -1,0 +1,12 @@
+++ kubectl -n istio-system get service istio-ingressgateway -o 'jsonpath={.status.loadBalancer.ingress[0].ip}'
++ INGRESS_HOST=
++ export INGRESS_HOST
+++ kubectl -n istio-system get service istio-ingressgateway -o 'jsonpath={.spec.ports[?(@.name=="https")].port}'
++ SECURE_INGRESS_PORT=443
++ export SECURE_INGRESS_PORT
++ curl -v -HHost:helloworld-v1.example.com --resolve helloworld-v1.example.com:443: --cacert helloworld-v1.example.com/2_intermediate/certs/ca-chain.cert.pem https://helloworld-v1.example.com:443/hello
+* Couldn't parse CURLOPT_RESOLVE entry 'helloworld-v1.example.com:443:'!
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Could not resolve host: helloworld-v1.example.com
+curl: (6) Could not resolve host: helloworld-v1.example.com

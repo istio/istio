@@ -1,0 +1,2 @@
+service/httpbin unchanged
+deployment.extensions/httpbin unchanged

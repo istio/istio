@@ -1,0 +1,3 @@
+error: 'istio-injection' already has a value (enabled), and --overwrite is false
+policy.authentication.istio.io/default created
+destinationrule.networking.istio.io/default created
