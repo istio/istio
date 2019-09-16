@@ -12,3 +12,4 @@ global:
   ## imagePullSecrets for all ServiceAccount. Must be set for any cluster configured with private docker registry.
   # imagePullSecrets:
   #   - name: "private-registry-key"
+

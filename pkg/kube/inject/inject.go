@@ -132,6 +132,7 @@ const (
 	DefaultIncludeIPRanges              = "*"
 	DefaultIncludeInboundPorts          = "*"
 	DefaultkubevirtInterfaces           = ""
+	DefaultStatsFlushInterval           = "5s"
 )
 
 const (
@@ -221,6 +222,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
+	StatsFlushInterval           string                 `json:"statsFlushInterval"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -254,6 +256,7 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
 		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
 		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
+		"global.proxy.statsFlushInterval":            p.StatsFlushInterval,
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
 		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),

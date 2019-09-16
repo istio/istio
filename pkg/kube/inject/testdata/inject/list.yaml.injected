@@ -56,8 +56,6 @@ items:
           - istio-pilot:15010
           - --dnsRefreshRate
           - 300s
-          - --statsFlushInterval
-          - 5s
           - --connectTimeout
           - 1s
           - --proxyAdminPort
@@ -104,6 +102,8 @@ items:
                 fieldPath: metadata.namespace
           - name: SDS_ENABLED
             value: "false"
+          - name: STATS_FLUSH_INTERVAL
+            value: 5s
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -244,8 +244,6 @@ items:
           - istio-pilot:15010
           - --dnsRefreshRate
           - 300s
-          - --statsFlushInterval
-          - 5s
           - --connectTimeout
           - 1s
           - --proxyAdminPort
@@ -292,6 +290,8 @@ items:
                 fieldPath: metadata.namespace
           - name: SDS_ENABLED
             value: "false"
+          - name: STATS_FLUSH_INTERVAL
+            value: 5s
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
           - name: ISTIO_META_INCLUDE_INBOUND_PORTS

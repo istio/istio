@@ -231,6 +231,8 @@ spec:
           - name: ISTIO_METAJSON_LABELS
             value: |
               {{ $labels | toJson}}
+          - name: STATS_FLUSH_INTERVAL
+            value: {{ $.Values.global.statsFlushInterval }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           - name: SDS_ENABLED

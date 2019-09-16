@@ -86,6 +86,7 @@ func TestIntoResourceFile(t *testing.T) {
 		privileged                   bool
 		tproxy                       bool
 		podDNSSearchNamespaces       []string
+		statsFlushInterval           string
 	}{
 		//"testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -97,6 +98,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		//verifies that the sidecar will not be injected again for an injected yaml
 		{
@@ -108,6 +110,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-mtls-not-ready.yaml",
@@ -118,6 +121,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-namespace.yaml",
@@ -128,6 +132,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-proxy-override.yaml",
@@ -138,11 +143,13 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
-			in:     "hello.yaml",
-			want:   "hello-tproxy.yaml.injected",
-			tproxy: true,
+			in:                 "hello.yaml",
+			want:               "hello-tproxy.yaml.injected",
+			tproxy:             true,
+			statsFlushInterval: DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello.yaml",
@@ -153,6 +160,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "frontend.yaml",
@@ -163,6 +171,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-service.yaml",
@@ -173,6 +182,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-multi.yaml",
@@ -183,6 +193,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello.yaml",
@@ -194,6 +205,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello.yaml",
@@ -205,6 +217,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-ignore.yaml",
@@ -215,6 +228,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "multi-init.yaml",
@@ -225,6 +239,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "statefulset.yaml",
@@ -235,6 +250,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "enable-core-dump.yaml",
@@ -246,6 +262,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "auth.yaml",
@@ -257,6 +274,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "auth.non-default-service-account.yaml",
@@ -268,6 +286,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "auth.yaml",
@@ -279,6 +298,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "daemonset.yaml",
@@ -289,6 +309,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "job.yaml",
@@ -299,6 +320,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "replicaset.yaml",
@@ -309,6 +331,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "replicationcontroller.yaml",
@@ -319,6 +342,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "cronjob.yaml",
@@ -329,6 +353,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "pod.yaml",
@@ -339,6 +364,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "hello-host-network.yaml",
@@ -349,6 +375,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "list.yaml",
@@ -359,6 +386,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "list-frontend.yaml",
@@ -369,6 +397,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "deploymentconfig.yaml",
@@ -379,6 +408,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "deploymentconfig-multi.yaml",
@@ -389,6 +419,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			in:                           "format-duration.yaml",
@@ -400,6 +431,18 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
+		},
+		{
+			in:                           "stats-flush.yaml",
+			want:                         "stats-flush.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           "60s",
 		},
 		{
 			// Verifies that parameters are applied properly when no annotations are provided.
@@ -410,6 +453,7 @@ func TestIntoResourceFile(t *testing.T) {
 			includeInboundPorts: "1,2,3",
 			excludeInboundPorts: "4,5,6",
 			statusPort:          0,
+			statsFlushInterval:  DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that empty include lists are applied properly from parameters.
@@ -422,6 +466,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that annotation values are applied properly. This also tests that annotation values
@@ -434,6 +479,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the wildcard character "*" behaves properly when used in annotations.
@@ -445,6 +491,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the wildcard character "*" behaves properly when used in annotations.
@@ -456,6 +503,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the status params behave properly.
@@ -468,6 +516,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: 100,
 			readinessPeriodSeconds:       200,
 			readinessFailureThreshold:    300,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the status annotations override the params.
@@ -479,6 +528,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
@@ -491,6 +541,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
@@ -503,6 +554,7 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			statsFlushInterval:           DefaultStatsFlushInterval,
 		},
 		{
 			// Verifies that global.podDNSSearchNamespaces are applied properly
@@ -519,6 +571,7 @@ func TestIntoResourceFile(t *testing.T) {
 				"global",
 				"{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global",
 			},
+			statsFlushInterval: DefaultStatsFlushInterval,
 		},
 	}
 
@@ -560,6 +613,7 @@ func TestIntoResourceFile(t *testing.T) {
 				ReadinessFailureThreshold:    c.readinessFailureThreshold,
 				RewriteAppHTTPProbe:          false,
 				PodDNSSearchNamespaces:       c.podDNSSearchNamespaces,
+				StatsFlushInterval:           c.statsFlushInterval,
 			}
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
@@ -670,6 +724,7 @@ func TestRewriteAppProbe(t *testing.T) {
 				ReadinessPeriodSeconds:       DefaultReadinessFailureThreshold,
 				ReadinessFailureThreshold:    DefaultReadinessFailureThreshold,
 				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
+				StatsFlushInterval:           DefaultStatsFlushInterval,
 			}
 			sidecarTemplate := loadSidecarTemplate(t)
 			valuesConfig := getValues(params, t)

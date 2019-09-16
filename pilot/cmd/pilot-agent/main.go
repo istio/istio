@@ -91,7 +91,6 @@ var (
 	proxyLogLevel              string
 	proxyComponentLogLevel     string
 	dnsRefreshRate             string
-	statsFlushInterval         string
 	concurrency                int
 	templateFile               string
 	disableInternalTelemetry   bool
@@ -107,6 +106,7 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	statsFlushInterval   = env.RegisterStringVar("STATS_FLUSH_INTERVAL", "5s", "Stats Flush Interval")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -324,6 +324,8 @@ var (
 				opts["sds_token_path"] = sdsTokenPath
 			}
 
+			opts["stats_flush_interval"] = statsFlushInterval.Get()
+
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
@@ -410,7 +412,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN,
-				role.IPAddresses, dnsRefreshRate, statsFlushInterval, opts)
+				role.IPAddresses, dnsRefreshRate, opts)
 			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -659,9 +661,6 @@ func init() {
 		"The component log level used to start the Envoy proxy")
 	proxyCmd.PersistentFlags().StringVar(&dnsRefreshRate, "dnsRefreshRate", "300s",
 		"The dns_refresh_rate for bootstrap STRICT_DNS clusters")
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/bootstrap/v2/bootstrap.proto
-	proxyCmd.PersistentFlags().StringVar(&statsFlushInterval, "statsFlushInterval", "5s",
-		"The interval at which starts are flushed by configured stats sinks")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",

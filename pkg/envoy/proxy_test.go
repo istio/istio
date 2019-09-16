@@ -49,7 +49,6 @@ func TestEnvoyArgs(t *testing.T) {
 		nil,
 		[]string{"10.75.2.9", "192.168.11.18"},
 		"60s",
-		"120s",
 		opts,
 	)
 	if !reflect.DeepEqual(testProxy, test) {

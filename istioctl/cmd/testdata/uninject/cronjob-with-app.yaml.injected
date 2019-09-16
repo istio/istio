@@ -70,6 +70,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: STATS_FLUSH_INTERVAL
+              value: 5s
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
             image: docker.io/istio/proxyv2:unittest
