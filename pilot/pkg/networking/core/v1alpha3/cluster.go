@@ -768,7 +768,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy)
-		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy.Metadata)
+		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.port, opts.proxy.Metadata)
 	}
 }
 
@@ -989,7 +989,12 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata map[string]string) {
+func applyUpstreamTLSSettings(
+	env *model.Environment,
+	cluster *apiv2.Cluster,
+	tls *networking.TLSSettings,
+	port *model.Port,
+	metadata map[string]string) {
 	if tls == nil {
 		return
 	}
@@ -1016,6 +1021,10 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		// We remove the TlsContext because it can be written because of configmap.MTLS settings.
 		cluster.TlsContext = nil
 	case networking.TLSSettings_SIMPLE:
+		// Skip building tls context if the traffic is already TLS/HTTPS
+		if port.Protocol.IsTLS() {
+			return
+		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
