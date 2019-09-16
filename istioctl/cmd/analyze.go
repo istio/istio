@@ -16,7 +16,7 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -37,7 +37,7 @@ var (
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
-		Use:   "analyze <file|globpattern>...",
+		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
 		Example: `
 # Analyze yaml files
@@ -106,11 +106,10 @@ istioctl experimental analyze -k a.yaml b.yaml
 func gatherFiles(args []string) ([]string, error) {
 	var result []string
 	for _, a := range args {
-		paths, err := filepath.Glob(a)
-		if err != nil {
-			return nil, err
+		if _, err := os.Stat(a); err != nil {
+			return nil, fmt.Errorf("could not find file %q", a)
 		}
-		result = append(result, paths...)
+		result = append(result, a)
 	}
 	return result, nil
 }

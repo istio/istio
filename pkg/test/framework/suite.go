@@ -107,6 +107,33 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 	return s
 }
 
+// RequireEnvironmentVersion validates the environment meets a minimum version
+func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
+	setupFn := func(ctx resource.Context) error {
+
+		if ctx.Environment().EnvironmentName() == environment.Kube {
+			kenv := ctx.Environment().(*kube.Environment)
+			ver, err := kenv.GetKubernetesVersion()
+			if err != nil {
+				return fmt.Errorf("failed to get Kubernetes version: %v", err)
+			}
+			if fmt.Sprintf("%s.%s", ver.Major, ver.Minor) >= version {
+				scopes.Framework.Infof("Skipping suite %q: Required Kubernetes version (%v) is greater than current: %v",
+					ctx.Settings().TestID, version, ver.Minor)
+				s.osExit(0)
+
+			}
+		}
+		return nil
+	}
+
+	// Prepend the function, so that it runs as the first thing.
+	fns := []resource.SetupFn{setupFn}
+	fns = append(fns, s.setupFns...)
+	s.setupFns = fns
+	return s
+}
+
 // Setup runs enqueues the given setup function to run before test execution.
 func (s *Suite) Setup(fn resource.SetupFn) *Suite {
 	s.setupFns = append(s.setupFns, fn)

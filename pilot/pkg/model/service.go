@@ -116,6 +116,11 @@ const (
 	k8sSeparator = "."
 )
 
+const (
+	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
+	MTLSReadyLabelName = "security.istio.io/mtlsReady"
+)
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.

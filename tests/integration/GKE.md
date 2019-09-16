@@ -8,7 +8,7 @@
 
 This section walks you through the one-time set-up for creating and configuring a Google Coud Platform (GCP) project.
 
-#### Install Google Cloud SDK
+### Install Google Cloud SDK
 
 If you haven't already installed the Google Cloud SDK, follow the instructions [here](https://cloud.google.com/sdk/). If you're not
 sure if you have it installed, you can check with:
@@ -17,11 +17,11 @@ sure if you have it installed, you can check with:
 which gcloud
 ```
 
-#### Create a project
+### Create a project
 
 If you haven't already, [create a Google Cloud Project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
-    
-#### Configure GCE/GKE Service Account
+
+### Configure GCE/GKE Service Account
 
 You must grant your default compute service account the correct permissions before creating the deployment.
 Otherwise, the installation will fail.
@@ -49,7 +49,7 @@ To list the options for the script, you can get help via `-h`:
 ./tests/integration/create_cluster_gke.sh -h
 ```
 
-#### Create the cluster
+### Create the cluster
 
 E2E tests require a Kubernetes cluster. You can create one using the Google Container Engine using the following command:
 
@@ -65,22 +65,22 @@ gcloud container clusters \
   --no-enable-legacy-authorization
  ```
 
- - `CLUSTER_NAME`: Whatever suits your fancy, 'istio-e2e' is a good choice.
- - `ZONE`: 'us-central1-f' is a good value to use.
- - `PROJECT_ID`: is the ID of the GCP project that will house the cluster. You get a project by visiting [GCP](https://console.cloud.google.com).
- - `CLUSTER_VERSION`: 1.7.3 or later.
- - `MACHINE_TYPE`: Use 'n1-standard-4'
- - `NUM_NODES`: Use 3.
- - `no-enable-legacy-authorization`: Optional, needed if you want to test RBAC.
+* `CLUSTER_NAME`: Whatever suits your fancy, 'istio-e2e' is a good choice.
+* `ZONE`: 'us-central1-f' is a good value to use.
+* `PROJECT_ID`: is the ID of the GCP project that will house the cluster. You get a project by visiting [GCP](https://console.cloud.google.com).
+* `CLUSTER_VERSION`: 1.7.3 or later.
+* `MACHINE_TYPE`: Use 'n1-standard-4'
+* `NUM_NODES`: Use 3.
+* `no-enable-legacy-authorization`: Optional, needed if you want to test RBAC.
 
-#### Get cluster credentials
+### Get cluster credentials
 
 ```bash
 gcloud container clusters get-credentials ${CLUSTER_NAME} \
    --zone ${ZONE} --project ${PROJECT_ID}
 ```
 
-#### Grant admin permission
+### Grant admin permission
 
 ```bash
 kubectl create clusterrolebinding myname-cluster-admin-binding \
@@ -90,10 +90,10 @@ kubectl create clusterrolebinding myname-cluster-admin-binding \
 
 ## Step 3: Set up Istio environment variables
 
-#### Option 1: Build your own images
+### Option 1: Build your own images
 
 You can set the **HUB** and **TAG** environment variables to point to your own Docker registry.
-Additionally, you can also set **GS_BUCKET** to use a different Google Storage Bucket than the default one 
+Additionally, you can also set **GS_BUCKET** to use a different Google Storage Bucket than the default one
 (you need write permissions) it allows you to customize Makefile rules.
 
 For example:
@@ -105,6 +105,7 @@ export GS_BUCKET=mybucket
 ```
 
 Then you can build and push the docker images to your registry:
+
 ```bash
 # Build images on the local docker.
 make docker
@@ -119,7 +120,7 @@ On MacOS, you need to set the target operating system before building the images
 GOOS=linux make docker push
 ```
 
-#### Option 2: Use pre-built Istio images
+### Option 2: Use pre-built Istio images
 
 In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available on istio/istio.
 

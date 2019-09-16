@@ -62,17 +62,6 @@ api ${API_SHA}
 cni ${CNI_REPO_SHA}
 tools ${TOOLS_HEAD_SHA}
 EOF
-
-
-  if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
-     pushd ../proxy || exit
-       PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-     popd || exit
-     if [[ "$PROXY_API_SHA" != "$API_REPO_SHA"* ]]; then
-       echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
-       exit 17
-     fi
-  fi
 }
 
 function make_istio() {
@@ -177,9 +166,15 @@ function update_helm() {
   sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  # The Helm version must follow SemVer 2. In the case $VERSION doesn't (e.g. "master-latest-daily"),
+  # prepend "0.0.0-" to it to make it a valid pre-release SemVer 2 version.
+  local helm_version="$VERSION"
+  if [[ ! $helm_version =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    helm_version="0.0.0-$helm_version"
+  fi
   if [ "${current_tag}" != "${VERSION}" ]; then
     find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
-    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/version: ${current_tag}/version: ${helm_version}/g" {} \;
     find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
     find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
   fi

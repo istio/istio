@@ -172,16 +172,16 @@ var (
 			"and will be removed in the near future.",
 	)
 
-	EnableProtocolSniffing = env.RegisterBoolVar(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING",
+	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,
-		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
 	)
 
 	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for inbound listeners",
+		false,
+		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
 	ScopePushes = env.RegisterBoolVar(

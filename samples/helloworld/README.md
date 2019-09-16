@@ -7,7 +7,7 @@ See [Canary deployments using Istio](https://istio.io/blog/2017/0.1-canary.html)
 
 ## Start the services
 
-If you don't have [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection.html#automatic-sidecar-injection)
+If you don't have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection)
 set in your cluster you will need to manually inject it to the services:
 
 ```bash
@@ -27,7 +27,7 @@ kubectl create -f helloworld-istio.yaml
 kubectl create -f helloworld-gateway.yaml
 ```
 
-Follow the [instructions](https://preliminary.istio.io/docs/tasks/traffic-management/ingress.html#determining-the-ingress-ip-and-ports) to set the INGRESS_HOST and INGRESS_PORT variables then confirm it's running using curl.
+Follow the [instructions](https://istio.io/docs/tasks/traffic-management/ingress.html#determining-the-ingress-ip-and-ports) to set the INGRESS_HOST and INGRESS_PORT variables then confirm it's running using curl.
 
 ```bash
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT

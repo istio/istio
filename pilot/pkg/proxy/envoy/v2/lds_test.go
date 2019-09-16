@@ -38,7 +38,8 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -457,6 +458,8 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"

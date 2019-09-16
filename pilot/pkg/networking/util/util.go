@@ -278,8 +278,8 @@ func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 }
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForNode(node *model.Proxy) bool {
-	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
+	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
 }
 
 func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
@@ -287,7 +287,15 @@ func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForNode(node) && port.Protocol.IsUnsupported()
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

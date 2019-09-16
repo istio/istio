@@ -3270,6 +3270,20 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
+		{name: "discovery type DNS, label mtlsReady", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: true},
+
 		{name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
