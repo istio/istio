@@ -30,7 +30,6 @@ import (
 
 var (
 	useKube bool
-	// defaultNs string
 )
 
 // Analyze command
@@ -73,7 +72,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 			// below since for the time being we want to keep changes isolated to experimental code. When we merge this into
 			// istioctl validate (see https://github.com/istio/istio/issues/16777) we should look into fixing getDefaultNamespace in root
 			// so it properly handles the --context option.
-			defaultNs := namespace
+			selectedNamespace := namespace
 
 			// If we're using kube, use that as a base source.
 			if useKube {
@@ -86,12 +85,12 @@ istioctl experimental analyze -k a.yaml b.yaml
 				k := client.NewKube(restConfig)
 
 				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
-				if defaultNs == "" {
+				if selectedNamespace == "" {
 					ns, _, err := config.Namespace()
 					if err != nil {
 						return err
 					}
-					defaultNs = ns
+					selectedNamespace = ns
 				}
 
 				sa.AddRunningKubeSource(k)
@@ -100,11 +99,11 @@ istioctl experimental analyze -k a.yaml b.yaml
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
 				// // If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
-				if defaultNs == "" {
-					defaultNs = defaultNamespace
+				if selectedNamespace == "" {
+					selectedNamespace = defaultNamespace
 				}
 
-				err := sa.AddFileKubeSource(files, defaultNs)
+				err := sa.AddFileKubeSource(files, selectedNamespace)
 				if err != nil {
 					return err
 				}
