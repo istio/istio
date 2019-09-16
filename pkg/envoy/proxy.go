@@ -41,14 +41,13 @@ const (
 )
 
 type envoy struct {
-	config             meshconfig.ProxyConfig
-	node               string
-	extraArgs          []string
-	pilotSAN           []string
-	opts               map[string]interface{}
-	nodeIPs            []string
-	dnsRefreshRate     string
-	statsFlushInterval string
+	config         meshconfig.ProxyConfig
+	node           string
+	extraArgs      []string
+	pilotSAN       []string
+	opts           map[string]interface{}
+	nodeIPs        []string
+	dnsRefreshRate string
 }
 
 // NewProxy creates an instance of the proxy control commands
