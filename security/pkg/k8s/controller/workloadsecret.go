@@ -20,14 +20,14 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
-
-	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -158,6 +158,7 @@ type SecretController struct {
 
 	// Extra trust anchors related state
 	extraTrustAnchorsController cache.Controller
+	extraTrustAnchorMu          sync.Mutex
 	extraTrustAnchors           map[string]map[string]string // resource name -> field name -> field value
 	primaryTrustAnchor          []byte
 	combinedTrustAnchorsBundle  []byte
@@ -248,42 +249,47 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 			UpdateFunc: c.namespaceUpdated,
 		})
 
-	// Extra trust anchors related routines
+	// Extra trust anchors related routines. Holding the lock isn't strictly necessary since
+	// the controller hasn't started yet. It's added for completeness.
+	c.extraTrustAnchorMu.Lock()
 	c.extraTrustAnchors = map[string]map[string]string{}
 	c.refreshTrustAnchorsBundle()
+	c.extraTrustAnchorMu.Unlock()
 
 	extraTrustAnchorsSelector := labels.SelectorFromSet(map[string]string{ExtraTrustAnchorsLabel: "true"}).String()
 	extraTrustAnchorsLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = extraTrustAnchorsSelector
-			return core.ConfigMaps(extraTrustAnchorsNamespace).List(options)
+			return core.ConfigMaps(istioCaStorageNamespace).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = extraTrustAnchorsSelector
-			return core.ConfigMaps(extraTrustAnchorsNamespace).Watch(options)
+			return core.ConfigMaps(istioCaStorageNamespace).Watch(options)
 		},
 	}
 	_, c.extraTrustAnchorsController = cache.NewInformer(extraTrustAnchorsLW, &v1.ConfigMap{}, time.Minute, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
-			log.Infof("Notified about a new ConfigMap containing extra trust anchors")
 			newConfigMap := newObj.(*v1.ConfigMap)
-			c.extraTrustAnchors[newConfigMap.GetName()] = newConfigMap.Data
-			c.refreshTrustAnchorsBundle()
+
+			log.Infof("Notified about a new ConfigMap (%v) containing extra trust anchors",
+				newConfigMap.GetName())
+			c.updateExtraTrustAnchor(newConfigMap.GetName(), newConfigMap.Data)
 		},
 		DeleteFunc: func(oldObj interface{}) {
-			log.Infof("Notified about a deletion of an existing ConfigMap containing extra trust anchors")
 			oldConfigMap := oldObj.(*v1.ConfigMap)
-			delete(c.extraTrustAnchors, oldConfigMap.GetName())
-			c.refreshTrustAnchorsBundle()
+
+			log.Infof("Notified about a deletion of an existing ConfigMap (%v) containing extra trust anchors",
+				oldConfigMap.GetName())
+			c.removeExtraTrustAnchor(oldConfigMap.GetName())
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			log.Infof("Notified about an update of an existing ConfigMap containing extra trust anchors")
 			oldConfigMap := oldObj.(*v1.ConfigMap)
 			newConfigMap := newObj.(*v1.ConfigMap)
 
-			if !reflect.DeepEqual(oldConfigMap.Data, newConfigMap.Data) {
-				c.extraTrustAnchors[newConfigMap.GetName()] = newConfigMap.Data
-				c.refreshTrustAnchorsBundle()
+			if oldConfigMap.ResourceVersion != newConfigMap.ResourceVersion {
+				log.Infof("Notified about an update to an existing ConfigMap (%v) containing extra trust anchors",
+					oldConfigMap.GetName())
+				c.updateExtraTrustAnchor(newConfigMap.GetName(), newConfigMap.Data)
 			}
 		},
 	})
@@ -580,6 +586,7 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 	return err
 }
 
+// The caller is responsible for hodling the sc.extraTrustAnchorMu lock while calling this method.
 func (sc *SecretController) refreshTrustAnchorsBundle() {
 	trustAnchorsSet := map[string]struct{}{}
 
@@ -600,13 +607,36 @@ func (sc *SecretController) refreshTrustAnchorsBundle() {
 	}
 	sort.Strings(trustAnchors)
 
-	sc.combinedTrustAnchorsBundle = []byte(strings.Join(trustAnchors, "\n") + "\n")
+	sc.combinedTrustAnchorsBundle = []byte(strings.Join(trustAnchors, "\n"))
 }
 
 func (sc *SecretController) getTrustAnchorsBundle() []byte {
+	sc.extraTrustAnchorMu.Lock()
+	defer sc.extraTrustAnchorMu.Unlock()
+
 	// TODO trigger refresh on CA secret change instead of performing this check on every get
 	if !reflect.DeepEqual(sc.primaryTrustAnchor, sc.ca.GetCAKeyCertBundle().GetRootCertPem()) {
 		sc.refreshTrustAnchorsBundle()
 	}
 	return sc.combinedTrustAnchorsBundle
+}
+
+func (sc *SecretController) updateExtraTrustAnchor(name string, data map[string]string) {
+	sc.extraTrustAnchorMu.Lock()
+	defer sc.extraTrustAnchorMu.Unlock()
+
+	sc.extraTrustAnchors[name] = data
+	sc.refreshTrustAnchorsBundle()
+
+	sc.monitoring.extraTrustAnchors.Record(float64(len(sc.extraTrustAnchors)))
+}
+
+func (sc *SecretController) removeExtraTrustAnchor(name string) {
+	sc.extraTrustAnchorMu.Lock()
+	defer sc.extraTrustAnchorMu.Unlock()
+
+	delete(sc.extraTrustAnchors, name)
+	sc.refreshTrustAnchorsBundle()
+
+	sc.monitoring.extraTrustAnchors.Record(float64(len(sc.extraTrustAnchors)))
 }

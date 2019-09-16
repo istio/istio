@@ -42,19 +42,20 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		"Non-existing ConfigMap": {
 			existingConfigMap: nil,
 			certToAdd:         "ABCD",
+
 			expectedActionsA: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewCreateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
 			},
 			expectedActionsB: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewCreateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", &v1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      istioSecurityConfigMapName,
+						Name:      IstioSecurityConfigMapName,
 						Namespace: "test-ns",
 					},
 					Data: map[string]string{},
@@ -66,18 +67,19 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			namespace:         "test-ns",
 			existingConfigMap: createConfigMap("test-ns", map[string]string{"key1": "data1"}),
 			certToAdd:         "ABCD",
+
 			expectedActionsA: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
 			},
 			expectedActionsB: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
 			},
 			expectedErr: "",
 		},
@@ -86,17 +88,17 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			existingConfigMap: createConfigMap("", map[string]string{"key1": "data1"}),
 			certToAdd:         "ABCD",
 			expectedActionsA: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
 			},
 			expectedActionsB: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
-					"key1": "data1", caTLSRootCertName: "ABCD"})),
+					"key1": "data1", CATLSRootCertName: "ABCD"})),
 			},
 			expectedErr: "",
 		},
@@ -157,7 +159,7 @@ func TestGetCATLSRootCert(t *testing.T) {
 		"ConfigMap not exists": {
 			existingConfigMap: nil,
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 			},
 			expectedErr: "failed to get CA TLS root cert: configmaps \"istio-security\" not found",
 		},
@@ -165,25 +167,25 @@ func TestGetCATLSRootCert(t *testing.T) {
 			namespace:         "test-ns",
 			existingConfigMap: createConfigMap("", map[string]string{"key1": "data1"}),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 			},
 			expectedErr: "failed to get CA TLS root cert from configmap istio-security:caTLSRootCert",
 		},
 		"Cert exists": {
 			namespace: "test-ns",
 			existingConfigMap: createConfigMap("test-ns", map[string]string{
-				"key1": "data1", caTLSRootCertName: "TEST_CERT"}),
+				"key1": "data1", CATLSRootCertName: "TEST_CERT"}),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "test-ns", IstioSecurityConfigMapName),
 			},
 			expectedCert: "TEST_CERT",
 			expectedErr:  "",
 		},
 		"Cert exists, empty namespace": {
 			namespace:         "",
-			existingConfigMap: createConfigMap("", map[string]string{"key1": "data1", caTLSRootCertName: "TEST_CERT"}),
+			existingConfigMap: createConfigMap("", map[string]string{"key1": "data1", CATLSRootCertName: "TEST_CERT"}),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, "", istioSecurityConfigMapName),
+				ktesting.NewGetAction(gvr, "", IstioSecurityConfigMapName),
 			},
 			expectedCert: "TEST_CERT",
 			expectedErr:  "",
@@ -225,7 +227,7 @@ func TestGetCATLSRootCert(t *testing.T) {
 func createConfigMap(namespace string, data map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      istioSecurityConfigMapName,
+			Name:      IstioSecurityConfigMapName,
 			Namespace: namespace,
 		},
 		Data: data,

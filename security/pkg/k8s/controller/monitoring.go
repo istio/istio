@@ -50,6 +50,10 @@ var (
 		"The number of errors occurred when signing the CSR.",
 		monitoring.WithLabels(errorTag),
 	)
+
+	extraTrustAnchorCounts = monitoring.NewGauge(
+		"citadel_extra_trust_anchor_count",
+		"The total number of extra trust anchors appended to the root CA cert")
 )
 
 func init() {
@@ -59,6 +63,7 @@ func init() {
 		secretDeletionCounts,
 		csrErrorCounts,
 		certSignErrorCounts,
+		extraTrustAnchorCounts,
 	)
 }
 
@@ -69,6 +74,7 @@ type monitoringMetrics struct {
 	SecretDeletion         monitoring.Metric
 	CSRError               monitoring.Metric
 	certSignErrors         monitoring.Metric
+	extraTrustAnchors      monitoring.Metric
 }
 
 // newMonitoringMetrics creates a new monitoringMetrics.
@@ -79,6 +85,7 @@ func newMonitoringMetrics() monitoringMetrics {
 		SecretDeletion:         secretDeletionCounts,
 		CSRError:               csrErrorCounts,
 		certSignErrors:         certSignErrorCounts,
+		extraTrustAnchors:      extraTrustAnchorCounts,
 	}
 }
 

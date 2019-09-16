@@ -205,10 +205,10 @@ func TestSecretContent(t *testing.T) {
 		return
 	}
 	if !bytes.Equal(rootCert, secret.Data[RootCertID]) {
-		t.Errorf("Root cert verification error: expected %v but got %v", rootCert, secret.Data[RootCertID])
+		t.Errorf("Root cert verification error: expected %q but got %q", string(rootCert), string(secret.Data[RootCertID]))
 	}
 	if !bytes.Equal(append(signedCert, certChain...), secret.Data[CertChainID]) {
-		t.Errorf("Cert chain verification error: expected %v but got %v\n\n\n", certChain, secret.Data[CertChainID])
+		t.Errorf("Cert chain verification error: expected %q but got %q\n\n\n", string(certChain), string(secret.Data[CertChainID]))
 	}
 }
 func TestDeletedIstioSecret(t *testing.T) {

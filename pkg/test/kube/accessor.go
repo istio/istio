@@ -489,6 +489,18 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 	return n, nil
 }
 
+func (a *Accessor) CreateConfigMap(namespace string, cm *kubeApiCore.ConfigMap) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(namespace).Create(cm)
+}
+
+func (a *Accessor) GetConfigMap(namespace, name string) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(namespace).Get(name, kubeApiMeta.GetOptions{})
+}
+
+func (a *Accessor) DeleteConfigMap(namespace, name string) error {
+	return a.set.CoreV1().ConfigMaps(namespace).Delete(name, &kubeApiMeta.DeleteOptions{})
+}
+
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
 	return a.ctl.applyContents(namespace, contents)

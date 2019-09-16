@@ -32,7 +32,7 @@ const (
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime = 20 * time.Second
 	// Name of secret created by Citadel
-	secretName = "istio.default"
+	SecretName = "istio.default"
 )
 
 var _ Instance = &kubeComponent{}
@@ -71,12 +71,12 @@ func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
 		select {
 		case event := <-events:
 			secret := event.Object.(*v1.Secret)
-			if secret.GetName() == secretName {
+			if secret.GetName() == SecretName {
 				return secret, nil
 			}
 		case <-time.After(secretWaitTime - time.Since(startTime)):
 			return nil, fmt.Errorf("secret %v did not become existent within %v",
-				secretName, secretWaitTime)
+				SecretName, secretWaitTime)
 		}
 	}
 }
