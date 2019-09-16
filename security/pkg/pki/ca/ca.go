@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/cmd"
-
 	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
@@ -163,7 +163,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 
 		options := util.CertOptions{
 			TTL:          caCertTTL,
-			Org:          org,
+			Org:          fmt.Sprintf("%s (%s)", org, uuid.New().String()),
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
