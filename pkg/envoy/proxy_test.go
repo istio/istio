@@ -32,13 +32,12 @@ func TestEnvoyArgs(t *testing.T) {
 	opts["sds_token_path"] = "tokenpath"
 
 	test := &envoy{
-		config:             proxyConfig,
-		node:               "my-node",
-		extraArgs:          []string{"-l", "trace", "--component-log-level", "misc:error"},
-		nodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
-		dnsRefreshRate:     "60s",
-		statsFlushInterval: "120s",
-		opts:               opts,
+		config:         proxyConfig,
+		node:           "my-node",
+		extraArgs:      []string{"-l", "trace", "--component-log-level", "misc:error"},
+		nodeIPs:        []string{"10.75.2.9", "192.168.11.18"},
+		dnsRefreshRate: "60s",
+		opts:           opts,
 	}
 
 	testProxy := NewProxy(
