@@ -462,9 +462,10 @@ func createCA(client corev1.CoreV1Interface, stopCh chan struct{}) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
+	spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
+
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()
