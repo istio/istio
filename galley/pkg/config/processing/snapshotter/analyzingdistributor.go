@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// AnalyzingDistributor is an snapshotter.Distributor implementation that will perform analysis on a snapshot before
+// AnalyzingDistributor is an snapshotter. Distributor implementation that will perform analysis on a snapshot before
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
 	updater     StatusUpdater
@@ -113,7 +113,8 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 
 	for _, s := range d.lastSnapshots {
 		for _, n := range s.set.Names() {
-			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the component snapshots
+			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the
+			// component snapshots.
 			collections = append(collections, s.set.Collection(n))
 		}
 	}
