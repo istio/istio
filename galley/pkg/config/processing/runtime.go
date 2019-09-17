@@ -120,7 +120,7 @@ func (r *Runtime) currentSessionState() sessionState {
 	se := r.session.Load()
 	if se != nil {
 		s := se.(*session)
-		state = s.state
+		state = s.getState()
 	}
 	return state
 }

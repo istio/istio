@@ -15,6 +15,7 @@
 package strategy
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,18 +27,18 @@ func TestStrategy_StartStop(t *testing.T) {
 
 	s := NewDebounce(time.Minute, time.Millisecond*500)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	s.Stop()
 
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	s.Stop()
 
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_DoubleStart(t *testing.T) {
@@ -45,16 +46,16 @@ func TestStrategy_DoubleStart(t *testing.T) {
 
 	s := NewDebounce(time.Minute, time.Millisecond*500)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	s.Stop()
 
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_DoubleStop(t *testing.T) {
@@ -62,14 +63,14 @@ func TestStrategy_DoubleStop(t *testing.T) {
 
 	s := NewDebounce(time.Hour, time.Millisecond*500)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	s.Stop()
 	s.Stop()
 
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_ChangeBeforeStart(t *testing.T) {
@@ -79,14 +80,14 @@ func TestStrategy_ChangeBeforeStart(t *testing.T) {
 	s.OnChange()
 	s.OnChange()
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	defer s.Stop()
 
 	time.Sleep(time.Millisecond * 500)
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_FireEvent(t *testing.T) {
@@ -94,16 +95,16 @@ func TestStrategy_FireEvent(t *testing.T) {
 
 	s := NewDebounce(time.Millisecond*200, time.Millisecond*100)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 	defer s.Stop()
 
 	s.OnChange()
 
 	time.Sleep(time.Millisecond * 210)
-	g.Expect(called).To(BeTrue())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(1)))
 }
 
 func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
@@ -111,16 +112,16 @@ func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
 
 	s := NewDebounce(time.Second*5, time.Second)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 
 	s.OnChange()
 	time.Sleep(time.Millisecond * 200)
 	s.Stop()
 
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
@@ -128,9 +129,9 @@ func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
 
 	s := NewDebounce(time.Second*5, time.Second)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 
 	s.OnChange()
@@ -139,7 +140,7 @@ func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
 
 	s.Stop()
 
-	g.Expect(called).To(BeFalse())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(0)))
 }
 
 func TestStrategy_MaxTimeout(t *testing.T) {
@@ -147,9 +148,9 @@ func TestStrategy_MaxTimeout(t *testing.T) {
 
 	s := NewDebounce(time.Second, time.Millisecond*500)
 
-	called := false
+	var called int32
 	s.Start(func() {
-		called = true
+		atomic.StoreInt32(&called, 1)
 	})
 
 	for i := 0; i < 120; i++ {
@@ -158,7 +159,7 @@ func TestStrategy_MaxTimeout(t *testing.T) {
 	}
 	s.Stop()
 
-	g.Expect(called).To(BeTrue())
+	g.Expect(atomic.LoadInt32(&called)).To(Equal(int32(1)))
 }
 
 func TestStrategy_NewWithDefaults(t *testing.T) {
