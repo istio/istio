@@ -106,7 +106,7 @@ var (
 		"pilot_xds_push_time",
 		"Total time in second Pilot takes to push lds, rds, cds and eds.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
-		monitoring.WithLabels(typeTag),
+		typeTag,
 	)
 
 	cdsPushTime = pushTime.With(typeTag.Value("cds"))
