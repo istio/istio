@@ -18,10 +18,9 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 )
 
-// Create transformer for Ingress resource
-func Create() []transforms.ProcessorOptionsTransformer {
-	return []transforms.ProcessorOptionsTransformer{
-		newGatewayXform(),
-		newVirtualServiceXform(),
+func GetInfo() []*transforms.Info {
+	return []*transforms.Info{
+		getGatewayXformInfo(),
+		getVirtualServiceXformInfo(),
 	}
 }

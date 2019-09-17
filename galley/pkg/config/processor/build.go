@@ -32,7 +32,7 @@ func Initialize(
 	m *schema.Metadata,
 	domainSuffix string,
 	source event.Source,
-	transformers *Transformers,
+	transformerInfo []*transforms.Info,
 	distributor snapshotter.Distributor) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
@@ -53,13 +53,14 @@ func Initialize(
 
 	// TODO: Add a precondition test here to ensure the panic below will not fire during runtime.
 
+	// This is passed as a provider so it can be evaulated once ProcessorOptions become available
 	provider := func(o processing.ProcessorOptions) event.Processor {
-		// The provider will late-bind processing options before setting up the snapshotter.
-		for _, xf := range transformers.optsXforms {
-			xf.SetOptions(o)
+		xforms := make([]event.Transformer, 0)
+		for _, i := range transformerInfo {
+			xforms = append(xforms, i.Create(o))
 		}
 
-		s, err := snapshotter.NewSnapshotter(transformers.xforms, options)
+		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {
 			panic(err)
 		}
@@ -75,27 +76,17 @@ func Initialize(
 	return processing.NewRuntime(rtOpt), nil
 }
 
-// TODO: Pull this to its own file and make fields readonly
-type Transformers struct {
-	optsXforms []transforms.ProcessorOptionsTransformer
-	xforms     []event.Transformer
-}
+//TODO: move this
+//TODO: Singleton this
+//TODO: "inventory" this?
+//TODO: Should this be generated based on metadata.yaml?
+func GetTransformsInfo(m *schema.Metadata) []*transforms.Info {
+	xformsInfo := make([]*transforms.Info, 0)
 
-func NewTransformers(m *schema.Metadata) *Transformers {
-	optsXforms := make([]transforms.ProcessorOptionsTransformer, 0)
-	optsXforms = append(optsXforms, ingress.Create()...)
-	optsXforms = append(optsXforms, serviceentry.Create()...)
+	xformsInfo = append(xformsInfo, serviceentry.GetInfo())
+	xformsInfo = append(xformsInfo, ingress.GetInfo()...)
+	xformsInfo = append(xformsInfo, direct.GetInfo(m.DirectTransform().Mapping())...)
+	xformsInfo = append(xformsInfo, authpolicy.GetInfo()...)
 
-	xforms := make([]event.Transformer, 0)
-	for _, oxf := range optsXforms {
-		xf := oxf.(event.Transformer)
-		xforms = append(xforms, xf)
-	}
-	xforms = append(xforms, direct.Create(m.DirectTransform().Mapping())...)
-	xforms = append(xforms, authpolicy.Create()...)
-
-	return &Transformers{
-		optsXforms: optsXforms,
-		xforms:     xforms,
-	}
+	return xformsInfo
 }

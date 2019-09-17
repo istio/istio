@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -35,6 +36,8 @@ import (
 )
 
 type transformer struct {
+	inputs collection.Names
+	outputs collection.Names
 	options processing.ProcessorOptions
 
 	converter *converter.Instance
@@ -58,9 +61,25 @@ type transformer struct {
 
 var _ event.Transformer = &transformer{}
 
-//SetOptions implements transforms.ProcessorOptionsTransformer
-func (t *transformer) SetOptions(o processing.ProcessorOptions) {
-	t.options = o
+func GetInfo() *transforms.Info {
+	inputs := collection.Names{
+		metadata.K8SCoreV1Endpoints,
+		metadata.K8SCoreV1Nodes,
+		metadata.K8SCoreV1Pods,
+		metadata.K8SCoreV1Services,
+	}
+	outputs := collection.Names{
+		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+	}
+
+	createFn := func(o processing.ProcessorOptions) event.Transformer {
+		return &transformer{
+			inputs: inputs,
+			outputs: outputs,
+			options: o,
+		}
+	}
+	return transforms.NewInfo(inputs, outputs, createFn)
 }
 
 // Start implements event.Transformer
@@ -108,19 +127,12 @@ func (t *transformer) DispatchFor(c collection.Name, h event.Handler) {
 
 // Inputs implements event.Transformer
 func (t *transformer) Inputs() collection.Names {
-	return collection.Names{
-		metadata.K8SCoreV1Endpoints,
-		metadata.K8SCoreV1Nodes,
-		metadata.K8SCoreV1Pods,
-		metadata.K8SCoreV1Services,
-	}
+	return t.inputs
 }
 
 // Outputs implements event.Transformer
 func (t *transformer) Outputs() collection.Names {
-	return collection.Names{
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-	}
+	return t.outputs
 }
 
 // Handle implements event.Transformer

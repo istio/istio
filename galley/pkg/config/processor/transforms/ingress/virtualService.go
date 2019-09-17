@@ -45,21 +45,24 @@ type virtualServiceXform struct {
 	vsByHost  map[string]*syntheticVirtualService
 }
 
-func newVirtualServiceXform() transforms.ProcessorOptionsTransformer {
-	xform := &virtualServiceXform{}
-	xform.FnTransform = event.NewFnTransform(
-		collection.Names{metadata.K8SExtensionsV1Beta1Ingresses},
-		collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices},
-		xform.start,
-		xform.stop,
-		xform.handle)
+func getVirtualServiceXformInfo() *transforms.Info {
+	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
+	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices}
 
-	return xform
-}
+	createFn := func(o processing.ProcessorOptions) event.Transformer {
+		xform := &virtualServiceXform{
+			options: o,
+		}
+		xform.FnTransform = event.NewFnTransform(
+			inputs,
+			outputs,
+			xform.start,
+			xform.stop,
+			xform.handle)
 
-//SetOptions implements transforms.ProcessorOptionsTransformer
-func (g *virtualServiceXform) SetOptions(o processing.ProcessorOptions) {
-	g.options = o
+		return xform
+	}
+	return transforms.NewInfo(inputs, outputs, createFn)
 }
 
 // Start implements processing.Transformer

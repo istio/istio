@@ -40,20 +40,22 @@ type gatewayXform struct {
 
 var _ event.Transformer = &gatewayXform{}
 
-func newGatewayXform() transforms.ProcessorOptionsTransformer {
-	xform := &gatewayXform{}
-	xform.FnTransform = event.NewFnTransform(
-		collection.Names{metadata.K8SExtensionsV1Beta1Ingresses},
-		collection.Names{metadata.IstioNetworkingV1Alpha3Gateways},
-		nil, nil,
-		xform.handle)
+func getGatewayXformInfo() *transforms.Info {
+	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
+	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Gateways}
 
-	return xform
-}
+	createFn := func(o processing.ProcessorOptions) event.Transformer {
+		xform := &gatewayXform{}
+		xform.FnTransform = event.NewFnTransform(
+			inputs,
+			outputs,
+			nil, nil,
+			xform.handle)
+		xform.options = o
 
-//SetOptions implements transforms.ProcessorOptionsTransformer
-func (g *gatewayXform) SetOptions(o processing.ProcessorOptions) {
-	g.options = o
+		return xform
+	}
+	return transforms.NewInfo(inputs, outputs, createFn)
 }
 
 func (g *gatewayXform) handle(e event.Event, h event.Handler) {

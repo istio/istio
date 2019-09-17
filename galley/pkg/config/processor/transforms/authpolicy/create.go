@@ -21,26 +21,44 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
-// Create a new Direct transformer.
-func Create() []event.Transformer {
-	return []event.Transformer{
-		event.NewFnTransform(
-			collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Policies},
-			collection.Names{metadata.IstioAuthenticationV1Alpha1Policies},
-			nil,
-			nil,
-			handler(metadata.IstioAuthenticationV1Alpha1Policies),
+func GetInfo() []*transforms.Info {
+	policiesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Policies}
+	policiesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Policies}
+	meshPoliciesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies}
+	meshPoliciesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Meshpolicies}
+
+	return []*transforms.Info{
+		transforms.NewInfo(
+			policiesInput,
+			policiesOutput,
+			func(_ processing.ProcessorOptions) event.Transformer {
+				return event.NewFnTransform(
+					policiesInput,
+					policiesOutput,
+					nil,
+					nil,
+					handler(metadata.K8SAuthenticationIstioIoV1Alpha1Policies),
+				)
+			},
 		),
-		event.NewFnTransform(
-			collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies},
-			collection.Names{metadata.IstioAuthenticationV1Alpha1Meshpolicies},
-			nil,
-			nil,
-			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
+		transforms.NewInfo(
+			meshPoliciesInput,
+			meshPoliciesOutput,
+			func(_ processing.ProcessorOptions) event.Transformer {
+				return event.NewFnTransform(
+					meshPoliciesInput,
+					meshPoliciesOutput,
+					nil,
+					nil,
+					handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
+				)
+			},
 		),
 	}
 }

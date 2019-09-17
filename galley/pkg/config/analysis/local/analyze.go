@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
@@ -35,20 +36,20 @@ const domainSuffix = "svc.local"
 
 // SourceAnalyzer handles local analysis of k8s and file based event sources
 type SourceAnalyzer struct {
-	m            *schema.Metadata
-	sources      []event.Source
-	analyzer     analysis.Analyzer
-	transformers *processor.Transformers
+	m                *schema.Metadata
+	sources          []event.Source
+	analyzer         analysis.Analyzer
+	transformersInfo []*transforms.Info
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
 	return &SourceAnalyzer{
-		m:            m,
-		sources:      make([]event.Source, 0),
-		analyzer:     analyzer,
-		transformers: processor.NewTransformers(m),
+		m:                m,
+		sources:          make([]event.Source, 0),
+		analyzer:         analyzer,
+		transformersInfo: processor.GetTransformsInfo(m),
 	}
 }
 
@@ -64,7 +65,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
-	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformers, distributor)
+	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformersInfo, distributor)
 	if err != nil {
 		return nil, err
 	}

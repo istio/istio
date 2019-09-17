@@ -17,13 +17,39 @@
 package transforms
 
 import (
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 )
 
-//ProcessorOptionsTransformer is a Transformer that allows late binding of processor options
-type ProcessorOptionsTransformer interface {
-	event.Transformer
-
-	SetOptions(processing.ProcessorOptions)
+type Info struct {
+	inputs   collection.Names //TODO: Combine these into a struct?
+	outputs  collection.Names
+	createFn func(processing.ProcessorOptions) event.Transformer
 }
+
+func NewInfo(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Info {
+	return &Info{
+		inputs:   inputs,
+		outputs:  outputs,
+		createFn: createFn,
+	}
+}
+
+func (i *Info) Inputs() collection.Names {
+	return i.inputs
+}
+
+func (i *Info) Outputs() collection.Names {
+	return i.outputs
+}
+
+func (i *Info) Create(o processing.ProcessorOptions) event.Transformer {
+	return i.createFn(o)
+}
+
+// TODO: Singleton registry, so that transformer objects register functions to bootstrap themselves in init()
+// var transformerInfo []*Info
+// func Register(fn func(m *schema.Metadata) []Info) {
+// 	//TODO
+// }

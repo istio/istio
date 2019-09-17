@@ -17,25 +17,33 @@ package direct
 import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 )
 
 // Create a new Direct transformer.
-func Create(mapping map[collection.Name]collection.Name) []event.Transformer {
-	var result []event.Transformer
+func GetInfo(mapping map[collection.Name]collection.Name) []*transforms.Info {
+	var result []*transforms.Info
 
 	for k, v := range mapping {
 		from := k
 		to := v
-		xform := event.NewFnTransform(
-			collection.Names{from},
-			collection.Names{to},
-			nil,
-			nil,
-			func(e event.Event, h event.Handler) {
-				e = e.WithSource(to)
-				h.Handle(e)
-			})
-		result = append(result, xform)
+		inputs := collection.Names{from}
+		outputs := collection.Names{to}
+
+		createFn := func(processing.ProcessorOptions) event.Transformer {
+
+			return event.NewFnTransform(
+				inputs,
+				outputs,
+				nil,
+				nil,
+				func(e event.Event, h event.Handler) {
+					e = e.WithSource(to)
+					h.Handle(e)
+				})
+		}
+		result = append(result, transforms.NewInfo(inputs, outputs, createFn))
 	}
 	return result
 }
