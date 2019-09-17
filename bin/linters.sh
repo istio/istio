@@ -40,15 +40,15 @@ function run_adapter_lint() {
 
 function run_test_lint() {
     echo 'Running testlinter ...'
-    go build -o bin/testlinter tools/checker/testlinter/*.go
-    bin/testlinter
+    GO111MODULE=off go get -u istio.io/tools/cmd/testlinter
+    testlinter
     echo 'testlinter OK'
 }
 
 function run_envvar_lint() {
     echo 'Running envvarlinter ...'
-    go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
-    bin/envvarlinter mixer pilot security galley istioctl
+    GO111MODULE=off go get -u istio.io/tools/cmd/envvarlinter
+    envvarlinter galley istioctl mixer pilot security sidecar-injector
     echo 'envvarlinter OK'
 }
 
