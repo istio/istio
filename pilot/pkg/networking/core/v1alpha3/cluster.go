@@ -933,7 +933,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	// rejected by Envoy.
 
 	// Original destination service discovery must be used with the original destination load balancer.
-	switch t := cluster.ClusterDiscoveryType.(type) {
+	switch t := cluster.GetClusterDiscoveryType().(type) {
 	case *apiv2.Cluster_Type:
 		if t.Type == apiv2.Cluster_ORIGINAL_DST {
 			cluster.LbPolicy = lbPolicyClusterProvided(proxy)
