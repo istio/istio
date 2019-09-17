@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
@@ -71,12 +72,19 @@ type snapshotGroup struct {
 // Handle implements event.Handler
 func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
-	case event.Added, event.Updated:
+	case event.Added:
 		a.collection.Set(e.Entry)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, true)
+
+	case event.Updated:
+		a.collection.Set(e.Entry)
+
 	case event.Deleted:
 		a.collection.Remove(e.Entry.Metadata.Name)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
+
 	case event.FullSync:
 		a.syncCount++
 	default:
@@ -94,6 +102,15 @@ func (a *accumulator) Handle(e event.Event) {
 func (a *accumulator) reset() {
 	a.syncCount = 0
 	a.collection.Clear()
+}
+
+func monitorEntry(col collection.Name, resourceName resource.Name, added bool) {
+	namespace, name := resourceName.InterpretAsNamespaceAndName()
+	value := 1
+	if !added {
+		value = 0
+	}
+	monitoring.RecordDetailedStateType(namespace, name, col, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.
