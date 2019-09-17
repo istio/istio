@@ -3,17 +3,28 @@ name: Bookinfo
 on: [pull_request]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@master
     - name: Setup k8s cluster
       uses: engineerd/setup-kind@v0.1.0
-    - name: Deploy Bookinfo
+    - name: Build Productpage
+      run: |
+        sha=${GITHUB_SHA:0:7}
+        app="${GITHUB_REPOSITORY#*/}"
+        docker build -t $app:$sha $GITHUB_WORKSPACE/samples/bookinfo/src/productpage
+        kind load docker-image $app:$sha
+    - name: Deploy Productpage
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
-        kubectl apply -f $GITHUB_WORKSPACE/samples/bookinfo/platform/kube/bookinfo.yaml
+        sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment $app --image=$app:$sha --dry-run -o yaml | kubectl apply -f 
+        
+#     - name: Deploy Bookinfo
+#       run: |
+#         export KUBECONFIG="$(kind get kubeconfig-path)"
+#         kubectl apply -f $GITHUB_WORKSPACE/samples/bookinfo/platform/kube/bookinfo.yaml
     - name: Sleep for 60 seconds
       uses: jakejarvis/wait-action@master
       with:
