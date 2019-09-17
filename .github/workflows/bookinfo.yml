@@ -54,10 +54,10 @@ jobs:
         export KUBECONFIG="$(kind get kubeconfig-path)"
         sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment reviews --image=reviews:$sha --dry-run -o yaml | kubectl apply -f -
         kubectl expose deployment reviews --port=9080
-    - name: Sleep for 60 seconds
-      uses: jakejarvis/wait-action@master
-      with:
-        time: '60s'
+#     - name: Sleep for 60 seconds
+#       uses: jakejarvis/wait-action@master
+#       with:
+#         time: '60s'
     - name: Check
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
@@ -65,6 +65,8 @@ jobs:
         kubectl get pods -o yaml
         kubectl get svc --all-namespaces
         kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}') -c ratings -- curl productpage:9080/productpage | grep -o "<title>.*</title>"
+        kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}') -c ratings -- curl productpage:9080/productpage | grep -o "William Shakespeare"
+        kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}') -c ratings -- curl productpage:9080/productpage | grep -o "Reviewer1"
 
 #     - name: Deploy Bookinfo
 #       run: |
