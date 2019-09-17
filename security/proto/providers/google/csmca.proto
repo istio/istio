@@ -14,10 +14,10 @@
 
 syntax = "proto3";
 
-package google.security.istioca.v1alpha1;
+package google.security.meshca.v1beta1;
 
 // Certificate request message.
-message IstioCertificateRequest {
+message MeshCertificateRequest {
   // PEM-encoded certificate request.
   string csr = 1;
   // Optional subject ID field.
@@ -27,16 +27,17 @@ message IstioCertificateRequest {
 }
 
 // Certificate response message.
-message IstioCertificateResponse {
+message MeshCertificateResponse {
   // PEM-encoded certificate chain.
   // Leaf cert is element '0'. Root cert is element 'n'.
   repeated string cert_chain = 1;
 }
 
-// Service for managing certificates issued by the Istio CA.
-service IstioCertificateService {
-  // Using provided CSR, returns a signed certificate.
-  rpc CreateCertificate(IstioCertificateRequest)
-      returns (IstioCertificateResponse) {
+// Service for managing certificates issued by the CSM CA.
+service MeshCertificateService {
+  // Using provided CSR, returns a signed certificate that represents a GCP
+  // service account identity.
+  rpc CreateCertificate(MeshCertificateRequest)
+    returns (MeshCertificateResponse) {
   }
 }
