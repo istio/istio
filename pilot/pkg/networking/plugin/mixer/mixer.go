@@ -587,6 +587,23 @@ func init() {
 	proto.RegisterType((*mccpb.HttpClientConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig")
 	proto.RegisterMapType(map[string]*mccpb.ServiceConfig(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
 	proto.RegisterType((*mccpb.TcpClientConfig)(nil), "istio.mixer.v1.config.client.TcpClientConfig")
+
+	proto.RegisterType((*mpb.Attributes)(nil), "istio.mixer.v1.Attributes")
+	proto.RegisterMapType(map[string]*mpb.Attributes_AttributeValue(nil), "istio.mixer.v1.Attributes.AttributesEntry")
+	proto.RegisterType((*mpb.Attributes_AttributeValue)(nil), "istio.mixer.v1.Attributes.AttributeValue")
+	proto.RegisterType((*mpb.Attributes_StringMap)(nil), "istio.mixer.v1.Attributes.StringMap")
+	proto.RegisterMapType(map[string]string(nil), "istio.mixer.v1.Attributes.StringMap.EntriesEntry")
+	proto.RegisterType((*mpb.CompressedAttributes)(nil), "istio.mixer.v1.CompressedAttributes")
+	proto.RegisterMapType(map[int32]bool(nil), "istio.mixer.v1.CompressedAttributes.BoolsEntry")
+	proto.RegisterMapType(map[int32][]byte(nil), "istio.mixer.v1.CompressedAttributes.BytesEntry")
+	proto.RegisterMapType(map[int32]float64(nil), "istio.mixer.v1.CompressedAttributes.DoublesEntry")
+	proto.RegisterMapType(map[int32]time.Duration(nil), "istio.mixer.v1.CompressedAttributes.DurationsEntry")
+	proto.RegisterMapType(map[int32]int64(nil), "istio.mixer.v1.CompressedAttributes.Int64sEntry")
+	proto.RegisterMapType(map[int32]mpb.StringMap(nil), "istio.mixer.v1.CompressedAttributes.StringMapsEntry")
+	proto.RegisterMapType(map[int32]int32(nil), "istio.mixer.v1.CompressedAttributes.StringsEntry")
+	proto.RegisterMapType(map[int32]time.Time(nil), "istio.mixer.v1.CompressedAttributes.TimestampsEntry")
+	proto.RegisterType((*mpb.StringMap)(nil), "istio.mixer.v1.StringMap")
+	proto.RegisterMapType(map[int32]int32(nil), "istio.mixer.v1.StringMap.EntriesEntry")
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *listener.Filter {
