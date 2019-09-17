@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Bookinfo
 
 on: [pull_request]
 
@@ -22,6 +22,7 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl get pods --all-namespaces
+        kubectl get svc --all-namespaces
       
 #     - name: Build the Docker image
 #       run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
