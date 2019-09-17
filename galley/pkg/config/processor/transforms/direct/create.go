@@ -22,7 +22,7 @@ import (
 )
 
 // Create a new Direct transformer.
-func GetInfo(mapping map[collection.Name]collection.Name) []*transforms.Info {
+func GetInfo(mapping map[collection.Name]collection.Name) transforms.Infos {
 	var result []*transforms.Info
 
 	for k, v := range mapping {

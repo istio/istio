@@ -307,5 +307,5 @@ func newBenchHandler() event.Transformer {
 		DomainSuffix: domain,
 		MeshConfig:   meshcfg.Default(),
 	}
-	return serviceentry.Create(o)[0]
+	return serviceentry.GetInfo().Create(o)[0]
 }

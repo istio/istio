@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
-func GetInfo() []*transforms.Info {
+func GetInfo() transforms.Infos {
 	policiesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Policies}
 	policiesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Policies}
 	meshPoliciesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies}
@@ -43,7 +43,7 @@ func GetInfo() []*transforms.Info {
 					policiesOutput,
 					nil,
 					nil,
-					handler(metadata.K8SAuthenticationIstioIoV1Alpha1Policies),
+					handler(metadata.IstioAuthenticationV1Alpha1Policies),
 				)
 			},
 		),

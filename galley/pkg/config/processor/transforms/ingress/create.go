@@ -18,7 +18,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 )
 
-func GetInfo() []*transforms.Info {
+func GetInfo() transforms.Infos {
 	return []*transforms.Info{
 		getGatewayXformInfo(),
 		getVirtualServiceXformInfo(),

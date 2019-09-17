@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 )
 
+//TODO: doc comments everywhere
 type Info struct {
 	inputs   collection.Names //TODO: Combine these into a struct?
 	outputs  collection.Names
@@ -48,7 +49,18 @@ func (i *Info) Create(o processing.ProcessorOptions) event.Transformer {
 	return i.createFn(o)
 }
 
+type Infos []*Info
+
+func (t Infos) Create(o processing.ProcessorOptions) []event.Transformer {
+	xforms := make([]event.Transformer, 0)
+	for _, i := range t {
+		xforms = append(xforms, i.Create(o))
+	}
+	return xforms
+}
+
 // TODO: Singleton registry, so that transformer objects register functions to bootstrap themselves in init()
+// Still need to trigger the registrations somewhere, though! Maybe as a lazy getter?
 // var transformerInfo []*Info
 // func Register(fn func(m *schema.Metadata) []Info) {
 // 	//TODO

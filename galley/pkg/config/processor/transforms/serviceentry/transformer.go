@@ -36,7 +36,7 @@ import (
 )
 
 type transformer struct {
-	inputs collection.Names
+	inputs  collection.Names
 	outputs collection.Names
 	options processing.ProcessorOptions
 
@@ -61,7 +61,7 @@ type transformer struct {
 
 var _ event.Transformer = &transformer{}
 
-func GetInfo() *transforms.Info {
+func GetInfo() transforms.Infos {
 	inputs := collection.Names{
 		metadata.K8SCoreV1Endpoints,
 		metadata.K8SCoreV1Nodes,
@@ -74,12 +74,12 @@ func GetInfo() *transforms.Info {
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		return &transformer{
-			inputs: inputs,
+			inputs:  inputs,
 			outputs: outputs,
 			options: o,
 		}
 	}
-	return transforms.NewInfo(inputs, outputs, createFn)
+	return []*transforms.Info{transforms.NewInfo(inputs, outputs, createFn)}
 }
 
 // Start implements event.Transformer

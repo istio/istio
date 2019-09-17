@@ -57,8 +57,9 @@ func TestProcessor(t *testing.T) {
 
 	meshSrc.Set(meshcfg.Default())
 	distributor := snapshotter.NewInMemoryDistributor()
+	transformInfos := GetTransformInfos(metadata.MustGet())
 
-	rt, err := Initialize(metadata.MustGet(), "svc.local", event.CombineSources(srcs...), distributor)
+	rt, err := Initialize(metadata.MustGet(), "svc.local", event.CombineSources(srcs...), transformInfos, distributor)
 	g.Expect(err).To(BeNil())
 
 	rt.Start()

@@ -32,7 +32,7 @@ func Initialize(
 	m *schema.Metadata,
 	domainSuffix string,
 	source event.Source,
-	transformerInfo []*transforms.Info,
+	transformInfos transforms.Infos,
 	distributor snapshotter.Distributor) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
@@ -55,10 +55,7 @@ func Initialize(
 
 	// This is passed as a provider so it can be evaulated once ProcessorOptions become available
 	provider := func(o processing.ProcessorOptions) event.Processor {
-		xforms := make([]event.Transformer, 0)
-		for _, i := range transformerInfo {
-			xforms = append(xforms, i.Create(o))
-		}
+		xforms := transformInfos.Create(o)
 
 		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {
@@ -76,14 +73,14 @@ func Initialize(
 	return processing.NewRuntime(rtOpt), nil
 }
 
-//TODO: move this
-//TODO: Singleton this
+//TODO: move this?
+//TODO: Singleton this?
 //TODO: "inventory" this?
 //TODO: Should this be generated based on metadata.yaml?
-func GetTransformsInfo(m *schema.Metadata) []*transforms.Info {
+func GetTransformInfos(m *schema.Metadata) transforms.Infos {
 	xformsInfo := make([]*transforms.Info, 0)
 
-	xformsInfo = append(xformsInfo, serviceentry.GetInfo())
+	xformsInfo = append(xformsInfo, serviceentry.GetInfo()...)
 	xformsInfo = append(xformsInfo, ingress.GetInfo()...)
 	xformsInfo = append(xformsInfo, direct.GetInfo(m.DirectTransform().Mapping())...)
 	xformsInfo = append(xformsInfo, authpolicy.GetInfo()...)
