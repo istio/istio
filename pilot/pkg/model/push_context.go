@@ -820,9 +820,11 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
+				break
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -1059,21 +1061,18 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) *authn.Policy {
 	var workloadPolicy *authn.Policy
-
 	// Match by Service hostname
-	workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port)
+	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
+		return workloadPolicy
+	}
 
 	// Match by namespace
-	if workloadPolicy == nil {
-		workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port)
+	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
+		return workloadPolicy
 	}
 
-	// Use default global authentication policy
-	if workloadPolicy == nil {
-		workloadPolicy = ps.AuthnPolicies.defaultMeshPolicy
-	}
-
-	return workloadPolicy
+	// Use default global authentication policy if no others found
+	return ps.AuthnPolicies.defaultMeshPolicy
 }
 
 func authenticationPolicyForWorkload(policiesByPort map[int][]*authn.Policy, port *Port) *authn.Policy {

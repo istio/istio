@@ -117,9 +117,9 @@ func TestAuthNPolicies(t *testing.T) {
 	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
 	ps.Env = env
 	authNPolicies := map[string]*authn.Policy{
-		constants.DefaultAuthenticationPolicyName: &authn.Policy{},
+		constants.DefaultAuthenticationPolicyName: {},
 
-		"mtls-strict-svc": &authn.Policy{
+		"mtls-strict-svc": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-strict-svc",
 			}},
@@ -128,7 +128,7 @@ func TestAuthNPolicies(t *testing.T) {
 			},
 			}},
 
-		"mtls-permissive-svc": &authn.Policy{
+		"mtls-permissive-svc": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-permissive-svc",
 				Ports: []*authn.PortSelector{
@@ -148,7 +148,7 @@ func TestAuthNPolicies(t *testing.T) {
 			}},
 		},
 
-		"mtls-disable-svc": &authn.Policy{
+		"mtls-disable-svc": {
 			Targets: []*authn.TargetSelector{{
 				Name: "mtls-disable-svc",
 			}},
