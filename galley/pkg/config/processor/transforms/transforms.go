@@ -15,3 +15,15 @@
 // Package transforms contains basic processing building blocks that can be incorporated into bigger/self-contained
 // processing pipelines.
 package transforms
+
+import (
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing"
+)
+
+//ProcessorOptionsTransformer is a Transformer that allows late binding of processor options
+type ProcessorOptionsTransformer interface {
+	event.Transformer
+
+	SetOptions(processing.ProcessorOptions)
+}

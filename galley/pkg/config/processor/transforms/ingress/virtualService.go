@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 )
@@ -44,10 +45,8 @@ type virtualServiceXform struct {
 	vsByHost  map[string]*syntheticVirtualService
 }
 
-func newVirtualServiceXform(o processing.ProcessorOptions) event.Transformer {
-	xform := &virtualServiceXform{
-		options: o,
-	}
+func newVirtualServiceXform() transforms.ProcessorOptionsTransformer {
+	xform := &virtualServiceXform{}
 	xform.FnTransform = event.NewFnTransform(
 		collection.Names{metadata.K8SExtensionsV1Beta1Ingresses},
 		collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices},
@@ -56,6 +55,11 @@ func newVirtualServiceXform(o processing.ProcessorOptions) event.Transformer {
 		xform.handle)
 
 	return xform
+}
+
+//SetOptions implements transforms.ProcessorOptionsTransformer
+func (g *virtualServiceXform) SetOptions(o processing.ProcessorOptions) {
+	g.options = o
 }
 
 // Start implements processing.Transformer

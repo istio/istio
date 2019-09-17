@@ -15,15 +15,12 @@
 package serviceentry
 
 import (
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 )
 
 // Create transformer for Synthetic Service entries
-func Create(o processing.ProcessorOptions) []event.Transformer {
-	return []event.Transformer{
-		&transformer{
-			options: o,
-		},
+func Create() []transforms.ProcessorOptionsTransformer {
+	return []transforms.ProcessorOptionsTransformer{
+		&transformer{},
 	}
 }

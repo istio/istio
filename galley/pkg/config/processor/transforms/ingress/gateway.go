@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/synthesize"
 )
@@ -39,16 +40,20 @@ type gatewayXform struct {
 
 var _ event.Transformer = &gatewayXform{}
 
-func newGatewayXform(o processing.ProcessorOptions) event.Transformer {
+func newGatewayXform() transforms.ProcessorOptionsTransformer {
 	xform := &gatewayXform{}
 	xform.FnTransform = event.NewFnTransform(
 		collection.Names{metadata.K8SExtensionsV1Beta1Ingresses},
 		collection.Names{metadata.IstioNetworkingV1Alpha3Gateways},
 		nil, nil,
 		xform.handle)
-	xform.options = o
 
 	return xform
+}
+
+//SetOptions implements transforms.ProcessorOptionsTransformer
+func (g *gatewayXform) SetOptions(o processing.ProcessorOptions) {
+	g.options = o
 }
 
 func (g *gatewayXform) handle(e event.Event, h event.Handler) {

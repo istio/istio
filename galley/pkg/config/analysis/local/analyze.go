@@ -35,18 +35,20 @@ const domainSuffix = "svc.local"
 
 // SourceAnalyzer handles local analysis of k8s and file based event sources
 type SourceAnalyzer struct {
-	m        *schema.Metadata
-	sources  []event.Source
-	analyzer analysis.Analyzer
+	m            *schema.Metadata
+	sources      []event.Source
+	analyzer     analysis.Analyzer
+	transformers *processor.Transformers
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
 	return &SourceAnalyzer{
-		m:        m,
-		sources:  make([]event.Source, 0),
-		analyzer: analyzer,
+		m:            m,
+		sources:      make([]event.Source, 0),
+		analyzer:     analyzer,
+		transformers: processor.NewTransformers(m),
 	}
 }
 
@@ -62,7 +64,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
-	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), distributor)
+	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformers, distributor)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +105,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
 	for _, r := range sa.m.KubeSource().Resources() {
 		// Note that although we could also filter based on analyzer metadata, we'd need to do so in a way that is
 		// aware of transformation functions being applied, and this will take some care and thought to do correctly.
+		//TODO: Try it, using sa.transformers
 
 		// Disable anything marked as "optional" (aka "legacy" resources)
 		// The assumption is that we aren't writing analyzers that care about legacy resources

@@ -15,14 +15,13 @@
 package ingress
 
 import (
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 )
 
 // Create transformer for Ingress resource
-func Create(options processing.ProcessorOptions) []event.Transformer {
-	return []event.Transformer{
-		newGatewayXform(options),
-		newVirtualServiceXform(options),
+func Create() []transforms.ProcessorOptionsTransformer {
+	return []transforms.ProcessorOptionsTransformer{
+		newGatewayXform(),
+		newVirtualServiceXform(),
 	}
 }

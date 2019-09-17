@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // AnalyzingDistributor is an snapshotter.Distributor implementation that will perform analysis on a snapshot before
@@ -93,7 +94,9 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 		cancelCh: cancelCh,
 	}
 
+	scope.Analysis.Infof("Beginning analyzing the current snapshot")
 	d.analyzer.Analyze(ctx)
+	scope.Analysis.Infof("Finished analzing the current snapshot, found %d messages", len(ctx.messages))
 
 	if !ctx.Canceled() {
 		d.updater.Update(ctx.messages)

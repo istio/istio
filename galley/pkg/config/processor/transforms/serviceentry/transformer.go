@@ -58,6 +58,11 @@ type transformer struct {
 
 var _ event.Transformer = &transformer{}
 
+//SetOptions implements transforms.ProcessorOptionsTransformer
+func (t *transformer) SetOptions(o processing.ProcessorOptions) {
+	t.options = o
+}
+
 // Start implements event.Transformer
 func (t *transformer) Start() {
 	t.ipToName = make(map[string]map[resource.Name]struct{})
