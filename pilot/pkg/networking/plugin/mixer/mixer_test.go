@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,7 +42,7 @@ func TestTransportConfig(t *testing.T) {
 				Metadata: map[string]string{},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      defaultRetries,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,
@@ -59,10 +59,10 @@ func TestTransportConfig(t *testing.T) {
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      5,
-				BaseRetryWait: types.DurationProto(1 * time.Minute),
-				MaxRetryWait:  types.DurationProto(1500 * time.Millisecond),
+				BaseRetryWait: ptypes.DurationProto(1 * time.Minute),
+				MaxRetryWait:  ptypes.DurationProto(1500 * time.Millisecond),
 			},
 		},
 		{
@@ -74,7 +74,7 @@ func TestTransportConfig(t *testing.T) {
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      1,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,
@@ -89,7 +89,7 @@ func TestTransportConfig(t *testing.T) {
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_OPEN,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_OPEN,
 				MaxRetry:      defaultRetries,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,

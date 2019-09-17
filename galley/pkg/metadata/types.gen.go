@@ -14,9 +14,6 @@ import (
 	// Register protos in "istio.io/api/authentication/v1alpha1"
 	_ "istio.io/api/authentication/v1alpha1"
 
-	// Register protos in "istio.io/api/mixer/v1/config/client"
-	_ "istio.io/api/mixer/v1/config/client"
-
 	// Register protos in "istio.io/api/networking/v1alpha3"
 	_ "istio.io/api/networking/v1alpha3"
 
@@ -51,12 +48,6 @@ var (
 
 	// istio/config/v1alpha2/adapters metadata
 	IstioConfigV1alpha2Adapters resource.Info
-
-	// istio/config/v1alpha2/httpapispecbindings metadata
-	IstioConfigV1alpha2Httpapispecbindings resource.Info
-
-	// istio/config/v1alpha2/httpapispecs metadata
-	IstioConfigV1alpha2Httpapispecs resource.Info
 
 	// istio/config/v1alpha2/legacy/apikeys metadata
 	IstioConfigV1alpha2LegacyApikeys resource.Info
@@ -154,12 +145,6 @@ var (
 	// istio/config/v1alpha2/templates metadata
 	IstioConfigV1alpha2Templates resource.Info
 
-	// istio/mixer/v1/config/client/quotaspecbindings metadata
-	IstioMixerV1ConfigClientQuotaspecbindings resource.Info
-
-	// istio/mixer/v1/config/client/quotaspecs metadata
-	IstioMixerV1ConfigClientQuotaspecs resource.Info
-
 	// istio/networking/v1alpha3/destinationrules metadata
 	IstioNetworkingV1alpha3Destinationrules resource.Info
 
@@ -239,12 +224,6 @@ func init() {
 	IstioConfigV1alpha2Adapters = b.Register(
 		"istio/config/v1alpha2/adapters",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	IstioConfigV1alpha2Httpapispecbindings = b.Register(
-		"istio/config/v1alpha2/httpapispecbindings",
-		"type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpecBinding")
-	IstioConfigV1alpha2Httpapispecs = b.Register(
-		"istio/config/v1alpha2/httpapispecs",
-		"type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec")
 	IstioConfigV1alpha2LegacyApikeys = b.Register(
 		"istio/config/v1alpha2/legacy/apikeys",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
@@ -341,12 +320,6 @@ func init() {
 	IstioConfigV1alpha2Templates = b.Register(
 		"istio/config/v1alpha2/templates",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	IstioMixerV1ConfigClientQuotaspecbindings = b.Register(
-		"istio/mixer/v1/config/client/quotaspecbindings",
-		"type.googleapis.com/istio.mixer.v1.config.client.QuotaSpecBinding")
-	IstioMixerV1ConfigClientQuotaspecs = b.Register(
-		"istio/mixer/v1/config/client/quotaspecs",
-		"type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec")
 	IstioNetworkingV1alpha3Destinationrules = b.Register(
 		"istio/networking/v1alpha3/destinationrules",
 		"type.googleapis.com/istio.networking.v1alpha3.DestinationRule")

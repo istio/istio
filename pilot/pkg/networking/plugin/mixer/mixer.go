@@ -15,7 +15,6 @@
 package mixer
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"strconv"
@@ -28,10 +27,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	gogoproto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 
@@ -75,10 +71,10 @@ const (
 
 var (
 	// default base retry wait time for policy checks
-	defaultBaseRetryWaitTime = types.DurationProto(80 * time.Millisecond)
+	defaultBaseRetryWaitTime = ptypes.DurationProto(80 * time.Millisecond)
 
 	// default maximum wait time for policy checks
-	defaultMaxRetryWaitTime = types.DurationProto(1000 * time.Millisecond)
+	defaultMaxRetryWaitTime = ptypes.DurationProto(1000 * time.Millisecond)
 )
 
 type direction int
@@ -87,30 +83,6 @@ const (
 	inbound direction = iota
 	outbound
 )
-
-func toAny(msg gogoproto.Message) *any.Any {
-	out, _ := types.MarshalAny(msg)
-	return &any.Any{
-		TypeUrl: out.TypeUrl,
-		Value:   out.Value,
-	}
-}
-
-func toStruct(msg gogoproto.Message) *pstruct.Struct {
-	if msg == nil {
-		return &pstruct.Struct{}
-	}
-	buf := &bytes.Buffer{}
-	if err := (&gogojsonpb.Marshaler{OrigName: true}).Marshal(buf, msg); err != nil {
-		return &pstruct.Struct{}
-	}
-
-	pbs := &pstruct.Struct{}
-	if err := jsonpb.Unmarshal(buf, pbs); err != nil {
-		return &pstruct.Struct{}
-	}
-	return pbs
-}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
 func NewPlugin() plugin.Plugin {
@@ -365,18 +337,18 @@ func buildUpstreamName(address string) string {
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
 	// default to mesh
-	policy := mccpb.FAIL_CLOSE
+	policy := mccpb.NetworkFailPolicy_FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
-		policy = mccpb.FAIL_OPEN
+		policy = mccpb.NetworkFailPolicy_FAIL_OPEN
 	}
 
 	// apply proxy-level overrides
 	if anno, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
 		switch anno {
 		case policyCheckEnable:
-			policy = mccpb.FAIL_CLOSE
+			policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
 		case policyCheckEnableAllow, policyCheckDisable:
-			policy = mccpb.FAIL_OPEN
+			policy = mccpb.NetworkFailPolicy_FAIL_OPEN
 		}
 	}
 
@@ -398,7 +370,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		if err != nil {
 			log.Warnf("unable to parse base retry wait time %q.", anno)
 		} else {
-			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
+			networkFailPolicy.BaseRetryWait = ptypes.DurationProto(dur)
 		}
 	}
 
@@ -408,7 +380,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		if err != nil {
 			log.Warnf("unable to parse max retry wait time %q.", anno)
 		} else {
-			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
+			networkFailPolicy.MaxRetryWait = ptypes.DurationProto(dur)
 		}
 	}
 
@@ -417,7 +389,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		ReportCluster:         buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy:     networkFailPolicy,
 		ReportBatchMaxEntries: mesh.ReportBatchMaxEntries,
-		ReportBatchMaxTime:    mesh.ReportBatchMaxTime,
+		ReportBatchMaxTime:    ptypes.DurationProto(*util.GogoDurationToDuration(mesh.ReportBatchMaxTime)),
 	}
 
 	return res
@@ -443,9 +415,9 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: toAny(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: toStruct(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
@@ -467,9 +439,9 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: toAny(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: toStruct(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
@@ -593,9 +565,9 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: toAny(cfg)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: toStruct(cfg)}
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
@@ -612,9 +584,9 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: toAny(cfg)}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: toStruct(cfg)}
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
 	}
 
 	return out
@@ -624,7 +596,7 @@ func addServiceConfig(filterConfigs map[string]*pstruct.Struct, config *mccpb.Se
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*pstruct.Struct)
 	}
-	filterConfigs[mixer] = toStruct(config)
+	filterConfigs[mixer] = util.MessageToStruct(config)
 	return filterConfigs
 }
 
@@ -632,7 +604,7 @@ func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.Serv
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*any.Any)
 	}
-	filterConfigs[mixer] = toAny(config)
+	filterConfigs[mixer] = util.MessageToAny(config)
 	return filterConfigs
 }
 

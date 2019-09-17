@@ -129,41 +129,23 @@ resources:
     proto: "istio.networking.v1alpha3.Sidecar"
     collection: "istio/networking/v1alpha3/sidecars"
 
-  - kind: "HTTPAPISpec"
-    singular: "httpapispec"
-    plural: "httpapispecs"
-    group: "config.istio.io"
-    versions:
-      - "v1alpha2"
-    proto: "istio.mixer.v1.config.client.HTTPAPISpec"
-    collection: "istio/config/v1alpha2/httpapispecs"
-
-  - kind: "HTTPAPISpecBinding"
-    singular: "httpapispecbinding"
-    plural: "httpapispecbindings"
-    group: "config.istio.io"
-    versions:
-      - "v1alpha2"
-    proto: "istio.mixer.v1.config.client.HTTPAPISpecBinding"
-    collection: "istio/config/v1alpha2/httpapispecbindings"
-
-  - kind: "QuotaSpec"
-    singular: "quotaspec"
-    plural: "quotaspecs"
-    group: "config.istio.io"
-    versions:
-      - "v1alpha2"
-    proto: "istio.mixer.v1.config.client.QuotaSpec"
-    collection: "istio/mixer/v1/config/client/quotaspecs"
-
-  - kind: "QuotaSpecBinding"
-    singular: "quotaspecbinding"
-    plural: "quotaspecbindings"
-    group: "config.istio.io"
-    versions:
-      - "v1alpha2"
-    proto: "istio.mixer.v1.config.client.QuotaSpecBinding"
-    collection: "istio/mixer/v1/config/client/quotaspecbindings"
+    #  - kind: "QuotaSpec"
+    #    singular: "quotaspec"
+    #    plural: "quotaspecs"
+    #    group: "config.istio.io"
+    #    versions:
+    #      - "v1alpha2"
+    #    proto: "istio.mixer.v1.config.client.QuotaSpec"
+    #    collection: "istio/mixer/v1/config/client/quotaspecs"
+    #
+    #  - kind: "QuotaSpecBinding"
+    #    singular: "quotaspecbinding"
+    #    plural: "quotaspecbindings"
+    #    group: "config.istio.io"
+    #    versions:
+    #      - "v1alpha2"
+    #    proto: "istio.mixer.v1.config.client.QuotaSpecBinding"
+    #    collection: "istio/mixer/v1/config/client/quotaspecbindings"
 
 
   - kind: "Policy"
