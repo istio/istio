@@ -26,8 +26,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/api/annotation"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
@@ -36,7 +38,6 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -988,11 +989,11 @@ func (b *metadataBuilder) Build() *mcp.Metadata {
 	for k, v := range b.service.Metadata.Annotations {
 		annos[k] = v
 	}
-	annos[annotations.ServiceVersion] = string(b.service.Metadata.Version)
+	annos[annotation.AlphaNetworkingServiceVersion.Name] = string(b.service.Metadata.Version)
 	if b.endpoints != nil {
-		annos[annotations.EndpointsVersion] = string(b.endpoints.Metadata.Version)
+		annos[annotation.AlphaNetworkingEndpointsVersion.Name] = string(b.endpoints.Metadata.Version)
 		if len(b.notReadyIPs) > 0 {
-			annos[annotations.NotReadyEndpoints] = notReadyAnnotation(b.notReadyIPs...)
+			annos[annotation.AlphaNetworkingNotReadyEndpoints.Name] = notReadyAnnotation(b.notReadyIPs...)
 		}
 	}
 
