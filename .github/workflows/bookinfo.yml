@@ -1,0 +1,27 @@
+name: Docker Image CI
+
+on: [pull_request]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@master
+    - name: Setup k8s cluster
+      uses: engineerd/setup-kind@v0.1.0
+    - name: Deploy Bookinfo
+      run: |
+        export KUBECONFIG="$(kind get kubeconfig-path)"
+        kubectl apply -f $GITHUB_WORKSPACE/samples/bookinfo/platform/kube/bookinfo.yaml
+    - name: Sleep for 60 seconds
+      uses: jakejarvis/wait-action@master
+      with:
+        time: '60s'
+    - name: Check
+      run: |
+        export KUBECONFIG="$(kind get kubeconfig-path)"
+        kubectl get pods --all-namespaces
+      
+#     - name: Build the Docker image
+#       run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
