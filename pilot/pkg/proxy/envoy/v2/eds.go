@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -429,82 +428,20 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	s.startPush(req)
 }
 
-// WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]string, _ map[string]string) {
-	inboundWorkloadUpdates.Increment()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if workloadLabels == nil {
-		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID, id)
-		return
-	}
-	w, f := s.WorkloadsByID[id]
-	if !f {
-		s.WorkloadsByID[id] = &Workload{
-			Labels: workloadLabels,
-		}
-
-		adsClientsMutex.RLock()
-		for _, connection := range adsClients {
-			// if the workload has envoy proxy and connected to server,
-			// then do a full xDS push for this proxy;
-			// otherwise:
-			//   case 1: the workload has no sidecar proxy, no need xDS push at all.
-			//   case 2: the workload xDS connection has not been established,
-			//           also no need to trigger a full push here.
-			if connection.modelNode.IPAddresses[0] == id {
-				// There is a possibility that the pod comes up later than endpoint.
-				// So no endpoints add/update events after this, we should request
-				// full push immediately to speed up sidecar startup.
-				s.pushQueue.Enqueue(connection, &model.PushRequest{Full: true, Push: s.globalPushContext(), Start: time.Now()})
-				break
-			}
-		}
-		adsClientsMutex.RUnlock()
-
-		return
-	}
-	if reflect.DeepEqual(w.Labels, workloadLabels) {
-		// No label change.
-		return
-	}
-
-	w.Labels = workloadLabels
-
-	// update workload labels, so that can improve perf of Proxy.SetWorkloadLabels
-	adsClientsMutex.RLock()
-	for _, connection := range adsClients {
-		// update node label
-		if connection.modelNode.IPAddresses[0] == id {
-			connection.modelNode.WorkloadLabels = labels.Collection{workloadLabels}
-			break
-		}
-	}
-	adsClientsMutex.RUnlock()
-
-	// Label changes require recomputing the config.
-	// TODO: we can do a push for the affected workload only, but we need to confirm
-	// no other workload can be affected. Safer option is to fallback to full push.
-
-	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdate(&model.PushRequest{Full: true})
-}
-
 // EDSUpdate computes destination address membership across all clusters and networks.
 // This is the main method implementing EDS.
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
-	s.edsUpdate(shard, serviceName, namespace, istioEndpoints, false)
+	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
 }
 
-// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
 // and requests a full/eds push.
-func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
+func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
@@ -519,7 +456,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
 			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, shard)
+			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
 			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
 			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 			if svcShards == 0 {
@@ -571,7 +508,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 		}
 	}
 	ep.mutex.Lock()
-	ep.Shards[shard] = istioEndpoints
+	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
@@ -703,6 +640,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
+	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
 	empty := make([]string, 0)
@@ -760,6 +698,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	response := endpointDiscoveryResponse(loadAssignments, version)
 	err := con.send(response)
+	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(edsSendErrPushes, err)
@@ -820,25 +759,6 @@ func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterNam
 	return false
 }
 
-// addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
-
-	s.getOrAddEdsCluster(clusterName, node, connection)
-	// TODO: left the code here so we can skip sending the already-sent clusters.
-	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
-	// previous version sent all the clusters from CDS in bulk).
-
-	//c.mutex.Lock()
-	//existing := c.EdsClients[node]
-	//c.mutex.Unlock()
-	//
-	//// May replace an existing connection: this happens when Envoy adds more clusters
-	//// one by one, creating new grpc requests each time it adds one more cluster.
-	//if existing != nil {
-	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
-	//}
-}
-
 // getEdsCluster returns a cluster.
 func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	// separate method only to have proper lock.
@@ -847,6 +767,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
+// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()

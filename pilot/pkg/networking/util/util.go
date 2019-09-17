@@ -278,12 +278,24 @@ func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 }
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForNode(node *model.Proxy) bool {
-	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
+	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+}
+
+func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForNode(node) && port.Protocol.IsUnsupported()
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
@@ -323,6 +335,23 @@ func ConvertLocality(locality string) *core.Locality {
 		Zone:    zone,
 		SubZone: subzone,
 	}
+}
+
+// ConvertLocality converts '/' separated locality string to Locality struct.
+func LocalityToString(l *core.Locality) string {
+	if l == nil {
+		return ""
+	}
+	resp := l.Region
+	if l.Zone == "" {
+		return resp
+	}
+	resp += "/" + l.Zone
+	if l.SubZone == "" {
+		return resp
+	}
+	resp += "/" + l.SubZone
+	return resp
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)

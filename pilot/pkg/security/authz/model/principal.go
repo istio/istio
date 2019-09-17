@@ -30,17 +30,19 @@ import (
 )
 
 type Principal struct {
-	User          string // For backward-compatible only.
-	Names         []string
-	NotNames      []string
-	Group         string // For backward-compatible only.
-	Groups        []string
-	NotGroups     []string
-	Namespaces    []string
-	NotNamespaces []string
-	IPs           []string
-	NotIPs        []string
-	Properties    []KeyValues
+	User              string // For backward-compatible only.
+	Names             []string
+	NotNames          []string
+	Group             string // For backward-compatible only.
+	Groups            []string
+	NotGroups         []string
+	Namespaces        []string
+	NotNamespaces     []string
+	IPs               []string
+	NotIPs            []string
+	RequestPrincipals []string
+	Properties        []KeyValues
+	AllowAll          bool
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
@@ -81,6 +83,12 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	pg := principalGenerator{}
+
+	if principal.AllowAll {
+		pg.append(principalAny(true))
+		return pg.andPrincipals(), nil
+	}
+
 	if principal.User != "" {
 		principal := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
 		pg.append(principal)
@@ -94,6 +102,11 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	if len(principal.NotNames) > 0 {
 		principal := principalForKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
 		pg.append(principalNot(principal))
+	}
+
+	if len(principal.RequestPrincipals) > 0 {
+		principal := principalForKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
+		pg.append(principal)
 	}
 
 	if principal.Group != "" {
@@ -160,6 +173,21 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	return pg.andPrincipals(), nil
+}
+
+// isSupportedPrincipal returns true if the key is supported to be used in principal.
+func isSupportedPrincipal(key string) bool {
+	switch {
+	case attrSrcIP == key:
+	case attrSrcNamespace == key:
+	case attrSrcPrincipal == key:
+	case found(key, []string{attrRequestPrincipal, attrRequestAudiences, attrRequestPresenter, attrSrcUser}):
+	case strings.HasPrefix(key, attrRequestHeader):
+	case strings.HasPrefix(key, attrRequestClaims):
+	default:
+		return false
+	}
+	return true
 }
 
 // principalForKeyValues converts a key-values pair to envoy RBAC principal. The key specify the

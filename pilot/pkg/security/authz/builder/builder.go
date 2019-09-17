@@ -23,7 +23,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	v1 "istio.io/istio/pilot/pkg/security/authz/policy/v1"
+	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
+	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -38,28 +40,36 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
-	if serviceInstance.Service == nil {
-		rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
-		return nil
+func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
+	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+	var generator policy.Generator
+
+	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
+		generator = v1beta1.NewGenerator(p)
+		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
+	} else {
+		if serviceInstance.Service == nil {
+			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
+			return nil
+		}
+		serviceName := serviceInstance.Service.Attributes.Name
+		serviceNamespace := serviceInstance.Service.Attributes.Namespace
+		serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
+		if err != nil {
+			rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
+			return nil
+		}
+
+		serviceHostname := string(serviceInstance.Service.Hostname)
+		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
+			generator = v1alpha1.NewGenerator(serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
+		}
 	}
 
-	serviceName := serviceInstance.Service.Attributes.Name
-	serviceNamespace := serviceInstance.Service.Attributes.Namespace
-	serviceHostname := string(serviceInstance.Service.Hostname)
-	if !policies.IsV1RbacEnabled(serviceHostname, serviceNamespace) {
-		rbacLog.Debugf("RBAC disabled for service %s", serviceHostname)
+	if generator == nil {
 		return nil
 	}
-
-	serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
-	if err != nil {
-		rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
-		return nil
-	}
-
-	isGlobalPermissiveEnabled := policies.IsGlobalPermissiveEnabled()
-	generator := v1.NewGenerator(serviceMetadata, policies, isGlobalPermissiveEnabled)
 
 	return &Builder{
 		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
@@ -69,7 +79,14 @@ func NewBuilder(serviceInstance *model.ServiceInstance, policies *model.Authoriz
 
 // BuildHTTPFilter builds the RBAC HTTP filter.
 func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
+	if b == nil {
+		return nil
+	}
+
 	rbacConfig := b.generator.Generate(false /* forTCPFilter */)
+	if rbacConfig == nil {
+		return nil
+	}
 	httpConfig := http_filter.HttpFilter{
 		Name: authz_model.RBACHTTPFilterName,
 	}
@@ -85,9 +102,16 @@ func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
 
 // BuildTCPFilter builds the RBAC TCP filter.
 func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
+	if b == nil {
+		return nil
+	}
+
 	// The build function always return the config for HTTP filter, we need to extract the
 	// generated rules and set it in the config for TCP filter.
 	config := b.generator.Generate(true /* forTCPFilter */)
+	if config == nil {
+		return nil
+	}
 	rbacConfig := &tcp_config.RBAC{
 		Rules:       config.Rules,
 		ShadowRules: config.ShadowRules,

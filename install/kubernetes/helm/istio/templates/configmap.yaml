@@ -29,6 +29,11 @@ data:
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
     {{- end }}
 
+    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
+    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
+    {{- end }}
+
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
 
@@ -107,37 +112,37 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
-    
+
     # DNS refresh rate for Envoy clusters of type STRICT_DNS
     dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
-    sdsUdsPath: {{ .Values.global.sds.udsPath }}
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: {{ .Values.global.trustDomain }}
+    trustDomain: {{ .Values.global.trustDomain | quote }}
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
     #   services or ServiceEntries for the destination port
     # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
-    #   as those defined through ServiceEntries  
+    #   as those defined through ServiceEntries
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
-{{ toYaml .Values.global.localityLbSetting | indent 6 }}
+{{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
     {{- end }}
     # The namespace to treat as the administrative root namespace for istio
     # configuration.
-    {{- if .Values.global.configRootNamespace }}
+{{- if .Values.global.configRootNamespace }}
     rootNamespace: {{ .Values.global.configRootNamespace }}
-    {{- else }}    
+{{- else }}
     rootNamespace: {{ .Release.Namespace }}
-    {{- end }}
+{{- end }}
 
     {{- if .Values.global.defaultConfigVisibilitySettings }}
     defaultServiceExportTo:
@@ -290,7 +295,7 @@ data:
       discoveryAddress: {{ $pilotAddress }}:15010
       {{- end }}
     {{- end }}
-  
+
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
   {{- if .Values.global.meshNetworks }}

@@ -102,6 +102,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// The merged gateways associated with the proxy if this is a Router
+	MergedGateway *MergedGateway
+
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
 
@@ -241,6 +244,17 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 
 }
 
+// SetGatewaysForProxy merges the Gateway objects associated with this
+// proxy and caches the merged object in the proxy Node. This is a convenience hack so that
+// callers can simply call push.MergedGateways(node) instead of having to
+// fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
+	if node.Type != Router {
+		return
+	}
+	node.MergedGateway = ps.mergeGateways(node)
+}
+
 func (node *Proxy) SetServiceInstances(env *Environment) error {
 	instances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
@@ -252,9 +266,10 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 	return nil
 }
 
-func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+// SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
+// otherwise only set it when it is nil.
+func (node *Proxy) SetWorkloadLabels(env *Environment, force bool) error {
 	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
-	// Or updated in DiscoveryServer.WorkloadUpdate.
 	if node.WorkloadLabels != nil {
 		return nil
 	}
@@ -307,17 +322,15 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 		switch s := v.GetKind().(type) {
 		case *types.Value_StringValue:
 			res[k] = s.StringValue
-		case *types.Value_StructValue:
-			// Some fields are not simple strings, they are structs. Dump these to json strings.
+		default:
+			// Some fields are not simple strings, dump these to json strings.
 			// TODO: convert metadata to a properly typed struct rather than map[string]string
-			j, err := (&jsonpb.Marshaler{}).MarshalToString(s.StructValue)
+			j, err := (&jsonpb.Marshaler{}).MarshalToString(v)
 			if err != nil {
 				log.Warnf("failed to unmarshal metadata field %v with value %v: %v", k, v, err)
 				continue
 			}
 			res[k] = j
-		default:
-			continue
 		}
 	}
 	if len(res) == 0 {
@@ -485,6 +498,9 @@ const (
 	// will be replaced with the gateway defined in the settings.
 	NodeMetadataNetwork = "NETWORK"
 
+	// NodeMetadataNetwork defines the cluster the node belongs to.
+	NodeMetadataClusterID = "CLUSTER_ID"
+
 	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
@@ -542,6 +558,9 @@ const (
 	// NodeMetadataIdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
 	NodeMetadataIdleTimeout = "IDLE_TIMEOUT"
+
+	// NodeMetadataPodPorts the ports on a pod. This is used to lookup named ports.
+	NodeMetadataPodPorts = "POD_PORTS"
 
 	// NodeMetadataCanonicalTelemetryService specifies the service name to use for all node telemetry.
 	NodeMetadataCanonicalTelemetryService = "CANONICAL_TELEMETRY_SERVICE"

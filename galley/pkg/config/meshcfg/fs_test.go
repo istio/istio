@@ -363,19 +363,15 @@ func TestFsSource_InvalidPath(t *testing.T) {
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
 	g := NewGomegaWithT(t)
-	old := yamlToJSON
-	yamlToJSON = func([]byte) ([]byte, error) {
-		return nil, fmt.Errorf("horror")
-	}
-	defer func() {
-		yamlToJSON = old
-	}()
 
 	mcfg := Default()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := newFS(file, func([]byte) ([]byte, error) {
+		return nil, fmt.Errorf("horror")
+	})
+
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()

@@ -53,8 +53,8 @@ const (
 	terminating = sessionState("terminating")
 )
 
-// session represents a config processing session. It is a stateful controller type whose main responsibility is to manage
-// state transitions and react to the events that impact lifecycle.
+// session represents a config processing session. It is a stateful controller type whose main responsibility is to
+// manage state transitions and react to the events that impact lifecycle.
 //
 // A session starts with an external request (through the start() method, called by Runtime) which puts the session into
 // the "starting" state. During this phase, the Sources are started, and the events from Sources  start to come in. Once
@@ -188,7 +188,7 @@ func (s *session) terminate() {
 	scope.Processing.Debug("session.terminate: stopping sources...")
 	s.options.Source.Stop()
 
-	scope.Processing.Debug("session.terminate: signalling session termination...")
+	scope.Processing.Debug("session.terminate: signaling session termination...")
 	s.mu.Lock()
 	if s.doneCh != nil {
 		close(s.doneCh)
@@ -298,4 +298,12 @@ func (s *session) applyMeshEvent(e event.Event) {
 func (s *session) transitionTo(st sessionState) {
 	scope.Processing.Infof("session[%d] %q => %q", s.id, s.state, st)
 	s.state = st
+}
+
+// getState returns the state of session. This is useful for testing/debugging purposes.
+func (s *session) getState() sessionState {
+	s.mu.Lock()
+	st := s.state
+	s.mu.Unlock()
+	return st
 }

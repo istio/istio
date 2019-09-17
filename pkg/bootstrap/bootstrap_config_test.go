@@ -397,9 +397,9 @@ func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
 
 	if stats.prefixes == "" {
-		stats.prefixes = requiredEnvoyStatsMatcherInclusionPrefixes
+		stats.prefixes = "reporter=," + requiredEnvoyStatsMatcherInclusionPrefixes
 	} else {
-		stats.prefixes += "," + requiredEnvoyStatsMatcherInclusionPrefixes
+		stats.prefixes = "reporter=," + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes
 	}
 
 	if stats.suffixes == "" {
@@ -466,7 +466,7 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 }
 
 func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
-	content, err := ioutil.ReadFile("testdata/" + base + ".proto")
+	content, err := ioutil.ReadFile("testdata/" + base + ".proxycfg")
 	if err != nil {
 		return nil, err
 	}

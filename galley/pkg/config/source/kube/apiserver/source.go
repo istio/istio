@@ -55,6 +55,9 @@ type Source struct { // nolint:maligned
 	// the watchers for those resources will be created.
 	expectedResources map[string]schema.KubeResource
 
+	// Set of resources that have been found so far.
+	foundResources map[string]bool
+
 	// publishing indicates that the CRD discovery phase is over and actual data events are being published. Until
 	// publishing set, the incoming CRD events will cause new watchers to come online. Once the publishing is set,
 	// any new CRD event will cause an event.RESET to be published.
@@ -101,16 +104,12 @@ func (s *Source) Start() {
 
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.
+	// We also keep track of what resources have been found in the metadata.
 	s.expectedResources = make(map[string]schema.KubeResource)
+	s.foundResources = make(map[string]bool)
 	for _, r := range s.options.Resources {
-		// If we received the metadata with the resource marked as disabled, simply ignore it.
-		if r.Disabled {
-			continue
-		}
-
-		// Use the disabled bit to track whether we received an event for this resource.
-		r.Disabled = true
-		s.expectedResources[asKey(r.Group, r.Kind)] = r
+		key := asKey(r.Group, r.Kind)
+		s.expectedResources[key] = r
 	}
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
@@ -148,7 +147,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 		r, ok := s.expectedResources[key]
 		if ok {
 			scope.Source.Debugf("Marking resource as available: %v", r.CanonicalResourceName())
-			r.Disabled = false
+			s.foundResources[key] = true
 			s.expectedResources[key] = r
 		}
 
@@ -184,19 +183,27 @@ func (s *Source) startWatchers() {
 	for i, r := range resources {
 		a := s.provider.GetAdapter(r)
 
+		found := s.foundResources[asKey(r.Group, r.Kind)]
+
 		scope.Source.Infof("[%d]", i)
 		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
 		scope.Source.Infof("  Name:  		 %s", r.Collection)
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
 		if !a.IsBuiltIn() {
-			scope.Source.Infof("  Found:  %v", !r.Disabled)
+			scope.Source.Infof("  Found:  %v", found)
 		}
 
-		if a.IsBuiltIn() || !r.Disabled {
+		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
+		// For everything else, create a watcher.
+		if (!a.IsBuiltIn() && !found) || r.Disabled {
+			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Collection.Name)
+			s.handlers.Handle(event.FullSyncFor(r.Collection.Name))
+		} else {
 			col := newWatcher(r, a)
 			col.dispatch(s.handlers)
 			s.watchers[r.Collection.Name] = col
 		}
+
 	}
 
 	for c, w := range s.watchers {

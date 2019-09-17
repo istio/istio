@@ -52,8 +52,8 @@ const (
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
 
-	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
-	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
+	// IngressSecretNamespace the namespace of kubernetes secrets to watch.
+	ingressSecretNamespace = "INGRESS_GATEWAY_NAMESPACE"
 
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
 	// names for ingress gateway root certs end with "-cacert".
@@ -152,7 +152,7 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 }
 
-var namespaceVar = env.RegisterStringVar(ingressSecretNameSpace, "", "")
+var namespaceVar = env.RegisterStringVar(ingressSecretNamespace, "", "")
 
 // InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // nolint:interfacer

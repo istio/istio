@@ -80,14 +80,14 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[host.Name]*model.Service,
-	proxyLabels labels.Collection,
-	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
+	virtualServices []model.Config,
+	listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, listenPort)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -100,8 +100,8 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range serviceRegistry {
 		missing[fqdn] = true
 	}
-	for _, hostname := range out {
-		for _, service := range hostname.Services {
+	for _, wrapper := range out {
+		for _, service := range wrapper.Services {
 			delete(missing, service.Hostname)
 		}
 	}
@@ -110,8 +110,6 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			// TODO(crazyxy): When a HCM is installed in a auto listener that is bound to x.x.x.x:port (where x.x.x.x != 0.0.0.0),
-			//  then the RDS response from Pilot will return all possible hosts from that port. Not just the host for the specific service.
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
@@ -168,7 +166,6 @@ func buildSidecarVirtualHostsForVirtualService(
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	proxyLabels labels.Collection,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
@@ -198,7 +195,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
+		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -253,7 +250,6 @@ func BuildHTTPRoutesForVirtualService(
 	virtualService model.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
-	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
@@ -265,13 +261,13 @@ func BuildHTTPRoutesForVirtualService(
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
@@ -315,14 +311,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	match *networking.HTTPMatchRequest, port int,
 	virtualService model.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
+	if !sourceMatchHTTP(match, node.WorkloadLabels, gatewayNames) {
 		return nil
 	}
 

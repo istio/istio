@@ -288,7 +288,7 @@ func (s *source) parseChunk(yamlChunk []byte) (*fileResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
 	if err != nil {
-		return nil, fmt.Errorf("failed converting YAML to JSON")
+		return nil, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to

@@ -46,7 +46,7 @@ require (
 	github.com/duosecurity/duo_api_golang v0.0.0-20190308151101-6c680f768e74 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/emicklei/go-restful v2.9.3+incompatible
-	github.com/envoyproxy/go-control-plane v0.8.6
+	github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a
 	github.com/evanphx/json-patch v4.2.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/stackerr v0.0.0-20150612192056-c2fcf88613f4 // indirect
@@ -157,8 +157,8 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20190829032130-adb6f9e24baf
 	istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2
-	istio.io/operator v0.0.0-20190827173952-af847b66d2f9
-	istio.io/pkg v0.0.0-20190813222952-67b4f108fe0e
+	istio.io/operator v0.0.0-20190903182931-6c75ed1939cf
+	istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver v0.0.0-20190221221350-bfb440be4b87
 	k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628

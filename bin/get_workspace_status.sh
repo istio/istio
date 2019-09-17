@@ -15,9 +15,9 @@
 # limitations under the License.
 
 if BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null); then
-    if ! git diff-index --quiet HEAD; then
-        BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
-    fi
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
+  fi
 else
     BUILD_GIT_REVISION=unknown
 fi
@@ -35,28 +35,10 @@ if [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-DOCKER_HUB="docker.io/istio"
-if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
-  DOCKER_HUB="${ISTIO_DOCKER_HUB}"
-fi
-
 GIT_DESCRIBE_TAG=$(git describe --tags)
 
 # used by bin/gobuild.sh
-if [ "${GO111MODULE}" == "on" ]; then
-  echo "istio.io/pkg/version.buildVersion=${VERSION}"
-  echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-  echo "istio.io/pkg/version.buildUser=$(whoami)"
-  echo "istio.io/pkg/version.buildHost=$(hostname -f)"
-  echo "istio.io/pkg/version.buildDockerHub=${DOCKER_HUB}"
-  echo "istio.io/pkg/version.buildStatus=${tree_status}"
-  echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"
-else
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildVersion=${VERSION}"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildUser=$(whoami)"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildHost=$(hostname -f)"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildDockerHub=${DOCKER_HUB}"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildStatus=${tree_status}"
-  echo "istio.io/istio/vendor/istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"
-fi
+echo "istio.io/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
+echo "istio.io/pkg/version.buildStatus=${tree_status}"
+echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"

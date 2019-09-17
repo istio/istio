@@ -16,6 +16,8 @@ package model
 
 import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
+	authpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
 	istiolog "istio.io/pkg/log"
 )
@@ -35,17 +37,26 @@ type RolesAndBindings struct {
 
 // AuthorizationPolicies organizes authorization policies by namespace.
 type AuthorizationPolicies struct {
-	// Maps from namespace to RolesAndBindings.
-	namespaceToV1Policies map[string]*RolesAndBindings
+	// Maps from namespace to the v1alpha1 RBAC policies, deprecated by v1beta1 Authorization policy.
+	namespaceToV1alpha1Policies map[string]*RolesAndBindings
 
-	// The mesh global RbacConfig.
+	// The mesh global RbacConfig, deprecated by v1beta1 Authorization policy.
 	rbacConfig *rbacproto.RbacConfig
+
+	// Maps from namespace to the v1beta1 Authorization policies.
+	namespaceToV1beta1Policies map[string][]Config
+
+	// The name of the root namespace. Policy in the root namespace applies to workloads in all
+	// namespaces. Only used for v1beta1 Authorization policy.
+	rootNamespace string
 }
 
 // GetAuthorizationPolicies gets the authorization policies in the mesh.
 func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
 	policy := &AuthorizationPolicies{
-		namespaceToV1Policies: map[string]*RolesAndBindings{},
+		namespaceToV1alpha1Policies: map[string]*RolesAndBindings{},
+		namespaceToV1beta1Policies:  map[string][]Config{},
+		rootNamespace:               env.Mesh.GetRootNamespace(),
 	}
 
 	rbacConfig := env.IstioConfigStore.ClusterRbacConfig()
@@ -68,11 +79,18 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	}
 	policy.addServiceRoleBindings(bindings)
 
+	policies, err := env.List(schemas.AuthorizationPolicy.Type, NamespaceAll)
+	if err != nil {
+		return nil, err
+	}
+	sortConfigByCreationTime(policies)
+	policy.addAuthorizationPolicies(policies)
+
 	return policy, nil
 }
 
-// IsV1RbacEnabled returns true if RBAC is enabled for the service in the given namespace.
-func (policy *AuthorizationPolicies) IsV1RbacEnabled(service string, namespace string) bool {
+// IsRBACEnabled returns true if RBAC is enabled for the service in the given namespace.
+func (policy *AuthorizationPolicies) IsRBACEnabled(service string, namespace string) bool {
 	if policy == nil || policy.rbacConfig == nil {
 		return false
 	}
@@ -96,26 +114,26 @@ func (policy *AuthorizationPolicies) IsGlobalPermissiveEnabled() bool {
 		policy.rbacConfig.EnforcementMode == rbacproto.EnforcementMode_PERMISSIVE
 }
 
-// GetRolesInNamespace returns ServiceRole in the given namespace.
-func (policy *AuthorizationPolicies) GetRolesInNamespace(ns string) []Config {
+// ListServiceRoles returns ServiceRole in the given namespace.
+func (policy *AuthorizationPolicies) ListServiceRoles(ns string) []Config {
 	if policy == nil {
 		return nil
 	}
 
-	rolesAndBindings := policy.namespaceToV1Policies[ns]
+	rolesAndBindings := policy.namespaceToV1alpha1Policies[ns]
 	if rolesAndBindings == nil {
 		return nil
 	}
 	return rolesAndBindings.Roles
 }
 
-// GetBindingsInNamespace returns the ServiceRoleBindings in the given namespace.
-func (policy *AuthorizationPolicies) GetBindingsInNamespace(ns string) map[string][]*rbacproto.ServiceRoleBinding {
+// ListServiceRoleBindings returns the ServiceRoleBindings in the given namespace.
+func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[string][]*rbacproto.ServiceRoleBinding {
 	if policy == nil {
 		return map[string][]*rbacproto.ServiceRoleBinding{}
 	}
 
-	rolesAndBindings := policy.namespaceToV1Policies[ns]
+	rolesAndBindings := policy.namespaceToV1alpha1Policies[ns]
 	if rolesAndBindings == nil || rolesAndBindings.Bindings == nil {
 		return map[string][]*rbacproto.ServiceRoleBinding{}
 	}
@@ -123,17 +141,47 @@ func (policy *AuthorizationPolicies) GetBindingsInNamespace(ns string) map[strin
 	return rolesAndBindings.Bindings
 }
 
+// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
+	workloadLabels labels.Collection) []Config {
+	if policy == nil {
+		return nil
+	}
+
+	var namespaces []string
+	if policy.rootNamespace != "" {
+		namespaces = append(namespaces, policy.rootNamespace)
+	}
+	// To prevent duplicate policies in case root namespace equals proxy's namespace.
+	if configNamespace != policy.rootNamespace {
+		namespaces = append(namespaces, configNamespace)
+	}
+
+	var ret []Config
+	for _, ns := range namespaces {
+		for _, config := range policy.namespaceToV1beta1Policies[ns] {
+			spec := config.Spec.(*authpb.AuthorizationPolicy)
+			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+			if workloadLabels.IsSupersetOf(selector) {
+				ret = append(ret, config)
+			}
+		}
+	}
+
+	return ret
+}
+
 func (policy *AuthorizationPolicies) addServiceRoles(roles []Config) {
 	if policy == nil {
 		return
 	}
 	for _, role := range roles {
-		if policy.namespaceToV1Policies[role.Namespace] == nil {
-			policy.namespaceToV1Policies[role.Namespace] = &RolesAndBindings{
+		if policy.namespaceToV1alpha1Policies[role.Namespace] == nil {
+			policy.namespaceToV1alpha1Policies[role.Namespace] = &RolesAndBindings{
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
 			}
 		}
-		rolesAndBindings := policy.namespaceToV1Policies[role.Namespace]
+		rolesAndBindings := policy.namespaceToV1alpha1Policies[role.Namespace]
 		rolesAndBindings.Roles = append(rolesAndBindings.Roles, role)
 	}
 }
@@ -152,14 +200,25 @@ func (policy *AuthorizationPolicies) addServiceRoleBindings(bindings []Config) {
 			return
 		}
 
-		if policy.namespaceToV1Policies[binding.Namespace] == nil {
-			policy.namespaceToV1Policies[binding.Namespace] = &RolesAndBindings{
+		if policy.namespaceToV1alpha1Policies[binding.Namespace] == nil {
+			policy.namespaceToV1alpha1Policies[binding.Namespace] = &RolesAndBindings{
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{},
 			}
 		}
-		rolesAndBindings := policy.namespaceToV1Policies[binding.Namespace]
+		rolesAndBindings := policy.namespaceToV1alpha1Policies[binding.Namespace]
 		rolesAndBindings.Bindings[name] = append(
 			rolesAndBindings.Bindings[name], binding.Spec.(*rbacproto.ServiceRoleBinding))
+	}
+}
+
+func (policy *AuthorizationPolicies) addAuthorizationPolicies(configs []Config) {
+	if policy == nil {
+		return
+	}
+
+	for _, config := range configs {
+		policy.namespaceToV1beta1Policies[config.Namespace] =
+			append(policy.namespaceToV1beta1Policies[config.Namespace], config)
 	}
 }
 

@@ -15,9 +15,12 @@
 package v1alpha3
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
@@ -182,6 +185,9 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
@@ -214,8 +220,8 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 4 {
-			t.Fatalf("expect virtual listener has 4 passthrough listeners, found %d", v)
+		if k == VirtualInboundListenerName && v != 2 {
+			t.Fatalf("expect virtual listener has 2 passthrough listeners, found %d", v)
 		}
 		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
 			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
@@ -224,6 +230,8 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
@@ -233,11 +241,10 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 
 	l := listeners[2]
-	// 4 is the 2 passthrough tcp filter chains one for ipv4 and one for ipv6
-	// and 2 http filter chains one for ipv4 and one for ipv6
-	if len(l.FilterChains) != len(listeners[0].FilterChains)+4 {
+	// 2 is the 1 passthrough tcp filter chain for ipv4 and 1 http filter chain for ipv4
+	if len(l.FilterChains) != len(listeners[0].FilterChains)+2 {
 		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
-			"plus the 4 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+4, len(l.FilterChains))
+			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
 	}
 
 	sawIpv4PassthroughCluster := false
@@ -271,8 +278,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 	}
 
-	if !sawIpv4PassthroughCluster || !sawIpv6PassthroughCluster {
-		t.Fatalf("fail to find 1 ipv6 passthrough filter chain and 1 ipv4 passthrough filter chain in listener %v", l)
+	if !sawIpv4PassthroughCluster {
+		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
 	}
 
 	if len(l.ListenerFilters) != 2 {

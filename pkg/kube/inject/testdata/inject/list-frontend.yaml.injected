@@ -36,6 +36,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          security.istio.io/mtlsReady: "true"
           tier: frontend
           track: stable
       spec:
@@ -86,6 +87,12 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_POD_PORTS
+            value: |-
+              [
+              ]
+          - name: ISTIO_META_CLUSTER_ID
+            value: Kubernetes
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:

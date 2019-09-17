@@ -21,6 +21,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -621,6 +622,198 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Duplicate hosts in TLS filterChain",
+			node: &pilot_model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org", "example.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
+					},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+		{
+			name: "Unique hosts in TLS filterChain",
+			node: &pilot_model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org", "test.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org", "test.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
+					},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+		{
+			name: "Wildcard hosts in TLS filterChain are not duplicates",
+			node: &pilot_model.Proxy{},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"*.example.org", "example.org"},
+				Tls: &networking.Server_TLSOptions{
+					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			result: &filterChainOpts{
+				sniHosts: []string{"*.example.org", "example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: &types.BoolValue{
+						Value: true,
+					},
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS,
+					connectionManager: &http_conn.HttpConnectionManager{
+						ForwardClientCertDetails: http_conn.SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -752,9 +945,10 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			proxy13Gateway.SetGatewaysForProxy(env.PushContext)
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy13Gateway, env.PushContext, tt.routeName)
 			if route == nil {
-				t.Error("got an empty route configuration")
+				t.Fatal("got an empty route configuration")
 			}
 			vh := make([]string, 0)
 			for _, h := range route.VirtualHosts {
@@ -776,6 +970,9 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 	configStore.ListStub = func(typ, namespace string) (configs []pilot_model.Config, e error) {
 		if typ == "virtual-service" {
 			return virtualServices, nil
+		}
+		if typ == "gateway" {
+			return gateways, nil
 		}
 		return nil, nil
 	}

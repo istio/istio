@@ -706,7 +706,9 @@ func TestKubeenvMetrics(t *testing.T) {
 	for _, sample := range vec {
 		metric := sample.Metric
 		for labelKey, labelVal := range metric {
-			if labelVal == "unknown" {
+			// destination_container is expected to be unknown when containerPort is removed
+			// TODO(bianpengyuan): restore the destination_container check
+			if labelVal == "unknown" && labelKey != "destination_container" {
 				errorf(t, "Unexpected 'unknown' value for label '%s' in sample '%s'", labelKey, sample)
 			}
 		}

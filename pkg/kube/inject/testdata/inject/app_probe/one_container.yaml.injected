@@ -15,12 +15,13 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"6999a67a9a62a7db8c693879490aa84d2e51e949282b23f6d1484d023eba954c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3ae2237c99cecd220c8a89781e3929298793b967a9e628986e30bf4ec51a57db","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -75,6 +76,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:

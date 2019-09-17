@@ -43,6 +43,22 @@ func TestWebhook(t *testing.T) {
 
 			istioNs := i.Settings().IstioNamespace
 
+			// Verify galley re-creates the webhook when it is deleted.
+			ctx.NewSubTest("recreateOnDelete").
+				Run(func(ctx framework.TestContext) {
+					startVersion := getVwcResourceVersion(vwcName, t, env)
+
+					if err := env.DeleteValidatingWebhook(vwcName); err != nil {
+						t.Fatalf("Error deleting validation webhook: %v", err)
+					}
+
+					time.Sleep(sleepDelay)
+					version := getVwcResourceVersion(vwcName, t, env)
+					if version == startVersion {
+						t.Fatalf("ValidatingWebhookConfiguration was not re-created after deletion")
+					}
+				})
+
 			// Verify that scaling up/down doesn't modify webhook configuration
 			ctx.NewSubTest("scaling").
 				Run(func(ctx framework.TestContext) {
@@ -54,24 +70,67 @@ func TestWebhook(t *testing.T) {
 					time.Sleep(sleepDelay)
 					gen := getVwcGeneration(vwcName, t, env)
 					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up")
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
 					}
 
-					// Scale down
+					// Scale down to zero
+					scaleDeployment(istioNs, deployName, 0, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen = getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
+					}
+
+					// Scale back to 1
 					scaleDeployment(istioNs, deployName, 1, t, env)
 					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
 					time.Sleep(sleepDelay)
 					gen = getVwcGeneration(vwcName, t, env)
 					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down")
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
 					}
 				})
 
-			// Verify that removing the galley deployment results in the webhook configuration being removed
-			ctx.NewSubTest("galleyUninstall").
+			// Verify that scaling up/down doesn't modify webhook configuration
+			ctx.NewSubTest("scaling").
 				Run(func(ctx framework.TestContext) {
-					// Remove galley deployment
-					env.DeleteDeployment(istioNs, deployName)
+					startGen := getVwcGeneration(vwcName, t, env)
+
+					// Scale up
+					scaleDeployment(istioNs, deployName, 2, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen := getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
+					}
+
+					// Scale down to zero
+					scaleDeployment(istioNs, deployName, 0, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen = getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
+					}
+
+					// Scale back to 1
+					scaleDeployment(istioNs, deployName, 1, t, env)
+					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
+					time.Sleep(sleepDelay)
+					gen = getVwcGeneration(vwcName, t, env)
+					if gen != startGen {
+						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
+					}
+				})
+
+			// NOTE: Keep this as the last test! It deletes the istio-system namespaces. All subsequent kube tests will fail.
+			// Verify that removing galley's namespace results in the webhook configuration being removed
+			ctx.NewSubTest("webhookUninstall").
+				Run(func(ctx framework.TestContext) {
+					// Remove galley's namespace
+					env.DeleteNamespace(istioNs)
 
 					// Verify webhook config is deleted
 					env.WaitForValidatingWebhookDeletion(vwcName)
@@ -95,6 +154,14 @@ func getVwcGeneration(vwcName string, t *testing.T, env *kube.Environment) int64
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}
 	return vwc.GetGeneration()
+}
+
+func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) string {
+	vwc, err := env.GetValidatingWebhookConfiguration(vwcName)
+	if err != nil {
+		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
+	}
+	return vwc.GetResourceVersion()
 }
 
 func TestMain(m *testing.M) {

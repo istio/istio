@@ -38,7 +38,8 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -233,11 +234,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
-	// Expect 12 CDS clusters:
-	// 3 inbound(http, inbound passthroughipv4 and inbound passthroughipv6)
+	// Expect 11 CDS clusters:
+	// 2 inbound(http, inbound passthroughipv4) notes: no passthroughipv6
 	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
-	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 12 {
+	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 11 {
 		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
 	}
 
@@ -457,6 +458,8 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
@@ -538,43 +541,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			expectLuaFilter(t, l, test.expectLuaFilter)
 		})
 	}
-}
-
-// TestLDSWithWorkloadLabelUpdate tests updating workload labels will trigger xDS
-func TestLDSWithWorkloadLabelUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	registry := memServiceDiscovery(server, t)
-	registry.AddWorkload(app3Ip, labels.Instance{"version": "v1"})
-
-	t.Run("workload label update", func(t *testing.T) {
-		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			IP:        app3Ip,
-			Namespace: "default",
-			Workload:  "app3",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ldsr.Close()
-
-		ldsr.Watch()
-
-		_, err = ldsr.Wait(5*time.Second, "lds")
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-
-		// trigger full push
-		registry.UpdateWorkloadLabels(app3Ip, labels.Instance{"version": "v2"})
-		_, err = ldsr.Wait(5*time.Second, "lds")
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-	})
 }
 
 func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {

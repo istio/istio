@@ -47,6 +47,24 @@ func (a *Accumulator) Events() []event.Event {
 	return r
 }
 
+// EventsWithoutOrigins calls Events, strips the origin fields from the embedded resources and returns result.
+func (a *Accumulator) EventsWithoutOrigins() []event.Event {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	events := make([]event.Event, len(a.events))
+	copy(events, a.events)
+
+	for i := 0; i < len(events); i++ {
+		e := events[i].Entry
+		if e != nil {
+			e.Origin = nil
+		}
+		events[i].Entry = e
+	}
+	return events
+}
+
 // Clear all currently accummulated events.
 func (a *Accumulator) Clear() {
 	a.mu.Lock()

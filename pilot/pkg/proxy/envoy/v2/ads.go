@@ -84,6 +84,10 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// Sending on this channel results in a reset on proxy attributes.
+	// Generally it comes before a XdsEvent.
+	updateChannel chan *UpdateEvent
+
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -187,15 +191,22 @@ type XdsEvent struct {
 	done func()
 }
 
+// UpdateEvent represents a update request for the proxy.
+// This will trigger proxy specific attributes reset before each push.
+type UpdateEvent struct {
+	workloadLabel bool
+}
+
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:  make(chan *XdsEvent),
-		PeerAddr:     peerAddr,
-		Clusters:     []string{},
-		Connect:      time.Now(),
-		stream:       stream,
-		LDSListeners: []*xdsapi.Listener{},
-		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:   make(chan *XdsEvent),
+		updateChannel: make(chan *UpdateEvent, 1),
+		PeerAddr:      peerAddr,
+		Clusters:      []string{},
+		Connect:       time.Now(),
+		stream:        stream,
+		LDSListeners:  []*xdsapi.Listener{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -421,7 +432,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				for _, cn := range clusters {
-					s.addEdsCon(cn, con.ConID, con)
+					s.getOrAddEdsCluster(cn, con.ConID, con)
 				}
 
 				con.Clusters = clusters
@@ -443,6 +454,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				defer s.removeCon(con.ConID, con)
 			} else {
 				con.mu.Unlock()
+			}
+		case updateEv := <-con.updateChannel:
+			if updateEv.workloadLabel && con.modelNode != nil {
+				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
 			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
@@ -500,12 +515,13 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 
-	// Set the sidecarScope associated with this proxy
+	// Set the sidecarScope and merged gateways associated with this proxy
 	nt.SetSidecarScope(s.globalPushContext())
+	nt.SetGatewaysForProxy(s.globalPushContext())
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -543,7 +559,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
 		return err
 	}
 
@@ -558,11 +574,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 	}
 
-	// Precompute the sidecar scope associated with this proxy.
+	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	con.modelNode.SetSidecarScope(pushEv.push)
+	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !proxyNeedsPush(con, pushEv.targetNamespaces) {
@@ -578,7 +595,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.CDSWatch {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
@@ -586,21 +602,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
-			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}

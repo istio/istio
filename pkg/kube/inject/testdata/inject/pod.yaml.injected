@@ -8,6 +8,8 @@ metadata:
     traffic.sidecar.istio.io/includeInboundPorts: "80"
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
   creationTimestamp: null
+  labels:
+    security.istio.io/mtlsReady: "true"
   name: hellopod
 spec:
   containers:
@@ -53,6 +55,13 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.name
+    - name: ISTIO_META_POD_PORTS
+      value: |-
+        [
+            {"name":"http","containerPort":80}
+        ]
+    - name: ISTIO_META_CLUSTER_ID
+      value: Kubernetes
     - name: POD_NAMESPACE
       valueFrom:
         fieldRef:

@@ -29,6 +29,9 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-citadel-service-account
 {{- if .Values.global.priorityClassName }}

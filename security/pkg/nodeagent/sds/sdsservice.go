@@ -17,7 +17,6 @@ package sds
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -119,7 +118,8 @@ type sdsservice struct {
 	closing chan bool
 }
 
-type sdsclientdebug struct {
+// ClientDebug represents a single SDS connection to the ndoe agent
+type ClientDebug struct {
 	ConnectionID string `json:"connection_id"`
 	ProxyID      string `json:"proxy"`
 	ResourceName string `json:"resource_name"`
@@ -130,8 +130,10 @@ type sdsclientdebug struct {
 	CreatedTime      string `json:"created_time"`
 	ExpireTime       string `json:"expire_time"`
 }
-type sdsdebug struct {
-	Clients []sdsclientdebug `json:"clients"`
+
+// Debug represents all clients connected to this node agent endpoint and their supplied secrets
+type Debug struct {
+	Clients []ClientDebug `json:"clients"`
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
@@ -161,7 +163,7 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 func (s *sdsservice) DebugInfo() (string, error) {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-	clientDebug := make([]sdsclientdebug, 0)
+	clientDebug := make([]ClientDebug, 0)
 	for connKey, conn := range sdsClients {
 		// it's possible for the connection to be established without an instantiated secret
 		if conn.secret == nil {
@@ -169,13 +171,12 @@ func (s *sdsservice) DebugInfo() (string, error) {
 		}
 
 		conn.mutex.RLock()
-		c := sdsclientdebug{
-			ConnectionID: connKey.ConnectionID,
-			ProxyID:      conn.proxyID,
-			ResourceName: conn.ResourceName,
-			// should be base64 encoded for straightforward comparison with Envoy SDS config dump format
-			CertificateChain: base64.StdEncoding.EncodeToString(conn.secret.CertificateChain),
-			RootCert:         base64.StdEncoding.EncodeToString(conn.secret.RootCert),
+		c := ClientDebug{
+			ConnectionID:     connKey.ConnectionID,
+			ProxyID:          conn.proxyID,
+			ResourceName:     conn.ResourceName,
+			CertificateChain: string(conn.secret.CertificateChain),
+			RootCert:         string(conn.secret.RootCert),
 			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
 			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
 		}
@@ -183,7 +184,7 @@ func (s *sdsservice) DebugInfo() (string, error) {
 		conn.mutex.RUnlock()
 	}
 
-	debug := sdsdebug{
+	debug := Debug{
 		Clients: clientDebug,
 	}
 	debugJSON, err := json.MarshalIndent(debug, " ", "	")

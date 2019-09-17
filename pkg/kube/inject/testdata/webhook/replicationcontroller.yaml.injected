@@ -14,6 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
+        security.istio.io/mtlsReady: "true"
       name: nginx
     spec:
       containers:
@@ -60,6 +61,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:

@@ -152,12 +152,16 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if util.IsProtocolSniffingEnabledForNode(builder.node) {
+	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: envoyListenerHTTPInspector,
 			})
 	}
+
+	timeout := features.InboundProtocolDetectionTimeout
+	builder.virtualInboundListener.ListenerFiltersTimeout = &timeout
+	builder.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
 	return builder
 }
@@ -301,7 +305,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains := newInboundPassthroughFilterChains(env, node)
-	if util.IsProtocolSniffingEnabledForNode(node) {
+	if util.IsProtocolSniffingEnabledForInbound(node) {
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
@@ -397,10 +401,18 @@ func newBlackholeFilter(enableAny bool) listener.Filter {
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
-	// ipv4 and ipv6
+	ipv4, ipv6 := ipv4AndIpv6Support(node)
+	// ipv4 and ipv6 feature detect
+	ipVersions := make([]string, 0, 2)
+	if ipv4 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
+	}
+	if ipv6 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
-	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
 
+	for _, clusterName := range ipVersions {
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       clusterName,
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
@@ -444,9 +456,18 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 
 func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.Environment,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	ipv4, ipv6 := ipv4AndIpv6Support(node)
+	// ipv4 and ipv6 feature detect
+	ipVersions := make([]string, 0, 2)
+	if ipv4 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
+	}
+	if ipv6 {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
 
-	for _, clusterName := range []string{util.InboundPassthroughClusterIpv4, util.InboundPassthroughClusterIpv6} {
+	for _, clusterName := range ipVersions {
 		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
 			matchingIP = "0.0.0.0/0"

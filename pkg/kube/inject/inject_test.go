@@ -110,6 +110,16 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			in:                           "hello-mtls-not-ready.yaml",
+			want:                         "hello-mtls-not-ready.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			in:                           "hello-namespace.yaml",
 			want:                         "hello-namespace.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
@@ -635,6 +645,11 @@ func TestRewriteAppProbe(t *testing.T) {
 			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
 			rewriteAppHTTPProbe: true,
 			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
+		},
+		{
+			in:                  "ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "ready_live.yaml.injected",
 		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.

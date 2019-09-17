@@ -214,7 +214,7 @@ global:
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: 10ms
+    protocolDetectionTimeout: 100ms
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -404,6 +404,10 @@ global:
     # talk to one another. All clusters should be using Istio mTLS and must
     # have a shared root CA for this model to work.
     enabled: false
+
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).

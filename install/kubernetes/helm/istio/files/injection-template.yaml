@@ -160,6 +160,17 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: metadata.name
+  - name: ISTIO_META_POD_PORTS
+    value: |-
+      [
+      {{- range $index1, $c := .Spec.Containers }}
+        {{- range $index2, $p := $c.Ports }}
+          {{if or (ne $index1 0) (ne $index2 0)}},{{end}}{{ structToJSON $p }}
+        {{- end}}
+      {{- end}}
+      ]
+  - name: ISTIO_META_CLUSTER_ID
+    value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
   - name: POD_NAMESPACE
     valueFrom:
       fieldRef:

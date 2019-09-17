@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # This test checks for control and data plane crossgrade. It runs the following steps:
 # 1. Installs istio with multiple gateway replicas at from_hub/tag/path (path must point to a dir with release).
 # 2. Installs fortio echosrv with a couple of different subsets/destination rules with multiple replicas.
@@ -194,35 +208,25 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"1.2"* || "${release_path}" == *"master"* ]]; then
-        # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
-        helm init --client-only
-        for i in "${3}"/install/kubernetes/helm/istio-init/files/crd*yaml; do
-            echo_and_run kubectl apply -f "${i}"
-        done
-        sleep 5 # Per official Istio documentation!
 
-        helm template "${release_path}" "${auth_opts}" \
-        --name istio --namespace "${ISTIO_NAMESPACE}" \
-        --set gateways.istio-ingressgateway.autoscaleMin=4 \
-        --set pilot.autoscaleMin=2 \
-        --set mixer.telemetry.autoscaleMin=2 \
-        --set mixer.policy.autoscaleMin=2 \
-        --set prometheus.enabled=false \
-        --set-string global.hub="${1}" \
-        --set-string global.tag="${2}" \
-        --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
-    else
-        helm template "${release_path}" "${auth_opts}" \
-        --name istio --namespace "${ISTIO_NAMESPACE}" \
-        --set gateways.istio-ingressgateway.autoscaleMin=4 \
-        --set pilot.autoscaleMin=2 \
-        --set mixer.istio-telemetry.autoscaleMin=2 \
-        --set mixer.istio-policy.autoscaleMin=2 \
-        --set prometheus.enabled=false \
-        --set-string global.hub="${1}" \
-        --set-string global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
-    fi
+    # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
+    helm init --client-only
+    for i in "${3}"/install/kubernetes/helm/istio-init/files/crd*yaml; do
+        echo_and_run kubectl apply -f "${i}"
+    done
+    sleep 5 # Per official Istio documentation!
+
+    helm template "${release_path}" "${auth_opts}" \
+    --name istio --namespace "${ISTIO_NAMESPACE}" \
+    --set gateways.istio-ingressgateway.autoscaleMin=4 \
+    --set pilot.autoscaleMin=2 \
+    --set mixer.telemetry.autoscaleMin=2 \
+    --set mixer.policy.autoscaleMin=2 \
+    --set prometheus.enabled=false \
+    --set-string global.hub="${1}" \
+    --set-string global.tag="${2}" \
+    --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
+
 
 
     withRetries 3 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml

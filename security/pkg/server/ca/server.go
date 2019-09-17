@@ -75,7 +75,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
-		s.monitoring.AuthnError.Inc()
+		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
@@ -86,7 +86,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*ca.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*ca.Error))
 	}
 	respCertChain := []string{string(cert)}
@@ -123,25 +123,25 @@ func extractRootCertExpiryTimestamp(ca ca.CertificateAuthority) float64 {
 // to sign is returned as part of the response object.
 // [TODO](myidpt): Deprecate this function.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
-	s.monitoring.CSR.Inc()
+	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil || len(caller.Identities) == 0 {
 		log.Warn("request authentication failure, no caller identity")
-		s.monitoring.AuthnError.Inc()
+		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure, no caller identity")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR Pem parsing error (error %v)", err)
-		s.monitoring.CSRError.Inc()
+		s.monitoring.CSRError.Increment()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
-		s.monitoring.IDExtractionError.Inc()
+		s.monitoring.IDExtractionError.Increment()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
@@ -152,7 +152,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*ca.Error))
 	}
 
@@ -162,7 +162,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		CertChain:  certChainBytes,
 	}
 	log.Debug("CSR successfully signed.")
-	s.monitoring.Success.Inc()
+	s.monitoring.Success.Increment()
 
 	return response, nil
 }
@@ -236,7 +236,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	}
 
 	version.Info.RecordComponentBuildTag("citadel")
-	rootCertExpiryTimestamp.Set(extractRootCertExpiryTimestamp(ca))
+	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{
 		authenticators: authenticators,

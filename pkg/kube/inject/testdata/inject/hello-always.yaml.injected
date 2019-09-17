@@ -22,6 +22,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -68,6 +69,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:

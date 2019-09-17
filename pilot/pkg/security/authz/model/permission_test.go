@@ -209,6 +209,17 @@ func TestPermission_Generate(t *testing.T) {
           - any: true`,
 		},
 		{
+			name: "allowAll permission",
+			permission: &Permission{
+				Hosts:    []string{"ignored"},
+				AllowAll: true,
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - any: true`,
+		},
+		{
 			name: "permission with hosts",
 			permission: &Permission{
 				Hosts: []string{"host-1", "host-2"},
@@ -316,7 +327,7 @@ func TestPermission_Generate(t *testing.T) {
 		{
 			name: "permission with ports",
 			permission: &Permission{
-				Ports: []int32{80, 90},
+				Ports: []string{"80", "90"},
 			},
 			wantYAML: `
         andRules:
@@ -329,7 +340,7 @@ func TestPermission_Generate(t *testing.T) {
 		{
 			name: "permission with notPorts",
 			permission: &Permission{
-				NotPorts: []int32{80, 90},
+				NotPorts: []string{"80", "90"},
 			},
 			wantYAML: `
         andRules:

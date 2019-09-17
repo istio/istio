@@ -62,17 +62,6 @@ api ${API_SHA}
 cni ${CNI_REPO_SHA}
 tools ${TOOLS_HEAD_SHA}
 EOF
-
-
-  if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
-     pushd ../proxy || exit
-       PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-     popd || exit
-     if [[ "$PROXY_API_SHA" != "$API_REPO_SHA"* ]]; then
-       echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
-       exit 17
-     fi
-  fi
 }
 
 function make_istio() {
@@ -90,21 +79,15 @@ function make_istio() {
   MAKE_TARGETS=(istio-archive)
   MAKE_TARGETS+=(sidecar.deb)
   
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make "${MAKE_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make "${MAKE_TARGETS[@]}"
   mkdir -p "${OUTPUT_PATH}/deb"
   sha256sum "${ISTIO_OUT}/istio-sidecar.deb" > "${OUTPUT_PATH}/deb/istio-sidecar.deb.sha256"
   cp        "${ISTIO_OUT}/istio-sidecar.deb"   "${OUTPUT_PATH}/deb/"
   cp        "${ISTIO_OUT}"/archive/istio-*z*   "${OUTPUT_PATH}/"
 
-  declare -a ISTIOCTL_ARCHIVES
-  
-  mapfile -t ISTIOCTL_ARCHIVES < <(ls "${ISTIO_OUT}"/archive/istioctl*.tar.gz)
-  mapfile -t ISTIOCTL_ARCHIVES < <(ls "${ISTIO_OUT}"/archive/istioctl*.zip)
-
-  for i in "${ISTIOCTL_ARCHIVES[@]}"; do
-    sha256sum "$i" > "$i.sha256"
+  for file in "${ISTIO_OUT}"/archive/istioctl*.*; do
+    sha256sum "${file}" > "$file.sha256"
   done
-
   cp        "${ISTIO_OUT}"/archive/istioctl*.tar.gz "${OUTPUT_PATH}/"      
   cp        "${ISTIO_OUT}"/archive/istioctl*.zip    "${OUTPUT_PATH}/"
   cp        "${ISTIO_OUT}"/archive/istioctl*.sha256 "${OUTPUT_PATH}/"
@@ -112,7 +95,7 @@ function make_istio() {
   rm -r "${ISTIO_OUT}/docker" || true
   BUILD_DOCKER_TARGETS=(docker.save)
 
-  CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
+  CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} DOCKER_BUILD_VARIANTS="default distroless" make "${BUILD_DOCKER_TARGETS[@]}"
 
   # preserve the source from the root of the code
   pushd "${ROOT}/../../../.." || exit
@@ -135,9 +118,9 @@ function make_istio() {
     CNI_OUT=$(make DEBUG=0 where-is-out)
     rm -r "${CNI_OUT}/docker" || true
     # CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
-    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
+    CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB="${DOCKER_HUB}" HUB="${DOCKER_HUB}" make build
   
-    CB_BRANCH=${BRANCH} VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
+    CB_BRANCH=${BRANCH} DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} make docker.save || exit 1
 
     cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
     git status
@@ -183,11 +166,17 @@ function update_helm() {
   sed -i "s|hub: gcr.io/istio-release|hub: ${DOCKER_HUB}|g" ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${VERSION}|g"         ./"istio-${VERSION}"/install/kubernetes/helm/istio*/values.yaml ./"istio-${VERSION}"/install/kubernetes/helm/istio-cni/values_gke.yaml
   current_tag=$(grep "appVersion" ./"istio-${VERSION}"/install/kubernetes/helm/istio/Chart.yaml  | cut -d ' ' -f2)
+  # The Helm version must follow SemVer 2. In the case $VERSION doesn't (e.g. "master-latest-daily"),
+  # prepend "0.0.0-" to it to make it a valid pre-release SemVer 2 version.
+  local helm_version="$VERSION"
+  if [[ ! $helm_version =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    helm_version="0.0.0-$helm_version"
+  fi
   if [ "${current_tag}" != "${VERSION}" ]; then
-    find . -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/version: ${current_tag}/version: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
-    find . -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/tag: ${current_tag}/tag: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/version: ${current_tag}/version: ${helm_version}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/appVersion: ${current_tag}/appVersion: ${VERSION}/g" {} \;
+    find ./"istio-${VERSION}"/install/kubernetes/helm -type f -exec sed -i "s/istio-release\/releases\/${current_tag}/istio-release\/releases\/${VERSION}/g" {} \;
   fi
 
   # replace prerelease with release location for istio.io repo

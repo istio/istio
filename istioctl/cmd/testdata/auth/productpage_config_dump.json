@@ -206,7 +206,7 @@
             },
             {
               "tag_name": "response_code",
-              "regex": "_rq(_(\\d{3}))$"
+              "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$"
             },
             {
               "tag_name": "response_code_class",
