@@ -21,7 +21,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -34,6 +33,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -242,7 +242,7 @@ func MessageToStruct(msg proto.Message) *pstruct.Struct {
 }
 
 // GogoDurationToDuration converts from gogo proto duration to time.duration
-func GogoDurationToDuration(d *types.Duration) *time.Duration {
+func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 	if d == nil {
 		return nil
 	}
@@ -252,7 +252,7 @@ func GogoDurationToDuration(d *types.Duration) *time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 		return nil
 	}
-	return &dur
+	return ptypes.DurationProto(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.

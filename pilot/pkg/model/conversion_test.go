@@ -68,6 +68,7 @@ func TestApplyJSON(t *testing.T) {
 }
 
 func TestGogoProtoSchemaConversions(t *testing.T) {
+	t.Skip("requires galley supporting standard protobufs")
 	msg := &mccpb.HTTPAPISpec{
 		Attributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{

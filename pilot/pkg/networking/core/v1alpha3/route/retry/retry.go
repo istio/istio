@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -82,8 +81,7 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	}
 
 	if in.PerTryTimeout != nil {
-		d := util.GogoDurationToDuration(in.PerTryTimeout)
-		out.PerTryTimeout = ptypes.DurationProto(*d)
+		out.PerTryTimeout = util.GogoDurationToDuration(in.PerTryTimeout)
 	}
 	return out
 }
