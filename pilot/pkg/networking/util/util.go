@@ -231,16 +231,6 @@ func MessageToAny(msg proto.Message) *any.Any {
 	return s
 }
 
-// MessageToGogoAny converts from proto message to gogo Any
-func MessageToGogoAny(msg proto.Message) *types.Any {
-	s, err := types.MarshalAny(msg)
-	if err != nil {
-		log.Error(err.Error())
-		return nil
-	}
-	return s
-}
-
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *pstruct.Struct {
 	s, err := conversion.MessageToStruct(msg)

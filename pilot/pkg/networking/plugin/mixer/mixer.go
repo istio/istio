@@ -15,6 +15,7 @@
 package mixer
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"strconv"
@@ -27,8 +28,10 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 
@@ -42,7 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 type mixerplugin struct{}
@@ -85,6 +87,30 @@ const (
 	inbound direction = iota
 	outbound
 )
+
+func toAny(msg gogoproto.Message) *any.Any {
+	out, _ := types.MarshalAny(msg)
+	return &any.Any{
+		TypeUrl: out.TypeUrl,
+		Value:   out.Value,
+	}
+}
+
+func toStruct(msg gogoproto.Message) *pstruct.Struct {
+	if msg == nil {
+		return &pstruct.Struct{}
+	}
+	buf := &bytes.Buffer{}
+	if err := (&gogojsonpb.Marshaler{OrigName: true}).Marshal(buf, msg); err != nil {
+		return &pstruct.Struct{}
+	}
+
+	pbs := &pstruct.Struct{}
+	if err := jsonpb.Unmarshal(buf, pbs); err != nil {
+		return &pstruct.Struct{}
+	}
+	return pbs
+}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
 func NewPlugin() plugin.Plugin {
@@ -417,9 +443,9 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: toAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: toStruct(cfg)}
 	}
 
 	return out
@@ -441,9 +467,9 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: toAny(cfg)}
 	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: toStruct(cfg)}
 	}
 
 	return out
@@ -567,9 +593,9 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: toAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
+		out.ConfigType = &listener.Filter_Config{Config: toStruct(cfg)}
 	}
 
 	return out
@@ -586,9 +612,9 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	}
 
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: gogo.AnyToProtoAny(util.MessageToGogoAny(cfg))}
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: toAny(cfg)}
 	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
+		out.ConfigType = &listener.Filter_Config{Config: toStruct(cfg)}
 	}
 
 	return out
@@ -598,8 +624,7 @@ func addServiceConfig(filterConfigs map[string]*pstruct.Struct, config *mccpb.Se
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*pstruct.Struct)
 	}
-	s, _ := conversion.MessageToStruct(config)
-	filterConfigs[mixer] = s
+	filterConfigs[mixer] = toStruct(config)
 	return filterConfigs
 }
 
@@ -607,7 +632,7 @@ func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.Serv
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*any.Any)
 	}
-	filterConfigs[mixer] = util.MessageToAny(config)
+	filterConfigs[mixer] = toAny(config)
 	return filterConfigs
 }
 
