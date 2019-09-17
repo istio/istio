@@ -29,7 +29,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 
@@ -574,36 +573,6 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 
 	return out
-}
-
-// XDS protos use golang/protobuf, but the istio APIs use gogo protos. This means the golang/protobuf
-// backend needs to register the mixer client filter protos.
-func init() {
-	//nolint: lll
-	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", mccpb.NetworkFailPolicy_FailPolicy_name, mccpb.NetworkFailPolicy_FailPolicy_value)
-	proto.RegisterType((*mccpb.NetworkFailPolicy)(nil), "istio.mixer.v1.config.client.NetworkFailPolicy")
-	proto.RegisterType((*mccpb.ServiceConfig)(nil), "istio.mixer.v1.config.client.ServiceConfig")
-	proto.RegisterType((*mccpb.TransportConfig)(nil), "istio.mixer.v1.config.client.TransportConfig")
-	proto.RegisterType((*mccpb.HttpClientConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig")
-	proto.RegisterMapType(map[string]*mccpb.ServiceConfig(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
-	proto.RegisterType((*mccpb.TcpClientConfig)(nil), "istio.mixer.v1.config.client.TcpClientConfig")
-
-	proto.RegisterType((*mpb.Attributes)(nil), "istio.mixer.v1.Attributes")
-	proto.RegisterMapType(map[string]*mpb.Attributes_AttributeValue(nil), "istio.mixer.v1.Attributes.AttributesEntry")
-	proto.RegisterType((*mpb.Attributes_AttributeValue)(nil), "istio.mixer.v1.Attributes.AttributeValue")
-	proto.RegisterType((*mpb.Attributes_StringMap)(nil), "istio.mixer.v1.Attributes.StringMap")
-	proto.RegisterMapType(map[string]string(nil), "istio.mixer.v1.Attributes.StringMap.EntriesEntry")
-	proto.RegisterType((*mpb.CompressedAttributes)(nil), "istio.mixer.v1.CompressedAttributes")
-	proto.RegisterMapType(map[int32]bool(nil), "istio.mixer.v1.CompressedAttributes.BoolsEntry")
-	proto.RegisterMapType(map[int32][]byte(nil), "istio.mixer.v1.CompressedAttributes.BytesEntry")
-	proto.RegisterMapType(map[int32]float64(nil), "istio.mixer.v1.CompressedAttributes.DoublesEntry")
-	proto.RegisterMapType(map[int32]time.Duration(nil), "istio.mixer.v1.CompressedAttributes.DurationsEntry")
-	proto.RegisterMapType(map[int32]int64(nil), "istio.mixer.v1.CompressedAttributes.Int64sEntry")
-	proto.RegisterMapType(map[int32]mpb.StringMap(nil), "istio.mixer.v1.CompressedAttributes.StringMapsEntry")
-	proto.RegisterMapType(map[int32]int32(nil), "istio.mixer.v1.CompressedAttributes.StringsEntry")
-	proto.RegisterMapType(map[int32]time.Time(nil), "istio.mixer.v1.CompressedAttributes.TimestampsEntry")
-	proto.RegisterType((*mpb.StringMap)(nil), "istio.mixer.v1.StringMap")
-	proto.RegisterMapType(map[int32]int32(nil), "istio.mixer.v1.StringMap.EntriesEntry")
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *listener.Filter {
