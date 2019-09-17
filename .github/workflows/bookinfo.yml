@@ -20,6 +20,7 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment productpage --image=productpage:$sha --dry-run -o yaml | kubectl apply -f -
+        kubectl expose deployment productpage
     - name: Build Ratings
       run: |
         sha=${GITHUB_SHA:0:7}
@@ -30,6 +31,7 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment ratings --image=ratings:$sha --dry-run -o yaml | kubectl apply -f -
+        kubectl expose deployment ratings
     - name: Build Details
       run: |
         sha=${GITHUB_SHA:0:7}
@@ -40,6 +42,7 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment details --image=details:$sha --dry-run -o yaml | kubectl apply -f -
+        kubectl expose deployment details
     - name: Build Reviews
       run: |
         sha=${GITHUB_SHA:0:7}
@@ -50,6 +53,7 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         sha=${GITHUB_SHA:0:7} && app="${GITHUB_REPOSITORY#*/}" && kubectl create deployment reviews --image=reviews:$sha --dry-run -o yaml | kubectl apply -f -
+        kubectl expose deployment reviews
     - name: Sleep for 60 seconds
       uses: jakejarvis/wait-action@master
       with:
@@ -58,7 +62,9 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl get pods --all-namespaces
+        kubectl get pods -o yaml
         kubectl get svc --all-namespaces
+        kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}') -c ratings -- curl productpage:9080/productpage | grep -o "<title>.*</title>"
 
 #     - name: Deploy Bookinfo
 #       run: |
