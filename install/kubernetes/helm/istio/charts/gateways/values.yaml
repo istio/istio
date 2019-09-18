@@ -32,7 +32,8 @@ istio-ingressgateway:
   autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
-  # specify replicaCount when autoscaleEnabled: false
+  # daemonsetEnabled: false #change to true to deploy as "kind: DaemonSet" otherwise "kind: Deployment"
+  # specify replicaCount when autoscaleEnabled: false and daemonsetEnabled: false
   # replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%

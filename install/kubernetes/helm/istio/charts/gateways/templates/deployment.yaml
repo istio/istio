@@ -4,14 +4,18 @@
 
 {{- $labels := merge (dict "release" $.Release.Name "chart" (include "gateway.chart" $) "heritage" $.Release.Service) $spec.labels }}
 apiVersion: apps/v1
+{{- if not $spec.daemonsetEnabled }}
 kind: Deployment
+{{- else }}
+kind: DaemonSet
+{{- end }}
 metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
 {{ $labels | toYaml | indent 4 }}
 spec:
-{{- if not $spec.autoscaleEnabled }}
+{{- if and (not $spec.autoscaleEnabled) (not $spec.daemonsetEnabled) }}
 {{- if $spec.replicaCount }}
   replicas: {{ $spec.replicaCount }}
 {{- else }}
@@ -23,10 +27,17 @@ spec:
       {{- range $key, $val := $spec.labels }}
       {{ $key }}: {{ $val }}
       {{- end }}
+  {{- if not $spec.daemonsetEnabled }}
   strategy:
     rollingUpdate:
       maxSurge: {{ $spec.rollingMaxSurge }}
       maxUnavailable: {{ $spec.rollingMaxUnavailable }}
+  {{- else }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ $spec.rollingMaxUnavailable }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -238,7 +249,11 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $key }}
           - name: ISTIO_META_OWNER
+            {{- if not $spec.daemonsetEnabled }}
             value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
+            {{- else }}
+            value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/daemonsets/{{ $key }}
+            {{- end }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
