@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -216,7 +217,7 @@ func TestCreateCertificate(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
-			monitoring:     newMonitoringMetrics(),
+			monitoring:     monitoring.NewMonitoringMetrics(),
 		}
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
 
@@ -325,7 +326,7 @@ func TestHandleCSR(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
-			monitoring:     newMonitoringMetrics(),
+			monitoring:     monitoring.NewMonitoringMetrics(),
 		}
 		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 
@@ -454,7 +455,8 @@ func TestRun(t *testing.T) {
 			// K8s JWT authenticator is added in k8s env.
 			tc.expectedAuthenticatorsLen++
 		}
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com", true)
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port,
+			"testdomain.com", true, monitoring.NewMonitoringMetrics())
 		if err == nil {
 			err = server.Run()
 		}
@@ -525,7 +527,8 @@ func TestGetServerCertificate(t *testing.T) {
 		t.Fatalf("Failed to create a plugged-cert CA.")
 	}
 
-	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0, "testdomain.com", true)
+	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
+		"testdomain.com", true, monitoring.NewMonitoringMetrics())
 	if err != nil {
 		t.Errorf("Cannot crete server: %v", err)
 	}

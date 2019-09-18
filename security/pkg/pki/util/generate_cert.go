@@ -142,8 +142,8 @@ func GenCACertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []byt
 	}
 	caPrivateKey, err := ParsePemEncodedKey(options.SignerPrivPem)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unrecogniazed CA " +
-				"private key, skip root cert rotation: %s", err.Error())
+		return nil, nil, fmt.Errorf("unrecogniazed CA "+
+			"private key, skip root cert rotation: %s", err.Error())
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, template, publicKey(caPrivateKey), caPrivateKey)
 	if err != nil {

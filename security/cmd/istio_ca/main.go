@@ -33,12 +33,12 @@ import (
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/controller"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/ca"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
-	"istio.io/istio/security/pkg/server/monitoring"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
@@ -60,8 +60,8 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA        bool
-	selfSignedCACertTTL time.Duration
+	selfSignedCA              bool
+	selfSignedCACertTTL       time.Duration
 	selfSignedCACheckInternal time.Duration
 
 	workloadCertTTL    time.Duration
@@ -193,8 +193,8 @@ func initCLI() {
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
 	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
-		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. " +
-		"Should not be shorter than two minutes.")
+		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
+			"Should not be shorter than two minutes.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -313,11 +313,12 @@ func runCA() {
 			webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
 	}
 
+	metrics := monitoring.NewMonitoringMetrics()
 	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCA(cs.CoreV1())
+	ca := createCA(cs.CoreV1(), metrics)
 
 	stopCh := make(chan struct{})
 	if !opts.serverOnly {
@@ -362,8 +363,9 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames,
-			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
+			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
+			opts.sdsEnabled, metrics)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -423,7 +425,7 @@ func runCA() {
 	}
 }
 
-func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
+func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetrics) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -477,7 +479,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	// a job that checks root certificate expiration time and rotates certificate
 	// automatically.
 	if opts.selfSignedCA {
-		if opts.selfSignedCACheckInternal < 2 * time.Minute {
+		if opts.selfSignedCACheckInternal < 2*time.Minute {
 			opts.selfSignedCACheckInternal = 2 * time.Minute
 		}
 		config := &ca.SelfSignedCARootCertRotationConfig{
@@ -491,6 +493,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			opts.dualUse,
 			spiffe.GetTrustDomain(),
 			opts.rootCertFile,
+			metrics,
 		}
 		istioCA.RotateRootCert(config)
 		pkgcmd.WaitSignal(istioCA.StopRotateJob)

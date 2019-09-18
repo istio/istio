@@ -27,11 +27,12 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/k8s/configmap"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
@@ -97,7 +98,7 @@ type IstioCAOptions struct {
 	ProbeCheckInterval   time.Duration
 }
 
-// Append root certificates in rootCertFile to the input certificate.
+// Append root certificates in RootCertFile to the input certificate.
 func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 	var rootCerts []byte
 	if len(pemCert) > 0 {
@@ -124,7 +125,7 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
 	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
-	// For the first time the CA is up, if readSigningCertOnly is unset,
+	// For the first time the CA is up, if ReadSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
@@ -264,8 +265,8 @@ type IstioCA struct {
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
-		certTTL:       opts.CertTTL,
-		maxCertTTL:    opts.MaxCertTTL,
+		certTTL:    opts.CertTTL,
+		maxCertTTL: opts.MaxCertTTL,
 		// When IstioCA is being created, the cert rotation thread is not started yet.
 		// No need to lock protect accessing keyCertBundle.
 		keyCertBundle: opts.KeyCertBundle,
@@ -344,21 +345,22 @@ func (ca *IstioCA) setCAKeyCertBundle(newBundle util.KeyCertBundle) {
 // SelfSignedCARootCertRotationConfig configs the automatic root certificate
 // rotation for self-signed CA instance.
 type SelfSignedCARootCertRotationConfig struct {
-	checkInterval       time.Duration
-	caCertTTL           time.Duration
-	retryInterval       time.Duration
-	gracePeriodRatio    float32
-	client              corev1.CoreV1Interface
-	caStorageNamespace  string
-	dualUse             bool
-	readSigningCertOnly bool
-	org                 string
-	rootCertFile        string
+	CheckInterval       time.Duration
+	CaCertTTL           time.Duration
+	RetryInterval       time.Duration
+	GracePeriodRatio    float32
+	Client              corev1.CoreV1Interface
+	CaStorageNamespace  string
+	DualUse             bool
+	ReadSigningCertOnly bool
+	Org                 string
+	RootCertFile        string
+	Metrics             monitoring.MonitoringMetrics
 }
 
 // RotateRootCert refreshes root certs and updates config map accordingly.
 func (ca *IstioCA) RotateRootCert(config *SelfSignedCARootCertRotationConfig) {
-	ticker := time.NewTicker(config.checkInterval)
+	ticker := time.NewTicker(config.CheckInterval)
 	for {
 		select {
 		case <-ticker.C:
@@ -375,40 +377,60 @@ func (ca *IstioCA) RotateRootCert(config *SelfSignedCARootCertRotationConfig) {
 	}
 }
 
+type RootUpgradeStatus int
+
+const (
+	UpgradeSkip    RootUpgradeStatus = 0
+	UpgradeSuccess RootUpgradeStatus = 1
+	UpgradeFailure RootUpgradeStatus = 2
+)
+
 // checkAndRotateRootCert decides whether root cert should be refreshed, and rotates
 // root cert for self-signed Citadel.
 func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationConfig) {
 	caSecret, scrtErr := ca.loadCASecretWithRetry(config)
 
-	if config.readSigningCertOnly {
-		ca.checkAndRotateRootCertForReadOnlyCitadel(config, caSecret, scrtErr)
+	if config.ReadSigningCertOnly {
+		status := ca.checkAndRotateRootCertForReadOnlyCitadel(config, caSecret, scrtErr)
+		if status == UpgradeSuccess {
+			config.Metrics.RootUpgradeSuccess.Increment()
+		}
+		if status == UpgradeFailure {
+			config.Metrics.RootUpgradeSuccess.Increment()
+		}
 		return
 	}
 
-	ca.checkAndRotateRootCertForSigningCertCitadel(config, caSecret, scrtErr)
+	status := ca.checkAndRotateRootCertForSigningCertCitadel(config, caSecret, scrtErr)
+	if status == UpgradeSuccess {
+		config.Metrics.RootUpgradeSuccess.Increment()
+	}
+	if status == UpgradeFailure {
+		config.Metrics.RootUpgradeSuccess.Increment()
+	}
 	return
 }
 
 // loadCASecretWithRetry lets the self-signed Citadel read CA secret with retries until
 // timeout.
 func (cs *IstioCA) loadCASecretWithRetry(config *SelfSignedCARootCertRotationConfig) (*v1.Secret, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.checkInterval/4)
+	ctx, cancel := context.WithTimeout(context.Background(), config.CheckInterval/4)
 	defer cancel()
 
-	caSecret, scrtErr := config.client.Secrets(config.caStorageNamespace).Get(CASecret, metav1.GetOptions{})
+	caSecret, scrtErr := config.Client.Secrets(config.CaStorageNamespace).Get(CASecret, metav1.GetOptions{})
 	if scrtErr != nil && !errors.IsNotFound(scrtErr) {
-		log.Errorf("Self-signed Citadel failed to read secret that holds CA certificate: %s. " +
-				"Wait until secret %s:%s can be loaded", scrtErr.Error(), config.caStorageNamespace, CASecret)
-		ticker := time.NewTicker(config.retryInterval)
+		log.Errorf("Self-signed Citadel failed to read secret that holds CA certificate: %s. "+
+			"Wait until secret %s:%s can be loaded", scrtErr.Error(), config.CaStorageNamespace, CASecret)
+		ticker := time.NewTicker(config.RetryInterval)
 		for scrtErr != nil {
 			select {
 			case <-ticker.C:
-				if caSecret, scrtErr = config.client.Secrets(config.caStorageNamespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
+				if caSecret, scrtErr = config.Client.Secrets(config.CaStorageNamespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
 					break
 				}
 			case <-ctx.Done():
 				log.Errorf("Self-signed Citadel failed to load CA secret %s:%s until timeout.",
-					config.caStorageNamespace, CASecret)
+					config.CaStorageNamespace, CASecret)
 				break
 			}
 		}
@@ -417,18 +439,18 @@ func (cs *IstioCA) loadCASecretWithRetry(config *SelfSignedCARootCertRotationCon
 }
 
 func (ca *IstioCA) checkAndRotateRootCertForReadOnlyCitadel(
-	config *SelfSignedCARootCertRotationConfig, caSecret *v1.Secret, scrtErr error) {
+	config *SelfSignedCARootCertRotationConfig, caSecret *v1.Secret, scrtErr error) RootUpgradeStatus {
 	if scrtErr != nil {
 		log.Errorf("Citadel runs in self-signed root cert read only mode but"+
-				" fail to load secret %s:%s (error: %s), skip cert rotation job",
-			config.caStorageNamespace, CASecret, scrtErr.Error())
-		return
+			" fail to load secret %s:%s (error: %s), skip cert rotation job",
+			config.CaStorageNamespace, CASecret, scrtErr.Error())
+		return UpgradeSkip
 	}
 
 	if caSecret == nil {
 		log.Info("Root cert does not exist, skip root cert rotate for " +
 			"self-signed root cert read-only Citadel.")
-		return
+		return UpgradeSkip
 	}
 
 	rootCertificate := ca.GetCAKeyCertBundle().GetRootCertPem()
@@ -437,26 +459,28 @@ func (ca *IstioCA) checkAndRotateRootCertForReadOnlyCitadel(
 		// KeyCertBundle, this indicates that the local stored root cert is not
 		// up-to-date. Update root cert and key in KeyCertBundle and config map.
 		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], config.rootCertFile)
+		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], config.RootCertFile)
 		if err != nil {
 			log.Errorf("failed to append root certificates (%v)", err)
-			return
+			return UpgradeFailure
 		}
 		keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[caCertID],
 			caSecret.Data[caPrivateKeyID], nil, rootCerts)
 		if err != nil {
 			log.Errorf("failed to create CA KeyCertBundle (%v)", err)
-			return
+			return UpgradeFailure
 		}
 
 		if err = updateCACertInConfigmapWithRetry(config, keyCertBundle.GetRootCertPem()); err != nil {
-			log.Errorf("Failed to write self-signed Citadel's root cert " +
+			log.Errorf("Failed to write self-signed Citadel's root cert "+
 				"to configmap (%s). Node agents will not be able to connect.",
 				err.Error())
 		}
 		ca.setCAKeyCertBundle(keyCertBundle)
 		log.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
+		return UpgradeSuccess
 	}
+	return UpgradeSkip
 }
 
 // shouldRefreshCACert checks CA cert for Self-signed Citadel and informs
@@ -472,7 +496,7 @@ func (ca *IstioCA) shouldRefreshCACert(config *SelfSignedCARootCertRotationConfi
 	if err == nil {
 		certLifeTimeLeft := time.Until(rootCert.NotAfter)
 		certLifeTime := rootCert.NotAfter.Sub(rootCert.NotBefore)
-		gracePeriod := time.Duration(config.gracePeriodRatio*1000) * certLifeTime / 1000
+		gracePeriod := time.Duration(config.GracePeriodRatio*1000) * certLifeTime / 1000
 		if certLifeTimeLeft <= gracePeriod {
 			return true
 		}
@@ -484,12 +508,12 @@ func (ca *IstioCA) shouldRefreshCACert(config *SelfSignedCARootCertRotationConfi
 }
 
 func (ca *IstioCA) checkAndRotateRootCertForSigningCertCitadel(
-		config *SelfSignedCARootCertRotationConfig, caSecret *v1.Secret, scrtErr error) {
+	config *SelfSignedCARootCertRotationConfig, caSecret *v1.Secret, scrtErr error) RootUpgradeStatus {
 	if scrtErr != nil {
 		log.Errorf("Citadel runs in self-signed mode but"+
-				" fail to load secret %s:%s (error: %s), skip cert rotation job",
-			config.caStorageNamespace, CASecret, scrtErr.Error())
-		return
+			" fail to load secret %s:%s (error: %s), skip cert rotation job",
+			config.CaStorageNamespace, CASecret, scrtErr.Error())
+		return UpgradeSkip
 	}
 	log.Infof("Self-signed Citadel successfully loaded the secret.")
 	// Check root certificate expiration time in CA secret
@@ -497,49 +521,51 @@ func (ca *IstioCA) checkAndRotateRootCertForSigningCertCitadel(
 		log.Info("Refresh root certificate")
 
 		options := util.CertOptions{
-			TTL:          		config.caCertTTL,
-			SignerPrivPem:		caSecret.Data[caPrivateKeyID],
-			Org:          		config.org,
-			IsCA:         		true,
-			IsSelfSigned: 		true,
-			RSAKeySize:   		caKeySize,
-			IsDualUse:    		config.dualUse,
+			TTL:           config.CaCertTTL,
+			SignerPrivPem: caSecret.Data[caPrivateKeyID],
+			Org:           config.Org,
+			IsCA:          true,
+			IsSelfSigned:  true,
+			RSAKeySize:    caKeySize,
+			IsDualUse:     config.DualUse,
 		}
 		pemCert, pemKey, ckErr := util.GenCACertFromExistingKey(options)
 		if ckErr != nil {
 			log.Errorf("unable to generate CA cert and key for self-signed CA: %s", ckErr.Error())
-			return
+			return UpgradeFailure
 		}
 
-		rootCerts, err := appendRootCerts(pemCert, config.rootCertFile)
+		rootCerts, err := appendRootCerts(pemCert, config.RootCertFile)
 		if err != nil {
 			log.Errorf("failed to append root certificates: %s", err.Error())
-			return
+			return UpgradeFailure
 		}
 
 		keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts)
 		if err != nil {
 			log.Errorf("failed to create CA KeyCertBundle (%v)", err)
-			return
+			return UpgradeFailure
 		}
 
 		caSecret.Data[caCertID] = pemCert
 		caSecret.Data[caPrivateKeyID] = pemKey
-		if _, err = config.client.Secrets(config.caStorageNamespace).Update(caSecret); err != nil {
-			log.Errorf("Failed to write secret to CA secret (error: %s). " +
+		if _, err = config.Client.Secrets(config.CaStorageNamespace).Update(caSecret); err != nil {
+			log.Errorf("Failed to write secret to CA secret (error: %s). "+
 				"Abort new root certificate.", err.Error())
-			return
+			return UpgradeFailure
 		}
 		log.Infof("A new self-generated root certificate is written into secret: %v", string(rootCerts))
 
 		if err = updateCACertInConfigmapWithRetry(config, keyCertBundle.GetRootCertPem()); err != nil {
 			log.Errorf("Failed to write self-signed Citadel's root cert "+
-					"to configmap (%s). Node agents will not be able to connect.",
+				"to configmap (%s). Node agents will not be able to connect.",
 				err.Error())
 		}
 		ca.setCAKeyCertBundle(keyCertBundle)
 		log.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
+		return UpgradeSuccess
 	}
+	return UpgradeSkip
 }
 
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
@@ -576,27 +602,27 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // updateCertInConfigmapWithRetry lets the self-signed Citadel update root cert
 // in config map with retries until timeout.
 func updateCACertInConfigmapWithRetry(config *SelfSignedCARootCertRotationConfig, cert []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), config.checkInterval/4)
+	ctx, cancel := context.WithTimeout(context.Background(), config.CheckInterval/4)
 	defer cancel()
 
-	err := updateCertInConfigmap(config.caStorageNamespace, config.client, cert)
-	ticker := time.NewTicker(config.retryInterval)
+	err := updateCertInConfigmap(config.CaStorageNamespace, config.Client, cert)
+	ticker := time.NewTicker(config.RetryInterval)
 	for err != nil {
-		log.Errorf("Self-signed Citadel failed to update root cert in " +
+		log.Errorf("Self-signed Citadel failed to update root cert in "+
 			"config map: %s", err.Error())
 		select {
 		case <-ticker.C:
-			if err = updateCertInConfigmap(config.caStorageNamespace, config.client,
+			if err = updateCertInConfigmap(config.CaStorageNamespace, config.Client,
 				cert); err == nil {
 				break
 			}
 		case <-ctx.Done():
-			log.Errorf("Self-signed Citadel failed to load CA secret " +
-				"%s:%s until timeout.", config.caStorageNamespace, CASecret)
+			log.Errorf("Self-signed Citadel failed to load CA secret "+
+				"%s:%s until timeout.", config.CaStorageNamespace, CASecret)
 			return err
 		}
 	}
-	log.Infof("Self-signed Citadel has successfully written root cert " +
-		"into configmap istio-security in namespace %s", config.caStorageNamespace)
+	log.Infof("Self-signed Citadel has successfully written root cert "+
+		"into configmap istio-security in namespace %s", config.CaStorageNamespace)
 	return nil
 }

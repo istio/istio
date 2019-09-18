@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
@@ -53,7 +54,7 @@ type authenticator interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
-	monitoring     monitoringMetrics
+	monitoring     monitoring.MonitoringMetrics
 	authenticators []authenticator
 	hostnames      []string
 	authorizer     authorizer
@@ -198,8 +199,9 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
-	trustDomain string, sdsEnabled bool) (*Server, error) {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool,
+	hostlist []string, port int, trustDomain string, sdsEnabled bool,
+	metrics monitoring.MonitoringMetrics) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -236,7 +238,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	}
 
 	version.Info.RecordComponentBuildTag("citadel")
-	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
+	monitoring.RootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{
 		authenticators: authenticators,
@@ -246,7 +248,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		hostnames:      hostlist,
 		forCA:          forCA,
 		port:           port,
-		monitoring:     newMonitoringMetrics(),
+		monitoring:     metrics,
 	}
 	return server, nil
 }

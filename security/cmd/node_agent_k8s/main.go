@@ -27,10 +27,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-	"istio.io/istio/security/pkg/server/monitoring"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"

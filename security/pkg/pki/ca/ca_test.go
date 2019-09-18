@@ -90,7 +90,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
-	org := "test.ca.org"
+	org := "test.ca.Org"
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
@@ -178,7 +178,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	certTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
-	org := "test.ca.org"
+	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
 
@@ -240,7 +240,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	caCertTTL := time.Hour
 	certTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
-	org := "test.ca.org"
+	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
 
