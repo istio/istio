@@ -17,11 +17,12 @@ package injection
 import (
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
-	v1 "k8s.io/api/core/v1"
 )
 
 // Analyzer checks conditions related to Istio injection
