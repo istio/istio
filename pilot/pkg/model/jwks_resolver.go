@@ -75,6 +75,8 @@ const (
 var (
 	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
 	publicRootCABundlePath = "/cacert.pem"
+	// extraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
+	extraRootCABundlePath = "/cacerts/extra.pem"
 
 	// Close channel
 	closeChan = make(chan bool)
@@ -141,9 +143,6 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 		refreshInterval:  refreshInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
-
-			// TODO: pilot needs to include a collection of root CAs to make external
-			// https web request(https://github.com/istio/istio/issues/1419).
 			Transport: &http.Transport{
 				DisableKeepAlives: true,
 				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
@@ -151,10 +150,16 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 		},
 	}
 
-	caCert, err := ioutil.ReadFile(publicRootCABundlePath)
-	if err == nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool := x509.NewCertPool()
+	caCertsFound := false
+	for _, pemFile := range []string{publicRootCABundlePath, extraRootCABundlePath} {
+		caCert, err := ioutil.ReadFile(pemFile)
+		if err == nil {
+			caCertPool.AppendCertsFromPEM(caCert)
+			caCertsFound = true
+		}
+	}
+	if caCertsFound {
 		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
@@ -164,6 +169,8 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 				},
 			},
 		}
+	} else {
+		log.Errorf("jwksResolver: No CA bundles imported. Will skip TLS verification when resolving JWKS URIs")
 	}
 
 	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
