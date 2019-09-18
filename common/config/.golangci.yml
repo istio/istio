@@ -7,7 +7,7 @@
 
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
-  golangci-lint-version: 1.16.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.18.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -42,6 +42,8 @@ linters:
     - nakedret
     - prealloc
     - scopelint
+    - funlen
+    - bodyclose
   fast: false
 
 linters-settings:
@@ -74,6 +76,8 @@ linters-settings:
     # Default is to use a neutral variety of English.
     # Setting locale to US will correct the British spelling of 'colour' to 'color'.
     locale: US
+    ignore-words:
+    - cancelled
   lll:
     # max line length, lines longer will be reported. Default is 120.
     # '\t' is counted as 1 character by default, and can be changed with the tab-width option
@@ -142,9 +146,9 @@ linters-settings:
       - unslice
       - valSwap
       - weakCond
-      - yodaStyleExpr
 
       # Unused
+      # - yodaStyleExpr
       # - appendAssign
       # - commentFormatting
       # - emptyStringTest

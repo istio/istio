@@ -621,12 +621,6 @@ func initK8SRestClient(kubeconfig, context string) error {
 	if err != nil {
 		return err
 	}
-	/*	k8sRESTConfig, err = rest.RESTClientFor(config)
-		if err != nil {
-			return nil, err
-		}
-		return &Client{config, restClient}, nil
-	*/
 	return nil
 }
 

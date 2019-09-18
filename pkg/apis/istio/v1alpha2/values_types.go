@@ -649,17 +649,11 @@ func FromString(val string) IntOrStringForPB {
 // Validate checks
 func (t *PilotConfig) Validate(failOnMissingValidation bool, values *Values, icpls *IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
-	// Exmple
-	// validationErrors = util.AppendErr(validationErrors, fmt.Errorf("pilotconfig has not been yet implemented"))
-
 	return validationErrors
 }
 
 // Validate checks CNIConfig confiugration
 func (t *CNIConfig) Validate(failOnMissingValidation bool, values *Values, icpls *IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
-	// Example
-	// validationErrors = util.AppendErr(validationErrors, fmt.Errorf("cniconfig has not been yet implemented"))
-
 	return validationErrors
 }

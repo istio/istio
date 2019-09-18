@@ -236,10 +236,6 @@ func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[st
 				return err
 			}
 		}
-		//vep := util.ToYAMLPath(cnv + ".enabled")
-		//if _, err := tpath.DeleteFromTree(valueSpec, vep, vep); err != nil {
-		//	return err
-		//}
 	}
 
 	// set namespace

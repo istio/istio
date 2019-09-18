@@ -96,7 +96,7 @@ func translateFunc(values []byte, l *logger) {
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCPSpec)
 	if err != nil {
-		l.logAndFatal("error marshalling translated IstioControlPlaneSpec: ", err.Error())
+		l.logAndFatal("error marshaling translated IstioControlPlaneSpec: ", err.Error())
 	}
 	cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 	if err != nil {
@@ -125,11 +125,11 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	}
 	err = json.Unmarshal([]byte(output), &value)
 	if err != nil {
-		l.logAndFatal("error unmarshalling JSON to untyped map ", err.Error())
+		l.logAndFatal("error unmarshaling JSON to untyped map ", err.Error())
 	}
 	res, err := yaml.Marshal(value)
 	if err != nil {
-		l.logAndFatal("error marshalling untyped map to YAML: ", err.Error())
+		l.logAndFatal("error marshaling untyped map to YAML: ", err.Error())
 	}
 	translateFunc(res, l)
 }

@@ -333,7 +333,7 @@ func (l *LoggingRenderingListener) EndDelete(instance runtime.Object, err error)
 // EndReconcile logs the event and any error that occurred
 func (l *LoggingRenderingListener) EndReconcile(instance runtime.Object, err error) error {
 	if err != nil {
-		l.reconciler.logger.Error(err, "errors occurred during reconcilation")
+		l.reconciler.logger.Error(err, "errors occurred during reconciliation")
 	}
 	l.reconciler.logger.V(l.Level).Info("end reconciling resources")
 	return nil
