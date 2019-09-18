@@ -21,44 +21,23 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
+// GetProviders returns transformer providers for auth policy transformers
 func GetProviders() transformer.Providers {
-	policiesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Policies}
-	policiesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Policies}
-	meshPoliciesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies}
-	meshPoliciesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Meshpolicies}
-
 	return []*transformer.Provider{
-		transformer.NewProvider(
-			policiesInput,
-			policiesOutput,
-			func(_ processing.ProcessorOptions) event.Transformer {
-				return event.NewFnTransform(
-					policiesInput,
-					policiesOutput,
-					nil,
-					nil,
-					handler(metadata.IstioAuthenticationV1Alpha1Policies),
-				)
-			},
+		transformer.NewSimpleTransformerProvider(
+			metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
+			metadata.IstioAuthenticationV1Alpha1Policies,
+			handler(metadata.IstioAuthenticationV1Alpha1Policies),
 		),
-		transformer.NewProvider(
-			meshPoliciesInput,
-			meshPoliciesOutput,
-			func(_ processing.ProcessorOptions) event.Transformer {
-				return event.NewFnTransform(
-					meshPoliciesInput,
-					meshPoliciesOutput,
-					nil,
-					nil,
-					handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
-				)
-			},
+		transformer.NewSimpleTransformerProvider(
+			metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
+			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
 		),
 	}
 }

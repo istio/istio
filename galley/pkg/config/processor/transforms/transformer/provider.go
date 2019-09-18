@@ -33,7 +33,7 @@ type Provider struct {
 	createFn func(processing.ProcessorOptions) event.Transformer
 }
 
-// NewProvider creates a new transform Provider
+// NewProvider creates a new transformer Provider
 func NewProvider(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Provider {
 	return &Provider{
 		inputs:   inputs,
@@ -67,4 +67,17 @@ func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
 		xforms = append(xforms, i.Create(o))
 	}
 	return xforms
+}
+
+//NewSimpleTransformerProvider creates a basic transformer provider for a basic transformer
+//TODO: Should source consistently be input or output? (May not need it if we pass through handleFn instead of generating it)
+//TODO: Do handleFn correctly
+func NewSimpleTransformerProvider(input, output collection.Name, handleFn func(e event.Event, h event.Handler)) *Provider {
+	inputs := collection.Names{input}
+	outputs := collection.Names{output}
+
+	createFn := func(processing.ProcessorOptions) event.Transformer {
+		return event.NewFnTransform(inputs, outputs, nil, nil, handleFn)
+	}
+	return NewProvider(inputs, outputs, createFn)
 }
