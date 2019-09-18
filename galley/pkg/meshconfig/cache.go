@@ -53,11 +53,13 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	meshconfig := mesh.DefaultMeshConfig()
+	meshconfig.IngressClass = "istio"
+	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
 	c := &FsCache{
 		path:   path,
 		fw:     fw,
-		cached: mesh.DefaultMeshConfig(),
+		cached: meshconfig,
 	}
 
 	c.reload()
@@ -90,6 +92,8 @@ func (c *FsCache) reload() {
 		scope.Errorf("Error reading mesh config as json: %v", err)
 		return
 	}
+	cfg.IngressClass = "istio"
+	cfg.IngressControllerMode = v1alpha1.MeshConfig_STRICT
 
 	c.cachedMutex.Lock()
 	defer c.cachedMutex.Unlock()
