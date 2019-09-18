@@ -565,6 +565,7 @@ snapshots:
       - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
+      - "k8s/core/v1/pods"      
       # Legacy Mixer CRDs
       - "istio/config/v1alpha2/legacy/apikeys"
       - "istio/config/v1alpha2/legacy/authorizations"
@@ -1032,6 +1033,7 @@ transforms:
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/services": "k8s/core/v1/services"
+      "k8s/core/v1/pods": "k8s/core/v1/pods"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
 
       # Legacy Mixer CRD mappings
