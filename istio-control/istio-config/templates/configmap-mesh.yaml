@@ -6,8 +6,6 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 data:
-
-
   mesh: |-
 {{ toYaml .Values.galley.mesh | indent 4 }}
 ---

@@ -152,14 +152,12 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
-
 {{- end }}
 
       volumes:
@@ -167,6 +165,8 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account
+  {{- end }}
+  {{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: envoy-config
         configMap:
           name: galley-envoy-config
