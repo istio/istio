@@ -14,7 +14,7 @@ jobs:
       run: |
         sha=${GITHUB_SHA:0:7}
         app="${GITHUB_REPOSITORY#*/}"
-        gradle build $GITHUB_WORKSPACE/samples/bookinfo/src/reviews/reviews-wlpcfg
+        cd $GITHUB_WORKSPACE/samples/bookinfo/src/reviews/reviews-wlpcfg && gradle build 
         docker build -t reviews:$sha $GITHUB_WORKSPACE/samples/bookinfo/src/reviews/reviews-wlpcfg
         kind load docker-image reviews:$sha
     - name: Deploy Reviews
