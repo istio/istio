@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
 
@@ -57,7 +58,7 @@ func TestProcessor(t *testing.T) {
 
 	meshSrc.Set(meshcfg.Default())
 	distributor := snapshotter.NewInMemoryDistributor()
-	transformInfos := GetTransformInfos(metadata.MustGet())
+	transformInfos := transforms.GetTransformInfos(metadata.MustGet())
 
 	rt, err := Initialize(metadata.MustGet(), "svc.local", event.CombineSources(srcs...), transformInfos, distributor)
 	g.Expect(err).To(BeNil())

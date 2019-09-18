@@ -19,11 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
 	"istio.io/istio/galley/pkg/config/schema"
 )
 
@@ -32,7 +28,7 @@ func Initialize(
 	m *schema.Metadata,
 	domainSuffix string,
 	source event.Source,
-	transformInfos transforms.Infos,
+	transformInfos provider.Infos,
 	distributor snapshotter.Distributor) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
@@ -71,19 +67,4 @@ func Initialize(
 	}
 
 	return processing.NewRuntime(rtOpt), nil
-}
-
-//TODO: move this?
-//TODO: Singleton this?
-//TODO: "inventory" this?
-//TODO: Should this be generated based on metadata.yaml?
-func GetTransformInfos(m *schema.Metadata) transforms.Infos {
-	xformsInfo := make([]*transforms.Info, 0)
-
-	xformsInfo = append(xformsInfo, serviceentry.GetInfo()...)
-	xformsInfo = append(xformsInfo, ingress.GetInfo()...)
-	xformsInfo = append(xformsInfo, direct.GetInfo(m.DirectTransform().Mapping())...)
-	xformsInfo = append(xformsInfo, authpolicy.GetInfo()...)
-
-	return xformsInfo
 }

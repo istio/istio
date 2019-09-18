@@ -17,51 +17,25 @@
 package transforms
 
 import (
-	"istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
+	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
+	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
+	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/schema"
 )
 
-//TODO: doc comments everywhere
-type Info struct {
-	inputs   collection.Names //TODO: Combine these into a struct?
-	outputs  collection.Names
-	createFn func(processing.ProcessorOptions) event.Transformer
+var allInfos provider.Infos
+
+//GetTransformInfos builds and returns a list of all transformer objects
+//TODO: Should any of this be generated based on metadata.yaml?
+func GetTransformInfos(m *schema.Metadata) provider.Infos {
+	allInfos = make([]*provider.Info, 0)
+
+	allInfos = append(allInfos, serviceentry.GetInfo()...)
+	allInfos = append(allInfos, ingress.GetInfo()...)
+	allInfos = append(allInfos, direct.GetInfo(m.DirectTransform().Mapping())...)
+	allInfos = append(allInfos, authpolicy.GetInfo()...)
+
+	return allInfos
 }
-
-func NewInfo(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Info {
-	return &Info{
-		inputs:   inputs,
-		outputs:  outputs,
-		createFn: createFn,
-	}
-}
-
-func (i *Info) Inputs() collection.Names {
-	return i.inputs
-}
-
-func (i *Info) Outputs() collection.Names {
-	return i.outputs
-}
-
-func (i *Info) Create(o processing.ProcessorOptions) event.Transformer {
-	return i.createFn(o)
-}
-
-type Infos []*Info
-
-func (t Infos) Create(o processing.ProcessorOptions) []event.Transformer {
-	xforms := make([]event.Transformer, 0)
-	for _, i := range t {
-		xforms = append(xforms, i.Create(o))
-	}
-	return xforms
-}
-
-// TODO: Singleton registry, so that transformer objects register functions to bootstrap themselves in init()
-// Still need to trigger the registrations somewhere, though! Maybe as a lazy getter?
-// var transformerInfo []*Info
-// func Register(fn func(m *schema.Metadata) []Info) {
-// 	//TODO
-// }

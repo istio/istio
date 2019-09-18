@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -61,7 +61,7 @@ type transformer struct {
 
 var _ event.Transformer = &transformer{}
 
-func GetInfo() transforms.Infos {
+func GetInfo() provider.Infos {
 	inputs := collection.Names{
 		metadata.K8SCoreV1Endpoints,
 		metadata.K8SCoreV1Nodes,
@@ -79,7 +79,7 @@ func GetInfo() transforms.Infos {
 			options: o,
 		}
 	}
-	return []*transforms.Info{transforms.NewInfo(inputs, outputs, createFn)}
+	return []*provider.Info{provider.NewInfo(inputs, outputs, createFn)}
 }
 
 // Start implements event.Transformer

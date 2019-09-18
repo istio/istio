@@ -23,18 +23,18 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
-func GetInfo() transforms.Infos {
+func GetInfo() provider.Infos {
 	policiesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Policies}
 	policiesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Policies}
 	meshPoliciesInput := collection.Names{metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies}
 	meshPoliciesOutput := collection.Names{metadata.IstioAuthenticationV1Alpha1Meshpolicies}
 
-	return []*transforms.Info{
-		transforms.NewInfo(
+	return []*provider.Info{
+		provider.NewInfo(
 			policiesInput,
 			policiesOutput,
 			func(_ processing.ProcessorOptions) event.Transformer {
@@ -47,7 +47,7 @@ func GetInfo() transforms.Infos {
 				)
 			},
 		),
-		transforms.NewInfo(
+		provider.NewInfo(
 			meshPoliciesInput,
 			meshPoliciesOutput,
 			func(_ processing.ProcessorOptions) event.Transformer {

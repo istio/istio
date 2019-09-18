@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
@@ -39,7 +40,7 @@ type SourceAnalyzer struct {
 	m              *schema.Metadata
 	sources        []event.Source
 	analyzer       analysis.Analyzer
-	transformInfos transforms.Infos
+	transformInfos provider.Infos
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -49,7 +50,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAn
 		m:              m,
 		sources:        make([]event.Source, 0),
 		analyzer:       analyzer,
-		transformInfos: processor.GetTransformInfos(m),
+		transformInfos: transforms.GetTransformInfos(m),
 	}
 }
 
