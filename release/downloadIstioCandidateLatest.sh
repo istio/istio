@@ -14,18 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file will be fetched and ran using: curl -L https://git.io/getLatestIstio | sh -
+# This file will be fetched and run using: curl -L https://istio.io/getLatestIstioCandidate | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
-
-# ***NOTE:*** THIS FILE WILL FETCH THE LATEST SEMANTICLY RELEASED VERSION
-# This file is referenced by the getLatestIstio link but is named
-# downloadIstioCandidate.sh. This is inconsistent. The file will match
-# the short link anticipated behavior.
-
-# The script fetches the latest Istio release semantically and untars it.
-# Any pre-release or build metadata versions (containing a - or +) are ignored.
+#
+# The script fetches the latest Istio release candidate semantically and untars it.
+# Release candidate versions will contain a -rc and version number
 # Users can specify an Istio version to change the fetched version
-#    curl -L https://git.io/getLatestIstio | ISTIO_VERSION=1.2.6 sh -
+#    curl -L https://istio.io/getLatestIstioCandidate | ISTIO_VERSION=1.3.0-rc.1 sh -
 
 OS="$(uname)"
 if [ "x${OS}" = "xDarwin" ] ; then
@@ -38,7 +33,7 @@ fi
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases | \
                   grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | \
-                  grep -v "[-+]" | sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
+                  grep "rc\.[0-9]$" | sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
 fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then

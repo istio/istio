@@ -14,18 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file will be fetched and ran using: curl -L https://git.io/getLatestIstio | sh -
+# This file will be fetched and run using: curl -L https://istio.io/getLatestIstio | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
-
-# ***NOTE:*** THIS FILE WILL FETCH THE LATEST SEMANTICLY RELEASED VERSION
-# This file is referenced by the getLatestIstio link but is named
-# downloadIstioCandidate.sh. This is inconsistent. The file will match
-# the short link anticipated behavior.
 
 # The script fetches the latest Istio release semantically and untars it.
 # Any pre-release or build metadata versions (containing a - or +) are ignored.
 # Users can specify an Istio version to change the fetched version
-#    curl -L https://git.io/getLatestIstio | ISTIO_VERSION=1.2.6 sh -
+#    curl -L https://istio.io/getLatestIstio | ISTIO_VERSION=1.2.6 sh -
 
 OS="$(uname)"
 if [ "x${OS}" = "xDarwin" ] ; then
