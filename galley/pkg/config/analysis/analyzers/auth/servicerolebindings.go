@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -28,9 +29,13 @@ type ServiceRoleBindingAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceRoleBindingAnalyzer{}
 
-// Name implements Analyzer
-func (s *ServiceRoleBindingAnalyzer) Name() string {
-	return "auth.ServiceRoleBindingAnalyzer"
+// Metadata implements Analyzer
+func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
+	return analysis.NewMetadata("auth.ServiceRoleBindingAnalyzer",
+		collection.Names{
+			metadata.IstioRbacV1Alpha1Serviceroles,
+			metadata.IstioRbacV1Alpha1Servicerolebindings,
+		})
 }
 
 // Analyze implements Analyzer

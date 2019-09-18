@@ -20,6 +20,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -36,9 +37,15 @@ type hostAndSubset struct {
 	subset string
 }
 
-// Name implements Analyzer
-func (da *DestinationAnalyzer) Name() string {
-	return "virtualservice.DestinationAnalyzer"
+// Metadata implements Analyzer
+func (da *DestinationAnalyzer) Metadata() analysis.Metadata {
+	return analysis.NewMetadata("virtualservice.DestinationAnalyzer",
+		collection.Names{
+			metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+			metadata.IstioNetworkingV1Alpha3Serviceentries,
+			metadata.IstioNetworkingV1Alpha3Virtualservices,
+			metadata.IstioNetworkingV1Alpha3Destinationrules,
+		})
 }
 
 // Analyze implements Analyzer

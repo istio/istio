@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -41,16 +43,22 @@ type SourceAnalyzer struct {
 	sources              []event.Source
 	analyzer             analysis.Analyzer
 	transformerProviders transformer.Providers
+
+	// Which collections are used by this analysis
+	// Derived from the specified analyzer and transformer providers
+	collectionsUsed map[collection.Name]bool
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
+	transformerProviders := transforms.Providers(m)
 	return &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
-		transformerProviders: transforms.Providers(m),
+		transformerProviders: transformerProviders,
+		collectionsUsed:      getUpstreamCollections(analyzer, transformerProviders),
 	}
 }
 
@@ -101,17 +109,13 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) er
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
-	// As an optimization, filter out the resources we won't need. This matters because getting a
-	// snapshot from k8s is relatively time-expensive, so removing unnecessary resources makes a difference.
+	// As an optimization, filter out the resources we won't need for the current analysis.
+	// This matters because getting a snapshot from k8s is relatively time-expensive,
+	// so removing unnecessary resources makes a useful difference.
 	filteredResources := make([]schema.KubeResource, 0)
 	for _, r := range sa.m.KubeSource().Resources() {
-		// Note that although we could also filter based on analyzer metadata, we'd need to do so in a way that is
-		// aware of transformation functions being applied, and this will take some care and thought to do correctly.
-		//TODO: Try it, using sa.transformers
-
-		// Disable anything marked as "optional" (aka "legacy" resources)
-		// The assumption is that we aren't writing analyzers that care about legacy resources
-		if r.Optional {
+		if _, ok := sa.collectionsUsed[r.Collection.Name]; !ok {
+			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
 			r.Disabled = true
 		}
 
@@ -125,4 +129,28 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
 	src := apiserver.New(o)
 
 	sa.sources = append(sa.sources, src)
+}
+
+func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]bool {
+	// For each transform, map output to inputs
+	outToIn := make(map[collection.Name]map[collection.Name]bool)
+	for _, xfp := range xformProviders {
+		for _, out := range xfp.Outputs() {
+			if _, ok := outToIn[out]; !ok {
+				outToIn[out] = make(map[collection.Name]bool)
+			}
+			for _, in := range xfp.Inputs() {
+				outToIn[out][in] = true
+			}
+		}
+	}
+
+	// 2. For each collection used by the analyzer, get its inputs using the above mapping and include them in the output set
+	upstreamCollections := make(map[collection.Name]bool)
+	for c := range analyzer.Metadata().CollectionsUsed() {
+		for in := range outToIn[c] {
+			upstreamCollections[in] = true
+		}
+	}
+	return upstreamCollections
 }
