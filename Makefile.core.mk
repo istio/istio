@@ -333,6 +333,7 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
+# List of all binaries to build
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
@@ -350,6 +351,9 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/test/policybackend \
   ./tools/hyperistio \
   ./tools/istio-iptables
+
+# List of binaries included in releases
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -407,7 +411,7 @@ ${ISTIO_OUT}/_istioctl: istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
