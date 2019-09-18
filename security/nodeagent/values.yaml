@@ -10,7 +10,7 @@ nodeagent:
     # CA endpoint.
     CA_ADDR: ""  
     # names of authentication provider's plugins.
-    Plugins: ""
+    PLUGINS: ""
 
   nodeSelector: {}
   tolerations: []
