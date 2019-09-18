@@ -14,9 +14,6 @@ metadata:
     {{ $key }}: "{{ $val }}"
 {{- end }}
     istio: pilot
-  annotations:
-    checksum/config-volume-envoy:  {{ include (print $.Template.BasePath "/configmap-envoy.yaml") . | sha256sum }}
-    checksum/config-volume:  {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
 {{- if not .Values.pilot.autoscaleEnabled }}
 {{- if .Values.pilot.replicaCount }}
@@ -55,8 +52,6 @@ spec:
 {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume-envoy: {{ print $.Template.BasePath "/configmap-envoy.yaml" | sha256sum }}
-        checksum/config-volume: {{ print $.Template.BasePath "/configmap.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
