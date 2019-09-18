@@ -94,9 +94,9 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 		cancelCh: cancelCh,
 	}
 
-	scope.Analysis.Infof("Beginning analyzing the current snapshot")
+	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
 	d.analyzer.Analyze(ctx)
-	scope.Analysis.Infof("Finished analzing the current snapshot, found %d messages", len(ctx.messages))
+	scope.Analysis.Debugf("Finished analzing the current snapshot, found messages: %v", ctx.messages)
 
 	if !ctx.Canceled() {
 		d.updater.Update(ctx.messages)

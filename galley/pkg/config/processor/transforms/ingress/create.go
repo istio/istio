@@ -14,11 +14,11 @@
 
 package ingress
 
-import "istio.io/istio/galley/pkg/config/processor/transforms/provider"
+import "istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 
-func GetInfo() provider.Infos {
-	return []*provider.Info{
-		getGatewayXformInfo(),
-		getVirtualServiceXformInfo(),
+func GetProviders() transformer.Providers {
+	return []*transformer.Provider{
+		getGatewayXformProvider(),
+		getVirtualServiceXformProvider(),
 	}
 }

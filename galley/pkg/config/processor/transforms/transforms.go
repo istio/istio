@@ -20,22 +20,20 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
 	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
-	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 	"istio.io/istio/galley/pkg/config/schema"
 )
 
-var allInfos provider.Infos
-
-//GetTransformInfos builds and returns a list of all transformer objects
+//Providers builds and returns a list of all transformer objects
 //TODO: Should any of this be generated based on metadata.yaml?
-func GetTransformInfos(m *schema.Metadata) provider.Infos {
-	allInfos = make([]*provider.Info, 0)
+func Providers(m *schema.Metadata) transformer.Providers {
+	providers := make([]*transformer.Provider, 0)
 
-	allInfos = append(allInfos, serviceentry.GetInfo()...)
-	allInfos = append(allInfos, ingress.GetInfo()...)
-	allInfos = append(allInfos, direct.GetInfo(m.DirectTransform().Mapping())...)
-	allInfos = append(allInfos, authpolicy.GetInfo()...)
+	providers = append(providers, serviceentry.GetProviders()...)
+	providers = append(providers, ingress.GetProviders()...)
+	providers = append(providers, direct.GetProviders(m)...)
+	providers = append(providers, authpolicy.GetProviders()...)
 
-	return allInfos
+	return providers
 }

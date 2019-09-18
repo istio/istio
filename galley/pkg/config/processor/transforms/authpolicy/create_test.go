@@ -160,7 +160,7 @@ func TestAuthPolicy_NoListeners(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	for i := 0; i < 2; i++ {
-		xforms := GetInfo().Create(processing.ProcessorOptions{})
+		xforms := GetProviders().Create(processing.ProcessorOptions{})
 		g.Expect(xforms).To(HaveLen(2))
 
 		src := &fixtures.Source{}
@@ -297,7 +297,7 @@ func TestAuthPolicy_InvalidProto(t *testing.T) {
 }
 
 func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
-	xforms := GetInfo().Create(processing.ProcessorOptions{})
+	xforms := GetProviders().Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(2))
 
 	src := &fixtures.Source{}

@@ -15,7 +15,7 @@
 // Package transforms contains basic processing building blocks that can be incorporated into bigger/self-contained
 // processing pipelines.
 
-package provider
+package transformer
 
 import (
 	"istio.io/istio/galley/pkg/config/collection"
@@ -23,36 +23,45 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 )
 
-//TODO: doc comments everywhere
-type Info struct {
+// Provider includes the basic schema and a function to create a Transformer
+// We do this instead of creating transformers directly because many transformers need ProcessorOptions
+// that aren't available until after processing has started, but we need to know about inputs/outputs
+// before that happens.
+type Provider struct {
 	inputs   collection.Names //TODO: Combine these into a struct?
 	outputs  collection.Names
 	createFn func(processing.ProcessorOptions) event.Transformer
 }
 
-func NewInfo(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Info {
-	return &Info{
+// NewProvider creates a new transform Provider
+func NewProvider(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Provider {
+	return &Provider{
 		inputs:   inputs,
 		outputs:  outputs,
 		createFn: createFn,
 	}
 }
 
-func (i *Info) Inputs() collection.Names {
-	return i.inputs
+// Inputs returns the input collections for this provider
+func (p *Provider) Inputs() collection.Names {
+	return p.inputs
 }
 
-func (i *Info) Outputs() collection.Names {
-	return i.outputs
+// Outputs returns the output collections for this provider
+func (p *Provider) Outputs() collection.Names {
+	return p.outputs
 }
 
-func (i *Info) Create(o processing.ProcessorOptions) event.Transformer {
-	return i.createFn(o)
+// Create returns the actual Transformer for this provider
+func (p *Provider) Create(o processing.ProcessorOptions) event.Transformer {
+	return p.createFn(o)
 }
 
-type Infos []*Info
+// Providers represents a list of Provider
+type Providers []*Provider
 
-func (t Infos) Create(o processing.ProcessorOptions) []event.Transformer {
+// Create creates a list of providers from a list of Transformers
+func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
 	xforms := make([]event.Transformer, 0)
 	for _, i := range t {
 		xforms = append(xforms, i.Create(o))

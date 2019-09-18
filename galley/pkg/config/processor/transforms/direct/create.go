@@ -18,14 +18,15 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processor/transforms/provider"
+	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
+	"istio.io/istio/galley/pkg/config/schema"
 )
 
-// Create a new Direct transformer.
-func GetInfo(mapping map[collection.Name]collection.Name) provider.Infos {
-	var result []*provider.Info
+// Create a new Direct transformer provider
+func GetProviders(m *schema.Metadata) transformer.Providers {
+	var result []*transformer.Provider
 
-	for k, v := range mapping {
+	for k, v := range m.DirectTransform().Mapping() {
 		from := k
 		to := v
 		inputs := collection.Names{from}
@@ -43,7 +44,7 @@ func GetInfo(mapping map[collection.Name]collection.Name) provider.Infos {
 					h.Handle(e)
 				})
 		}
-		result = append(result, provider.NewInfo(inputs, outputs, createFn))
+		result = append(result, transformer.NewProvider(inputs, outputs, createFn))
 	}
 	return result
 }

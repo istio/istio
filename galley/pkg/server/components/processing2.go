@@ -104,9 +104,9 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
-	transformInfos := transforms.GetTransformInfos(m)
+	transformProviders := transforms.Providers(m)
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformInfos, distributor); err != nil {
+	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
 		return
 	}
 
