@@ -117,9 +117,10 @@ func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
-			if fmt.Sprintf("%s.%s", ver.Major, ver.Minor) >= version {
+			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+			if serverVersion < version {
 				scopes.Framework.Infof("Skipping suite %q: Required Kubernetes version (%v) is greater than current: %v",
-					ctx.Settings().TestID, version, ver.Minor)
+					ctx.Settings().TestID, version, serverVersion)
 				s.osExit(0)
 
 			}
