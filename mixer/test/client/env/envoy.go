@@ -45,7 +45,6 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 	options := []envoy.Option{
 		envoy.ConfigPath(confPath),
 		envoy.DrainDuration(1 * time.Second),
-		envoy.AllowUnknownFields(true),
 	}
 	if s.stress {
 		options = append(options, envoy.Concurrency(10))
