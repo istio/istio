@@ -29,7 +29,7 @@
 export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-09-04T21-28-42
+IMG = gcr.io/istio-testing/build-tools:2019-09-17T18-24-15
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
@@ -74,7 +74,6 @@ RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
 	--mount type=bind,source="$(GOBIN_SOURCE)",destination="/go/out/bin" \
 	-w /work $(IMG)
 else
-export GOBIN ?= ./out/bin
 RUN =
 endif
 
