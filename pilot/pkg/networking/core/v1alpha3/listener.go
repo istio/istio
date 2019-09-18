@@ -1232,7 +1232,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 
 		// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-		// A fail through filter chain will be appended to the listener to allow arbitrary engress TCP traffic pass through even when
+		// A fail through filter chain will be appended to the listener to allow arbitrary egress TCP traffic pass through even when its
 		// port is conflicted with existing HTTP services
 		for _, opt := range opts {
 			if opt.match == nil {
@@ -2145,17 +2145,6 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 }
 
 func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) []*listener.FilterChain {
-	/*var newFilterChan []*listener.FilterChain
-	for _, fc := range httpFilterChain {
-		if fc.FilterChainMatch == nil {
-			fc.FilterChainMatch = &listener.FilterChainMatch{}
-		}
-
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
-		newFilterChan = append(newFilterChan, fc)
-
-	}*/
 	return append(tcpFilterChain, httpFilterChain...)
 }
 
