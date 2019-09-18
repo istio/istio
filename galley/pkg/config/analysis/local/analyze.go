@@ -101,9 +101,26 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) er
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
+	// As an optimization, filter out the resources we won't need. This matters because getting a
+	// snapshot from k8s is relatively time-expensive, so removing unnecessary resources makes a difference.
+	filteredResources := make([]schema.KubeResource, 0)
+	for _, r := range sa.m.KubeSource().Resources() {
+		// Note that although we could also filter based on analyzer metadata, we'd need to do so in a way that is
+		// aware of transformation functions being applied, and this will take some care and thought to do correctly.
+		//TODO: Try it, using sa.transformers
+
+		// Disable anything marked as "optional" (aka "legacy" resources)
+		// The assumption is that we aren't writing analyzers that care about legacy resources
+		if r.Optional {
+			r.Disabled = true
+		}
+
+		filteredResources = append(filteredResources, r)
+	}
+
 	o := apiserver.Options{
 		Client:    k,
-		Resources: sa.m.KubeSource().Resources(),
+		Resources: filteredResources,
 	}
 	src := apiserver.New(o)
 
