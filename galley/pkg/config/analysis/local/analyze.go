@@ -37,6 +37,11 @@ import (
 
 const domainSuffix = "svc.local"
 
+// Patch table
+var (
+	apiserverNew = apiserver.New
+)
+
 // SourceAnalyzer handles local analysis of k8s and file based event sources
 type SourceAnalyzer struct {
 	m                    *schema.Metadata
@@ -126,7 +131,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
 		Client:    k,
 		Resources: filteredResources,
 	}
-	src := apiserver.New(o)
+	src := apiserverNew(o)
 
 	sa.sources = append(sa.sources, src)
 }
@@ -152,5 +157,6 @@ func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transform
 			upstreamCollections[in] = true
 		}
 	}
+
 	return upstreamCollections
 }

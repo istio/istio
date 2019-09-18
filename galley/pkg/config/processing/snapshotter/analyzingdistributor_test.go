@@ -42,8 +42,8 @@ func (a *analyzerMock) Analyze(c analysis.Context) {
 }
 
 // Name implements Analyzer
-func (a *analyzerMock) Name() string {
-	return ""
+func (a *analyzerMock) Metadata() analysis.Metadata {
+	return analysis.NewMetadata("", collection.Names{})
 }
 
 func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
