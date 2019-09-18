@@ -1231,7 +1231,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 		}
 
+		// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+		// A fail through filter chain will be appended to the listener to allow arbitrary engress TCP traffic pass through even when
+		// port is conflicted with existing HTTP services
+		for _, opt := range opts {
+			if opt.match == nil {
+				opt.match = &listener.FilterChainMatch{}
+			}
+
+			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
+		}
+
 		listenerOpts.filterChainOpts = opts
+		listenerOpts.needHTTPInspector = true
 
 	case plugin.ListenerProtocolTCP:
 		if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
@@ -1871,7 +1884,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
 	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
 	if features.EnableFallthroughRoute.Get() && isAllowAnyOutbound(node) {
-
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {
 			if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, wildcardMatch) {
@@ -2133,7 +2145,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 }
 
 func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) []*listener.FilterChain {
-	var newFilterChan []*listener.FilterChain
+	/*var newFilterChan []*listener.FilterChain
 	for _, fc := range httpFilterChain {
 		if fc.FilterChainMatch == nil {
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
@@ -2143,8 +2155,8 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
 		newFilterChan = append(newFilterChan, fc)
 
-	}
-	return append(tcpFilterChain, newFilterChan...)
+	}*/
+	return append(tcpFilterChain, httpFilterChain...)
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
