@@ -28,8 +28,8 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 )
@@ -45,7 +45,7 @@ type virtualServiceXform struct {
 	vsByHost  map[string]*syntheticVirtualService
 }
 
-func getVirtualServiceXformProvider() *transformer.Provider {
+func getVirtualServiceXformProvider() transformer.Provider {
 	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
 	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices}
 

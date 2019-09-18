@@ -34,8 +34,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new transformer Provider
-func NewProvider(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) *Provider {
-	return &Provider{
+func NewProvider(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) Provider {
+	return Provider{
 		inputs:   inputs,
 		outputs:  outputs,
 		createFn: createFn,
@@ -58,10 +58,10 @@ func (p *Provider) Create(o processing.ProcessorOptions) event.Transformer {
 }
 
 // Providers represents a list of Provider
-type Providers []*Provider
+type Providers []Provider
 
-// ToTransformers creates a list of providers from a list of Transformers
-func (t Providers) ToTransformers(o processing.ProcessorOptions) []event.Transformer {
+// Create creates a list of providers from a list of Transformers
+func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
 	xforms := make([]event.Transformer, 0)
 	for _, i := range t {
 		xforms = append(xforms, i.Create(o))
@@ -69,8 +69,8 @@ func (t Providers) ToTransformers(o processing.ProcessorOptions) []event.Transfo
 	return xforms
 }
 
-//NewSimpleTransformerProvider creates a basic transformer provider for a basic transformer
-func NewSimpleTransformerProvider(input, output collection.Name, handleFn func(e event.Event, h event.Handler)) *Provider {
+// NewSimpleTransformerProvider creates a basic transformer provider for a basic transformer
+func NewSimpleTransformerProvider(input, output collection.Name, handleFn func(e event.Event, h event.Handler)) Provider {
 	inputs := collection.Names{input}
 	outputs := collection.Names{output}
 

@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/schema"
 )
 
@@ -49,9 +49,9 @@ func Initialize(
 
 	// TODO: Add a precondition test here to ensure the panic below will not fire during runtime.
 
-	// This is passed as a provider so it can be evaulated once ProcessorOptions become available
+	// This is passed as a provider so it can be evaluated once ProcessorOptions become available
 	procProvider := func(o processing.ProcessorOptions) event.Processor {
-		xforms := transformProviders.ToTransformers(o)
+		xforms := transformProviders.Create(o)
 
 		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {

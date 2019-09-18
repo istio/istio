@@ -38,7 +38,7 @@ func TestSimpleTransformerProvider(t *testing.T) {
 	g.Expect(providers[0].Inputs()).To(ConsistOf(input))
 	g.Expect(providers[0].Outputs()).To(ConsistOf(output))
 
-	transformers := providers.ToTransformers(opts)
+	transformers := providers.Create(opts)
 	g.Expect(transformers).To(HaveLen(len(providers)))
 
 	g.Expect(transformers[0].Inputs()).To(ConsistOf(input))

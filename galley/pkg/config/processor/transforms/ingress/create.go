@@ -14,10 +14,10 @@
 
 package ingress
 
-import "istio.io/istio/galley/pkg/config/processor/transforms/transformer"
+import "istio.io/istio/galley/pkg/config/processing/transformer"
 
 func GetProviders() transformer.Providers {
-	return []*transformer.Provider{
+	return []transformer.Provider{
 		getGatewayXformProvider(),
 		getVirtualServiceXformProvider(),
 	}

@@ -18,12 +18,12 @@ import (
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
+	xformer "istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 )
 
 // GetProviders creates transformer providers for Synthetic Service entries
-func GetProviders() transformer.Providers {
+func GetProviders() xformer.Providers {
 	inputs := collection.Names{
 		metadata.K8SCoreV1Endpoints,
 		metadata.K8SCoreV1Nodes,
@@ -41,5 +41,5 @@ func GetProviders() transformer.Providers {
 			options: o,
 		}
 	}
-	return []*transformer.Provider{transformer.NewProvider(inputs, outputs, createFn)}
+	return []xformer.Provider{xformer.NewProvider(inputs, outputs, createFn)}
 }

@@ -127,7 +127,7 @@ func TestDirect_InvalidEventKind(t *testing.T) {
 func TestDirect_NoListeners(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	xforms := GetProviders(basicmeta.MustGet()).ToTransformers(processing.ProcessorOptions{})
+	xforms := GetProviders(basicmeta.MustGet()).Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
 	src := &fixtures.Source{}
@@ -234,7 +234,7 @@ func TestDirect_InvalidEvent(t *testing.T) {
 }
 
 func setup(g *GomegaWithT) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
-	xforms := GetProviders(basicmeta.MustGet()).ToTransformers(processing.ProcessorOptions{})
+	xforms := GetProviders(basicmeta.MustGet()).Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
 	src := &fixtures.Source{}

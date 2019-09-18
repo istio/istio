@@ -21,14 +21,14 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // GetProviders returns transformer providers for auth policy transformers
 func GetProviders() transformer.Providers {
-	return []*transformer.Provider{
+	return []transformer.Provider{
 		transformer.NewSimpleTransformerProvider(
 			metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
 			metadata.IstioAuthenticationV1Alpha1Policies,
