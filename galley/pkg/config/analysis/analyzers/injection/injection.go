@@ -41,6 +41,8 @@ func (s *Analyzer) Name() string {
 const injectionLabelName = "istio-injection"
 const injectionLabelEnableValue = "enabled"
 
+const istioProxyName = "istio-proxy"
+
 // Analyze implements Analyzer
 func (s *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
@@ -48,6 +50,7 @@ func (s *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
 		// Ignore system namespaces
+		// TODO: namespaces can in theory be anything, so we need to make the more configurable
 		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), "istio-") {
 			return true
 		}
@@ -78,7 +81,7 @@ func (s *Analyzer) Analyze(c analysis.Context) {
 
 		proxyImage := ""
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "istio-proxy" {
+			if container.Name == istioProxyName {
 				proxyImage = container.Image
 				break
 			}
