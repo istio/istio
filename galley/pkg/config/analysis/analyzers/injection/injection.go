@@ -80,6 +80,7 @@ func (s *Analyzer) Analyze(c analysis.Context) {
 		for _, container := range pod.Spec.Containers {
 			if container.Name == "istio-proxy" {
 				proxyImage = container.Image
+				break
 			}
 		}
 
