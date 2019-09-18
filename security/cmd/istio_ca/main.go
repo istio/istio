@@ -62,6 +62,7 @@ type cliOptions struct { // nolint: maligned
 
 	selfSignedCA        bool
 	selfSignedCACertTTL time.Duration
+	selfSignedCACheckInternal time.Duration
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -172,7 +173,7 @@ func initCLI() {
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
-	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
+	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed "+
 		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
 		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
 		"to false.")
@@ -191,6 +192,9 @@ func initCLI() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
+	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
+		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. " +
+		"Should not be shorter than two minutes.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -467,6 +471,29 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		} else {
 			livenessProbeChecker.Run()
 		}
+	}
+
+	// When this IstioCA instance auto-generates self-signed CA certificate, start
+	// a job that checks root certificate expiration time and rotates certificate
+	// automatically.
+	if opts.selfSignedCA {
+		if opts.selfSignedCACheckInternal < 2 * time.Minute {
+			opts.selfSignedCACheckInternal = 2 * time.Minute
+		}
+		config := &ca.SelfSignedCARootCertRotationConfig{
+			opts.selfSignedCACheckInternal,
+			opts.selfSignedCACertTTL,
+			ca.ReadSigningCertCheckInterval,
+			cmd.DefaultCACertGracePeriodRatio,
+			client,
+			opts.istioCaStorageNamespace,
+			opts.readSigningCertOnly,
+			opts.dualUse,
+			spiffe.GetTrustDomain(),
+			opts.rootCertFile,
+		}
+		istioCA.RotateRootCert(config)
+		pkgcmd.WaitSignal(istioCA.StopRotateJob)
 	}
 
 	return istioCA
