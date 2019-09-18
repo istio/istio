@@ -51,7 +51,7 @@ func Initialize(
 
 	// This is passed as a provider so it can be evaulated once ProcessorOptions become available
 	procProvider := func(o processing.ProcessorOptions) event.Processor {
-		xforms := transformProviders.Create(o)
+		xforms := transformProviders.ToTransformers(o)
 
 		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {

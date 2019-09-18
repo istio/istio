@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
-	"istio.io/istio/galley/pkg/config/processor/transforms/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
@@ -60,27 +59,6 @@ type serviceEntryTransformer struct {
 }
 
 var _ event.Transformer = &serviceEntryTransformer{}
-
-func GetProviders() transformer.Providers {
-	inputs := collection.Names{
-		metadata.K8SCoreV1Endpoints,
-		metadata.K8SCoreV1Nodes,
-		metadata.K8SCoreV1Pods,
-		metadata.K8SCoreV1Services,
-	}
-	outputs := collection.Names{
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-	}
-
-	createFn := func(o processing.ProcessorOptions) event.Transformer {
-		return &serviceEntryTransformer{
-			inputs:  inputs,
-			outputs: outputs,
-			options: o,
-		}
-	}
-	return []*transformer.Provider{transformer.NewProvider(inputs, outputs, createFn)}
-}
 
 // Start implements event.Transformer
 func (t *serviceEntryTransformer) Start() {

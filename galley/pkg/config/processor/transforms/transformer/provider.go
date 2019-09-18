@@ -28,7 +28,7 @@ import (
 // that aren't available until after processing has started, but we need to know about inputs/outputs
 // before that happens.
 type Provider struct {
-	inputs   collection.Names //TODO: Combine these into a struct?
+	inputs   collection.Names
 	outputs  collection.Names
 	createFn func(processing.ProcessorOptions) event.Transformer
 }
@@ -60,8 +60,8 @@ func (p *Provider) Create(o processing.ProcessorOptions) event.Transformer {
 // Providers represents a list of Provider
 type Providers []*Provider
 
-// Create creates a list of providers from a list of Transformers
-func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
+// ToTransformers creates a list of providers from a list of Transformers
+func (t Providers) ToTransformers(o processing.ProcessorOptions) []event.Transformer {
 	xforms := make([]event.Transformer, 0)
 	for _, i := range t {
 		xforms = append(xforms, i.Create(o))
@@ -70,8 +70,6 @@ func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
 }
 
 //NewSimpleTransformerProvider creates a basic transformer provider for a basic transformer
-//TODO: Should source consistently be input or output? (May not need it if we pass through handleFn instead of generating it)
-//TODO: Do handleFn correctly
 func NewSimpleTransformerProvider(input, output collection.Name, handleFn func(e event.Event, h event.Handler)) *Provider {
 	inputs := collection.Names{input}
 	outputs := collection.Names{output}

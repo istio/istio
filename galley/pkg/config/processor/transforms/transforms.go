@@ -26,7 +26,6 @@ import (
 )
 
 //Providers builds and returns a list of all transformer objects
-//TODO: Should any of this be generated based on metadata.yaml?
 func Providers(m *schema.Metadata) transformer.Providers {
 	providers := make([]*transformer.Provider, 0)
 
