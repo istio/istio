@@ -1,3 +1,4 @@
+{{- if .Values.global.controlPlaneSecurityEnabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -86,5 +87,5 @@ data:
                 trusted_ca:
                   filename: /etc/certs/root-cert.pem
             require_client_certificate: true
+{{- end }}
 ---
-
