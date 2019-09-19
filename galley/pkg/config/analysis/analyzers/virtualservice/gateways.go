@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -28,9 +29,15 @@ type GatewayAnalyzer struct{}
 
 var _ analysis.Analyzer = &GatewayAnalyzer{}
 
-// Name implements Analyzer
-func (s *GatewayAnalyzer) Name() string {
-	return "virtualservice.GatewayAnalyzer"
+// Metadata implements Analyzer
+func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name: "virtualservice.GatewayAnalyzer",
+		Inputs: collection.Names{
+			metadata.IstioNetworkingV1Alpha3Gateways,
+			metadata.IstioNetworkingV1Alpha3Virtualservices,
+		},
+	}
 }
 
 // Analyze implements Analyzer
