@@ -61,12 +61,12 @@ var _basicmetaYaml = []byte(`# Copyright 2019 Istio Authors
 
 
 collections:
-  - name:         "collection1"
-    proto:        "google.protobuf.Struct"
+  - name: "collection1"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-  - name:         "collection2"
-    proto:        "google.protobuf.Struct"
+  - name: "collection2"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
 # Configuration for input sources
@@ -75,11 +75,11 @@ sources:
   - type: kubernetes
     resources:
       # Test data sources
-      - collection:   "collection1"
-        kind:         "Kind1"
-        plural:       "Kind1s"
-        group:        "testdata.istio.io"
-        version:      "v1alpha1"
+      - collection: "collection1"
+        kind: "Kind1"
+        plural: "Kind1s"
+        group: "testdata.istio.io"
+        version: "v1alpha1"
 
 # Transform specific configurations
 transforms:
@@ -119,20 +119,20 @@ var _basicmeta2Yaml = []byte(`# Copyright 2019 Istio Authors
 
 
 collections:
-  - name:         "collection1"
-    proto:        "google.protobuf.Struct"
+  - name: "collection1"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-  - name:         "collection1out"
-    proto:        "google.protobuf.Struct"
+  - name: "collection1out"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-  - name:         "collection2"
-    proto:        "google.protobuf.Struct"
+  - name: "collection2"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-  - name:         "collection2out"
-    proto:        "google.protobuf.Struct"
+  - name: "collection2out"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
 # Configuration for input sources
@@ -141,18 +141,19 @@ sources:
   - type: kubernetes
     resources:
       # Test data sources
-      - collection:   "collection1"
-        kind:         "Kind1"
-        plural:       "Kind1s"
-        group:        "testdata.istio.io"
-        version:      "v1alpha1"
+      - collection: "collection1"
+        kind: "Kind1"
+        plural: "Kind1s"
+        group: "testdata.istio.io"
+        version: "v1alpha1"
 
-      - collection:   "collection2"
-        kind:         "Kind2"
-        plural:       "Kind2s"
-        group:        "testdata.istio.io"
-        version:      "v1alpha1"
-        optional:     true
+      - collection: "collection2"
+        kind: "Kind2"
+        plural: "Kind2s"
+        group: "testdata.istio.io"
+        version: "v1alpha1"
+        optional: true
+        clusterScoped: true
 
 
 # Transform specific configurations

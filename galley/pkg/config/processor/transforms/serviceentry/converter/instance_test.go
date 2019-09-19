@@ -27,7 +27,6 @@ import (
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/converter"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -92,9 +91,9 @@ func TestServiceDefaults(t *testing.T) {
 			"l2": "v2",
 		},
 		Annotations: resource.StringMap{
-			"a1":                       "v1",
-			"a2":                       "v2",
-			annotations.ServiceVersion: version,
+			"a1": "v1",
+			"a2": "v2",
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -137,8 +136,8 @@ func TestServiceExportTo(t *testing.T) {
 		Name:       fullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
-			annotation.NetworkingExportTo.Name: "c, a, b",
-			annotations.ServiceVersion:         "v1",
+			annotation.NetworkingExportTo.Name:            "c, a, b",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
@@ -175,7 +174,7 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 		Name:       service.Metadata.Name,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
-			annotations.ServiceVersion: "v1",
+			annotation.AlphaNetworkingServiceVersion.Name: "v1",
 		},
 	}
 
@@ -247,7 +246,7 @@ func TestServicePorts(t *testing.T) {
 				Name:       service.Metadata.Name,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
@@ -305,7 +304,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 				Name:       service.Metadata.Name,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
-					annotations.ServiceVersion: version,
+					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
 			expected := networking.ServiceEntry{
@@ -351,7 +350,7 @@ func TestExternalService(t *testing.T) {
 		Name:       service.Metadata.Name,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
-			annotations.ServiceVersion: version,
+			annotation.AlphaNetworkingServiceVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -395,7 +394,7 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 
 	expectedMeta := resource.Metadata{
 		Annotations: resource.StringMap{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -491,8 +490,8 @@ func TestEndpoints(t *testing.T) {
 
 	expectedMeta := resource.Metadata{
 		Annotations: resource.StringMap{
-			annotations.EndpointsVersion: version,
-			annotations.NotReadyEndpoints: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
+			annotation.AlphaNetworkingNotReadyEndpoints.Name: fmt.Sprintf("%s:%d,%s:%d,%s:%d,%s:%d,%s:%d,%s:%d",
 				ip1, 80,
 				ip2, 80,
 				ip3, 80,
@@ -574,7 +573,7 @@ func TestEndpointsPodNotFound(t *testing.T) {
 
 	expectedMeta := resource.Metadata{
 		Annotations: resource.StringMap{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{
@@ -635,7 +634,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 
 	expectedMeta := resource.Metadata{
 		Annotations: resource.StringMap{
-			annotations.EndpointsVersion: version,
+			annotation.AlphaNetworkingEndpointsVersion.Name: version,
 		},
 	}
 	expected := networking.ServiceEntry{

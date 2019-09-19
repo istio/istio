@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.4-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.4
+BASE_VERSION ?= 1.4-dev.1
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -343,7 +343,19 @@ shellcheck:
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown
+lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml
+	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
+	@testlinter
+	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -698,13 +710,9 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 		--set-string global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
-
-# This is used to @include values-istio-demo-common.yaml file
-istio-demo.yaml istio-demo-auth.yaml: export EXTRA_HELM_SETTINGS+=--values install/kubernetes/helm/istio/values-istio-demo-common.yaml
-
-# creates istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml
+# creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
+istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \

@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
@@ -432,6 +433,38 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "root namespace",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "istio-config", policy),
+			},
+			want: []Config{
+				newConfig("authz-1", "istio-config", policy),
+			},
+		},
+		{
+			name: "root namespace equals config namespace",
+			ns:   "istio-config",
+			configs: []Config{
+				newConfig("authz-1", "istio-config", policy),
+			},
+			want: []Config{
+				newConfig("authz-1", "istio-config", policy),
+			},
+		},
+		{
+			name: "root namespace and config namespace",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "istio-config", policy),
+				newConfig("authz-2", "bar", policy),
+			},
+			want: []Config{
+				newConfig("authz-1", "istio-config", policy),
+				newConfig("authz-2", "bar", policy),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -581,7 +614,10 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 	for _, cfg := range configs {
 		store.add(cfg)
 	}
-	environment := &Environment{IstioConfigStore: MakeIstioStore(store)}
+	environment := &Environment{
+		IstioConfigStore: MakeIstioStore(store),
+		Mesh:             &mesh.MeshConfig{RootNamespace: "istio-config"},
+	}
 	authzPolicies, err := GetAuthorizationPolicies(environment)
 	if err != nil {
 		t.Fatalf("GetAuthorizationPolicies failed: %v", err)

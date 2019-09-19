@@ -60,7 +60,7 @@ func TestAnalyzersRun(t *testing.T) {
 	cancel := make(chan struct{})
 
 	r := createTestResource("resource", "v1")
-	msg := msg.InternalError(r, "msg")
+	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
 			ctx.Report(collection.NewName("collection"), msg)
@@ -68,7 +68,7 @@ func TestAnalyzersRun(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(metadata.MustGet(), a)
-	sa.AddFileKubeSource([]string{})
+	sa.AddFileKubeSource([]string{}, "")
 
 	msgs, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
@@ -104,6 +104,6 @@ func TestAddFileKubeSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sa.AddFileKubeSource([]string{tmpfile.Name()})
+	sa.AddFileKubeSource([]string{tmpfile.Name()}, "")
 	g.Expect(sa.sources).To(HaveLen(1))
 }

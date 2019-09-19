@@ -20,22 +20,36 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// Message is a diagnostic message
-type Message struct {
-	// The error code of the message
-	Code string
-
+// MessageType is a type of diagnostic message
+type MessageType struct {
 	// The level of the message.
-	Level Level
+	level Level
+
+	// The error code of the message
+	code string
+
+	// TODO: Make this localizable
+	template string
+}
+
+//Level returns the level of the MessageType
+func (m *MessageType) Level() Level { return m.level }
+
+//Code returns the code of the MessageType
+func (m *MessageType) Code() string { return m.code }
+
+//Template returns the message template used by the MessageType
+func (m *MessageType) Template() string { return m.template }
+
+// Message is a specific diagnostic message
+type Message struct {
+	Type *MessageType
 
 	// The Parameters to the message
 	Parameters []interface{}
 
 	// Origin of the message
 	Origin resource.Origin
-
-	// TODO: Make this localizable
-	template string
 }
 
 // String implements io.Stringer
@@ -54,16 +68,23 @@ func (m *Message) toString(includeOrigin bool) string {
 	if includeOrigin && m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
-	return fmt.Sprintf("%v [%v]%s %s", m.Level, m.Code, origin, fmt.Sprintf(m.template, m.Parameters...))
+	return fmt.Sprintf("%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
-// NewMessage returns a new Message instance.
-func NewMessage(l Level, c string, o resource.Origin, template string, p ...interface{}) Message {
+// NewMessageType returns a new MessageType instance.
+func NewMessageType(level Level, code, template string) *MessageType {
+	return &MessageType{
+		level:    level,
+		code:     code,
+		template: template,
+	}
+}
+
+// NewMessage returns a new Message instance from an existing type.
+func NewMessage(mt *MessageType, o resource.Origin, p ...interface{}) Message {
 	return Message{
-		Level:      l,
-		Code:       c,
+		Type:       mt,
 		Origin:     o,
-		template:   template,
 		Parameters: p,
 	}
 }
