@@ -160,7 +160,7 @@ func TestGateway_NoListeners(t *testing.T) {
 		MeshConfig:   meshcfg.Default(),
 	}
 
-	xforms := Create(o)
+	xforms := GetProviders().Create(o)
 	g.Expect(xforms).To(HaveLen(2))
 
 	src := &fixtures.Source{}
@@ -285,7 +285,7 @@ func TestGateway_InvalidEvent(t *testing.T) {
 }
 
 func setupGW(g *GomegaWithT, o processing.ProcessorOptions) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
-	xforms := Create(o)
+	xforms := GetProviders().Create(o)
 	g.Expect(xforms).To(HaveLen(2))
 
 	src := &fixtures.Source{}
