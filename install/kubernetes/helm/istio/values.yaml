@@ -183,9 +183,9 @@ global:
       tlsSettings:
         mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
         clientCertificate: # example: /etc/istio/als/cert-chain.pem
-        privateKey: # example: /etc/istio/als/key.pem
-        caCertificates: # example: /etc/istio/als/root-cert.pem
-        sni: # example: als.somedomain
+        privateKey:        # example: /etc/istio/als/key.pem
+        caCertificates:    # example: /etc/istio/als/root-cert.pem
+        sni:               # example: als.somedomain
         subjectAltNames: []
         # - als.somedomain
       tcpKeepalive:
@@ -283,6 +283,18 @@ global:
       enabled: false
       host: # example: metrics-service.istio-system
       port: # example: 15000
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/ms/cert-chain.pem
+        privateKey:        # example: /etc/istio/ms/key.pem
+        caCertificates:    # example: /etc/istio/ms/root-cert.pem
+        sni:               # example: ms.somedomain
+        subjectAltNames: []
+        # - ms.somedomain 
+      tcpKeepalive:
+        probes: 3
+        time: 10s
+        interval: 10s
 
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.

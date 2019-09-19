@@ -258,8 +258,16 @@ data:
       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
       envoyMetricsService:
         address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+    {{- if .Values.global.proxy.envoyMetricsService.tlsSettings }}
+        tlsSettings:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tlsSettings | trim | indent 10 }}
     {{- end}}
-
+    {{- if .Values.global.proxy.envoyMetricsService.tcpKeepalive }}
+        tcpKeepalive:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | trim | indent 10 }}
+    {{- end}}
+    {{- end}}
+    
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
       #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
@@ -267,11 +275,11 @@ data:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
         tlsSettings:
-{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | indent 10 }}
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | trim | indent 10 }}
     {{- end}}
     {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
         tcpKeepalive:
-{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | indent 10 }}
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
     {{- end}}
     {{- end}}
 
