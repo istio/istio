@@ -1241,6 +1241,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, H2Protocol)
 		}
 
 		listenerOpts.filterChainOpts = opts
