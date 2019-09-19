@@ -70,14 +70,14 @@ const (
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
 	networkFetchRetryCountOnRefreshFlow = 3
+
+	// jwksPublicRootCABundlePath is the path of public root CA bundle in pilot container.
+	jwksPublicRootCABundlePath = "/cacert.pem"
+	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
+	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
 )
 
 var (
-	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
-	publicRootCABundlePath = "/cacert.pem"
-	// extraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
-	extraRootCABundlePath = "/cacerts/extra.pem"
-
 	// Close channel
 	closeChan = make(chan bool)
 
@@ -137,6 +137,14 @@ func init() {
 
 // NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResolver {
+	return newJwksResolverWithCABundlePaths(
+		evictionDuration,
+		refreshInterval,
+		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
+	)
+}
+
+func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {
 	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
 		evictionDuration: evictionDuration,
@@ -152,11 +160,10 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 
 	caCertPool := x509.NewCertPool()
 	caCertsFound := false
-	for _, pemFile := range []string{publicRootCABundlePath, extraRootCABundlePath} {
+	for _, pemFile := range caBundlePaths {
 		caCert, err := ioutil.ReadFile(pemFile)
 		if err == nil {
-			caCertPool.AppendCertsFromPEM(caCert)
-			caCertsFound = true
+			caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
 		}
 	}
 	if caCertsFound {
@@ -169,8 +176,6 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 				},
 			},
 		}
-	} else {
-		log.Errorf("jwksResolver: No CA bundles imported. Will skip TLS verification when resolving JWKS URIs")
 	}
 
 	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
