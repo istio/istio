@@ -31,11 +31,13 @@ var _ analysis.Analyzer = &ServiceRoleBindingAnalyzer{}
 
 // Metadata implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
-	return analysis.NewMetadata("auth.ServiceRoleBindingAnalyzer",
-		collection.Names{
+	return analysis.Metadata{
+		Name: "auth.ServiceRoleBindingAnalyzer",
+		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.IstioRbacV1Alpha1Servicerolebindings,
-		})
+		},
+	}
 }
 
 // Analyze implements Analyzer

@@ -32,6 +32,8 @@ var (
 // DestinationAnalyzer checks the destinations associated with each virtual service
 type DestinationAnalyzer struct{}
 
+var _ analysis.Analyzer = &DestinationAnalyzer{}
+
 type hostAndSubset struct {
 	host   resource.Name
 	subset string
@@ -39,13 +41,15 @@ type hostAndSubset struct {
 
 // Metadata implements Analyzer
 func (da *DestinationAnalyzer) Metadata() analysis.Metadata {
-	return analysis.NewMetadata("virtualservice.DestinationAnalyzer",
-		collection.Names{
+	return analysis.Metadata{
+		Name: "virtualservice.DestinationAnalyzer",
+		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
 			metadata.IstioNetworkingV1Alpha3Serviceentries,
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
-		})
+		},
+	}
 }
 
 // Analyze implements Analyzer

@@ -32,18 +32,21 @@ import (
 )
 
 type testAnalyzer struct {
-	fn              func(analysis.Context)
-	collectionsUsed collection.Names
+	fn     func(analysis.Context)
+	inputs collection.Names
 }
 
 var blankTestAnalyzer = &testAnalyzer{
-	fn:              func(_ analysis.Context) {},
-	collectionsUsed: []collection.Name{},
+	fn:     func(_ analysis.Context) {},
+	inputs: []collection.Name{},
 }
 
 // Metadata implements Analyzer
 func (a *testAnalyzer) Metadata() analysis.Metadata {
-	return analysis.NewMetadata("testAnalyzer", a.collectionsUsed)
+	return analysis.Metadata{
+		Name:   "testAnalyzer",
+		Inputs: a.inputs,
+	}
 }
 
 // Analyze implements Analyzer
@@ -129,8 +132,8 @@ func TestResourceFiltering(t *testing.T) {
 
 	usedCollection := k8smeta.K8SCoreV1Services
 	dummyAnalyzer := &testAnalyzer{
-		fn:              func(_ analysis.Context) {},
-		collectionsUsed: []collection.Name{usedCollection},
+		fn:     func(_ analysis.Context) {},
+		inputs: []collection.Name{usedCollection},
 	}
 	mk := mock.NewKube()
 
@@ -139,7 +142,7 @@ func TestResourceFiltering(t *testing.T) {
 
 	// All but the used collection should be disabled
 	for _, r := range recordedOptions.Resources {
-		if r.Collection.Name == k8smeta.K8SCoreV1Services {
+		if r.Collection.Name == usedCollection {
 			g.Expect(r.Disabled).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Collection.Name))
 		} else {
 			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Collection.Name))

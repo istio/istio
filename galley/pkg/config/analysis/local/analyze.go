@@ -51,7 +51,7 @@ type SourceAnalyzer struct {
 
 	// Which collections are used by this analysis
 	// Derived from the specified analyzer and transformer providers
-	collectionsUsed map[collection.Name]bool
+	inputCollections map[collection.Name]bool
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -63,7 +63,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAn
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
-		collectionsUsed:      getUpstreamCollections(analyzer, transformerProviders),
+		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
 	}
 }
 
@@ -119,7 +119,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
 	// so removing unnecessary resources makes a useful difference.
 	filteredResources := make([]schema.KubeResource, 0)
 	for _, r := range sa.m.KubeSource().Resources() {
-		if _, ok := sa.collectionsUsed[r.Collection.Name]; !ok {
+		if _, ok := sa.inputCollections[r.Collection.Name]; !ok {
 			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
 			r.Disabled = true
 		}
@@ -152,7 +152,7 @@ func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transform
 
 	// 2. For each collection used by the analyzer, get its inputs using the above mapping and include them in the output set
 	upstreamCollections := make(map[collection.Name]bool)
-	for c := range analyzer.Metadata().CollectionsUsed() {
+	for _, c := range analyzer.Metadata().Inputs {
 		for in := range outToIn[c] {
 			upstreamCollections[in] = true
 		}
