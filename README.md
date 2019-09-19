@@ -241,13 +241,17 @@ the default disabled, test it, and move the default from `istio-system` to `isti
 
 ```bash
 # ENABLE_CNI is set to true if istio-cni is installed
-iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set sidecarInjectorWebhook.enableNamespacesByDefault=true --set global.configNamespace=istio-control \
-    --set istio_cni.enabled=${ENABLE_CNI}
+iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject \
+        --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
+        --set global.configNamespace=istio-control \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set istio_cni.enabled=${ENABLE_CNI}
 
 # Second auto-inject using master version of istio
 # Notice the different options
 TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
-         --set global.configNamespace=istio-master
+        --set global.telemetryNamespace=istio-telemetry-master \
+        --set global.configNamespace=istio-master
 ```
 
 ## Gateways
@@ -277,7 +281,11 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-ingress-master istio-
 
 ```bash
 iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.configNamespace=istio-control
-iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.configNamespace=istio-control
+iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.configNamespace=istio-control \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy
 iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.configNamespace=istio-control \
         --set global.istioNamespace=istio-system \
@@ -287,7 +295,10 @@ iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
 TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
         --set global.configNamespace=istio-master
 TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
-        --set global.configNamespace=istio-master
+        --set global.configNamespace=istio-master \
+        --set global.istioNamespace=istio-master \
+        --set global.telemetryNamespace=istio-telemetry-master \
+        --set global.policyNamespace=istio-policy-master
 TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.configNamespace=istio-master \
         --set global.istioNamespace=istio-master \
