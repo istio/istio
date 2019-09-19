@@ -23,6 +23,9 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/runtimes: go,kiali
+        {{- if .Values.kiali.podAnnotations }}
+{{ toYaml .Values.kiali.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: kiali-service-account
 {{- if .Values.global.priorityClassName }}

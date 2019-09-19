@@ -17,3 +17,5 @@ cni:
 
   excludeNamespaces:
     - istio-system
+
+  podAnnotations: {}

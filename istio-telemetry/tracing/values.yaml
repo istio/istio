@@ -39,6 +39,7 @@ tracing:
     persist: false
     storageClassName: ""
     accessMode: ReadWriteMany
+    podAnnotations: {}
 
   zipkin:
     hub: docker.io/openzipkin
@@ -61,6 +62,7 @@ tracing:
     maxSpans: 500000
     node:
       cpus: 2
+    podAnnotations: {}
 
   opencensus:
     hub: docker.io/omnition
@@ -75,6 +77,7 @@ tracing:
     exporters:
       stackdriver:
         enable_tracing: true
+    podAnnotations: {}
 
   service:
     annotations: {}

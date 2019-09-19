@@ -39,6 +39,9 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/port: "8888"
         prometheus.io/scrape: "true"
+        {{- if .Values.tracing.opencensus.podAnnotations }}
+{{ toYaml .Values.tracing.opencensus.podAnnotations | indent 8 }}
+        {{- end }}
       labels:
         app: opencensus
         component: oc-collector

@@ -20,6 +20,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        {{- if .Values.tracing.zipkin.podAnnotations }}
+{{ toYaml .Values.tracing.zipkin.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"

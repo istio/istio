@@ -9,6 +9,7 @@ kiali:
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
+  podAnnotations: {}
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
   # your pod is eligible to be scheduled based on labels on pods that are

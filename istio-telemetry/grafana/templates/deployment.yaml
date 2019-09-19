@@ -20,6 +20,9 @@ spec:
         release: istio-system
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.grafana.podAnnotations }}
+{{ toYaml .Values.grafana.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       securityContext:
         runAsUser: 472

@@ -19,6 +19,9 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.prometheus.podAnnotations }}
+{{ toYaml .Values.prometheus.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}
