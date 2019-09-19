@@ -207,6 +207,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
+	var node *core.Node
 	for {
 		// Block until a request is received.
 		select {
@@ -218,8 +219,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if discReq.Node == nil {
-				sdsServiceLog.Errorf("Close connection. Invalid discovery request with no node")
-				return fmt.Errorf("invalid discovery request with no node")
+				discReq.Node = node
+			} else {
+				node = discReq.Node
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
@@ -455,6 +457,9 @@ func recycleConnection(conID, resourceName string) {
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
+	if discReq.Node == nil {
+		return "", fmt.Errorf("discovery request %+v missing node", discReq)
+	}
 	if discReq.Node.Id == "" {
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
