@@ -1311,7 +1311,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{&blackhole},
+			networkFilters:   []*listener.Filter{blackhole},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
