@@ -35,9 +35,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	jwt_filter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	jwt_filter "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -115,20 +114,6 @@ func StructToGoGoMessage(pbst *structpb.Struct, out proto.Message) error {
 	return gogojsonpb.Unmarshal(buf, out)
 }
 
-func getGogoHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
-	switch c := filter.ConfigType.(type) {
-	case *hcm_filter.HttpFilter_Config:
-		if err := StructToGoGoMessage(c.Config, out); err != nil {
-			return err
-		}
-	case *hcm_filter.HttpFilter_TypedConfig:
-		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // ParseListener parses the envoy listener config by extracting the auth related config.
 func ParseListener(listener *v2.Listener) *ParsedListener {
 	parsedListener := &ParsedListener{
@@ -147,14 +132,14 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 						switch httpFilter.GetName() {
 						case "istio_authn":
 							authN := &authn_filter.FilterConfig{}
-							if err := getGogoHTTPFilterConfig(httpFilter, authN); err != nil {
+							if err := getHTTPFilterConfig(httpFilter, authN); err != nil {
 								log.Errorf("found AuthN filter but failed to parse: %s", err)
 							} else {
 								parsedFC.authN = authN
 							}
 						case "jwt-auth":
 							jwt := &jwt_filter.JwtAuthentication{}
-							if err := getGogoHTTPFilterConfig(httpFilter, jwt); err != nil {
+							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
 								log.Errorf("found JWT filter but failed to parse: %s", err)
 							} else {
 								parsedFC.jwt = jwt

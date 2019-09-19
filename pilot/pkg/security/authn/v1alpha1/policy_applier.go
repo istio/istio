@@ -25,13 +25,11 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -42,6 +40,9 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	protovalue "istio.io/istio/pkg/proto"
+	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 )
 
 const (
@@ -242,26 +243,33 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 		return nil
 	}
 
-	p := proto.Clone(policy).(*authn_v1alpha1.Policy)
+	fmt.Printf("policy %s proxyType %v\n", policy.String(), proxyType)
+
+	// cloning proto from gogo to golang world
+	bytes, _ := policy.Marshal()
+	p := &authn_filter_policy.Policy{}
+	proto.Unmarshal(bytes, p)
+
 	// Create default mTLS params for params type mTLS but value is nil.
 	// This walks around the issue https://github.com/istio/istio/issues/4763
-	var usedPeers []*authn_v1alpha1.PeerAuthenticationMethod
+	var usedPeers []*authn_filter_policy.PeerAuthenticationMethod
 	for _, peer := range p.Peers {
 		switch peer.GetParams().(type) {
-		case *authn_v1alpha1.PeerAuthenticationMethod_Mtls:
+		case *authn_filter_policy.PeerAuthenticationMethod_Mtls:
 			// Only enable mTLS for sidecar, not Ingress/Router for now.
 			if proxyType == model.SidecarProxy {
 				if peer.GetMtls() == nil {
-					peer.Params = &authn_v1alpha1.PeerAuthenticationMethod_Mtls{Mtls: &authn_v1alpha1.MutualTls{}}
+					peer.Params = &authn_filter_policy.PeerAuthenticationMethod_Mtls{Mtls: &authn_filter_policy.MutualTls{}}
 				}
 				usedPeers = append(usedPeers, peer)
 			}
-		case *authn_v1alpha1.PeerAuthenticationMethod_Jwt:
+		case *authn_filter_policy.PeerAuthenticationMethod_Jwt:
 			usedPeers = append(usedPeers, peer)
 		}
 	}
 
 	p.Peers = usedPeers
+	fmt.Printf("p %s userPeers %v len(usedPeers) %d\n", p.String(), usedPeers, len(usedPeers))
 	filterConfig := &authn_filter.FilterConfig{
 		Policy: p,
 		// we can always set this field, it's no-op if mTLS is not used.
