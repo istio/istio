@@ -6,18 +6,18 @@ metadata:
   name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: zipkin
+    app: {{ template "tracing.name" . }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   selector:
     matchLabels:
-      app: zipkin
+      app: {{ template "tracing.name" . }}
   template:
     metadata:
       labels:
-        app: zipkin
+        app: {{ template "tracing.name" . }}
         chart: {{ template "tracing.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

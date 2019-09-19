@@ -51,6 +51,6 @@ items:
         targetPort: 16686
 {{ else }}
         targetPort: 9411
-{{ end}}
+{{ end }}
     selector:
       app: {{ template "tracing.name" . }}
