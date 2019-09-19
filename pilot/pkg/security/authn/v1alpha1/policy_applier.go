@@ -247,7 +247,7 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 	bytes, _ := policy.Marshal()
 	p := &authn_filter_policy.Policy{}
 	if err := proto.Unmarshal(bytes, p); err != nil {
-		return nul
+		return nil
 	}
 
 	// Create default mTLS params for params type mTLS but value is nil.
