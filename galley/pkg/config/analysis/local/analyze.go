@@ -52,6 +52,9 @@ type SourceAnalyzer struct {
 	// Which collections are used by this analysis
 	// Derived from the specified analyzer and transformer providers
 	inputCollections map[collection.Name]struct{}
+
+	// Hook function called whenever a collection is accessed
+	collectionReporter func(collection.Name)
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -64,7 +67,14 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAn
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
+		collectionReporter:   func(collection.Name) {}, // No-op unless SetCollectionReporter specifies otherwise
 	}
+}
+
+// SetCollectionReporter adds a hook that gets called whenever a collection is accessed
+// through the AnalyzingDistributor's context.
+func (sa *SourceAnalyzer) SetCollectionReporter(fn func(collection.Name)) {
+	sa.collectionReporter = fn
 }
 
 // Analyze loads the sources and executes the analysis
@@ -79,6 +89,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
+	distributor.SetCollectionReporter(sa.collectionReporter)
 	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformerProviders, distributor)
 	if err != nil {
 		return nil, err

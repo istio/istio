@@ -36,6 +36,9 @@ type AnalyzingDistributor struct {
 
 	snapshotsMu   sync.RWMutex
 	lastSnapshots map[string]*Snapshot
+
+	// Hook function called whenever a collection is accessed
+	collectionReporter func(collection.Name)
 }
 
 var _ Distributor = &AnalyzingDistributor{}
@@ -46,11 +49,18 @@ const syntheticSnapshotGroup = "syntheticServiceEntry"
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
 	return &AnalyzingDistributor{
-		updater:       u,
-		analyzer:      a,
-		distributor:   d,
-		lastSnapshots: make(map[string]*Snapshot),
+		updater:            u,
+		analyzer:           a,
+		distributor:        d,
+		lastSnapshots:      make(map[string]*Snapshot),
+		collectionReporter: func(collection.Name) {}, // No-op unless SetCollectionReporter specifies otherwise
 	}
+}
+
+// SetCollectionReporter adds a hook that gets called whenever a collection is accessed
+// through the AnalyzingDistributor's context.
+func (d *AnalyzingDistributor) SetCollectionReporter(fn func(collection.Name)) {
+	d.collectionReporter = fn
 }
 
 // Distribute implements snapshotter.Distributor
@@ -90,8 +100,9 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *Snapshot) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
-		sn:       d.getCombinedSnapshot(),
-		cancelCh: cancelCh,
+		sn:                 d.getCombinedSnapshot(),
+		cancelCh:           cancelCh,
+		collectionReporter: d.collectionReporter,
 	}
 
 	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
@@ -126,30 +137,34 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 }
 
 type context struct {
-	sn       *Snapshot
-	cancelCh chan struct{}
-	messages diag.Messages
+	sn                 *Snapshot
+	cancelCh           chan struct{}
+	messages           diag.Messages
+	collectionReporter func(collection.Name)
 }
 
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(coll collection.Name, m diag.Message) {
+func (c *context) Report(col collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
 // Find implements analysis.Context
-func (c *context) Find(cpl collection.Name, name resource.Name) *resource.Entry {
-	return c.sn.Find(cpl, name)
+func (c *context) Find(col collection.Name, name resource.Name) *resource.Entry {
+	c.collectionReporter(col)
+	return c.sn.Find(col, name)
 }
 
 // Exists implements analysis.Context
-func (c *context) Exists(cpl collection.Name, name resource.Name) bool {
-	return c.Find(cpl, name) != nil
+func (c *context) Exists(col collection.Name, name resource.Name) bool {
+	c.collectionReporter(col)
+	return c.Find(col, name) != nil
 }
 
 // ForEach implements analysis.Context
 func (c *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
+	c.collectionReporter(col)
 	c.sn.ForEach(col, fn)
 }
 
