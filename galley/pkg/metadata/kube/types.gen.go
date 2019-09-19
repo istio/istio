@@ -68,6 +68,36 @@ func init() {
 	versions = append(versions, "v1alpha2")
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "HTTPAPISpecBinding",
+		ListKind:  "HTTPAPISpecBindingList",
+		Singular:  "httpapispecbinding",
+		Plural:    "httpapispecbindings",
+		Versions:  versions,
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/httpapispecbindings"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
+	versions = append(versions, "v1alpha2")
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "HTTPAPISpec",
+		ListKind:  "HTTPAPISpecList",
+		Singular:  "httpapispec",
+		Plural:    "httpapispecs",
+		Versions:  versions,
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/httpapispecs"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
+	versions = append(versions, "v1alpha2")
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "apikey",
 		ListKind:  "apikeyList",
 		Singular:  "apikey",
@@ -602,6 +632,36 @@ func init() {
 		Versions:  versions,
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/templates"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
+	versions = append(versions, "v1alpha2")
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "QuotaSpecBinding",
+		ListKind:  "QuotaSpecBindingList",
+		Singular:  "quotaspecbinding",
+		Plural:    "quotaspecbindings",
+		Versions:  versions,
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/mixer/v1/config/client/quotaspecbindings"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
+	versions = append(versions, "v1alpha2")
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "QuotaSpec",
+		ListKind:  "QuotaSpecList",
+		Singular:  "quotaspec",
+		Plural:    "quotaspecs",
+		Versions:  versions,
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/mixer/v1/config/client/quotaspecs"),
 		Converter: converter.Get("identity"),
 	})
 
