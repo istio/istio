@@ -22,15 +22,20 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-//InferPodInfo Uses proxyName to infer namespace if the passed proxyName contains namespace information.
-// Otherwise uses the namespace value passed into the function
+// InferPodInfo is deprecated see InferResourceInfo
 func InferPodInfo(proxyName, namespace string) (string, string) {
-	separator := strings.LastIndex(proxyName, ".")
+	return InferResourceInfo(proxyName, namespace)
+}
+
+// InferResourceInfo Uses name to infer namespace if the passed proxyName contains namespace information.
+// Otherwise uses the namespace value passed into the function
+func InferResourceInfo(name, namespace string) (string, string) {
+	separator := strings.LastIndex(name, ".")
 	if separator < 0 {
-		return proxyName, namespace
+		return name, namespace
 	}
 
-	return proxyName[0:separator], proxyName[separator+1:]
+	return name[0:separator], name[separator+1:]
 }
 
 //HandleNamespace returns the defaultNamespace if the namespace is empty
