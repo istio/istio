@@ -33,7 +33,7 @@ import (
 // - Configure authn policy.
 // - Wait for config propagation.
 // - Send HTTP/gRPC requests between apps.
-func TestReachability(t *testing.T) {
+func TestReachabilityAuto(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 

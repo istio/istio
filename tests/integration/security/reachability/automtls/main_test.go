@@ -54,5 +54,5 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-	cfg.Values["global.mtls.autom"] = "true"
+	cfg.Values["global.mtls.auto"] = "true"
 }
