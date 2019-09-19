@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
@@ -103,8 +104,9 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	transformProviders := transforms.Providers(m)
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
+	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
 		return
 	}
 
