@@ -243,12 +243,12 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 		return nil
 	}
 
-	fmt.Printf("policy %s proxyType %v\n", policy.String(), proxyType)
-
 	// cloning proto from gogo to golang world
 	bytes, _ := policy.Marshal()
 	p := &authn_filter_policy.Policy{}
-	proto.Unmarshal(bytes, p)
+	if err := proto.Unmarshal(bytes, p); err != nil {
+		return nul
+	}
 
 	// Create default mTLS params for params type mTLS but value is nil.
 	// This walks around the issue https://github.com/istio/istio/issues/4763
@@ -269,7 +269,6 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 	}
 
 	p.Peers = usedPeers
-	fmt.Printf("p %s userPeers %v len(usedPeers) %d\n", p.String(), usedPeers, len(usedPeers))
 	filterConfig := &authn_filter.FilterConfig{
 		Policy: p,
 		// we can always set this field, it's no-op if mTLS is not used.
