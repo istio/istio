@@ -143,7 +143,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			case <-ticker.C:
 				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
 					log.Infof("Citadel successfully loaded the secret.")
-					break
 				}
 			case <-ctx.Done():
 				log.Errorf("Secret waiting thread is terminated.")
