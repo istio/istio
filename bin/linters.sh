@@ -63,8 +63,8 @@ function run_helm_lint() {
 function run_helm_spaces_lint() {
     echo 'Running helm spaces lint on istio ....'
     helm lint ./install/kubernetes/helm/istio
-    ! helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/configmap.yaml | grep -q " $"
-    ! helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/sidecar-injector-configmap.yaml | grep -q " $"
+    helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/configmap.yaml | grep -q " $" && exit 1
+    helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/sidecar-injector-configmap.yaml | grep -q " $" && exit 1
     echo 'helm lint on istio OK'
 }
 
