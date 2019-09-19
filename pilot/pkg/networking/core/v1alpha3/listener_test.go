@@ -584,7 +584,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			}
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -611,7 +611,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -636,8 +636,8 @@ func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -675,8 +675,8 @@ func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, s
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy *model.Proxy) {
@@ -714,8 +714,8 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -727,12 +727,21 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 	}
 }
 
-func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection) {
 	t.Helper()
-	if len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
-		fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.1" ||
-		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.0" {
-		t.Fatalf("expected %d application protocols, [http/1.1, http/1.0]", 3)
+	if direction == model.TrafficDirectionInbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1]", 2)
+	}
+
+	if direction == model.TrafficDirectionOutbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
+			fc.FilterChainMatch.ApplicationProtocols[2] != "h2") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1, h2]", 3)
 	}
 }
 
@@ -810,7 +819,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3], model.TrafficDirectionOutbound)
 
 		if len(l.ListenerFilters) != 2 ||
 			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
@@ -840,7 +849,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		}
 	}
 
-	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound)
 	if len(l.ListenerFilters) != 2 ||
 		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {

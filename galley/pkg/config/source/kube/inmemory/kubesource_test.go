@@ -289,6 +289,46 @@ func TestSameNameDifferentKind(t *testing.T) {
 		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1, "v2"))))
 }
 
+func TestKubeSource_DefaultNamespace(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	defaultNs := "default"
+	s.SetDefaultNamespace(defaultNs)
+
+	err := s.ApplyContent("foo", data.YamlI1V1NoNamespace)
+	g.Expect(err).To(BeNil())
+
+	_, expectedName := data.EntryI1V1NoNamespace.Metadata.Name.InterpretAsNamespaceAndName()
+
+	actual := s.Get(data.Collection1).AllSorted()
+	g.Expect(actual).To(HaveLen(1))
+	g.Expect(actual[0].Metadata.Name).To(Equal(resource.NewName(defaultNs, expectedName)))
+}
+
+func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := NewKubeSource(basicmeta.MustGet2().KubeSource().Resources())
+	acc := &fixtures.Accumulator{}
+	s.Dispatch(acc)
+	s.Start()
+	defer s.Stop()
+
+	defaultNs := "default"
+	s.SetDefaultNamespace(defaultNs)
+
+	err := s.ApplyContent("foo", data.YamlI1V1NoNamespaceKind2)
+	g.Expect(err).To(BeNil())
+
+	actual := s.Get(data.Collection2).AllSorted()
+	g.Expect(actual).To(HaveLen(1))
+	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryI1V1NoNamespace.Metadata.Name))
+}
+
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
 	s := NewKubeSource(basicmeta.MustGet().KubeSource().Resources())
 
