@@ -67,6 +67,7 @@ const (
 	envoyStatsMatcherInclusionRegexpOption = "inclusionRegexps"
 
 	envoyAccessLogServiceName = "envoy_accesslog_service"
+	envoyMetricsServiceName   = "envoy_metrics_service"
 )
 
 var (
@@ -513,17 +514,20 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	}
 
 	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
-		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsService.Address)
+		h, p, err = GetHostPort("envoy metrics service address", config.EnvoyMetricsService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_metrics_service", opts)
+		StoreHostPort(h, p, "envoy_metrics_service_address", opts)
+		storeTLSContext(envoyMetricsServiceName, config.EnvoyMetricsService.TlsSettings, meta,
+			"envoy_metrics_service_tls", opts)
+		storeKeepalive(config.EnvoyMetricsService.TcpKeepalive, "envoy_metrics_service_tcp_keepalive", opts)
 	} else if config.EnvoyMetricsServiceAddress != "" {
-		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
+		h, p, err = GetHostPort("envoy metrics service address", config.EnvoyMetricsService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_metrics_service", opts)
+		StoreHostPort(h, p, "envoy_metrics_service_address", opts)
 	}
 
 	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
