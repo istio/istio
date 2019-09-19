@@ -3,15 +3,30 @@ kind: Service
 metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
   labels:
     app: {{ template "kiali.name" . }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
+  type: {{ .Values.service.type }}
   ports:
-  - name: http-kiali
+  - name: {{ .Values.service.name }}
+    targetPort: 20001
     protocol: TCP
-    port: 20001
+    port: {{ .Values.service.externalPort }}
   selector:
     app: kiali
+{{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- end }}
+  {{if .Values.service.loadBalancerSourceRanges}}
+  loadBalancerSourceRanges:
+    {{range $rangeList := .Values.service.loadBalancerSourceRanges}}
+    - {{ $rangeList }}
+    {{end}}
+  {{end}}
