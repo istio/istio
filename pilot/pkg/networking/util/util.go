@@ -221,14 +221,28 @@ func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Liste
 	return nil
 }
 
+// MessageToAnyWithError converts from proto message to proto Any
+func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
+	b := proto.NewBuffer(nil)
+	b.SetDeterministic(true)
+	err := b.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &any.Any{
+		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
+		Value:   b.Bytes(),
+	}, nil
+}
+
 // MessageToAny converts from proto message to proto Any
 func MessageToAny(msg proto.Message) *any.Any {
-	s, err := ptypes.MarshalAny(msg)
+	out, err := MessageToAnyWithError(msg)
 	if err != nil {
 		log.Error(err.Error())
 		return nil
 	}
-	return s
+	return out
 }
 
 // MessageToStruct converts from proto message to proto Struct

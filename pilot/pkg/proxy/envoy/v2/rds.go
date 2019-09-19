@@ -77,7 +77,7 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xd
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
-		rr, _ := ptypes.MarshalAny(rc)
+		rr, _ := util.MessageToAnyWithError(rc)
 		resp.Resources = append(resp.Resources, rr)
 	}
 

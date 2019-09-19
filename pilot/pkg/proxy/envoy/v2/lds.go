@@ -76,7 +76,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 			totalXDSInternalErrors.Increment()
 			continue
 		}
-		lr, _ := ptypes.MarshalAny(ll)
+		lr, _ := util.MessageToAnyWithError(ll)
 		resp.Resources = append(resp.Resources, lr)
 	}
 

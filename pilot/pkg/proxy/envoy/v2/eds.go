@@ -825,7 +825,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 		Nonce:       nonce(),
 	}
 	for _, loadAssignment := range loadAssignments {
-		resource, _ := ptypes.MarshalAny(loadAssignment)
+		resource, _ := util.MessageToAnyWithError(loadAssignment)
 		out.Resources = append(out.Resources, resource)
 	}
 
