@@ -165,7 +165,8 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			s.container.Name, err, arg, result)
 	}
 
-	if err := jsonpb.Unmarshal(bytes.NewReader(result.StdOut), out); err != nil {
+	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	if err := jspb.Unmarshal(bytes.NewReader(result.StdOut), out); err != nil {
 		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nStderr: %s\nStdout: %s",
 			path, err, string(result.StdErr), string(result.StdOut))
 	}
