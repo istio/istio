@@ -68,6 +68,7 @@ grafana:
 
   nodeSelector: {}
   tolerations: []
+  podAnnotations: {}
 
   env: {}
     # Define additional environment variables for configuring grafana.

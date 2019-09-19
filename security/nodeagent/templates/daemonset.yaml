@@ -19,6 +19,9 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.nodeagent.podAnnotations }}
+{{ toYaml .Values.nodeagent.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-nodeagent-service-account
 {{- if .Values.global.priorityClassName }}

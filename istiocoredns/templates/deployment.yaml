@@ -23,6 +23,9 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
+        {{- if .Values.istiocoredns.podAnnotations }}
+{{ toYaml .Values.istiocoredns.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istiocoredns-service-account
 {{- if .Values.global.priorityClassName }}
