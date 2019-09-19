@@ -119,18 +119,18 @@ func TestAuthNPolicies(t *testing.T) {
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
-		"mtls-strict-svc": {
+		"mtls-strict-svc-port": {
 			Targets: []*authn.TargetSelector{{
-				Name: "mtls-strict-svc",
+				Name: "mtls-strict-svc-port",
 			}},
 			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_Mtls{},
 			},
 			}},
 
-		"mtls-permissive-svc": {
+		"mtls-permissive-svc-port": {
 			Targets: []*authn.TargetSelector{{
-				Name: "mtls-permissive-svc",
+				Name: "mtls-permissive-svc-port",
 				Ports: []*authn.PortSelector{
 					{
 						Port: &authn.PortSelector_Number{
@@ -145,6 +145,22 @@ func TestAuthNPolicies(t *testing.T) {
 						Mode: authn.MutualTls_PERMISSIVE,
 					},
 				},
+			}},
+		},
+
+		"mtls-strict-svc-name": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-name",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Name{
+							Name: "http",
+						},
+					},
+				},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
 			}},
 		},
 
@@ -187,44 +203,50 @@ func TestAuthNPolicies(t *testing.T) {
 	cases := []struct {
 		hostname  host.Name
 		namespace string
-		port      int
+		port      Port
 		expected  string
 	}{
 		{
-			hostname:  "mtls-strict-svc.default.svc.cluster.local",
+			hostname:  "mtls-strict-svc-port.default.svc.cluster.local",
 			namespace: "default",
-			port:      80,
-			expected:  "mtls-strict-svc",
+			port:      Port{Port: 80},
+			expected:  "mtls-strict-svc-port",
 		},
 		{
-			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
+			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
 			namespace: "default",
-			port:      80,
-			expected:  "mtls-permissive-svc",
+			port:      Port{Port: 80},
+			expected:  "mtls-permissive-svc-port",
 		},
 		{
-			hostname:  "mtls-permissive-svc.default.svc.cluster.local",
+			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
 			namespace: "default",
-			port:      90,
+			port:      Port{Port: 90},
 			expected:  constants.DefaultAuthenticationPolicyName,
 		},
 		{
 			hostname:  "mtls-disable-svc.default.svc.cluster.local",
 			namespace: "default",
-			port:      80,
+			port:      Port{Port: 80},
 			expected:  "mtls-disable-svc",
 		},
 		{
-			hostname:  "mtls-strict-svc.another-namespace.svc.cluster.local",
+			hostname:  "mtls-strict-svcport.another-namespace.svc.cluster.local",
 			namespace: "another-namespace",
-			port:      80,
+			port:      Port{Port: 80},
 			expected:  constants.DefaultAuthenticationPolicyName,
 		},
 		{
-			hostname:  "mtls-default-svc.default.svc.cluster.local",
+			hostname:  "mtls-default-svc-port.default.svc.cluster.local",
 			namespace: "default",
-			port:      80,
+			port:      Port{Port: 80},
 			expected:  constants.DefaultAuthenticationPolicyName,
+		},
+		{
+			hostname:  "mtls-strict-svc-name.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Name: "http"},
+			expected:  "mtls-strict-svc-name",
 		},
 	}
 
@@ -237,9 +259,9 @@ func TestAuthNPolicies(t *testing.T) {
 			Hostname:   c.hostname,
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
-		port := &Port{Port: c.port}
-		if got := ps.AuthenticationPolicyForWorkload(service, port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
-			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
+
+		if got := ps.AuthenticationPolicyForWorkload(service, &c.port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
+			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
 		}
 	}
 

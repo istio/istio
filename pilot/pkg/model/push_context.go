@@ -103,10 +103,6 @@ type PushContext struct {
 	initDone bool
 }
 
-const (
-	noPortProvided = -1
-)
-
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
@@ -115,9 +111,14 @@ type processedDestRules struct {
 }
 
 type processedAuthnPolicies struct {
-	policies map[host.Name]map[int][]*authn.Policy
+	policies map[host.Name][]*authnPolicyByPort
 	// default cluster-scoped (global) policy to be used if no other authn policy is found
 	defaultMeshPolicy *authn.Policy
+}
+
+type authnPolicyByPort struct {
+	portSelector *authn.PortSelector
+	policy       *authn.Policy
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -408,7 +409,7 @@ func NewPushContext() *PushContext {
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
 		AuthnPolicies: processedAuthnPolicies{
-			policies: map[host.Name]map[int][]*authn.Policy{},
+			policies: map[host.Name][]*authnPolicyByPort{},
 		},
 	}
 }
@@ -787,7 +788,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 	sortConfigByCreationTime(authNPolicies)
 	ps.AuthnPolicies = processedAuthnPolicies{
-		policies: map[host.Name]map[int][]*authn.Policy{},
+		policies: map[host.Name][]*authnPolicyByPort{},
 	}
 
 	for _, spec := range authNPolicies {
@@ -797,16 +798,16 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
 				if len(dest.Ports) > 0 {
 					for _, port := range dest.Ports {
-						ps.addAuthnPolicy(hostName, int(port.GetNumber()), policy)
+						ps.addAuthnPolicy(hostName, port, policy)
 					}
 				} else {
-					ps.addAuthnPolicy(hostName, noPortProvided, policy)
+					ps.addAuthnPolicy(hostName, nil, policy)
 				}
 
 			}
 		} else {
 			// if no targets provided, store at namespace level
-			ps.addAuthnPolicy(host.Name(spec.Namespace), noPortProvided, policy)
+			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy)
 		}
 	}
 
@@ -822,11 +823,11 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) addAuthnPolicy(hostname host.Name, port int, policy *authn.Policy) {
-	if ps.AuthnPolicies.policies[hostname] == nil {
-		ps.AuthnPolicies.policies[hostname] = map[int][]*authn.Policy{}
-	}
-	ps.AuthnPolicies.policies[hostname][port] = append(ps.AuthnPolicies.policies[hostname][port], policy)
+func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy) {
+	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
+		policy:       policy,
+		portSelector: selector,
+	})
 }
 
 // Caches list of virtual services
@@ -1069,22 +1070,21 @@ func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *P
 	return ps.AuthnPolicies.defaultMeshPolicy
 }
 
-func authenticationPolicyForWorkload(policiesByPort map[int][]*authn.Policy, port *Port) *authn.Policy {
+func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) *authn.Policy {
 	var matchedPolicy *authn.Policy
 	if policiesByPort == nil {
 		return nil
 	}
 
-	policies := policiesByPort[port.Port]
-	if len(policies) == 0 {
-		policies = policiesByPort[noPortProvided]
-	}
+	for i, policyByPort := range policiesByPort {
+		if policyByPort.portSelector == nil && matchedPolicy == nil {
+			matchedPolicy = policiesByPort[i].policy
+		}
 
-	if len(policies) > 0 {
-		// TODO GregHanson add support for authn policy label matching
-		// for now return first matching config based on sortConfigByCreationTime()
-		// performed during init
-		matchedPolicy = policies[0]
+		if port.Match(policyByPort.portSelector) {
+			matchedPolicy = policiesByPort[i].policy
+			break
+		}
 	}
 
 	return matchedPolicy
