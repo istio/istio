@@ -160,7 +160,7 @@ func TestExtraTrustAnchor(t *testing.T) {
 			cmMissingLabelRoot1      = makeConfigMap("root1", labelsNone, root1Data)
 			cmLabeledFalseRoot2      = makeConfigMap("root2", labelsFalse, root2Data)
 			cmSingleRootRoot3        = makeConfigMap("root3", labelsTrue, root3Data)
-			cmMultipleRootsRoot4And5 = makeConfigMap("root4And5", labelsTrue, root4And5Data)
+			cmMultipleRootsRoot4And5 = makeConfigMap("root4and5", labelsTrue, root4And5Data)
 		)
 
 		steps := []struct {
