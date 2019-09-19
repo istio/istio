@@ -165,7 +165,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 		destRule := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			destServiceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
-			// For now, require enableAutoMtls mode set (to true) explicitely to recorgnize this mode.
+			// For now, require enableAutoMtls mode set (to true) explicitly to recorgnize this mode.
 			if env.Mesh.EnableAutoMtls != nil && env.Mesh.EnableAutoMtls.GetValue() {
 				destServiceMTLSMode = authn_v1alpha1_applier.GetServiceMutualTLSMode(env.IstioConfigStore, service, port)
 			}
