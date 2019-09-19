@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"io/ioutil"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -88,6 +89,8 @@ iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
 
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
 
+var orgRe = regexp.MustCompile(`test.ca.org \([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\)`)
+
 func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
@@ -128,8 +131,9 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
 	}
 
-	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
-		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
+	certOrg := rootCert.Issuer.Organization[0]
+	if !orgRe.MatchString(certOrg) {
+		t.Errorf("Unexpected CA certificate organization match (expecting %q, actual %q)", org, certOrg)
 	}
 
 	if len(certChainBytes) != 0 {
