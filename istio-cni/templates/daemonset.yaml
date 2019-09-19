@@ -2,7 +2,7 @@
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
 kind: DaemonSet
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 metadata:
   name: istio-cni-node
   namespace: {{ .Release.Namespace }}
