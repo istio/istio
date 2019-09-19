@@ -710,13 +710,9 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 		--set-string global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
-
-# This is used to @include values-istio-demo-common.yaml file
-istio-demo.yaml istio-demo-auth.yaml: export EXTRA_HELM_SETTINGS+=--values install/kubernetes/helm/istio/values-istio-demo-common.yaml
-
-# creates istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml
+# creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
+istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
