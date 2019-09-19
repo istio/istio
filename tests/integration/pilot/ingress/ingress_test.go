@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -45,6 +46,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
+		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["global.k8sIngress.enabled"] = "true"
