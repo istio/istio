@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pkg/config/mesh"
