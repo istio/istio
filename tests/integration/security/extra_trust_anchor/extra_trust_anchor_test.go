@@ -171,7 +171,7 @@ func TestExtraTrustAnchor(t *testing.T) {
 		}{
 			{
 				name:  "default root",
-				roots: []string{},
+				roots: []string{rootCA},
 			},
 			{
 				name:      "add configmap with missing label",
@@ -213,7 +213,7 @@ func TestExtraTrustAnchor(t *testing.T) {
 
 		for i, step := range steps {
 			t.Run(fmt.Sprintf("[%v] %v", i, step), func(tt *testing.T) {
-				updateAndCheck(t, env, c, step.configmap, namespace, step.op, step.roots)
+				updateAndCheck(tt, env, c, step.configmap, namespace, step.op, step.roots)
 			})
 		}
 	})
