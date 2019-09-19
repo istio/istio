@@ -8,22 +8,21 @@ ENV DEBIAN_FRONTEND=noninteractive
 # If you occasionally need something on the container do
 # sudo apt-get update && apt-get whichever
 
-# hadolint ignore=DL3005,DL3008
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
-      ca-certificates \
-      curl \
-      iptables \
-      iproute2 \
-      iputils-ping \
-      knot-dnsutils \
-      netcat \
-      tcpdump \
-      net-tools \
-      lsof \
-      linux-tools-generic \
-      sudo \
-   && update-ca-certificates \
-   && apt-get upgrade -y \
+      ca-certificates=20180409 \
+      curl=7.58.0-2ubuntu3.8 \
+      iproute2=4.15.0-2ubuntu1 \
+      iptables=1.6.1-2ubuntu2 \
+      iputils-ping=3:20161105-1ubuntu2 \
+      knot-dnsutils=2.6.5-3 \
+      libexpat1=2.2.5-3ubuntu0.2 \
+      linux-tools-generic=4.15.0.64.66 \
+      lsof=4.89+dfsg-0.1 \
+      net-tools=1.60+git20161116.90da8a0-1ubuntu1 \
+      netcat=1.10-41.1 \
+      sudo=1.8.21p2-3ubuntu1 \
+      tcpdump=4.9.2-3 \
    && apt-get clean \
+   && update-ca-certificates \
    && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old

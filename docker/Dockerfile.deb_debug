@@ -6,19 +6,18 @@ FROM debian:9-slim
 # Do not add more stuff to this list that isn't small or critically useful.
 # If you occasionally need something on the container do
 # sudo apt-get update && apt-get whichever
-# hadolint ignore=DL3005,DL3008
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
-      curl \
-      iptables \
-      iproute2 \
-      iputils-ping \
-      knot-dnsutils \
-      netcat \
-      tcpdump \
-      net-tools \
-      lsof \
-      sudo &&  apt-get upgrade -y && \
+      curl=7.52.1-5+deb9u9 \
+      iproute2=4.9.0-1+deb9u1 \
+      iptables=1.6.0+snapshot20161117-6 \
+      iputils-ping=3:20161105-1 \
+      knot-dnsutils=2.4.0-3+deb9u1 \
+      lsof=4.89+dfsg-0.1 \
+      net-tools=1.60+git20161116.90da8a0-1 \
+      netcat=1.10-41 \
+      sudo=1.8.19p1-2.1 \
+      tcpdump=4.9.2-1~deb9u1 && \
       apt-get clean -y && \
       rm -rf /var/cache/debconf/* /var/lib/apt/lists/* \
         /var/log/* /tmp/*  /var/tmp/*
