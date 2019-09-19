@@ -314,13 +314,15 @@ spec:
   - '*'
   {{- end }}
   trafficPolicy:
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
     - port:
-        number: 15004
+        number: 15004 # grpc-mixer-mtls
       tls:
         mode: ISTIO_MUTUAL
-    {{- end}}
+    - port:
+        number: 9091 # grpc-mixer
+      tls:
+        mode: DISABLE
     connectionPool:
       http:
         http2MaxRequests: 10000
