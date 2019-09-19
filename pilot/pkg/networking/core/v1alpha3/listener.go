@@ -135,13 +135,10 @@ const (
 	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
-
-	// TODO(yxue): separate h2c vs h2
-	H2Protocol = "h2"
 )
 
 var (
-	applicationProtocols = []string{"http/1.0", "http/1.1"}
+	applicationProtocols = []string{"http/1.1", "http/1.0"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &google_protobuf.Struct{
@@ -1276,8 +1273,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
-			// TODO(yxue): merge applicationProtocols and H2Protocol when sniffing is enabled for inbound
-			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, H2Protocol)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -2140,7 +2135,6 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		}
 
 		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
 		newFilterChan = append(newFilterChan, fc)
 
 	}
