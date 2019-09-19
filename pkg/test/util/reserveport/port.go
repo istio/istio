@@ -34,6 +34,10 @@ func (p *portImpl) Close() error {
 	return nil
 }
 
+func (p *portImpl) CloseSilently() {
+	_ = p.Close()
+}
+
 func newReservedPort() (port ReservedPort, err error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {

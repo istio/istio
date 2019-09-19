@@ -176,3 +176,16 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	}
 	return nil
 }
+
+func (s *sidecar) Logs() (string, error) {
+	return s.accessor.Logs(s.podNamespace, s.podName, proxyContainerName, false)
+}
+
+func (s *sidecar) LogsOrFail(t test.Failer) string {
+	t.Helper()
+	logs, err := s.Logs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return logs
+}

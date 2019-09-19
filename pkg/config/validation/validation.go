@@ -1983,6 +1983,12 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		}
 	}
 
+	if http.MirrorPercent != nil {
+		if value := http.MirrorPercent.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
+		}
+	}
+
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))

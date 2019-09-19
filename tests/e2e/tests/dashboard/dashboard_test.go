@@ -364,6 +364,11 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "runtime_strategy_timer_quiesce_reached_total") {
 			continue
 		}
+
+		// Remove this one, as firing of this event requires a hard-to-reproduce set of events.
+		if strings.Contains(query, "runtime_strategy_timer_max_time_reached_total") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
