@@ -41,14 +41,14 @@ COVERAGEDIR="$(mktemp -d /tmp/istio_coverage.XXXXXXXXXX)"
 mkdir -p "$COVERAGEDIR"
 
 function cleanup() {
-  make localTestEnvCleanup
+  make -f Makefile.core.mk localTestEnvCleanup
 }
 
 trap cleanup EXIT
 
 # Setup environment needed by some tests.
-make sync
-make localTestEnv
+make -f Makefile.core.mk sync
+make -f Makefile.core.mk localTestEnv
 
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.
@@ -149,7 +149,7 @@ echo "Final reports are stored in ${OUT_DIR}"
 
 if ls "${COVERAGEDIR}"/*.err 1> /dev/null 2>&1; then
   echo "The following tests had failed:"
-  cat "${COVERAGEDIR}"/*.err 
+  cat "${COVERAGEDIR}"/*.err
   exit 1
 fi
 

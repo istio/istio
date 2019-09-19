@@ -1,0 +1,39 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange
+spec:
+  filters:
+    - filterConfig:
+        configuration: envoy.wasm.metadata_exchange
+        vm_config:
+          code:
+            inline_string: envoy.wasm.metadata_exchange
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: SIDECAR_INBOUND
+    - filterConfig:
+        configuration: envoy.wasm.metadata_exchange
+        vm_config:
+          code:
+            inline_string: envoy.wasm.metadata_exchange
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: SIDECAR_OUTBOUND
+    - filterConfig:
+        configuration: envoy.wasm.metadata_exchange
+        vm_config:
+          code:
+            inline_string: envoy.wasm.metadata_exchange
+          vm: envoy.wasm.vm.null
+      filterName: envoy.wasm
+      filterType: HTTP
+      listenerMatch:
+        listenerProtocol: HTTP
+        listenerType: GATEWAY

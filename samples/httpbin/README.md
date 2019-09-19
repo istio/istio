@@ -1,6 +1,6 @@
 # Httpbin service
 
-This sample runs [httpbin](https://httpbin.org) as an Istio service. 
+This sample runs [httpbin](https://httpbin.org) as an Istio service.
 Httpbin is a well known HTTP testing service that can be used for experimenting
 with all kinds of Istio features.
 
@@ -8,20 +8,20 @@ To use it:
 
 1. Install Istio by following the [istio install instructions](https://istio.io/docs/setup/kubernetes/).
 
-2. Start the httpbin service inside the Istio service mesh:
+1. Start the httpbin service inside the Istio service mesh:
 
-   If you have [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
+    If you have [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
-   ```bash
-   kubectl apply -f httpbin.yaml
-   ```
+    ```bash
+    kubectl apply -f httpbin.yaml
+    ```
 
-   Otherwise manually inject the sidecars before applying:
+    Otherwise manually inject the sidecars before applying:
 
-   ```bash
-   kubectl apply -f <(istioctl kube-inject -f httpbin.yaml)
-   ```
- 
+    ```bash
+    kubectl apply -f <(istioctl kube-inject -f httpbin.yaml)
+    ```
+
 Because the httpbin service is not exposed outside of the cluster
 we cannot _curl_ it directly, however we can verify that it is working correctly using
 a _curl_ command against `httpbin:8000` *from inside the cluster* using the public _dockerqa/curl_

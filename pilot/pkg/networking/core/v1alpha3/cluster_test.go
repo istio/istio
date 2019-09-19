@@ -73,7 +73,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 3,
+			clusterIndex: 4,
 		},
 	}
 	settings := []*networking.ConnectionPoolSettings{
@@ -104,7 +104,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 						},
 					})
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(clusters)).To(Equal(6))
+				g.Expect(len(clusters)).To(Equal(8))
 				cluster := clusters[directionInfo.clusterIndex]
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
@@ -132,15 +132,37 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	directionInfos := []struct {
-		direction    model.TrafficDirection
-		clusterIndex int
+		direction                  model.TrafficDirection
+		clusterIndex               int
+		useDownStreamProtocol      bool
+		sniffingEnabledForInbound  bool
+		sniffingEnabledForOutbound bool
 	}{
 		{
-			direction:    model.TrafficDirectionOutbound,
-			clusterIndex: 0,
+			direction:                  model.TrafficDirectionOutbound,
+			clusterIndex:               0,
+			useDownStreamProtocol:      false,
+			sniffingEnabledForInbound:  false,
+			sniffingEnabledForOutbound: true,
 		}, {
-			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 3,
+			direction:                  model.TrafficDirectionInbound,
+			clusterIndex:               4,
+			useDownStreamProtocol:      false,
+			sniffingEnabledForInbound:  false,
+			sniffingEnabledForOutbound: true,
+		}, {
+			direction:                  model.TrafficDirectionOutbound,
+			clusterIndex:               1,
+			useDownStreamProtocol:      true,
+			sniffingEnabledForInbound:  false,
+			sniffingEnabledForOutbound: true,
+		},
+		{
+			direction:                  model.TrafficDirectionInbound,
+			clusterIndex:               5,
+			useDownStreamProtocol:      true,
+			sniffingEnabledForInbound:  true,
+			sniffingEnabledForOutbound: true,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -151,6 +173,12 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, directionInfo := range directionInfos {
+		if directionInfo.sniffingEnabledForInbound {
+			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+		} else {
+			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
+		}
+
 		settingsName := "default"
 		if settings != nil {
 			settingsName = "override"
@@ -165,10 +193,16 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 					},
 				})
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(len(clusters)).To(Equal(6))
+			g.Expect(len(clusters)).To(Equal(8))
 			cluster := clusters[directionInfo.clusterIndex]
 			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
 			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
+
+			if directionInfo.useDownStreamProtocol {
+				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL))
+			} else {
+				g.Expect(cluster.ProtocolSelection).To(Equal(apiv2.Cluster_USE_CONFIGURED_PROTOCOL))
+			}
 
 			// Verify that the values were set correctly.
 			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
@@ -214,16 +248,23 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
-	servicePort := &model.Port{
-		Name:     "default",
-		Port:     8080,
-		Protocol: protocol.HTTP,
+	servicePort := model.PortList{
+		&model.Port{
+			Name:     "default",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		},
+		&model.Port{
+			Name:     "auto",
+			Port:     9090,
+			Protocol: protocol.Unsupported,
+		},
 	}
 	service := &model.Service{
 		Hostname:    host.Name(serviceHostname),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
-		Ports:       model.PortList{servicePort},
+		Ports:       servicePort,
 		Resolution:  serviceResolution,
 	}
 
@@ -233,7 +274,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: model.NetworkEndpoint{
 				Address:     "192.168.1.1",
 				Port:        10001,
-				ServicePort: servicePort,
+				ServicePort: servicePort[0],
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    40,
 			},
@@ -243,7 +284,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: model.NetworkEndpoint{
 				Address:     "192.168.1.2",
 				Port:        10001,
-				ServicePort: servicePort,
+				ServicePort: servicePort[0],
 				Locality:    "region1/zone1/subzone2",
 				LbWeight:    20,
 			},
@@ -253,9 +294,19 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Endpoint: model.NetworkEndpoint{
 				Address:     "192.168.1.3",
 				Port:        10001,
-				ServicePort: servicePort,
+				ServicePort: servicePort[0],
 				Locality:    "region2/zone1/subzone1",
 				LbWeight:    40,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.1",
+				Port:        10001,
+				ServicePort: servicePort[1],
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    0,
 			},
 		},
 	}
@@ -338,7 +389,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(3))
+	g.Expect(len(clusters)).To(Equal(4))
 
 	cluster := clusters[0]
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
@@ -371,7 +422,7 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(3))
+	g.Expect(len(clusters)).To(Equal(4))
 
 	cluster := clusters[0]
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
@@ -399,7 +450,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err := buildSniTestClusters("foo.com")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(6))
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -408,7 +459,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err = buildSniTestClusters("")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(6))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -459,9 +510,9 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		nil, testMesh, destRule, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(clusters).To(HaveLen(7))
+	g.Expect(clusters).To(HaveLen(10))
 
-	expectedOutboundClusterCount := 2
+	expectedOutboundClusterCount := 4
 	actualOutboundClusterCount := 0
 
 	for _, c := range clusters {
@@ -524,7 +575,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Do not set tcp_keepalive anywhere
 	clusters, err := buildTestClustersWithTCPKeepalive(None)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(7))
+	g.Expect(len(clusters)).To(Equal(10))
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// UpstreamConnectionOptions should be nil. TcpKeepalive is the only field in it currently.
@@ -533,7 +584,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set mesh wide default for tcp_keepalive.
 	clusters, err = buildTestClustersWithTCPKeepalive(Mesh)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(7))
+	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
@@ -544,7 +595,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set DestinationRule override for tcp_keepalive.
 	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRule)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(7))
+	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
@@ -555,7 +606,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// Set DestinationRule override for tcp_keepalive with empty value.
 	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRuleForOsDefault)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(clusters)).To(Equal(7))
+	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	// TcpKeepalive should be present but with nil values.
@@ -657,7 +708,7 @@ func TestClusterMetadata(t *testing.T) {
 		}
 	}
 
-	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 2)) // outbound  outbound subsets  inbound
+	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
 
 	sniClusters, err := buildSniDnatTestClusters("test-sni")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -697,7 +748,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
 			tlsSettings,
@@ -712,7 +763,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
@@ -720,7 +771,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 		},
@@ -801,7 +852,7 @@ func TestStatNamePattern(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestLocalityLB(t *testing.T) {

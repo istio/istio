@@ -14,9 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os, math
+import os
+import math
 from flask import Flask, request
 app = Flask(__name__)
+
 
 @app.route('/hello')
 def hello():
@@ -25,13 +27,15 @@ def hello():
     # do some cpu intensive computation
     x = 0.0001
     for i in range(0, 1000000):
-	    x = x + math.sqrt(x)
+        x = x + math.sqrt(x)
 
     return 'Hello version: %s, instance: %s\n' % (version, os.environ.get('HOSTNAME'))
+
 
 @app.route('/health')
 def health():
     return 'Helloworld is healthy', 200
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', threaded=True)

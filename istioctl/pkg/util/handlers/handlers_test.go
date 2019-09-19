@@ -150,7 +150,7 @@ func TestHandleNamespaces(t *testing.T) {
 			}
 			if !tt.wantError {
 				if err != nil {
-					t.Fatalf("unexpected error %v occured", err)
+					t.Fatalf("unexpected error %v occurred", err)
 				}
 			}
 			if gotNs != tt.wantNamespace {

@@ -40,21 +40,31 @@ function run_adapter_lint() {
 
 function run_test_lint() {
     echo 'Running testlinter ...'
-    go build -o bin/testlinter tools/checker/testlinter/*.go
-    bin/testlinter
+    GO111MODULE=off go get -u istio.io/tools/cmd/testlinter
+    testlinter
     echo 'testlinter OK'
 }
 
 function run_envvar_lint() {
     echo 'Running envvarlinter ...'
-    go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
-    bin/envvarlinter mixer pilot security galley istioctl
+    GO111MODULE=off go get -u istio.io/tools/cmd/envvarlinter
+    envvarlinter galley istioctl mixer pilot security sidecar-injector
     echo 'envvarlinter OK'
 }
 
 function run_helm_lint() {
     echo 'Running helm lint on istio ....'
     helm lint ./install/kubernetes/helm/istio
+    echo 'helm lint on istio OK'
+}
+
+# Lint trailing spaces in generated helm configmap files. Any trailing spaces will lead kubectl to escape the yaml
+# when doing `kubectl get` or `kubectl edit`. If this fails, look for trailing spaces - this often comes from `toYaml`.
+function run_helm_spaces_lint() {
+    echo 'Running helm spaces lint on istio ....'
+    helm lint ./install/kubernetes/helm/istio
+    helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/configmap.yaml | grep -q " $" && exit 1
+    helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/sidecar-injector-configmap.yaml | grep -q " $" && exit 1
     echo 'helm lint on istio OK'
 }
 
@@ -88,6 +98,7 @@ run_adapter_lint
 run_test_lint
 run_envvar_lint
 run_helm_lint
+run_helm_spaces_lint
 run_yaml_lint
 check_grafana_dashboards
 check_samples

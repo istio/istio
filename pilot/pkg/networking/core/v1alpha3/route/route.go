@@ -418,8 +418,23 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
-			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
+			var percent uint32 = 100
+			if in.MirrorPercent != nil {
+				percent = in.MirrorPercent.GetValue()
+			}
+
+			if percent > 0 {
+				n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
+				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
+					Cluster: n,
+					RuntimeFraction: &core.RuntimeFractionalPercent{
+						DefaultValue: &xdstype.FractionalPercent{
+							Numerator:   percent,
+							Denominator: xdstype.FractionalPercent_HUNDRED,
+						},
+					},
+				}
+			}
 		}
 
 		// TODO: eliminate this logic and use the total_weight option in envoy route

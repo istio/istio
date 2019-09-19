@@ -28,7 +28,7 @@ func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
-		diag.NewMessage(diag.Error, "test", nil, "test"),
+		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
 	}
 
 	cancelCh := make(chan struct{})
@@ -44,7 +44,7 @@ func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
-		diag.NewMessage(diag.Error, "test", nil, "test"),
+		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
 	}
 
 	cancelCh := make(chan struct{})

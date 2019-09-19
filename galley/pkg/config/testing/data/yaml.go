@@ -106,4 +106,24 @@ metadata:
 spec:
   n1_i1: v1
 `
+
+	// YamlI1V1NoNamespace is a testing resource in Yaml form
+	YamlI1V1NoNamespace = `
+apiVersion: testdata.istio.io/v1alpha1
+kind: Kind1
+metadata:
+  name: i1
+spec:
+  n1_i1: v1
+`
+
+	// YamlI1V1NoNamespaceKind2 is a testing resource in Yaml form
+	YamlI1V1NoNamespaceKind2 = `
+apiVersion: testdata.istio.io/v1alpha1
+kind: Kind2
+metadata:
+  name: i1
+spec:
+  n1_i1: v1
+`
 )

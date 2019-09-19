@@ -43,7 +43,7 @@ var badfoobarTmpl = getFileDescSetBase64("testdata/badfoobar.descriptor")
 var unsupportedPkgNameTmpl = getFileDescSetBase64("testdata/unsupportedPkgName.descriptor")
 var reqOptionTmplNameNotFoundTmpl = getFileDescSetBase64("testdata/reqOptionTmplNameNotFound.descriptor")
 var reqOptionNotFoundTmpl = getFileDescSetBase64("testdata/reqOptionNotFound.descriptor")
-var notFileDescriptorSet = getFileDescSetBase64("testdata/foo.proto")
+var notFileDescriptorSet = "X"
 
 func TestTemplates(t *testing.T) {
 

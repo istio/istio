@@ -1,5 +1,7 @@
+# Please keep entries ordered by code.
+# NOTE: The range 0000-0100 is reserved for internal and/or future use.
 messages:
-  - name: "Internal Error"
+  - name: "InternalError"
     code: IST0001
     level: Error
     description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
@@ -8,7 +10,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Not Yet Implemented"
+  - name: "NotYetImplemented"
     code: IST0002
     level: Error
     description: "A feature that the configuration is depending on is not implemented yet."
@@ -17,7 +19,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Parse Error"
+  - name: "ParseError"
     code: IST0003
     level: Warning
     description: "There was a parse error during the parsing of the configuration text"
@@ -35,7 +37,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Referenced Resource Not Found"
+  - name: "ReferencedResourceNotFound"
     code: IST0101
     level: Error
     description: "A resource being referenced does not exist."
