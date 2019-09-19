@@ -43,7 +43,6 @@ const (
 )
 
 func TestApplyJSON(t *testing.T) {
-	t.Skip("disabled since some mixer configs are using golang protobuf")
 	cases := []struct {
 		in      string
 		want    *meshAPI.MeshConfig
