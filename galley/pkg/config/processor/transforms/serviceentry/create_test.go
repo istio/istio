@@ -770,7 +770,7 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 		DomainSuffix: domain,
 		Source:       event.CombineSources(src, meshSrc),
 		ProcessorProvider: func(o processing.ProcessorOptions) event.Processor {
-			xforms := serviceentry.Create(o)
+			xforms := serviceentry.GetProviders().Create(o)
 			xforms[0].DispatchFor(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
 			settings := []snapshotter.SnapshotOptions{
 				{

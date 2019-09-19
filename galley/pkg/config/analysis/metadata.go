@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package transforms contains basic processing building blocks that can be incorporated into bigger/self-contained
-// processing pipelines.
-package transforms
+package analysis
+
+import "istio.io/istio/galley/pkg/config/collection"
+
+// Metadata represents metadata for an analyzer
+type Metadata struct {
+	Name   string
+	Inputs collection.Names
+}

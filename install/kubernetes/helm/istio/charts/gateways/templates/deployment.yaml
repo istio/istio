@@ -134,9 +134,11 @@ spec:
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
         {{- end }}
         {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsServiceAddress
-          - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
-        {{- end }}
+          - --envoyMetricsService
+          {{- with  $.Values.global.proxy.envoyMetricsService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
+        {{- end}}
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
           - --envoyAccessLogService
           {{- with  $.Values.global.proxy.envoyAccessLogService }}
