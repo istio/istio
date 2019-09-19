@@ -17,8 +17,8 @@ package env
 import (
 	"github.com/golang/protobuf/ptypes/duration"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 )
 
 var (

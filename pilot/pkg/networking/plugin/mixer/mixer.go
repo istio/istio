@@ -33,12 +33,12 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
 )
