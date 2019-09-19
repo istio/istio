@@ -1953,7 +1953,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			// Add the TCP filters first.. and then the HTTP connection manager
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
-			opt.httpOpts.statPrefix = mutable.Listener.Name
+			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
 				Name: xdsutil.HTTPConnectionManager,

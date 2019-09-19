@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -872,6 +873,7 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
+	verifyInboundHTTPListenerStatPrefix(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
 		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
@@ -1019,6 +1021,9 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	} else {
 		f := l.FilterChains[0].Filters[0]
 		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+			t.Fatalf("expected stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+		}
 		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
 			if exists && useRemoteAddress.GetBoolValue() {
 				t.Fatalf("expected useRemoteAddress false, found true %v", l)
@@ -1193,6 +1198,23 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
+}
+
+func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "inbound_") {
+		t.Fatalf("expected stat prefix to have %s , found %s", "inbound", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+
 }
 
 func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
