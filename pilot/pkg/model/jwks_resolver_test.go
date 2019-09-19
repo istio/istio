@@ -214,6 +214,60 @@ func TestGetPublicKey(t *testing.T) {
 	}
 }
 
+func TestGetPublicKeyUsingTLS(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert.pem"})
+	defer r.Close()
+
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	pk, err := r.GetPublicKey(mockCertURL)
+	if err != nil {
+		t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	if test.JwtPubKey1 != pk {
+		t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
+	}
+}
+
+func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert2.pem"})
+	defer r.Close()
+
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err = r.GetPublicKey(mockCertURL)
+	if err == nil {
+		t.Errorf("GetPublicKey(%+v) did not fail: expected bad certificate error, got no error", mockCertURL)
+	}
+}
+
+func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{})
+	defer r.Close()
+
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err = r.GetPublicKey(mockCertURL)
+	if err == nil {
+		t.Errorf("GetPublicKey(%+v) did not fail: expected https unsupported error, got no error", mockCertURL)
+	}
+}
+
 func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 	r := NewJwksResolver(100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
