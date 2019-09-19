@@ -135,6 +135,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(profileCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(&kubeconfig, &configContext, &istioNamespace))
+	experimentalCmd.AddCommand(list())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
