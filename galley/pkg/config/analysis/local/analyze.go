@@ -51,7 +51,7 @@ type SourceAnalyzer struct {
 
 	// Which collections are used by this analysis
 	// Derived from the specified analyzer and transformer providers
-	inputCollections map[collection.Name]bool
+	inputCollections map[collection.Name]struct{}
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -136,25 +136,25 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
 	sa.sources = append(sa.sources, src)
 }
 
-func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]bool {
+func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]struct{} {
 	// For each transform, map output to inputs
-	outToIn := make(map[collection.Name]map[collection.Name]bool)
+	outToIn := make(map[collection.Name]map[collection.Name]struct{})
 	for _, xfp := range xformProviders {
 		for _, out := range xfp.Outputs() {
 			if _, ok := outToIn[out]; !ok {
-				outToIn[out] = make(map[collection.Name]bool)
+				outToIn[out] = make(map[collection.Name]struct{})
 			}
 			for _, in := range xfp.Inputs() {
-				outToIn[out][in] = true
+				outToIn[out][in] = struct{}{}
 			}
 		}
 	}
 
 	// 2. For each collection used by the analyzer, get its inputs using the above mapping and include them in the output set
-	upstreamCollections := make(map[collection.Name]bool)
+	upstreamCollections := make(map[collection.Name]struct{})
 	for _, c := range analyzer.Metadata().Inputs {
 		for in := range outToIn[c] {
-			upstreamCollections[in] = true
+			upstreamCollections[in] = struct{}{}
 		}
 	}
 
