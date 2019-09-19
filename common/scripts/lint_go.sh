@@ -21,4 +21,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GOGC=10 golangci-lint run -c ./common/config/.golangci.yml
+GOGC=25 golangci-lint run -c ./common/config/.golangci.yml
