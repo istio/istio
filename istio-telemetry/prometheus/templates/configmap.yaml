@@ -70,7 +70,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Release.Namespace }}
+          - {{ .Values.global.telemetryNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -82,7 +82,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.istioNamespace }}
+          - {{ .Values.global.configNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -106,7 +106,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Release.Namespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
