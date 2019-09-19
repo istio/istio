@@ -109,7 +109,7 @@ data:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019
     {{- else }}
-    - address: istio-galley:9901
+    - address: istio-galley.{{ .Values.global.configNamespace }}:9901
     {{- end }}
     {{- end }}
 
