@@ -31,8 +31,11 @@ tolerations: []
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
 
-# Controls the frequency of prometheus scraping
-scrapeInterval: 15s
+# Global Prometheus configuration
+# This is placed under the global: key in prometheus.yml. Named global_config to avoid
+# issues with .Values.global.
+global_config:
+  scrapeInterval: 15s
 
 contextPath: /prometheus
 

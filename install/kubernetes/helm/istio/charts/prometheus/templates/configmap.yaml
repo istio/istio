@@ -11,7 +11,9 @@ metadata:
 data:
   prometheus.yml: |-
     global:
-      scrape_interval: {{ .Values.scrapeInterval }}
+{{- if .Values.global_config }}
+{{ toYaml .Values.global_config | indent 6 }}
+{{- end }}
     scrape_configs:
 
     - job_name: 'istio-mesh'
