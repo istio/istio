@@ -78,11 +78,10 @@ func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx anal
 		if !da.checkDestinationHost(ns, destination, ctx, serviceEntryHosts) {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", destination.GetHost()))
-			continue
 		}
 		if !da.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewReferencedResourceNotFound(r, "host+subset", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
 }
