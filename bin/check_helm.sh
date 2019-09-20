@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Applies yamllint to validate yaml files to the source tree
-
 set -e
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
 
-ROOTDIR=$SCRIPTPATH/..
-cd "$ROOTDIR"
+helm lint ./install/kubernetes/helm/istio
+helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/configmap.yaml | grep -q " $" && echo "templates/configmap.yaml has trailing spaces" && exit 1
+helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/sidecar-injector-configmap.yaml | grep -q " $" && exit 1
 
-find . \( -path ./common-protos -o -path ./.git -o -path ./.github \) -prune -o -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | xargs -0 grep -L -e "{{" | xargs yamllint -c ./common/config/.yamllint.yml
+exit 0

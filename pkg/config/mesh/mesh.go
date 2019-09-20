@@ -78,19 +78,18 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 	}
 }
 
-// ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
-// input YAML with defaults applied to omitted configuration values.
-func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
-	out := DefaultMeshConfig()
-	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
+// ApplyMeshConfig returns a new MeshConfig decoded from the
+// input YAML with the provided defaults applied to omitted configuration values.
+func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
 	// Reset the default ProxyConfig as jsonpb.UnmarshalString doesn't
 	// handled nested decode properly for our use case.
-	prevDefaultConfig := out.DefaultConfig
+	prevDefaultConfig := defaultConfig.DefaultConfig
 	defaultProxyConfig := DefaultProxyConfig()
-	out.DefaultConfig = &defaultProxyConfig
+	defaultConfig.DefaultConfig = &defaultProxyConfig
 
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
@@ -99,16 +98,22 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
 
-	if err := validation.ValidateMeshConfig(&out); err != nil {
+	if err := validation.ValidateMeshConfig(&defaultConfig); err != nil {
 		return nil, err
 	}
 
-	return &out, nil
+	return &defaultConfig, nil
+}
+
+// ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
+// input YAML with defaults applied to omitted configuration values.
+func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
+	return ApplyMeshConfig(yaml, DefaultMeshConfig())
 }
 
 // EmptyMeshNetworks configuration with no networks

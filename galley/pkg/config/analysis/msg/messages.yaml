@@ -47,3 +47,25 @@ messages:
         type: string
       - name: refval
         type: string
+
+  - name: "NamespaceNotInjected"
+    code: IST0102
+    level: Warning
+    description: "A namespace is not enabled for Istio injection."
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection"
+    args:
+      - name: namespace
+        type: string
+      - name: namespace2
+        type: string
+
+  - name: "PodMissingProxy"
+    code: IST0103
+    level: Warning
+    description: "A pod is missing the Istio proxy."
+    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    args:
+      - name: pod
+        type: string
+      - name: namespace
+        type: string

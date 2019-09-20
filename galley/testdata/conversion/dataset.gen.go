@@ -848,6 +848,8 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                   "seconds": 5
                 },
                 "enable_tracing": true,
+                "ingress_class": "istio",
+                "ingress_controller_mode": 2,
                 "ingress_service": "istio-ingressgateway",
                 "outbound_traffic_policy": {
                     "mode": 1
