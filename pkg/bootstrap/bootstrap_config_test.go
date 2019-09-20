@@ -27,7 +27,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	tracev2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
-	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
@@ -355,7 +355,7 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-func checkListStringMatcher(t *testing.T, got *envoy_type_matcher.ListStringMatcher, want string, typ string) {
+func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
 	var patterns []string
 	for _, pattern := range got.GetPatterns() {
 		var pat string
