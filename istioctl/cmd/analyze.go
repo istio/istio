@@ -18,11 +18,12 @@ import (
 	"fmt"
 	"os"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 
 	"github.com/spf13/cobra"
@@ -77,7 +78,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
-				config := kube.BuildClientCmd(kubeconfig, configContext)
+				config := buildClientCmd(kubeconfig, configContext)
 				restConfig, err := config.ClientConfig()
 				if err != nil {
 					return err
@@ -137,4 +138,31 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
+}
+
+// buildClientCmd is backported from pkg/kube/config.go in master since it was created after 1.3 was cut in https://github.com/istio/istio/pull/16392
+func buildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
+	if kubeconfig != "" {
+		info, err := os.Stat(kubeconfig)
+		if err != nil || info.Size() == 0 {
+			// If the specified kubeconfig doesn't exists / empty file / any other error
+			// from file stat, fall back to default
+			kubeconfig = ""
+		}
+	}
+
+	//Config loading rules:
+	// 1. kubeconfig if it not empty string
+	// 2. In cluster config if running in-cluster
+	// 3. Config(s) in KUBECONFIG environment variable
+	// 4. Use $HOME/.kube/config
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
+	loadingRules.ExplicitPath = kubeconfig
+	configOverrides := &clientcmd.ConfigOverrides{
+		ClusterDefaults: clientcmd.ClusterDefaults,
+		CurrentContext:  context,
+	}
+
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
