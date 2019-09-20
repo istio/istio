@@ -28,6 +28,14 @@ var (
 	// ReferencedResourceNotFound defines a diag.MessageType for message "ReferencedResourceNotFound".
 	// Description: A resource being referenced does not exist.
 	ReferencedResourceNotFound = diag.NewMessageType(diag.Error, "IST0101", "Referenced %s not found: %q")
+
+	// NamespaceNotInjected defines a diag.MessageType for message "NamespaceNotInjected".
+	// Description: A namespace is not enabled for Istio injection.
+	NamespaceNotInjected = diag.NewMessageType(diag.Warning, "IST0102", "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection")
+
+	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
+	// Description: A pod is missing the Istio proxy.
+	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -73,6 +81,26 @@ func NewReferencedResourceNotFound(entry *resource.Entry, reftype string, refval
 		originOrNil(entry),
 		reftype,
 		refval,
+	)
+}
+
+// NewNamespaceNotInjected returns a new diag.Message based on NamespaceNotInjected.
+func NewNamespaceNotInjected(entry *resource.Entry, namespace string, namespace2 string) diag.Message {
+	return diag.NewMessage(
+		NamespaceNotInjected,
+		originOrNil(entry),
+		namespace,
+		namespace2,
+	)
+}
+
+// NewPodMissingProxy returns a new diag.Message based on PodMissingProxy.
+func NewPodMissingProxy(entry *resource.Entry, pod string, namespace string) diag.Message {
+	return diag.NewMessage(
+		PodMissingProxy,
+		originOrNil(entry),
+		pod,
+		namespace,
 	)
 }
 

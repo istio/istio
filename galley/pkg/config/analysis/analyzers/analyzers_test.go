@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -72,6 +73,17 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
+		},
+	},
+	{
+		name: "istioInjection",
+		inputFiles: []string{
+			"testdata/injection.yaml",
+		},
+		analyzer: &injection.Analyzer{},
+		expected: []message{
+			{msg.NamespaceNotInjected, "Namespace/bar"},
+			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
 		},
 	},
 }
