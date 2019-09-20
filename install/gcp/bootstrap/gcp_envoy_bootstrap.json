@@ -75,5 +75,32 @@
         "port_value": {{ .config.ProxyAdminPort }}
       }
     }
+  },
+  "overload_manager": {
+    "refresh_interval": {
+      "seconds": 0,
+      "nanos": 250000000
+    },
+    "resource_monitors": [
+      {
+        "name": "envoy.resource_monitors.fixed_heap",
+        "config": {
+          "max_heap_size_bytes": 1073741824
+        }
+      }
+    ],
+    "actions": [
+      {
+        "name": "envoy.overload_actions.shrink_heap",
+        "triggers": [
+          {
+            "name": "envoy.resource_monitors.fixed_heap",
+            "threshold": {
+              "value": 0.99
+            }
+          }
+        ]
+      }
+    ]
   }
 }
