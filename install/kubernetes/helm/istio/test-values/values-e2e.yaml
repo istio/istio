@@ -16,7 +16,8 @@ global:
     mode: REGISTRY_ONLY
 
 prometheus:
-  scrapeInterval: 5s
+  global_config:
+    scrape_interval: 5s
 
 gateways:
   istio-ingressgateway:
