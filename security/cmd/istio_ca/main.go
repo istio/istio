@@ -497,7 +497,7 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 		}
 		// Start auto root-upgrade in a separate goroutine.
 		go istioCA.RotateRootCert(config)
-		pkgcmd.WaitSignal(istioCA.StopRotateJob)
+		go pkgcmd.WaitSignal(istioCA.StopRotateJob)
 	}
 
 	return istioCA
