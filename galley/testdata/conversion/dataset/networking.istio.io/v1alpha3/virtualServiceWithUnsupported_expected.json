@@ -2,7 +2,7 @@
   "istio/networking/v1alpha3/virtualservices": [
     {
       "Metadata": {
-        "name": "valid-virtual-service"
+        "name": "{{.Namespace}}/valid-virtual-service"
       },
       "Body": {
         "hosts": [
