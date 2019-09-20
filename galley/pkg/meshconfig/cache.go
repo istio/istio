@@ -45,6 +45,13 @@ type FsCache struct {
 var _ Cache = &FsCache{}
 var _ io.Closer = &FsCache{}
 
+var DefaultMeshConfig = func() v1alpha1.MeshConfig {
+	meshconfig := mesh.DefaultMeshConfig()
+	meshconfig.IngressClass = "istio"
+	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	return meshconfig
+}()
+
 // NewCacheFromFile returns a new mesh cache, based on watching a file.
 func NewCacheFromFile(path string) (*FsCache, error) {
 	fw := filewatcher.NewWatcher()
@@ -57,7 +64,7 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 	c := &FsCache{
 		path:   path,
 		fw:     fw,
-		cached: mesh.DefaultMeshConfig(),
+		cached: DefaultMeshConfig,
 	}
 
 	c.reload()
@@ -85,7 +92,7 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	cfg, err := mesh.ApplyMeshConfigDefaults(string(by))
+	cfg, err := mesh.ApplyMeshConfig(string(by), DefaultMeshConfig)
 	if err != nil {
 		scope.Errorf("Error reading mesh config as json: %v", err)
 		return
