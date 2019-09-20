@@ -25,7 +25,7 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/envoy"
@@ -224,8 +224,8 @@ func TestCommandLineArgs(t *testing.T) {
 	g.Expect(opts.RestartEpoch).To(Equal(uint32(1)))
 	g.Expect(opts.ServiceCluster).To(Equal("mycluster"))
 	g.Expect(opts.ServiceNode).To(Equal("mynode"))
-	g.Expect(opts.DrainTime).To(Equal(types.DurationProto(drainDuration)))
-	g.Expect(opts.ParentShutdownTime).To(Equal(types.DurationProto(parentShutdownDuration)))
+	g.Expect(opts.DrainTime).To(Equal(ptypes.DurationProto(drainDuration)))
+	g.Expect(opts.ParentShutdownTime).To(Equal(ptypes.DurationProto(parentShutdownDuration)))
 }
 
 func TestShutdown(t *testing.T) {
@@ -330,7 +330,7 @@ func TestConfigDump(t *testing.T) {
 	for _, c := range cd.Configs {
 		if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
 			b := envoyAdmin.BootstrapConfigDump{}
-			g.Expect(types.UnmarshalAny(c, &b)).To(BeNil())
+			g.Expect(ptypes.UnmarshalAny(c, &b)).To(BeNil())
 
 			g.Expect(b.Bootstrap.Admin.GetAddress().GetSocketAddress().GetPortValue()).To(Equal(i.AdminPort()))
 			return

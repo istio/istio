@@ -18,9 +18,10 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -430,7 +431,7 @@ func testEndpoints() []*endpoint.LocalityLbEndpoints {
 	return []*endpoint.LocalityLbEndpoints{
 		{
 			LbEndpoints: lbEndpoints,
-			LoadBalancingWeight: &types.UInt32Value{
+			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: uint32(len(lbEndpoints)),
 			},
 		},
@@ -453,16 +454,16 @@ func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
 				},
 			},
 			Metadata: &core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
+				FilterMetadata: map[string]*structpb.Struct{
 					"istio": {
-						Fields: map[string]*types.Value{
+						Fields: map[string]*structpb.Value{
 							"network": {
-								Kind: &types.Value_StringValue{
+								Kind: &structpb.Value_StringValue{
 									StringValue: lbEpInfo.network,
 								},
 							},
 							"uid": {
-								Kind: &types.Value_StringValue{
+								Kind: &structpb.Value_StringValue{
 									StringValue: "kubernetes://dummy",
 								},
 							},

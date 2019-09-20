@@ -20,7 +20,7 @@ import (
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -140,7 +140,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 					rbacConfig := &http_config.RBAC{}
 					if got.GetConfig() == nil {
 						t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
-					} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
+					} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
 						t.Errorf("failed to convert struct to message: %s", err)
 					} else {
 						if len(tc.wantPolicies) == 0 {
@@ -226,7 +226,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 				rbacConfig := &tcp_config.RBAC{}
 				if got.GetConfig() == nil {
 					t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
-				} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
+				} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
 					t.Errorf("failed to convert struct to message: %s", err)
 				} else {
 					if rbacConfig.StatPrefix != authz_model.RBACTCPFilterStatPrefix {

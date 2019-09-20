@@ -18,9 +18,11 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -265,7 +267,7 @@ func doNetworkFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 			if userFilter.Name != "" {
 				filterName = userFilter.Name
 			}
-			var retVal *types.Any
+			var retVal *any.Any
 			if userFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
@@ -292,13 +294,13 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 	listener *xdsapi.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter) {
 	hcm := &http_conn.HttpConnectionManager{}
 	if filter.GetTypedConfig() != nil {
-		if err := types.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+		if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
 			return
 			// todo: figure out a non noisy logging option here
 			//  as this loop will be called very frequently
 		}
 	} else {
-		if err := xdsutil.StructToMessage(filter.GetConfig(), hcm); err != nil {
+		if err := conversion.StructToMessage(filter.GetConfig(), hcm); err != nil {
 			return
 		}
 	}
@@ -421,7 +423,7 @@ func doHTTPFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyFilt
 			if userHTTPFilter.Name != "" {
 				httpFilterName = userHTTPFilter.Name
 			}
-			var retVal *types.Any
+			var retVal *any.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {

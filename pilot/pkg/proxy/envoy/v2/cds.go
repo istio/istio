@@ -19,9 +19,9 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -39,7 +39,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 	}
 
 	for _, c := range response {
-		cc, _ := types.MarshalAny(c)
+		cc := util.MessageToAny(c)
 		out.Resources = append(out.Resources, cc)
 	}
 

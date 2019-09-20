@@ -18,11 +18,12 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/util/protomarshal"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
@@ -76,7 +77,7 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xd
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
-		rr, _ := types.MarshalAny(rc)
+		rr := util.MessageToAny(rc)
 		resp.Resources = append(resp.Resources, rr)
 	}
 
