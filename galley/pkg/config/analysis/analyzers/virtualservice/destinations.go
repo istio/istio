@@ -44,8 +44,6 @@ func (da *DestinationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name: "virtualservice.DestinationAnalyzer",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
-			metadata.IstioNetworkingV1Alpha3Serviceentries,
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
 		},
@@ -54,20 +52,17 @@ func (da *DestinationAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (da *DestinationAnalyzer) Analyze(ctx analysis.Context) {
-	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
-	serviceEntryHosts := initServiceEntryHostNames(ctx)
-
 	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
-		da.analyzeVirtualService(r, ctx, serviceEntryHosts, destHostsAndSubsets)
+		da.analyzeVirtualService(r, ctx, destHostsAndSubsets)
 		return true
 	})
 }
 
 func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
-	serviceEntryHosts map[resource.Name]bool, destHostsAndSubsets map[hostAndSubset]bool) {
+	destHostsAndSubsets map[hostAndSubset]bool) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -75,32 +70,14 @@ func (da *DestinationAnalyzer) analyzeVirtualService(r *resource.Entry, ctx anal
 	destinations := getRouteDestinations(vs)
 
 	for _, destination := range destinations {
-		if !da.checkDestinationHost(ns, destination, ctx, serviceEntryHosts) {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewReferencedResourceNotFound(r, "host", destination.GetHost()))
-			continue
-		}
+		// Disabled checkDestinationHost in 1.3 backport since our handling of host discovery is not mature enough in the case
+		// where users are running `istioctl experimental analyze` with files only. Leaving this in means
+		// a lot of false positives. (Unused code paths removed)
 		if !da.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewReferencedResourceNotFound(r, "host+subset", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
-}
-
-func (da *DestinationAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[resource.Name]bool) bool {
-
-	name := getResourceNameFromHost(vsNamespace, destination.GetHost())
-
-	// Check explicitly defined ServiceEntries as well as services discovered from the platform
-	if _, ok := serviceEntryHosts[name]; ok {
-		return true
-	}
-	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
-		return true
-	}
-
-	return false
 }
 
 func (da *DestinationAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination, destHostsAndSubsets map[hostAndSubset]bool) bool {
@@ -122,19 +99,6 @@ func (da *DestinationAnalyzer) checkDestinationSubset(vsNamespace string, destin
 	}
 
 	return false
-}
-
-func initServiceEntryHostNames(ctx analysis.Context) map[resource.Name]bool {
-	hosts := make(map[resource.Name]bool)
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.ServiceEntry)
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		for _, h := range s.GetHosts() {
-			hosts[getResourceNameFromHost(ns, h)] = true
-		}
-		return true
-	})
-	return hosts
 }
 
 func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
