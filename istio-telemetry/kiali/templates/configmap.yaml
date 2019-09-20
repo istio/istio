@@ -8,7 +8,12 @@ metadata:
     release: {{ .Release.Name }}
 data:
   config.yaml: |
-    istio_namespace: {{ .Release.Namespace }}
+    istio_component_namespaces:
+      grafana: {{ .Values.global.telemetryNamespace }}
+      tracing: {{ .Values.global.telemetryNamespace }}
+      pilot: {{ .Values.global.configNamespace }}
+      prometheus: {{ .Values.global.prometheusNamespace }}
+    istio_namespace: {{ .Values.global.istioNamespace }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -16,7 +21,7 @@ data:
 {{- end }}
     external_services:
       istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
+        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
       jaeger:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
       grafana:
