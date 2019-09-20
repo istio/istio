@@ -20,14 +20,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/pkg/test/util/retry"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
@@ -211,6 +215,7 @@ func TestSecretContent(t *testing.T) {
 		t.Errorf("Cert chain verification error: expected %q but got %q\n\n\n", string(certChain), string(secret.Data[CertChainID]))
 	}
 }
+
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault, defaultTTL,
@@ -270,6 +275,119 @@ func TestDeletedIstioSecret(t *testing.T) {
 			t.Errorf("Failure in test case %s: %v", k, err)
 		}
 	}
+}
+
+func bytesLess(a, b []byte) bool {
+	return bytes.Compare(a, b) < 0
+}
+
+func TestExtraTrustAnchors(t *testing.T) {
+	var (
+		extra0 = []byte("extra-root-0")
+		extra1 = []byte("extra-root-1")
+		extra2 = []byte("extra-root-2")
+
+		extra0ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra0",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra0": string(extra0)},
+		}
+		extra1ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra1",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra1": string(extra1)},
+		}
+		extra2ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra2",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra2": string(extra2)},
+		}
+	)
+
+	cases := []struct {
+		name   string
+		add    []*v1.ConfigMap
+		remove []*v1.ConfigMap
+		want   [][]byte // in addition to root cert
+	}{
+		{
+			name: "one extra ",
+			add:  []*v1.ConfigMap{extra0ConfigMap},
+			want: [][]byte{extra0},
+		},
+		{
+			name: "two extra",
+			add:  []*v1.ConfigMap{extra1ConfigMap},
+			want: [][]byte{extra0, extra1},
+		},
+		{
+			name: "three extra",
+			add:  []*v1.ConfigMap{extra2ConfigMap},
+			want: [][]byte{extra0, extra1, extra2},
+		},
+		{
+			name: "three extra with dup",
+			add:  []*v1.ConfigMap{extra1ConfigMap},
+			want: [][]byte{extra0, extra1, extra2},
+		},
+		{
+			name:   "two remaining after one removed",
+			remove: []*v1.ConfigMap{extra1ConfigMap},
+			want:   [][]byte{extra0, extra2},
+		},
+		{
+			name:   "zero remaing after all three removed",
+			remove: []*v1.ConfigMap{extra0ConfigMap, extra2ConfigMap},
+			want:   [][]byte{},
+		},
+	}
+
+	client := fake.NewSimpleClientset()
+	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault, defaultTTL,
+		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
+		[]string{metav1.NamespaceAll}, nil, "test-ns")
+	if err != nil {
+		t.Errorf("failed to create secret controller: %v", err)
+	}
+
+	fakewatch := watch.NewFakeWithChanSize(10, false)
+	defer fakewatch.Stop()
+	client.PrependWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakewatch, nil))
+
+	stop := make(chan struct{})
+	controller.Run(stop)
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %s", i, c.name), func(tt *testing.T) {
+			for _, add := range c.add {
+				fakewatch.Add(add)
+			}
+			for _, remove := range c.remove {
+				fakewatch.Delete(remove)
+			}
+
+			want := append([][]byte{rootCert}, c.want...)
+			_, err = retry.Do(func() (result interface{}, completed bool, err error) {
+				gotBytes := controller.getTrustAnchorsBundle()
+
+				got := bytes.Split(gotBytes, []byte("\n"))
+				if diff := cmp.Diff(got, want, cmpopts.SortSlices(bytesLess)); diff != "" {
+					return nil, false, fmt.Errorf("\n got %v\nwant %v\ndiff %v", got, want, diff)
+				}
+				return nil, true, nil
+			}, retry.Timeout(time.Second))
+			if err != nil {
+				tt.Fatalf("%s: %v", c.name, err)
+			}
+		})
+	}
+	stop <- struct{}{}
 }
 
 func TestUpdateSecret(t *testing.T) {

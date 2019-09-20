@@ -586,7 +586,7 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 	return err
 }
 
-// The caller is responsible for hodling the sc.extraTrustAnchorMu lock while calling this method.
+// The caller is responsible for holding the sc.extraTrustAnchorMu lock while calling this method.
 func (sc *SecretController) refreshTrustAnchorsBundle() {
 	trustAnchorsSet := map[string]struct{}{}
 
