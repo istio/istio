@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -47,13 +48,19 @@ func (console) Run(c *exec.Cmd) error {
 }
 
 // Apply runs the kubectl apply with the provided manifest argument
-func (c *Client) Apply(dryRun, verbose bool, namespace string, manifest string, extraArgs ...string) (string, string, error) {
+func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace string, manifest string, extraArgs ...string) (string, string, error) {
 	if strings.TrimSpace(manifest) == "" {
 		log.Infof("Empty manifest, not applying.")
 		return "", "", nil
 	}
 
 	args := []string{"apply"}
+	if kubeconfig != "" {
+		args = append(args, "--kubeconfig", kubeconfig)
+	}
+	if context != "" {
+		args = append(args, "--context", context)
+	}
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
@@ -83,14 +90,16 @@ func (c *Client) Apply(dryRun, verbose bool, namespace string, manifest string, 
 	log.Infof("applying to namespace %s:\n%s\n", namespace, cmdStr)
 
 	err := c.cmdSite.Run(cmd)
+	csError := util.ConsolidateLog(stderr.String())
+
 	if err != nil {
 		logAndPrint("error running kubectl apply: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error from running kubectl apply: %s", err)
+		return stdout.String(), csError, fmt.Errorf("error running kubectl apply: %s", err)
 	}
 
 	logAndPrint("kubectl apply success")
 
-	return stdout.String(), stderr.String(), nil
+	return stdout.String(), csError, nil
 }
 
 // GetConfig runs the kubectl get cm command with the provided argument
@@ -114,7 +123,7 @@ func (c *Client) GetConfig(name, namespace, output string, extraArgs ...string) 
 	err := c.cmdSite.Run(cmd)
 	if err != nil {
 		logAndPrint("error running kubectl get cm: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error from running kubectl get cm: %s", err)
+		return stdout.String(), stderr.String(), fmt.Errorf("error running kubectl %s: %s", strings.Join(args, " "), err)
 	}
 
 	logAndPrint("kubectl get cm success")

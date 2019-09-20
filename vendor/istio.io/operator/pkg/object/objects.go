@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/operator/pkg/util"
+
 	"istio.io/operator/pkg/compare"
 	"istio.io/pkg/log"
 )
@@ -368,7 +370,7 @@ func (o *K8sObject) Valid() bool {
 	return true
 }
 
-func ManifestDiff(a, b string) (string, error) {
+func ManifestDiff(a, b string, verbose bool) (string, error) {
 	ao, err := ParseK8sObjectsFromYAMLManifest(a)
 	if err != nil {
 		return "", err
@@ -379,12 +381,12 @@ func ManifestDiff(a, b string) (string, error) {
 	}
 
 	aom, bom := ao.ToMap(), bo.ToMap()
-	return manifestDiff(aom, bom, nil)
+	return manifestDiff(aom, bom, nil, verbose)
 }
 
 // ManifestDiffWithSelect checks the manifest differences with selected and ignored resources.
 // The selected filter will apply before the ignored filter.
-func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources string) (string, error) {
+func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources string, verbose bool) (string, error) {
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
 	aosm, err := filterResourceWithSelectAndIgnore(a, sm, im)
@@ -396,7 +398,7 @@ func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources stri
 		return "", err
 	}
 
-	return manifestDiff(aosm, bosm, im)
+	return manifestDiff(aosm, bosm, im, verbose)
 }
 
 // filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
@@ -444,8 +446,9 @@ func buildResourceRegexp(s string) (*regexp.Regexp, error) {
 }
 
 // manifestDiff an internal function to compare the manifests difference specified in the input.
-func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string) (string, error) {
+func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string, verbose bool) (string, error) {
 	var sb strings.Builder
+	out := make(map[string]string)
 	for ak, av := range aom {
 		ay, err := av.YAML()
 		if err != nil {
@@ -453,7 +456,7 @@ func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string) (string,
 		}
 		bo := bom[ak]
 		if bo == nil {
-			writeStringSafe(&sb, "\n\nObject "+ak+" is missing in B:\n\n")
+			out[ak] = fmt.Sprintf("\n\nObject %s is missing in B:\n\n", ak)
 			continue
 		}
 		by, err := bo.YAML()
@@ -461,21 +464,36 @@ func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string) (string,
 			return "", err
 		}
 
-		ignorePaths := objectIgnorePaths(ak, im)
-		diff := compare.YAMLCmpWithIgnore(string(ay), string(by), ignorePaths)
+		var diff string
+		if verbose {
+			diff = util.YAMLDiff(string(ay), string(by))
+		} else {
+			ignorePaths := objectIgnorePaths(ak, im)
+			diff = compare.YAMLCmpWithIgnore(string(ay), string(by), ignorePaths)
+		}
 
 		if diff != "" {
-			writeStringSafe(&sb, "\n\nObject "+ak+" has diffs:\n\n")
-			writeStringSafe(&sb, diff)
+			out[ak] = fmt.Sprintf("\n\nObject %s has diffs:\n\n%s", ak, diff)
 		}
 	}
 	for bk := range bom {
 		ao := aom[bk]
 		if ao == nil {
-			writeStringSafe(&sb, "\n\nObject "+bk+" is missing in A:\n\n")
+			out[bk] = fmt.Sprintf("\n\nObject %s is missing in A:\n\n", bk)
 			continue
 		}
 	}
+
+	keys := make([]string, 0, len(out))
+	for k := range out {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for i := range keys {
+		writeStringSafe(&sb, out[keys[i]])
+	}
+
 	return sb.String(), nil
 }
 

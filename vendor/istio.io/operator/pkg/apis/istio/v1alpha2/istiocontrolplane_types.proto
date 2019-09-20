@@ -14,13 +14,20 @@
 
 syntax = "proto3";
 
-package v1alpha2;
-
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/apps/v1/generated.proto";
 import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
+
+// $title: Operator Installation
+// $description: Configuration for Istio control plane installation through the Operator.
+// $location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
+//
+// TODO: for some reason the below fails proto compilation in this repo.
+// https://github.com/istio/istio/issues/16899
+// package istio.operator.v1alpha2;
+// option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
 
 /*
 IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
@@ -59,88 +66,103 @@ EXAMPLES
 
 1. Default Istio install
 
-spec:
+    ```yaml
+    spec:
+    ```
 
-2. Default minimal profile install
+1. Default minimal profile install
 
-spec:
-  profile: minimal
+    ```yaml
+    spec:
+      profile: minimal
+    ```
 
-3. Default install with telemetry disabled
+1. Default install with telemetry disabled
 
-spec:
-  telemetry:
-    enabled: false
+    ```yaml
+    spec:
+      telemetry:
+        enabled: false
+    ```
 
-4. Default install with each feature installed to different namespace and security components in separate namespaces
+1. Default install with each feature installed to different namespace and security components in separate namespaces
 
-spec:
-  traffic_management:
-    components:
-      namespace: istio-traffic-management
-  policy:
-    components:
-      namespace: istio-policy
-  telemetry:
-    components:
-      namespace: istio-telemetry
-  config_management:
-    components:
-      namespace: istio-config-management
-  security:
-    components:
-      citadel:
-        namespace: istio-citadel
-      cert_manager:
-        namespace: istio-cert-manager
-      node_agent:
-        namespace: istio-node-agent
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          namespace: istio-traffic-management
+      policy:
+        components:
+          namespace: istio-policy
+      telemetry:
+        components:
+          namespace: istio-telemetry
+      config_management:
+        components:
+          namespace: istio-config-management
+      security:
+        components:
+          citadel:
+            namespace: istio-citadel
+          cert_manager:
+            namespace: istio-cert-manager
+          node_agent:
+            namespace: istio-node-agent
+    ```
 
-5. Default install with specialized k8s settings for pilot
+1. Default install with specialized k8s settings for pilot
 
-spec:
-  traffic_management:
-    components:
-      pilot:
-        k8s:
-          resources:
-            limits:
-              cpu: 444m
-              memory: 333Mi
-            requests:
-              cpu: 222m
-              memory: 111Mi
-          readinessProbe:
-            failureThreshold: 44
-            initialDelaySeconds: 11
-            periodSeconds: 22
-            successThreshold: 33
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          pilot:
+            k8s:
+              resources:
+                limits:
+                  cpu: 444m
+                  memory: 333Mi
+                requests:
+                  cpu: 222m
+                  memory: 111Mi
+              readinessProbe:
+                failureThreshold: 44
+                initialDelaySeconds: 11
+                periodSeconds: 22
+                successThreshold: 33
+    ```
 
-6. Default install with values.yaml customizations for proxy
+1. Default install with values.yaml customizations for proxy
 
-spec:
-  traffic_management:
-    components:
-      proxy:
-        values:
-        - global.proxy.enableCoreDump: true
-        - global.proxy.dnsRefreshRate: 10s
+    ```yaml
+    spec:
+      traffic_management:
+        components:
+          proxy:
+            values:
+            - global.proxy.enableCoreDump: true
+            - global.proxy.dnsRefreshRate: 10s
+    ```
 
-7. Default install with modification to container flag in galley
+1. Default install with modification to container flag in galley
 
-spec:
-  configuration_management:
-    components:
-      galley:
-        k8s:
-          overlays:
-          - apiVersion: extensions/v1beta1
-            kind: Deployment
-            name: istio-galley
-            patches:
-            - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
-              value: --livenessProbeInterval=123s
+    ```yaml
+    spec:
+      configuration_management:
+        components:
+          galley:
+            k8s:
+              overlays:
+              - apiVersion: extensions/v1beta1
+                kind: Deployment
+                name: istio-galley
+                patches:
+                - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+                  value: --livenessProbeInterval=123s
+    ```
 */
+package v1alpha2;
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 message IstioControlPlane {
@@ -168,15 +190,16 @@ message IstioControlPlaneSpec {
     AutoInjectionFeatureSpec auto_injection = 30;
     GatewayFeatureSpec gateways = 31;
     // Overrides for default global values.yaml.
-    // Values map[string]interface{} `protobuf:"bytes,6,opt,name=values" json:"values,omitempty"`
-    // UnvalidatedValues map[string]interface{} `protobuf:"bytes,6,opt,name=unvalidatedValues" json:"unvalidatedValues,omitempty"`
+    TypeMapStringInterface values = 50;
+    // Unvalidated overrides for default global values.yaml.
+    TypeMapStringInterface unvalidatedValues = 51;
     // Path or name for the profile e.g.
-    //   minimal (looks in profiles dir for a file called minimal.yaml)
-    //   /tmp/istio/install/values/custom/custom-install.yaml (local file path)
+    //     - minimal (looks in profiles dir for a file called minimal.yaml)
+    //     - /tmp/istio/install/values/custom/custom-install.yaml (local file path)
     // default profile is used if this field is unset.
     string profile = 100;
     // Path for the install package. e.g.
-    //   /tmp/istio-installer/nightly (local file path)
+    //     - /tmp/istio-installer/nightly (local file path)
     string install_package_path = 102;
     // Root for docker image paths e.g. docker.io/istio-release.
     // Releases are published to docker hub under 'istio' project.
@@ -432,7 +455,10 @@ message KubernetesResourcesSpec {
     k8s.io.api.core.v1.ServiceSpec service = 12;
     // k8s deployment strategy.
     // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
-    k8s.io.api.apps.v1.DeploymentStrategy strategy = 13;
+    DeploymentStrategy strategy = 13;
+    // k8s toleration
+    // https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+    repeated k8s.io.api.core.v1.Toleration tolerations = 14;
 
     // Overlays for k8s resources in rendered manifests.
     repeated k8sObjectOverlay overlays = 100;
@@ -450,8 +476,7 @@ message k8sObjectOverlay {
         // For delete, value should be unset.
         // For replace, path should reference an existing node.
         // All values are strings but are converted into appropriate type based on schema.
-//        Value                interface{}           `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-
+        TypeInterface value = 2;
     }
     // Resource API version.
     string api_version = 1;
@@ -513,6 +538,7 @@ message ExecAction {
 // Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
 message HTTPGetAction {
     string path = 1;
+    TypeIntOrStringForPB port = 2;
     string host = 3;
     string scheme = 4;
     repeated HTTPHeader httpHeaders = 5;
@@ -526,14 +552,27 @@ message HTTPHeader {
 
 // Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
 message TCPSocketAction {
+    TypeIntOrStringForPB port = 1;
     string host = 2;
 }
 
 // Mirrors k8s.io.api.policy.v1beta1.PodDisruptionBudget for unmarshaling.
 message PodDisruptionBudgetSpec {
-    uint32 min_available = 1;
+    uint32 minAvailable = 1;
     k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector selector = 2;
-    uint32 max_unavailable = 3;
+    uint32 maxUnavailable = 3;
+}
+
+// Mirrors k8s.io.api.apps.v1.DeploymentStrategy for unmarshaling.
+message DeploymentStrategy {
+    string type = 1;
+    RollingUpdateDeployment rollingUpdate = 2;
+}
+
+// Mirrors k8s.io.api.apps.v1.RollingUpdateDeployment for unmarshaling.
+message RollingUpdateDeployment {
+    TypeIntOrStringForPB maxUnavailable = 1;
+    TypeIntOrStringForPB maxSurge = 2;
 }
 
 message ObjectMeta {
@@ -542,20 +581,11 @@ message ObjectMeta {
     string namespace = 6;
 }
 
-// TESTING ONLY
-message TestKube {
-    map<string, string> env = 60;
+// GOTYPE: map[string]interface{}
+message TypeMapStringInterface {}
 
-    Resources resources = 80;
-    //k8s.io.api.core.v1.Probe readiness_probe = 81;
-    ReadinessProbe readiness_probe = 81;
-    k8s.io.api.autoscaling.v2beta1.HorizontalPodAutoscalerSpec hpa_spec = 86;
-    PodDisruptionBudgetSpec pod_disruption_budget = 87;
-    k8s.io.api.core.v1.Affinity affinity = 8;
+// GOTYPE: interface{}
+message TypeInterface {}
 
-    map<string, string> pod_annotations = 90;
-    map<string, string> node_selector = 92;
-
-    // Kustomize style overrides for k8s resources in rendered manifests.
-    repeated k8sObjectOverlay overlays = 100;
-}
+// GOTYPE: *IntOrStringForPB
+message TypeIntOrStringForPB {}

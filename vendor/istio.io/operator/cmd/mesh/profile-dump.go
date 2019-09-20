@@ -44,17 +44,22 @@ type profileDumpArgs struct {
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
-		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree. ")
+		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().BoolVarP(&args.helmValues, "helm-values", "", false,
-		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered.")
+		"If set, dumps the Helm values that IstioControlPlaceSpec is translated to before manifests are rendered")
 }
 
 func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "dump",
-		Short: "Dumps an Istio configuration profile.",
-		Long:  "The dump subcommand is used to dump the values in an Istio configuration profile.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:   "dump [<profile>]",
+		Short: "Dumps an Istio configuration profile",
+		Long:  "The dump subcommand dumps the values in an Istio configuration profile.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return fmt.Errorf("too many positional arguments")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			profileDump(args, rootArgs, pdArgs, l)
@@ -97,7 +102,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	}
 
 	// This contains the IstioControlPlane CR.
-	baseCRYAML, err := helm.ReadValuesYAML(profile)
+	baseCRYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
 		return "", fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
@@ -108,7 +113,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 		if err != nil {
 			return "", err
 		}
-		defaultYAML, err := helm.ReadValuesYAML(dfn)
+		defaultYAML, err := helm.ReadProfileYAML(dfn)
 		if err != nil {
 			return "", fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}

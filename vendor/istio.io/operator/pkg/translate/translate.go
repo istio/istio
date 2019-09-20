@@ -118,16 +118,9 @@ var (
 				"Values.Proxy": {"global.proxy", nil},
 
 				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
-
-				"Policy.PolicyCheckFailOpen":       {"global.policyCheckFailOpen", nil},
-				"Policy.OutboundTrafficPolicyMode": {"global.outboundTrafficPolicy.mode", nil},
-				"Policy.Components.Namespace":      {"global.policyNamespace", nil},
-
-				"Telemetry.Components.Namespace": {"global.telemetryNamespace", nil},
-
-				"Security.ControlPlaneMtls.Value":    {"global.controlPlaneSecurityEnabled", nil},
-				"Security.DataPlaneMtlsStrict.Value": {"global.mtls.enabled", nil},
-				"Security.Components.Namespace":      {"global.securityNamespace", nil},
+				"Policy.Components.Namespace":           {"global.policyNamespace", nil},
+				"Telemetry.Components.Namespace":        {"global.telemetryNamespace", nil},
+				"Security.Components.Namespace":         {"global.securityNamespace", nil},
 			},
 			KubernetesMapping: map[string]*Translation{
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity": {
@@ -147,7 +140,7 @@ var (
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].nodeSelector",
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector",
 					nil,
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {
@@ -172,6 +165,14 @@ var (
 				},
 				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources": {
 					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.strategy",
+					nil,
+				},
+				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations": {
+					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations",
 					nil,
 				},
 			},

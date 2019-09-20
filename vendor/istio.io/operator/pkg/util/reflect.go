@@ -208,7 +208,9 @@ func IsEmptyString(value interface{}) bool {
 	}
 	switch reflect.TypeOf(value).Kind() {
 	case reflect.String:
-		return value.(string) == ""
+		if _, ok := value.(string); ok {
+			return value.(string) == ""
+		}
 	}
 	return false
 }
