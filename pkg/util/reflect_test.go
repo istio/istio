@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-// TODO: add missing unit tests.
+// TODO: add missing unit tests (istio/istio#17246).
 
 // errToString returns the string representation of err and the empty string if
 // err is nil.

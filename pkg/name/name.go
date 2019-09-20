@@ -352,7 +352,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 
 // SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
 // All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
-// TODO: move these out to a separate package.
+// TODO: move these out to a separate package (istio/istio#15494).
 func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
 	val, found, err := GetFromStructPath(node, path)
 	if err != nil {

@@ -120,7 +120,6 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 	for k, oo := range oom {
 		bo := bom[k]
 		if bo == nil {
-			// TODO: error log overlays with no matches in any component.
 			os := ""
 			for k2 := range bom {
 				os += k2 + "\n"
