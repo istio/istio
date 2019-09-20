@@ -1202,7 +1202,7 @@ func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "inbound_") {
 		t.Fatalf("expected stat prefix to have %s , found %s", "inbound", cfg.Fields["stat_prefix"].GetStringValue())
 	}
