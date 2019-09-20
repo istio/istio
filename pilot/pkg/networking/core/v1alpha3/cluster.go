@@ -20,12 +20,15 @@ import (
 	"strings"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
+
+	"istio.io/istio/pkg/util/gogo"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -67,7 +70,7 @@ var (
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &types.UInt32Value{Value: 1024},
+		MaxRetries: &wrappers.UInt32Value{Value: 1024},
 	}
 )
 
@@ -390,7 +393,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 					Address: host,
 				},
 			},
-			LoadBalancingWeight: &types.UInt32Value{
+			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: 1,
 			},
 		}
@@ -411,7 +414,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
-			LoadBalancingWeight: &types.UInt32Value{
+			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: weight,
 			},
 		})
@@ -784,20 +787,20 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
-			threshold.MaxRequests = &types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			threshold.MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			threshold.MaxPendingRequests = &types.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
+			threshold.MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 
 		if settings.Http.MaxRequestsPerConnection > 0 {
-			cluster.MaxRequestsPerConnection = &types.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
+			cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
 		}
 
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
 		if settings.Http.MaxRetries > 0 {
-			threshold.MaxRetries = &types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 
 		idleTimeout = settings.Http.IdleTimeout
@@ -805,11 +808,11 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = util.GogoDurationToDuration(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
-			threshold.MaxConnections = &types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 
 		applyTCPKeepalive(env, cluster, settings)
@@ -820,7 +823,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 	}
 
 	if idleTimeout != nil {
-		idleTimeoutDuration := util.GogoDurationToDuration(idleTimeout)
+		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
 		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
@@ -859,15 +862,15 @@ func applyTCPKeepalive(env *model.Environment, cluster *apiv2.Cluster, settings 
 
 	// If any of the TCP keepalive options are not set, skip them from the config so that OS defaults are used.
 	if keepaliveProbes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: keepaliveProbes}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepaliveProbes}
 	}
 
 	if keepaliveTime != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(keepaliveTime.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepaliveTime.Seconds)}
 	}
 
 	if keepaliveInterval != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(keepaliveInterval.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepaliveInterval.Seconds)}
 	}
 
 	cluster.UpstreamConnectionOptions = upstreamConnectionOptions
@@ -881,19 +884,19 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 	out := &v2Cluster.OutlierDetection{}
 	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = outlier.BaseEjectionTime
+		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
 	}
 	if outlier.ConsecutiveErrors > 0 {
 		// Only listen to gateway errors, see https://github.com/istio/api/pull/617
-		out.EnforcingConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(100)} // defaults to 0
-		out.EnforcingConsecutive_5Xx = &types.UInt32Value{Value: uint32(0)}             // defaults to 100
-		out.ConsecutiveGatewayFailure = &types.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
+		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(100)} // defaults to 0
+		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: uint32(0)}             // defaults to 100
+		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
 	}
 	if outlier.Interval != nil {
-		out.Interval = outlier.Interval
+		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
 	}
 	if outlier.MaxEjectionPercent > 0 {
-		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
+		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
 	}
 
 	cluster.OutlierDetection = out
@@ -930,9 +933,12 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	// rejected by Envoy.
 
 	// Original destination service discovery must be used with the original destination load balancer.
-	if cluster.GetClusterDiscoveryType().Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}) {
-		cluster.LbPolicy = lbPolicyClusterProvided(proxy)
-		return
+	switch t := cluster.GetClusterDiscoveryType().(type) {
+	case *apiv2.Cluster_Type:
+		if t.Type == apiv2.Cluster_ORIGINAL_DST {
+			cluster.LbPolicy = lbPolicyClusterProvided(proxy)
+			return
+		}
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
@@ -959,9 +965,9 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
 		// unable to distinguish between set and unset case currently GregHanson
 		// 1024 is the default value for envoy
-		minRingSize := &types.UInt64Value{Value: 1024}
+		minRingSize := &wrappers.UInt64Value{Value: 1024}
 		if consistentHash.MinimumRingSize != 0 {
-			minRingSize = &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
 		}
 		cluster.LbPolicy = apiv2.Cluster_RING_HASH
 		cluster.LbConfig = &apiv2.Cluster_RingHashLbConfig_{
@@ -994,7 +1000,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		return
 	}
 
-	var certValidationContext *auth.CertificateValidationContext
+	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
@@ -1094,7 +1100,7 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
+			MaxConcurrentStreams: &wrappers.UInt32Value{
 				Value: 1073741824,
 			},
 		}
@@ -1107,7 +1113,7 @@ func buildBlackHoleCluster(env *model.Environment) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
-		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
 	}
 	return cluster
@@ -1119,7 +1125,7 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 	cluster := &apiv2.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{
@@ -1142,7 +1148,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 
 	if discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
-		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
+		dnsRate := gogo.DurationToProtoDuration(env.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
 		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {
 			cluster.RespectDnsTtl = true

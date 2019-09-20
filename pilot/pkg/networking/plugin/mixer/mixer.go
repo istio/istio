@@ -22,24 +22,25 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
-
-	"istio.io/pkg/log"
 )
 
 type mixerplugin struct{}
@@ -70,10 +71,10 @@ const (
 
 var (
 	// default base retry wait time for policy checks
-	defaultBaseRetryWaitTime = types.DurationProto(80 * time.Millisecond)
+	defaultBaseRetryWaitTime = ptypes.DurationProto(80 * time.Millisecond)
 
 	// default maximum wait time for policy checks
-	defaultMaxRetryWaitTime = types.DurationProto(1000 * time.Millisecond)
+	defaultMaxRetryWaitTime = ptypes.DurationProto(1000 * time.Millisecond)
 )
 
 type direction int
@@ -336,18 +337,18 @@ func buildUpstreamName(address string) string {
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
 	// default to mesh
-	policy := mccpb.FAIL_CLOSE
+	policy := mccpb.NetworkFailPolicy_FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
-		policy = mccpb.FAIL_OPEN
+		policy = mccpb.NetworkFailPolicy_FAIL_OPEN
 	}
 
 	// apply proxy-level overrides
 	if anno, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
 		switch anno {
 		case policyCheckEnable:
-			policy = mccpb.FAIL_CLOSE
+			policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
 		case policyCheckEnableAllow, policyCheckDisable:
-			policy = mccpb.FAIL_OPEN
+			policy = mccpb.NetworkFailPolicy_FAIL_OPEN
 		}
 	}
 
@@ -369,7 +370,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		if err != nil {
 			log.Warnf("unable to parse base retry wait time %q.", anno)
 		} else {
-			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
+			networkFailPolicy.BaseRetryWait = ptypes.DurationProto(dur)
 		}
 	}
 
@@ -379,7 +380,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		if err != nil {
 			log.Warnf("unable to parse max retry wait time %q.", anno)
 		} else {
-			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
+			networkFailPolicy.MaxRetryWait = ptypes.DurationProto(dur)
 		}
 	}
 
@@ -388,7 +389,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		ReportCluster:         buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy:     networkFailPolicy,
 		ReportBatchMaxEntries: mesh.ReportBatchMaxEntries,
-		ReportBatchMaxTime:    mesh.ReportBatchMaxTime,
+		ReportBatchMaxTime:    util.GogoDurationToDuration(mesh.ReportBatchMaxTime),
 	}
 
 	return res
@@ -591,17 +592,17 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	return out
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfig(filterConfigs map[string]*pstruct.Struct, config *mccpb.ServiceConfig) map[string]*pstruct.Struct {
 	if filterConfigs == nil {
-		filterConfigs = make(map[string]*types.Struct)
+		filterConfigs = make(map[string]*pstruct.Struct)
 	}
 	filterConfigs[mixer] = util.MessageToStruct(config)
 	return filterConfigs
 }
 
-func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.ServiceConfig) map[string]*types.Any {
+func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.ServiceConfig) map[string]*any.Any {
 	if filterConfigs == nil {
-		filterConfigs = make(map[string]*types.Any)
+		filterConfigs = make(map[string]*any.Any)
 	}
 	filterConfigs[mixer] = util.MessageToAny(config)
 	return filterConfigs

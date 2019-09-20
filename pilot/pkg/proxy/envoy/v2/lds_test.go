@@ -19,18 +19,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -331,7 +334,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
+		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -356,7 +359,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
+		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -566,7 +569,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}
 		connectionManagerCfg := xdsapi_http_connection_manager.HttpConnectionManager{}
-		err := connectionManagerCfg.Unmarshal(httpCfg.TypedConfig.GetValue())
+		err := ptypes.UnmarshalAny(httpCfg.TypedConfig, &connectionManagerCfg)
 		if err != nil {
 			t.Fatalf("Could not deserialize http connection manager config: %v", err)
 		}

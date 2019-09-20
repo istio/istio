@@ -26,7 +26,8 @@ import (
 	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	gogo_types "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
 
 	v1 "k8s.io/api/core/v1"
@@ -50,8 +51,8 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 )
 
-type myGogoValue struct {
-	*gogo_types.Value
+type myProtoValue struct {
+	*structpb.Value
 }
 
 const (
@@ -250,7 +251,7 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 			return noVersionMetadata
 		}
 
-		return asMyGogoValue(bootstrapNode.Metadata).keyAsString("ISTIO_VERSION")
+		return asMyProtoValue(bootstrapNode.Metadata).keyAsString("ISTIO_VERSION")
 	}
 
 	return "undetected"
@@ -707,26 +708,26 @@ func isMeshed(pod *v1.Pod) bool {
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
-func (v *myGogoValue) keyAsStruct(key string) *myGogoValue {
+func (v *myProtoValue) keyAsStruct(key string) *myProtoValue {
 	if v == nil || v.GetStructValue() == nil {
-		return asMyGogoValue(&gogo_types.Struct{Fields: make(map[string]*gogo_types.Value)})
+		return asMyProtoValue(&structpb.Struct{Fields: make(map[string]*structpb.Value)})
 	}
 
-	return &myGogoValue{v.GetStructValue().Fields[key]}
+	return &myProtoValue{v.GetStructValue().Fields[key]}
 }
 
-// asMyGogoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
-func asMyGogoValue(s *gogo_types.Struct) *myGogoValue {
-	return &myGogoValue{
-		&gogo_types.Value{
-			Kind: &gogo_types.Value_StructValue{
+// asMyProtoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
+func asMyProtoValue(s *structpb.Struct) *myProtoValue {
+	return &myProtoValue{
+		&structpb.Value{
+			Kind: &structpb.Value_StructValue{
 				StructValue: s,
 			},
 		},
 	}
 }
 
-func (v *myGogoValue) keyAsString(key string) string {
+func (v *myProtoValue) keyAsString(key string) string {
 	s := v.keyAsStruct(key)
 	return s.GetStringValue()
 }
@@ -742,7 +743,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == authz_model.RBACHTTPFilterName {
 			rbac := &rbac_http_filter.RBAC{}
-			if err := gogo_types.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
+			if err := ptypes.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
 				policies := []string{}
 				for polName := range rbac.Rules.Policies {
 					policies = append(policies, polName)
@@ -778,7 +779,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 			for _, filterChain := range listener.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
-					if err := gogo_types.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
 						return hcm, nil
 					}
 				}
@@ -879,9 +880,9 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 }
 
 // getMixerDestinationSvc returns name, namespace, err
-func getMixerDestinationSvc(mixer *gogo_types.Struct) (string, string, error) {
+func getMixerDestinationSvc(mixer *structpb.Struct) (string, string, error) {
 	if mixer != nil {
-		attributes := asMyGogoValue(mixer).
+		attributes := asMyProtoValue(mixer).
 			keyAsStruct("mixer_attributes").
 			keyAsStruct("attributes")
 		svcName := attributes.keyAsStruct("destination.service.name").
@@ -896,7 +897,7 @@ func getMixerDestinationSvc(mixer *gogo_types.Struct) (string, string, error) {
 // getIstioConfig returns .metadata.filter_metadata.istio.config, err
 func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 	if metadata != nil {
-		istioConfig := asMyGogoValue(metadata.FilterMetadata["istio"]).
+		istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 			keyAsString("config")
 		return istioConfig, nil
 	}
@@ -940,7 +941,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		if filter.Verify(cluster) {
 			metadata := cluster.Metadata
 			if metadata != nil {
-				istioConfig := asMyGogoValue(metadata.FilterMetadata["istio"]).
+				istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 					keyAsString("config")
 				return istioConfig, nil
 			}
