@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -59,7 +60,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -73,16 +74,23 @@ func TestAnalyzersRun(t *testing.T) {
 	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(collection.NewName("collection"), msg)
+			ctx.Exists(data.Collection1, resource.NewName("", ""))
+			ctx.Report(data.Collection1, msg)
 		},
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), a)
+	var collectionAccessed collection.Name
+	cr := func(col collection.Name) {
+		collectionAccessed = col
+	}
+
+	sa := NewSourceAnalyzer(metadata.MustGet(), a, cr)
 	sa.AddFileKubeSource([]string{}, "")
 
 	msgs, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(msgs).To(ConsistOf(msg))
+	g.Expect(collectionAccessed).To(Equal(data.Collection1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
@@ -90,7 +98,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.sources).To(HaveLen(1))
@@ -99,7 +107,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddFileKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
 
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -137,7 +145,7 @@ func TestResourceFiltering(t *testing.T) {
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), dummyAnalyzer)
+	sa := NewSourceAnalyzer(metadata.MustGet(), dummyAnalyzer, nil)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled

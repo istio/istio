@@ -52,18 +52,27 @@ type SourceAnalyzer struct {
 	// Which collections are used by this analysis
 	// Derived from the specified analyzer and transformer providers
 	inputCollections map[collection.Name]struct{}
+
+	collectionReporter snapshotter.CollectionReporterFn
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn) *SourceAnalyzer {
+	//collectionReporter hook function defaults to no-op
+	if cr == nil {
+		cr = func(collection.Name) {}
+	}
+
 	transformerProviders := transforms.Providers(m)
+
 	return &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
+		collectionReporter:   cr,
 	}
 }
 
@@ -78,7 +87,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	src := newPrecedenceSource(sa.sources)
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
-	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
+	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor(), sa.collectionReporter)
 	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformerProviders, distributor)
 	if err != nil {
 		return nil, err
