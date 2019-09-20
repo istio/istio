@@ -24,6 +24,9 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
+// CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
+type CollectionReporterFn func(collection.Name)
+
 // AnalyzingDistributor is an snapshotter. Distributor implementation that will perform analysis on a snapshot before
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
@@ -37,8 +40,7 @@ type AnalyzingDistributor struct {
 	snapshotsMu   sync.RWMutex
 	lastSnapshots map[string]*Snapshot
 
-	// Hook function called whenever a collection is accessed through the AnalyzingDistributor's context
-	collectionReporter func(collection.Name)
+	collectionReporter CollectionReporterFn
 }
 
 var _ Distributor = &AnalyzingDistributor{}
@@ -47,7 +49,7 @@ const defaultSnapshotGroup = "default"
 const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr func(collection.Name)) *AnalyzingDistributor {
+func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr CollectionReporterFn) *AnalyzingDistributor {
 	//collectionReport hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -139,7 +141,7 @@ type context struct {
 	sn                 *Snapshot
 	cancelCh           chan struct{}
 	messages           diag.Messages
-	collectionReporter func(collection.Name)
+	collectionReporter CollectionReporterFn
 }
 
 var _ analysis.Context = &context{}

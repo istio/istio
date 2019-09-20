@@ -53,13 +53,12 @@ type SourceAnalyzer struct {
 	// Derived from the specified analyzer and transformer providers
 	inputCollections map[collection.Name]struct{}
 
-	// Hook function called whenever a collection is accessed through the AnalyzingDistributor's context.
-	collectionReporter func(collection.Name)
+	collectionReporter snapshotter.CollectionReporterFn
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr func(collection.Name)) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn) *SourceAnalyzer {
 	//collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
