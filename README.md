@@ -306,6 +306,17 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master isti
         --set global.policyNamespace=istio-policy-master
 ```
 
+## Kiali
+
+```bash
+iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
+        --set global.configNamespace=istio-control \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy \
+        --set global.prometheusNamespace=istio-telemetry
+```
+
 ## Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
