@@ -44,7 +44,6 @@ const (
 // it should not generate a new cert and overwrite the existing secret. Instead, the Citadel pod should
 // immediately exit with error.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
-<<<<<<< Updated upstream
 	framework.NewTest(t).
 		Label(label.CustomSetup). // test depends on the clusterrole name being "istio-citadel-istio-system"
 		Run(func(ctx framework.TestContext) {
@@ -124,50 +123,4 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 			// Sleep 10 seconds for the Citadel pod to recreate.
 			time.Sleep(10 * time.Second)
 		})
-=======
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)
-
-		namespaceTmpl := map[string]string{
-			"Namespace": ns.Name(),
-		}
-		// Create the Citadel's CA-root secret for signing key and cert.
-		env := ctx.Environment().(*kube.Environment)
-		pemCert := []byte("ABC")
-		pemKey := []byte("DEF")
-		citadelSecret := ca.BuildSecret("", ca.CASecret, ns.Name(), nil, nil, nil, pemCert, pemKey, "istio.io/ca-root")
-		kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
-		kubeAccessor.CreateSecret(ns.Name(), citadelSecret)
-
-		// Apply the RBAC policy to prevent Citadel to read the CA-root secret.
-		policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-			file.AsStringOrFail(t, rbacConfigTmpl))
-
-		g.ApplyConfigOrFail(t, ns, policies...)
-		defer g.DeleteConfigOrFail(t, ns, policies...)
-
-		// Sleep 60 seconds for the policy to take effect.
-		time.Sleep(60 * time.Second)
-
-		// Start Citadel
-		//_ = citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
-
-		// Delete Citadel pod, a new pod will be started.
-		pods, err := env.GetPods(ns.Name(), "istio=citadel")
-		if err != nil {
-			t.Fatal("Failed to get Citadel pods.")
-		}
-		env.DeletePod(ns.Name(), pods[0].GetName())
-
-		t.Log(`checking citadel exits after a while`)
-		time.Sleep(10 * time.Second)
-		fetchFn := env.NewSinglePodFetch(ns.Name(), "istio=citadel")
-		err = env.WaitUntilPodsAreDeleted(fetchFn)
-		if err != nil {
-			t.Fatal("Citadel pod is not deleted when writing to CA-root secret fails.")
-		}
-
-		// [TODO] Verify that the secret is untouched.
-	})
->>>>>>> Stashed changes
 }

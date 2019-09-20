@@ -383,7 +383,6 @@ func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (e
 	return err
 }
 
-<<<<<<< Updated upstream
 // DeleteSecret deletes secret by name in namespace.
 func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 	var immediate int64
@@ -400,8 +399,6 @@ func (a *Accessor) GetKubernetesVersion() (*version.Info, error) {
 	return a.extSet.ServerVersion()
 }
 
-=======
->>>>>>> Stashed changes
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
