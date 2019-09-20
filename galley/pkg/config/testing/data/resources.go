@@ -36,8 +36,8 @@ var (
 }`),
 	}
 
-	// EntryN1I1V1_ClusterScoped is a test resource.Entry that is cluster scoped.
-	EntryN1I1V1_ClusterScoped = &resource.Entry{
+	// EntryN1I1V1ClusterScoped is a test resource.Entry that is cluster scoped.
+	EntryN1I1V1ClusterScoped = &resource.Entry{
 		Metadata: resource.Metadata{
 			Name:    resource.NewName("", "i1"),
 			Version: "v1",
