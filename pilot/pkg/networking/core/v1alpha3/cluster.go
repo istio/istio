@@ -1000,7 +1000,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		return
 	}
 
-	certValidationContext = &auth.CertificateValidationContext{}
+	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
