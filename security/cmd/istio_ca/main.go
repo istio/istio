@@ -194,7 +194,8 @@ func initCLI() {
 		"The TTL of self-signed CA root certificate.")
 	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
 		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
-			"Should not be shorter than two minutes.")
+			"Should not be shorter than two minutes. Setting this interval to zero or a negative value disables " +
+		"automated root cert check and upgrade.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -479,6 +480,10 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 	// a job that checks root certificate expiration time and rotates certificate
 	// automatically.
 	if opts.selfSignedCA {
+		if opts.selfSignedCACheckInternal <= 0 {
+			log.Infof("Disables self-signed root cert auto-upgrading goroutine as root cert checking " +
+				"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
+		}
 		if opts.selfSignedCACheckInternal < 2*time.Minute {
 			opts.selfSignedCACheckInternal = 2 * time.Minute
 		}

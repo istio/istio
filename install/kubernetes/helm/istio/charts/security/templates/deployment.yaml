@@ -56,6 +56,12 @@ spec:
             - --monitoring-port={{ .Values.global.monitoringPort }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
+          {{- if .Values.selfSignedCACertTTL }}
+            - --self-signed-ca-cert-ttl={{ .Values.selfSignedCACertTTL }}
+          {{- end }}
+          {{- if .Values.selfSignedCACheckInternal }}
+            - --self-signed-ca-check-interval={{ .Values.selfSignedCACheckInternal }}
+          {{- end }}
           {{- else }}
             - --self-signed-ca=false
             - --signing-cert=/etc/cacerts/ca-cert.pem
