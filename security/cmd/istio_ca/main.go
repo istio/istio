@@ -497,8 +497,8 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 				opts.rootCertFile,
 				metrics,
 			}
-			istioCA.RotateRootCert(config)
-			go pkgcmd.WaitSignal(istioCA.StopRotateJob)
+			go istioCA.RotateRootCert(config)
+			pkgcmd.WaitSignal(istioCA.StopRotateJob)
 		} else {
 			log.Infof("Disables self-signed root cert auto-upgrading goroutine as root cert checking " +
 					"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
