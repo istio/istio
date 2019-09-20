@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -30,11 +31,6 @@ type Analyzer struct{}
 
 var _ analysis.Analyzer = &Analyzer{}
 
-// Name implements Analyzer
-func (s *Analyzer) Name() string {
-	return "injection.Analyzer"
-}
-
 // We assume that enablement is via an istio-injection=enabled namespace label
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
@@ -43,8 +39,19 @@ const injectionLabelEnableValue = "enabled"
 
 const istioProxyName = "istio-proxy"
 
+// Metadata implements Analyzer
+func (a *Analyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name: "injection.Analyzer",
+		Inputs: collection.Names{
+			metadata.K8SCoreV1Namespaces,
+			metadata.K8SCoreV1Pods,
+		},
+	}
+}
+
 // Analyze implements Analyzer
-func (s *Analyzer) Analyze(c analysis.Context) {
+func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
