@@ -39,7 +39,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 	}
 
 	for _, c := range response {
-		cc, _ := util.MessageToAnyWithError(c)
+		cc := util.MessageToAny(c)
 		out.Resources = append(out.Resources, cc)
 	}
 

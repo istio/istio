@@ -155,7 +155,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
-	routeConfigAny, _ := util.MessageToAnyWithError(&adminapi.RoutesConfigDump{})
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
@@ -167,7 +167,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		}
 	}
 
-	bootstrapAny, _ := util.MessageToAnyWithError(&adminapi.BootstrapConfigDump{})
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
 	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
