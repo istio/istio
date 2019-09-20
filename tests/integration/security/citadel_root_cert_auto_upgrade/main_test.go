@@ -15,21 +15,23 @@
 package citadel_root_cert_auto_upgrade
 
 import (
-"testing"
+	"testing"
 
-"istio.io/istio/pkg/test/framework"
-"istio.io/istio/pkg/test/framework/components/environment"
-"istio.io/istio/pkg/test/framework/components/galley"
-"istio.io/istio/pkg/test/framework/components/istio"
-"istio.io/istio/pkg/test/framework/components/pilot"
-"istio.io/istio/pkg/test/framework/label"
-"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	inst istio.Instance
 	g    galley.Instance
 	p    pilot.Instance
+	prom prometheus.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -46,6 +48,9 @@ func TestMain(m *testing.M) {
 				if p, err = pilot.New(ctx, pilot.Config{
 					Galley: g,
 				}); err != nil {
+					return err
+				}
+				if prom, err = prometheus.New(ctx); err != nil {
 					return err
 				}
 				return nil

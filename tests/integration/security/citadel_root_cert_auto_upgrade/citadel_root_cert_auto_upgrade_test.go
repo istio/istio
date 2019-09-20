@@ -16,16 +16,27 @@ package citadel_root_cert_auto_upgrade
 
 import (
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/tests/integration/mixer"
 )
 
 func TestCitadelRootCertUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 			Run(func(ctx framework.TestContext) {
+				v := mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
+				t.Logf("1: metrics value for citadel_root_cert_upgrade_count: %s", v)
+				time.Sleep(90 * time.Second)
 
+				v = mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
+				t.Logf("2: metrics value for citadel_root_cert_upgrade_count: %s", v)
+				time.Sleep(90 * time.Second)
+
+				v = mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
+				t.Logf("3: metrics value for citadel_root_cert_upgrade_count: %s", v)
 				//istioCfg := istio.DefaultConfigOrFail(t, ctx)
 				//
 				//namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
