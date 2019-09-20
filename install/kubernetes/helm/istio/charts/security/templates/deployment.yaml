@@ -74,6 +74,9 @@ spec:
           {{- end }}
           {{- if .Values.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.workloadCertTtl }}
+          {{- if .Values.workloadCertMinGracePeriod }}
+            - --workload-cert-min-grace-period={{ .Values.workloadCertMinGracePeriod }}
+          {{- end }}
           {{- end }}
           {{- if .Values.citadelHealthCheck }}
             - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file

@@ -395,7 +395,7 @@ func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationCo
 			config.Metrics.RootUpgradeSuccess.Increment()
 		}
 		if status == UpgradeFailure {
-			config.Metrics.RootUpgradeSuccess.Increment()
+			config.Metrics.RootUpgradeErrors.Increment()
 		}
 		return
 	}
@@ -405,7 +405,7 @@ func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationCo
 		config.Metrics.RootUpgradeSuccess.Increment()
 	}
 	if status == UpgradeFailure {
-		config.Metrics.RootUpgradeSuccess.Increment()
+		config.Metrics.RootUpgradeErrors.Increment()
 	}
 	return
 }
