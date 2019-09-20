@@ -57,7 +57,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
 		// Ignore system namespaces
-		// TODO: namespaces can in theory be anything, so we need to make the more configurable
+		// TODO: namespaces can in theory be anything, so we need to make this more configurable
 		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), "istio-") {
 			return true
 		}
@@ -65,6 +65,9 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		injectionLabel := r.Metadata.Labels[injectionLabelName]
 
 		if injectionLabel == "" {
+			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
+			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
+
 			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.Name.String(), r.Metadata.Name.String()))
 			return true
 		}
