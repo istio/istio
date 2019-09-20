@@ -333,6 +333,43 @@ fmt:
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
 
+# List of all binaries to build
+BINARIES:=./istioctl/cmd/istioctl \
+  ./pilot/cmd/pilot-discovery \
+  ./pilot/cmd/pilot-agent \
+  ./sidecar-injector/cmd/sidecar-injector \
+  ./mixer/cmd/mixs \
+  ./mixer/cmd/mixc \
+  ./mixer/tools/mixgen \
+  ./galley/cmd/galley \
+  ./security/cmd/node_agent \
+  ./security/cmd/node_agent_k8s \
+  ./security/cmd/istio_ca \
+  ./security/tools/sdsclient \
+  ./pkg/test/echo/cmd/client \
+  ./pkg/test/echo/cmd/server \
+  ./mixer/test/policybackend \
+  ./tools/hyperistio \
+  ./tools/istio-iptables
+
+# List of binaries included in releases
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+
+.PHONY: build
+build: depend
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+
+.PHONY: build-linux
+build-linux: depend
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+
+# Create targets for ISTIO_OUT_LINUX/binary
+$(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-linux
+
+# Create helper targets for each binary, like "pilot-discovery"
+# As an optimization, these still build everything
+$(foreach bin,$(BINARIES),$(shell basename $(bin))): build
+
 # Existence of build cache .a files actually affects the results of
 # some linters; they need to exist.
 lint: buildcache
@@ -372,31 +409,6 @@ lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lin
 RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
-# Generates build both native and linux (needed by Docker) targets for an application
-# Params:
-# $(1): The base name for the generated target. If the name specified is "app", then targets will be generated for:
-#   app, $(ISTIO_OUT)/app and additionally $(ISTIO_OUT_LINUX)/app if GOOS != linux.
-# $(2): The path to the source directory for the application
-# $(3): The value for LDFLAGS
-define genTargetsForNativeAndDocker
-$(ISTIO_OUT)/$(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
-
-.PHONY: $(1)
-$(1):
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT)/$(1) $(2)
-
-ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
-$(ISTIO_OUT_LINUX)/$(1):
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(3) bin/gobuild.sh $(ISTIO_OUT_LINUX)/$(1) $(2)
-endif
-
-endef
-
-# Build targets for istioctl
-ISTIOCTL_BINS:=istioctl
-$(foreach ITEM,$(ISTIOCTL_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./istioctl/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
 # Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
 	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
@@ -414,63 +426,9 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	${ISTIO_OUT}/istioctl collateral --zsh && \
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
-# Build targets for apps under ./pilot/cmd
-PILOT_BINS:=pilot-discovery pilot-agent
-$(foreach ITEM,$(PILOT_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./sidecar-injector/cmd
-INJECTOR_BINS:=sidecar-injector
-$(foreach ITEM,$(INJECTOR_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./sidecar-injector/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./mixer/cmd
-MIXER_BINS:=mixs mixc
-$(foreach ITEM,$(MIXER_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./mixer/tools
-MIXER_TOOLS_BINS:=mixgen
-$(foreach ITEM,$(MIXER_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./mixer/tools/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./galley/cmd
-GALLEY_BINS:=galley
-$(foreach ITEM,$(GALLEY_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./galley/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./security/cmd
-SECURITY_BINS:=node_agent node_agent_k8s istio_ca
-$(foreach ITEM,$(SECURITY_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./security/tools
-SECURITY_TOOLS_BINS:=sdsclient
-$(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./security/tools/$(ITEM),$(RELEASE_LDFLAGS))))
-
-# Build targets for apps under ./tools
-ISTIO_TOOLS_BINS:=hyperistio istio-iptables
-$(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
-
-BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
-LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
-
-.PHONY: build
-# Build will rebuild the go binaries.
-build: depend $(BUILD_BINS)
-
-.PHONY: build-linux
-build-linux: depend $(LINUX_BUILD_BINS)
-
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(BUILD_BINS)"
-
-# The following are convenience aliases for most of the go targets
-# The first block is for aliases that are the same as the actual binary,
-# while the ones that follow need slight adjustments to their names.
-#
-# This is intended for developer use - will rebuild the package.
-
-.PHONY: citadel
-citadel: istio_ca
-
-.PHONY: pilot
-pilot: pilot-discovery
+	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -480,7 +438,6 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
 
 .PHONY: istio-archive
-
 istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
@@ -508,7 +465,7 @@ istioctl-install:
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: test localTestEnv test-bins
+.PHONY: test localTestEnv
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
@@ -531,43 +488,28 @@ test: | $(JUNIT_REPORT)
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
 
-TEST_APP_BINS:=server client
-$(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
-
-MIXER_TEST_BINS:=policybackend
-$(foreach ITEM,$(MIXER_TEST_BINS),$(eval $(call genTargetsForNativeAndDocker,mixer-test-$(ITEM),./mixer/test/$(ITEM),$(DEBUG_LDFLAGS))))
-
-TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT)/mixer-test-$(ITEM))
-LINUX_TEST_BINS:=$(foreach ITEM,$(TEST_APP_BINS),$(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-$(ITEM)) $(foreach ITEM,$(MIXER_TEST_BINS),$(ISTIO_OUT_LINUX)/mixer-test-$(ITEM))
-
-test-bins: $(TEST_BINS)
-
-test-bins-linux: $(LINUX_TEST_BINS)
-
-localTestEnv: test-bins
+localTestEnv: build
 	bin/testEnvLocalK8S.sh ensure
 
-localTestEnvCleanup: test-bins
+localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
 
-# Temp. disable parallel test - flaky consul test.
-# https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
-pilot-test: pilot-agent
+pilot-test:
 	go test ${T} ./pilot/...
 
 .PHONY: istioctl-test
-istioctl-test: istioctl
+istioctl-test:
 	go test ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
-mixer-test: mixs
+mixer-test:
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
-galley-test: depend
+galley-test:
 	go test ${T} ./galley/...
 
 .PHONY: security-test
@@ -576,7 +518,7 @@ security-test:
 	go test ${T} ./security/cmd/...
 
 .PHONY: common-test
-common-test: istio-iptables
+common-test: build
 	go test ${T} ./pkg/...
 	go test ${T} ./tests/common/...
 	# Execute bash shell unit tests scripts
@@ -637,20 +579,20 @@ racetest: $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
-pilot-racetest: pilot-agent
+pilot-racetest:
 	RACE_TEST=true go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
-istioctl-racetest: istioctl
+istioctl-racetest:
 	RACE_TEST=true go test ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
-mixer-racetest: mixs
+mixer-racetest:
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
-galley-racetest: depend
+galley-racetest:
 	RACE_TEST=true go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
@@ -691,9 +633,6 @@ gcs.push.istioctl-all: istioctl-all
 
 gcs.push.deb: deb
 	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
-
-artifacts: docker
-	@echo 'To be added'
 
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:

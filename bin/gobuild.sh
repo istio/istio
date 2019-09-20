@@ -26,7 +26,7 @@ fi
 ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 OUT=${1:?"output path"}
-BUILDPATH=${2:?"path to build"}
+shift
 
 set -e
 
@@ -69,4 +69,4 @@ time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         -o "${OUT}" \
         -trimpath \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
-        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
+        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"
