@@ -152,6 +152,11 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	TargetNamespaces map[string]struct{}
 
+	// ConfigTypesUpdated contains the types of configs that have changed.
+	// The config types are those defined in pkg/config/schemas
+	// Applicable only when Full is set to true.
+	ConfigTypesUpdated map[string]struct{}
+
 	// EdsUpdates keeps track of all service updated since last full push.
 	// Key is the hostname (serviceName).
 	// This is used by incremental eds.
@@ -205,18 +210,26 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return merged
 	}
 
-	// If either does not specify only namespaces, this means update all namespaces
-	if len(first.TargetNamespaces) == 0 || len(other.TargetNamespaces) == 0 {
-		return merged
+	// Merge the target namespaces
+	if len(first.TargetNamespaces) > 0 || len(other.TargetNamespaces) > 0 {
+		merged.TargetNamespaces = make(map[string]struct{})
+		for update := range first.TargetNamespaces {
+			merged.TargetNamespaces[update] = struct{}{}
+		}
+		for update := range other.TargetNamespaces {
+			merged.TargetNamespaces[update] = struct{}{}
+		}
 	}
 
-	// Merge the target namespaces
-	merged.TargetNamespaces = make(map[string]struct{})
-	for update := range first.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
-	}
-	for update := range other.TargetNamespaces {
-		merged.TargetNamespaces[update] = struct{}{}
+	// Merge the config updates
+	if len(first.ConfigTypesUpdated) > 0 || len(other.ConfigTypesUpdated) > 0 {
+		merged.ConfigTypesUpdated = make(map[string]struct{})
+		for update := range first.ConfigTypesUpdated {
+			merged.ConfigTypesUpdated[update] = struct{}{}
+		}
+		for update := range other.ConfigTypesUpdated {
+			merged.ConfigTypesUpdated[update] = struct{}{}
+		}
 	}
 
 	return merged
