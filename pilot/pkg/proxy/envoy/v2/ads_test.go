@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/util"
@@ -427,4 +428,37 @@ func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
 		return nil, err
 	}
 	return route, nil
+}
+
+func TestProxyNeedsPush(t *testing.T) {
+	sidecar := &model.Proxy{Type: model.SidecarProxy}
+	gateway := &model.Proxy{Type: model.Router}
+	cases := []struct {
+		name       string
+		proxy      *model.Proxy
+		namespaces []string
+		configs    []string
+		want       bool
+	}{
+		{"no namespace or configs", sidecar, nil, nil, true},
+		{"gateway config for sidecar", sidecar, nil, []string{schemas.Gateway.Type}, false},
+		{"gateway config for gateway", gateway, nil, []string{schemas.Gateway.Type}, true},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ns := map[string]struct{}{}
+			for _, n := range tt.namespaces {
+				ns[n] = struct{}{}
+			}
+			cfgs := map[string]struct{}{}
+			for _, c := range tt.configs {
+				cfgs[c] = struct{}{}
+			}
+			got := v2.ProxyNeedsPush(tt.proxy, ns, cfgs)
+			if got != tt.want {
+				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+		})
+	}
 }
