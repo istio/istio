@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -73,16 +74,23 @@ func TestAnalyzersRun(t *testing.T) {
 	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(collection.NewName("collection"), msg)
+			ctx.Exists(data.Collection1, resource.NewName("", ""))
+			ctx.Report(data.Collection1, msg)
 		},
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), a, nil)
+	var collectionAccessed collection.Name
+	cr := func(col collection.Name) {
+		collectionAccessed = col
+	}
+
+	sa := NewSourceAnalyzer(metadata.MustGet(), a, cr)
 	sa.AddFileKubeSource([]string{}, "")
 
 	msgs, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(msgs).To(ConsistOf(msg))
+	g.Expect(collectionAccessed).To(Equal(data.Collection1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
