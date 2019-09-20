@@ -75,7 +75,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 3,
+			clusterIndex: 1,
 		},
 	}
 	settings := []*networking.ConnectionPoolSettings{
@@ -142,7 +142,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 3,
+			clusterIndex: 1,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -803,7 +803,7 @@ func TestStatNamePattern(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(clusters[1].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestLocalityLB(t *testing.T) {
