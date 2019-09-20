@@ -96,17 +96,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
-	if env.Mesh.LocalityLbSetting != nil {
-		// apply load balancer setting fot cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
-	}
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
-
 	switch proxy.Type {
 	case model.SidecarProxy:
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
+		// apply load balancer setting fot cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
@@ -125,8 +119,14 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
+		// apply load balancer setting fot cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		clusters = outboundClusters
 	}
+
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
+	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 
 	clusters = normalizeClusters(push, proxy, clusters)
 
