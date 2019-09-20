@@ -39,6 +39,7 @@ type Config struct {
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
 	DryRun                  bool   `json:"DRY_RUN"`
 	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
+	Clean                   bool   `json:"CLEAN"`
 }
 
 func (c *Config) String() string {

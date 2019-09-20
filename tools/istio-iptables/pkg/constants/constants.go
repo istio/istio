@@ -37,3 +37,22 @@ const (
 	ISTIOREDIRECT   = "ISTIO_REDIRECT"
 	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
 )
+
+// Constants used in cobra/viper CLI
+const (
+	InboundInterceptionMode   = "istio-inbound-interception-mode"
+	InboundTProxyMark         = "istio-inbound-tproxy-mark"
+	InboundTProxyRouteTable   = "istio-inbound-tproxy-route-table"
+	InboundPorts              = "istio-inbound-ports"
+	LocalExcludePorts         = "istio-local-exclude-ports"
+	ServiceCidr               = "istio-service-cidr"
+	ServiceExcludeCidr        = "istio-service-exclude-cidr"
+	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
+	EnvoyPort                 = "envoy-port"
+	InboundCapturePort        = "inbound-capture-port"
+	ProxyUid                  = "proxy-uid"
+	ProxyGid                  = "proxy-gid"
+	KubeVirtInterfaces        = "kube-virt-interfaces"
+	DryRun                    = "dry-run"
+	Clean                     = "clean"
+)
