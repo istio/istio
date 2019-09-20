@@ -27,10 +27,15 @@ import (
 
 func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "diff",
-		Short: "Diffs two Istio configuration profiles.",
-		Long:  "The diff subcommand is used to display the difference between two Istio configuration profiles.",
-		Args:  cobra.ExactArgs(2),
+		Use:   "diff <file1.yaml> <file2.yaml>",
+		Short: "Diffs two Istio configuration profiles",
+		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 2 {
+				return fmt.Errorf("diff requires two files")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			profileDiff(rootArgs, args)
 		}}
@@ -41,14 +46,16 @@ func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
 func profileDiff(rootArgs *rootArgs, args []string) {
 	initLogsOrExit(rootArgs)
 
-	a, err := helm.ReadValuesYAML(args[0])
+	a, err := helm.ReadProfileYAML(args[0])
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not read %q: %v\n", args[0], err.Error())
 		log.Errorf("could not read the profile values from %s: %s", args[0], err)
 		os.Exit(1)
 	}
 
-	b, err := helm.ReadValuesYAML(args[1])
+	b, err := helm.ReadProfileYAML(args[1])
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not read %q: %v\n", args[1], err.Error())
 		log.Errorf("could not read the profile values from %s: %s", args[1], err)
 		os.Exit(1)
 	}

@@ -67,22 +67,30 @@ func StringBoolMapToSlice(m map[string]bool) []string {
 	return s
 }
 
-// ReadFiles reads a directory recursively or reads single file and filters the results.
-// It returns a concatenated output of all matching files' content.
-func ReadFiles(dirName string, filter FileFilter) (string, error) {
-	var fileList []string
-	err := filepath.Walk(dirName, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() || !filter(path) {
-			return nil
-		}
-		fileList = append(fileList, path)
-		return nil
-	})
+// ReadFilesWithFilter reads files from path, for a directory it recursively reads files and filters the results
+// for single file it directly reads the file. It returns a concatenated output of all matching files' content.
+func ReadFilesWithFilter(path string, filter FileFilter) (string, error) {
+	fi, err := os.Stat(path)
 	if err != nil {
 		return "", err
+	}
+	var fileList []string
+	if fi.IsDir() {
+		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() || !filter(path) {
+				return nil
+			}
+			fileList = append(fileList, path)
+			return nil
+		})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		fileList = append(fileList, path)
 	}
 	var sb strings.Builder
 	for _, file := range fileList {
@@ -110,4 +118,31 @@ func ParseValue(valueStr string) interface{} {
 		value = valueStr
 	}
 	return value
+}
+
+// ConsolidateLog is a helper function to dedup the log message.
+func ConsolidateLog(logMessage string) string {
+	logCountMap := make(map[string]int)
+	stderrSlice := strings.Split(logMessage, "\n")
+	for _, item := range stderrSlice {
+		if item == "" {
+			continue
+		}
+		_, exist := logCountMap[item]
+		if exist {
+			logCountMap[item]++
+		} else {
+			logCountMap[item] = 1
+		}
+	}
+	var sb strings.Builder
+	for _, item := range stderrSlice {
+		if logCountMap[item] == 0 {
+			continue
+		}
+		sb.WriteString(fmt.Sprintf("%s (repeated %v times)\n", item, logCountMap[item]))
+		// reset seen log count
+		logCountMap[item] = 0
+	}
+	return sb.String()
 }

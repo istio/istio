@@ -40,14 +40,20 @@ type manifestMigrateArgs struct {
 
 func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.namespace, "namespace", "n", defaultNamespace,
-		" Default namespace for output IstioControlPlane CustomResource.")
+		" Default namespace for output IstioControlPlane CustomResource")
 }
 
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "migrate",
-		Short: "Migrates a file containing Helm values to IstioControlPlane format.",
-		Long:  "The migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.",
+		Use:   "migrate [<filepath>]",
+		Short: "Migrates a file containing Helm values to IstioControlPlane format",
+		Long:  "The migrate subcommand migrates a configuration from Helm values format to IstioControlPlane format.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return fmt.Errorf("migrate accepts optional single filepath")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if len(args) == 0 {
@@ -65,7 +71,7 @@ func valueFileFilter(path string) bool {
 // migrateFromFiles handles migration for local values.yaml files
 func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) {
 	initLogsOrExit(rootArgs)
-	value, err := util.ReadFiles(args[0], valueFileFilter)
+	value, err := util.ReadFilesWithFilter(args[0], valueFileFilter)
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
@@ -73,7 +79,6 @@ func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) {
 		l.logAndPrint("no valid value.yaml file specified")
 		return
 	}
-	l.logAndPrint("translating input values.yaml file at: ", args[0], " to new API")
 	translateFunc([]byte(value), l)
 }
 
@@ -91,20 +96,20 @@ func translateFunc(values []byte, l *logger) {
 	ms := jsonpb.Marshaler{}
 	gotString, err := ms.MarshalToString(isCPSpec)
 	if err != nil {
-		l.logAndFatal("error marshalling translated IstioControlPlaneSpec: ", err.Error())
+		l.logAndFatal("error marshaling translated IstioControlPlaneSpec: ", err.Error())
 	}
 	cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 	if err != nil {
-		l.logAndFatal("error converting json: ", gotString, "\n", err.Error())
+		l.logAndFatal("error converting JSON: ", gotString, "\n", err.Error())
 	}
-	fmt.Println(string(cpYaml))
+	l.print(string(cpYaml) + "\n")
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.
 func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *logger) {
 	initLogsOrExit(rootArgs)
 
-	l.logAndPrint("translating in cluster specs")
+	l.logAndPrint("translating in cluster specs\n")
 
 	c := kubectlcmd.New()
 	output, stderr, err := c.GetConfig("istio-sidecar-injector", mmArgs.namespace, "jsonpath='{.data.values}'")
@@ -120,11 +125,11 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	}
 	err = json.Unmarshal([]byte(output), &value)
 	if err != nil {
-		l.logAndFatal("error unmarshalling JSON to untyped map ", err.Error())
+		l.logAndFatal("error unmarshaling JSON to untyped map ", err.Error())
 	}
 	res, err := yaml.Marshal(value)
 	if err != nil {
-		l.logAndFatal("error marshalling untyped map to YAML: ", err.Error())
+		l.logAndFatal("error marshaling untyped map to YAML: ", err.Error())
 	}
 	translateFunc(res, l)
 }

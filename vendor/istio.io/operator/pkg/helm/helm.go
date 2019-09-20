@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -37,6 +38,9 @@ const (
 
 	// DefaultProfileString is the name of the default profile.
 	DefaultProfileString = "default"
+
+	// notes file name suffix for the helm chart.
+	NotesFileNameSuffix = ".txt"
 )
 
 // TemplateRenderer defines a helm template renderer interface.
@@ -64,15 +68,15 @@ func NewHelmRenderer(chartsRootDir, helmBaseDir, componentName, namespace string
 	}
 }
 
-// ReadValuesYAML reads the values YAML associated with the given profile. It uses an appropriate reader for the
+// ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
 // profile format (compiled-in, file, HTTP, etc.).
-func ReadValuesYAML(profile string) (string, error) {
+func ReadProfileYAML(profile string) (string, error) {
 	var err error
 	var globalValues string
 	if profile == "" {
-		log.Infof("ReadValuesYAML for profile name: [Empty]")
+		log.Infof("ReadProfileYAML for profile name: [Empty]")
 	} else {
-		log.Infof("ReadValuesYAML for profile name: %s", profile)
+		log.Infof("ReadProfileYAML for profile name: %s", profile)
 	}
 
 	// Get global values from profile.
@@ -112,8 +116,19 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 		return "", err
 	}
 
+	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
+	keys := make([]string, 0, len(files))
+	for k := range files {
+		if strings.HasSuffix(k, NotesFileNameSuffix) {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var sb strings.Builder
-	for _, f := range files {
+	for i := 0; i < len(keys); i++ {
+		f := files[keys[i]]
 		// add yaml separator if the rendered file doesn't have one at the end
 		if !strings.HasSuffix(strings.TrimSpace(f)+"\n", YAMLSeparator) {
 			f += YAMLSeparator

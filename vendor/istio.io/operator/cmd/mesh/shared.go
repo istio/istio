@@ -66,11 +66,10 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	if len(v) == 0 {
 		return
 	}
-
 	s := fmt.Sprint(v...)
-
 	if !l.logToStdErr {
 		l.print(s)
+		l.print("\n")
 	}
 	log.Infof(s)
 }
@@ -82,4 +81,8 @@ func (l *logger) logAndFatal(v ...interface{}) {
 
 func (l *logger) print(s string) {
 	_, _ = l.stdOut.Write([]byte(s))
+}
+
+func refreshGoldenFiles() bool {
+	return os.Getenv("REFRESH_GOLDEN") == "true"
 }

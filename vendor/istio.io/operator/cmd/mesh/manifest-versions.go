@@ -38,15 +38,21 @@ type manifestVersionsArgs struct {
 
 func addManifestVersionsFlags(cmd *cobra.Command, mvArgs *manifestVersionsArgs) {
 	cmd.PersistentFlags().StringVarP(&mvArgs.versionsURI, "versionsURI", "u",
-		versionsMapURL, "URI for operator versions to Istio versions map.")
+		versionsMapURL, "URI for operator versions to Istio versions map")
 }
 
 func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "versions",
-		Short: "List the version of Istio recommended for and supported by this version of the operator binary.",
-		Long:  "List the version of Istio recommended for and supported by this version of the operator binary.",
-		Args:  cobra.ExactArgs(0),
+		Short: "List the versions of Istio recommended for and supported by this version of the operator binary",
+		Long:  "List the versions of Istio recommended for and supported by this version of the operator binary.",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("versions accepts no positional arguments")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			manifestVersions(rootArgs, versionsArgs, l)

@@ -35,8 +35,8 @@ import (
 func ManifestCmd() *cobra.Command {
 	mc := &cobra.Command{
 		Use:   "manifest",
-		Short: "Commands related to Istio manifests.",
-		Long:  "The manifest subcommand is used to generate, apply, diff or migrate Istio manifests.",
+		Short: "Commands related to Istio manifests",
+		Long:  "The manifest subcommand generates, applies, diffs or migrates Istio manifests.",
 	}
 
 	mgcArgs := &manifestGenerateArgs{}
