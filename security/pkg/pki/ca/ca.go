@@ -137,7 +137,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			case <-ticker.C:
 				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
 					log.Infof("Citadel successfully loaded the secret.")
-					break
 				}
 			case <-ctx.Done():
 				log.Errorf("Secret waiting thread is terminated.")
@@ -396,7 +395,7 @@ func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationCo
 			config.Metrics.RootUpgradeSuccess.Increment()
 		}
 		if status == UpgradeFailure {
-			config.Metrics.RootUpgradeSuccess.Increment()
+			config.Metrics.RootUpgradeErrors.Increment()
 		}
 		return
 	}
@@ -406,7 +405,7 @@ func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationCo
 		config.Metrics.RootUpgradeSuccess.Increment()
 	}
 	if status == UpgradeFailure {
-		config.Metrics.RootUpgradeSuccess.Increment()
+		config.Metrics.RootUpgradeErrors.Increment()
 	}
 	return
 }

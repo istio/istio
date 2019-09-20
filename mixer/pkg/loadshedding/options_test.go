@@ -31,37 +31,43 @@ func TestOpts(t *testing.T) {
 		result  loadshedding.Options
 	}{
 		{"--loadsheddingMode logonly", loadshedding.Options{
-			Mode:             loadshedding.LogOnly,
-			SamplesPerSecond: loadshedding.DefaultSampleFrequency,
-			SampleHalfLife:   loadshedding.DefaultHalfLife,
+			Mode:                        loadshedding.LogOnly,
+			SamplesPerSecond:            loadshedding.DefaultSampleFrequency,
+			SampleHalfLife:              loadshedding.DefaultHalfLife,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 
 		{"--averageLatencyThreshold 1s", loadshedding.Options{
-			AverageLatencyThreshold: 1 * time.Second,
-			SamplesPerSecond:        loadshedding.DefaultSampleFrequency,
-			SampleHalfLife:          loadshedding.DefaultHalfLife,
+			AverageLatencyThreshold:     1 * time.Second,
+			SamplesPerSecond:            loadshedding.DefaultSampleFrequency,
+			SampleHalfLife:              loadshedding.DefaultHalfLife,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 
 		{"--latencySamplesPerSecond 1000", loadshedding.Options{
-			SamplesPerSecond: 1000,
-			SampleHalfLife:   loadshedding.DefaultHalfLife,
+			SamplesPerSecond:            1000,
+			SampleHalfLife:              loadshedding.DefaultHalfLife,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 
 		{"--latencySampleHalflife 10s", loadshedding.Options{
-			SamplesPerSecond: loadshedding.DefaultSampleFrequency,
-			SampleHalfLife:   10 * time.Second,
+			SamplesPerSecond:            loadshedding.DefaultSampleFrequency,
+			SampleHalfLife:              10 * time.Second,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 
 		{"--maxRequestsPerSecond 100", loadshedding.Options{
-			MaxRequestsPerSecond: 100,
-			SamplesPerSecond:     loadshedding.DefaultSampleFrequency,
-			SampleHalfLife:       loadshedding.DefaultHalfLife,
+			MaxRequestsPerSecond:        100,
+			SamplesPerSecond:            loadshedding.DefaultSampleFrequency,
+			SampleHalfLife:              loadshedding.DefaultHalfLife,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 
 		{"--burstSize 10", loadshedding.Options{
-			BurstSize:        10,
-			SamplesPerSecond: loadshedding.DefaultSampleFrequency,
-			SampleHalfLife:   loadshedding.DefaultHalfLife,
+			BurstSize:                   10,
+			SamplesPerSecond:            loadshedding.DefaultSampleFrequency,
+			SampleHalfLife:              loadshedding.DefaultHalfLife,
+			LatencyEnforcementThreshold: loadshedding.DefaultEnforcementThreshold,
 		}},
 	}
 

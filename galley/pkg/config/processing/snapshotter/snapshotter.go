@@ -16,11 +16,13 @@ package snapshotter
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
@@ -40,7 +42,7 @@ type Snapshotter struct {
 	pendingEvents int64
 
 	// lastSnapshotTime records the last time a snapshotImpl was published.
-	lastSnapshotTime time.Time
+	lastSnapshotTime atomic.Value
 }
 
 var _ event.Processor = &Snapshotter{}
@@ -70,12 +72,19 @@ type snapshotGroup struct {
 // Handle implements event.Handler
 func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
-	case event.Added, event.Updated:
+	case event.Added:
 		a.collection.Set(e.Entry)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, true)
+
+	case event.Updated:
+		a.collection.Set(e.Entry)
+
 	case event.Deleted:
 		a.collection.Remove(e.Entry.Metadata.Name)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
+
 	case event.FullSync:
 		a.syncCount++
 	default:
@@ -93,6 +102,15 @@ func (a *accumulator) Handle(e event.Event) {
 func (a *accumulator) reset() {
 	a.syncCount = 0
 	a.collection.Clear()
+}
+
+func monitorEntry(col collection.Name, resourceName resource.Name, added bool) {
+	namespace, name := resourceName.InterpretAsNamespaceAndName()
+	value := 1
+	if !added {
+		value = 0
+	}
+	monitoring.RecordDetailedStateType(namespace, name, col, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.
@@ -190,10 +208,8 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 	set := collection.NewSetFromCollections(collections)
 	sn := &Snapshot{set: set}
 
-	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
-	s.lastSnapshotTime = now
-	s.pendingEvents = 0
+	s.markSnapshotTime()
+	atomic.StoreInt64(&s.pendingEvents, 0)
 	scope.Processing.Infoa("Publishing snapshot for group: ", o.Group)
 	scope.Processing.Debuga(sn)
 	o.Distributor.Distribute(o.Group, sn)
@@ -223,6 +239,20 @@ func (s *Snapshotter) Handle(e event.Event) {
 	now := time.Now()
 	monitoring.RecordProcessorEventProcessed(now.Sub(s.lastEventTime))
 	s.lastEventTime = now
-	s.pendingEvents++
+	atomic.AddInt64(&s.pendingEvents, 1)
 	s.selector.Handle(e)
+}
+
+func (s *Snapshotter) markSnapshotTime() {
+	now := time.Now()
+	lst := s.lastSnapshotTime.Load()
+	if lst == nil {
+		lst = time.Time{}
+	}
+	lastSnapshotTime := lst.(time.Time)
+
+	pe := atomic.SwapInt64(&s.pendingEvents, 0)
+
+	monitoring.RecordProcessorSnapshotPublished(pe, now.Sub(lastSnapshotTime))
+	s.lastSnapshotTime.Store(lastSnapshotTime)
 }

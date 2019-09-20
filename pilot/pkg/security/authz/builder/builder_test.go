@@ -102,8 +102,9 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			name: "v1beta1 only",
 			policies: []*model.Config{
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
+				policy.SimpleAuthzPolicy("authz-foo", "a"),
 			},
-			wantPolicies: []string{"authz-bar"},
+			wantPolicies: []string{"authz-bar[0]", "authz-foo[0]"},
 		},
 		{
 			name: "v1alpha1 and v1beta1",
@@ -113,13 +114,13 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleBinding("binding-1", "a", "role-1"),
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 			},
-			wantPolicies: []string{"role-1", "authz-v1beta1-merged[authz-bar]"},
+			wantPolicies: []string{"authz-bar[0]"},
 		},
 	}
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, nil, p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
 		t.Run(tc.name, func(t *testing.T) {
@@ -151,6 +152,9 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 								if _, found := rbacConfig.GetRules().GetPolicies()[want]; !found {
 									t.Errorf("got rules with policies %v but want %v", rbacConfig.GetRules().GetPolicies(), want)
 								}
+							}
+							if len(tc.wantPolicies) != len(rbacConfig.GetRules().GetPolicies()) {
+								t.Errorf("got %d policies but want %d", len(rbacConfig.GetRules().GetPolicies()), len(tc.wantPolicies))
 							}
 						}
 					}
@@ -206,7 +210,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, nil, p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
 			got := b.BuildTCPFilter()

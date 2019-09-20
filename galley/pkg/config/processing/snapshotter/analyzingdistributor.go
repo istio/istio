@@ -21,9 +21,10 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
-// AnalyzingDistributor is an snapshotter.Distributor implementation that will perform analysis on a snapshot before
+// AnalyzingDistributor is an snapshotter. Distributor implementation that will perform analysis on a snapshot before
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
 	updater     StatusUpdater
@@ -93,7 +94,9 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 		cancelCh: cancelCh,
 	}
 
+	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
 	d.analyzer.Analyze(ctx)
+	scope.Analysis.Debugf("Finished analzing the current snapshot, found messages: %v", ctx.messages)
 
 	if !ctx.Canceled() {
 		d.updater.Update(ctx.messages)
@@ -113,7 +116,8 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 
 	for _, s := range d.lastSnapshots {
 		for _, n := range s.set.Names() {
-			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the component snapshots
+			// Note that we don't clone the collections, so this combined snapshot is effectively a view into the
+			// component snapshots.
 			collections = append(collections, s.set.Collection(n))
 		}
 	}
@@ -137,6 +141,11 @@ func (c *context) Report(coll collection.Name, m diag.Message) {
 // Find implements analysis.Context
 func (c *context) Find(cpl collection.Name, name resource.Name) *resource.Entry {
 	return c.sn.Find(cpl, name)
+}
+
+// Exists implements analysis.Context
+func (c *context) Exists(cpl collection.Name, name resource.Name) bool {
+	return c.Find(cpl, name) != nil
 }
 
 // ForEach implements analysis.Context

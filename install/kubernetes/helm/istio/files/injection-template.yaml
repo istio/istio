@@ -131,8 +131,8 @@ containers:
   - "{{ .ProxyConfig.StatsdUdpAddress }}"
 {{- end }}
 {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-  - --envoyMetricsServiceAddress
-  - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
+  - --envoyMetricsService
+  - '{{ structToJSON .ProxyConfig.EnvoyMetricsService }}'
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogService

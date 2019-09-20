@@ -135,10 +135,13 @@ const (
 	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
+
+	// TODO(yxue): separate h2c vs h2
+	H2Protocol = "h2"
 )
 
 var (
-	applicationProtocols = []string{"http/1.1", "http/1.0"}
+	applicationProtocols = []string{"http/1.0", "http/1.1"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &google_protobuf.Struct{
@@ -1273,6 +1276,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
+			// TODO(yxue): merge applicationProtocols and H2Protocol when sniffing is enabled for inbound
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, H2Protocol)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1436,43 +1441,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 		log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 	}
-}
-
-// TODO(silentdai): duplicate with listener_builder.go. Remove this one once split is verified.
-func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
-	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
-	// Do not generate any management port listeners if the user has specified a SidecarScope object
-	// with ingress listeners. Specifying the ingress listener implies that the user wants
-	// to only have those specific listeners and nothing else, in the inbound path.
-	generateManagementListeners := true
-	if node.SidecarScope.HasCustomIngressListeners || noneMode {
-		generateManagementListeners = false
-	}
-	if generateManagementListeners {
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		mgmtListeners := make([]*xdsapi.Listener, 0)
-		for _, ip := range node.IPAddresses {
-			managementPorts := env.ManagementPorts(ip)
-			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-			mgmtListeners = append(mgmtListeners, management...)
-		}
-
-		// If management listener port and service port are same, bad things happen
-		// when running in kubernetes, as the probes stop responding. So, append
-		// non overlapping listeners only.
-		for i := range mgmtListeners {
-			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, *m.Address)
-			if l != nil {
-				log.Warnf("Omitting listener for management address %s due to collision with service listener %s",
-					m.Name, l.Name)
-				continue
-			}
-			listeners = append(listeners, m)
-		}
-	}
-	return listeners
 }
 
 // onVirtualOutboundListener calls the plugin API for the outbound virtual listener
@@ -2172,6 +2140,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		}
 
 		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
 		newFilterChan = append(newFilterChan, fc)
 
 	}

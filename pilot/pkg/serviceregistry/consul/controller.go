@@ -290,7 +290,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
-		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
+		log.Warnf("Could not retrieve service catalog from consul: %v", err)
 		return nil, err
 	}
 

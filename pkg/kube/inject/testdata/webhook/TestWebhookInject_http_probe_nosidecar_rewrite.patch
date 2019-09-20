@@ -68,6 +68,13 @@
     }
   },
   {
+    "op": "add",
+    "path": "/metadata/labels",
+    "value": {
+      "security.istio.io/mtlsReady": "true"
+    }
+  },
+  {
     "op": "replace",
     "path": "/spec/containers/0/readinessProbe/httpGet",
     "value": {

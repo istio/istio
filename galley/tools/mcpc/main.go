@@ -126,7 +126,7 @@ func (u *updater) printLongChange(ch *sink.Change) {
 
 		b, err := json.MarshalIndent(o, "  ", "  ")
 		if err != nil {
-			fmt.Printf("  Marshalling error: %v", err)
+			fmt.Printf("  Marshaling error: %v", err)
 		} else {
 			fmt.Printf("%s\n", string(b))
 		}

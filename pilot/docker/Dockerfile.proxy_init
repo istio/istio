@@ -15,8 +15,8 @@ ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
 FROM gcr.io/distroless/cc:latest as distroless
 
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
-COPY --from=default /lib/xtables/ /lib/xtables
-COPY --from=default /lib/x86_64-linux-gnu/ /lib/x86_64-linux-gnu
+COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
+COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 COPY istio-iptables /usr/local/bin/istio-iptables

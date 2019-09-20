@@ -33,6 +33,7 @@ def get_rawdata(token, repo="istio"):
 
     return resp.json()
 
+
 # Name of the env var
 GITHUB_TOKEN = "GITHUB_TOKEN"
 
@@ -71,6 +72,7 @@ def main(args):
         print(d)
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
