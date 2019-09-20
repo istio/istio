@@ -239,7 +239,7 @@ func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 func MessageToAny(msg proto.Message) *any.Any {
 	out, err := MessageToAnyWithError(msg)
 	if err != nil {
-		log.Error(err.Error())
+		log.Error(fmt.Sprintf("error marshalling Any %s: %v", msg.String(), err))
 		return nil
 	}
 	return out
