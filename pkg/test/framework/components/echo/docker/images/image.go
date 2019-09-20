@@ -204,10 +204,10 @@ func initBuilders() error {
 	var aggregateError error
 	mux := sync.Mutex{}
 	for name, path := range map[string]string{
-		"pilot-agent":              pilotAgentDir,
-		"node_agent":               nodeAgentDir,
-		"pkg-test-echo-cmd-client": echoClientDir,
-		"pkg-test-echo-cmd-server": echoServerDir,
+		"pilot-agent": pilotAgentDir,
+		"node_agent":  nodeAgentDir,
+		"client":      echoClientDir,
+		"server":      echoServerDir,
 	} {
 		name := name
 		path := istioPath(path)
