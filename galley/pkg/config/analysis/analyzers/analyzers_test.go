@@ -100,16 +100,16 @@ func TestAnalyzers(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer)
-
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := testCase.analyzer.Metadata().Name
-			sa.SetCollectionReporter(func(col collection.Name) {
+			cr := func(col collection.Name) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
 					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
 				}
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
-			})
+			}
+
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer, cr)
 
 			sa.AddFileKubeSource(testCase.inputFiles, "")
 			cancel := make(chan struct{})

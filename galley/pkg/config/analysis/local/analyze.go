@@ -53,28 +53,28 @@ type SourceAnalyzer struct {
 	// Derived from the specified analyzer and transformer providers
 	inputCollections map[collection.Name]struct{}
 
-	// Hook function called whenever a collection is accessed
+	// Hook function called whenever a collection is accessed through the AnalyzingDistributor's context.
 	collectionReporter func(collection.Name)
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr func(collection.Name)) *SourceAnalyzer {
+	//collectionReporter hook function defaults to no-op
+	if cr == nil {
+		cr = func(collection.Name) {}
+	}
+
 	transformerProviders := transforms.Providers(m)
+
 	return &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
-		collectionReporter:   func(collection.Name) {}, // No-op unless SetCollectionReporter specifies otherwise
+		collectionReporter:   cr,
 	}
-}
-
-// SetCollectionReporter adds a hook that gets called whenever a collection is accessed
-// through the AnalyzingDistributor's context.
-func (sa *SourceAnalyzer) SetCollectionReporter(fn func(collection.Name)) {
-	sa.collectionReporter = fn
 }
 
 // Analyze loads the sources and executes the analysis
@@ -88,8 +88,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	src := newPrecedenceSource(sa.sources)
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
-	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor())
-	distributor.SetCollectionReporter(sa.collectionReporter)
+	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor(), sa.collectionReporter)
 	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformerProviders, distributor)
 	if err != nil {
 		return nil, err

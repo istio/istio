@@ -37,7 +37,7 @@ type AnalyzingDistributor struct {
 	snapshotsMu   sync.RWMutex
 	lastSnapshots map[string]*Snapshot
 
-	// Hook function called whenever a collection is accessed
+	// Hook function called whenever a collection is accessed through the AnalyzingDistributor's context
 	collectionReporter func(collection.Name)
 }
 
@@ -47,20 +47,19 @@ const defaultSnapshotGroup = "default"
 const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
+func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr func(collection.Name)) *AnalyzingDistributor {
+	//collectionReport hook function defaults to no-op
+	if cr == nil {
+		cr = func(collection.Name) {}
+	}
+
 	return &AnalyzingDistributor{
 		updater:            u,
 		analyzer:           a,
 		distributor:        d,
 		lastSnapshots:      make(map[string]*Snapshot),
-		collectionReporter: func(collection.Name) {}, // No-op unless SetCollectionReporter specifies otherwise
+		collectionReporter: cr,
 	}
-}
-
-// SetCollectionReporter adds a hook that gets called whenever a collection is accessed
-// through the AnalyzingDistributor's context.
-func (d *AnalyzingDistributor) SetCollectionReporter(fn func(collection.Name)) {
-	d.collectionReporter = fn
 }
 
 // Distribute implements snapshotter.Distributor

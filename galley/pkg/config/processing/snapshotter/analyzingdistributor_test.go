@@ -55,7 +55,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	u := &updaterMock{}
 	a := &analyzerMock{}
 	d := NewInMemoryDistributor()
-	ad := NewAnalyzingDistributor(u, a, d)
+	ad := NewAnalyzingDistributor(u, a, d, nil)
 
 	sDefault := getTestSnapshot("a", "b")
 	sSynthetic := getTestSnapshot("c")
