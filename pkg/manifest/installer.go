@@ -278,7 +278,7 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 
 	appliedObjects = append(appliedObjects, objects...)
 
-	// TODO; add "--prune" back
+	// TODO; add "--prune" back (istio/istio#17236)
 	extraArgs := []string{"--force", "--selector", fmt.Sprintf("%s=%s", operatorLabelStr, operatorReconcileStr)}
 
 	logAndPrint("kubectl applying manifest for component %s", componentName)

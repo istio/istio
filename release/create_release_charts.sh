@@ -19,7 +19,6 @@ set -o errexit
 set -o pipefail
 
 TEMP_DIR_DEFAULT="/tmp"
-# TODO: these should be under a subdir
 INSTALLER_CHARTS=(crds gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security)
 INSTALLER_REPO="installer"
 

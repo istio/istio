@@ -43,7 +43,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 			diffIgnore: "ConfigMap:*:istio",
 			flags:      "-s values.global.proxy.image=myproxy",
 		},
-		// TODO: test output flag
+		// TODO: test output flag (istio/istio#17230)
 	})
 }
 
@@ -51,7 +51,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
 			desc: "pilot_default",
-			// TODO: remove istio ConfigMap
+			// TODO: remove istio ConfigMap (istio/istio#16828)
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{

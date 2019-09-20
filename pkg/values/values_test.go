@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/operator/pkg/util"
+
 	"github.com/ghodss/yaml"
 	"github.com/kylelemons/godebug/diff"
 
@@ -53,7 +55,7 @@ func TestUnmarshalRealValues(t *testing.T) {
 			t.Fatalf("yaml.Marshal(%s): got error %s", f, err)
 		}
 		got, want := stripNL(string(s)), stripNL(fs)
-		if !IsYAMLEqual(got, want) {
+		if !util.IsYAMLEqual(got, want) {
 			t.Errorf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", f, got, want, YAMLDiff(got, want))
 		}
 
@@ -83,23 +85,6 @@ func readFile(path string) (string, error) {
 
 func stripNL(s string) string {
 	return strings.Trim(s, "\n")
-}
-
-// TODO: move to util
-func IsYAMLEqual(a, b string) bool {
-	if strings.TrimSpace(a) == "" && strings.TrimSpace(b) == "" {
-		return true
-	}
-	ajb, err := yaml.YAMLToJSON([]byte(a))
-	if err != nil {
-		return false
-	}
-	bjb, err := yaml.YAMLToJSON([]byte(b))
-	if err != nil {
-		return false
-	}
-
-	return string(ajb) == string(bjb)
 }
 
 func YAMLDiff(a, b string) string {
