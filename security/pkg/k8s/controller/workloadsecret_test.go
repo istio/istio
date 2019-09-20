@@ -342,7 +342,7 @@ func TestExtraTrustAnchors(t *testing.T) {
 			want:   [][]byte{extra0, extra2},
 		},
 		{
-			name:   "zero remaing after all three removed",
+			name:   "zero remaining after all three removed",
 			remove: []*v1.ConfigMap{extra0ConfigMap, extra2ConfigMap},
 			want:   [][]byte{},
 		},
