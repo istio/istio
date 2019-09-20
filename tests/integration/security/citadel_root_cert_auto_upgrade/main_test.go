@@ -59,5 +59,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["security.selfSignedCACertTTL"] = "2m30s"
+	cfg.Values["security.workloadCertTtl"] = "2m"
 	cfg.Values["security.selfSignedCACheckInternal"] = "2m"
 }

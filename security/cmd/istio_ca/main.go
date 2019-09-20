@@ -480,28 +480,29 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 	// a job that checks root certificate expiration time and rotates certificate
 	// automatically.
 	if opts.selfSignedCA {
-		if opts.selfSignedCACheckInternal <= 0 {
+		if opts.selfSignedCACheckInternal > 0 {
+			if opts.selfSignedCACheckInternal < 2*time.Minute {
+				opts.selfSignedCACheckInternal = 2 * time.Minute
+			}
+			config := &ca.SelfSignedCARootCertRotationConfig{
+				opts.selfSignedCACheckInternal,
+				opts.selfSignedCACertTTL,
+				ca.ReadSigningCertCheckInterval,
+				cmd.DefaultCACertGracePeriodRatio,
+				client,
+				opts.istioCaStorageNamespace,
+				opts.readSigningCertOnly,
+				opts.dualUse,
+				spiffe.GetTrustDomain(),
+				opts.rootCertFile,
+				metrics,
+			}
+			istioCA.RotateRootCert(config)
+			go pkgcmd.WaitSignal(istioCA.StopRotateJob)
+		} else {
 			log.Infof("Disables self-signed root cert auto-upgrading goroutine as root cert checking " +
-				"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
+					"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
 		}
-		if opts.selfSignedCACheckInternal < 2*time.Minute {
-			opts.selfSignedCACheckInternal = 2 * time.Minute
-		}
-		config := &ca.SelfSignedCARootCertRotationConfig{
-			opts.selfSignedCACheckInternal,
-			opts.selfSignedCACertTTL,
-			ca.ReadSigningCertCheckInterval,
-			cmd.DefaultCACertGracePeriodRatio,
-			client,
-			opts.istioCaStorageNamespace,
-			opts.readSigningCertOnly,
-			opts.dualUse,
-			spiffe.GetTrustDomain(),
-			opts.rootCertFile,
-			metrics,
-		}
-		istioCA.RotateRootCert(config)
-		pkgcmd.WaitSignal(istioCA.StopRotateJob)
 	}
 
 	return istioCA
