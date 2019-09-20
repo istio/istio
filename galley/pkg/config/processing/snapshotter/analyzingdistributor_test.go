@@ -22,6 +22,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -31,7 +33,8 @@ type updaterMock struct{}
 func (u *updaterMock) Update(messages diag.Messages) {}
 
 type analyzerMock struct {
-	analyzeCalls []*Snapshot
+	analyzeCalls       []*Snapshot
+	collectionToAccess collection.Name
 }
 
 // Analyze implements Analyzer
@@ -39,6 +42,8 @@ func (a *analyzerMock) Analyze(c analysis.Context) {
 	ctx := *c.(*context)
 
 	a.analyzeCalls = append(a.analyzeCalls, ctx.sn)
+
+	ctx.Exists(a.collectionToAccess, resource.NewName("", ""))
 }
 
 // Name implements Analyzer
@@ -53,9 +58,17 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
-	a := &analyzerMock{}
+	a := &analyzerMock{
+		collectionToAccess: data.Collection1,
+	}
 	d := NewInMemoryDistributor()
-	ad := NewAnalyzingDistributor(u, a, d)
+
+	var collectionAccessed collection.Name
+	cr := func(col collection.Name) {
+		collectionAccessed = col
+	}
+
+	ad := NewAnalyzingDistributor(u, a, d, cr)
 
 	sDefault := getTestSnapshot("a", "b")
 	sSynthetic := getTestSnapshot("c")
@@ -73,6 +86,9 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	// Assert we triggered only once analysis, with the expected combination of snapshots
 	sCombined := getTestSnapshot("a", "b", "c")
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sCombined))
+
+	// Verify the collection reporter hook was called
+	g.Expect(collectionAccessed).To(Equal(a.collectionToAccess))
 }
 
 func getTestSnapshot(names ...string) *Snapshot {
