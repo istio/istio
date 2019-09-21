@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+
 	"istio.io/pkg/log"
 
 	networking "istio.io/api/networking/v1alpha3"
