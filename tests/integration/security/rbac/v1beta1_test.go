@@ -84,70 +84,70 @@ func TestV1beta1_OverrideV1alpha1(t *testing.T) {
 func TestV1beta1_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
-				ns := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix: "v1beta1-workload",
-					Inject: true,
-				})
-				ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix: "v1beta1-workload-2",
-					Inject: true,
-				})
-
-				var a, bInNS1, cInNS1, cInNS2 echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-					With(&bInNS1, util.EchoConfig("b", ns, false, nil, g, p)).
-					With(&cInNS1, util.EchoConfig("c", ns, false, nil, g, p)).
-					With(&cInNS2, util.EchoConfig("c", ns2, false, nil, g, p)).
-					BuildOrFail(t)
-
-				newTestCase := func(target echo.Instance, path string, expectAllowed bool) TestCase {
-					return TestCase{
-						Request: connection.Checker{
-							From: a,
-							Options: echo.CallOptions{
-								Target:   target,
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Path:     path,
-							},
-						},
-						ExpectAllowed: expectAllowed,
-					}
-				}
-				cases := []TestCase{
-					newTestCase(bInNS1, "/policy-ns1-b", true),
-					newTestCase(bInNS1, "/policy-ns1-c", false),
-					newTestCase(bInNS1, "/policy-ns1-x", false),
-					newTestCase(bInNS1, "/policy-ns1-all", true),
-					newTestCase(bInNS1, "/policy-ns2-c", false),
-					newTestCase(bInNS1, "/policy-ns2-all", false),
-
-					newTestCase(cInNS1, "/policy-ns1-b", false),
-					newTestCase(cInNS1, "/policy-ns1-c", true),
-					newTestCase(cInNS1, "/policy-ns1-x", false),
-					newTestCase(cInNS1, "/policy-ns1-all", true),
-					newTestCase(cInNS1, "/policy-ns2-c", false),
-					newTestCase(cInNS1, "/policy-ns2-all", false),
-
-					newTestCase(cInNS2, "/policy-ns1-b", false),
-					newTestCase(cInNS2, "/policy-ns1-c", false),
-					newTestCase(cInNS2, "/policy-ns1-x", false),
-					newTestCase(cInNS2, "/policy-ns1-all", false),
-					newTestCase(cInNS2, "/policy-ns2-c", true),
-					newTestCase(cInNS2, "/policy-ns2-all", true),
-				}
-
-				args := map[string]string{
-					"Namespace1": ns.Name(),
-					"Namespace2": ns2.Name(),
-				}
-				policies := tmpl.EvaluateAllOrFail(t, args,
-					file.AsStringOrFail(t, "testdata/v1beta1-workload.yaml.tmpl"))
-				g.ApplyConfigOrFail(t, ns, policies...)
-				defer g.DeleteConfigOrFail(t, ns, policies...)
-
-				RunRBACTest(t, cases)
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-workload",
+				Inject: true,
 			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-workload-2",
+				Inject: true,
+			})
+
+			var a, bInNS1, cInNS1, cInNS2 echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&bInNS1, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&cInNS1, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) TestCase {
+				return TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []TestCase{
+				newTestCase(bInNS1, "/policy-ns1-b", true),
+				newTestCase(bInNS1, "/policy-ns1-c", false),
+				newTestCase(bInNS1, "/policy-ns1-x", false),
+				newTestCase(bInNS1, "/policy-ns1-all", true),
+				newTestCase(bInNS1, "/policy-ns2-c", false),
+				newTestCase(bInNS1, "/policy-ns2-all", false),
+
+				newTestCase(cInNS1, "/policy-ns1-b", false),
+				newTestCase(cInNS1, "/policy-ns1-c", true),
+				newTestCase(cInNS1, "/policy-ns1-x", false),
+				newTestCase(cInNS1, "/policy-ns1-all", true),
+				newTestCase(cInNS1, "/policy-ns2-c", false),
+				newTestCase(cInNS1, "/policy-ns2-all", false),
+
+				newTestCase(cInNS2, "/policy-ns1-b", false),
+				newTestCase(cInNS2, "/policy-ns1-c", false),
+				newTestCase(cInNS2, "/policy-ns1-x", false),
+				newTestCase(cInNS2, "/policy-ns1-all", false),
+				newTestCase(cInNS2, "/policy-ns2-c", true),
+				newTestCase(cInNS2, "/policy-ns2-all", true),
+			}
+
+			args := map[string]string{
+				"Namespace1": ns.Name(),
+				"Namespace2": ns2.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/v1beta1-workload.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			RunRBACTest(t, cases)
+		})
 }
