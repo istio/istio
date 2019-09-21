@@ -15,8 +15,10 @@ data:
           health
           {{ if eq -1 (semver  .Values.coreDNSTag  | (semver "1.4.0").Compare) }}
           # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
-          grpc . 127.0.0.1:8053
-          forward . /etc/resolv.conf
+          grpc global 127.0.0.1:8053
+          forward . /etc/resolv.conf {
+            except global
+          }
           {{ else }}
           proxy global 127.0.0.1:8053 {
             protocol grpc insecure
