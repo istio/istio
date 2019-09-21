@@ -46,7 +46,7 @@ func (h *HelmReconciler) pruneResources(gvks []schema.GroupVersionKind, all bool
 	for _, gvk := range gvks {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		err := h.client.List(context.TODO(), client.MatchingLabels(ownerLabels).InNamespace(namespace), objects)
+		err := h.client.List(context.TODO(), objects, client.MatchingLabels(ownerLabels), client.InNamespace(namespace))
 		if err != nil {
 			h.logger.Error(err, "Error retrieving resources to prune", "type", gvk.String())
 			allErrors = append(allErrors, err)

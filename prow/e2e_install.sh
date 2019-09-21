@@ -48,7 +48,7 @@ setup_kind_cluster "${NODE_IMAGE}"
 popd
 
 echo "installing istio with operator CLI"
-go run ./cmd/mesh.go manifest apply
+go run ./cmd/mesh.go manifest apply --yes
 
 function run-simple-base() {
     kubectl create ns "${NS}" || true

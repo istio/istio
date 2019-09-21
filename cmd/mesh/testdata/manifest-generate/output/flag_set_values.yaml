@@ -2126,7 +2126,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    checksum/config-volume: 233433d505e82dba95fbadad5a126a0c92d42d6a5f50f411a2a985258e1cfae6
+    checksum/config-volume: e6542bf59732d3c14b7527e52f5c5cb9c4071c11f2f4578ae3f1d7935ce13285
     checksum/config-volume-envoy: b07a902b447dffd83a92354d1937b1f8a27d8598d25f58aaa32e777df046763f
   labels:
     app: pilot
