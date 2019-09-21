@@ -550,10 +550,12 @@ func logPanic(r interface{}) {
 	log.Errorf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
 }
 
-// HandleCrash catches the crash and calls additional handler.
-func HandleCrash(handler func()) {
+// HandleCrash catches the crash and calls additional handlers.
+func HandleCrash(handlers ...func()) {
 	if r := recover(); r != nil {
 		logPanic(r)
-		handler()
+		for _, handler := range handlers {
+			handler()
+		}
 	}
 }
