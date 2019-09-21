@@ -62,7 +62,7 @@ message Params {
         // [See Google's documentation](https://developers.google.com/identity/protocols/application-default-credentials).
         bool app_credentials = 4;
 
-        // The API Key to be used for auth.
+        // The API Key to be used for auth. API Key is no longer supported, use service account instead.
         string api_key = 5;
 
         // The path to a Google service account credential file, relative to
