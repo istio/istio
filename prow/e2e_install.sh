@@ -30,11 +30,14 @@ then
     git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
 fi
 
+ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 ISTIO_NS=istio-system
 MODE=permissive
 SIMPLE_AUTH=false
-E2E_ARGS="--skip_setup=true --use_local_cluster=true --istio_namespace=${ISTIO_NS}"
+E2E_ARGS="--skip_setup=true --use_local_cluster=true --istio_namespace=${ISTIO_NS} --test_logs_path=${ARTIFACTS}"
 TMPDIR=/tmp
+export HUB="gcr.io/istio-release"
+export TAG="master-latest-daily"
 export GO111MODULE=on
 export IstioTop=${ISTIO_DIR}/../../..
 
@@ -55,7 +58,7 @@ function run-simple-base() {
     kubectl -n "${NS}" apply -f prow/k8s/mtls_${MODE}.yaml
     kubectl -n "${NS}" apply -f prow/k8s/sidecar-local.yaml
     kubectl label ns "${NS}" istio-injection=disabled --overwrite
-    (cd "${ISTIO_DIR}"; make e2e_simple_run "${TEST_FLAGS}" \
+    (cd "${ISTIO_DIR}"; make e2e_simple_run \
     E2E_ARGS="${E2E_ARGS} --auth_enable=${SIMPLE_AUTH} --namespace=${NS}")
 }
 function run-simple() {
@@ -70,7 +73,7 @@ function run-bookinfo-demo() {
     kubectl create ns bookinfo-demo || true
     kubectl -n bookinfo-demo apply -f prow/k8s/mtls_permissive.yaml
     kubectl -n bookinfo-demo apply -f prow/k8s/sidecar-local.yaml
-    (cd "${ISTIO_DIR}"; make e2e_bookinfo_run "${TEST_FLAGS}" \
+    (cd "${ISTIO_DIR}"; make e2e_bookinfo_run \
       E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 }
 
