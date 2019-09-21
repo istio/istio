@@ -806,7 +806,7 @@ func TestStatNamePattern(t *testing.T) {
 	g.Expect(clusters[1].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
-func TestLocalityLB(t *testing.T) {
+func TestSidecarLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
@@ -857,7 +857,43 @@ func TestLocalityLB(t *testing.T) {
 			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
 			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
+	}
 
+	// Test failover
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+
+	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+	if clusters[0].CommonLbConfig == nil {
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+		} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+		}
 	}
 }
 
@@ -895,33 +931,70 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for _, cluster := range clusters {
-		if strings.Contains(cluster.Name, "_") {
-			if cluster.CommonLbConfig == nil {
-				t.Fatalf("CommonLbConfig should be set for cluster %+v", cluster)
-			}
-			g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	for i := 0; i < 2; i++ {
+		cluster := clusters[i]
+		if cluster.CommonLbConfig == nil {
+			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
+		}
+		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
-			g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
-			for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
-				locality := localityLbEndpoint.Locality
-				if locality.Region == "region1" && locality.SubZone == "subzone1" {
-					g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
-					g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-				} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
-					g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
-					g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
-				} else if locality.Region == "region2" {
-					g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
-					g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
-					g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-				}
+		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
+		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
+			locality := localityLbEndpoint.Locality
+			if locality.Region == "region1" && locality.SubZone == "subzone1" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			} else if locality.Region == "region2" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
+				g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 			}
-			return
 		}
 	}
-	t.Errorf("Do not generate sni-dnat cluster")
 
+	// Test failover
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+
+	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, model.Router,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+			},
+		}, map[string]string{model.NodeMetadataRouterMode: string(model.SniDnatRouter)},
+		model.MaxIstioVersion)
+
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for i := 0; i < 2; i++ {
+		if clusters[i].CommonLbConfig == nil {
+			t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[i])
+		}
+		g.Expect(clusters[i].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+		g.Expect(len(clusters[i].LoadAssignment.Endpoints)).To(Equal(3))
+		for _, localityLbEndpoint := range clusters[i].LoadAssignment.Endpoints {
+			locality := localityLbEndpoint.Locality
+			if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+			} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+			} else if locality.Region == "region2" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+			}
+		}
+	}
 }
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
