@@ -252,6 +252,11 @@ global:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
+    # If set to true, and a given service does not have a corresponding DestinationRule configured,
+    # or its DestinationRule does not have TLSSettings specified, Istio configures client side
+    # TLS configuration automatically, based on the server side mTLS authentication policy and the
+    # availibity of sidecars.
+    auto: false
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
