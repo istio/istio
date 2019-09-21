@@ -356,7 +356,7 @@ metadata:
   labels:
     release: istio
 data:
-  validatingwebhookconfiguration.yaml: |-    
+  validatingwebhookconfiguration.yaml: |-
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
@@ -1276,7 +1276,7 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
-        
+
   labels:
     app: sidecar-injector
     release: istio
@@ -1366,10 +1366,10 @@ data:
     policy: enabled
     alwaysInjectSelector:
       []
-      
+
     neverInjectSelector:
       []
-      
+
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
@@ -1992,7 +1992,7 @@ data:
   meshNetworks: |-
     # Network config
     networks: {}
-    
+
 
   values.yaml: |-
     appNamespaces: []
@@ -2033,7 +2033,7 @@ data:
     tolerations: []
     traceSampling: 1
     useMCP: true
-    
+
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -2080,7 +2080,7 @@ data:
       mode: ALLOW_ANY
     localityLbSetting:
       enabled: true
-      
+
 
     defaultConfig:
       #
@@ -2126,7 +2126,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    checksum/config-volume: 233433d505e82dba95fbadad5a126a0c92d42d6a5f50f411a2a985258e1cfae6
+    checksum/config-volume: e6542bf59732d3c14b7527e52f5c5cb9c4071c11f2f4578ae3f1d7935ce13285
     checksum/config-volume-envoy: b07a902b447dffd83a92354d1937b1f8a27d8598d25f58aaa32e777df046763f
   labels:
     app: pilot
@@ -3034,7 +3034,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -3071,7 +3071,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -3108,7 +3108,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
