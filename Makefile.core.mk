@@ -51,7 +51,7 @@ GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 export GO_TOP
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
-# to be handled in bin/gobuild.sh
+# to be handled in common/scripts/gobuild.sh
 # export CGO_ENABLED=0
 
 # It's more concise to use GO?=$(shell which go)
@@ -310,7 +310,7 @@ $(OUTPUT_DIRS):
 
 .PHONY: ${GEN_CERT}
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 common/scripts/gobuild.sh $@ ./security/tools/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -357,11 +357,11 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen 
 
 .PHONY: build
 build: depend
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 $(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-linux
@@ -374,9 +374,6 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 # some linters; they need to exist.
 lint: buildcache
 	SKIP_INIT=1 bin/linters.sh
-
-shellcheck:
-	bin/check_shell_scripts.sh
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
@@ -411,11 +408,11 @@ DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl

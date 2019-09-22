@@ -34,8 +34,6 @@ DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:2019-09-20T15-04-58
 UID = $(shell id -u)
 PWD = $(shell pwd)
-GOBIN_SOURCE ?= $(GOPATH)/bin
-GOBIN ?= /work/out/bin
 
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
@@ -72,7 +70,6 @@ GOOS ?= $(GOOS_LOCAL)
 RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID) --rm \
 	-e GOOS="$(GOOS)" \
 	-e GOARCH="$(GOARCH)" \
-	-e GOBIN="$(GOBIN)" \
 	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-v /etc/passwd:/etc/passwd:ro \
@@ -81,7 +78,6 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID) --rm \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
 	--mount type=volume,source=istio-go-cache,destination="/gocache" \
-	--mount type=bind,source="$(GOBIN_SOURCE)",destination="/go/out/bin" \
 	-w /work $(IMG)
 else
 RUN =
