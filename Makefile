@@ -29,7 +29,9 @@
 export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-09-17T18-24-15
+CONTAINER_CLI ?= docker
+DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
+IMG ?= gcr.io/istio-testing/build-tools:2019-09-20T15-04-58
 UID = $(shell id -u)
 PWD = $(shell pwd)
 GOBIN_SOURCE ?= $(GOPATH)/bin
@@ -51,22 +53,30 @@ GOARCH ?= $(GOARCH_LOCAL)
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
    GOOS_LOCAL = linux
+   # Apparently Linux needs a -f flag.
+   READLINK_FLAGS="-f"
 else ifeq ($(LOCAL_OS),Darwin)
    GOOS_LOCAL = darwin
+   READLINK_FLAGS=""
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
+# Determine the timezone across various platforms to pass into the
+# docker run operation. This operation assumes zoneinfo is within
+# the path of the file.
+TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
+
 GOOS ?= $(GOOS_LOCAL)
 
-RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
+RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID) --rm \
 	-e GOOS="$(GOOS)" \
 	-e GOARCH="$(GOARCH)" \
 	-e GOBIN="$(GOBIN)" \
 	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
+	-e TZ="$(TIMEZONE)" \
 	-v /etc/passwd:/etc/passwd:ro \
-	-v $(readlink /etc/localtime):/etc/localtime:ro \
-	-v /var/run/docker.sock:/var/run/docker.sock \
+	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
