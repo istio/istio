@@ -39,7 +39,6 @@ const (
 	certsDir            = "tests/testdata/certs"
 	certFile            = certsDir + "/cert.crt"
 	keyFile             = certsDir + "/cert.key"
-	istioDockerDir      = "docker"
 	echoClientDir       = "pkg/test/echo/cmd/client"
 	echoServerDir       = "pkg/test/echo/cmd/server"
 	pilotAgentDir       = "pilot/cmd/pilot-agent"
