@@ -167,7 +167,7 @@ func (e *envoy) Cleanup(epoch int) {
 }
 
 func (e *envoy) Panic(epoch interface{}) {
-	log.Error("cannot start the e with the desired configuration")
+	log.Error("cannot start the proxy with the desired configuration")
 	if epochInt, ok := epoch.(int); ok {
 		// print the failed config file
 		filePath := configFile(e.config.ConfigPath, epochInt)
