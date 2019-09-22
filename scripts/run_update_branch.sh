@@ -35,10 +35,17 @@ function update_branch() {
         # Update tag for testdata.
         find "${ROOT}"/cmd/mesh/testdata -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;
         find "${ROOT}"/pkg/values/testdata -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;
+        # Update operator version.
+        find "${ROOT}"/version -type f -exec sed -r "s/[0-9]+\.[0-9]+\.[0-9]+/${OPERATOR_VERSION}/g" {} \;
     fi
 }
 
 FROM_BRANCH=${FROM_BRANCH:-master}
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+SHORT_VERSION=${CURRENT_BRANCH//release-/}
+[[ ${SHORT_VERSION} =~ ^[0-9]+\.[0-9]+ ]] && SHORT_VERSION=${BASH_REMATCH[0]}
+PATCH_VERSION=${PATCH_VERSION:-0}
+OPERATOR_VERSION="${SHORT_VERSION}.${PATCH_VERSION}"
 
 update_branch "${FROM_BRANCH}" "${CURRENT_BRANCH}"
