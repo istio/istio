@@ -40,7 +40,6 @@ const (
 	certFile            = certsDir + "/cert.crt"
 	keyFile             = certsDir + "/cert.key"
 	istioDockerDir      = "docker"
-	caCertsZipFile      = istioDockerDir + "/ca-certificates.tgz"
 	echoClientDir       = "pkg/test/echo/cmd/client"
 	echoServerDir       = "pkg/test/echo/cmd/server"
 	pilotAgentDir       = "pilot/cmd/pilot-agent"
@@ -193,7 +192,6 @@ func initBuilders() error {
 	// Load all of the content into the image builder.
 	b := docker.NewImageBuilder().
 		AddDir("certs", istioPath(certsDir)).
-		AddFile("ca-certificates.tgz", istioPath(caCertsZipFile)).
 		AddFile("envoy", filepath.Join(tmp, "usr/local/bin/envoy")).
 		AddFile("cert.crt", istioPath(certFile)).
 		AddFile("cert.key", istioPath(keyFile)).
