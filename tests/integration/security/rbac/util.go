@@ -27,6 +27,7 @@ import (
 )
 
 type TestCase struct {
+	NamePrefix    string
 	Request       connection.Checker
 	ExpectAllowed bool
 	Jwt           string
@@ -102,7 +103,8 @@ func RunRBACTest(t *testing.T, cases []TestCase) {
 		if tc.ExpectAllowed {
 			want = "allow"
 		}
-		testName := fmt.Sprintf("%s->%s:%s%s[%s]",
+		testName := fmt.Sprintf("%s%s->%s:%s%s[%s]",
+			tc.NamePrefix,
 			tc.Request.From.Config().Service,
 			tc.Request.Options.Target.Config().Service,
 			tc.Request.Options.PortName,
