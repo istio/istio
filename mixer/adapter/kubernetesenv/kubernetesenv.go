@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv"
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
 
 // Package kubernetesenv provides functionality to adapt mixer behavior to the
 // kubernetes environment. Primarily, it is used to generate values as part
