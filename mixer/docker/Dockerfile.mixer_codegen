@@ -7,9 +7,6 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
-# Sudoers used to allow debug utilities.
-RUN useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 USER istio-proxy
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
