@@ -8,7 +8,11 @@ metadata:
     istio: mixer
     release: {{ .Release.Name }}
 spec:
+{{- if not .Values.mixer.policy.autoscaleEnabled }}
+{{- if .Values.mixer.policy.replicaCount }}
   replicas: {{ .Values.mixer.policy.replicaCount }}
+{{- end }}
+{{- end }}
   strategy:
     rollingUpdate:
       maxSurge: {{ .Values.mixer.policy.rollingMaxSurge }}
@@ -217,4 +221,3 @@ spec:
           mountPath: /sock
 {{- end }}
 ---
-
