@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/operator/pkg/tpath"
+	"istio.io/pkg/log"
 )
 
 // YAMLCmpReporter is a custom reporter to generate tree based diff for YAMLs, used by cmp.Equal().
@@ -90,9 +91,59 @@ func YAMLCmpWithIgnore(a, b string, ignorePaths []string) string {
 	if err := yaml.Unmarshal([]byte(b), &bo); err != nil {
 		return err.Error()
 	}
+
+	if kind := ao["kind"]; kind == "ConfigMap" {
+		if err := UnmarshalInlineYaml(ao, "data"); err != nil {
+			log.Warnf("Unable to unmarshal ConfigMap Data, error: %v", err)
+		}
+	}
+	if kind := bo["kind"]; kind == "ConfigMap" {
+		if err := UnmarshalInlineYaml(bo, "data"); err != nil {
+			log.Warnf("Unable to unmarshal ConfigMap Data, error: %v", err)
+		}
+	}
+
 	var r YAMLCmpReporter
 	cmp.Equal(ao, bo, cmp.Reporter(&r), genPathIgnoreOpt(ignorePaths))
 	return r.String()
+}
+
+// UnmarshalInlineYaml tries to unmarshal string values in obj into YAML objects
+// at a given targetPath. Side effect: this will mutate obj in place.
+func UnmarshalInlineYaml(obj map[string]interface{}, targetPath string) (err error) {
+	nodeList := strings.Split(targetPath, ".")
+	if len(nodeList) == 0 {
+		return fmt.Errorf("targetPath '%v' length is zero after split", targetPath)
+	}
+
+	cur := obj
+	for _, nname := range nodeList {
+		ndata, ok := cur[nname]
+		if !ok || ndata == nil { // target path does not exist
+			return fmt.Errorf("targetPath '%v' doest not exist in obj: '%v' is missing",
+				targetPath, nname)
+		}
+		switch nnode := ndata.(type) {
+		case map[string]interface{}:
+			cur = nnode
+		default: // target path type does not match
+			return fmt.Errorf("targetPath '%v' doest not exist in obj: "+
+				"'%v' type is not map[string]interface{}", targetPath, nname)
+		}
+	}
+
+	for dk, dv := range cur {
+		switch vnode := dv.(type) {
+		case string:
+			vo := make(map[string]interface{})
+			if err := yaml.Unmarshal([]byte(vnode), &vo); err != nil {
+				continue
+			}
+			// Replace the original text yaml tree node with yaml objects
+			cur[dk] = vo
+		}
+	}
+	return
 }
 
 // genPathIgnoreOpt returns a cmp.Option to ignore paths specified in parameter ignorePaths.

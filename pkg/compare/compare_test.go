@@ -662,3 +662,194 @@ metadata:
 		})
 	}
 }
+
+func TestYAMLCmpWithYamlInline(t *testing.T) {
+	tests := []struct {
+		desc string
+		a    string
+		b    string
+		want interface{}
+	}{
+		{
+			desc: "ConfigMap data order changed",
+			a: `kind: ConfigMap
+data:
+  validatingwebhookconfiguration.yaml: |-
+    kind: ValidatingWebhookConfiguration
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    metadata:
+      name: istio-galley
+      value: foo`,
+			b: `kind: ConfigMap
+data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      value: foo
+      name: istio-galley`,
+			want: ``,
+		},
+		{
+			desc: "ConfigMap data value change",
+			a: `kind: ConfigMap
+data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley`,
+			b: `kind: ConfigMap
+data:
+  validatingwebhookconfiguration.yaml: |-
+    kind: ValidatingWebhookConfiguration
+    apiVersion: admissionregistration.k8s.io/v1beta2
+    metadata:
+      name: istio-galley`,
+			want: `data:
+  validatingwebhookconfiguration.yaml:
+    apiVersion: admissionregistration.k8s.io/v1beta1 -> admissionregistration.k8s.io/v1beta2
+`,
+		},
+		{
+			desc: "ConfigMap data deep nested value change",
+			a: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injector-mesh
+data:
+  mesh: |-
+    defaultConfig:
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+      controlPlaneAuthPolicy: NONE
+      connectTimeout: 10s`,
+			b: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injector-mesh
+data:
+  mesh: |-
+    defaultConfig:
+      connectTimeout: 10s
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9412
+      controlPlaneAuthPolicy: NONE`,
+			want: `data:
+  mesh:
+    defaultConfig:
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411 -> zipkin.istio-system:9412
+`,
+		},
+		{
+			desc: "ConfigMap data multiple changes",
+			a: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injector-mesh
+  namespace: istio-system
+  labels:
+    release: istio
+data:
+  mesh: |-
+    defaultConfig:
+      connectTimeout: 10s
+      configPath: "/etc/istio/proxyv1"
+      serviceCluster: istio-proxy
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      proxyAdminPortA: 15000
+      concurrency: 2
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: istio-pilot.istio-system:15010`,
+			b: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injector-mesh
+  namespace: istio-system
+  labels:
+    release: istio
+data:
+  mesh: |-
+    defaultConfig:
+      connectTimeout: 10s
+      configPath: "/etc/istio/proxyv2"
+      serviceCluster: istio-proxy
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      proxyAdminPortB: 15000
+      concurrency: 2
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: istio-pilot.istio-system:15010`,
+			want: `data:
+  mesh:
+    defaultConfig:
+      configPath: /etc/istio/proxyv1 -> /etc/istio/proxyv2
+      proxyAdminPortA: 15000 ->
+      proxyAdminPortB: -> 15000
+`,
+		},
+		{
+			desc: "Not ConfigMap, identical",
+			a: `kind: Config
+data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley`,
+			b: `kind: Config
+data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley`,
+			want: ``,
+		},
+		{
+			desc: "Not ConfigMap, Order changed",
+			a: `kind: Config
+data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley`,
+			b: `kind: Config
+data:
+  validatingwebhookconfiguration.yaml: |-
+    kind: ValidatingWebhookConfiguration
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    metadata:
+      name: istio-galley`,
+			want: `data:
+  validatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: ValidatingWebhookConfiguration
+    metadata:
+      name: istio-galley -> kind: ValidatingWebhookConfiguration
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    metadata:
+      name: istio-galley
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got, want := YAMLCmp(tt.a, tt.b), tt.want; !(got == want) {
+				t.Errorf("%s: got:%v, want:%v", tt.desc, got, want)
+			}
+		})
+	}
+}
