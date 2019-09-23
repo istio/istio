@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -302,8 +303,20 @@ func setUpUds(udsPath string) (net.Listener, error) {
 		sdsServiceLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
-	// if no permission, try to run command with sudo
-	if os.IsPermission(err) {
+	// if no exist, try to run command with sudo to give permission for /var/run/sds
+	if os.IsNotExist(err) {
+		if strings.Contains(udsPath, "/") {
+			parentPath := udsPath[0:strings.LastIndex(udsPath, "/")]
+			if _, err := os.Stat(parentPath); err != nil && os.IsPermission(err) {
+				cmd := exec.Command("/bin/sh", "-c", "sudo chmod -R 666 "+parentPath)
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					sdsServiceLog.Errorf("Command failed error: %v\n, output\n%v\n", err, string(out))
+					return nil, fmt.Errorf("failed to update %q permission", udsPath)
+				}
+			}
+		}
+	} else if os.IsPermission(err) {
 		cmd := exec.Command("/bin/sh", "-c", "sudo rm -r "+udsPath)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -329,7 +342,7 @@ func setUpUds(udsPath string) (net.Listener, error) {
 	}
 	// if no permission, try to run command with sudo
 	if os.IsPermission(err) {
-		cmd := exec.Command("/bin/sh", "-c", "chmod -R 666 "+udsPath)
+		cmd := exec.Command("/bin/sh", "-c", "sudo chmod -R 666 "+udsPath)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			sdsServiceLog.Errorf("Command failed error: %v\n, output\n%v\n", err, string(out))
