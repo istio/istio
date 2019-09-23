@@ -7,10 +7,9 @@ metadata:
     app: {{ .Values.tracing.provider }}
     release: {{ .Release.Name }}
 spec:
-  type: {{ .Values.tracing.service.type }}
   ports:
     - port: {{ .Values.tracing.service.externalPort }}
-      targetPort: 9411
+      targetPort: {{ .Values.tracing.zipkin.queryPort }}
       protocol: TCP
       name: {{ .Values.tracing.service.name }}
   selector:
@@ -30,14 +29,15 @@ metadata:
     app: {{ .Values.tracing.provider }}
     release: {{ .Release.Name }}
 spec:
+  type: {{ .Values.tracing.service.type }}
   ports:
-    - name: http-query
-      port: 80
+    - name: {{ .Values.tracing.service.name }}
+      port: {{ .Values.tracing.service.externalPort }}
       protocol: TCP
 {{ if eq .Values.tracing.provider "jaeger" }}
       targetPort: 16686
 {{ else }}
-      targetPort: 9411
+      targetPort: {{ .Values.tracing.zipkin.queryPort }}
 {{ end}}
   selector:
     app: {{ .Values.tracing.provider }}

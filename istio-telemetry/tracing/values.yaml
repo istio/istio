@@ -81,7 +81,7 @@ tracing:
 
   service:
     annotations: {}
-    name: http
+    name: http-query
     type: ClusterIP
     externalPort: 9411
 
