@@ -73,6 +73,8 @@ const (
 	secretCreationRetry = 3
 )
 
+var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
+
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
 // Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
 // ServiceName.Namespace.svc, ServiceName.Namespace and optional CustomDomain.
@@ -142,7 +144,7 @@ func NewSecretController(ca ca.CertificateAuthority, enableNamespacesByDefault b
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
 	if gracePeriodRatio < recommendedMinGracePeriodRatio || gracePeriodRatio > recommendedMaxGracePeriodRatio {
-		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
+		k8sControllerLog.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
@@ -248,7 +250,7 @@ func (sc *SecretController) citadelManagedObject(obj metav1.Object) bool {
 
 	ns, err := sc.core.Namespaces().Get(obj.GetNamespace(), metav1.GetOptions{})
 	if err != nil || ns == nil { // if we can't retrieve namespace details, fall back on default value
-		log.Errorf("could not retrieve namespace resource for object %s", obj.GetName())
+		k8sControllerLog.Errorf("could not retrieve namespace resource for object %s", obj.GetName())
 		return sc.enableNamespacesByDefault
 	}
 
@@ -276,7 +278,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
-		log.Errorf("Failed to get secret %s/%s from the store (error %v)",
+		k8sControllerLog.Errorf("Failed to get secret %s/%s from the store (error %v)",
 			saNamespace, GetSecretName(saName), err)
 	}
 
@@ -288,7 +290,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// Now we know the secret does not exist yet. So we create a new one.
 	chain, key, err := sc.generateKeyAndCert(saName, saNamespace)
 	if err != nil {
-		log.Errorf("Failed to generate key/cert for %s/%s (error %v)",
+		k8sControllerLog.Errorf("Failed to generate key/cert for %s/%s (error %v)",
 			saNamespace, GetSecretName(saName), err)
 		return
 	}
@@ -303,14 +305,14 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
 		if err == nil {
-			log.Infof("Secret %s/%s is created successfully", saNamespace, GetSecretName(saName))
+			k8sControllerLog.Infof("Secret %s/%s is created successfully", saNamespace, GetSecretName(saName))
 			return
 		}
 		if errors.IsAlreadyExists(err) {
-			log.Infof("Secret %s/%s already exists, skip", saNamespace, GetSecretName(saName))
+			k8sControllerLog.Infof("Secret %s/%s already exists, skip", saNamespace, GetSecretName(saName))
 			return
 		}
-		log.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s)",
+		k8sControllerLog.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s)",
 			saNamespace, GetSecretName(saName), i+1, secretCreationRetry, err)
 		time.Sleep(time.Second)
 	}
@@ -320,23 +322,23 @@ func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 	err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
-		log.Infof("Secret %s/%s deleted successfully", saNamespace, GetSecretName(saName))
+		k8sControllerLog.Infof("Secret %s/%s deleted successfully", saNamespace, GetSecretName(saName))
 		return
 	}
 
-	log.Errorf("Failed to delete secret %s/%s (error: %s)", saNamespace, GetSecretName(saName), err)
+	k8sControllerLog.Errorf("Failed to delete secret %s/%s (error: %s)", saNamespace, GetSecretName(saName), err)
 }
 
 func (sc *SecretController) scrtDeleted(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", obj)
+		k8sControllerLog.Warnf("Failed to convert to secret object: %v", obj)
 		return
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
 	if sa, err := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
-		log.Infof("Re-creating deleted secret %s/%s.", scrt.GetNamespace(), GetSecretName(saName))
+		k8sControllerLog.Infof("Re-creating deleted secret %s/%s.", scrt.GetNamespace(), GetSecretName(saName))
 		if sc.citadelManagedObject(sa.GetObjectMeta()) {
 			sc.upsertSecret(saName, scrt.GetNamespace())
 		}
@@ -390,7 +392,7 @@ func (sc *SecretController) enableNamespaceRetroactive(namespace string) {
 
 	serviceAccounts, err := sc.core.ServiceAccounts(namespace).List(metav1.ListOptions{})
 	if err != nil {
-		log.Errorf("could not retrieve service account resources from namespace %s", namespace)
+		k8sControllerLog.Errorf("could not retrieve service account resources from namespace %s", namespace)
 		return
 	}
 
@@ -428,7 +430,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
-		log.Errorf("CSR generation error (%v)", err)
+		k8sControllerLog.Errorf("CSR generation error (%v)", err)
 		sc.monitoring.CSRError.Increment()
 		return nil, nil, err
 	}
@@ -436,7 +438,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
-		log.Errorf("CSR signing error (%v)", signErr.Error())
+		k8sControllerLog.Errorf("CSR signing error (%v)", signErr.Error())
 		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*ca.Error))
 	}
@@ -448,7 +450,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	scrt, ok := newObj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", newObj)
+		k8sControllerLog.Warnf("Failed to convert to secret object: %v", newObj)
 		return
 	}
 	namespace := scrt.GetNamespace()
@@ -457,10 +459,10 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	certBytes := scrt.Data[CertChainID]
 	cert, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
-		log.Warnf("Failed to parse cert in secret %s/%s (error: %v), refreshing.",
+		k8sControllerLog.Warnf("Failed to parse cert in secret %s/%s (error: %v), refreshing.",
 			namespace, GetSecretName(name), err)
 		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errora(err)
+			k8sControllerLog.Errora(err)
 		}
 		return
 	}
@@ -471,7 +473,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
 	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
 	if gracePeriod < sc.minGracePeriod {
-		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
+		k8sControllerLog.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
@@ -490,19 +492,19 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 				return
 			}
 		} else { // in the case we couldn't retrieve namespace, we should proceed with cert refresh
-			log.Errorf("Failed to retrieve details for namespace %s, err %v", namespace, err)
+			k8sControllerLog.Errorf("Failed to retrieve details for namespace %s, err %v", namespace, err)
 		}
 
 		if certLifeTimeLeft < gracePeriod {
-			log.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
+			k8sControllerLog.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
 		} else {
-			log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
+			k8sControllerLog.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
 		}
 
 		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errorf("Failed to refresh secret %s/%s (error: %s)", namespace, GetSecretName(name), err)
+			k8sControllerLog.Errorf("Failed to refresh secret %s/%s (error: %s)", namespace, GetSecretName(name), err)
 		} else {
-			log.Infof("Secret %s/%s refreshed successfully.", namespace, GetSecretName(name))
+			k8sControllerLog.Infof("Secret %s/%s refreshed successfully.", namespace, GetSecretName(name))
 		}
 	}
 }
