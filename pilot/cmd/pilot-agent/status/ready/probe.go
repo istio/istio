@@ -131,7 +131,7 @@ func (p *Probe) pingVirtualListeners() error {
 	for _, vport := range vports {
 		_, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.LocalHostAddr, vport))
 		if err != nil {
-			return fmt.Errorf("Listener on port %d is still not listening: %v", vport, err)
+			return fmt.Errorf("listener on port %d is still not listening: %v", vport, err)
 		}
 	}
 

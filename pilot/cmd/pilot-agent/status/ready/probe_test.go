@@ -208,7 +208,7 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 
 	// Listen on Virtual Listener port.
-	l, err := net.Listen("tcp", ":15006")
+	l, _ := net.Listen("tcp", ":15006")
 	defer l.Close()
 
 	err = probe.Check()
