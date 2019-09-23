@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -311,7 +312,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 		portList = append(portList, &model.Port{
 			Port:     int(np.Port),
 			Protocol: protocol,
-			Name:     np.Name,
+			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
 		})
 	}
 	return portList, nil
