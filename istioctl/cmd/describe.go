@@ -812,7 +812,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
-		return "", "", fmt.Errorf("not a DR path: %s", path)
+		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
 	return ss[2], ss[1], nil
 }
