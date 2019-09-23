@@ -24,11 +24,20 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/pkg/log"
 )
 
-func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy, push *model.PushContext,
-	routeConfiguration *xdsapi.RouteConfiguration) *xdsapi.RouteConfiguration {
+func ApplyRouteConfigurationPatches(
+	patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
+	defer util.HandleCrash(func() {
+		log.Errorf("listeners patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the route generated before to reduce the influence.
+	out = routeConfiguration
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	for _, efw := range envoyFilterWrappers {

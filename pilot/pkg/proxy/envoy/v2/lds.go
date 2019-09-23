@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"fmt"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -51,13 +50,10 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 
 	for _, l := range rawListeners {
 		if err := l.Validate(); err != nil {
-			retErr := fmt.Errorf("LDS: Generated invalid listener for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.modelNode.ID, err, l)
 			ldsBuildErrPushes.Increment()
 			// Generating invalid listeners is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
+			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
 		}
 	}
 	return rawListeners
