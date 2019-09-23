@@ -42,11 +42,11 @@ ISTIO_SDS_PROFILE=${ISTIO_SDS_PROFILE:-sds}\
 
 # declare map with profile as key and charts as values
 declare -A PROFILE_CHARTS_MAP
-PROFILE_CHARTS_MAP["${ISTIO_DEFAULT_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel"
-PROFILE_CHARTS_MAP["${ISTIO_DEMO_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
-PROFILE_CHARTS_MAP["${ISTIO_DEMOAUTH_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_DEFAULT_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_DEMO_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-telemetry/kiali istio-telemetry/grafana istio-telemetry/tracing istio-policy security/citadel"
+PROFILE_CHARTS_MAP["${ISTIO_DEMOAUTH_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-telemetry/kiali istio-telemetry/grafana istio-telemetry/tracing istio-policy security/citadel"
 PROFILE_CHARTS_MAP["${ISTIO_MINIMAL_PROFILE}"]="crds istio-control/istio-discovery"
-PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-policy security/citadel security/nodeagent"
+PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel security/nodeagent"
 
 # declare map with charts directory as key and namespaces as values
 declare -A NAMESPACES_MAP
@@ -57,6 +57,10 @@ NAMESPACES_MAP["istio-control/istio-autoinject"]="istio-system"
 NAMESPACES_MAP["gateways/istio-ingress"]="istio-system"
 NAMESPACES_MAP["gateways/istio-egress"]="istio-system"
 NAMESPACES_MAP["istio-telemetry/mixer-telemetry"]="istio-system"
+NAMESPACES_MAP["istio-telemetry/prometheus"]="istio-system"
+NAMESPACES_MAP["istio-telemetry/kiali"]="istio-system"
+NAMESPACES_MAP["istio-telemetry/grafana"]="istio-system"
+NAMESPACES_MAP["istio-telemetry/tracing"]="istio-system"
 NAMESPACES_MAP["istio-policy"]="istio-system"
 NAMESPACES_MAP["security/citadel"]="istio-system"
 NAMESPACES_MAP["security/nodeagent"]="istio-system"
@@ -71,6 +75,7 @@ Deployment::istio-pilot:metadata.annotations.checksum/config-volume"
 set -u
 set -x
 set -e
+
 
 rm -Rf "${OUT}"
 mkdir -p "${OUT}"
@@ -91,6 +96,7 @@ function helm_manifest() {
 
     # create parent directory for the manifests rendered by helm template
     local out_dir="${OUT}/helm-template/istio-${profile}"
+
     mkdir -p "${out_dir}"
 
     local charts="${PROFILE_CHARTS_MAP[${profile}]}"

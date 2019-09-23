@@ -33,4 +33,4 @@ spec:
         port:
 
     prometheus:
-      enabeld: false
+      enabled: false

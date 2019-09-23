@@ -112,6 +112,11 @@ var (
 			name.SidecarInjectorComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
+			name.PrometheusOperatorComponentName,
+			name.PrometheusComponentName,
+			name.GrafanaComponentName,
+			name.KialiComponentName,
+			name.TracingComponentName,
 		},
 	}
 
