@@ -810,7 +810,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
-		return "", "", fmt.Errorf("not a DR path: %s", path)
+		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
 	return ss[2], ss[1], nil
 }
@@ -826,6 +826,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
 		if rcd.RouteConfig.Name != sPort && !strings.HasPrefix(rcd.RouteConfig.Name, "http.") {
+			continue
 		}
 
 		for _, vh := range rcd.RouteConfig.VirtualHosts {
@@ -894,7 +895,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 
 	// If this is an ingress gateway, the Domains will be something like *:80, so check routes
 	// which will look like "outbound|9080||productpage.default.svc.cluster.local"
-	res := fmt.Sprintf(`outbound\|%d\|\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
+	res := fmt.Sprintf(`outbound\|%d\|[^\|]*\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
 	re = regexp.MustCompile(res)
 	ss := re.FindStringSubmatch(route.GetRoute().GetCluster())
 	if ss != nil {
@@ -1129,8 +1130,7 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	return "", fmt.Errorf("listener has no VirtualService")
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error {
-	fmt.Fprintf(writer, "\nLooking for ingress exposure\n\n")
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -1140,7 +1140,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels
 		return multierror.Prefix(err, "Could not find ingress gateway pods")
 	}
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("No ingress gateway pods")
+		return fmt.Errorf("no ingress gateway pods")
 	}
 	pod := pods.Items[0]
 
@@ -1152,7 +1152,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels
 		return multierror.Prefix(err, "Could not find ingress gateway service")
 	}
 	if len(ingressSvcs.Items) == 0 {
-		return fmt.Errorf("No ingress gateway service")
+		return fmt.Errorf("no ingress gateway service")
 	}
 	byConfigDump, err := execClient.EnvoyDo(pod.Name, pod.Namespace, "GET", "config_dump", nil)
 	if err != nil {
@@ -1165,19 +1165,9 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels
 		return fmt.Errorf("can't parse ingress gateway sidecar config_dump: %v", err)
 	}
 
-	ipIngress, err := getIngressIp(ingressSvcs.Items[0], pod)
-	if err != nil {
-		return fmt.Errorf("can't get ingress IP: %v", err)
-	}
-	printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
+	ipIngress := getIngressIP(ingressSvcs.Items[0], pod)
 
 	for row, svc := range matchingServices {
-		if row == 0 {
-			fmt.Fprintf(writer, "\n")
-		} else {
-			fmt.Fprintf(writer, "--------------------\n")
-		}
-
 		for _, port := range svc.Spec.Ports {
 			matchingSubsets := []string{}
 			nonmatchingSubsets := []string{}
@@ -1186,28 +1176,21 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels
 			if err == nil && drName != "" && drNamespace != "" {
 				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
 				if dr != nil {
-					if len(svc.Spec.Ports) > 1 {
-						// If there is more than one port, prefix each DR by the port it applies to
-						fmt.Fprintf(writer, "%d ", port.Port)
-					}
-					// printDestinationRule(writer, *dr, podLabels)
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podLabels)
 				}
-			}
-
-			if len(svc.Spec.Ports) > 1 {
-				// If there is more than one port, prefix each DR by the port it applies to
-				fmt.Fprintf(writer, "%d ", port.Port)
 			}
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
 				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
 				if vs != nil {
-					if len(svc.Spec.Ports) > 1 {
-						// If there is more than one port, prefix each DR by the port it applies to
-						fmt.Fprintf(writer, "%d ", port.Port)
+					if row == 0 {
+						fmt.Fprintf(writer, "\n")
+					} else {
+						fmt.Fprintf(writer, "--------------------\n")
 					}
+
+					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				}
 			}
@@ -1246,24 +1229,23 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 			if schemePortDefault[scheme] != nport {
 				portSuffix = fmt.Sprintf(":%d\n", nport)
 			}
-			fmt.Fprintf(writer, "Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
+			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
 		}
 	}
 }
 
-func getIngressIp(service v1.Service, pod v1.Pod) (string, error) {
+func getIngressIP(service v1.Service, pod v1.Pod) string {
 	if len(service.Status.LoadBalancer.Ingress) > 0 {
-		return service.Status.LoadBalancer.Ingress[0].IP, nil
+		return service.Status.LoadBalancer.Ingress[0].IP
 	}
-
-	// TODO If there is no Ingress, get ports using
-	// export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
-	// export SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
-	// TODO Get IP following https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
 
 	if pod.Status.HostIP != "" {
-		return pod.Status.HostIP, nil
+		return pod.Status.HostIP
 	}
 
-	return "unknown", nil
+	// The scope of this function is to get the IP from Kubernetes, we do not
+	// ask Docker or Minikube for an IP.
+	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
+
+	return "unknown"
 }
