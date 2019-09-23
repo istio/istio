@@ -1,4 +1,4 @@
-{{- if .Values.mixer.policy.autoscaleMin }}
+{{- if and .Values.mixer.policy.autoscaleEnabled .Values.mixer.policy.autoscaleMin .Values.mixer.policy.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:

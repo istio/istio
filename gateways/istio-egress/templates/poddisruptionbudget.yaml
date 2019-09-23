@@ -1,4 +1,3 @@
-{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget

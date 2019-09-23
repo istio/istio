@@ -12,8 +12,6 @@ spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
   replicas: {{ $gateway.replicaCount }}
-{{- else }}
-  replicas: 1
 {{- end }}
 {{- end }}
   selector:
