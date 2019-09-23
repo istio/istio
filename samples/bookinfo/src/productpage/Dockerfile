@@ -32,11 +32,7 @@ ENV FLOOD_FACTOR ${flood_factor:-0}
 EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
-RUN chmod 775 /opt/microservices && \
-    chown daemon:daemon /tmp/microservice.log
 
 USER 1
 
-# hadolint ignore=DL3025
-CMD tail -f /tmp/microservice.log & \
-    python productpage.py 9080
+CMD ["python", "productpage.py", "9080"]
