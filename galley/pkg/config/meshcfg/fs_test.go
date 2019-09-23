@@ -287,7 +287,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 }
 
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
-	t.Skipf("https://github.com/istio/istio/issues/15987")
+	t.Skip("https://github.com/istio/istio/issues/15987")
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
