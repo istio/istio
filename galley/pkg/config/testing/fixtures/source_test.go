@@ -18,6 +18,9 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 func TestSource(t *testing.T) {
@@ -42,4 +45,24 @@ func TestSource_Dispatch(t *testing.T) {
 	s.Start()
 
 	g.Expect(s.Handlers).To(gomega.Equal(a))
+}
+
+func TestSource_Handle(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	s := &Source{}
+
+	a := &Accumulator{}
+	s.Dispatch(a)
+
+	s.Start()
+
+	e := event.Event{
+		Kind:   event.Added,
+		Source: data.Collection1,
+		Entry:  nil,
+	}
+	s.Handle(e)
+
+	g.Expect(a.Events()).To(gomega.Equal([]event.Event{e}))
 }

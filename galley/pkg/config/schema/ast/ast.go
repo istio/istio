@@ -62,13 +62,14 @@ var _ Source = &KubeSource{}
 
 // Resource metadata for a Kubernetes Resource.
 type Resource struct {
-	Collection string `json:"collection"`
-	Group      string `json:"group"`
-	Version    string `json:"version"`
-	Kind       string `json:"kind"`
-	Plural     string `json:"plural"`
-	Optional   bool   `json:"optional"`
-	Disabled   bool   `json:"disabled"`
+	Collection    string `json:"collection"`
+	Group         string `json:"group"`
+	Version       string `json:"version"`
+	Kind          string `json:"kind"`
+	Plural        string `json:"plural"`
+	Optional      bool   `json:"optional"`
+	Disabled      bool   `json:"disabled"`
+	ClusterScoped bool   `json:"clusterScoped"`
 }
 
 // DirectTransform configuration

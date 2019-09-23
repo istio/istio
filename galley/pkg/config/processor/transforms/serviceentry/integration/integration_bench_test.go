@@ -20,20 +20,21 @@ import (
 	"testing"
 	"time"
 
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/mcp/snapshot"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -114,7 +115,8 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	m := metadata.MustGet()
 	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
-	processor, err := processor.Initialize(m, domainSuffix, src, distributor)
+	transformProviders := transforms.Providers(metadata.MustGet())
+	processor, err := processor.Initialize(m, domainSuffix, src, transformProviders, distributor)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -266,6 +268,8 @@ type fakeDistributor struct {
 	snapshotCond *sync.Cond
 }
 
+var _ snapshotter.Distributor = &fakeDistributor{}
+
 func newFakeDistributor(numUpdates int) *fakeDistributor {
 	return &fakeDistributor{
 		serviceCreation:   1,
@@ -282,7 +286,7 @@ func (d *fakeDistributor) waitForSnapshot() {
 	d.snapshotCond.L.Unlock()
 }
 
-func (d *fakeDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
+func (d *fakeDistributor) Distribute(name string, s *snapshotter.Snapshot) {
 	d.cond.Broadcast()
 
 	d.counter++

@@ -90,6 +90,17 @@ var (
 	"n3_i3": "v1"
 }`),
 	}
+
+	// EntryI1V1NoNamespace is a test resource.Entry
+	EntryI1V1NoNamespace = &resource.Entry{
+		Metadata: resource.Metadata{
+			Name:    resource.NewName("", "i1"),
+			Version: "v1",
+		},
+		Item: parseStruct(`{
+		"n1_i1": "v1"
+	}`),
+	}
 )
 
 func parseStruct(s string) *types.Struct {

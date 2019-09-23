@@ -124,7 +124,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := rt.ToResourceEntry(object, res)
+	r := rt.ToResourceEntry(object, &w.resource, res)
 
 	e := event.Event{
 		Kind:   c,

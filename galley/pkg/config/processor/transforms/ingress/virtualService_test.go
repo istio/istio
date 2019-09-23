@@ -156,7 +156,7 @@ func TestVirtualService_NoListeners(t *testing.T) {
 		MeshConfig:   meshcfg.Default(),
 	}
 
-	xforms := Create(o)
+	xforms := GetProviders().Create(o)
 	g.Expect(xforms).To(HaveLen(2))
 
 	src := &fixtures.Source{}
@@ -281,7 +281,7 @@ func TestVirtualService_InvalidEvent(t *testing.T) {
 }
 
 func setupVS(g *GomegaWithT, o processing.ProcessorOptions) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
-	xforms := Create(o)
+	xforms := GetProviders().Create(o)
 	g.Expect(xforms).To(HaveLen(2))
 
 	src := &fixtures.Source{}

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package transforms contains basic processing building blocks that can be incorporated into bigger/self-contained
-// processing pipelines.
-package transforms
+package resource
+
+// Origin of a resource. This is source-implementation dependent.
+type Origin interface {
+	FriendlyName() string
+}

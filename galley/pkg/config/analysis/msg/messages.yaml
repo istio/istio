@@ -1,0 +1,71 @@
+# Please keep entries ordered by code.
+# NOTE: The range 0000-0100 is reserved for internal and/or future use.
+messages:
+  - name: "InternalError"
+    code: IST0001
+    level: Error
+    description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
+    template: "Internal error: %v"
+    args:
+      - name: detail
+        type: string
+
+  - name: "NotYetImplemented"
+    code: IST0002
+    level: Error
+    description: "A feature that the configuration is depending on is not implemented yet."
+    template: "Not yet implemented: %s"
+    args:
+      - name: detail
+        type: string
+
+  - name: "ParseError"
+    code: IST0003
+    level: Warning
+    description: "There was a parse error during the parsing of the configuration text"
+    template: "Parse error: %s"
+    args:
+      - name: detail
+        type: string
+
+  - name: "Deprecated"
+    code: IST0004
+    level: Warning
+    description: "A feature that the configuration is depending on is now deprecated."
+    template: "Deprecated: %s"
+    args:
+      - name: detail
+        type: string
+
+  - name: "ReferencedResourceNotFound"
+    code: IST0101
+    level: Error
+    description: "A resource being referenced does not exist."
+    template: "Referenced %s not found: %q"
+    args:
+      - name: reftype
+        type: string
+      - name: refval
+        type: string
+
+  - name: "NamespaceNotInjected"
+    code: IST0102
+    level: Warning
+    description: "A namespace is not enabled for Istio injection."
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection"
+    args:
+      - name: namespace
+        type: string
+      - name: namespace2
+        type: string
+
+  - name: "PodMissingProxy"
+    code: IST0103
+    level: Warning
+    description: "A pod is missing the Istio proxy."
+    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    args:
+      - name: pod
+        type: string
+      - name: namespace
+        type: string

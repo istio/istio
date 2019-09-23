@@ -136,13 +136,14 @@ var _ Source = &KubeSource{}
 
 // KubeResource metadata for a Kubernetes KubeResource.
 type KubeResource struct {
-	Collection collection.Spec
-	Group      string
-	Version    string
-	Kind       string
-	Plural     string
-	Disabled   bool
-	Optional   bool
+	Collection    collection.Spec
+	Group         string
+	Version       string
+	Kind          string
+	Plural        string
+	Disabled      bool
+	Optional      bool
+	ClusterScoped bool
 }
 
 // KubeResources is an array of resources
@@ -257,13 +258,14 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 					return nil, fmt.Errorf("collection not found: %v", r.Collection)
 				}
 				res := &KubeResource{
-					Collection: col,
-					Kind:       r.Kind,
-					Plural:     r.Plural,
-					Version:    r.Version,
-					Group:      r.Group,
-					Optional:   r.Optional,
-					Disabled:   r.Disabled,
+					Collection:    col,
+					Kind:          r.Kind,
+					Plural:        r.Plural,
+					Version:       r.Version,
+					Group:         r.Group,
+					Optional:      r.Optional,
+					Disabled:      r.Disabled,
+					ClusterScoped: r.ClusterScoped,
 				}
 
 				resources = append(resources, res)

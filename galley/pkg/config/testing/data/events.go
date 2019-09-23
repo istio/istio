@@ -60,6 +60,12 @@ var (
 		Source: Collection1,
 	}
 
+	// Event1Col2Synced is a testing event
+	Event1Col2Synced = event.Event{
+		Kind:   event.FullSync,
+		Source: Collection2,
+	}
+
 	// Event2Col1AddItem2 is a testing event
 	Event2Col1AddItem2 = event.Event{
 		Kind:   event.Added,
