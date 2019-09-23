@@ -125,7 +125,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(Analyze())
-	experimentalCmd.AddCommand(Validation())
+	experimentalCmd.AddCommand(Webhook())
 
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
