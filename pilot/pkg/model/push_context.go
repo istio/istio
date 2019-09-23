@@ -807,6 +807,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 			}
 		} else {
 			// if no targets provided, store at namespace level
+			// TODO GregHanson possible refactor so namespace is not cast to host.Name
 			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy)
 		}
 	}
@@ -1077,11 +1078,13 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 	}
 
 	for i, policyByPort := range policiesByPort {
+		// TODO GregHanson correct default behavior if no port specified?
+		// issue #17278
 		if policyByPort.portSelector == nil && matchedPolicy == nil {
 			matchedPolicy = policiesByPort[i].policy
 		}
 
-		if port.Match(policyByPort.portSelector) {
+		if port != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
 			break
 		}

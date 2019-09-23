@@ -148,9 +148,9 @@ func TestAuthNPolicies(t *testing.T) {
 			}},
 		},
 
-		"mtls-strict-svc-name": {
+		"mtls-strict-svc-named-port": {
 			Targets: []*authn.TargetSelector{{
-				Name: "mtls-strict-svc-name",
+				Name: "mtls-strict-svc-named-port",
 				Ports: []*authn.PortSelector{
 					{
 						Port: &authn.PortSelector_Name{
@@ -231,7 +231,7 @@ func TestAuthNPolicies(t *testing.T) {
 			expected:  "mtls-disable-svc",
 		},
 		{
-			hostname:  "mtls-strict-svcport.another-namespace.svc.cluster.local",
+			hostname:  "mtls-strict-svc-port.another-namespace.svc.cluster.local",
 			namespace: "another-namespace",
 			port:      Port{Port: 80},
 			expected:  constants.DefaultAuthenticationPolicyName,
@@ -243,10 +243,10 @@ func TestAuthNPolicies(t *testing.T) {
 			expected:  constants.DefaultAuthenticationPolicyName,
 		},
 		{
-			hostname:  "mtls-strict-svc-name.default.svc.cluster.local",
+			hostname:  "mtls-strict-svc-named-port.default.svc.cluster.local",
 			namespace: "default",
 			port:      Port{Name: "http"},
-			expected:  "mtls-strict-svc-name",
+			expected:  "mtls-strict-svc-named-port",
 		},
 	}
 
