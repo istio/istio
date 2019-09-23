@@ -29,49 +29,32 @@
 export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-09-17T18-24-15
+CONTAINER_CLI ?= docker
+DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
+IMG ?= gcr.io/istio-testing/build-tools:2019-09-23T12-48-14
 UID = $(shell id -u)
 PWD = $(shell pwd)
-GOBIN_SOURCE ?= $(GOPATH)/bin
-GOBIN ?= /work/out/bin
-
-LOCAL_ARCH := $(shell uname -m)
-ifeq ($(LOCAL_ARCH),x86_64)
-GOARCH_LOCAL := amd64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
-GOARCH_LOCAL := arm64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
-GOARCH_LOCAL := arm
-else
-GOARCH_LOCAL := $(LOCAL_ARCH)
-endif
-
-GOARCH ?= $(GOARCH_LOCAL)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   GOOS_LOCAL = linux
+   READLINK_FLAGS="-f"
 else ifeq ($(LOCAL_OS),Darwin)
-   GOOS_LOCAL = darwin
-else
-   $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
+   READLINK_FLAGS=""
 endif
 
-GOOS ?= $(GOOS_LOCAL)
+# Determine the timezone across various platforms to pass into the
+# docker run operation. This operation assumes zoneinfo is within
+# the path of the file.
+TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
 
-RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
-	-e GOOS="$(GOOS)" \
-	-e GOARCH="$(GOARCH)" \
-	-e GOBIN="$(GOBIN)" \
+RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID) --rm \
 	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
+	-e TZ="$(TIMEZONE)" \
 	-v /etc/passwd:/etc/passwd:ro \
-	-v $(readlink /etc/localtime):/etc/localtime:ro \
-	-v /var/run/docker.sock:/var/run/docker.sock \
+	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
-	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
-	--mount type=volume,source=istio-go-cache,destination="/gocache" \
-	--mount type=bind,source="$(GOBIN_SOURCE)",destination="/go/out/bin" \
+	--mount type=volume,source=home,destination="/home" \
 	-w /work $(IMG)
 else
 RUN =
