@@ -43,6 +43,8 @@ func NewIstioControlPlane(installSpec *v1alpha2.IstioControlPlaneSpec, translato
 			features = append(features, feature.NewFeature(ft, opts))
 		}
 	}
+	//add third Party feature as well
+	features = append(features, feature.NewFeature(name.ThirdPartyFeatureName, opts))
 	return &IstioControlPlane{
 		features: features,
 	}

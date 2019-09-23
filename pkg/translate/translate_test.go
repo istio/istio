@@ -36,11 +36,7 @@ func TestProtoToValuesV13(t *testing.T) {
 			yamlStr: `
 defaultNamespace: istio-system
 `,
-			want: `
-certmanager:
-  enabled: false
-  namespace: istio-system
-security:
+			want: `certmanager:
   enabled: false
   namespace: istio-system
 galley:
@@ -54,15 +50,20 @@ gateways:
     enabled: false
     namespace: istio-system
 global:
-  enabled: true
-  namespace: istio-system
-  istioNamespace: istio-system
   configNamespace: istio-system
+  enabled: true
+  istioNamespace: istio-system
+  namespace: istio-system
   policyNamespace: istio-system
   prometheusNamespace: istio-system
   securityNamespace: istio-system
   telemetryNamespace: istio-system
-
+grafana:
+  enabled: false
+  namespace: istio-system
+kiali:
+  enabled: false
+  namespace: istio-system
 mixer:
   policy:
     enabled: false
@@ -76,10 +77,19 @@ nodeagent:
 pilot:
   enabled: false
   namespace: istio-system
+prometheus:
+  enabled: false
+  namespace: istio-system
+security:
+  enabled: false
+  namespace: istio-system
 sidecarInjectorWebhook:
   enabled: false
   namespace: istio-system
-
+tracing:
+  jaeger:
+    enabled: false
+    namespace: istio-system
 `,
 		},
 		{
@@ -89,11 +99,7 @@ hub: docker.io/istio
 tag: 1.2.3
 defaultNamespace: istio-system
 `,
-			want: `
-certmanager:
-  enabled: false
-  namespace: istio-system
-security:
+			want: `certmanager:
   enabled: false
   namespace: istio-system
 galley:
@@ -107,16 +113,22 @@ gateways:
     enabled: false
     namespace: istio-system
 global:
+  configNamespace: istio-system
   enabled: true
   hub: docker.io/istio
   istioNamespace: istio-system
-  configNamespace: istio-system
+  namespace: istio-system
   policyNamespace: istio-system
   prometheusNamespace: istio-system
   securityNamespace: istio-system
-  telemetryNamespace: istio-system
-  namespace: istio-system
   tag: 1.2.3
+  telemetryNamespace: istio-system
+grafana:
+  enabled: false
+  namespace: istio-system
+kiali:
+  enabled: false
+  namespace: istio-system
 mixer:
   policy:
     enabled: false
@@ -130,10 +142,19 @@ nodeagent:
 pilot:
   enabled: false
   namespace: istio-system
+prometheus:
+  enabled: false
+  namespace: istio-system
+security:
+  enabled: false
+  namespace: istio-system
 sidecarInjectorWebhook:
   enabled: false
   namespace: istio-system
-
+tracing:
+  jaeger:
+    enabled: false
+    namespace: istio-system
 `,
 		},
 	}
