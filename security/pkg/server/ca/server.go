@@ -45,6 +45,8 @@ const (
 	certExpirationBuffer = time.Minute
 )
 
+var serverCaLog = log.RegisterScope("serverCaLog", "Citadel server log", 0)
+
 type authenticator interface {
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)
 	AuthenticatorType() string
@@ -74,7 +76,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	*pb.IstioCertificateResponse, error) {
 	caller := s.authenticate(ctx)
 	if caller == nil {
-		log.Warn("request authentication failure")
+		serverCaLog.Warn("request authentication failure")
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
@@ -85,7 +87,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	cert, signErr := s.ca.Sign(
 		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
-		log.Errorf("CSR signing error (%v)", signErr.Error())
+		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*ca.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*ca.Error))
 	}
@@ -97,7 +99,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
-	log.Debug("CSR successfully signed.")
+	serverCaLog.Debug("CSR successfully signed.")
 
 	return response, nil
 }
@@ -107,12 +109,12 @@ func extractRootCertExpiryTimestamp(ca ca.CertificateAuthority) float64 {
 	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
-		log.Errorf("Failed to parse the root cert: %v", err)
+		serverCaLog.Errorf("Failed to parse the root cert: %v", err)
 		return -1
 	}
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
-		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+		serverCaLog.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
 	}
 	return float64(end.Unix())
 }
@@ -126,21 +128,21 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil || len(caller.Identities) == 0 {
-		log.Warn("request authentication failure, no caller identity")
+		serverCaLog.Warn("request authentication failure, no caller identity")
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure, no caller identity")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
-		log.Warnf("CSR Pem parsing error (error %v)", err)
+		serverCaLog.Warnf("CSR Pem parsing error (error %v)", err)
 		s.monitoring.CSRError.Increment()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
-		log.Warnf("CSR identity extraction error (%v)", err)
+		serverCaLog.Warnf("CSR identity extraction error (%v)", err)
 		s.monitoring.IDExtractionError.Increment()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
@@ -151,7 +153,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	cert, signErr := s.ca.Sign(
 		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
-		log.Errorf("CSR signing error (%v)", signErr.Error())
+		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*ca.Error))
 	}
@@ -161,7 +163,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		SignedCert: cert,
 		CertChain:  certChainBytes,
 	}
-	log.Debug("CSR successfully signed.")
+	serverCaLog.Debug("CSR successfully signed.")
 	s.monitoring.Success.Increment()
 
 	return response, nil
@@ -186,12 +188,12 @@ func (s *Server) Run() error {
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {
-		log.Infof("Starting GRPC server on port %d", s.port)
+		serverCaLog.Infof("Starting GRPC server on port %d", s.port)
 
 		err := grpcServer.Serve(listener)
 
 		// grpcServer.Serve() always returns a non-nil error.
-		log.Warnf("GRPC server returns an error: %v", err)
+		serverCaLog.Warnf("GRPC server returns an error: %v", err)
 	}()
 
 	return nil
@@ -208,7 +210,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
-	log.Info("added client certificate authenticator")
+	serverCaLog.Info("added client certificate authenticator")
 
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
@@ -216,9 +218,9 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			trustDomain)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
-			log.Info("added K8s JWT authenticator")
+			serverCaLog.Info("added K8s JWT authenticator")
 		} else {
-			log.Warnf("failed to add JWT authenticator: %v", err)
+			serverCaLog.Warnf("failed to add JWT authenticator: %v", err)
 		}
 	}
 
@@ -228,10 +230,10 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	for _, host := range hostlistForJwtAuth {
 		aud := fmt.Sprintf("grpc://%s:%d", host, port)
 		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
-			log.Errorf("failed to create JWT authenticator (error %v)", err)
+			serverCaLog.Errorf("failed to create JWT authenticator (error %v)", err)
 		} else {
 			authenticators = append(authenticators, jwtAuthenticator)
-			log.Infof("added general JWT authenticator")
+			serverCaLog.Infof("added general JWT authenticator")
 		}
 	}
 
@@ -309,11 +311,11 @@ func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
 		}
 		if u != nil && err == nil {
-			log.Debugf("Authentication successful through auth source %v", u.AuthSource)
+			serverCaLog.Debugf("Authentication successful through auth source %v", u.AuthSource)
 			return u
 		}
 	}
-	log.Warnf("Authentication failed: %s", errMsg)
+	serverCaLog.Warnf("Authentication failed: %s", errMsg)
 	return nil
 }
 
