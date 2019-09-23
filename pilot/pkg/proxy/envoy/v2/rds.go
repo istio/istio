@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"fmt"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -57,13 +56,10 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 	// Now validate each route
 	for _, r := range rawRoutes {
 		if err := r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", r.Name, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.modelNode.ID, err, r)
 			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
+			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
 		}
 	}
 	return rawRoutes

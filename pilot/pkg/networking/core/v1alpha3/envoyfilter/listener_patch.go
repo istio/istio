@@ -22,14 +22,25 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/pkg/log"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // ApplyListenerPatches applies patches to LDS output
-func ApplyListenerPatches(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy, push *model.PushContext, listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
+func ApplyListenerPatches(
+	patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	listeners []*xdsapi.Listener,
+	skipAdds bool) (out []*xdsapi.Listener) {
+	defer util.HandleCrash(func() {
+		log.Errorf("listeners patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the listeners generated before to reduce the influence.
+	out = listeners
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	return doListenerListOperation(proxy, patchContext, envoyFilterWrappers, listeners, skipAdds)
