@@ -504,10 +504,10 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			}
 			client.ClearActions()
 
-			if _, err := client.Core().Namespaces().Create(tc.oldNamespace); err != nil {
+			if _, err := client.CoreV1().Namespaces().Create(tc.oldNamespace); err != nil {
 				t.Error(err)
 			}
-			if _, err := client.Core().ServiceAccounts(tc.oldNamespace.GetName()).Create(tc.sa); err != nil {
+			if _, err := client.CoreV1().ServiceAccounts(tc.oldNamespace.GetName()).Create(tc.sa); err != nil {
 				t.Error(err)
 			}
 

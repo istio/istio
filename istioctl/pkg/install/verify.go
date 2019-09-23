@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/resource"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
@@ -39,7 +39,7 @@ var (
 )
 
 func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
-	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions,
+	restClientGetter genericclioptions.RESTClientGetter, options resource.FilenameOptions,
 	writer io.Writer, args []string) error {
 	if len(options.Filenames) == 0 {
 		if len(args) != 0 {
