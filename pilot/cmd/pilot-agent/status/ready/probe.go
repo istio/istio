@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 // Probe for readiness.
@@ -100,7 +101,7 @@ func (p *Probe) isEnvoyReady() error {
 	if se := p.checkServerInfo(); se != nil {
 		return se
 	}
-	if pe := p.pingVirtualListeners(); pe != nil {
+	if pe := p.pingInboundVirtualListener(); pe != nil {
 		return pe
 	}
 	return nil
@@ -121,21 +122,15 @@ func (p *Probe) checkServerInfo() error {
 }
 
 // pingListeners checks to ensure that Envoy is actually listenening on the port.
-func (p *Probe) pingVirtualListeners() error {
+func (p *Probe) pingInboundVirtualListener() error {
 
-	// Check if traffic capture ports are actually listening.
-	vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
+	// Check if Inbound traffic capture ports is actually listening.
+	con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.LocalHostAddr, networking.ProxyInboundListenPort))
 	if err != nil {
-		return err
+		return fmt.Errorf("listener on port %d is still not listening: %v", networking.ProxyInboundListenPort, err)
 	}
-	for _, vport := range vports {
-		con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.LocalHostAddr, vport))
-		if err != nil {
-			return fmt.Errorf("listener on port %d is still not listening: %v", vport, err)
-		}
-		if con != nil {
-			con.Close()
-		}
+	if con != nil {
+		con.Close()
 	}
 
 	return nil
