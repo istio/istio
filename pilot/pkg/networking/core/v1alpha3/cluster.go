@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -74,7 +75,12 @@ var (
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &wrappers.UInt32Value{Value: 1024},
+		MaxRetries: &wrappers.UInt32Value{Value: math.MaxUint32},
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 	}
 
 	defaultDestinationRule = networking.DestinationRule{}
