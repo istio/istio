@@ -39,10 +39,12 @@ const (
 )
 
 var (
-	opts = cliOptions{}
+	enableOpts  = enableCliOptions{}
+	disableOpts = disableCliOptions{}
+	statusOpts  = statusCliOptions{}
 )
 
-type cliOptions struct {
+type enableCliOptions struct {
 	// Whether enable the webhook configuration of Galley
 	enableValidationWebhook bool
 	// Read the webhook CA certificate from local file system
@@ -61,36 +63,59 @@ type cliOptions struct {
 	maxTimeForCheckingWebhookServer int
 }
 
-// Validation command for Galley webhook configuration
+type disableCliOptions struct {
+	// Whether disable the webhook configuration of Galley
+	disableValidationWebhook bool
+	// The name of the ValidatingWebhookConfiguration to manage
+	validatingWebhookConfigName string
+}
+
+type statusCliOptions struct {
+	// Whether display the webhook configuration of Galley
+	validationWebhook bool
+	// The name of the ValidatingWebhookConfiguration to manage
+	validatingWebhookConfigName string
+}
+
+// Webhook command to manage webhook configurations
 func Webhook() *cobra.Command {
-	webhookCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "webhook",
-		Short: "webhook command for manage webhook configurations",
+		Short: "webhook command to manage webhook configurations",
 	}
 
+	cmd.AddCommand(newEnableCmd())
+	cmd.AddCommand(newDisableCmd())
+	cmd.AddCommand(newStatusCmd())
+
+	return cmd
+}
+
+func newEnableCmd() *cobra.Command {
+	opts := &enableOpts
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Enable webhook configurations",
 		Example: `
 # Enable the webhook configuration of Galley
-istioctl experimental webhook enable --validation --namespace istio-system
+istioctl experimental post-install webhook enable --validation --namespace istio-system
 
 # Enable the webhook configuration of Galley with the given webhook configuration
-istioctl experimental webhook enable --validation --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
+istioctl experimental post-install webhook enable --validation --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
 
 # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
-istioctl experimental validation enable --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
+istioctl experimental post-install webhook enable --validation --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
   --ca-cert-path ./k8s-ca-cert.pem --read-ca-cert-from-local-file true
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !opts.enableValidationWebhook {
+				fmt.Println("not enabling validation webhook")
+				return nil
+			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
 				fmt.Printf("err when creating k8s client interface: %v\n", err)
 				return err
-			}
-			if !opts.enableValidationWebhook {
-				fmt.Println("validation webhook is not enabled")
-				return nil
 			}
 			// Read k8s CA certificate that will be used as the CA bundle of the webhook configuration
 			caCert, err := readCACert(client, opts.caCertPath, opts.readCaCertFromLocalFile)
@@ -127,7 +152,6 @@ istioctl experimental validation enable --namespace istio-system --config-path /
 			return nil
 		},
 	}
-	webhookCmd.AddCommand(cmd)
 
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Specifies whether enabling"+
@@ -149,7 +173,88 @@ istioctl experimental validation enable --namespace istio-system --config-path /
 		"	Max time (in seconds) for checking the validating webhook server. If the validating webhook server is not ready"+
 			"in the given time, exit. Otherwise, apply the webhook configuration.")
 
-	return webhookCmd
+	return cmd
+}
+
+func newDisableCmd() *cobra.Command {
+	opts := &disableOpts
+	cmd := &cobra.Command{
+		Use:   "disable",
+		Short: "Disable webhook configurations",
+		Example: `
+# Disable the webhook configuration of Galley
+istioctl experimental post-install webhook disable --validation --config-name istio-galley
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !opts.disableValidationWebhook {
+				fmt.Println("not disabling validation webhook")
+				return nil
+			}
+			client, err := createInterface(kubeconfig)
+			if err != nil {
+				fmt.Printf("err when creating k8s client interface: %v\n", err)
+				return err
+			}
+			err = deleteValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
+			if err != nil {
+				fmt.Printf("error when deleting validatingwebhookconfiguration: %v\n", err)
+				return err
+			}
+			fmt.Printf("validatingwebhookconfiguration %v has been deleted\n", opts.validatingWebhookConfigName)
+			return nil
+		},
+	}
+
+	flags := cmd.Flags()
+	flags.BoolVar(&opts.disableValidationWebhook, "validation", true, "Specifies whether disabling"+
+		"the validating webhook.")
+	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
+		"The name of the ValidatingWebhookConfiguration to disable.")
+
+	return cmd
+}
+
+func newStatusCmd() *cobra.Command {
+	opts := &statusOpts
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Get webhook configurations",
+		Example: `
+# Display the webhook configuration of Galley
+istioctl experimental post-install webhook status --validation --config-name istio-galley
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !opts.validationWebhook {
+				fmt.Println("not displaying validation webhook")
+				return nil
+			}
+			client, err := createInterface(kubeconfig)
+			if err != nil {
+				fmt.Printf("err when creating k8s client interface: %v\n", err)
+				return err
+			}
+			config, err := getValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
+			if err != nil {
+				fmt.Printf("error getting validatingwebhookconfiguration: %v\n", err)
+				return err
+			}
+			b, err := yaml.Marshal(config)
+			if err != nil {
+				fmt.Printf("error when marshaling validatingwebhookconfiguration to yaml: %v\n", err)
+				return err
+			}
+			fmt.Printf("validatingwebhookconfiguration %v is:\n%v\n", opts.validatingWebhookConfigName, string(b))
+			return nil
+		},
+	}
+
+	flags := cmd.Flags()
+	flags.BoolVar(&opts.validationWebhook, "validation", true, "Specifies whether displaying"+
+		"the validating webhook configuration.")
+	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
+		"The name of the ValidatingWebhookConfiguration to display.")
+
+	return cmd
 }
 
 // Create the validatingwebhookconfiguration
@@ -170,6 +275,19 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 		whConfig, err = client.Create(config)
 	}
 	return whConfig, err
+}
+
+// Delete the validatingwebhookconfiguration
+func deleteValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) error {
+	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+	err := client.Delete(name, &metav1.DeleteOptions{})
+	return err
+}
+
+// Get the validatingwebhookconfiguration
+func getValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+	return client.Get(name, metav1.GetOptions{})
 }
 
 // Read CA certificate and check whether it is a valid certificate.
