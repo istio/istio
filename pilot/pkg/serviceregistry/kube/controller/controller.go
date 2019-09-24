@@ -319,24 +319,26 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 
 // GetPodLocality retrieves the locality for a pod.
 func (c *Controller) GetPodLocality(pod *v1.Pod) string {
+	// if pod has `istio-locality` label, skip below ops
+	if len(pod.Labels[model.LocalityLabel]) > 0 {
+		return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], "")
+	}
+
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		return ""
 	}
 
-	locality := ""
-	if node != nil {
-		region := node.(*v1.Node).Labels[NodeRegionLabel]
-		zone := node.(*v1.Node).Labels[NodeZoneLabel]
-		if region == "" && zone == "" {
-			return ""
-		}
-		locality = fmt.Sprintf("%v/%v", region, zone)
+	region := node.(*v1.Node).Labels[NodeRegionLabel]
+	zone := node.(*v1.Node).Labels[NodeZoneLabel]
+	if region == "" && zone == "" {
+		return ""
 	}
 
-	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
+	return fmt.Sprintf("%v/%v", region, zone)
 }
 
 // ManagementPorts implements a service catalog operation
