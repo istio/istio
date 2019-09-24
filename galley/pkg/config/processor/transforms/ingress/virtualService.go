@@ -82,7 +82,7 @@ func (g *virtualServiceXform) stop() {
 
 // Handle implements event.Handler
 func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
-	if g.options.MeshConfig.IngressControllerMode == meshconfig.MeshConfig_OFF {
+	if g.options.MeshConfig.IngressControllerMode == meshconfig.MeshConfig_OFF || e.Kind == event.Disabled {
 		// short circuit and return
 		return
 	}

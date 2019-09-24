@@ -133,6 +133,13 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 			r.Disabled = true
 		}
 
+		// DEBUG: Manually disable some resources (simulating service discovery off)
+		if r.Collection.Name.String() == "k8s/core/v1/services" ||
+			r.Collection.Name.String() == "k8s/extensions/v1beta1/ingresses" {
+			scope.Analysis.Errorf("CRWILSON_DEBUG0a: Manually disabling resource %q", r.Collection.Name)
+			r.Disabled = true
+		}
+
 		filteredResources = append(filteredResources, r)
 	}
 

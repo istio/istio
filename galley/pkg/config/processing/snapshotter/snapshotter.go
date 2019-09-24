@@ -86,8 +86,12 @@ func (a *accumulator) Handle(e event.Event) {
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
 		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
 
+	case event.Disabled:
+		a.collection.Disable()
+
 	case event.FullSync:
 		a.syncCount++
+
 	default:
 		panic(fmt.Errorf("accumulator.Handle: unhandled event type: %v", e.Kind))
 	}

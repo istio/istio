@@ -179,3 +179,8 @@ func (c *context) Canceled() bool {
 		return false
 	}
 }
+
+// Disabled implements analysis.Context
+func (c *context) Disabled(col collection.Name) bool {
+	return c.sn.set.Collection(col).Disabled()
+}

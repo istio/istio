@@ -77,11 +77,16 @@ func (e Event) String() string {
 	switch e.Kind {
 	case Added, Updated, Deleted:
 		return fmt.Sprintf("[Event](%s: %v/%v)", e.Kind.String(), e.Source, e.Entry.Metadata.Name)
-	case FullSync:
+	case FullSync, Disabled:
 		return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.Source)
 	default:
 		return fmt.Sprintf("[Event](%s)", e.Kind.String())
 	}
+}
+
+// DisabledFor creates a Disabled event for the given source.
+func DisabledFor(source collection.Name) Event {
+	return Event{Kind: Disabled, Source: source}
 }
 
 // FullSyncFor creates a FullSync event for the given source.

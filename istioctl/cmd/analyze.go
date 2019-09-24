@@ -52,8 +52,8 @@ istioctl experimental analyze -k a.yaml b.yaml
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// These scopes are pretty verbose at the default log level and significantly clutter terminal output,
 			// so we adjust them here to avoid that.
-			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
-			loggingOptions.SetOutputLevel("source", log.ErrorLevel)
+			loggingOptions.SetOutputLevel("processing", log.DebugLevel)
+			loggingOptions.SetOutputLevel("source", log.DebugLevel)
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}

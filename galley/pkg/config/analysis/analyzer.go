@@ -49,7 +49,16 @@ func (c *combinedAnalyzers) Metadata() Metadata {
 
 // Analyze implements Analyzer
 func (c *combinedAnalyzers) Analyze(ctx Context) {
+mainloop:
 	for _, a := range c.analyzers {
+		// Skip over any analyzers that require disabled input
+		for _, in := range a.Metadata().Inputs {
+			if ctx.Disabled(in) {
+				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled...", a.Metadata().Name, in)
+				continue mainloop
+			}
+		}
+
 		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
 		if ctx.Canceled() {
 			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)

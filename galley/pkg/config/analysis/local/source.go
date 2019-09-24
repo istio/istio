@@ -63,6 +63,8 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 		ph.handleEvent(e)
 	case event.FullSync:
 		ph.handleFullSync(e)
+	case event.Disabled:
+		ph.src.handler.Handle(e)
 	default:
 		ph.src.handler.Handle(e)
 	}

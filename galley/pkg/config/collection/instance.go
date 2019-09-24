@@ -31,6 +31,7 @@ type Instance struct {
 	generation  int64
 	entries     map[resource.Name]*resource.Entry
 	copyOnWrite bool
+	disabled    bool
 }
 
 // New returns a new collection.Instance
@@ -123,5 +124,16 @@ func (c *Instance) Clone() *Instance {
 		generation:  c.generation,
 		entries:     c.entries,
 		copyOnWrite: true,
+		disabled:    c.disabled,
 	}
+}
+
+// Disable marks the collection instance as disabled.
+func (c *Instance) Disable() {
+	c.disabled = true
+}
+
+// Disabled reports if the collection instance is marked as disabled.
+func (c *Instance) Disabled() bool {
+	return c.disabled
 }
