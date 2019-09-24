@@ -324,15 +324,18 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
-		return ""
 	}
 
-	region := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone := node.(*v1.Node).Labels[NodeZoneLabel]
-	if region == "" && zone == "" {
-		return ""
+	locality := ""
+	if node != nil {
+		region := node.(*v1.Node).Labels[NodeRegionLabel]
+		zone := node.(*v1.Node).Labels[NodeZoneLabel]
+		if region == "" && zone == "" {
+			return ""
+		}
+		locality = fmt.Sprintf("%v/%v", region, zone)
 	}
-	locality := fmt.Sprintf("%v/%v", region, zone)
+
 	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
 }
 
@@ -497,7 +500,6 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	proxyNamespace := ""
-
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -522,6 +524,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 				return out, nil
 			}
+
 		}
 
 		// 2. The pod is not present when this is called

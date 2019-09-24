@@ -173,7 +173,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
-	c, _ := newFakeController(t)
+	c, fx := newFakeController(t)
 	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
 	f := podCache.event
@@ -184,6 +184,10 @@ func TestPodCacheEvents(t *testing.T) {
 	if err := f(&v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {
 		t.Error(err)
 	}
+
+	// The first time pod occur
+	fx.Wait("xds")
+
 	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
