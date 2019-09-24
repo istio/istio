@@ -330,7 +330,7 @@ func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 	return out
 }
 
-func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[string]string) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
@@ -353,13 +353,13 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[st
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
-		base := meta[features.BaseDir] + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+constants.RootCertFilename)
+		base := meta.SdsBase + constants.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefault(meta.TLSServerRootCert, base+constants.RootCertFilename)
 
 		tls.CommonTlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
-		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+constants.KeyFilename)
+		tlsServerCertChain := model.GetOrDefault(meta.TLSServerCertChain, base+constants.CertChainFilename)
+		tlsServerKey := model.GetOrDefault(meta.TLSServerKey, base+constants.KeyFilename)
 
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{

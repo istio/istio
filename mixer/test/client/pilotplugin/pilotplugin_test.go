@@ -354,9 +354,7 @@ var (
 			ID:           "pod1.ns2",
 			Type:         model.SidecarProxy,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
-			Metadata: map[string]string{
-				model.NodeMetadataMeshID: "helloworld",
-			},
+			Metadata:     &model.NodeMetadata{MeshID: "helloworld"},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -368,9 +366,7 @@ var (
 			ID:           "pod2.ns2",
 			Type:         model.SidecarProxy,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
-			Metadata: map[string]string{
-				model.NodeMetadataMeshID: "helloworld",
-			},
+			Metadata:     &model.NodeMetadata{MeshID: "helloworld"},
 		},
 		Service: &svc,
 		Push:    &pushContext,

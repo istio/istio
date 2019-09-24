@@ -58,7 +58,7 @@ import (
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
-	role             = &model.Proxy{Metadata: map[string]string{}}
+	role             = &model.Proxy{}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	trustDomain      string

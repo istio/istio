@@ -572,7 +572,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.enableIngressSdsAgent, tc.sdsPath, nil)
+		ret := buildGatewayListenerTLSContext(tc.server, tc.enableIngressSdsAgent, tc.sdsPath, &pilot_model.NodeMetadata{})
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
@@ -590,9 +590,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 		{
 			name: "HTTP1.0 mode enabled",
 			node: &pilot_model.Proxy{
-				Metadata: map[string]string{
-					pilot_model.NodeMetadataHTTP10: "1",
-				},
+				Metadata: &pilot_model.NodeMetadata{HTTP10: "1"},
 			},
 			server: &networking.Server{
 				Port: &networking.Port{},
@@ -623,7 +621,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 		},
 		{
 			name: "Duplicate hosts in TLS filterChain",
-			node: &pilot_model.Proxy{},
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
 			server: &networking.Server{
 				Port: &networking.Port{
 					Protocol: "HTTPS",
@@ -685,7 +683,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 		},
 		{
 			name: "Unique hosts in TLS filterChain",
-			node: &pilot_model.Proxy{},
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
 			server: &networking.Server{
 				Port: &networking.Port{
 					Protocol: "HTTPS",
@@ -747,7 +745,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 		},
 		{
 			name: "Wildcard hosts in TLS filterChain are not duplicates",
-			node: &pilot_model.Proxy{},
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
 			server: &networking.Server{
 				Port: &networking.Port{
 					Protocol: "HTTPS",
