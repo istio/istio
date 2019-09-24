@@ -34,6 +34,7 @@ var (
 	goodStats      = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
 	liveServerInfo = &admin.ServerInfo{State: admin.ServerInfo_LIVE}
 	initServerInfo = &admin.ServerInfo{State: admin.ServerInfo_INITIALIZING}
+	emptyListeners = &admin.Listeners{}
 	listeners      = admin.Listeners{
 		ListenerStatuses: []*admin.ListenerStatus{
 			{
@@ -59,10 +60,6 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
-
-	// Listen on Virtual Listener port.
-	l, _ := net.Listen("tcp", ":15006")
-	defer l.Close()
 
 	err := probe.Check()
 
@@ -105,10 +102,6 @@ func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 
-	// Listen on Virtual Listener port.
-	l, _ := net.Listen("tcp", ":15006")
-	defer l.Close()
-
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -121,10 +114,6 @@ func TestEnvoyStatsCompleteAndRejectedLDS(t *testing.T) {
 	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
-
-	// Listen on Virtual Listener port.
-	l, _ := net.Listen("tcp", ":15006")
-	defer l.Close()
 
 	err := probe.Check()
 
@@ -172,11 +161,6 @@ func TestEnvoyCheckSucceedsIfStatsCleared(t *testing.T) {
 
 	// trigger the state change
 	server = createAndStartServer(goodStats, liveServerInfo)
-
-	// Listen on Virtual Listener port.
-	l, _ := net.Listen("tcp", ":15006")
-	defer l.Close()
-
 	err = probe.Check()
 	server.Close()
 	g.Expect(err).NotTo(HaveOccurred())
@@ -246,6 +230,13 @@ func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[st
 
 			// Send response to be tested
 			rw.Write([]byte(infoJSON))
+		},
+		"/listeners": func(rw http.ResponseWriter, _ *http.Request) {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			listenerJSON, _ := jsonm.MarshalToString(emptyListeners)
+
+			// Send response to be tested
+			rw.Write([]byte(listenerJSON))
 		},
 	}
 }
