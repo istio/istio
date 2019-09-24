@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/galley/pkg/config/source/kube/util"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -102,7 +102,7 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := p.disableExcludedKubeResources(m)
+	kubeResources := util.DisableExcludedKubeResources(m.KubeSource().Resources(), p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
@@ -222,36 +222,6 @@ func (p *Processing2) Start() (err error) {
 	return nil
 }
 
-func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-
-	// Behave in the same way as existing logic:
-	// - Builtin types are excluded by default.
-	// - If ServiceDiscovery is enabled, any built-in type should be readded.
-
-	var result schema.KubeResources
-	for _, r := range m.KubeSource().Resources() {
-
-		if p.isKindExcluded(r.Kind) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			r.Disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if p.args.EnableServiceDiscovery {
-				// IsBuiltIn is a proxy for types needed for service discovery
-				a := rt.DefaultProvider().GetAdapter(r)
-				if a.IsBuiltIn() {
-					// This is needed for service discovery. Re-enable.
-					r.Disabled = false
-				}
-			}
-		}
-
-		result = append(result, r)
-	}
-
-	return result
-}
-
 // ConfigZTopic returns the ConfigZTopic for the processor.
 func (p *Processing2) ConfigZTopic() fw.Topic {
 	return p.configzTopic
@@ -324,16 +294,6 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 		updater = s
 	}
 	return
-}
-
-func (p *Processing2) isKindExcluded(kind string) bool {
-	for _, excludedKind := range p.args.ExcludedResourceKinds {
-		if kind == excludedKind {
-			return true
-		}
-	}
-
-	return false
 }
 
 // Stop implements process.Component

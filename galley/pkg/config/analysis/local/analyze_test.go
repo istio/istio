@@ -60,7 +60,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil, false)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -84,7 +84,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), a, cr)
+	sa := NewSourceAnalyzer(metadata.MustGet(), a, cr, false)
 	err := sa.AddFileKubeSource([]string{}, "")
 	g.Expect(err).To(BeNil())
 
@@ -99,7 +99,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil, false)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.sources).To(HaveLen(1))
@@ -108,7 +108,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddFileKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankTestAnalyzer, nil, false)
 
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -147,7 +147,7 @@ func TestResourceFiltering(t *testing.T) {
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), dummyAnalyzer, nil)
+	sa := NewSourceAnalyzer(metadata.MustGet(), dummyAnalyzer, nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled

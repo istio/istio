@@ -33,6 +33,8 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/galley/pkg/config/source/kube/util"
+	"istio.io/istio/galley/pkg/server/settings"
 )
 
 const domainSuffix = "svc.local"
@@ -53,12 +55,17 @@ type SourceAnalyzer struct {
 	// Derived from the specified analyzer and transformer providers
 	inputCollections map[collection.Name]struct{}
 
+	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
+
+	// If true, perform service discovery
+	// If this is false, analyzers that depend on service discovery will be skipped
+	serviceDiscovery bool
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -73,6 +80,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapsh
 		transformerProviders: transformerProviders,
 		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
 		collectionReporter:   cr,
+		serviceDiscovery:     serviceDiscovery,
 	}
 }
 
@@ -123,23 +131,19 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) er
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
-	// As an optimization, filter out the resources we won't need for the current analysis.
+	// Disable excluded resource kinds, respecting whether service discovery is enabled
+	args := settings.DefaultArgs()
+	withExcludedResources := util.DisableExcludedKubeResources(sa.m.KubeSource().Resources(), args.ExcludedResourceKinds, sa.serviceDiscovery)
+
+	// As an optimization, additionally filter out the resources we won't need for the current analysis.
 	// This matters because getting a snapshot from k8s is relatively time-expensive,
 	// so removing unnecessary resources makes a useful difference.
 	filteredResources := make([]schema.KubeResource, 0)
-	for _, r := range sa.m.KubeSource().Resources() {
+	for _, r := range withExcludedResources {
 		if _, ok := sa.inputCollections[r.Collection.Name]; !ok {
 			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
 			r.Disabled = true
 		}
-
-		// DEBUG: Manually disable some resources (simulating service discovery off)
-		if r.Collection.Name.String() == "k8s/core/v1/services" ||
-			r.Collection.Name.String() == "k8s/extensions/v1beta1/ingresses" {
-			scope.Analysis.Errorf("CRWILSON_DEBUG0a: Manually disabling resource %q", r.Collection.Name)
-			r.Disabled = true
-		}
-
 		filteredResources = append(filteredResources, r)
 	}
 

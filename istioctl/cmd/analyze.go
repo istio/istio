@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -29,7 +30,8 @@ import (
 )
 
 var (
-	useKube bool
+	useKube      bool
+	useDiscovery string
 )
 
 // Analyze command
@@ -64,7 +66,12 @@ istioctl experimental analyze -k a.yaml b.yaml
 			}
 			cancel := make(chan struct{})
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil)
+			sd, err := serviceDiscovery()
+			if err != nil {
+				return err
+			}
+
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil, sd)
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
@@ -123,6 +130,8 @@ istioctl experimental analyze -k a.yaml b.yaml
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live kubernetes cluster for analysis")
+	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
+		"'true' or 'false' explicitly enables/disables service discovery. Otherwise, default to enabled if use-kube is set")
 
 	return analysisCmd
 }
@@ -136,4 +145,17 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
+}
+
+func serviceDiscovery() (bool, error) {
+	switch strings.ToLower(useDiscovery) {
+	case "":
+		return useKube, nil
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("Invalid argument value for discovery")
+	}
 }
