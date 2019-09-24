@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/pkg/log"
 	"net/http"
-	"os"
 	"os/exec"
 )
 
@@ -31,12 +30,8 @@ import (
 type Level int
 
 const (
-	// NoneLevel disables logging
-	NoneLevel Level = iota
-	// FatalLevel enables fatal level logging
-	FatalLevel
 	// ErrorLevel enables error level logging
-	ErrorLevel
+	ErrorLevel Level = iota
 	// WarnLevel enables warn level logging
 	WarnLevel
 	// InfoLevel enables info level logging
@@ -68,7 +63,7 @@ func pod() *cobra.Command {
 	podCmd := &cobra.Command{
 		Use:     "pod",
 		Aliases: []string{"p"},
-		Short:   "Get logs from istio-proxy of pod",
+		Short:   "Update log level of istio-proxy in the specified pod, and get logs stream by optional.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
@@ -106,10 +101,9 @@ func pod() *cobra.Command {
 				return fmt.Errorf("failure running port forward process: %v", err)
 			}
 
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update log level of pod %s to %v", podName, logLevel)
 			if follow {
-				execCommand("kubectl", "logs", "-f", podName, "-c", "istio-proxy")
-			} else {
-				execCommand("kubectl", "logs", podName, "-c", "istio-proxy")
+				execCommand("kubectl", cmd.OutOrStdout(), cmd.OutOrStderr(), "logs", "-f", podName, "-c", "istio-proxy")
 			}
 			return nil
 		},
@@ -128,14 +122,14 @@ func pod() *cobra.Command {
 	return podCmd
 }
 
-func execCommand(name string, arg ...string) {
+func execCommand(name string, Stdout io.Writer, Stderr io.Writer, arg ...string) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd := exec.Command(name, arg...)
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()
 	var errStdout, errStderr error
-	stdout := io.MultiWriter(os.Stdout, &stdoutBuf)
-	stderr := io.MultiWriter(os.Stderr, &stderrBuf)
+	stdout := io.MultiWriter(Stdout, &stdoutBuf)
+	stderr := io.MultiWriter(Stderr, &stderrBuf)
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("cmd.Start() failed with '%s'\n", err)
