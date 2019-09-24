@@ -626,6 +626,11 @@ func TestWebhookInject(t *testing.T) {
 			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
 		},
 		{
+			inputFile:    "TestWebhookInject_injectorAnnotations.yaml",
+			wantFile:     "TestWebhookInject_injectorAnnotations.patch",
+			templateFile: "TestWebhookInject_injectorAnnotations_template.yaml",
+		},
+		{
 			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
 			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
 		},
@@ -829,7 +834,7 @@ func TestHelmInject(t *testing.T) {
 	}
 }
 
-func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
+func createTestWebhook(t testing.TB, configYaml string) (*Webhook, func()) {
 	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
@@ -838,12 +843,12 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
-
+	config := &Config{}
+	if err := yaml.Unmarshal([]byte(configYaml), config); err != nil {
+		t.Fatalf("failed to read webhook config: %v", err)
+	}
 	return &Webhook{
-		sidecarConfig: &Config{
-			Policy:   InjectionPolicyEnabled,
-			Template: sidecarTemplate,
-		},
+		sidecarConfig:          config,
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &m,
 		valuesConfig:           getValuesWithHelm(nil, t),
@@ -862,11 +867,6 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	// variables and generating a new configmap for use by the injection logic.
 	sidecarTemplate := loadConfigMapWithHelm(nil, t)
 	return createTestWebhook(t, sidecarTemplate)
-}
-
-type configMapBody struct {
-	Policy   string `yaml:"policy"`
-	Template string `yaml:"template"`
 }
 
 func loadSidecarTemplate(t testing.TB) string {
@@ -945,13 +945,7 @@ func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 		t.Fatal("ConfigMap yaml missing config field")
 	}
 
-	body := &configMapBody{}
-	err = yaml.Unmarshal([]byte(cfg), body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return body.Template
+	return cfg
 }
 
 func getHelmValues(t testing.TB) string {
@@ -1497,7 +1491,7 @@ func TestRunAndServe(t *testing.T) {
 			}
 
 			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got %v \n want %v", gotPatch, wantPatch)
+				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}
