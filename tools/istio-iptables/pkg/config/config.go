@@ -24,6 +24,8 @@ import (
 
 // Command line options
 type Config struct {
+	DryRun                  bool   `json:"DRY_RUN"`
+	Clean                   bool   `json:"CLEAN"`
 	ProxyPort               string `json:"PROXY_PORT"`
 	InboundCapturePort      string `json:"INBOUND_CAPTURE_PORT"`
 	ProxyUID                string `json:"PROXY_UID"`
@@ -37,9 +39,7 @@ type Config struct {
 	OutboundIPRangesInclude string `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
-	DryRun                  bool   `json:"DRY_RUN"`
 	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
-	Clean                   bool   `json:"CLEAN"`
 }
 
 func (c *Config) String() string {
