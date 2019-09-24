@@ -47,6 +47,12 @@ import (
 	"istio.io/pkg/version"
 )
 
+const (
+	selfSignedCaCertTtl	= "SELF_SIGNED_CA_CERT_TTL"
+	selfSignedCaCheckInterval = "SELF_SIGNED_CA_CHECK_INTERVAL"
+	workloadCertMinGracePeriod = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
+)
+
 type cliOptions struct { // nolint: maligned
 	// Comma separated string containing all listened namespaces
 	listenedNamespaces        string
@@ -120,6 +126,18 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
+		selfSignedCACertTTL:  env.RegisterDurationVar(selfSignedCaCertTtl,
+			cmd.DefaultSelfSignedCACertTTL,
+			"The TTL of self-signed CA root certificate.").Get(),
+		selfSignedCACheckInternal:  env.RegisterDurationVar(selfSignedCaCheckInterval,
+			cmd.DefaultSelfSignedCACertCheckInterval,
+			"The interval that self-signed CA checks its root certificate " +
+			"expiration time and rotates root certificate. Should not be shorter than " +
+			"one minute. Setting this interval to zero or a negative value disables " +
+			"automated root cert check and upgrade.").Get(),
+		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
+			cmd.DefaultWorkloadMinCertGracePeriod,
+			"The minimum workload certificate rotation grace period.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -190,12 +208,6 @@ func initCLI() {
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
-	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
-		"The TTL of self-signed CA root certificate.")
-	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
-		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
-			"Should not be shorter than two minutes. Setting this interval to zero or a negative value disables " +
-		"automated root cert check and upgrade.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -214,8 +226,6 @@ func initCLI() {
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
-	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
-		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
@@ -481,8 +491,8 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 	// automatically.
 	if opts.selfSignedCA {
 		if opts.selfSignedCACheckInternal > 0 {
-			if opts.selfSignedCACheckInternal < 2*time.Minute {
-				opts.selfSignedCACheckInternal = 2 * time.Minute
+			if opts.selfSignedCACheckInternal < 1*time.Minute {
+				opts.selfSignedCACheckInternal = 1 * time.Minute
 			}
 			config := &ca.SelfSignedCARootCertRotationConfig{
 				opts.selfSignedCACheckInternal,

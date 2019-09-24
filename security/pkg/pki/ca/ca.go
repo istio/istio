@@ -413,7 +413,7 @@ func (ca *IstioCA) checkAndRotateRootCert(config *SelfSignedCARootCertRotationCo
 // loadCASecretWithRetry lets the self-signed Citadel read CA secret with retries until
 // timeout.
 func (cs *IstioCA) loadCASecretWithRetry(config *SelfSignedCARootCertRotationConfig) (*v1.Secret, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.CheckInterval/4)
+	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
 	caSecret, scrtErr := config.Client.Secrets(config.CaStorageNamespace).Get(CASecret, metav1.GetOptions{})
@@ -601,7 +601,7 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 // updateCertInConfigmapWithRetry lets the self-signed Citadel update root cert
 // in config map with retries until timeout.
 func updateCACertInConfigmapWithRetry(config *SelfSignedCARootCertRotationConfig, cert []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), config.CheckInterval/4)
+	ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer cancel()
 
 	err := updateCertInConfigmap(config.CaStorageNamespace, config.Client, cert)

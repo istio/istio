@@ -15,20 +15,26 @@
 package citadel_root_cert_auto_upgrade
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/mixer"
-	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/security/pkg/pki/util"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
+)
+
+const(
+	CASecret = "istio-ca-secret"
+	caCertID = "ca-cert.pem"
 )
 
 func TestCitadelRootCertUpgrade(t *testing.T) {
@@ -37,43 +43,78 @@ func TestCitadelRootCertUpgrade(t *testing.T) {
 			Run(func(ctx framework.TestContext) {
 				istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-				v := mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
-				t.Logf("1: metrics value for citadel_root_cert_upgrade_count: %s", v)
-				time.Sleep(90 * time.Second)
-
-				v = mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
-				t.Logf("2: metrics value for citadel_root_cert_upgrade_count: %s", v)
-				time.Sleep(90 * time.Second)
-
-				v = mixer.PromDump(prom, "citadel_root_cert_upgrade_count")
-				t.Logf("3: metrics value for citadel_root_cert_upgrade_count: %s", v)
-
-				namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-				ns := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix: "sds-citadel-flow",
-					Inject: true,
-				})
-
-				var a, b echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-					With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-					BuildOrFail(t)
-
-				checkers := []connection.Checker{
-					{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   b,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-						ExpectSuccess: true,
-					},
+				// Get initial root cert.
+				kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+				systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+				caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("unable to load root secret: %s", err.Error())
 				}
 
-				for _, checker := range checkers {
-					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+				// Get initial root cert upgrade count.
+				last_root_cert_upgrade_count := 0
+				query := fmt.Sprintf("sum(citadel_root_cert_upgrade_count)")
+				v, err := getMetric(t, prom, query)
+				if err == nil {
+					last_root_cert_upgrade_count = int(v)
+				} else {
+					// If root cert is not upgrade, metric is not available. The error is
+					// acceptable.
+					t.Logf("unable to get value for metric citadel_root_cert_upgrade_count: %s", err.Error())
+				}
+
+				for i := 0; i < 2; i++ {
+					// Wait for the next round of root cert upgrade
+					time.Sleep(90 * time.Second)
+					newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+					if err != nil {
+						t.Fatalf("unable to load root secret: %s", err.Error())
+					}
+					v, err = getMetric(t, prom, query)
+					if err == nil {
+						verifyRootUpgrade(t, last_root_cert_upgrade_count, int(v), caScrt, newCaScrt)
+						last_root_cert_upgrade_count = int(v)
+						caScrt = newCaScrt
+					} else {
+						t.Fatalf("unable to get value for metric citadel_root_cert_upgrade_count: %s", err.Error())
+					}
 				}
 			})
+}
+
+// getMetric queries Prometheus server for metric, and returns value of the
+// metric, or error if metric is not found.
+func getMetric(t *testing.T, prometheus prometheus.Instance, query string) (int, error) {
+	t.Helper()
+
+	t.Logf("prometheus query: %s", query)
+	value, err := prometheus.WaitForQuiesce(query)
+	if err != nil {
+		return 0, fmt.Errorf("could not get metrics from prometheus: %v", err)
+	}
+
+	got, err := prometheus.Sum(value, nil)
+	if err != nil {
+		t.Logf("value: %s", value.String())
+		return 0, fmt.Errorf("could not find metric value: %v", err)
+	}
+
+	return int(got), nil
+}
+
+func verifyRootUpgrade(t *testing.T, lastCount, newCount int, lastScrt, newScrt *v1.Secret) {
+	lastCount++
+	if lastCount > newCount {
+		t.Errorf("root upgrade count does not match, expected %d but got %d", lastCount, newCount)
+	}
+	if lastScrt == nil || newScrt == nil {
+		t.Errorf("root secret is nil")
+	}
+	if bytes.Equal(lastScrt.Data[caCertID], newScrt.Data[caCertID]) {
+		t.Errorf("new root cert and old root cert should be different")
+	}
+	cert, _ := util.ParsePemEncodedCertificate(newScrt.Data[caCertID])
+	timeToExpire := cert.NotAfter
+	t.Logf("verified that root cert is upgraded successfully, " +
+		"citadel_root_cert_upgrade_count %d, ca cert expiration time %v", newCount, timeToExpire.String())
 }

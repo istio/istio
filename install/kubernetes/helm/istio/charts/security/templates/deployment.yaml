@@ -56,12 +56,6 @@ spec:
             - --monitoring-port={{ .Values.global.monitoringPort }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
-          {{- if .Values.selfSignedCACertTTL }}
-            - --self-signed-ca-cert-ttl={{ .Values.selfSignedCACertTTL }}
-          {{- end }}
-          {{- if .Values.selfSignedCACheckInternal }}
-            - --self-signed-ca-check-interval={{ .Values.selfSignedCACheckInternal }}
-          {{- end }}
           {{- else }}
             - --self-signed-ca=false
             - --signing-cert=/etc/cacerts/ca-cert.pem
@@ -74,9 +68,6 @@ spec:
           {{- end }}
           {{- if .Values.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.workloadCertTtl }}
-          {{- if .Values.workloadCertMinGracePeriod }}
-            - --workload-cert-min-grace-period={{ .Values.workloadCertMinGracePeriod }}
-          {{- end }}
           {{- end }}
           {{- if .Values.citadelHealthCheck }}
             - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
@@ -96,6 +87,12 @@ spec:
               - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
             initialDelaySeconds: 60
             periodSeconds: 60
+          {{- end }}
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
           {{- end }}
           resources:
 {{- if .Values.resources }}

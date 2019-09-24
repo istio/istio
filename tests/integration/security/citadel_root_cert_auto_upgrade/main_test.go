@@ -63,9 +63,9 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["security.selfSignedCACertTTL"] = "2m30s"
+	cfg.Values["security.env.SELF_SIGNED_CA_CERT_TTL"] = "2m30s"
 	cfg.Values["security.workloadCertTtl"] = "2m"
-	cfg.Values["security.workloadCertMinGracePeriod"] = "1m"
-	cfg.Values["security.selfSignedCACheckInternal"] = "2m"
+	cfg.Values["security.env.WORKLOAD_CERT_MIN_GRACE_PERIOD"] = "1m"
+	cfg.Values["security.env.SELF_SIGNED_CA_CHECK_INTERVAL"] = "2m"
 	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
 }
