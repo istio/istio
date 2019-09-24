@@ -17,13 +17,14 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io"
+	"net/http"
+	"os/exec"
+
+	"github.com/spf13/cobra"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/pkg/log"
-	"net/http"
-	"os/exec"
 )
 
 // Level is an enumeration of all supported log levels.
@@ -131,14 +132,14 @@ func pod() *cobra.Command {
 	return podCmd
 }
 
-func execCommand(name string, Stdout io.Writer, Stderr io.Writer, arg ...string) {
+func execCommand(name string, cmdStdout io.Writer, cmdStderr io.Writer, arg ...string) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd := exec.Command(name, arg...)
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()
 	var errStdout, errStderr error
-	stdout := io.MultiWriter(Stdout, &stdoutBuf)
-	stderr := io.MultiWriter(Stderr, &stderrBuf)
+	stdout := io.MultiWriter(cmdStdout, &stdoutBuf)
+	stderr := io.MultiWriter(cmdStderr, &stderrBuf)
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("cmd.Start() failed with '%s'\n", err)

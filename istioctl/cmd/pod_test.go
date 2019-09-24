@@ -24,7 +24,7 @@ import (
 )
 
 func TestPod(t *testing.T) {
-	clientExecFactory = mockExecClientDashboard
+	clientExecFactory = mockExecClientPod
 
 	cases := []testCase{
 		{ // case 0
