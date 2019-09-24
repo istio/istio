@@ -75,7 +75,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			clusterIndex: 0,
 		}, {
 			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 1,
+			clusterIndex: 3,
 		},
 	}
 	settings := []*networking.ConnectionPoolSettings{
@@ -803,7 +803,7 @@ func TestStatNamePattern(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(clusters[1].AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestSidecarLocalityLB(t *testing.T) {
@@ -931,7 +931,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for i := 0; i < 2; i++ {
+	for _, i := range []int{0, 3} {
 		cluster := clusters[i]
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
@@ -977,7 +977,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for i := 0; i < 2; i++ {
+	for _, i := range []int{0, 3} {
 		if clusters[i].CommonLbConfig == nil {
 			t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[i])
 		}

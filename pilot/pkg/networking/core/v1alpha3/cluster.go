@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/bootstrap/auth"
 	"strconv"
 	"strings"
 
