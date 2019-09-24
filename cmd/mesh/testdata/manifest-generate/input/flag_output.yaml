@@ -1,18 +1,18 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  defaultNamespace: istio-system
+  defaultNamespace: cp
   trafficManagement:
-    enabled: true
+    enabled: false
   policy:
-    enabled: true
+    enabled: false
   telemetry:
-    enabled: true
+    enabled: false
   security:
-    enabled: true
+    enabled: false
   configManagement:
-    enabled: true
+    enabled: false
   autoInjection:
-    enabled: true
+    enabled: false
   gateways:
-    enabled: true
+    enabled: false
