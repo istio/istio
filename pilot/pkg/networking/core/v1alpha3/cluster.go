@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/bootstrap/auth"
 	"strconv"
 	"strings"
 
@@ -96,9 +97,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
+	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for these two clusters.
+	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
+
 	switch proxy.Type {
 	case model.SidecarProxy:
-		// apply load balancer setting fot cluster endpoints
+		// apply load balancer setting for cluster endpoints
 		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
@@ -118,15 +123,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
-		// apply load balancer setting fot cluster endpoints
+		// apply load balancer setting for cluster endpoints
 		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
 		clusters = outboundClusters
 	}
-
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 
 	clusters = normalizeClusters(push, proxy, clusters)
 
