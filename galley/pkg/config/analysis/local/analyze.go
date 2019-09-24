@@ -51,16 +51,12 @@ type SourceAnalyzer struct {
 	analyzer             analysis.Analyzer
 	transformerProviders transformer.Providers
 
-	// Which collections are used by this analysis
-	// Derived from the specified analyzer and transformer providers
-	inputCollections map[collection.Name]struct{}
+	// Which kube resources are used by this analysis
+	// Derived from metadata and the specified analyzer and transformer providers
+	kubeResources schema.KubeResources
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
-
-	// If true, perform service discovery
-	// If this is false, analyzers that depend on service discovery will be skipped
-	serviceDiscovery bool
 }
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -73,14 +69,16 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapsh
 
 	transformerProviders := transforms.Providers(m)
 
+	// Get the closure of all input collections for our analyzer, paying attention to transforms
+	inputCollections := getUpstreamCollections(analyzer, transformerProviders)
+
 	return &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
-		inputCollections:     getUpstreamCollections(analyzer, transformerProviders),
+		kubeResources:        filteredKubeResources(m, inputCollections, serviceDiscovery),
 		collectionReporter:   cr,
-		serviceDiscovery:     serviceDiscovery,
 	}
 }
 
@@ -112,7 +110,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
-	src := inmemory.NewKubeSource(sa.m.KubeSource().Resources())
+	//TODO: How to make this pay attention to Disabled?
+	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(defaultNs)
 
 	for _, file := range files {
@@ -131,29 +130,32 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) er
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
+	o := apiserver.Options{
+		Client:    k,
+		Resources: sa.kubeResources,
+	}
+	src := apiserverNew(o)
+
+	sa.sources = append(sa.sources, src)
+}
+
+func filteredKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
 	// Disable excluded resource kinds, respecting whether service discovery is enabled
 	args := settings.DefaultArgs()
-	withExcludedResources := util.DisableExcludedKubeResources(sa.m.KubeSource().Resources(), args.ExcludedResourceKinds, sa.serviceDiscovery)
+	withExcludedResources := util.DisableExcludedKubeResources(m.KubeSource().Resources(), args.ExcludedResourceKinds, serviceDiscovery)
 
 	// As an optimization, additionally filter out the resources we won't need for the current analysis.
 	// This matters because getting a snapshot from k8s is relatively time-expensive,
 	// so removing unnecessary resources makes a useful difference.
 	filteredResources := make([]schema.KubeResource, 0)
 	for _, r := range withExcludedResources {
-		if _, ok := sa.inputCollections[r.Collection.Name]; !ok {
+		if _, ok := inputCollections[r.Collection.Name]; !ok {
 			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
 			r.Disabled = true
 		}
 		filteredResources = append(filteredResources, r)
 	}
-
-	o := apiserver.Options{
-		Client:    k,
-		Resources: filteredResources,
-	}
-	src := apiserverNew(o)
-
-	sa.sources = append(sa.sources, src)
+	return filteredResources
 }
 
 func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]struct{} {
