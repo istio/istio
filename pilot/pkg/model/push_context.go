@@ -167,6 +167,12 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	TargetNamespaces map[string]struct{}
 
+	// TargetProxies contains a list of proxies that should be pushed to.
+	// The key is clusterID + proxy ip address.
+	// If this is empty, then all proxies will get an update.
+	// If this is present, then only proxies in the list will get an update.
+	TargetProxies map[string]struct{}
+
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
 	// Applicable only when Full is set to true.
@@ -244,6 +250,17 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		}
 		for update := range other.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
+		}
+	}
+
+	// Merge the target proxies
+	if len(first.TargetProxies) > 0 && len(other.TargetProxies) > 0 {
+		merged.TargetProxies = make(map[string]struct{})
+		for update := range first.TargetProxies {
+			merged.TargetProxies[update] = struct{}{}
+		}
+		for update := range other.TargetProxies {
+			merged.TargetProxies[update] = struct{}{}
 		}
 	}
 

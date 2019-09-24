@@ -464,7 +464,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, c := range tt.configs {
 				cfgs[c] = struct{}{}
 			}
-			got := v2.ProxyNeedsPush(tt.proxy, ns, cfgs)
+			got := v2.ProxyNeedsPush(tt.proxy, ns, nil, cfgs)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}

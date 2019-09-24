@@ -736,7 +736,7 @@ func TestWorkloadHealthCheckInfoPrometheusScrape(t *testing.T) {
 		t.Errorf("wait for pod err: %v", err)
 	}
 
-	controller.pods.keys["128.0.1.6"] = "nsA/pod1"
+	controller.pods.podsByIP["128.0.1.6"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.1.6")
 
@@ -761,7 +761,7 @@ func TestWorkloadHealthCheckInfoPrometheusPath(t *testing.T) {
 	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 		t.Errorf("wait for pod err: %v", err)
 	}
-	controller.pods.keys["128.0.1.7"] = "nsA/pod1"
+	controller.pods.podsByIP["128.0.1.7"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.1.7")
 
@@ -786,7 +786,7 @@ func TestWorkloadHealthCheckInfoPrometheusPort(t *testing.T) {
 	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 		t.Errorf("wait for pod err: %v", err)
 	}
-	controller.pods.keys["128.0.1.8"] = "nsA/pod1"
+	controller.pods.podsByIP["128.0.1.8"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.1.8")
 
@@ -812,7 +812,7 @@ func TestManagementPorts(t *testing.T) {
 	if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 		t.Errorf("wait for pod err: %v", err)
 	}
-	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+	controller.pods.podsByIP["128.0.0.1"] = "nsA/pod1"
 
 	portList := controller.ManagementPorts("128.0.0.1")
 

@@ -184,6 +184,8 @@ type XdsEvent struct {
 
 	targetNamespaces map[string]struct{}
 
+	targetProxies map[string]struct{}
+
 	configTypesUpdated map[string]struct{}
 
 	// Push context to use for the push.
@@ -559,7 +561,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
+		if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.targetProxies, pushEv.configTypesUpdated) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -596,7 +598,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
+	if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.targetProxies, pushEv.configTypesUpdated) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -710,7 +712,11 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func ProxyNeedsPush(proxy *model.Proxy, targetNamespaces map[string]struct{}, configs map[string]struct{}) bool {
+func ProxyNeedsPush(
+	proxy *model.Proxy,
+	targetNamespaces map[string]struct{},
+	targetProxies map[string]struct{},
+	configs map[string]struct{}) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
@@ -718,37 +724,47 @@ func ProxyNeedsPush(proxy *model.Proxy, targetNamespaces map[string]struct{}, co
 
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
 	appliesToProxy := false
-	// If no config specified, this request applies to all proxies
-	if len(configs) == 0 {
-		appliesToProxy = true
-	}
-	for config := range configs {
-		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
-			// Gateways do not impact sidecars, so no need to push
-		} else {
-			// This config may impact the proxy, so we do need to push
+
+	// No target proxies set, check configs
+	if len(targetProxies) == 0 {
+		// If no config specified, this request applies to all proxies
+		if len(configs) == 0 {
 			appliesToProxy = true
+		} else {
+			for config := range configs {
+				if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
+					// Gateways do not impact sidecars, so no need to push
+				} else {
+					// This config may impact the proxy, so we do need to push
+					appliesToProxy = true
+					break
+				}
+			}
 		}
+	} else if _, ok := targetProxies[proxy.ClusterID+proxy.IPAddresses[0]]; ok {
+		// If target proxies is set explicitly, need a push.
+		return true
+	} else {
+		return false
 	}
 
 	if !appliesToProxy {
 		return false
 	}
 
-	appliesToNs := false
 	// If no only namespaces specified, this request applies to all proxies
 	if len(targetNamespaces) == 0 {
-		appliesToNs = true
-	}
-
-	// Otherwise, only apply if the egress listener will import the config present in the update
-	for ns := range targetNamespaces {
-		if proxy.SidecarScope.DependsOnNamespace(ns) {
-			appliesToNs = true
-			break
+		return true
+	} else {
+		// Otherwise, only apply if the egress listener will import the config present in the update
+		for ns := range targetNamespaces {
+			if proxy.SidecarScope.DependsOnNamespace(ns) {
+				return true
+			}
 		}
 	}
-	return appliesToNs
+
+	return false
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

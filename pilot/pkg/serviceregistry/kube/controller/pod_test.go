@@ -119,7 +119,7 @@ func waitForPod(c *Controller, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
-		if _, ok := c.pods.keys[ip]; ok {
+		if _, ok := c.pods.podsByIP[ip]; ok {
 			return true, nil
 		}
 		return false, nil
