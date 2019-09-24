@@ -21,6 +21,7 @@
 /release/                                                        @istio/wg-test-and-release-maintainers
 /samples/                                                        @istio/wg-docs-maintainers
 /security/                                                       @istio/wg-security-maintainers
+/tests/                                                          @istio/wg-test-and-release-maintainers
 /tests/e2e/local/                                                @istio/wg-test-and-release-maintainers
 /tests/e2e/tests/mixer/                                          @istio/wg-policies-and-telemetry-maintainers
 /tests/e2e/tests/pilot/                                          @istio/wg-networking-maintainers
