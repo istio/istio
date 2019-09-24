@@ -53,7 +53,7 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		spec := config.Spec.(*istio_rbac.AuthorizationPolicy)
 		for i, rule := range spec.Rules {
 			if p := g.generatePolicy(rule, forTCPFilter); p != nil {
-				name := fmt.Sprintf("%s[%d]", config.Name, i)
+				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s for rule", name)
 			}
