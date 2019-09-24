@@ -12,25 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apiserver
+package kube
 
-import (
-	"time"
+import "istio.io/istio/galley/pkg/config/analysis/diag"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/source/kube"
-)
-
-// Options for the kube controller
-type Options struct {
-	// The Client interfaces to use for connecting to the API server.
-	Client kube.Interfaces
-
-	ResyncPeriod time.Duration
-
-	Resources schema.KubeResources
-
-	EnableStatusController bool
-
-	// TODO: Add target namespaces here when we do namespace specific listeners.
+// Updater updates resource statuses, based on the given diagnostic messages.
+type Updater interface {
+	Update(messages diag.Messages)
 }

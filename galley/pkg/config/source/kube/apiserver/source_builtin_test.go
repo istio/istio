@@ -22,13 +22,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -138,7 +137,7 @@ func TestNodes(t *testing.T) {
 	node = node.DeepCopy()
 	node.Spec.PodCIDR = "10.20.0.0/32"
 	node.ResourceVersion = "rv2"
-	if _, err := client.CoreV1().Nodes().Update(node); err != nil {
+	if _, err = client.CoreV1().Nodes().Update(node); err != nil {
 		t.Fatalf("failed updating node: %v", err)
 	}
 
@@ -155,7 +154,7 @@ func TestNodes(t *testing.T) {
 	acc.Clear()
 
 	// Delete the resource.
-	if err := client.CoreV1().Nodes().Delete(node.Name, nil); err != nil {
+	if err = client.CoreV1().Nodes().Delete(node.Name, nil); err != nil {
 		t.Fatalf("failed deleting node: %v", err)
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec))
@@ -216,7 +215,7 @@ func TestPods(t *testing.T) {
 	pod = pod.DeepCopy()
 	pod.Spec.Containers[0].Name = "c2"
 	pod.ResourceVersion = "rv2"
-	if _, err := client.CoreV1().Pods(namespace).Update(pod); err != nil {
+	if _, err = client.CoreV1().Pods(namespace).Update(pod); err != nil {
 		t.Fatalf("failed updating pod: %v", err)
 	}
 	expected = event.UpdateFor(k8smeta.K8SCoreV1Pods, toResource(pod, pod))
@@ -306,7 +305,7 @@ func TestServices(t *testing.T) {
 	acc.Clear()
 
 	// Delete the resource.
-	if err := client.CoreV1().Services(namespace).Delete(svc.Name, nil); err != nil {
+	if err = client.CoreV1().Services(namespace).Delete(svc.Name, nil); err != nil {
 		t.Fatalf("failed deleting service: %v", err)
 	}
 	expected = event.DeleteForResource(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec))

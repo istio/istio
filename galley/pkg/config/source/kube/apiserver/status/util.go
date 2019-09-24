@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apiserver
+package status
 
 import (
-	"time"
+	"strings"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
-// Options for the kube controller
-type Options struct {
-	// The Client interfaces to use for connecting to the API server.
-	Client kube.Interfaces
+// toStatusValue converts a set of diag.Messages to a status value.
+func toStatusValue(msgs diag.Messages) interface{} {
+	if len(msgs) == 0 {
+		return nil
+	}
 
-	ResyncPeriod time.Duration
+	var lines strings.Builder
 
-	Resources schema.KubeResources
+	for _, m := range msgs {
+		lines.WriteString(m.StatusString())
+		lines.WriteString("\n")
+	}
 
-	EnableStatusController bool
-
-	// TODO: Add target namespaces here when we do namespace specific listeners.
+	return lines.String()
 }
