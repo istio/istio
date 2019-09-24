@@ -360,8 +360,9 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod1.ns2",
-			Type: model.SidecarProxy,
+			ID:       "pod1.ns2",
+			Type:     model.SidecarProxy,
+			Metadata: &model.NodeMetadata{},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -370,8 +371,9 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod2.ns2",
-			Type: model.SidecarProxy,
+			ID:       "pod2.ns2",
+			Type:     model.SidecarProxy,
+			Metadata: &model.NodeMetadata{},
 		},
 		Service: &svc,
 		Push:    &pushContext,

@@ -351,13 +351,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 }
 
 func xdsConnection(network string) *XdsConnection {
-	var metadata map[string]string
-	if network != "" {
-		metadata = map[string]string{"NETWORK": network}
-	}
 	return &XdsConnection{
 		modelNode: &model.Proxy{
-			Metadata: metadata,
+			Metadata: &model.NodeMetadata{Network: network},
 		},
 	}
 }

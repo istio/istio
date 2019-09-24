@@ -695,9 +695,9 @@ func conditionallyConvertToIstioMtls(
 func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientRootCert, constants.DefaultRootCert),
-		ClientCertificate: model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientCertChain, constants.DefaultCertChain),
-		PrivateKey:        model.GetOrDefaultFromMap(proxy.Metadata, model.NodeMetadataTLSClientKey, constants.DefaultKey),
+		CaCertificates:    model.GetOrDefault(proxy.Metadata.TLSClientRootCert, constants.DefaultRootCert),
+		ClientCertificate: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, constants.DefaultCertChain),
+		PrivateKey:        model.GetOrDefault(proxy.Metadata.TLSClientKey, constants.DefaultKey),
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}
@@ -995,7 +995,7 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata map[string]string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata *model.NodeMetadata) {
 	if tls == nil {
 		return
 	}
@@ -1005,7 +1005,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
 			Specifier: &core.DataSource_Filename{
-				Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, tls.CaCertificates),
+				Filename: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),
 			},
 		}
 	}
@@ -1055,12 +1055,12 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, tls.ClientCertificate),
+							Filename: model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
 						},
 					},
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, tls.PrivateKey),
+							Filename: model.GetOrDefault(metadata.TLSClientKey, tls.PrivateKey),
 						},
 					},
 				},

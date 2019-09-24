@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -519,7 +518,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
 			// if they are not same, ignore the pod, because the pod is in another cluster.
-			if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
+			if proxy.Metadata.Network != c.endpointNetwork(proxyIP) {
 				return out, nil
 			}
 
@@ -577,8 +576,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata[model.NodeMetadataClusterID] != c.ClusterID {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata[model.NodeMetadataClusterID], c.ClusterID)
+	if proxy.Metadata.ClusterID != c.ClusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ClusterID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services
@@ -600,20 +599,9 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no instances found: %v ", err)
 	}
 
-	// This is a reference to a port by name. We need to do a lookup from the ports map
-	// podPorts must first be unmarshalled, then we can do a lookup.
-	var podPorts []*v1.ContainerPort
-	// We only need the ports if they do a port reference by name, so we don't need to fail yet if
-	// port metadata is not provided
-	if _, f := proxy.Metadata[model.NodeMetadataPodPorts]; f {
-		if err := json.Unmarshal([]byte(proxy.Metadata[model.NodeMetadataPodPorts]), &podPorts); err != nil {
-			return nil, err
-		}
-	}
-
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
-		svcAccount := proxy.Metadata[model.NodeMetadataServiceAccount]
+		svcAccount := proxy.Metadata.ServiceAccount
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
 		c.RLock()
 		modelService, f := c.servicesMap[hostname]
@@ -626,7 +614,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			if !f {
 				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
 			}
-			targetPort, err := findPortFromMetadata(port, podPorts)
+			targetPort, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
 			}
@@ -650,15 +638,15 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 }
 
 // findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
-func findPortFromMetadata(svcPort v1.ServicePort, podPorts []*v1.ContainerPort) (int, error) {
+func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int, error) {
 	target := svcPort.TargetPort
 
 	switch target.Type {
 	case intstr.String:
 		name := target.StrVal
 		for _, port := range podPorts {
-			if port.Name == name && port.Protocol == svcPort.Protocol {
-				return int(port.ContainerPort), nil
+			if port.Name == name {
+				return port.ContainerPort, nil
 			}
 		}
 	case intstr.Int:
