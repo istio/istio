@@ -80,6 +80,12 @@ func TestV1beta1_OverrideV1alpha1(t *testing.T) {
 		})
 }
 
+type rootNS struct{}
+
+func (i rootNS) Name() string {
+	return rootNamespace
+}
+
 // TestV1beta1_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
 func TestV1beta1_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
@@ -124,6 +130,7 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns1-all", true),
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns2-c", false),
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns2-all", false),
+				newTestCase("[bInNS1]", bInNS1, "/policy-ns-root-c", false),
 
 				newTestCase("[cInNS1]", cInNS1, "/policy-ns1-b", false),
 				newTestCase("[cInNS1]", cInNS1, "/policy-ns1-c", true),
@@ -131,6 +138,7 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				newTestCase("[cInNS1]", cInNS1, "/policy-ns1-all", true),
 				newTestCase("[cInNS1]", cInNS1, "/policy-ns2-c", false),
 				newTestCase("[cInNS1]", cInNS1, "/policy-ns2-all", false),
+				newTestCase("[cInNS1]", cInNS1, "/policy-ns-root-c", true),
 
 				newTestCase("[cInNS2]", cInNS2, "/policy-ns1-b", false),
 				newTestCase("[cInNS2]", cInNS2, "/policy-ns1-c", false),
@@ -138,20 +146,27 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				newTestCase("[cInNS2]", cInNS2, "/policy-ns1-all", false),
 				newTestCase("[cInNS2]", cInNS2, "/policy-ns2-c", true),
 				newTestCase("[cInNS2]", cInNS2, "/policy-ns2-all", true),
+				newTestCase("[cInNS2]", cInNS2, "/policy-ns-root-c", true),
 			}
 
 			args := map[string]string{
-				"Namespace1": ns1.Name(),
-				"Namespace2": ns2.Name(),
+				"Namespace1":    ns1.Name(),
+				"Namespace2":    ns2.Name(),
+				"RootNamespace": rootNamespace,
 			}
-			policyNS1 := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/v1beta1-workload-ns1.yaml.tmpl"))
-			g.ApplyConfigOrFail(t, ns1, policyNS1...)
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			policyNS1 := applyPolicy("testdata/v1beta1-workload-ns1.yaml.tmpl", ns1)
 			defer g.DeleteConfigOrFail(t, ns1, policyNS1...)
-			policyNS2 := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/v1beta1-workload-ns2.yaml.tmpl"))
-			g.ApplyConfigOrFail(t, ns2, policyNS2...)
+			policyNS2 := applyPolicy("testdata/v1beta1-workload-ns2.yaml.tmpl", ns2)
 			defer g.DeleteConfigOrFail(t, ns2, policyNS2...)
+			policyNSRoot := applyPolicy("testdata/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
+			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
 
 			RunRBACTest(t, cases)
 		})
