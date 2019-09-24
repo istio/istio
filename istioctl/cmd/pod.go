@@ -102,8 +102,9 @@ func pod() *cobra.Command {
 				return fmt.Errorf("failure running port forward process: %v", err)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update log level of pod %s to %v", podName, logLevel)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update log level of pod %s to %s\n", podName, levelToString[logLevel])
 			if follow {
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "====\n")
 				if tail < 0 {
 					execCommand("kubectl", cmd.OutOrStdout(), cmd.OutOrStderr(), "logs", "-f", podName, "-c", "istio-proxy")
 				} else {
