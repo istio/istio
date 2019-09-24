@@ -461,7 +461,6 @@ func addLabels(target map[string]string, added map[string]string) []rfc6902Patch
 }
 
 func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
-	log.Errorf("howardjohn: added %v", added)
 	// To ensure deterministic patches, we sort the keys
 	var keys []string
 	for k := range added {
