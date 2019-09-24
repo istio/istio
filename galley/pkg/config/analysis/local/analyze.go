@@ -44,7 +44,7 @@ var (
 	apiserverNew = apiserver.New
 )
 
-// SourceAnalyzer handles local analysis of k8s and file based event sources
+// SourceAnalyzer handles local analysis of k8s event sources, both live and file-based
 type SourceAnalyzer struct {
 	m                    *schema.Metadata
 	sources              []event.Source
@@ -77,7 +77,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapsh
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
-		kubeResources:        filteredKubeResources(m, inputCollections, serviceDiscovery),
+		kubeResources:        disableUnusedKubeResources(m, inputCollections, serviceDiscovery),
 		collectionReporter:   cr,
 	}
 }
@@ -110,7 +110,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
-	//TODO: How to make this pay attention to Disabled?
+	// Note that this source doesn't respect the Disabled flag on KubeResource, but that's OK because
+	// filtering at the source level is about efficiency and the file-based source is super fast
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(defaultNs)
 
@@ -139,7 +140,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	sa.sources = append(sa.sources, src)
 }
 
-func filteredKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
+func disableUnusedKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
 	// Disable excluded resource kinds, respecting whether service discovery is enabled
 	args := settings.DefaultArgs()
 	withExcludedResources := util.DisableExcludedKubeResources(m.KubeSource().Resources(), args.ExcludedResourceKinds, serviceDiscovery)

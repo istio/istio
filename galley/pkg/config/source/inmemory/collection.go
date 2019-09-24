@@ -32,6 +32,7 @@ type Collection struct {
 	handler    event.Handler
 	resources  map[resource.Name]*resource.Entry
 	synced     bool
+	disabled   bool
 }
 
 var _ event.Source = &Collection{}
@@ -51,6 +52,13 @@ func (c *Collection) Start() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.synced = true
+
+	// If this collection is disabled, just sent a Disabled event and then a full sync.
+	if c.disabled {
+		c.dispatchEvent(event.DisabledFor(c.collection))
+		c.dispatchEvent(event.FullSyncFor(c.collection))
+		return
+	}
 
 	for _, e := range c.resources {
 		c.dispatchFor(e, event.Added)

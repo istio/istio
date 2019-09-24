@@ -56,6 +56,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 			// so we adjust them here to avoid that.
 			loggingOptions.SetOutputLevel("processing", log.DebugLevel)
 			loggingOptions.SetOutputLevel("source", log.DebugLevel)
+			loggingOptions.SetOutputLevel("analysis", log.DebugLevel)
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}

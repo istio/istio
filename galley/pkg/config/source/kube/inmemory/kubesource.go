@@ -78,6 +78,13 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 
 	s := inmemory.New(resources.Collections())
 
+	// Mark disabled resources
+	for _, r := range resources {
+		if r.Disabled {
+			s.Disable(r.Collection.Name)
+		}
+	}
+
 	return &KubeSource{
 		name:      name,
 		resources: resources,
