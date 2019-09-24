@@ -755,12 +755,12 @@ func ProxyNeedsPush(
 	// If no only namespaces specified, this request applies to all proxies
 	if len(targetNamespaces) == 0 {
 		return true
-	} else {
-		// Otherwise, only apply if the egress listener will import the config present in the update
-		for ns := range targetNamespaces {
-			if proxy.SidecarScope.DependsOnNamespace(ns) {
-				return true
-			}
+	}
+
+	// Otherwise, only apply if the egress listener will import the config present in the update
+	for ns := range targetNamespaces {
+		if proxy.SidecarScope.DependsOnNamespace(ns) {
+			return true
 		}
 	}
 
