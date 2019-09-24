@@ -36,9 +36,9 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/mixer/test/client/env"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 )
 
 const envoyConf = `
