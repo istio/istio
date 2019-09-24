@@ -167,7 +167,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			destServiceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
 			// For now, require enableAutoMtls mode set (to true) explicitly to recorgnize this mode.
 			if env.Mesh.EnableAutoMtls != nil && env.Mesh.EnableAutoMtls.GetValue() {
-				destServiceMTLSMode = authn_v1alpha1_applier.GetServiceMutualTLSMode(env.IstioConfigStore, service, port)
+				destServiceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(
+					push.AuthenticationPolicyForWorkload(service, port))
 			}
 			if port.Protocol == protocol.UDP {
 				continue
