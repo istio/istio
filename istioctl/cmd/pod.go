@@ -57,6 +57,7 @@ var stringToLevel = map[string]Level{
 var (
 	logLevelString = levelToString[WarnLevel]
 	follow         = false
+	tail           = -1
 )
 
 func pod() *cobra.Command {
@@ -103,7 +104,12 @@ func pod() *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update log level of pod %s to %v", podName, logLevel)
 			if follow {
-				execCommand("kubectl", cmd.OutOrStdout(), cmd.OutOrStderr(), "logs", "-f", podName, "-c", "istio-proxy")
+				if tail < 0 {
+					execCommand("kubectl", cmd.OutOrStdout(), cmd.OutOrStderr(), "logs", "-f", podName, "-c", "istio-proxy")
+				} else {
+					execCommand("kubectl", cmd.OutOrStdout(), cmd.OutOrStderr(), "logs", "-f",
+						fmt.Sprintf("--tail=%v", tail), podName, "-c", "istio-proxy")
+				}
 			}
 			return nil
 		},
@@ -117,6 +123,8 @@ func pod() *cobra.Command {
 
 	podCmd.PersistentFlags().StringVar(&logLevelString, "log_level", logLevelString,
 		fmt.Sprintf("The minimum logging level of messages to output, can be one of %s", levelListString))
+	podCmd.PersistentFlags().IntVar(&tail, "tail", tail,
+		"Lines of recent log file to display. Defaults to -1 showing all log lines.")
 	podCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", follow, "Specify if the logs should be streamed.")
 
 	return podCmd
