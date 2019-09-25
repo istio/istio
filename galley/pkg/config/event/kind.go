@@ -38,9 +38,6 @@ const (
 	// of add events. Events after FullSync are incremental change events that were applied to the origin collection.
 	FullSync
 
-	// Disabled indicates that the resource has been explicitly disabled or that no data is available
-	Disabled
-
 	// Reset indicates that the originating event.Source had a change that cannot be recovered from (e.g. CRDs have
 	// changed). It indicates that the listener should abandon its internal state and restart. This is a source-level
 	// event and applies to all collections.
@@ -60,8 +57,6 @@ func (k Kind) String() string {
 		return "Deleted"
 	case FullSync:
 		return "FullSync"
-	case Disabled:
-		return "Disabled"
 	case Reset:
 		return "Reset"
 	default:

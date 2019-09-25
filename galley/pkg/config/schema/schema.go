@@ -188,6 +188,17 @@ func (k KubeResources) MustFind(group, kind string) KubeResource {
 	return r
 }
 
+// GetDisabled returns the names of disabled collections
+func (k KubeResources) GetDisabled() collection.Names {
+	disabledCollections := make([]collection.Name, 0)
+	for _, r := range k {
+		if r.Disabled {
+			disabledCollections = append(disabledCollections, r.Collection.Name)
+		}
+	}
+	return disabledCollections
+}
+
 // DirectTransformSettings configuration
 type DirectTransformSettings struct {
 	mapping map[collection.Name]collection.Name

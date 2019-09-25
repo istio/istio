@@ -106,12 +106,7 @@ func (s *Snapshot) String() string {
 	var b strings.Builder
 
 	for i, n := range s.set.Names() {
-		disabledStr := ""
-		if s.set.Collection(n).Disabled() {
-			disabledStr = " - Disabled"
-		}
-
-		b.WriteString(fmt.Sprintf("[%d] %s (@%s)%s\n", i, n.String(), s.Version(n.String()), disabledStr))
+		b.WriteString(fmt.Sprintf("[%d] %s (@%s)\n", i, n.String(), s.Version(n.String())))
 		for j, e := range s.Resources(n.String()) {
 			b.WriteString(fmt.Sprintf("  [%d] %s\n", j, e.Metadata.Name))
 		}

@@ -39,7 +39,4 @@ type Context interface {
 
 	// Canceled indicates that the context has been canceled. The analyzer should stop executing as soon as possible.
 	Canceled() bool
-
-	// Disabled reports if a collection is disabled.
-	Disabled(c collection.Name) bool
 }

@@ -61,7 +61,7 @@ func getGatewayXformProvider() transformer.Provider {
 
 func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 
-	if g.options.MeshConfig.IngressControllerMode == meshconfig.MeshConfig_OFF || e.Kind == event.Disabled {
+	if g.options.MeshConfig.IngressControllerMode == meshconfig.MeshConfig_OFF {
 		// short circuit and return
 		return
 	}

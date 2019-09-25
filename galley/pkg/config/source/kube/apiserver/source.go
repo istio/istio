@@ -201,13 +201,7 @@ func (s *Source) startWatchers() {
 			scope.Source.Infof("  Found:  %v", found)
 		}
 
-		// For explicitly disabled resources, send a Disabled event to mark them as such
-		if r.Disabled {
-			scope.Source.Debuga("Source.Start: sending Disabled for: ", r.Collection.Name)
-			s.handlers.Handle(event.DisabledFor(r.Collection.Name))
-		}
-
-		// Send a Full Sync event immediately for custom resources that were never found, as well as disabled resources.
+		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.Disabled {
 			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Collection.Name)

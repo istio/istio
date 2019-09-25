@@ -28,11 +28,21 @@ type Analyzer interface {
 type combinedAnalyzers struct {
 	metadata  Metadata
 	analyzers []Analyzer
+	disabled  map[collection.Name]struct{}
+}
+
+// CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
+type CombinedAnalyzer interface {
+	Analyzer
+
+	// Disable marks the specified collections as disabled.
+	// Any analyzers that require these collections as inputs will be skipped.
+	Disable(collection.Names)
 }
 
 // Combine multiple analyzers into a single one.
-// For collections used, use the union of the component analyzers
-func Combine(name string, analyzers ...Analyzer) Analyzer {
+// For input metadata, use the union of the component analyzers
+func Combine(name string, analyzers ...Analyzer) CombinedAnalyzer {
 	return &combinedAnalyzers{
 		metadata: Metadata{
 			Name:   name,
@@ -53,7 +63,7 @@ mainloop:
 	for _, a := range c.analyzers {
 		// Skip over any analyzers that require disabled input
 		for _, in := range a.Metadata().Inputs {
-			if ctx.Disabled(in) {
+			if _, ok := c.disabled[in]; ok {
 				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
 				continue mainloop
 			}
@@ -76,4 +86,13 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 	}
 
 	return result
+}
+
+// Disable implements CombinedAnalyzer
+func (c *combinedAnalyzers) Disable(cols collection.Names) {
+	disabled := make(map[collection.Name]struct{})
+	for _, col := range cols {
+		disabled[col] = struct{}{}
+	}
+	c.disabled = disabled
 }

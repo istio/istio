@@ -116,24 +116,16 @@ func (t *serviceEntryTransformer) Outputs() collection.Names {
 
 // Handle implements event.Transformer
 func (t *serviceEntryTransformer) Handle(e event.Event) {
-	output := t.Outputs()[0]
-
 	switch e.Kind {
 	case event.FullSync:
 		t.fullSyncCtr--
 		if t.fullSyncCtr == 0 {
-			t.dispatch(event.FullSyncFor(output))
+			t.dispatch(event.FullSyncFor(t.Outputs()[0]))
 		}
 		return
 
 	case event.Reset:
 		t.dispatch(event.Event{Kind: event.Reset})
-		return
-
-	// If any of the input resources are disabled, then SyntheticServiceEntries should also be disabled
-	case event.Disabled:
-		scope.Processing.Debugf("Received Disabled input event (%v), disabling output collection (%v)", e, output)
-		t.dispatch(event.DisabledFor(output))
 		return
 
 	case event.Added, event.Updated, event.Deleted:

@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
@@ -50,11 +51,14 @@ const defaultSnapshotGroup = "default"
 const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr CollectionReporterFn) *AnalyzingDistributor {
+//TODO: AnalyzingDistributorOpts struct
+func NewAnalyzingDistributor(u StatusUpdater, a analysis.CombinedAnalyzer, d Distributor, cr CollectionReporterFn, disabledCollections collection.Names, xformProviders transformer.Providers) *AnalyzingDistributor {
 	// collectionReport hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
+
+	a.Disable(getDisabledOutputs(disabledCollections, xformProviders))
 
 	return &AnalyzingDistributor{
 		updater:            u,
@@ -180,7 +184,45 @@ func (c *context) Canceled() bool {
 	}
 }
 
-// Disabled implements analysis.Context
-func (c *context) Disabled(col collection.Name) bool {
-	return c.sn.set.Collection(col).Disabled()
+func getDisabledOutputs(disabledInputs collection.Names, xformProviders transformer.Providers) collection.Names {
+	// Get disabledCollections as a set
+	disabledInputSet := make(map[collection.Name]struct{})
+	for _, col := range disabledInputs {
+		disabledInputSet[col] = struct{}{}
+	}
+
+	// Disable all outputs where every xform has at least one input disabled
+	// 1. Count, for each output, how many xforms feed it
+	outputXformCount := make(map[collection.Name]int)
+	for _, p := range xformProviders {
+		for _, out := range p.Outputs() {
+			outputXformCount[out]++
+		}
+	}
+
+	// 2. For each xform, if inputs are disabled decrement each output counter for that xform
+	for _, p := range xformProviders {
+		hasDisabledInput := false
+		for _, in := range p.Inputs() {
+			if _, ok := disabledInputSet[in]; ok {
+				hasDisabledInput = true
+				break
+			}
+		}
+		if hasDisabledInput {
+			for _, out := range p.Outputs() {
+				outputXformCount[out]--
+			}
+		}
+	}
+
+	// 3. Any outputs == 0, add to the result list
+	result := make([]collection.Name, 0)
+	for out, count := range outputXformCount {
+		if count == 0 {
+			result = append(result, out)
+		}
+	}
+
+	return result
 }

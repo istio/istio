@@ -55,11 +55,6 @@ func New(collections collection.Names) *Source {
 	return s
 }
 
-// Disable marks the specified collection as disabled
-func (s *Source) Disable(col collection.Name) {
-	s.collections[col].disabled = true
-}
-
 // Dispatch implements event.Source
 func (s *Source) Dispatch(h event.Handler) {
 	s.mu.Lock()

@@ -48,7 +48,7 @@ var (
 type SourceAnalyzer struct {
 	m                    *schema.Metadata
 	sources              []event.Source
-	analyzer             analysis.Analyzer
+	analyzer             analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
 
 	// Which kube resources are used by this analyzer
@@ -61,7 +61,7 @@ type SourceAnalyzer struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.CombinedAnalyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -93,7 +93,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	src := newPrecedenceSource(sa.sources)
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
-	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor(), sa.collectionReporter)
+	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor(), sa.collectionReporter, sa.kubeResources.GetDisabled(), sa.transformerProviders)
 	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformerProviders, distributor)
 	if err != nil {
 		return nil, err
@@ -139,11 +139,11 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 }
 
 func disableUnusedKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
-	// Disable excluded resource kinds, respecting whether service discovery is enabled
+	// As an optimization, disable excluded resource kinds, respecting whether service discovery is enabled
 	args := settings.DefaultArgs()
 	withExcludedResources := util.DisableExcludedKubeResources(m.KubeSource().Resources(), args.ExcludedResourceKinds, serviceDiscovery)
 
-	// As an optimization, additionally filter out the resources we won't need for the current analysis.
+	// Additionally, filter out the resources we won't need for the current analysis.
 	// This matters because getting a snapshot from k8s is relatively time-expensive,
 	// so removing unnecessary resources makes a useful difference.
 	filteredResources := make([]schema.KubeResource, 0)
