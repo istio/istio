@@ -546,7 +546,10 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 		for _, quotaSpec := range quotaSpecs {
 			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
 			converted := &mccpb.QuotaSpec{}
-			proto.Unmarshal(bytes, converted)
+			if err := proto.Unmarshal(bytes, converted); err != nil {
+				log.Warnf("failing to convert from gogo to golang: %v", err)
+				continue
+			}
 			out.QuotaSpec = append(out.QuotaSpec, converted)
 		}
 	}
