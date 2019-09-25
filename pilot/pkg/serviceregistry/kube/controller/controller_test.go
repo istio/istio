@@ -640,6 +640,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
 			annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	<-fx.Events
 	createService(controller, "svc2", "nsA", nil, []int32{8080}, map[string]string{"app": "staging-app"}, t)
 	<-fx.Events
 
