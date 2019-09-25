@@ -152,7 +152,6 @@ func (s *InMemory) Collections() []string {
 	for col := range s.resources {
 		result = append(result, col)
 	}
-
 	return result
 }
 
