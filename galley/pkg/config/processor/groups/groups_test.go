@@ -19,8 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/config/processor/groups"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 )
 
 func TestDefault(t *testing.T) {
@@ -31,6 +31,6 @@ func TestDefault(t *testing.T) {
 
 func TestSyntheticServiceEntry(t *testing.T) {
 	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String(), nil)
+	actual := groups.IndexFunction(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String(), nil)
 	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
 }
