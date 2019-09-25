@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"

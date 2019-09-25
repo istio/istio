@@ -151,7 +151,6 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
 	})
 	ctl.Env = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
@@ -170,7 +169,6 @@ func newFakeController(_ *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
 	})
 	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
 	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
@@ -552,7 +550,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		IPAddresses:     []string{"129.0.0.1"},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: "nsa",
-		Metadata:        map[string]string{model.NodeMetadataServiceAccount: "account"},
+		Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
 		WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
 	})
 	if err != nil {
@@ -600,7 +598,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		IPAddresses:     []string{"129.0.0.2"},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: "nsa",
-		Metadata:        map[string]string{model.NodeMetadataServiceAccount: "account"},
+		Metadata:        &model.NodeMetadata{ServiceAccount: "account"},
 		WorkloadLabels:  labels.Collection{labels.Instance{"app": "prod-app"}},
 	})
 	if err != nil {

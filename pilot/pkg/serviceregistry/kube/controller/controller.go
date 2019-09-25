@@ -100,8 +100,6 @@ type Options struct {
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
-
-	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
