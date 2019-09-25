@@ -194,7 +194,6 @@ func TestCommandLineArgs(t *testing.T) {
 			envoy.ServiceNode("mynode"),
 			envoy.DrainDuration(drainDuration),
 			envoy.ParentShutdownDuration(parentShutdownDuration),
-			envoy.AllowUnknownFields(true),
 		),
 	})
 	g.Expect(i.Epoch()).To(Equal(envoy.Epoch(1)))
