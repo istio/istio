@@ -88,12 +88,12 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 60
           {{- end }}
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
-          - name: {{ $key }}
-            value: {{ $val }}
-          {{- end }}
-          {{- end }}
+            {{- if .Values.env }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+            {{- end }}
+            {{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

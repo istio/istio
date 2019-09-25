@@ -35,7 +35,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for the ingress SDS Gateway flow.
+	// Integration test for the Citadel auto root cert upgrade.
 	framework.
 		NewSuite("citadel_root_upgrade_test", m).
 		Label(label.CustomSetup).
