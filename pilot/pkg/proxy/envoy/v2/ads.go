@@ -561,7 +561,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.targetProxies, pushEv.configTypesUpdated) {
+		if !ProxyNeedsPush(con.modelNode, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -598,7 +598,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.targetProxies, pushEv.configTypesUpdated) {
+	if !ProxyNeedsPush(con.modelNode, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -712,16 +712,15 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func ProxyNeedsPush(
-	proxy *model.Proxy,
-	targetNamespaces map[string]struct{},
-	targetProxies map[string]struct{},
-	configs map[string]struct{}) bool {
+func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
 	}
 
+	targetNamespaces := pushEv.targetNamespaces
+	targetProxies := pushEv.targetProxies
+	configs := pushEv.configTypesUpdated
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
 	appliesToProxy := false
 
