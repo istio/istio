@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/server/process"
@@ -305,11 +306,16 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 			}
 		}
 
+		var statusCtl status.Controller
+		if p.args.EnableConfigAnalysis {
+			statusCtl = status.NewController()
+		}
+
 		o := apiserver.Options{
-			Client:                 k,
-			ResyncPeriod:           p.args.ResyncPeriod,
-			Resources:              resources,
-			EnableStatusController: p.args.EnableConfigAnalysis,
+			Client:           k,
+			ResyncPeriod:     p.args.ResyncPeriod,
+			Resources:        resources,
+			StatusController: statusCtl,
 		}
 		s := apiserver.New(o)
 		src = s

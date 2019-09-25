@@ -646,7 +646,7 @@ func AdsPushAll(s *DiscoveryServer) {
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
+// to the model ConfigStorageCache and ControllerImpl.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
 		s.edsIncremental(version, req.Push, req)

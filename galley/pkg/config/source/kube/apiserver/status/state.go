@@ -67,7 +67,8 @@ type state struct {
 	// that has both its desired and actual status empty.
 	states map[key]*status
 
-	// linked list implementation for the work queue.
+	// linked list implementation for the work queue. We're not using channels intentionally, as channel size is fixed
+	// which can potentially cause unexpected blocking throughout the system.
 	head *status
 	tail *status
 }

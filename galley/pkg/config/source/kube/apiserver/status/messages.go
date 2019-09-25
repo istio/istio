@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
-// Messages is a data structure for captuing incoming messages
+// Messages is a data structure for capturing incoming messages
 type Messages struct {
 	entries map[key]entry
 }

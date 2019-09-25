@@ -65,7 +65,7 @@ func TestBasic(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
+	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources(), nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -105,7 +105,7 @@ func TestNodes(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
+	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources(), nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -173,7 +173,7 @@ func TestPods(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
+	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources(), nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -251,7 +251,7 @@ func TestServices(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
+	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources(), nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -324,7 +324,7 @@ func TestEndpoints(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources())
+	s := newOrFail(t, k, k8smeta.MustGet().KubeSource().Resources(), nil)
 	acc := start(s)
 	defer s.Stop()
 

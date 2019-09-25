@@ -34,14 +34,14 @@ type watcher struct {
 
 	adapter   *rt.Adapter
 	resource  schema.KubeResource
-	statusCtl *status.Controller
+	statusCtl status.Controller
 
 	handler event.Handler
 
 	done chan struct{}
 }
 
-func newWatcher(r schema.KubeResource, a *rt.Adapter, s *status.Controller) *watcher {
+func newWatcher(r schema.KubeResource, a *rt.Adapter, s status.Controller) *watcher {
 	return &watcher{
 		resource:  r,
 		adapter:   a,
@@ -130,7 +130,8 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	r := rt.ToResourceEntry(object, &w.resource, res)
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
-		w.statusCtl.UpdateResourceStatus(w.resource.Collection.Name, r.Metadata.Name, r.Metadata.Version, w.adapter.GetStatus(obj))
+		w.statusCtl.UpdateResourceStatus(
+			w.resource.Collection.Name, r.Metadata.Name, r.Metadata.Version, w.adapter.GetStatus(obj))
 	}
 
 	e := event.Event{

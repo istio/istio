@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
@@ -43,8 +44,7 @@ func TestBasicStartStop(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	defer c.Stop()
 
-	m := NewMessageSet()
-	c.Report(m)
+	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 }
 
@@ -61,8 +61,7 @@ func TestDoubleStart(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	defer c.Stop()
 
-	m := NewMessageSet()
-	c.Report(m)
+	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 }
 
@@ -76,8 +75,7 @@ func TestDoubleStop(t *testing.T) {
 	k.AddResponse(cl, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	c.Report(m)
+	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 	c.Stop()
 	c.Stop()
@@ -93,7 +91,7 @@ func TestNoReconcilation(t *testing.T) {
 	k.AddResponse(cl, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), resource.Version("v1"), "s1")
+	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Consistently(cl.Actions).Should(BeEmpty())
@@ -127,9 +125,8 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	})
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), resource.Version("v1"), "s1")
-	m := NewMessageSet()
-	c.Report(m)
+	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
+	c.Report(diag.Messages{})
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -154,21 +151,23 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	}
 
 	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		ret = r
 		return
 	})
 
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		return
 	})
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	c.Report(m)
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), resource.Version("v1"), "s1")
+	c.Report(diag.Messages{})
+	c.UpdateResourceStatus(
+		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -197,13 +196,15 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	}
 
 	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		ret = r
 		return
 	})
 
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		return
 	})
@@ -217,13 +218,8 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	}
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	m.Add(&rt.Origin{
-		Collection: basicmeta.Collection1,
-		Name:       resource.NewName("foo", "bar"),
-		Version:    resource.Version("v1"),
-	}, msg.NewInternalError(&e, "foo"))
-	c.Report(m)
+	m := msg.NewInternalError(&e, "foo")
+	c.Report(diag.Messages{m})
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -271,13 +267,8 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 	}
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	m.Add(&rt.Origin{
-		Collection: basicmeta.Collection1,
-		Name:       resource.NewName("foo", "bar"),
-		Version:    resource.Version("v1"),
-	}, msg.NewInternalError(&e, "foo"))
-	c.Report(m)
+	m := msg.NewInternalError(&e, "foo")
+	c.Report(diag.Messages{m})
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -311,13 +302,8 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 	}
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	m.Add(&rt.Origin{
-		Collection: basicmeta.Collection1,
-		Name:       resource.NewName("foo", "bar"),
-		Version:    resource.Version("v1"),
-	}, msg.NewInternalError(&e, "foo"))
-	c.Report(m)
+	m := msg.NewInternalError(&e, "foo")
+	c.Report(diag.Messages{m})
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(1))
@@ -342,13 +328,15 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 	}
 
 	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		ret = r
 		return
 	})
 
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
+	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
 		handled = true
 		return
 	})
@@ -362,9 +350,8 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 	}
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	m := NewMessageSet()
-	m.Add(e.Origin.(*rt.Origin), msg.NewInternalError(&e, "foo"))
-	c.Report(m)
+	m := msg.NewInternalError(&e, "foo")
+	c.Report(diag.Messages{m})
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(1))

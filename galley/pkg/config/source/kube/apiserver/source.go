@@ -74,7 +74,7 @@ type Source struct { // nolint:maligned
 	// watchers for each collection that were created as part of CRD discovery.
 	watchers map[collection.Name]*watcher
 
-	statusCtl *status.Controller
+	statusCtl status.Controller
 }
 
 var _ event.Source = &Source{}
@@ -83,12 +83,9 @@ var _ snapshotter.StatusUpdater = &Source{}
 // New returns a new kube.Source.
 func New(o Options) *Source {
 	s := &Source{
-		options:  o,
-		handlers: &event.Handlers{},
-	}
-
-	if o.EnableStatusController {
-		s.statusCtl = status.NewController()
+		options:   o,
+		handlers:  &event.Handlers{},
+		statusCtl: o.StatusController,
 	}
 
 	return s
@@ -214,7 +211,6 @@ func (s *Source) startWatchers() {
 			col.dispatch(s.handlers)
 			s.watchers[r.Collection.Name] = col
 		}
-
 	}
 
 	if s.statusCtl != nil {
@@ -244,33 +240,10 @@ func (s *Source) Stop() {
 // Update implements processing.StatusUpdater
 func (s *Source) Update(messages diag.Messages) {
 	if s.statusCtl == nil {
-		scope.Source.Warnf("Received diagnostic reports for CRD status update, but the status controller is not active")
-		return
+		panic("received diagnostic messages while the source is not configured with a status controller")
 	}
 
-	// TODO: Translating messages in this fashion is expensive, especially on a hot path. We should look for ways
-	// to perform this mapping early on, possibly by directly filling up a MessageSet at the analysis context level.
-	msgs := status.NewMessageSet()
-
-	for _, m := range messages {
-
-		if m.Origin == nil {
-			// This should not happen. All messages should be reported against at least one origin.
-			scope.Source.Errorf("Encountered a diagnostic message without an origin: %v", m)
-			continue
-		}
-
-		origin, ok := m.Origin.(*rt.Origin)
-		if !ok {
-			// This should not happen. All messages should be routed back to the appropriate source.
-			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)
-			continue
-		}
-
-		msgs.Add(origin, m)
-	}
-
-	s.statusCtl.Report(msgs)
+	s.statusCtl.Report(messages)
 }
 
 func (s *Source) stop() {

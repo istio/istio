@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
@@ -27,8 +28,17 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
-// Controller keeps track of status information for a given K8s style collection and continuously reconciles.
-type Controller struct {
+// Controller is the interface for a status controller. It is mainly used to separate implementation from
+// interface, so that code can be tested separately.
+type Controller interface {
+	Start(p *rt.Provider, resources []schema.KubeResource)
+	Stop()
+	UpdateResourceStatus(col collection.Name, name resource.Name, version resource.Version, status interface{})
+	Report(messages diag.Messages)
+}
+
+// ControllerImpl keeps track of status information for a given K8s style collection and continuously reconciles.
+type ControllerImpl struct {
 	// Protects the top-level start/stop state of the controller
 	mu sync.Mutex
 
@@ -39,13 +49,15 @@ type Controller struct {
 	wg sync.WaitGroup
 }
 
+var _ Controller = &ControllerImpl{}
+
 // NewController returns a new instance of controller.
-func NewController() *Controller {
-	return &Controller{}
+func NewController() *ControllerImpl {
+	return &ControllerImpl{}
 }
 
 // Start the controller. This will reset the internal state.
-func (c *Controller) Start(p *rt.Provider, resources []schema.KubeResource) {
+func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -72,7 +84,7 @@ func (c *Controller) Start(p *rt.Provider, resources []schema.KubeResource) {
 }
 
 // Stop the controller
-func (c *Controller) Stop() {
+func (c *ControllerImpl) Stop() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.state != nil {
@@ -83,14 +95,36 @@ func (c *Controller) Stop() {
 }
 
 // UpdateResourceStatus is called by the source to relay the currently observed status of a resource.
-func (c *Controller) UpdateResourceStatus(
+func (c *ControllerImpl) UpdateResourceStatus(
 	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
 	c.state.setObserved(col, name, version, status)
 }
 
 // Report the given set of messages towards particular resources.
-func (c *Controller) Report(messages Messages) {
-	c.state.applyMessages(messages)
+func (c *ControllerImpl) Report(messages diag.Messages) {
+	// TODO: Translating messages in this fashion is expensive, especially on a hot path. We should look for ways
+	// to perform this mapping early on, possibly by directly filling up a MessageSet at the analysis context level.
+	msgs := NewMessageSet()
+
+	for _, m := range messages {
+
+		if m.Origin == nil {
+			// This should not happen. All messages should be reported against at least one origin.
+			scope.Source.Errorf("Encountered a diagnostic message without an origin: %v", m)
+			continue
+		}
+
+		origin, ok := m.Origin.(*rt.Origin)
+		if !ok {
+			// This should not happen. All messages should be routed back to the appropriate source.
+			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)
+			continue
+		}
+
+		msgs.Add(origin, m)
+	}
+
+	c.state.applyMessages(msgs)
 }
 
 func run(state *state, ifaces map[collection.Name]dynamic.NamespaceableResourceInterface, wg *sync.WaitGroup) {

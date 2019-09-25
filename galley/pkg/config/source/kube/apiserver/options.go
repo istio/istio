@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 )
 
 // Options for the kube controller
@@ -30,7 +31,7 @@ type Options struct {
 
 	Resources schema.KubeResources
 
-	EnableStatusController bool
+	StatusController status.Controller
 
 	// TODO: Add target namespaces here when we do namespace specific listeners.
 }
