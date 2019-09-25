@@ -115,7 +115,7 @@ ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 
 # Downloads WASM Plugins and adds to proxyv2.
-wasm.plugin:
+${ISTIO_OUT}/wasm:
 	@bin/wasm_plugins.sh ${ISTIO_OUT}
 
 $(ISTIO_DOCKER)/wasm: ${ISTIO_OUT}/wasm
