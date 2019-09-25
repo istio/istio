@@ -51,7 +51,7 @@ type SourceAnalyzer struct {
 	analyzer             analysis.Analyzer
 	transformerProviders transformer.Providers
 
-	// Which kube resources are used by this analysis
+	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
 	kubeResources schema.KubeResources
 
@@ -110,8 +110,6 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
-	// Note that this source doesn't respect the Disabled flag on KubeResource, but that's OK because
-	// filtering at the source level is about efficiency and the file-based source is super fast
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(defaultNs)
 
