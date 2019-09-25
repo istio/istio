@@ -79,7 +79,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
 
     if [[ ${1-} != "run" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
-      # where the init container runs in a fresh environment and there cannot be previous Istio  chaines
+      # where the init container runs in a fresh environment and there cannot be previous Istio chains
       "${ISTIO_BIN_BASE}/istio-clean-iptables.sh"
 
       # Update iptables, based on config file
