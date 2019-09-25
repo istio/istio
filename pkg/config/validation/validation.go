@@ -1491,11 +1491,21 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
 
-	// TODO(yangminzhu): Add more validation.
+	if in.Selector != nil {
+		for k, v := range in.Selector.MatchLabels {
+			if k == "" || v == "" {
+				return fmt.Errorf("selector has empty key or values")
+			}
+		}
+	}
+
 	for _, rule := range in.GetRules() {
 		for _, condition := range rule.GetWhen() {
 			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
 				return fmt.Errorf("condition has empty key or values")
+			}
+			if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
+				return fmt.Errorf("invalid condition: %v", err)
 			}
 		}
 	}
