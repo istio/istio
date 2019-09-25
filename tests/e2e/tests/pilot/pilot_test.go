@@ -59,6 +59,7 @@ var (
 	portRegex       = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
 	hostRegex       = regexp.MustCompile("Host=(.*)")
+	headerRegex     = regexp.MustCompile("RequestHeader=(.*):(.*)")
 	appsWithSidecar []string
 )
 
@@ -448,7 +449,7 @@ func ClientRequestForError(cluster, app, url string, count int) error {
 
 // ClientRequest makes a request from inside the specified k8s container.
 func ClientRequest(cluster, app, url string, count int, extra string) ClientResponse {
-	out := ClientResponse{}
+	out := ClientResponse{Headers: make(map[string]string)}
 
 	pods := tc.Kube.GetAppPods(cluster)[app]
 	if len(pods) == 0 {
@@ -491,6 +492,11 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 		out.Host = append(out.Host, host[1])
 	}
 
+	headers := headerRegex.FindAllStringSubmatch(request, -1)
+	for _, header := range headers {
+		out.Headers[header[1]] = header[2]
+	}
+
 	return out
 }
 
@@ -508,6 +514,8 @@ type ClientResponse struct {
 	Code []string
 	// Host is the host returned by the response
 	Host []string
+	// Headers is the headers returned by the response
+	Headers [string]string
 }
 
 // IsHTTPOk returns true if the response code was 200

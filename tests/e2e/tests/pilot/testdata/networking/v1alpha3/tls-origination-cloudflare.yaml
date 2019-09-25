@@ -1,0 +1,46 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: www-cloudflare-com
+spec:
+  hosts:
+  - www.cloudflare.com
+  ports:
+  - number: 80
+    name: http-port
+    protocol: HTTP
+  - number: 443
+    name: https-port
+    protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: www-cloudflare-com
+spec:
+  hosts:
+  - www.cloudflare.com
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: www.cloudflare.com
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: www-cloudflare-com
+spec:
+  host: www.cloudflare.com
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: SIMPLE # initiates HTTPS when accessing www.cloudflare.com
