@@ -87,7 +87,7 @@ func TestStartStop_WithStatusCtl(t *testing.T) {
 	g.Eventually(sc.hasStarted).Should(BeTrue())
 
 	s.Stop()
-	g.Eventually(sc.hasStarted).Should(BeTrue())
+	g.Eventually(sc.hasStopped).Should(BeTrue())
 }
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
