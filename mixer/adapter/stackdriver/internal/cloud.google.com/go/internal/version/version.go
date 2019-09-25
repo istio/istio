@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate ./update_version.sh
-
 // Package version contains version information for Google Cloud Client
 // Libraries for Go, as reported in request headers.
 package version

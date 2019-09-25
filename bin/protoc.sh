@@ -19,22 +19,6 @@ if [[ $# -le 0 ]]; then
     exit 1
 fi
 
-SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR="$(dirname "$SCRIPTPATH")"
-
 api=$(go list -m -f "{{.Dir}}" istio.io/api)
 
-gen_img=gcr.io/istio-testing/build-tools:2019-09-04T21-28-42
-
-docker run \
-  -i \
-  --rm \
-  -v "$ROOTDIR:$ROOTDIR" \
-  -v "${api}:/protos/istio.io/api" \
-  -v "$ROOTDIR"/common-protos:/protos \
-  -w "$(pwd)" \
-  $gen_img \
-  /usr/bin/protoc \
-  -I/protos \
-  -I/protos/istio.io/api \
-  "$@"
+protoc -I"${REPO_ROOT}"/common-protos -I"${api}" "$@"
