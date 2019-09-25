@@ -926,7 +926,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					MinHealthPercent:  10,
 				},
 			},
-		}, map[string]string{model.NodeMetadataRouterMode: string(model.SniDnatRouter)},
+		}, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -972,7 +972,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					MinHealthPercent:  10,
 				},
 			},
-		}, map[string]string{model.NodeMetadataRouterMode: string(model.SniDnatRouter)},
+		}, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
 		model.MaxIstioVersion)
 
 	g.Expect(err).NotTo(HaveOccurred())
