@@ -957,7 +957,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
 				return
 			}
 		}

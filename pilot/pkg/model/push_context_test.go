@@ -61,21 +61,21 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:               true,
 				Push:               push0,
 				Start:              t0,
-				TargetNamespaces:   map[string]struct{}{"ns1": {}},
+				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
 				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}},
 			},
 			&PushRequest{
 				Full:               false,
 				Push:               push1,
 				Start:              t1,
-				TargetNamespaces:   map[string]struct{}{"ns2": {}},
+				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
 				ConfigTypesUpdated: map[string]struct{}{"cfg2": {}},
 			},
 			PushRequest{
 				Full:               true,
 				Push:               push1,
 				Start:              t0,
-				TargetNamespaces:   map[string]struct{}{"ns1": {}, "ns2": {}},
+				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
 				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}, "cfg2": {}},
 			},
 		},
@@ -99,9 +99,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"incremental merge",
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
 		},
 	}
 

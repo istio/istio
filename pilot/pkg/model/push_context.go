@@ -160,12 +160,26 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// TargetNamespaces contains a list of namespaces that were changed in the update.
+	// NamespacesUpdated, TargetProxies and ConfigTypesUpdated are used to decide
+	// whether a proxy need a push during this epoch.
+	// Normally the priority order is TargetProxies -> ConfigTypesUpdated -> NamespacesUpdated
+	// For example:
+	// 1. if a proxy is in TargetProxies, need a push
+	// 2. if TargetProxies is not empty and proxy is not in it, no push
+	// 3. if TargetProxies and ConfigTypesUpdated are both empty:
+	//	  3.1 NamespacesUpdated is empty, need a push
+	//    3.2 NamespacesUpdated not empty and proxy import one of the namespace, need a push
+	//    3.3 NamespacesUpdated not empty and proxy import none of the namespace, no push
+	// 4. if TargetProxies is empty and ConfigTypesUpdated is not empty:
+	//    4.1 if all config types not related to the proxy, no push
+	//    4.2 if at least one config type related, jump to check NamespacesUpdated
+
+	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
-	// If this is empty, then proxies in all namespaces will get an update
+	// If this is empty, then all proxies will get an update.
 	// If this is present, then only proxies that import this namespace will get an update
-	TargetNamespaces map[string]struct{}
+	NamespacesUpdated map[string]struct{}
 
 	// TargetProxies contains a list of proxies that should be pushed to.
 	// The key is clusterID + proxy ip address.
@@ -232,13 +246,13 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Merge the target namespaces
-	if len(first.TargetNamespaces) > 0 || len(other.TargetNamespaces) > 0 {
-		merged.TargetNamespaces = make(map[string]struct{})
-		for update := range first.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+	if len(first.NamespacesUpdated) > 0 || len(other.NamespacesUpdated) > 0 {
+		merged.NamespacesUpdated = make(map[string]struct{})
+		for update := range first.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
-		for update := range other.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+		for update := range other.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
 	}
 

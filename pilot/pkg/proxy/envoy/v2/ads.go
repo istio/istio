@@ -182,7 +182,7 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
-	targetNamespaces map[string]struct{}
+	namespacesUpdated map[string]struct{}
 
 	targetProxies map[string]struct{}
 
@@ -718,7 +718,7 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 		return true
 	}
 
-	targetNamespaces := pushEv.targetNamespaces
+	targetNamespaces := pushEv.namespacesUpdated
 	targetProxies := pushEv.targetProxies
 	configs := pushEv.configTypesUpdated
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push

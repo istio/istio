@@ -56,7 +56,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, c := range tt.configs {
 				cfgs[c] = struct{}{}
 			}
-			pushEv := &XdsEvent{targetNamespaces: ns, targetProxies: proxies, configTypesUpdated: cfgs}
+			pushEv := &XdsEvent{namespacesUpdated: ns, targetProxies: proxies, configTypesUpdated: cfgs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
