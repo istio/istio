@@ -84,8 +84,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 docker.proxy_init: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxy_init: pilot/docker/Dockerfile.proxy_init
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
-docker.proxy_init: $(ISTIO_DOCKER)/istio-clean-iptables.sh
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables $(ISTIO_DOCKER)/istio-clean-iptables
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -129,7 +128,6 @@ docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/packaging/common/istio-iptables.sh
-docker.proxyv2: tools/packaging/common/istio-clean-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
@@ -145,7 +143,6 @@ docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxytproxy: tools/packaging/common/istio-iptables.sh
-docker.proxytproxy: tools/packaging/common/istio-clean-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
