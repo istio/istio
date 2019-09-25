@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	// TODO: Referencing this package directly, as duplicating it causes conflicts.
 	"istio.io/istio/galley/pkg/config/monitoring"
 )
 
