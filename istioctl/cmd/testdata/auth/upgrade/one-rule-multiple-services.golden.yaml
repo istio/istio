@@ -1,0 +1,48 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: productpage-default
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    - source:
+        namespaces:
+        - default
+        principals:
+        - Coldplay
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: reviews-default
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    - source:
+        namespaces:
+        - default
+        principals:
+        - Coldplay
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: reviews
+---

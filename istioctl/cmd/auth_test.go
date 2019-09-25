@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"istio.io/istio/istioctl/pkg/auth"
-
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -91,5 +90,38 @@ func TestAuthValidator(t *testing.T) {
 	for _, c := range testCases {
 		command := fmt.Sprintf("experimental auth validate -f %s", strings.Join(c.in, ","))
 		runCommandAndCheckExpectedString(c.name, command, c.expected, t)
+	}
+}
+
+func TestAuthUpgrade(t *testing.T) {
+	testCases := []struct {
+		name              string
+		rbacV1alpha1Files []string
+		servicesFiles     []string
+		golden            string
+	}{
+		{
+			name:              "One access rule with one service",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml", "testdata/auth/upgrade/one-subject.yaml"},
+			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:            "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
+		},
+		{
+			name:              "One access rule with all services",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml", "testdata/auth/upgrade/two-subjects.yaml"},
+			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:            "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
+		},
+		{
+			name:              "One access rule with multiple services",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml", "testdata/auth/upgrade/two-subjects.yaml"},
+			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:            "testdata/auth/upgrade/one-rule-multiple-services.golden.yaml",
+		},
+	}
+	for _, c := range testCases {
+		command := fmt.Sprintf("experimental auth upgrade -f %s -s %s",
+			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","))
+		runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
 	}
 }

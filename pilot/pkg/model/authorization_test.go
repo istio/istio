@@ -108,6 +108,63 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	}
 }
 
+func TestAuthorizationPolicies_ListNamespacesOfServiceRoles(t *testing.T) {
+	role := &rbacproto.ServiceRole{}
+	binding := &rbacproto.ServiceRoleBinding{
+		Subjects: []*rbacproto.Subject{
+			{
+				User: "user-1",
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role-1",
+		},
+	}
+
+	cases := []struct {
+		name    string
+		ns      string
+		configs []Config
+		want    []string
+	}{
+		{
+			name: "no roles",
+			ns:   "foo",
+			want: []string{},
+		},
+		{
+			name: "role and binding same namespace",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("role", "bar", role),
+				newConfig("binding", "bar", binding),
+			},
+			want: []string{"bar"},
+		},
+		{
+			name: "two roles different namespaces",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("role-1", "foo", role),
+				newConfig("role-2", "bar", role),
+			},
+			want: []string{"foo", "bar"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+
+			got := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 	role := &rbacproto.ServiceRole{}
 	binding := &rbacproto.ServiceRoleBinding{
