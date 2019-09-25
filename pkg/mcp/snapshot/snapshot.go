@@ -109,7 +109,9 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 
 // Watch returns a watch for an MCP request.
 func (c *Cache) Watch(
-	request *source.Request, pushResponse source.PushResponseFunc, peerAddr string) source.CancelWatchFunc { // nolint: lll
+	request *source.Request,
+	pushResponse source.PushResponseFunc,
+	peerAddr string) source.CancelWatchFunc {
 	group := c.groupIndex(request.Collection, request.SinkNode)
 
 	c.mu.Lock()
@@ -155,11 +157,10 @@ func (c *Cache) Watch(
 	cancel := func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		var ok bool
-		if info, ok = c.status[group]; ok {
-			info.mu.Lock()
-			delete(info.watches, watchID)
-			info.mu.Unlock()
+		if s, ok := c.status[group]; ok {
+			s.mu.Lock()
+			delete(s.watches, watchID)
+			s.mu.Unlock()
 		}
 	}
 	return cancel
@@ -309,11 +310,8 @@ func (c *Cache) GetSnapshotInfo(group string) []Info {
 	if snapshot, ok := c.snapshots[group]; ok {
 
 		var snapshots []Info
-		collections := make([]string, 0, len(c.snapshots))
+		collections := snapshot.Collections()
 
-		for _, col := range snapshot.Collections() {
-			collections = append(collections, col)
-		}
 		// sort the collections
 		sort.Strings(collections)
 
