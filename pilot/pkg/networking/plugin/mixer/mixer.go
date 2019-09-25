@@ -27,6 +27,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	gogoproto "github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
@@ -542,7 +544,10 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 		quotaSpecs := configStore.QuotaSpecByDestination(instance)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {
-			out.QuotaSpec = append(out.QuotaSpec, quotaSpec.Spec.(*mccpb.QuotaSpec))
+			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
+			converted := &mccpb.QuotaSpec{}
+			proto.Unmarshal(bytes, converted)
+			out.QuotaSpec = append(out.QuotaSpec, converted)
 		}
 	}
 

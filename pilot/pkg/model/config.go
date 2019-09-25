@@ -92,7 +92,7 @@ type ConfigMeta struct {
 type Config struct {
 	ConfigMeta
 
-	// Spec holds the configuration object as a protobuf message
+	// Spec holds the configuration object as a gogo protobuf message
 	Spec proto.Message
 }
 
