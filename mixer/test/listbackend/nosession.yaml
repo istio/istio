@@ -1,5 +1,5 @@
 # this config is created through command
-# mixgen adapter -n listbackend-nosession -c $GOPATH/src/istio.io/istio/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
+# mixgen adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
