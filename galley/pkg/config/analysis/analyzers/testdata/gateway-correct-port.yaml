@@ -1,0 +1,30 @@
+# Gateway with bogus port
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    istio: ingressgateway
+  name: istio-ingressgateway-548976df6c-kxnhb
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+      ports:
+      - containerPort: 80
+        protocol: TCP

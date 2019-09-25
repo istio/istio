@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -86,6 +87,36 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace/bar"},
 			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+		},
+	},
+	{
+		name: "gatewayNoWorkload",
+		inputFiles: []string{
+			"testdata/gateway-no-workload.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name: "gatewayBadPort",
+		inputFiles: []string{
+			"testdata/gateway-no-port.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name: "gatewayCorrectPort",
+		inputFiles: []string{
+			"testdata/gateway-correct-port.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 }
