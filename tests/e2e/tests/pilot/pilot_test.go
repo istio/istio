@@ -494,7 +494,7 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 
 	headers := headerRegex.FindAllStringSubmatch(request, -1)
 	for _, header := range headers {
-		out.Headers[header[1]] = header[2]
+		out.Headers[strings.ToLower(header[1])] = header[2]
 	}
 
 	return out
@@ -514,7 +514,7 @@ type ClientResponse struct {
 	Code []string
 	// Host is the host returned by the response
 	Host []string
-	// Headers is the headers returned by the response
+	// Headers is the headers returned by the response, lower case
 	Headers map[string]string
 }
 

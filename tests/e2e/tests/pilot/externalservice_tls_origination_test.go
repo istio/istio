@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	expectCTHeader = "Expect-CT" // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Expect-CT
+	expectCTHeader = "expect-ct" // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Expect-CT
 )
 
 func TestTLSOrigination(t *testing.T) {
