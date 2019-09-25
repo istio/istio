@@ -21,7 +21,6 @@ ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
 
 OUTDIR=${1?Error: no output dir given}
 
-
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
 function set_download_command () {
