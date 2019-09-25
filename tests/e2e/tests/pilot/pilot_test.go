@@ -515,7 +515,7 @@ type ClientResponse struct {
 	// Host is the host returned by the response
 	Host []string
 	// Headers is the headers returned by the response
-	Headers [string]string
+	Headers map[string]string
 }
 
 // IsHTTPOk returns true if the response code was 200
