@@ -21,10 +21,10 @@ import (
 
 	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 // Snapshotter is a processor that handles input events and creates snapshotImpl collections.
