@@ -48,8 +48,8 @@ import (
 )
 
 const (
-	selfSignedCaCertTtl	= "SELF_SIGNED_CA_CERT_TTL"
-	selfSignedCaCheckInterval = "SELF_SIGNED_CA_CHECK_INTERVAL"
+	selfSignedCaCertTtl        = "SELF_SIGNED_CA_CERT_TTL"
+	selfSignedCaCheckInterval  = "SELF_SIGNED_CA_CHECK_INTERVAL"
 	workloadCertMinGracePeriod = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
 )
 
@@ -126,15 +126,15 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
-		selfSignedCACertTTL:  env.RegisterDurationVar(selfSignedCaCertTtl,
+		selfSignedCACertTTL: env.RegisterDurationVar(selfSignedCaCertTtl,
 			cmd.DefaultSelfSignedCACertTTL,
 			"The TTL of self-signed CA root certificate.").Get(),
-		selfSignedCACheckInternal:  env.RegisterDurationVar(selfSignedCaCheckInterval,
+		selfSignedCACheckInternal: env.RegisterDurationVar(selfSignedCaCheckInterval,
 			cmd.DefaultSelfSignedCACertCheckInterval,
-			"The interval that self-signed CA checks its root certificate " +
-			"expiration time and rotates root certificate. Should not be shorter than " +
-			"one minute. Setting this interval to zero or a negative value disables " +
-			"automated root cert check and upgrade.").Get(),
+			"The interval that self-signed CA checks its root certificate "+
+				"expiration time and rotates root certificate. Should not be shorter than "+
+				"one minute. Setting this interval to zero or a negative value disables "+
+				"automated root cert check and upgrade.").Get(),
 		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
 			cmd.DefaultWorkloadMinCertGracePeriod,
 			"The minimum workload certificate rotation grace period.").Get(),
@@ -510,8 +510,8 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 			go istioCA.RotateRootCert(config)
 			go pkgcmd.WaitSignal(istioCA.StopRotateJob)
 		} else {
-			log.Infof("Disables self-signed root cert auto-upgrading goroutine as root cert checking " +
-					"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
+			log.Infof("Disables self-signed root cert auto-upgrading goroutine as root cert checking "+
+				"interval is not valid: %s", opts.selfSignedCACheckInternal.String())
 		}
 	}
 
