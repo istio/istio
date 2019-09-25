@@ -75,7 +75,7 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), nil)
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), &model.NodeMetadata{})
 		verifySyncStatus(t, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestSyncz(t *testing.T) {
 		if err := sendRDSNack(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
 			t.Fatal(err)
 		}
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), nil)
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), &model.NodeMetadata{})
 		verifySyncStatus(t, node.ID, true, false)
 	})
 }
@@ -280,7 +280,7 @@ func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode
 		return nil
 	}
 	got := &configdump.Wrapper{}
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+	if err := got.UnmarshalJSON(rr.Body.Bytes()); err != nil {
 		t.Fatalf(err.Error())
 	}
 	return got

@@ -18,7 +18,8 @@ import (
 	"testing"
 	"time"
 
-	protoTypes "github.com/gogo/protobuf/types"
+	gogoTypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -57,18 +58,16 @@ func TestRetryWithAllFieldsSet(t *testing.T) {
 	// Create a route with a retry policy with zero attempts configured.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
-			Attempts: 2,
-			RetryOn:  "some,fake,conditions",
-			PerTryTimeout: &protoTypes.Duration{
-				Seconds: 3,
-			},
+			Attempts:      2,
+			RetryOn:       "some,fake,conditions",
+			PerTryTimeout: gogoTypes.DurationProto(time.Second * 3),
 		},
 	}
 
 	policy := retry.ConvertPolicy(route.Retries)
 	g.Expect(policy).To(Not(BeNil()))
 	g.Expect(policy.RetryOn).To(Equal("some,fake,conditions"))
-	g.Expect(*policy.PerTryTimeout).To(Equal(time.Second * 3))
+	g.Expect(policy.PerTryTimeout).To(Equal(ptypes.DurationProto(time.Second * 3)))
 	g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
 	g.Expect(policy.RetriableStatusCodes).To(Equal(make([]uint32, 0)))
 	g.Expect(policy.RetryPriority).To(BeNil())

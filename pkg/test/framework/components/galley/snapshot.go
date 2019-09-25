@@ -18,13 +18,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pmezard/go-difflib/difflib"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
@@ -74,21 +74,6 @@ func getForNamespace(ns string, actuals []*SnapshotObject) (result []*SnapshotOb
 // NewGoldenSnapshotValidator creates a SnapshotValidatorFunc that tests for equivalence against
 // a set of golden object.
 func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) SnapshotValidatorFunc {
-	for _, g := range goldens {
-		if ns != "" {
-			name, err := extractName(g)
-			if err != nil {
-				return func(actuals []*SnapshotObject) error {
-					return err
-				}
-			}
-			if !strings.Contains(name, "/") {
-				name = fmt.Sprintf("%s/%s", ns, name)
-				g["Metadata"].(map[string]interface{})["name"] = name
-			}
-		}
-	}
-
 	return func(actuals []*SnapshotObject) error {
 		// Convert goldens to a map of JSON objects indexed by name.
 		goldenMap := make(map[string]interface{})

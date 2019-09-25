@@ -20,14 +20,14 @@ import (
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"google.golang.org/grpc"
 
@@ -354,9 +354,7 @@ var (
 			ID:           "pod1.ns2",
 			Type:         model.SidecarProxy,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
-			Metadata: map[string]string{
-				model.NodeMetadataMeshID: "helloworld",
-			},
+			Metadata:     &model.NodeMetadata{MeshID: "helloworld"},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -368,9 +366,7 @@ var (
 			ID:           "pod2.ns2",
 			Type:         model.SidecarProxy,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
-			Metadata: map[string]string{
-				model.NodeMetadataMeshID: "helloworld",
-			},
+			Metadata:     &model.NodeMetadata{MeshID: "helloworld"},
 		},
 		Service: &svc,
 		Push:    &pushContext,
@@ -400,14 +396,14 @@ func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionM
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		}, &hcm.HttpConnectionManager{
-			CodecType:  hcm.AUTO,
+			CodecType:  hcm.HttpConnectionManager_AUTO,
 			StatPrefix: route,
 			RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
 				}},
 			},
-			HttpFilters: []*hcm.HttpFilter{{Name: util.Router}},
+			HttpFilters: []*hcm.HttpFilter{{Name: wellknown.Router}},
 		}
 }
 
@@ -425,7 +421,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	}
 	serverManager.HttpFilters = append(serverMutable.FilterChains[0].HTTP, serverManager.HttpFilters...)
 	serverListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
-		Name:       util.HTTPConnectionManager,
+		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(serverManager)},
 	}}}}
 
@@ -435,7 +431,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
-		Name:       util.HTTPConnectionManager,
+		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}
 

@@ -19,13 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 
 	"istio.io/istio/pilot/pkg/model"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -38,11 +37,9 @@ func TestTransportConfig(t *testing.T) {
 		{
 			// defaults set
 			mesh: mesh.DefaultMeshConfig(),
-			node: model.Proxy{
-				Metadata: map[string]string{},
-			},
+			node: model.Proxy{Metadata: &model.NodeMetadata{}},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      defaultRetries,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,
@@ -52,29 +49,29 @@ func TestTransportConfig(t *testing.T) {
 			// retry and retry times set
 			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
-				Metadata: map[string]string{
-					annotation.PolicyCheckRetries.Name:           "5",
-					annotation.PolicyCheckBaseRetryWaitTime.Name: "1m",
-					annotation.PolicyCheckMaxRetryWaitTime.Name:  "1.5s",
+				Metadata: &model.NodeMetadata{
+					PolicyCheckRetries:           "5",
+					PolicyCheckBaseRetryWaitTime: "1m",
+					PolicyCheckMaxRetryWaitTime:  "1.5s",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      5,
-				BaseRetryWait: types.DurationProto(1 * time.Minute),
-				MaxRetryWait:  types.DurationProto(1500 * time.Millisecond),
+				BaseRetryWait: ptypes.DurationProto(1 * time.Minute),
+				MaxRetryWait:  ptypes.DurationProto(1500 * time.Millisecond),
 			},
 		},
 		{
 			// just retry amount set
 			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
-				Metadata: map[string]string{
-					annotation.PolicyCheckRetries.Name: "1",
+				Metadata: &model.NodeMetadata{
+					PolicyCheckRetries: "1",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_CLOSE,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_CLOSE,
 				MaxRetry:      1,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,
@@ -84,12 +81,12 @@ func TestTransportConfig(t *testing.T) {
 			// fail open from node metadata
 			mesh: mesh.DefaultMeshConfig(),
 			node: model.Proxy{
-				Metadata: map[string]string{
-					annotation.PolicyCheck.Name: policyCheckDisable,
+				Metadata: &model.NodeMetadata{
+					PolicyCheck: policyCheckDisable,
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:        mccpb.FAIL_OPEN,
+				Policy:        mccpb.NetworkFailPolicy_FAIL_OPEN,
 				MaxRetry:      defaultRetries,
 				BaseRetryWait: defaultBaseRetryWaitTime,
 				MaxRetryWait:  defaultMaxRetryWaitTime,

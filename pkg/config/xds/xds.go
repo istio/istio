@@ -15,15 +15,18 @@
 package xds
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 
 	xdsAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -56,8 +59,21 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 		return nil, fmt.Errorf("envoy filter: unknown object type for applyTo %s", applyTo.String())
 	}
 
-	if err := xdsUtil.StructToMessage(value, obj); err != nil {
+	if err := GogoStructToMessage(value, obj); err != nil {
 		return nil, fmt.Errorf("envoy filter: %v", err)
 	}
 	return obj, nil
+}
+
+func GogoStructToMessage(pbst *types.Struct, out proto.Message) error {
+	if pbst == nil {
+		return errors.New("nil struct")
+	}
+
+	buf := &bytes.Buffer{}
+	if err := (&gogojsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
+		return err
+	}
+
+	return jsonpb.Unmarshal(buf, out)
 }

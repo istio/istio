@@ -95,7 +95,7 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 func ToOpts(cfg *config.Params, logger adapter.Logger) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
-		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
+		logger.Warningf("API Key is no longer supported by gRPC client. Use ServiceAccountPath instead.")
 	case *config.Params_ServiceAccountPath:
 		path := cfg.GetServiceAccountPath()
 		if _, err := os.Stat(path); !os.IsNotExist(err) {

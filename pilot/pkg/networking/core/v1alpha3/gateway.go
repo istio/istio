@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/hashicorp/go-multierror"
 
@@ -340,7 +340,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
-	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpProtoOpts.AcceptHttp_10 = true
 	}
 
@@ -356,10 +356,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			httpOpts: &httpListenerOpts{
 				rds:              routeName,
 				useRemoteAddress: true,
-				direction:        http_conn.EGRESS, // viewed as from gateway to internal
+				direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: http_conn.SANITIZE_SET,
+					ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
 						Cert:    true,
@@ -379,8 +379,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	enableIngressSdsAgent := false
 	// If proxy sends metadata USER_SDS, then create SDS config for
 	// gateway listener.
-	if enableSds, found := node.Metadata["USER_SDS"]; found {
-		enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+	if len(node.Metadata.UserSds) > 0 {
+		enableIngressSdsAgent, _ = strconv.ParseBool(node.Metadata.UserSds)
 	}
 	return &filterChainOpts{
 		// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -391,10 +391,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
-			direction:        http_conn.EGRESS, // viewed as from gateway to internal
+			direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 			connectionManager: &http_conn.HttpConnectionManager{
 				// Forward client cert if connection is mTLS
-				ForwardClientCertDetails: http_conn.SANITIZE_SET,
+				ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
 					Cert:    true,
@@ -425,7 +425,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, enableIngressSds bool, sdsPath string, metadata map[string]string) *auth.DownstreamTlsContext {
+	server *networking.Server, enableIngressSds bool, sdsPath string, metadata *model.NodeMetadata) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -481,7 +481,7 @@ func buildGatewayListenerTLSContext(
 					authn_model.SDSDefaultResourceName, sdsPath, metadata)}
 		} else {
 			// global SDS disabled, fall back on using mounted certificates
-			caCertificates := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerRootCert, constants.DefaultRootCert)
+			caCertificates := model.GetOrDefault(metadata.TLSServerRootCert, constants.DefaultRootCert)
 			trustedCa := &core.DataSource{
 				Specifier: &core.DataSource_Filename{
 					Filename: caCertificates,
@@ -494,8 +494,8 @@ func buildGatewayListenerTLSContext(
 				},
 			}
 
-			certChainPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerCertChain, constants.DefaultCertChain)
-			privateKeyPath := model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSServerKey, constants.DefaultKey)
+			certChainPath := model.GetOrDefault(metadata.TLSServerCertChain, constants.DefaultCertChain)
+			privateKeyPath := model.GetOrDefault(metadata.TLSServerKey, constants.DefaultKey)
 			tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -603,8 +603,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			enableIngressSdsAgent := false
 			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
 			// gateway listener.
-			if enableSds, found := node.Metadata["USER_SDS"]; found {
-				enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+			if len(node.Metadata.UserSds) > 0 {
+				enableIngressSdsAgent, _ = strconv.ParseBool(node.Metadata.UserSds)
 			}
 			return []*filterChainOpts{
 				{

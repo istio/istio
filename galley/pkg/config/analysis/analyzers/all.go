@@ -16,11 +16,22 @@ package analyzers
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
 
 // All returns all analyzers
-func All() analysis.Analyzer {
-	return analysis.Combine("all",
-		&SampleAnalyzer{},
-	)
+func All() []analysis.Analyzer {
+	return []analysis.Analyzer{
+		&virtualservice.GatewayAnalyzer{},
+		&virtualservice.DestinationAnalyzer{},
+		&auth.ServiceRoleBindingAnalyzer{},
+		&injection.Analyzer{},
+	}
+}
+
+// AllCombined returns all analyzers combined as one
+func AllCombined() analysis.Analyzer {
+	return analysis.Combine("all", All()...)
 }

@@ -7,7 +7,7 @@
 
 An open platform to connect, manage, and secure microservices.
 
-- For in-depth information about how to use Istio, visit [istio.io](https://istio.io)                                   
+- For in-depth information about how to use Istio, visit [istio.io](https://istio.io)
 - To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
 - To learn how to participate in our overall community, visit [our community page](https://istio.io/about/community)
 
@@ -69,16 +69,20 @@ The Istio project is divided across a few GitHub repositories.
 currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
-  - [security](security/). This directory contains security related code,
+
+    - [security](security/). This directory contains security related code,
 including Citadel (acting as Certificate Authority), citadel agent, etc.
-  - [pilot](pilot/). This directory
+
+    - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/docs/reference/config/networking/) into proxy specific configuration.
-  - [istioctl](istioctl/). This directory contains code for the
+
+    - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
-  - [mixer](mixer/). This directory
+
+    - [mixer](mixer/). This directory
 contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and services. There
 are plugins for interfacing with various cloud platforms, policy

@@ -15,17 +15,17 @@
 package v2
 
 import (
-	"fmt"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-
+	pushStart := time.Now()
 	rawListeners := s.generateRawListeners(con, push)
 
 	if s.DebugConfigs {
@@ -33,6 +33,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
 	err := con.send(response)
+	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		recordSendError(ldsSendErrPushes, err)
@@ -49,13 +50,10 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 
 	for _, l := range rawListeners {
 		if err := l.Validate(); err != nil {
-			retErr := fmt.Errorf("LDS: Generated invalid listener for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.modelNode.ID, err, l)
 			ldsBuildErrPushes.Increment()
 			// Generating invalid listeners is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
+			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
 		}
 	}
 	return rawListeners
@@ -74,7 +72,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.Discove
 			totalXDSInternalErrors.Increment()
 			continue
 		}
-		lr, _ := types.MarshalAny(ll)
+		lr := util.MessageToAny(ll)
 		resp.Resources = append(resp.Resources, lr)
 	}
 

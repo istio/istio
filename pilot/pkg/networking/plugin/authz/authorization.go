@@ -79,7 +79,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 		return
 	}
 
-	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Node.WorkloadLabels,
+	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Node.WorkloadLabels, in.Node.ConfigNamespace,
 		in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
 		return

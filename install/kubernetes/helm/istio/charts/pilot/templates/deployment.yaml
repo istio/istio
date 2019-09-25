@@ -10,8 +10,6 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
     istio: pilot
-  annotations:
-    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
 {{- if not .Values.autoscaleEnabled }}
 {{- if .Values.replicaCount }}

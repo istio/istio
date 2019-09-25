@@ -18,16 +18,18 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -55,9 +57,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -67,10 +69,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
+			HTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -79,9 +81,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -90,10 +92,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
+			HTTP10:          "1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -103,9 +105,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
@@ -407,7 +409,6 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				t.Errorf("Failed to initialize push context: %v", err)
 			}
 
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
@@ -526,7 +527,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 	}
 
 	f := l.FilterChains[1].Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "8080" {
 		t.Fatalf("expect routes %s, found %s", "8080", rds)
@@ -537,7 +538,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expect listener %s", "1.2.3.4_8080")
 	}
 	f = l.FilterChains[1].Filters[0]
-	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
 	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "test1.com:8080" {
 		t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
@@ -548,7 +549,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expect listener %s", "3.4.5.6_8080")
 	}
 	f = l.FilterChains[1].Filters[0]
-	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
 	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "test3.com:8080" {
 		t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
@@ -592,7 +593,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		f := listeners[0].FilterChains[2].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 		expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
 		if rds != expect {
@@ -863,6 +864,7 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
+	verifyInboundHTTPListenerStatPrefix(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
 		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
@@ -1009,7 +1011,10 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+		if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+			t.Fatalf("expected stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+		}
 		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
 			if exists && useRemoteAddress.GetBoolValue() {
 				t.Fatalf("expected useRemoteAddress false, found true %v", l)
@@ -1052,7 +1057,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
 			if !exists || !useRemoteAddress.GetBoolValue() {
 				t.Fatalf("expected useRemoteAddress true, found false %v", l)
@@ -1161,7 +1166,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 	f := fc.Filters[0]
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
@@ -1179,11 +1184,28 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 	f := fc.Filters[0]
 	expectedServerName := "istio-envoy"
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	serverName := cfg.Fields["server_name"].GetStringValue()
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
+}
+
+func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "inbound_") {
+		t.Fatalf("expected stat prefix to have %s , found %s", "inbound", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+
 }
 
 func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
@@ -1198,7 +1220,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
 		}
 
 		f := fc.Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		hf := cfg.Fields["http_filters"].GetListValue()
 		if len(hf.Values) != 4 {
 			t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
@@ -1221,7 +1243,7 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	forwardDetails, expected := cfg.Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
 	if forwardDetails != expected {
 		t.Fatalf("expected listener to contain forward_client_cert_details %s, found %s", expected, forwardDetails)
@@ -1246,7 +1268,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected 1 filter, found %d", len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	actual := cfg.Fields["normalize_path"].GetBoolValue()
 	if actual != true {
 		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
@@ -1258,7 +1280,7 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == "envoy.http_connection_manager" {
-				cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+				cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 				httpProtocolOptionsField := cfg.Fields["http_protocol_options"]
 				if http10Expected && httpProtocolOptionsField == nil {
 					t.Error("expected http_protocol_options for http_connection_manager, found nil")
@@ -1313,11 +1335,11 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
-		if err := util.StructToMessage(c.Config, out); err != nil {
+		if err := conversion.StructToMessage(c.Config, out); err != nil {
 			return err
 		}
 	case *listener.Filter_TypedConfig:
-		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}
 	}
@@ -1339,7 +1361,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		return nil
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1364,7 +1386,7 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 		}
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -1430,7 +1452,7 @@ func isMysqlListener(listener *xdsapi.Listener) bool {
 }
 
 func isNodeHTTP10(proxy *model.Proxy) bool {
-	return proxy.Metadata[model.NodeMetadataHTTP10] == "1"
+	return proxy.Metadata.HTTP10 == "1"
 }
 
 func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {

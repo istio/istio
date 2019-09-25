@@ -19,14 +19,24 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
 )
 
 // ApplyClusterPatches applies patches to CDS clusters
-func ApplyClusterPatches(patchContext networking.EnvoyFilter_PatchContext, proxy *model.Proxy,
-	push *model.PushContext, clusters []*xdsapi.Cluster) []*xdsapi.Cluster {
+func ApplyClusterPatches(
+	patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
+	defer util.HandleCrash(func() {
+		log.Errorf("clusters patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the clusters generated before to reduce the influence.
+	out = clusters
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	clustersRemoved := false

@@ -14,41 +14,57 @@
 
 package analysis
 
-import "istio.io/istio/galley/pkg/config/scope"
+import (
+	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/scope"
+)
 
 // Analyzer is an interface for analyzing configuration.
 type Analyzer interface {
-	Name() string
+	Metadata() Metadata
 	Analyze(c Context)
 }
 
 type combinedAnalyzers struct {
-	name      string
+	metadata  Metadata
 	analyzers []Analyzer
 }
 
 // Combine multiple analyzers into a single one.
+// For collections used, use the union of the component analyzers
 func Combine(name string, analyzers ...Analyzer) Analyzer {
 	return &combinedAnalyzers{
-		name:      name,
+		metadata: Metadata{
+			Name:   name,
+			Inputs: combineInputs(analyzers),
+		},
 		analyzers: analyzers,
 	}
 }
 
-// Name implements Analyzer
-func (c *combinedAnalyzers) Name() string {
-	return c.name
+// Metadata implements Analyzer
+func (c *combinedAnalyzers) Metadata() Metadata {
+	return c.metadata
 }
 
 // Analyze implements Analyzer
 func (c *combinedAnalyzers) Analyze(ctx Context) {
 	for _, a := range c.analyzers {
-		scope.Analysis.Debugf("Started analyzer %q...", a.Name())
+		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
 		if ctx.Canceled() {
-			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Name())
+			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)
 			return
 		}
 		a.Analyze(ctx)
-		scope.Analysis.Debugf("Completed analyzer %q...", a.Name())
+		scope.Analysis.Debugf("Completed analyzer %q...", a.Metadata().Name)
 	}
+}
+
+func combineInputs(analyzers []Analyzer) collection.Names {
+	result := make([]collection.Name, 0)
+	for _, a := range analyzers {
+		result = append(result, a.Metadata().Inputs...)
+	}
+
+	return result
 }

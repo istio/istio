@@ -15,16 +15,18 @@
 package v2
 
 import (
-	"fmt"
+	"time"
+
+	"istio.io/istio/pkg/util/protomarshal"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
+	pushStart := time.Now()
 	rawRoutes := s.generateRawRoutes(con, push)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
@@ -38,6 +40,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 
 	response := routeDiscoveryResponse(rawRoutes, version)
 	err := con.send(response)
+	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
 		recordSendError(rdsSendErrPushes, err)
@@ -54,13 +57,10 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 	// Now validate each route
 	for _, r := range rawRoutes {
 		if err := r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", r.Name, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.modelNode.ID, err, r)
 			rdsBuildErrPushes.Increment()
 			// Generating invalid routes is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
+			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
 		}
 	}
 	return rawRoutes
@@ -73,7 +73,7 @@ func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xd
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
-		rr, _ := types.MarshalAny(rc)
+		rr := util.MessageToAny(rc)
 		resp.Resources = append(resp.Resources, rr)
 	}
 

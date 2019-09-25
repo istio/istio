@@ -23,6 +23,6 @@ COPY envoy_bootstrap_drain.json       /var/lib/istio/envoy/envoy_bootstrap_drain
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh
-COPY pkg-test-echo-cmd-client /usr/local/bin/client
-COPY pkg-test-echo-cmd-server /usr/local/bin/server
+COPY client /usr/local/bin/client
+COPY server /usr/local/bin/server
 ENTRYPOINT ["/usr/local/bin/echo-start.sh"]

@@ -29,12 +29,12 @@ import (
 	"time"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2/google"
 
-	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -67,6 +67,7 @@ const (
 	envoyStatsMatcherInclusionRegexpOption = "inclusionRegexps"
 
 	envoyAccessLogServiceName = "envoy_accesslog_service"
+	envoyMetricsServiceName   = "envoy_metrics_service"
 )
 
 var (
@@ -74,19 +75,19 @@ var (
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
-	metadataExchangeKeys = strings.Join(
-		[]string{
-			model.NodeMetadataInstanceName,
-			model.NodeMetadataNamespace,
-			model.NodeMetadataInstanceIPs,
-			model.NodeMetadataLabels,
-			model.NodeMetadataOwner,
-			model.NodeMetadataPlatformMetadata,
-			model.NodeMetadataWorkloadName,
-			model.NodeMetadataCanonicalTelemetryService,
-			model.NodeMetadataMeshID,
-			model.NodeMetadataServiceAccount,
-		}, ",")
+	// These must match the json field names in model.NodeMetadata
+	metadataExchangeKeys = []string{
+		"NAME",
+		"NAMESPACE",
+		"INSTANCE_IPS",
+		"LABELS",
+		"OWNER",
+		"PLATFORM_METADATA",
+		"WORKLOAD_NAME",
+		"CANONICAL_TELEMETRY_SERVICE",
+		"MESH_ID",
+		"SERVICE_ACCOUNT",
+	}
 )
 
 // substituteValues substitutes variables known to the boostrap like pod_ip.
@@ -107,12 +108,12 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 }
 
 // setStatsOptions configures stats inclusion list based on annotations.
-func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, nodeIPs []string) {
+func setStatsOptions(opts map[string]interface{}, meta *model.NodeMetadata, nodeIPs []string) {
 
-	setStatsOption := func(metaKey string, optKey string, required string) {
+	setStatsOption := func(metaOption string, optKey string, required string) {
 		var inclusionOption []string
-		if inclusionPatterns, ok := meta[metaKey]; ok {
-			inclusionOption = strings.Split(inclusionPatterns.(string), ",")
+		if len(metaOption) > 0 {
+			inclusionOption = strings.Split(metaOption, ",")
 		}
 
 		if len(required) > 0 {
@@ -130,11 +131,11 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]interface{}, n
 			opts[optKey] = inclusionOption
 		}
 	}
-	setStatsOption(annotation.SidecarStatsInclusionPrefixes.Name, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
+	setStatsOption(meta.StatsInclusionPrefixes, envoyStatsMatcherInclusionPrefixOption, requiredEnvoyStatsMatcherInclusionPrefixes)
 
-	setStatsOption(annotation.SidecarStatsInclusionSuffixes.Name, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
+	setStatsOption(meta.StatsInclusionSuffixes, envoyStatsMatcherInclusionSuffixOption, requiredEnvoyStatsMatcherInclusionSuffix)
 
-	setStatsOption(annotation.SidecarStatsInclusionRegexps.Name, envoyStatsMatcherInclusionRegexpOption, "")
+	setStatsOption(meta.StatsInclusionRegexps, envoyStatsMatcherInclusionRegexpOption, "")
 }
 
 func defaultPilotSan() []string {
@@ -268,58 +269,65 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	return
 }
 
-func extractAttributesMetadata(envVars []string, plat platform.Environment, meta map[string]interface{}) {
+func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.NodeMetadata) {
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
-				meta[model.NodeMetadataLabels] = m
+				meta.Labels = m
 				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
-					meta[model.NodeMetadataCanonicalTelemetryService] = m["istioTelemetryService"]
+					meta.CanonicalTelemetryService = m["istioTelemetryService"]
 				}
 			}
 		case "POD_NAME":
-			meta[model.NodeMetadataInstanceName] = val
+			meta.InstanceName = val
 		case "POD_NAMESPACE":
-			meta[model.NodeMetadataNamespace] = val
+			meta.Namespace = val
 		case "ISTIO_META_OWNER":
-			meta[model.NodeMetadataOwner] = val
+			meta.Owner = val
 		case "ISTIO_META_WORKLOAD_NAME":
-			meta[model.NodeMetadataWorkloadName] = val
+			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
-			meta[model.NodeMetadataServiceAccount] = val
+			meta.ServiceAccount = val
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
-		meta[model.NodeMetadataPlatformMetadata] = plat.Metadata()
+		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta[model.NodeMetadataExchangeKeys] = metadataExchangeKeys
+	meta.ExchangeKeys = metadataExchangeKeys
 }
 
 // getNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment) map[string]interface{} {
-	meta := map[string]interface{}{}
+func getNodeMetaData(envs []string, plat platform.Environment) (*model.NodeMetadata, map[string]interface{}, error) {
+	meta := &model.NodeMetadata{}
+	untypedMeta := map[string]interface{}{}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
-	}, meta)
+	}, untypedMeta)
 
 	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
 		}
-	}, meta)
-	meta["istio"] = "sidecar"
+	}, untypedMeta)
 
+	j, err := json.Marshal(untypedMeta)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := meta.UnmarshalJSON(j); err != nil {
+		return nil, nil, err
+	}
 	extractAttributesMetadata(envs, plat, meta)
 
-	return meta
+	return meta, untypedMeta, nil
 }
 
 var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
@@ -379,13 +387,12 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv, platEnv)
-
-	localityOverride := ""
-	if locality, ok := meta[model.LocalityLabel]; ok {
-		localityOverride = model.GetLocalityOrDefault(locality.(string), localityOverride)
+	meta, rawMeta, err := getNodeMetaData(localEnv, platEnv)
+	if err != nil {
+		return "", err
 	}
-	l := util.ConvertLocality(localityOverride)
+
+	l := util.ConvertLocality(model.GetLocalityOrDefault(meta.LocalityLabel, ""))
 	if l == nil {
 		// Populate the platform locality if available.
 		l = platEnv.Locality()
@@ -414,19 +421,19 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	setStatsOptions(opts, meta, nodeIPs)
 
 	// Support multiple network interfaces
-	meta[model.NodeMetadataInstanceIPs] = strings.Join(nodeIPs, ",")
+	meta.InstanceIPs = nodeIPs
 
 	if opts["sds_uds_path"] != nil && opts["sds_token_path"] != nil {
 		// sds is enabled
-		meta[model.NodeMetadataSdsEnabled] = "1"
-		meta[model.NodeMetadataSdsTrustJwt] = "1"
+		meta.SdsEnabled = "1"
+		meta.SdsTrustJwt = "1"
 	}
 
-	ba, err := json.Marshal(meta)
+	marshalString, err := marshalMetadata(meta, rawMeta)
 	if err != nil {
 		return "", err
 	}
-	opts["meta_json_str"] = string(ba)
+	opts["meta_json_str"] = marshalString
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
@@ -513,17 +520,20 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	}
 
 	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
-		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsService.Address)
+		h, p, err = GetHostPort("envoy metrics service address", config.EnvoyMetricsService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_metrics_service", opts)
+		StoreHostPort(h, p, "envoy_metrics_service_address", opts)
+		storeTLSContext(envoyMetricsServiceName, config.EnvoyMetricsService.TlsSettings, meta,
+			"envoy_metrics_service_tls", opts)
+		storeKeepalive(config.EnvoyMetricsService.TcpKeepalive, "envoy_metrics_service_tcp_keepalive", opts)
 	} else if config.EnvoyMetricsServiceAddress != "" {
-		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
+		h, p, err = GetHostPort("envoy metrics service address", config.EnvoyMetricsService.Address)
 		if err != nil {
 			return "", err
 		}
-		StoreHostPort(h, p, "envoy_metrics_service", opts)
+		StoreHostPort(h, p, "envoy_metrics_service_address", opts)
 	}
 
 	if config.EnvoyAccessLogService != nil && config.EnvoyAccessLogService.Address != "" {
@@ -546,6 +556,32 @@ func writeBootstrapForPlatform(config *meshconfig.ProxyConfig, node string, epoc
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
 	return fname, err
+}
+
+// marshalMetadata combines type metadata and untyped metadata and marshals to json
+// This allows passing arbitrary metadata to Envoy, while still supported typed metadata for known types
+func marshalMetadata(metadata *model.NodeMetadata, rawMeta map[string]interface{}) (string, error) {
+	b, err := json.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	var output map[string]interface{}
+	if err := json.Unmarshal(b, &output); err != nil {
+		return "", err
+	}
+	// Add all untyped metadata
+	for k, v := range rawMeta {
+		// Do not override fields, as we may have made modifications to the type metadata
+		// This means we will only add "unknown" fields here
+		if _, f := output[k]; !f {
+			output[k] = v
+		}
+	}
+	res, err := json.Marshal(output)
+	if err != nil {
+		return "", err
+	}
+	return string(res), nil
 }
 
 func setOptsWithDefaults(src *types.Int64Value, name string, opts map[string]interface{}, defaultVal int64) {
@@ -573,7 +609,7 @@ func isIPv6Proxy(ipAddrs []string) bool {
 	return true
 }
 
-func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[string]interface{}, field string, opts map[string]interface{}) {
+func storeTLSContext(name string, tls *networking.TLSSettings, metadata *model.NodeMetadata, field string, opts map[string]interface{}) {
 	if tls == nil {
 		return
 	}
@@ -586,7 +622,7 @@ func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[stri
 	var trustedCa *auth.DataSource
 	if len(caCertificates) != 0 {
 		trustedCa = &auth.DataSource{
-			Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, caCertificates),
+			Filename: model.GetOrDefault(metadata.TLSClientRootCert, caCertificates),
 		}
 	}
 	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
@@ -631,10 +667,10 @@ func storeTLSContext(name string, tls *networking.TLSSettings, metadata map[stri
 		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
 			{
 				CertificateChain: &auth.DataSource{
-					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, clientCertificate),
+					Filename: model.GetOrDefault(metadata.TLSClientCertChain, clientCertificate),
 				},
 				PrivateKey: &auth.DataSource{
-					Filename: getOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, privateKey),
+					Filename: model.GetOrDefault(metadata.TLSClientKey, privateKey),
 				},
 			},
 		}
@@ -668,16 +704,6 @@ func convertToJSON(v interface{}) string {
 	return string(b)
 }
 
-func getOrDefaultFromMap(stringMap map[string]interface{}, key, defaultVal string) string {
-	if stringMap == nil {
-		return defaultVal
-	}
-	if valFromMap, ok := stringMap[key]; ok {
-		return fmt.Sprintf("%v", valFromMap)
-	}
-	return defaultVal
-}
-
 func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive, field string, opts map[string]interface{}) {
 	if tcpKeepalive == nil {
 		return
@@ -687,15 +713,15 @@ func storeKeepalive(tcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_
 	}
 
 	if tcpKeepalive.Probes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: tcpKeepalive.Probes}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: tcpKeepalive.Probes}
 	}
 
 	if tcpKeepalive.Time != nil && tcpKeepalive.Time.Seconds > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(tcpKeepalive.Time.Seconds)}
 	}
 
 	if tcpKeepalive.Interval != nil && tcpKeepalive.Interval.Seconds > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
+		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(tcpKeepalive.Interval.Seconds)}
 	}
 	upstreamConnectionOptionsStr := convertToJSON(upstreamConnectionOptions)
 	if upstreamConnectionOptionsStr == "" {

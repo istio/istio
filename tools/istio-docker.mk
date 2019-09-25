@@ -19,7 +19,7 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: build-linux test-bins-linux docker.all
+docker: build-linux docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
@@ -47,7 +47,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # generates rules like the following:
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
-DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
+DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley istio-iptables
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
@@ -153,8 +153,8 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 
 # Test application
 docker.app: pkg/test/echo/docker/Dockerfile.app
-docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-client
-docker.app: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-server
+docker.app: $(ISTIO_OUT_LINUX)/client
+docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	mkdir -p $(ISTIO_DOCKER)/testapp
 	cp -r $^ $(ISTIO_DOCKER)/testapp
@@ -181,8 +181,8 @@ docker.app_sidecar: $(ISTIO_DOCKER)/certs
 docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-client
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pkg-test-echo-cmd-server
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
@@ -192,7 +192,7 @@ docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
 # Test policy backend for mixer integration
 docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
-docker.test_policybackend: $(ISTIO_OUT_LINUX)/mixer-test-policybackend
+docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
 docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -344,40 +344,3 @@ docker.basedebug_deb:
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug
 	docker push istionightly/base_debug:latest
-
-# Build a dev environment Docker image.
-DEV_IMAGE_NAME = istio/dev:$(USER)
-DEV_CONTAINER_NAME = istio-dev
-DEV_GO_VERSION = 1.12.5
-tools/docker-dev/image-built: tools/docker-dev/Dockerfile
-	@echo "building \"$(DEV_IMAGE_NAME)\" Docker image"
-	@docker build \
-		--build-arg goversion="$(DEV_GO_VERSION)" \
-		--build-arg user="${shell id -un}" \
-		--build-arg group="${shell id -gn}" \
-		--build-arg uid="${shell id -u}" \
-		--build-arg gid="${shell id -g}" \
-		--tag "$(DEV_IMAGE_NAME)" - < tools/docker-dev/Dockerfile
-	@touch $@
-
-# Start a dev environment Docker container.
-.PHONY = dev-shell clean-dev-shell
-dev-shell: tools/docker-dev/image-built
-	@if test -z "$(shell docker ps -a -q -f name=$(DEV_CONTAINER_NAME))"; then \
-	    echo "starting \"$(DEV_CONTAINER_NAME)\" Docker container"; \
-		docker run --detach \
-			--name "$(DEV_CONTAINER_NAME)" \
-			--volume "$(GOPATH):/home/$(USER)/go:consistent" \
-			--volume "$(HOME)/.config/gcloud:/home/$(USER)/.config/gcloud:cached" \
-			--volume "$(HOME)/.kube:/home/$(USER)/.kube:cached" \
-			--volume /var/run/docker.sock:/var/run/docker.sock \
-			"$(DEV_IMAGE_NAME)" \
-			'while true; do sleep 60; done';  fi
-	@echo "executing shell in \"$(DEV_CONTAINER_NAME)\" Docker container"
-	@docker exec --tty --interactive "$(DEV_CONTAINER_NAME)" /bin/bash
-
-clean-dev-shell:
-	docker rm -f "$(DEV_CONTAINER_NAME)" || true
-	if test -n "$(shell docker images -q $(DEV_IMAGE_NAME))"; then \
-		docker rmi -f "$(shell docker images -q $(DEV_IMAGE_NAME))" || true; fi
-	rm -f tools/docker-dev/image-built
