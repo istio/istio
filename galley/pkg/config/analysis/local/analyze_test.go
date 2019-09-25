@@ -128,6 +128,8 @@ func TestAddFileKubeSource(t *testing.T) {
 	g.Expect(sa.sources).To(HaveLen(1))
 }
 
+// TODO: Refactor these tests, probably mock out the util method
+
 func TestResourceFiltering(t *testing.T) {
 	g := NewGomegaWithT(t)
 

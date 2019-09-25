@@ -51,16 +51,25 @@ func (ctx *context) Exists(c collection.Name, name resource.Name) bool          
 func (ctx *context) ForEach(c collection.Name, fn IteratorFn)                   {}
 func (ctx *context) Canceled() bool                                             { return false }
 
+func (ctx *context) Disabled(c collection.Name) bool {
+	if c == data.Collection3 {
+		return true
+	}
+	return false
+}
+
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	a1 := &analyzer{inputs: collection.Names{data.Collection1}}
 	a2 := &analyzer{inputs: collection.Names{data.Collection2}}
+	a3 := &analyzer{inputs: collection.Names{data.Collection3}}
 
-	a := Combine("combined", a1, a2)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2))
+	a := Combine("combined", a1, a2, a3)
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2, data.Collection3))
 
 	a.Analyze(&context{})
 	g.Expect(a1.ran).To(BeTrue())
 	g.Expect(a2.ran).To(BeTrue())
+	g.Expect(a3.ran).To(BeFalse())
 }

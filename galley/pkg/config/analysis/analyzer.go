@@ -54,7 +54,7 @@ mainloop:
 		// Skip over any analyzers that require disabled input
 		for _, in := range a.Metadata().Inputs {
 			if ctx.Disabled(in) {
-				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled...", a.Metadata().Name, in)
+				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
 				continue mainloop
 			}
 		}
