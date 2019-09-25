@@ -36,19 +36,12 @@ const (
 	caCertServiceAccount          = "default"
 	caCertServiceAccountNamespace = "default"
 	caKeyInK8sSecret              = "ca.crt"
-)
-
-var (
-	enableOpts  = enableCliOptions{}
-	disableOpts = disableCliOptions{}
-	statusOpts  = statusCliOptions{}
+	certKeyInK8sSecret            = "cert-chain.pem"
 )
 
 type enableCliOptions struct {
 	// Whether enable the webhook configuration of Galley
 	enableValidationWebhook bool
-	// Read the webhook CA certificate from local file system
-	readCaCertFromLocalFile bool
 	// The local file path of webhook CA certificate
 	caCertPath string
 	// The file path of the webhook configuration.
@@ -61,6 +54,15 @@ type enableCliOptions struct {
 	// If the validating webhook is not ready in the given time, exit.
 	// Otherwise, apply the webhook configuration.
 	maxTimeForCheckingWebhookServer int
+	// Max time (in seconds) for waiting the webhook certificate to be readable.
+	maxTimeForReadingWebhookCert int
+	// The name of a webhook secret in the cluster.
+	// istioctl will check whether the webhook certificate
+	// in the secret is issued by the certificate in the k8s service account or the given
+	// CA cert, if any.
+	webhookSecretName string
+	// The namespace of a webhook secret in the cluster.
+	webhookSecretNameSpace string
 }
 
 type disableCliOptions struct {
@@ -79,35 +81,47 @@ type statusCliOptions struct {
 
 // Webhook command to manage webhook configurations
 func Webhook() *cobra.Command {
+	var (
+		enableOpts  = enableCliOptions{}
+		disableOpts = disableCliOptions{}
+		statusOpts  = statusCliOptions{}
+	)
+
 	cmd := &cobra.Command{
 		Use:   "webhook",
 		Short: "webhook command to manage webhook configurations",
 	}
 
-	cmd.AddCommand(newEnableCmd())
-	cmd.AddCommand(newDisableCmd())
-	cmd.AddCommand(newStatusCmd())
+	cmd.AddCommand(newEnableCmd(&enableOpts))
+	cmd.AddCommand(newDisableCmd(&disableOpts))
+	cmd.AddCommand(newStatusCmd(&statusOpts))
 
 	return cmd
 }
 
-func newEnableCmd() *cobra.Command {
-	opts := &enableOpts
+func newEnableCmd(opts *enableCliOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Enable webhook configurations",
 		Example: `
-# Enable the webhook configuration of Galley
-istioctl experimental post-install webhook enable --validation --namespace istio-system
-
 # Enable the webhook configuration of Galley with the given webhook configuration
-istioctl experimental post-install webhook enable --validation --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
+istioctl experimental post-install webhook enable --validation --webhook-secret-name istio.webhook.galley 
+    --webhook-secret-namespace istio-system --namespace istio-system --config-path /etc/validatingwebhookconfiguration.yaml
 
 # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
-istioctl experimental post-install webhook enable --validation --namespace istio-system --config-path /etc/galley/validatingwebhookconfiguration.yaml
-  --ca-cert-path ./k8s-ca-cert.pem --read-ca-cert-from-local-file true
+istioctl experimental post-install webhook enable --validation --webhook-secret-name istio.webhook.galley 
+    --webhook-secret-namespace istio-system --namespace istio-system --namespace istio-system
+    --config-path /etc/validatingwebhookconfiguration.yaml --ca-cert-path ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(opts.webhookConfigPath) == 0 {
+				fmt.Println("must specify a valid --config-path")
+				return nil
+			}
+			if len(opts.webhookSecretName) == 0 || len(opts.webhookSecretNameSpace) == 0 {
+				fmt.Println("must specify a valid --webhook-secret-name and --webhook-secret-namespace")
+				return nil
+			}
 			if !opts.enableValidationWebhook {
 				fmt.Println("not enabling validation webhook")
 				return nil
@@ -118,7 +132,8 @@ istioctl experimental post-install webhook enable --validation --namespace istio
 				return err
 			}
 			// Read k8s CA certificate that will be used as the CA bundle of the webhook configuration
-			caCert, err := readCACert(client, opts.caCertPath, opts.readCaCertFromLocalFile)
+			caCert, err := readCACert(client, opts.caCertPath, opts.webhookSecretName, opts.webhookSecretNameSpace,
+				time.Duration(opts.maxTimeForReadingWebhookCert)*time.Second)
 			if err != nil {
 				fmt.Printf("err when reading CA cert: %v\n", err)
 				return err
@@ -156,28 +171,32 @@ istioctl experimental post-install webhook enable --validation --namespace istio
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Specifies whether enabling"+
 		"the validating webhook.")
-	flags.BoolVar(&opts.readCaCertFromLocalFile, "read-ca-cert-from-local-file", false, "Specifies whether reading"+
-		"CA certificate from local file system or not.")
 	// Specifies the local file path to webhook CA certificate.
-	// The default value is configured based on https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/:
-	// /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.
-	flags.StringVar(&opts.caCertPath, "ca-cert-path", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-		"Specifies the local file path to webhook CA certificate.")
-	flags.StringVar(&opts.webhookConfigPath, "config-path", "/etc/galley/validatingwebhookconfiguration.yaml",
+	// If empty, will read CA certificate from k8s service account.
+	flags.StringVar(&opts.caCertPath, "ca-cert-path", "",
+		"Specifies the local file path to webhook CA certificate. If your cluster has custom k8s CA siging "+
+			"certificate --cluster-signing-cert-file, you need to specify this parameter.")
+	flags.StringVar(&opts.webhookConfigPath, "config-path", "",
 		"Specifies the file path of the webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to manage.")
 	flags.StringVar(&opts.validatingWebhookServiceName, "service", "istio-galley",
 		"The service name of the validating webhook to manage.")
+	flags.StringVar(&opts.webhookSecretName, "webhook-secret-name", "",
+		"The name of a webhook secret in the cluster. istioctl will check whether the webhook certificate "+
+			"in the secret is issued by the CA certificate in the k8s service account or the given CA certificate, if any.")
+	flags.StringVar(&opts.webhookSecretNameSpace, "webhook-secret-namespace", "",
+		"The namespace of a webhook secret in the cluster, which is used together with --webhook-secret-name.")
 	flags.IntVar(&opts.maxTimeForCheckingWebhookServer, "timeout", 60,
 		"	Max time (in seconds) for checking the validating webhook server. If the validating webhook server is not ready"+
 			"in the given time, exit. Otherwise, apply the webhook configuration.")
+	flags.IntVar(&opts.maxTimeForReadingWebhookCert, "read-cert-timeout", 60,
+		"	Max time (in seconds) for waiting the webhook certificate to be readable.")
 
 	return cmd
 }
 
-func newDisableCmd() *cobra.Command {
-	opts := &disableOpts
+func newDisableCmd(opts *disableCliOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disable webhook configurations",
@@ -214,8 +233,7 @@ istioctl experimental post-install webhook disable --validation --config-name is
 	return cmd
 }
 
-func newStatusCmd() *cobra.Command {
-	opts := &statusOpts
+func newStatusCmd(opts *statusCliOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Get webhook configurations",
@@ -291,9 +309,10 @@ func getValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) (*v
 }
 
 // Read CA certificate and check whether it is a valid certificate.
-func readCACert(client kubernetes.Interface, certPath string, readLocal bool) ([]byte, error) {
+func readCACert(client kubernetes.Interface, certPath, secretName, secretNamespace string, maxWaitTime time.Duration) ([]byte, error) {
 	var caCert []byte
 	var err error
+	readLocal := len(certPath) > 0
 	if readLocal {
 		caCert, err = ioutil.ReadFile(certPath)
 		if err != nil {
@@ -301,21 +320,41 @@ func readCACert(client kubernetes.Interface, certPath string, readLocal bool) ([
 		}
 	} else {
 		// Read CA certificate from default service account
-		caCert, err = readSecret(client, caCertServiceAccountNamespace, caCertServiceAccount)
+		caCert, err = readCACertFromSA(client, caCertServiceAccountNamespace, caCertServiceAccount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA cert from %v/%v, error: %v",
 				caCertServiceAccountNamespace, caCertServiceAccount, err)
 		}
 	}
-	b, _ := pem.Decode(caCert)
-	if b == nil {
-		return nil, fmt.Errorf("could not decode pem")
+	if err = checkCertificate(caCert); err != nil {
+		return nil, fmt.Errorf("ca certificate is invalid: %v", err)
 	}
-	if b.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("ca certificate contains wrong type: %v", b.Type)
+
+	// Read the webhook certificate and check whether it is issued by CA cert
+	// (Chiron signs a webhook certificate at k8s CA).
+	startTime := time.Now()
+	timerCh := time.After(maxWaitTime - time.Since(startTime))
+	var cert []byte
+	for {
+		cert, err = readCertFromSecret(client, secretName, secretNamespace)
+		if err == nil {
+			fmt.Printf("finished reading cert %v/%v\n", secretNamespace, secretName)
+			break
+		}
+		fmt.Printf("err reading secret %v/%v: %v\n", secretNamespace, secretName, err)
+		select {
+		case <-timerCh:
+			return nil, fmt.Errorf("the secret %v/%v is not readable within %v", secretNamespace, secretName, maxWaitTime)
+		default:
+			time.Sleep(2 * time.Second)
+		}
 	}
-	if _, err := x509.ParseCertificate(b.Bytes); err != nil {
-		return nil, fmt.Errorf("ca certificate parsing returns an error: %v", err)
+	if err = checkCertificate(cert); err != nil {
+		return nil, fmt.Errorf("webhook certificate is invalid: %v", err)
+	}
+	if err = veriyCertChain(cert, caCert); err != nil {
+		return nil, fmt.Errorf("k8s CA cert and the webhook cert do not form a valid cert chain. "+
+			"if your cluster has a custom k8s signing cert, please specify it in --ca-cert-path parameter. error: %v", err)
 	}
 
 	return caCert, nil
@@ -324,6 +363,7 @@ func readCACert(client kubernetes.Interface, certPath string, readLocal bool) ([
 func waitForServerRunning(client kubernetes.Interface, namespace, svc string, maxWaitTime time.Duration) error {
 	startTime := time.Now()
 	timerCh := time.After(maxWaitTime - time.Since(startTime))
+	// TODO (lei-tang): the retry here may be implemented through another retry mechanism.
 	for {
 		// Check the webhook's endpoint to see if it is ready. The webhook's readiness probe reflects the readiness of
 		// its https server.
@@ -387,8 +427,8 @@ func isEndpointReady(client kubernetes.Interface, svc, namespace string) error {
 	return fmt.Errorf("%v/%v endpoint not ready: no subset addresses", namespace, svc)
 }
 
-// Return nil when the endpoint is ready. Otherwise, return an error.
-func readSecret(client kubernetes.Interface, namespace, svcAcctName string) ([]byte, error) {
+// Read secret of a service account.
+func readCACertFromSA(client kubernetes.Interface, namespace, svcAcctName string) ([]byte, error) {
 	svcAcct, err := client.CoreV1().ServiceAccounts(namespace).Get(svcAcctName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -409,4 +449,62 @@ func readSecret(client kubernetes.Interface, namespace, svcAcctName string) ([]b
 		return nil, fmt.Errorf("secret %v/%v does not contain %v", namespace, secretName, caKeyInK8sSecret)
 	}
 	return d, nil
+}
+
+// Read certificate from secret
+func readCertFromSecret(client kubernetes.Interface, name, namespace string) ([]byte, error) {
+	secret, err := client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if secret == nil {
+		return nil, fmt.Errorf("secret %v/%v is nil", namespace, name)
+	}
+	d, ok := secret.Data[certKeyInK8sSecret]
+	if !ok {
+		return nil, fmt.Errorf("secret %v/%v does not contain %v", namespace, name, certKeyInK8sSecret)
+	}
+	return d, nil
+}
+
+// Return nil if certificate is valid. Otherwise, return an error.
+func checkCertificate(cert []byte) error {
+	b, _ := pem.Decode(cert)
+	if b == nil {
+		return fmt.Errorf("could not decode pem")
+	}
+	if b.Type != "CERTIFICATE" {
+		return fmt.Errorf("ca certificate contains wrong type: %v", b.Type)
+	}
+	if _, err := x509.ParseCertificate(b.Bytes); err != nil {
+		return fmt.Errorf("ca certificate parsing returns an error: %v", err)
+	}
+	return nil
+}
+
+// Verify the cert is issued by the CA cert.
+// Return nil if the cert is issued by the CA cert. Otherwise, return an error.
+func veriyCertChain(cert, caCert []byte) error {
+	roots := x509.NewCertPool()
+	if roots == nil {
+		return fmt.Errorf("failed to create cert pool")
+	}
+	if ok := roots.AppendCertsFromPEM(caCert); !ok {
+		return fmt.Errorf("failed to append CA certificate")
+	}
+	b, _ := pem.Decode(cert)
+	if b == nil {
+		return fmt.Errorf("invalid PEM encoded certificate")
+	}
+	certParsed, err := x509.ParseCertificate(b.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse X.509 certificate")
+	}
+	_, err = certParsed.Verify(x509.VerifyOptions{
+		Roots: roots,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to verify the certificate chain: %v", err)
+	}
+	return nil
 }
