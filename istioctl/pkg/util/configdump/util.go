@@ -17,7 +17,7 @@ package configdump
 import (
 	"fmt"
 
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 type configTypeURL string
@@ -32,15 +32,15 @@ const (
 )
 
 // getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
-func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (proto.Any, error) {
-	var dumpAny proto.Any
+func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (any.Any, error) {
+	var dumpAny any.Any
 	for _, conf := range w.Configs {
 		if conf.TypeUrl == string(sectionTypeURL) {
 			dumpAny = *conf
 		}
 	}
 	if dumpAny.TypeUrl == "" {
-		return proto.Any{}, fmt.Errorf("config dump has no route %s", sectionTypeURL)
+		return any.Any{}, fmt.Errorf("config dump has no route %s", sectionTypeURL)
 	}
 
 	return dumpAny, nil

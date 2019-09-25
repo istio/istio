@@ -87,7 +87,7 @@ ${ISTIO_OUT}/istio.deb:
 		$(ISTIO_FILES)
 
 # Install the deb in a docker image, for testing of the install process.
-deb/docker: hyperistio build deb/fpm ${ISTIO_OUT}/istio.deb
+deb/docker: build deb/fpm ${ISTIO_OUT}/istio.deb
 	mkdir -p ${OUT_DIR}/deb
 	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${OUT_DIR}/deb
 	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb

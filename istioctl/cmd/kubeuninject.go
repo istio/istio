@@ -104,7 +104,7 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 			if index < len(containers)-1 {
 				containers = append(containers[:index], containers[index+1:]...)
 			} else {
-				containers = append(containers[:index])
+				containers = containers[:index]
 			}
 			break
 		}
@@ -120,7 +120,7 @@ func removeInjectedVolumes(volumes []corev1.Volume, injectedVolume string) []cor
 			if index < len(volumes)-1 {
 				volumes = append(volumes[:index], volumes[index+1:]...)
 			} else {
-				volumes = append(volumes[:index])
+				volumes = volumes[:index]
 			}
 			break
 		}
@@ -142,7 +142,7 @@ func removeDNSConfig(podDNSConfig *corev1.PodDNSConfig) {
 				podDNSConfig.Searches = append(podDNSConfig.Searches[:index],
 					podDNSConfig.Searches[index+1:]...)
 			} else {
-				podDNSConfig.Searches = append(podDNSConfig.Searches[:index])
+				podDNSConfig.Searches = podDNSConfig.Searches[:index]
 			}
 			//reset to 0
 			index = 0

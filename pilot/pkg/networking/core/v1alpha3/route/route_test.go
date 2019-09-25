@@ -20,6 +20,7 @@ import (
 	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -53,7 +54,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses:  []string{"1.1.1.1"},
 		ID:           "someID",
 		DNSDomain:    "foo.com",
-		Metadata:     map[string]string{"ISTIO_VERSION": "1.3"},
+		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
@@ -111,7 +112,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  &ttl,
+					Ttl:  ptypes.DurationProto(ttl),
 				},
 			},
 		}

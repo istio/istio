@@ -22,11 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/tests/integration/security/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -117,7 +118,7 @@ spec:
 					var errs []error
 					for _, r := range resp.Resources {
 						foo := &xdsapi.Listener{}
-						err := types.UnmarshalAny(r, foo)
+						err := ptypes.UnmarshalAny(r, foo)
 						if err != nil {
 							errs = append(errs, err)
 							continue

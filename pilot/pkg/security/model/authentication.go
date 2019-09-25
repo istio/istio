@@ -17,10 +17,11 @@ package model
 import (
 	"sync"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/types"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_config_grpc_credential_v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -88,7 +89,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata map[string]string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetadata) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -103,10 +104,10 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata map[string]strin
 		},
 	}
 
-	// If metadata[NodeMetadataSdsTokenPath] is non-empty, envoy will fetch tokens from metadata[NodeMetadataSdsTokenPath].
+	// If metadata.SdsTokenPath is non-empty, envoy will fetch tokens from metadata.SdsTokenPath.
 	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.12 or higher),
 	// pass it to SDS server to request key/cert.
-	if sdsTokenPath, found := metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
+	if sdsTokenPath := metadata.SdsTokenPath; len(sdsTokenPath) > 0 {
 		log.Debugf("SDS token path is (%v)", sdsTokenPath)
 		gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(sdsTokenPath, K8sSAJwtTokenHeaderKey)
@@ -158,7 +159,7 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 // ConstructgRPCCallCredentials is used to construct SDS config which is only available from 1.1
 func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
-	config := &v2alpha.FileBasedMetadataConfig{
+	config := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
 				Filename: tokenFileName,
@@ -198,16 +199,16 @@ var fileBasedMetadataConfigAnyMap sync.Map
 // returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
 // same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
 // FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
-func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *v2alpha.FileBasedMetadataConfig) *types.Any {
+func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig) *any.Any {
 	key := fbMetadataAnyKey{
 		tokenFileName: tokenFileName,
 		headerKey:     headerKey,
 	}
 	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		marshalAny := v.(types.Any)
+		marshalAny := v.(any.Any)
 		return &marshalAny
 	}
-	any, _ := types.MarshalAny(fbMetadata)
+	any, _ := ptypes.MarshalAny(fbMetadata)
 	fileBasedMetadataConfigAnyMap.Store(key, *any)
 	return any
 }

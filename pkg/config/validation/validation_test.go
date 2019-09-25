@@ -3212,7 +3212,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `envoy filter: unknown field "foo" in v2.Cluster`},
+		}, error: `envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

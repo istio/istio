@@ -97,7 +97,7 @@ var _datasetConfigIstioIoV1alpha2Circonus_expectedJson = []byte(`{
   "istio/config/v1alpha2/legacy/circonuses": [
     {
       "Metadata": {
-        "name": "valid-circonus"
+        "name": "{{.Namespace}}/valid-circonus"
       },
       "Body": {
         "fields": {
@@ -249,7 +249,7 @@ var _datasetCoreV1Service_expectedJson = []byte(`{
     {
       "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.ServiceSpec",
       "Metadata": {
-        "name": "kube-dns",
+        "name": "{{.Namespace}}/kube-dns",
         "annotations": {
           "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"labels\":{\"addonmanager.kubernetes.io/mode\":\"Reconcile\",\"k8s-app\":\"kube-dns\",\"kubernetes.io/cluster-service\":\"true\",\"kubernetes.io/name\":\"KubeDNS\"},\"name\":\"kube-dns\",\"namespace\":\"kube-system\"},\"spec\":{\"clusterIP\":\"10.43.240.10\",\"ports\":[{\"name\":\"dns\",\"port\":53,\"protocol\":\"UDP\"},{\"name\":\"dns-tcp\",\"port\":53,\"protocol\":\"TCP\"}],\"selector\":{\"k8s-app\":\"kube-dns\"}}}\n"
         },
@@ -848,6 +848,8 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                   "seconds": 5
                 },
                 "enable_tracing": true,
+                "ingress_class": "istio",
+                "ingress_controller_mode": 2,
                 "ingress_service": "istio-ingressgateway",
                 "outbound_traffic_policy": {
                     "mode": 1
@@ -913,7 +915,7 @@ var _datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson = []byte(`{
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.DestinationRule",
       "Metadata": {
-        "name": "tcp-echo-destination"
+        "name": "{{.Namespace}}/tcp-echo-destination"
       },
       "Body": {
         "host": "tcp-echo",
@@ -988,7 +990,7 @@ var _datasetNetworkingIstioIoV1alpha3Gateway_expectedJson = []byte(`{
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.Gateway",
       "Metadata": {
-        "name": "helloworld-gateway"
+        "name": "{{.Namespace}}/helloworld-gateway"
       },
       "Body": {
         "selector": {
@@ -2174,7 +2176,7 @@ var _datasetNetworkingIstioIoV1alpha3Virtualservicewithunsupported_expectedJson 
   "istio/networking/v1alpha3/virtualservices": [
     {
       "Metadata": {
-        "name": "valid-virtual-service"
+        "name": "{{.Namespace}}/valid-virtual-service"
       },
       "Body": {
         "hosts": [
@@ -2226,7 +2228,7 @@ var _datasetNetworkingIstioIoV1alpha3Virtualservice_expectedJson = []byte(`{
   "istio/networking/v1alpha3/virtualservices": [
     {
       "Metadata": {
-        "name": "valid-virtual-service"
+        "name": "{{.Namespace}}/valid-virtual-service"
       },
       "Body": {
         "hosts": [

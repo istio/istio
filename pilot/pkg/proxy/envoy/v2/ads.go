@@ -24,13 +24,15 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"istio.io/istio/pkg/config/schemas"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -133,7 +135,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
 	}
-	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
@@ -146,7 +148,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range listeners {
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
 	}
-	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:            versionInfo(),
 		DynamicActiveListeners: dynamicActiveListeners,
 	})
@@ -155,22 +157,22 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
-	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
 }
 
@@ -181,6 +183,8 @@ type XdsEvent struct {
 	edsUpdatedServices map[string]struct{}
 
 	targetNamespaces map[string]struct{}
+
+	configTypesUpdated map[string]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -497,7 +501,11 @@ func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection
 	if node == nil || node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(node.Id, model.ParseMetadata(node.Metadata))
+	meta, err := model.ParseMetadata(node.Metadata)
+	if err != nil {
+		return err
+	}
+	nt, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return err
 	}
@@ -551,7 +559,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+		if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -588,7 +596,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+	if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -702,25 +710,45 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bool {
+func ProxyNeedsPush(proxy *model.Proxy, targetNamespaces map[string]struct{}, configs map[string]struct{}) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
 	}
 
+	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
+	appliesToProxy := false
+	// If no config specified, this request applies to all proxies
+	if len(configs) == 0 {
+		appliesToProxy = true
+	}
+	for config := range configs {
+		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
+			// Gateways do not impact sidecars, so no need to push
+		} else {
+			// This config may impact the proxy, so we do need to push
+			appliesToProxy = true
+		}
+	}
+
+	if !appliesToProxy {
+		return false
+	}
+
+	appliesToNs := false
 	// If no only namespaces specified, this request applies to all proxies
 	if len(targetNamespaces) == 0 {
-		return true
+		appliesToNs = true
 	}
 
 	// Otherwise, only apply if the egress listener will import the config present in the update
 	for ns := range targetNamespaces {
-		if con.modelNode.SidecarScope.DependsOnNamespace(ns) {
-			return true
+		if proxy.SidecarScope.DependsOnNamespace(ns) {
+			appliesToNs = true
+			break
 		}
 	}
-
-	return false
+	return appliesToNs
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

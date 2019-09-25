@@ -206,7 +206,7 @@ func TestAddToMesh(t *testing.T) {
 		},
 		{
 			description:    "external service banana namespace",
-			args:           strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345", " "),
+			args:           strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345 tcp:12346", " "),
 			k8sConfigs:     cannedK8sConfigs,
 			dynamicConfigs: cannedDynamicConfigs,
 			namespace:      "banana",
