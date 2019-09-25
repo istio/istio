@@ -59,7 +59,7 @@ var (
 	portRegex       = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
 	hostRegex       = regexp.MustCompile("Host=(.*)")
-	headerRegex     = regexp.MustCompile("RequestHeader=(.*):(.*)")
+	headerRegex     = regexp.MustCompile("ResponseHeader=(.*):(.*)")
 	appsWithSidecar []string
 )
 
