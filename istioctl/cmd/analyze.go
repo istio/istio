@@ -156,6 +156,6 @@ func serviceDiscovery() (bool, error) {
 	case "false":
 		return false, nil
 	default:
-		return false, fmt.Errorf("Invalid argument value for discovery")
+		return false, fmt.Errorf("invalid argument value for discovery")
 	}
 }

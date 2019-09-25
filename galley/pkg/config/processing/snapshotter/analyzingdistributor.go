@@ -51,8 +51,9 @@ const defaultSnapshotGroup = "default"
 const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-//TODO: AnalyzingDistributorOpts struct
-func NewAnalyzingDistributor(u StatusUpdater, a *analysis.CombinedAnalyzer, d Distributor, cr CollectionReporterFn, disabledCollections collection.Names, xformProviders transformer.Providers) *AnalyzingDistributor {
+func NewAnalyzingDistributor(u StatusUpdater, a *analysis.CombinedAnalyzer, d Distributor, cr CollectionReporterFn,
+	disabledCollections collection.Names, xformProviders transformer.Providers) *AnalyzingDistributor {
+
 	// collectionReport hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
