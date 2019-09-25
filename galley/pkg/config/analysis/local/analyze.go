@@ -48,7 +48,7 @@ var (
 type SourceAnalyzer struct {
 	m                    *schema.Metadata
 	sources              []event.Source
-	analyzer             analysis.CombinedAnalyzer
+	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
 
 	// Which kube resources are used by this analyzer
@@ -61,7 +61,7 @@ type SourceAnalyzer struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.CombinedAnalyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}

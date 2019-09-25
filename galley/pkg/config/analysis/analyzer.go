@@ -25,25 +25,17 @@ type Analyzer interface {
 	Analyze(c Context)
 }
 
-type combinedAnalyzers struct {
+// CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
+type CombinedAnalyzer struct {
 	metadata  Metadata
 	analyzers []Analyzer
 	disabled  map[collection.Name]struct{}
 }
 
-// CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
-type CombinedAnalyzer interface {
-	Analyzer
-
-	// Disable marks the specified collections as disabled.
-	// Any analyzers that require these collections as inputs will be skipped.
-	Disable(collection.Names)
-}
-
 // Combine multiple analyzers into a single one.
 // For input metadata, use the union of the component analyzers
-func Combine(name string, analyzers ...Analyzer) CombinedAnalyzer {
-	return &combinedAnalyzers{
+func Combine(name string, analyzers ...Analyzer) *CombinedAnalyzer {
+	return &CombinedAnalyzer{
 		metadata: Metadata{
 			Name:   name,
 			Inputs: combineInputs(analyzers),
@@ -53,12 +45,12 @@ func Combine(name string, analyzers ...Analyzer) CombinedAnalyzer {
 }
 
 // Metadata implements Analyzer
-func (c *combinedAnalyzers) Metadata() Metadata {
+func (c *CombinedAnalyzer) Metadata() Metadata {
 	return c.metadata
 }
 
 // Analyze implements Analyzer
-func (c *combinedAnalyzers) Analyze(ctx Context) {
+func (c *CombinedAnalyzer) Analyze(ctx Context) {
 mainloop:
 	for _, a := range c.analyzers {
 		// Skip over any analyzers that require disabled input
@@ -88,11 +80,17 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 	return result
 }
 
-// Disable implements CombinedAnalyzer
-func (c *combinedAnalyzers) Disable(cols collection.Names) {
+// WithDisabled returns a new CombinedAnalyzer that marks the specified collections as disabled.
+// Any analyzers that require these collections as inputs will be skipped.
+func (c *CombinedAnalyzer) WithDisabled(cols collection.Names) *CombinedAnalyzer {
 	disabled := make(map[collection.Name]struct{})
 	for _, col := range cols {
 		disabled[col] = struct{}{}
 	}
-	c.disabled = disabled
+
+	return &CombinedAnalyzer{
+		metadata:  c.metadata,
+		analyzers: c.analyzers,
+		disabled:  disabled,
+	}
 }

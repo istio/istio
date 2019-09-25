@@ -33,7 +33,7 @@ type CollectionReporterFn func(collection.Name)
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
 	updater     StatusUpdater
-	analyzer    analysis.Analyzer
+	analyzer    *analysis.CombinedAnalyzer
 	distributor Distributor
 
 	analysisMu     sync.Mutex
@@ -52,17 +52,15 @@ const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 //TODO: AnalyzingDistributorOpts struct
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.CombinedAnalyzer, d Distributor, cr CollectionReporterFn, disabledCollections collection.Names, xformProviders transformer.Providers) *AnalyzingDistributor {
+func NewAnalyzingDistributor(u StatusUpdater, a *analysis.CombinedAnalyzer, d Distributor, cr CollectionReporterFn, disabledCollections collection.Names, xformProviders transformer.Providers) *AnalyzingDistributor {
 	// collectionReport hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
 
-	a.Disable(getDisabledOutputs(disabledCollections, xformProviders))
-
 	return &AnalyzingDistributor{
 		updater:            u,
-		analyzer:           a,
+		analyzer:           a.WithDisabled(getDisabledOutputs(disabledCollections, xformProviders)),
 		distributor:        d,
 		lastSnapshots:      make(map[string]*Snapshot),
 		collectionReporter: cr,
