@@ -38,4 +38,4 @@ spec:
     protocol: TCP
     targetPort: 80
   selector:
-    istio: ingressgateway
+    myapp: private-ingressgateway
