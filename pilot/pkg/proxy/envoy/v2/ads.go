@@ -184,8 +184,6 @@ type XdsEvent struct {
 
 	namespacesUpdated map[string]struct{}
 
-	targetProxies map[string]struct{}
-
 	configTypesUpdated map[string]struct{}
 
 	// Push context to use for the push.
@@ -645,6 +643,32 @@ func adsClientCount() int {
 	return n
 }
 
+func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+	var connection *XdsConnection
+
+	adsClientsMutex.RLock()
+	// Create a temp map to avoid locking the add/remove
+	for _, v := range adsClients {
+		if v.modelNode.ClusterID == clusterID && v.modelNode.IPAddresses[0] == ip {
+			connection = v
+			break
+		}
+
+	}
+	adsClientsMutex.RUnlock()
+
+	currentlyPending := s.pushQueue.Pending()
+	if currentlyPending != 0 {
+		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+	}
+
+	s.pushQueue.Enqueue(connection, &model.PushRequest{
+		Full:  true,
+		Push:  s.globalPushContext(),
+		Start: time.Now(),
+	})
+}
+
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), &model.PushRequest{Full: true, Push: s.globalPushContext()})
@@ -719,32 +743,21 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	}
 
 	targetNamespaces := pushEv.namespacesUpdated
-	targetProxies := pushEv.targetProxies
 	configs := pushEv.configTypesUpdated
+
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
 	appliesToProxy := false
-
-	// No target proxies set, check configs
-	if len(targetProxies) == 0 {
-		// If no config specified, this request applies to all proxies
-		if len(configs) == 0 {
-			appliesToProxy = true
+	// If no config specified, this request applies to all proxies
+	if len(configs) == 0 {
+		appliesToProxy = true
+	}
+	for config := range configs {
+		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
+			// Gateways do not impact sidecars, so no need to push
 		} else {
-			for config := range configs {
-				if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
-					// Gateways do not impact sidecars, so no need to push
-				} else {
-					// This config may impact the proxy, so we do need to push
-					appliesToProxy = true
-					break
-				}
-			}
+			// This config may impact the proxy, so we do need to push
+			appliesToProxy = true
 		}
-	} else if _, ok := targetProxies[proxy.ClusterID+proxy.IPAddresses[0]]; ok {
-		// If target proxies is set explicitly, need a push.
-		return true
-	} else {
-		return false
 	}
 
 	if !appliesToProxy {
@@ -762,7 +775,6 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 			return true
 		}
 	}
-
 	return false
 }
 

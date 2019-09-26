@@ -75,6 +75,13 @@ func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	}
 }
 
+func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
+	select {
+	case fx.Events <- XdsEvent{Type: "proxy"}:
+	default:
+	}
+}
+
 // FakeXdsUpdater is used to test the registry.
 type FakeXdsUpdater struct {
 	// Events tracks notifications received by the updater

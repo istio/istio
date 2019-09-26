@@ -28,18 +28,12 @@ func TestProxyNeedsPush(t *testing.T) {
 		name       string
 		proxy      *model.Proxy
 		namespaces []string
-		proxies    []string
 		configs    []string
 		want       bool
 	}{
-		{"no namespace or configs", sidecar, nil, nil, nil, true},
-		{"gateway config for sidecar", sidecar, nil, nil, []string{schemas.Gateway.Type}, false},
-		{"gateway config for gateway", gateway, nil, nil, []string{schemas.Gateway.Type}, true},
-		{"proxy in targetProxies", sidecar, nil, []string{"127.0.0.1"}, nil, true},
-		{"proxy not in targetProxies", sidecar, nil, []string{"127.0.0.2"}, nil, false},
-		{"proxy in targetProxies and gateway config", sidecar, nil, []string{"127.0.0.1"}, []string{schemas.Gateway.Type}, true},
-
-		// TODO: add test for namespaces
+		{"no namespace or configs", sidecar, nil, nil, true},
+		{"gateway config for sidecar", sidecar, nil, []string{schemas.Gateway.Type}, false},
+		{"gateway config for gateway", gateway, nil, []string{schemas.Gateway.Type}, true},
 	}
 
 	for _, tt := range cases {
@@ -48,15 +42,11 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, n := range tt.namespaces {
 				ns[n] = struct{}{}
 			}
-			proxies := map[string]struct{}{}
-			for _, id := range tt.proxies {
-				proxies[id] = struct{}{}
-			}
 			cfgs := map[string]struct{}{}
 			for _, c := range tt.configs {
 				cfgs[c] = struct{}{}
 			}
-			pushEv := &XdsEvent{namespacesUpdated: ns, targetProxies: proxies, configTypesUpdated: cfgs}
+			pushEv := &XdsEvent{namespacesUpdated: ns, configTypesUpdated: cfgs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)

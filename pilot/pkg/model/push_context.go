@@ -152,6 +152,10 @@ type XDSUpdater interface {
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(req *PushRequest)
+
+	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
+	// The requests may be collapsed and throttled.
+	ProxyUpdate(clusterID, ip string)
 }
 
 // PushRequest defines a request to push to proxies
@@ -160,32 +164,12 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// NamespacesUpdated, TargetProxies and ConfigTypesUpdated are used to decide
-	// whether a proxy need a push during this epoch.
-	// Normally the priority order is TargetProxies -> ConfigTypesUpdated -> NamespacesUpdated
-	// For example:
-	// 1. if a proxy is in TargetProxies, need a push
-	// 2. if TargetProxies is not empty and proxy is not in it, no push
-	// 3. if TargetProxies and ConfigTypesUpdated are both empty:
-	//	  3.1 NamespacesUpdated is empty, need a push
-	//    3.2 NamespacesUpdated not empty and proxy import one of the namespace, need a push
-	//    3.3 NamespacesUpdated not empty and proxy import none of the namespace, no push
-	// 4. if TargetProxies is empty and ConfigTypesUpdated is not empty:
-	//    4.1 if all config types not related to the proxy, no push
-	//    4.2 if at least one config type related, jump to check NamespacesUpdated
-
 	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
 	// If this is empty, then all proxies will get an update.
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
-
-	// TargetProxies contains a list of proxies that should be pushed to.
-	// The key is clusterID + proxy ip address.
-	// If this is empty, then all proxies will get an update.
-	// If this is present, then only proxies in the list will get an update.
-	TargetProxies map[string]struct{}
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
@@ -264,17 +248,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		}
 		for update := range other.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
-		}
-	}
-
-	// Merge the target proxies
-	if len(first.TargetProxies) > 0 && len(other.TargetProxies) > 0 {
-		merged.TargetProxies = make(map[string]struct{})
-		for update := range first.TargetProxies {
-			merged.TargetProxies[update] = struct{}{}
-		}
-		for update := range other.TargetProxies {
-			merged.TargetProxies[update] = struct{}{}
 		}
 	}
 

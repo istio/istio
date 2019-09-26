@@ -85,7 +85,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 				if _, ok := pc.podsByIP[ip]; !ok {
 					// add to cache if the pod is running or pending
 					pc.podsByIP[ip] = key
-					pc.configUpdates(ip)
+					pc.proxyUpdates(ip)
 				}
 			}
 		case model.EventUpdate:
@@ -101,7 +101,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 				if _, ok := pc.podsByIP[ip]; !ok {
 					// add to cache if the pod is running or pending
 					pc.podsByIP[ip] = key
-					pc.configUpdates(ip)
+					pc.proxyUpdates(ip)
 				}
 
 			default:
@@ -120,12 +120,9 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 	return nil
 }
 
-func (pc *PodCache) configUpdates(ip string) {
+func (pc *PodCache) proxyUpdates(ip string) {
 	if pc.c != nil && pc.c.XDSUpdater != nil {
-		pc.c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:          true,
-			TargetProxies: map[string]struct{}{pc.c.ClusterID + ip: {}},
-		})
+		pc.c.XDSUpdater.ProxyUpdate(pc.c.ClusterID, ip)
 	}
 }
 
