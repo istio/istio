@@ -119,6 +119,26 @@ var testGrid = []testCase{
 			// no messages, this test case verifies no false positives
 		},
 	},
+	{
+		name: "gatewayCustomIngressGateway",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name: "gatewayCustomIngressGatewayBadPort",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway-badport.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.

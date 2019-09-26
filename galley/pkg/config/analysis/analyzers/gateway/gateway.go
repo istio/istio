@@ -39,6 +39,7 @@ func (*Analyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.K8SCoreV1Pods,
+			metadata.K8SCoreV1Services,
 		},
 	}
 }
@@ -55,37 +56,55 @@ func (*Analyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
 
 	gw := r.Item.(*v1alpha3.Gateway)
 
-	// pod container port exposed by the gateway workload selector.  All the istio
-	// ingress pods matching a selector SHOULD offer the same ports.  This validator
-	// does not check for the case where they don't.
-	podPorts := map[uint32]bool{}
-	selectorMatches := 0
+	// Typically there will be a single istio-ingressgateway service, which will select
+	// the same ingress gateway pod workload as the Gateway resource.  If there are multiple
+	// Kubernetes services, and they offer different TCP port combinations, this validator will
+	// not report a problem if any service exposes the Gateway port.
+	servicePorts := map[uint32]bool{}
+	gwSelectorMatches := 0
 
-	// Find pods selected by gw.Selector and extract their container ports
+	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
 	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
 		pod := r.Item.(*v1.Pod)
 		podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 		if gwSelector.Matches(podLabels) {
-			selectorMatches++
-			for _, container := range pod.Spec.Containers {
-				for _, port := range container.Ports {
-					podPorts[uint32(port.ContainerPort)] = true
+			gwSelectorMatches++
+			c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+				service := r.Item.(*v1.ServiceSpec)
+				for _, port := range service.Ports {
+					if port.Protocol == "TCP" {
+						servicePorts[uint32(port.Port)] = true
+					}
 				}
-			}
+				return true
+			})
 		}
 		return true
 	})
 
-	if selectorMatches == 0 {
-		c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
-		return
+	if gwSelectorMatches == 0 {
+		// We found no service for the Gateway's workload selector.  If the Gateway does select
+		// the Istio system ingress gateway complain about a missing referenced resource.  (We
+		// don't want to complain about missing system resources, because a user may want to analyze
+		// only his own application files.)
+		if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
+			c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
+			return
+		}
+		// The unreferenced Ingress is the System ingress, pretend we have found it.
+		servicePorts = map[uint32]bool{
+			80:    true,
+			443:   true,
+			31400: true,
+			15443: true,
+		}
 	}
 
-	// Check each Gateway port against what the pod offers
+	// Check each Gateway port against what the workload ingress service offers
 	for _, server := range gw.Servers {
 		if server.Port != nil {
-			_, ok := podPorts[server.Port.Number]
+			_, ok := servicePorts[server.Port.Number]
 			if !ok {
 				c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number)))
 			}
