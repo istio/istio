@@ -982,7 +982,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for _, i := range []int{0, 3} {
+	for _, i := range []int{0, 1, 4, 5} {
 		cluster := clusters[i]
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
@@ -1028,7 +1028,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for _, i := range []int{0, 3} {
+	for _, i := range []int{0, 1, 4, 5} {
 		if clusters[i].CommonLbConfig == nil {
 			t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[i])
 		}
