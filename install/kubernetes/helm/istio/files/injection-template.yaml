@@ -43,14 +43,18 @@ initContainers:
   resources: {}
 {{- end }}
   securityContext:
-    runAsUser: 0
-    runAsNonRoot: false
+    allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
     capabilities:
       add:
       - NET_ADMIN
-    {{- if .Values.global.proxy.privileged }}
-    privileged: true
-    {{- end }}
+      - NET_RAW
+      drop:
+      - ALL
+    privileged: {{ .Values.global.proxy.privileged }}
+    readOnlyRootFilesystem: false
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
   restartPolicy: Always
 {{- end }}
 {{  end -}}
@@ -65,9 +69,17 @@ initContainers:
   imagePullPolicy: IfNotPresent
   resources: {}
   securityContext:
-    runAsUser: 0
-    runAsNonRoot: false
+    allowPrivilegeEscalation: true
+    capabilities:
+      add:
+      - SYS_ADMIN
+      drop:
+      - ALL
     privileged: true
+    readOnlyRootFilesystem: false
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
 {{ end }}
 {{- end }}
 containers:
@@ -288,21 +300,22 @@ containers:
     failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
   {{ end -}}
   securityContext:
-    {{- if .Values.global.proxy.privileged }}
-    privileged: true
-    {{- end }}
-    {{- if ne .Values.global.proxy.enableCoreDump true }}
-    readOnlyRootFilesystem: true
-    {{- end }}
-    {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+    allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
     capabilities:
+      {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
       add:
       - NET_ADMIN
+      {{- end }}
+      drop:
+      - ALL
+    privileged: {{ .Values.global.proxy.privileged }}
+    readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
     runAsGroup: 1337
-    {{ else -}}
-    {{ if .Values.global.sds.enabled }}
-    runAsGroup: 1337
-    {{- end }}
+    {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+    runAsNonRoot: false
+    runAsUser: 0
+    {{- else -}}
+    runAsNonRoot: true
     runAsUser: 1337
     {{- end }}
   resources:
