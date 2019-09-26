@@ -15,6 +15,7 @@
 package analysis
 
 import (
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
@@ -80,17 +81,56 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 	return result
 }
 
-// WithDisabled returns a new CombinedAnalyzer that marks the specified collections as disabled.
-// Any analyzers that require these collections as inputs will be skipped.
-func (c *CombinedAnalyzer) WithDisabled(cols collection.Names) *CombinedAnalyzer {
-	disabled := make(map[collection.Name]struct{})
-	for _, col := range cols {
-		disabled[col] = struct{}{}
-	}
-
+// WithDisabled returns a new CombinedAnalyzer that marks the specified input collections as disabled.
+// Transformer information is used to determine, based on the disabled input collections, which output collections
+// should be disabled. Any analyzers that require those output collections will be skipped.
+func (c *CombinedAnalyzer) WithDisabled(disabledInputs collection.Names, xformProviders transformer.Providers) *CombinedAnalyzer {
 	return &CombinedAnalyzer{
 		metadata:  c.metadata,
 		analyzers: c.analyzers,
-		disabled:  disabled,
+		disabled:  getDisabledOutputs(disabledInputs, xformProviders),
 	}
+}
+
+func getDisabledOutputs(disabledInputs collection.Names, xformProviders transformer.Providers) map[collection.Name]struct{} {
+	// Get disabledCollections as a set
+	disabledInputSet := make(map[collection.Name]struct{})
+	for _, col := range disabledInputs {
+		disabledInputSet[col] = struct{}{}
+	}
+
+	// Disable all outputs where every xform has at least one input disabled
+	// 1. Count, for each output, how many xforms feed it
+	outputXformCount := make(map[collection.Name]int)
+	for _, p := range xformProviders {
+		for _, out := range p.Outputs() {
+			outputXformCount[out]++
+		}
+	}
+
+	// 2. For each xform, if inputs are disabled decrement each output counter for that xform
+	for _, p := range xformProviders {
+		hasDisabledInput := false
+		for _, in := range p.Inputs() {
+			if _, ok := disabledInputSet[in]; ok {
+				hasDisabledInput = true
+				break
+			}
+		}
+		if hasDisabledInput {
+			for _, out := range p.Outputs() {
+				outputXformCount[out]--
+			}
+		}
+	}
+
+	// 3. Any outputs == 0, add to the result set
+	result := make(map[collection.Name]struct{})
+	for out, count := range outputXformCount {
+		if count == 0 {
+			result[out] = struct{}{}
+		}
+	}
+
+	return result
 }
