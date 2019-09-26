@@ -85,7 +85,8 @@ func TestAnalyzersRun(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(metadata.MustGet(), a, cr)
-	sa.AddFileKubeSource([]string{}, "")
+	err := sa.AddFileKubeSource([]string{}, "")
+	g.Expect(err).To(BeNil())
 
 	msgs, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
@@ -113,16 +114,17 @@ func TestAddFileKubeSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 	_, err = tmpfile.WriteString(data.YamlN1I1V1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpfile.Close(); err != nil {
+	if err = tmpfile.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	sa.AddFileKubeSource([]string{tmpfile.Name()}, "")
+	err = sa.AddFileKubeSource([]string{tmpfile.Name()}, "")
+	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(1))
 }
 
