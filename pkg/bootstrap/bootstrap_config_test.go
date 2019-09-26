@@ -69,6 +69,7 @@ var (
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_datadog/envoy-rev0.json pkg/bootstrap/testdata/tracing_datadog_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/metrics_service/envoy-rev0.json pkg/bootstrap/testdata/metrics_service_golden.json
 func TestGolden(t *testing.T) {
 	out := env.ISTIO_OUT.Value() // defined in the makefile
 	if out == "" {
@@ -235,6 +236,9 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
+		},
+		{
+			base: "metrics_service",
 		},
 	}
 
