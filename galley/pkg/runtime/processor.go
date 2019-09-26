@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/timedfn"
 
 	"istio.io/istio/galley/pkg/config/monitoring"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/publish"
