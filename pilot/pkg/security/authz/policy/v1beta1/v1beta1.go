@@ -55,7 +55,7 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 			if p := g.generatePolicy(rule, forTCPFilter); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
-				rbacLog.Debugf("generated policy %s for rule", name)
+				rbacLog.Debugf("generated policy %s: %+v", name, p)
 			}
 		}
 	}
@@ -68,5 +68,6 @@ func (g *v1beta1Generator) generatePolicy(rule *istio_rbac.Rule, forTCPFilter bo
 	}
 
 	m := authz_model.NewModelFromV1beta1(rule)
+	rbacLog.Debugf("constructed internal model: %+v", m)
 	return m.Generate(nil, forTCPFilter)
 }
