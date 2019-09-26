@@ -661,10 +661,11 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	if connection == nil {
 		return
 	}
-
-	currentlyPending := s.pushQueue.Pending()
-	if currentlyPending != 0 {
-		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Debugf("Starting new push while %v were still pending", currentlyPending)
+		}
 	}
 
 	s.pushQueue.Enqueue(connection, &model.PushRequest{
@@ -731,9 +732,11 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 	adsClientsMutex.RUnlock()
 
-	currentlyPending := s.pushQueue.Pending()
-	if currentlyPending != 0 {
-		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+		}
 	}
 	req.Start = time.Now()
 	for _, p := range pending {
