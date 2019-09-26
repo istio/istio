@@ -70,7 +70,8 @@ type Agent interface {
 }
 
 var (
-	errAbort = errors.New("epoch aborted")
+	errAbort       = errors.New("epoch aborted")
+	errOutOfMemory = errors.New("signal: killed")
 
 	// DefaultRetry configuration for proxies
 	DefaultRetry = Retry{
@@ -215,7 +216,9 @@ func (a *agent) Run(ctx context.Context) {
 				log.Infof("Epoch %d aborted", status.epoch)
 			} else if status.err != nil {
 				log.Warnf("Epoch %d terminated with an error: %v", status.epoch, status.err)
-
+				if status.err == errOutOfMemory {
+					log.Warnf("Envoy may have been out of memory killed. Check memory usage and limits.")
+				}
 				// NOTE: due to Envoy hot restart race conditions, an error from the
 				// process requires aggressive non-graceful restarts by killing all
 				// existing proxy instances

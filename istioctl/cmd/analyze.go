@@ -64,7 +64,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 			}
 			cancel := make(chan struct{})
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All())
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil)
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.

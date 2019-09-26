@@ -16,8 +16,10 @@ package security
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"istio.io/istio/pkg/config/host"
 )
@@ -29,6 +31,26 @@ type JwksInfo struct {
 	Port     int
 	UseSSL   bool
 }
+
+const (
+	attrRequestHeader    = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace     = "source.namespace"       // e.g. "default".
+	attrSrcUser          = "source.user"            // source identity, e.g. "cluster.local/ns/default/sa/productpage".
+	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
+	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
+	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
+	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrDestIP           = "destination.ip"         // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort         = "destination.port"       // must be in the range [0, 65535].
+	attrDestLabel        = "destination.labels"     // label name is surrounded by brackets, e.g. "destination.labels[version]".
+	attrDestName         = "destination.name"       // short service name, e.g. "productpage".
+	attrDestNamespace    = "destination.namespace"  // e.g. "default".
+	attrDestUser         = "destination.user"       // service account, e.g. "bookinfo-productpage".
+	attrConnSNI          = "connection.sni"         // server name indication, e.g. "www.example.com".
+	attrExperimental     = "experimental.envoy.filters."
+)
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
@@ -65,4 +87,78 @@ func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 	info.Scheme = u.Scheme
 
 	return info, nil
+}
+
+func ValidateAttribute(key string, values []string) error {
+	switch {
+	case hasPrefix(key, attrRequestHeader):
+		return validateMapKey(key)
+	case isEqual(key, attrSrcIP):
+		return validateIPs(values)
+	case isEqual(key, attrSrcNamespace):
+	case isEqual(key, attrSrcUser):
+	case isEqual(key, attrSrcPrincipal):
+	case isEqual(key, attrRequestPrincipal):
+	case isEqual(key, attrRequestAudiences):
+	case isEqual(key, attrRequestPresenter):
+	case hasPrefix(key, attrRequestClaims):
+		return validateMapKey(key)
+	case isEqual(key, attrDestIP):
+		return validateIPs(values)
+	case isEqual(key, attrDestPort):
+		return validatePorts(values)
+	case isEqual(key, attrDestLabel, attrDestName, attrDestNamespace, attrDestUser):
+		return fmt.Errorf("deprecated attribute (%s): only supported in v1alpha1", key)
+	case isEqual(key, attrConnSNI):
+	case hasPrefix(key, attrExperimental):
+	default:
+		return fmt.Errorf("unknown attribute (%s)", key)
+	}
+	return nil
+}
+
+func isEqual(key string, values ...string) bool {
+	for _, v := range values {
+		if key == v {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPrefix(key string, prefix string) bool {
+	return strings.HasPrefix(key, prefix)
+}
+
+func validateIPs(ips []string) error {
+	for _, v := range ips {
+		if strings.Contains(v, "/") {
+			if _, _, err := net.ParseCIDR(v); err != nil {
+				return fmt.Errorf("bad CIDR range (%s): %v", v, err)
+			}
+		} else {
+			if ip := net.ParseIP(v); ip == nil {
+				return fmt.Errorf("bad IP address (%s)", v)
+			}
+		}
+	}
+	return nil
+}
+
+func validatePorts(ports []string) error {
+	for _, port := range ports {
+		p, err := strconv.ParseUint(port, 10, 32)
+		if err != nil || p > 65535 {
+			return fmt.Errorf("bad port (%s): %v", port, err)
+		}
+	}
+	return nil
+}
+
+func validateMapKey(key string) error {
+	open := strings.Index(key, "[")
+	if strings.HasSuffix(key, "]") && open > 0 && open < len(key)-2 {
+		return nil
+	}
+	return fmt.Errorf("bad key (%s): should have format a[b]", key)
 }

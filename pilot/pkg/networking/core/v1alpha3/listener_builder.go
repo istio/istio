@@ -16,13 +16,15 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -37,8 +39,8 @@ import (
 
 var (
 	// Precompute these filters as an optimization
-	blackholeAnyMarshalling    = newBlackholeFilter(true)
-	blackholeStructMarshalling = newBlackholeFilter(false)
+	blackholeAnyMarshalling    *listener.Filter
+	blackholeStructMarshalling *listener.Filter
 
 	dummyServiceInstance = &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -48,6 +50,11 @@ var (
 		Service: &model.Service{},
 	}
 )
+
+func init() {
+	blackholeAnyMarshalling = newBlackholeFilter(true)
+	blackholeStructMarshalling = newBlackholeFilter(false)
+}
 
 // A stateful listener builder
 // Support the below intentions
@@ -66,16 +73,16 @@ type ListenerBuilder struct {
 func insertOriginalListenerName(chain *listener.FilterChain, listenerName string) {
 	if chain.Metadata == nil {
 		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*types.Struct{},
+			FilterMetadata: map[string]*structpb.Struct{},
 		}
 	}
 	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &types.Struct{
-			Fields: map[string]*types.Value{},
+		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
 		}
 	}
 	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"] =
-		&types.Value{Kind: &types.Value_StringValue{StringValue: listenerName}}
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: listenerName}}
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -87,7 +94,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	}
 	listenerAddress := l.Address
 	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
-		chain.FilterChainMatch.DestinationPort = &types.UInt32Value{Value: sockAddr.GetPortValue()}
+		chain.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: sockAddr.GetPortValue()}
 		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
 			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
 				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
@@ -160,7 +167,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout
-	builder.virtualInboundListener.ListenerFiltersTimeout = &timeout
+	builder.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
 	builder.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
 	return builder
@@ -243,7 +250,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
 	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 
-	var isTransparentProxy *types.BoolValue
+	var isTransparentProxy *wrappers.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
@@ -265,9 +272,9 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
-		blackhole := &blackholeStructMarshalling
+		blackhole := blackholeStructMarshalling
 		if util.IsXDSMarshalingToAnyEnabled(node) {
-			blackhole = &blackholeAnyMarshalling
+			blackhole = blackholeAnyMarshalling
 		}
 		filterChains = append([]*listener.FilterChain{{
 			FilterChainMatch: &listener.FilterChainMatch{
@@ -297,7 +304,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 func (builder *ListenerBuilder) buildVirtualInboundListener(
 	configgen *ConfigGeneratorImpl,
 	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	var isTransparentProxy *types.BoolValue
+	var isTransparentProxy *wrappers.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
@@ -381,13 +388,13 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 }
 
 // Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter(enableAny bool) listener.Filter {
+func newBlackholeFilter(enableAny bool) *listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
 
-	filter := listener.Filter{
+	filter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
 	}
 

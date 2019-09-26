@@ -113,14 +113,14 @@ var (
 
 	testControllerOptions = coredatamodel.Options{
 		DomainSuffix:              "cluster.local",
-		ClearDiscoveryServerCache: func() {},
+		ClearDiscoveryServerCache: func(configType string) {},
 	}
 )
 
 func TestOptions(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	var cacheCleared bool
-	testControllerOptions.ClearDiscoveryServerCache = func() {
+	testControllerOptions.ClearDiscoveryServerCache = func(configType string) {
 		cacheCleared = true
 	}
 	controller := coredatamodel.NewController(testControllerOptions)

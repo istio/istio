@@ -13,9 +13,9 @@
 // limitations under the License.
 
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/keyval/template.proto
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -t mixer/test/keyval/template.proto
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/test/keyval/config.proto -x "-s=false -n keyval -t keyval"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/test/keyval/config.proto -x "-s=false -n keyval -t keyval"
 
 // Package keyval contains the sources for a demo route directive adapter.
 package keyval

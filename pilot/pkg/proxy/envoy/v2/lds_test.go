@@ -19,18 +19,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -51,10 +54,10 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta: map[string]string{
-				model.NodeMetadataInterceptionMode: string(model.InterceptionNone),
-				model.NodeMetadataHTTP10:           "1",
-			},
+			Meta: model.NodeMetadata{
+				InterceptionMode: model.InterceptionNone,
+				HTTP10:           "1",
+			}.ToStruct(),
 			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
 			Namespace: "none",
 		})
@@ -131,7 +134,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      map[string]string{},
+			Meta:      nil,
 			IP:        "10.12.0.1", // matches none.yaml s1tcp.none
 			Namespace: "seexamples",
 		})
@@ -161,7 +164,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      map[string]string{},
+			Meta:      nil,
 			IP:        "10.13.0.1",
 			Namespace: "exampleegressgw",
 		})
@@ -207,11 +210,11 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "ns1",
-			model.NodeMetadataInstanceIPs:     "100.1.1.2", // as service instance of http2.ns1
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"100.1.1.2"},
+			ConfigNamespace: "ns1",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "100.1.1.2",
 		Namespace: "ns1",
 	})
@@ -269,11 +272,11 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "istio-system",
-			model.NodeMetadataInstanceIPs:     "99.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"99.1.1.1"}, // as service instance of ingress gateway
+			ConfigNamespace: "istio-system",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "99.1.1.1",
 		Namespace: "istio-system",
 		NodeType:  "router",
@@ -331,7 +334,7 @@ func TestLDS(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
+		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
@@ -356,7 +359,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal("Failed to receive LDS", err)
 		}
 
-		strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
+		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 
 		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
@@ -394,11 +397,11 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		Meta: map[string]string{
-			model.NodeMetadataConfigNamespace: "consumerns",
-			model.NodeMetadataInstanceIPs:     "98.1.1.1", // as service instance of ingress gateway
-			model.NodeMetadataIstioVersion:    "1.3.0",
-		},
+		Meta: model.NodeMetadata{
+			InstanceIPs:     []string{"98.1.1.1"}, // as service instance of ingress gateway
+			ConfigNamespace: "consumerns",
+			IstioVersion:    "1.3.0",
+		}.ToStruct(),
 		IP:        "98.1.1.1",
 		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
 		NodeType:  "sidecar",
@@ -509,11 +512,11 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-				Meta: map[string]string{
-					model.NodeMetadataConfigNamespace: "consumerns",
-					model.NodeMetadataInstanceIPs:     test.ip, // as service instance of ingress gateway
-					model.NodeMetadataIstioVersion:    "1.3.0",
-				},
+				Meta: model.NodeMetadata{
+					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
+					ConfigNamespace: "istio-system",
+					IstioVersion:    "1.3.0",
+				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
 				NodeType:  "sidecar",
@@ -566,7 +569,7 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 			t.Fatalf("Expected Http Connection Manager Config Filter_TypedConfig, found %T", filter.ConfigType)
 		}
 		connectionManagerCfg := xdsapi_http_connection_manager.HttpConnectionManager{}
-		err := connectionManagerCfg.Unmarshal(httpCfg.TypedConfig.GetValue())
+		err := ptypes.UnmarshalAny(httpCfg.TypedConfig, &connectionManagerCfg)
 		if err != nil {
 			t.Fatalf("Could not deserialize http connection manager config: %v", err)
 		}

@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Copyright 2018 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR=$(dirname "$SCRIPTPATH")
+ROOTDIR=$(dirname "${SCRIPTPATH}")
+cd "${ROOTDIR}"
 
-# Ensure expected GOPATH setup
-if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
-  die "Istio not found in GOPATH/src/istio.io/"
-fi
+helm lint ./install/kubernetes/helm/istio
+helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/configmap.yaml | grep -q " $" && echo "templates/configmap.yaml has trailing spaces" && exit 1
+helm template install/kubernetes/helm/istio --name istio --namespace istio-system -x templates/sidecar-injector-configmap.yaml | grep -q " $" && exit 1
 
-gen_img=gcr.io/istio-testing/build-tools:2019-09-04T21-28-42
-
-docker run  -i --volume /var/run/docker.sock:/var/run/docker.sock \
-  -e "GOPATH=/go:$GOPATH" --rm --entrypoint counterfeiter -v "$ROOTDIR:$ROOTDIR" -w "$(pwd)" $gen_img "$@"
+exit 0

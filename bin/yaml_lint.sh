@@ -23,9 +23,4 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd "$ROOTDIR"
 
-PKGS=${PKGS:-"."}
-if [[ -z ${YAML_FILES} ]];then
-    find "${PKGS}" -type f -name '*.yaml' | grep -v ./vendor | grep -v -E "\/templates\/" | grep -v -E "template" | xargs yamllint -c ./bin/yamllintrules
-fi
-
-exit $?
+find . \( -path ./common-protos -o -path ./.git -o -path ./.github \) -prune -o -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | xargs -0 grep -L -e "{{" | xargs yamllint -c ./common/config/.yamllint.yml

@@ -1,5 +1,12 @@
 #!/bin/bash
+
+# WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
+# The original version of this file is located in the https://github.com/istio/common-files repo.
+# If you're looking at this file in a different repo and want to make a change, please go to the
+# common-files repo, make the change there and check it in. Then come back to this repo and run
+# "make update-common".
+
 # Copyright Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,16 +33,17 @@ fi
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 OUT=${1:?"output path"}
-BUILDPATH=${2:?"path to build"}
+shift
 
 set -e
 
 BUILD_GOOS=${GOOS:-linux}
 BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
+GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
-LDFLAGS="-extldflags -static"
+LDFLAGS=${LDFLAGS:--extldflags -static}
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 # Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
@@ -57,6 +65,7 @@ fi
 
 # BUILD LD_EXTRAFLAGS
 LD_EXTRAFLAGS=""
+
 while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
@@ -64,4 +73,6 @@ done < "${BUILDINFO}"
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
         -o "${OUT}" \
-        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
+        -trimpath \
+        -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
+        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"

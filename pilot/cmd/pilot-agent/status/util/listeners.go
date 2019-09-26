@@ -20,10 +20,11 @@ import (
 	"strings"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 var (
@@ -67,6 +68,27 @@ func GetInboundListeningPorts(localHostAddr string, adminPort uint16, nodeType m
 	}
 
 	return ports, buf.String(), nil
+}
+
+// GetVirtualListenerPorts returns ports of Istio's traffic capture listeners.
+func GetVirtualListenerPorts(localHostAddr string, adminPort uint16) ([]uint16, error) {
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners?format=json", localHostAddr, adminPort))
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed retrieving Envoy listeners:")
+	}
+
+	listeners := &admin.Listeners{}
+	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
+		return nil, fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+	}
+	ports := make([]uint16, 0)
+	for _, l := range listeners.ListenerStatuses {
+		if l.Name == networking.VirtualOutboundListenerName || l.Name == networking.VirtualInboundListenerName {
+			ports = append(ports, uint16(l.LocalAddress.GetSocketAddress().GetPortValue()))
+		}
+
+	}
+	return ports, nil
 }
 
 func isLocalListener(l string) bool {

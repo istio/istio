@@ -237,6 +237,9 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(s.defaultNs)
 		}
+	} else {
+		// Clear the namespace if there is any specified.
+		objMeta.SetNamespace("")
 	}
 
 	item, err := t.ExtractResource(obj)

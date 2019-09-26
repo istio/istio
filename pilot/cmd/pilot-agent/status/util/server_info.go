@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -28,7 +28,8 @@ func GetServerInfo(localHostAddr string, adminPort uint16) (*admin.ServerInfo, e
 		return nil, multierror.Prefix(err, "failed retrieving Envoy stats:")
 	}
 	info := &admin.ServerInfo{}
-	if err := jsonpb.Unmarshal(input, info); err != nil {
+	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	if err := jspb.Unmarshal(input, info); err != nil {
 		return &admin.ServerInfo{}, err
 	}
 

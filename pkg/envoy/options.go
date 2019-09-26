@@ -605,22 +605,6 @@ var parentShutdownDurationValidator = registerFlagValidator(&flagValidator{
 	},
 })
 
-// AllowUnknownFields sets the --allow-unknown-fields flag, which disables validation of
-// protobuf configurations for unknown fields
-func AllowUnknownFields(allow bool) Option {
-	var v *flagValidator
-	if allow {
-		v = allowUnknownFieldsValidator
-	}
-
-	return &genericOption{
-		v:     v,
-		value: "",
-	}
-}
-
-var allowUnknownFieldsValidator = registerBoolFlagValidator("--allow-unknown-fields")
-
 func registerBoolFlagValidator(flagName string) *flagValidator {
 	return registerFlagValidator(&flagValidator{
 		flagName: FlagName(flagName),

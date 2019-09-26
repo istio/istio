@@ -565,6 +565,9 @@ snapshots:
       - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
+      # TODO: this is for client analysis, and not needed for Galley. We should add support for a separate collection for this
+      # tracked by https://github.com/istio/istio/issues/17227
+      - "k8s/core/v1/pods"
       # Legacy Mixer CRDs
       - "istio/config/v1alpha2/legacy/apikeys"
       - "istio/config/v1alpha2/legacy/authorizations"
@@ -1032,6 +1035,7 @@ transforms:
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/services": "k8s/core/v1/services"
+      "k8s/core/v1/pods": "k8s/core/v1/pods"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
 
       # Legacy Mixer CRD mappings

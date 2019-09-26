@@ -69,6 +69,18 @@ func (s *Snapshot) Version(col string) string {
 	return col + "/" + strconv.FormatInt(g, 10)
 }
 
+// Collections implements snapshotImpl.Snapshot
+func (s *Snapshot) Collections() []string {
+	names := s.set.Names()
+	result := make([]string, 0, len(names))
+
+	for _, name := range names {
+		result = append(result, name.String())
+	}
+
+	return result
+}
+
 // Find the resource with the given name and collection.
 func (s *Snapshot) Find(cpl collection.Name, name resource.Name) *resource.Entry {
 	c := s.set.Collection(cpl)
