@@ -17,7 +17,7 @@ package mockca
 import (
 	"time"
 
-	caitf "istio.io/istio/security/pkg/pki/interface"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/pki/util/mock"
 )

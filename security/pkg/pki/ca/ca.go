@@ -29,7 +29,7 @@ import (
 
 	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
-	caitf "istio.io/istio/security/pkg/pki/interface"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"

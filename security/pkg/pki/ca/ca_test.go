@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/k8s/configmap"
-	caitf "istio.io/istio/security/pkg/pki/interface"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 )

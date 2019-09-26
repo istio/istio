@@ -31,7 +31,7 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/listwatch"
-	cainterface "istio.io/istio/security/pkg/pki/interface"
+	"istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"

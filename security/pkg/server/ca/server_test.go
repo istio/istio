@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/monitoring"
-	caitf "istio.io/istio/security/pkg/pki/interface"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/tests/mockca"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"

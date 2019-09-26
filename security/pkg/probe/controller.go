@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
-	caitf "istio.io/istio/security/pkg/pki/interface"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 )
