@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -30,6 +31,7 @@ import (
 	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
+	"istio.io/operator/pkg/vfs"
 	"istio.io/pkg/log"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -58,26 +60,26 @@ type Translator struct {
 	// APIMapping is a mapping between an API path and the corresponding values.yaml path using longest prefix
 	// match. If the path is a non-leaf node, the output path is the matching portion of the path, plus any remaining
 	// output path.
-	APIMapping map[string]*Translation
+	APIMapping map[string]*Translation `yaml:"apiMapping"`
 	// KubernetesMapping defines mappings from an IstioControlPlane API paths to k8s resource paths.
-	KubernetesMapping map[string]*Translation
+	KubernetesMapping map[string]*Translation `yaml:"kubernetesMapping"`
 	// ToFeature maps a component to its parent feature.
-	ToFeature map[name.ComponentName]name.FeatureName
+	ToFeature map[name.ComponentName]name.FeatureName `yaml:"toFeature"`
 	// FeatureMaps is a set of mappings for each Istio feature.
-	FeatureMaps map[name.FeatureName]*FeatureMap
+	FeatureMaps map[name.FeatureName]*FeatureMap `yaml:"featureMaps"`
 	// GlobalNamespaces maps feature namespaces to Helm global namespace definitions.
-	GlobalNamespaces map[name.ComponentName]string
+	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
-	ComponentMaps map[name.ComponentName]*ComponentMaps
+	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
 
 	// featureToComponents maps feature names to their component names.
-	featureToComponents map[name.FeatureName][]name.ComponentName
+	featureToComponents map[name.FeatureName][]name.ComponentName `yaml:"featureToComponents,omitempty"`
 }
 
 // FeatureMaps is a set of mappings for an Istio feature.
 type FeatureMap struct {
 	// AlwaysEnabled controls whether a feature can be turned off through IstioControlPlaneSpec.
-	AlwaysEnabled bool
+	AlwaysEnabled bool `yaml:"alwaysEnabled,omitempty"`
 	// Components contains list of components that belongs to the current feature.
 	Components []name.ComponentName
 }
@@ -103,274 +105,24 @@ type TranslationFunc func(t *Translation, root map[string]interface{}, valuesPat
 
 // Translation is a mapping to an output path using a translation function.
 type Translation struct {
-	outPath         string
-	translationFunc TranslationFunc
+	// OutPath defines the position in the yaml file
+	OutPath         string          `yaml:"outPath"`
+	translationFunc TranslationFunc `yaml:"TranslationFunc,omitempty"`
 }
-
-var (
-	// translators is a map of minor versions to Translator for that version.
-	// TODO: this should probably be moved out to a config file that's versioned.
-	translators = map[version.MinorVersion]*Translator{
-		version.NewMinorVersion(1, 3): {
-			APIMapping: map[string]*Translation{
-				"Hub":              {"global.hub", nil},
-				"Tag":              {"global.tag", nil},
-				"K8SDefaults":      {"global.resources", nil},
-				"DefaultNamespace": {"global.istioNamespace", nil},
-
-				"Values.Proxy": {"global.proxy", nil},
-
-				"ConfigManagement.Components.Namespace": {"global.configNamespace", nil},
-				"Policy.Components.Namespace":           {"global.policyNamespace", nil},
-				"Telemetry.Components.Namespace":        {"global.telemetryNamespace", nil},
-				"Security.Components.Namespace":         {"global.securityNamespace", nil},
-			},
-			KubernetesMapping: map[string]*Translation{
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec": {
-					"[HorizontalPodAutoscaler:{{.ResourceName}}].spec",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget": {
-					"[PodDisruptionBudget:{{.ResourceName}}].spec",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName.",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.replicas",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.strategy",
-					nil,
-				},
-				"{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations": {
-					"[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations",
-					nil,
-				},
-			},
-			ToFeature: map[name.ComponentName]name.FeatureName{
-				name.IstioBaseComponentName:          name.IstioBaseFeatureName,
-				name.PilotComponentName:              name.TrafficManagementFeatureName,
-				name.GalleyComponentName:             name.ConfigManagementFeatureName,
-				name.SidecarInjectorComponentName:    name.AutoInjectionFeatureName,
-				name.PolicyComponentName:             name.PolicyFeatureName,
-				name.TelemetryComponentName:          name.TelemetryFeatureName,
-				name.CitadelComponentName:            name.SecurityFeatureName,
-				name.CertManagerComponentName:        name.SecurityFeatureName,
-				name.NodeAgentComponentName:          name.SecurityFeatureName,
-				name.IngressComponentName:            name.GatewayFeatureName,
-				name.EgressComponentName:             name.GatewayFeatureName,
-				name.GrafanaComponentName:            name.ThirdPartyFeatureName,
-				name.PrometheusComponentName:         name.ThirdPartyFeatureName,
-				name.TracingComponentName:            name.ThirdPartyFeatureName,
-				name.PrometheusOperatorComponentName: name.ThirdPartyFeatureName,
-				name.KialiComponentName:              name.ThirdPartyFeatureName,
-			},
-			GlobalNamespaces: map[name.ComponentName]string{
-				name.PilotComponentName:      "istioNamespace",
-				name.GalleyComponentName:     "configNamespace",
-				name.TelemetryComponentName:  "telemetryNamespace",
-				name.PolicyComponentName:     "policyNamespace",
-				name.PrometheusComponentName: "prometheusNamespace",
-				name.CitadelComponentName:    "securityNamespace",
-			},
-			FeatureMaps: map[name.FeatureName]*FeatureMap{
-				name.IstioBaseFeatureName: {
-					AlwaysEnabled: true,
-					Components:    []name.ComponentName{name.IstioBaseComponentName},
-				},
-				name.TrafficManagementFeatureName: {
-					Components: []name.ComponentName{name.PilotComponentName},
-				},
-				name.PolicyFeatureName: {
-					Components: []name.ComponentName{name.PolicyComponentName},
-				},
-				name.TelemetryFeatureName: {
-					Components: []name.ComponentName{
-						name.TelemetryComponentName,
-						name.PrometheusComponentName,
-						name.PrometheusOperatorComponentName,
-						name.GrafanaComponentName,
-						name.KialiComponentName,
-						name.TracingComponentName,
-					},
-				},
-				name.SecurityFeatureName: {
-					Components: []name.ComponentName{name.CitadelComponentName, name.CertManagerComponentName, name.NodeAgentComponentName},
-				},
-				name.ConfigManagementFeatureName: {
-					Components: []name.ComponentName{name.GalleyComponentName},
-				},
-				name.AutoInjectionFeatureName: {
-					Components: []name.ComponentName{name.SidecarInjectorComponentName},
-				},
-				name.GatewayFeatureName: {
-					Components: []name.ComponentName{name.IngressComponentName, name.EgressComponentName},
-				},
-				name.ThirdPartyFeatureName: {
-					Components: []name.ComponentName{
-						name.CNIComponentName,
-						name.PrometheusComponentName,
-						name.PrometheusOperatorComponentName,
-						name.GrafanaComponentName,
-						name.KialiComponentName,
-						name.TracingComponentName},
-				},
-			},
-			ComponentMaps: map[name.ComponentName]*ComponentMaps{
-				name.IstioBaseComponentName: {
-					ToHelmValuesTreeRoot: "global",
-					HelmSubdir:           "crds",
-					AlwaysEnabled:        true,
-				},
-				name.PilotComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-pilot",
-					ContainerName:        "discovery",
-					HelmSubdir:           "istio-control/istio-discovery",
-					ToHelmValuesTreeRoot: "pilot",
-				},
-				name.GalleyComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-galley",
-					ContainerName:        "galley",
-					HelmSubdir:           "istio-control/istio-config",
-					ToHelmValuesTreeRoot: "galley",
-				},
-				name.SidecarInjectorComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-sidecar-injector",
-					ContainerName:        "sidecar-injector-webhook",
-					HelmSubdir:           "istio-control/istio-autoinject",
-					ToHelmValuesTreeRoot: "sidecarInjectorWebhook",
-				},
-				name.PolicyComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-policy",
-					ContainerName:        "mixer",
-					HelmSubdir:           "istio-policy",
-					ToHelmValuesTreeRoot: "mixer.policy",
-				},
-				name.TelemetryComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-telemetry",
-					ContainerName:        "mixer",
-					HelmSubdir:           "istio-telemetry/mixer-telemetry",
-					ToHelmValuesTreeRoot: "mixer.telemetry",
-				},
-				name.CitadelComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-citadel",
-					ContainerName:        "citadel",
-					HelmSubdir:           "security/citadel",
-					ToHelmValuesTreeRoot: "security",
-				},
-				name.NodeAgentComponentName: {
-					ResourceType:         K8sDaemonSetResourceType,
-					ResourceName:         "istio-nodeagent",
-					ContainerName:        "nodeagent",
-					HelmSubdir:           "security/nodeagent",
-					ToHelmValuesTreeRoot: "nodeagent",
-				},
-				name.CertManagerComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "certmanager",
-					ContainerName:        "certmanager",
-					HelmSubdir:           "security/certmanager",
-					ToHelmValuesTreeRoot: "certmanager",
-				},
-				name.IngressComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-ingressgateway",
-					ContainerName:        "istio-proxy",
-					HelmSubdir:           "gateways/istio-ingress",
-					ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
-				},
-				name.EgressComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-egressgateway",
-					ContainerName:        "istio-proxy",
-					HelmSubdir:           "gateways/istio-egress",
-					ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
-				},
-				name.TracingComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "istio-tracing",
-					ContainerName:        "jaeger",
-					HelmSubdir:           "istio-telemetry/tracing",
-					ToHelmValuesTreeRoot: "tracing.jaeger",
-				},
-				name.PrometheusOperatorComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "prometheus",
-					ContainerName:        "prometheus",
-					HelmSubdir:           "istio-telemetry/prometheus-operator",
-					ToHelmValuesTreeRoot: "prometheus",
-				},
-				name.KialiComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "kiali",
-					ContainerName:        "kiali",
-					HelmSubdir:           "istio-telemetry/kiali",
-					ToHelmValuesTreeRoot: "kiali",
-				},
-				name.GrafanaComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "grafana",
-					ContainerName:        "grafana",
-					HelmSubdir:           "istio-telemetry/grafana",
-					ToHelmValuesTreeRoot: "grafana",
-				},
-				name.PrometheusComponentName: {
-					ResourceType:         K8sDeploymentResourceType,
-					ResourceName:         "prometheus",
-					ContainerName:        "prometheus",
-					HelmSubdir:           "istio-telemetry/prometheus",
-					ToHelmValuesTreeRoot: "prometheus",
-				},
-			},
-		},
-	}
-)
 
 // NewTranslator creates a new Translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
-	t := translators[minorVersion]
-	if t == nil {
-		return nil, fmt.Errorf("no translator available for version %s", minorVersion)
+	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
+	f := "translateConfig/translateConfig-" + v + ".yaml"
+	b, err := vfs.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
 	}
-
+	t := &Translator{}
+	err = yaml.Unmarshal(b, t)
+	if err != nil {
+		return nil, fmt.Errorf("could not Unmarshal translateConfig file %s: %s", f, err)
+	}
 	t.featureToComponents = make(map[name.FeatureName][]name.ComponentName)
 	for c, f := range t.ToFeature {
 		t.featureToComponents[f] = append(t.featureToComponents[f], c)
@@ -414,7 +166,7 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 			log.Infof("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.outPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
 		if err != nil {
 			return "", err
 		}
@@ -546,7 +298,15 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 // setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
 // tree, based on feature/component inheritance relationship.
 func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp *v1alpha2.IstioControlPlaneSpec) error {
-	for cn, c := range t.ComponentMaps {
+	var keys []string
+	for k := range t.ComponentMaps {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+	l := len(keys)
+	for i := l - 1; i >= 0; i-- {
+		cn := name.ComponentName(keys[i])
+		c := t.ComponentMaps[cn]
 		e, err := t.IsComponentEnabled(cn, icp)
 		if err != nil {
 			return err
@@ -646,11 +406,11 @@ func getValuesPathMapping(mappings map[string]*Translation, path util.Path) (str
 		return "", nil
 	}
 
-	if m.outPath == "" {
+	if m.OutPath == "" {
 		return "", m
 	}
 
-	out := m.outPath + "." + path[len(p):].String()
+	out := m.OutPath + "." + path[len(p):].String()
 	scope.Debugf("translating %s to %s", path, out)
 	return out, m
 }
@@ -703,11 +463,11 @@ func defaultTranslationFunc(m *Translation, root map[string]interface{}, valuesP
 	var path []string
 
 	if util.IsEmptyString(value) {
-		scope.Debugf("Skip empty string value for path %s", m.outPath)
+		scope.Debugf("Skip empty string value for path %s", m.OutPath)
 		return nil
 	}
 	if valuesPath == "" {
-		scope.Debugf("Not mapping to values, resources path is %s", m.outPath)
+		scope.Debugf("Not mapping to values, resources path is %s", m.OutPath)
 		return nil
 	}
 

@@ -89,7 +89,7 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 		return err
 	}
 	for valKey, outVal := range ts.APIMapping {
-		t.APIMapping[outVal.outPath] = &Translation{valKey, nil}
+		t.APIMapping[outVal.OutPath] = &Translation{valKey, nil}
 	}
 
 	for cn, cm := range ts.ComponentMaps {
@@ -418,31 +418,31 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 
 		switch k8sSettingName {
 		case "autoscaleEnabled":
-			err := translateHPASpec(inPath, v.outPath, m, valueTree, cpSpecTree)
+			err := translateHPASpec(inPath, v.OutPath, m, valueTree, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
 			}
 
 		case "env":
-			err := translateEnv(v.outPath, m, cpSpecTree)
+			err := translateEnv(v.OutPath, m, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating k8s Env: %s", err)
 			}
 
 		case "podAntiAffinityLabelSelector", "podAntiAffinityTermLabelSelector":
-			err := translateAffinity(v.outPath, m, cpSpecTree)
+			err := translateAffinity(v.OutPath, m, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating k8s Affinity: %s", err)
 			}
 
 		case "rollingMaxSurge", "rollingMaxUnavailable":
-			err := translateStrategy(k8sSettingName, v.outPath, m, cpSpecTree)
+			err := translateStrategy(k8sSettingName, v.OutPath, m, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating k8s Strategy: %s", err)
 			}
 
 		default:
-			output := util.ToYAMLPath(v.outPath)
+			output := util.ToYAMLPath(v.OutPath)
 			log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", output)
 
 			if err := tpath.WriteNode(cpSpecTree, output, m); err != nil {
@@ -513,7 +513,7 @@ func (t *ReverseTranslator) translateTree(valueTree map[string]interface{},
 			continue
 		}
 
-		path := util.ToYAMLPath(v.outPath)
+		path := util.ToYAMLPath(v.OutPath)
 		log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", path)
 
 		if err := tpath.WriteNode(cpSpecTree, path, m); err != nil {
