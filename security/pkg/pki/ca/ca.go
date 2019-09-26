@@ -162,7 +162,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		pkiCaLog.Infof("Failed to get secret (error: %s), will create one", scrtErr)
 
 		options := util.CertOptions{
-			TTL:          caCertTTL,
+			TTL: caCertTTL,
+
+			// Issuer name must be unique within a multi-cluster mesh. Envoy (BoringSSL)
+			// matches on DN. If two certs have the same DN (issuer) in the chain, the
+			// 2nd one is ignored.
 			Org:          fmt.Sprintf("%s (%s)", org, uuid.New().String()),
 			IsCA:         true,
 			IsSelfSigned: true,

@@ -159,9 +159,17 @@ type SecretController struct {
 	// Extra trust anchors related state
 	extraTrustAnchorsController cache.Controller
 	extraTrustAnchorMu          sync.Mutex
-	extraTrustAnchors           map[string]map[string]string // resource name -> field name -> field value
-	primaryTrustAnchor          []byte
-	combinedTrustAnchorsBundle  []byte
+	// extra trust anchors organized by source configmap name and key within that configmap.
+	// The value is a PEM encoded root certificate. Extra anchors are combined with the
+	// primary root to form the list of trusted roots distributed to proxies.
+	extraTrustAnchors map[string]map[string]string // configmap name -> configmap key -> PEM encoded cert
+	// Keep a copy of the primary trust anchor so we know when to rebuild
+	// the combined list of trust anchors.
+	primaryTrustAnchor []byte
+	// Combined list of the primary root CA plus any additional trust
+	// anchors that were added by the user. This is recomputed whenever the
+	// primary root changes or when additional trust anchors are added/removed.
+	combinedTrustAnchorsBundle []byte
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
