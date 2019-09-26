@@ -119,7 +119,6 @@ ${ISTIO_OUT}/wasm:
 	@bin/wasm_plugins.sh ${ISTIO_OUT}
 
 $(ISTIO_DOCKER)/wasm: ${ISTIO_OUT}/wasm
-	#mkdir -p $(ISTIO_DOCKER)/wasm
 	cp -r ${ISTIO_OUT}/wasm $(ISTIO_DOCKER)/wasm
 
 # Default proxy image.
