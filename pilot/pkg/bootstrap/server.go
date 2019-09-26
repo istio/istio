@@ -177,6 +177,26 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
+// ChironArgs provides the configuration of Chiron.
+type ChironArgs struct {
+	EnableChiron bool
+
+	// The file path of k8s CA certificate
+	K8sCaCertFile string
+
+	// The names of the services for which Chiron manage certs, delimited by comma
+	ServiceNames string
+	// The namespaces of the services for which Chiron manage certs, delimited by comma
+	ServiceNamespaces string
+
+	// The minimum grace period for cert rotation.
+	CertMinGracePeriod time.Duration
+	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
+	// If certGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
+	// after 24*(1-0.2) hours since the cert is issued.
+	CertGracePeriodRatio float32
+}
+
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions         envoy.DiscoveryServiceOptions
@@ -194,6 +214,7 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	Chiron    ChironArgs
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.

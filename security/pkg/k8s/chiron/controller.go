@@ -76,10 +76,10 @@ const (
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
 type WebhookController struct {
-	// The names of the services of mutating webhooks
-	mutatingWebhookServiceNames []string
-	// The names of the services of validating webhooks
-	validatingWebhookServiceNames []string
+	// The names of the services for which Chiron manage certs
+	serviceNames []string
+	// The namespaces of the services for which Chiron manage certs
+	serviceNamespaces []string
 
 	// Current CA certificate
 	CACert     []byte
@@ -90,9 +90,7 @@ type WebhookController struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 	// The file path to the k8s CA certificate
-	k8sCaCertFile string
-	// The namespace of the webhook certificates
-	namespace      string
+	k8sCaCertFile  string
 	minGracePeriod time.Duration
 	certMutex      sync.RWMutex
 	// Length of the grace period for the certificate rotation.
@@ -102,9 +100,8 @@ type WebhookController struct {
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
 func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
 	core corev1.CoreV1Interface, admission admissionv1.AdmissionregistrationV1beta1Interface,
-	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile, nameSpace string,
-	mutatingWebhookServiceNames []string,
-	validatingWebhookServiceNames []string) (*WebhookController, error) {
+	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile string,
+	serviceNames, serviceNamespaces []string) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -112,17 +109,22 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
+	if len(serviceNames) != len(serviceNamespaces) {
+		return nil, fmt.Errorf("the size of service names must be the same as the size of service namespaces")
+	}
+	if len(serviceNames) == 0 {
+		return nil, fmt.Errorf("the service names must be non-empty")
+	}
 
 	c := &WebhookController{
-		gracePeriodRatio:              gracePeriodRatio,
-		minGracePeriod:                minGracePeriod,
-		k8sCaCertFile:                 k8sCaCertFile,
-		core:                          core,
-		admission:                     admission,
-		certClient:                    certClient,
-		namespace:                     nameSpace,
-		mutatingWebhookServiceNames:   mutatingWebhookServiceNames,
-		validatingWebhookServiceNames: validatingWebhookServiceNames,
+		gracePeriodRatio:  gracePeriodRatio,
+		minGracePeriod:    minGracePeriod,
+		k8sCaCertFile:     k8sCaCertFile,
+		core:              core,
+		admission:         admission,
+		certClient:        certClient,
+		serviceNames:      serviceNames,
+		serviceNamespaces: serviceNamespaces,
 	}
 
 	// read CA cert at the beginning of launching the controller.
@@ -131,10 +133,8 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		return nil, err
 	}
 
-	namespaces := []string{nameSpace}
-
 	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioWebhookSecretType}).String()
-	scrtLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+	scrtLW := listwatch.MultiNamespaceListerWatcher(serviceNamespaces, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = istioSecretSelector
@@ -159,16 +159,10 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 // Run starts the WebhookController until stopCh is notified.
 func (wc *WebhookController) Run(stopCh chan struct{}) {
 	// Create secrets containing certificates for webhooks
-	for _, svcName := range wc.mutatingWebhookServiceNames {
-		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcName(svcName), wc.namespace)
+	for i, svcName := range wc.serviceNames {
+		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcName(svcName), wc.serviceNamespaces[i])
 		if err != nil {
-			log.Errorf("error when upserting svc (%v) in ns (%v): %v", svcName, wc.namespace, err)
-		}
-	}
-	for _, svcName := range wc.validatingWebhookServiceNames {
-		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcName(svcName), wc.namespace)
-		if err != nil {
-			log.Errorf("error when upserting svc (%v) in ns (%v): %v", svcName, wc.namespace, err)
+			log.Errorf("error when upserting svc (%v) in ns (%v): %v", svcName, wc.serviceNamespaces[i], err)
 		}
 	}
 
@@ -358,13 +352,8 @@ func (wc *WebhookController) cleanUpCertGen(csrName string) error {
 
 // Return whether the input secret name is a Webhook secret
 func (wc *WebhookController) isWebhookSecret(name, namespace string) bool {
-	for _, n := range wc.mutatingWebhookServiceNames {
-		if name == wc.getWebhookSecretNameFromSvcName(n) && namespace == wc.namespace {
-			return true
-		}
-	}
-	for _, n := range wc.validatingWebhookServiceNames {
-		if name == wc.getWebhookSecretNameFromSvcName(n) && namespace == wc.namespace {
+	for i, n := range wc.serviceNames {
+		if name == wc.getWebhookSecretNameFromSvcName(n) && namespace == wc.serviceNamespaces[i] {
 			return true
 		}
 	}
@@ -389,12 +378,7 @@ func (wc *WebhookController) getCACert() ([]byte, error) {
 
 // Get the service name for the secret. Return the service name and whether it is found.
 func (wc *WebhookController) getServiceName(secretName string) (string, bool) {
-	for _, name := range wc.mutatingWebhookServiceNames {
-		if wc.getWebhookSecretNameFromSvcName(name) == secretName {
-			return name, true
-		}
-	}
-	for _, name := range wc.validatingWebhookServiceNames {
+	for _, name := range wc.serviceNames {
 		if wc.getWebhookSecretNameFromSvcName(name) == secretName {
 			return name, true
 		}

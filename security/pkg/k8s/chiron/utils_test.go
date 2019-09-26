@@ -93,8 +93,8 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		gracePeriodRatio              float32
 		minGracePeriod                time.Duration
 		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
+		serviceNames                  []string
+		serviceNamespaces             []string
 		validatingWebhookServiceNames []string
 
 		secretName      string
@@ -104,12 +104,14 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		expectFaill bool
 	}{
 		"gen cert should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			secretName:       "mock-secret",
-			secretNameSpace:  "mock-secret-namespace",
-			svcName:          "mock-service-name",
-			expectFaill:      false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			svcName:           "mock-service-name",
+			expectFaill:       false,
 		},
 	}
 
@@ -127,19 +129,19 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
 		}
 
-		_, _, _, err = genKeyCertK8sCA(wc, tc.secretName, tc.namespace, tc.svcName)
+		_, _, _, err = genKeyCertK8sCA(wc, tc.secretName, tc.secretNameSpace, tc.svcName)
 		if tc.expectFaill {
 			if err == nil {
-				t.Errorf("should have failed at updateMutatingWebhookConfig")
+				t.Errorf("should have failed")
 			}
 		} else if err != nil {
-			t.Errorf("failed at updateMutatingWebhookConfig: %v", err)
+			t.Errorf("failed unexpectedly: %v", err)
 		}
 	}
 }
@@ -214,21 +216,22 @@ func TestIsTCPReachable(t *testing.T) {
 
 func TestReloadCACert(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
 
 		expectFaill   bool
 		expectChanged bool
 	}{
 		"reload from valid CA cert path": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			expectFaill:      false,
-			expectChanged:    false,
+			gracePeriodRatio:  0.6,
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			expectFaill:       false,
+			expectChanged:     false,
 		},
 	}
 
@@ -236,7 +239,7 @@ func TestReloadCACert(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -265,37 +268,37 @@ func TestReloadCACert(t *testing.T) {
 
 func TestSubmitCSR(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
 
 		secretName      string
 		secretNameSpace string
-		svcName         string
 
 		createDuplicate bool
 		expectFaill     bool
 	}{
 		"submit a CSR without duplicate should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			secretName:       "mock-secret",
-			secretNameSpace:  "mock-secret-namespace",
-			svcName:          "mock-service-name",
-			createDuplicate:  false,
-			expectFaill:      false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			createDuplicate:   false,
+			expectFaill:       false,
 		},
 		"submit a CSR with duplicate should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			secretName:       "mock-secret",
-			secretNameSpace:  "mock-secret-namespace",
-			svcName:          "mock-service-name",
-			createDuplicate:  false,
-			expectFaill:      false,
+			gracePeriodRatio:  0.6,
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			createDuplicate:   false,
+			expectFaill:       false,
 		},
 	}
 
@@ -313,7 +316,7 @@ func TestSubmitCSR(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -354,47 +357,48 @@ func TestSubmitCSR(t *testing.T) {
 		r, err := submitCSR(wc, csrName, []byte(csrPEM), numRetries)
 		if tc.expectFaill {
 			if err == nil {
-				t.Errorf("should have failed at updateMutatingWebhookConfig")
+				t.Errorf("should have failed")
 			}
 		} else if err != nil || r == nil {
-			t.Errorf("failed at updateMutatingWebhookConfig: %v", err)
+			t.Errorf("failed unexpectedly: %v", err)
 		}
 	}
 }
 
 func TestReadSignedCertificate(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		namespace         string
+		serviceNames      []string
+		serviceNamespaces []string
 
 		secretName      string
 		secretNameSpace string
-		svcName         string
 
 		invalidCert bool
 		expectFaill bool
 	}{
 		"read signed cert should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			secretName:       "mock-secret",
-			secretNameSpace:  "mock-secret-namespace",
-			svcName:          "mock-service-name",
-			invalidCert:      false,
-			expectFaill:      false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			invalidCert:       false,
+			expectFaill:       false,
 		},
 		"read invalid signed cert should fail": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			secretName:       "mock-secret",
-			secretNameSpace:  "mock-secret-namespace",
-			svcName:          "mock-service-name",
-			invalidCert:      true,
-			expectFaill:      true,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			invalidCert:       true,
+			expectFaill:       true,
 		},
 	}
 
@@ -424,7 +428,7 @@ func TestReadSignedCertificate(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)

@@ -101,28 +101,33 @@ sNzF00Jhi0gU7th75QT3MA==
 
 func TestNewWebhookController(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookServiceNames   []string
-		validatingWebhookServiceNames []string
-		shouldFail                    bool
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
+		shouldFail        bool
 	}{
 		"invalid grade period ratio": {
-			gracePeriodRatio: 1.5,
-			k8sCaCertFile:    "./test-data/example-invalid-ca-cert.pem",
-			shouldFail:       true,
+			gracePeriodRatio:  1.5,
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-invalid-ca-cert.pem",
+			shouldFail:        true,
 		},
 		"invalid CA cert path": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./invalid-path/invalid-file",
-			shouldFail:       true,
+			gracePeriodRatio:  0.6,
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./invalid-path/invalid-file",
+			shouldFail:        true,
 		},
 		"valid CA cert path": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			shouldFail:       false,
+			gracePeriodRatio:  0.6,
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			shouldFail:        false,
 		},
 	}
 
@@ -130,8 +135,7 @@ func TestNewWebhookController(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		_, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookServiceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed at NewWebhookController()")
@@ -146,33 +150,35 @@ func TestNewWebhookController(t *testing.T) {
 }
 
 func TestUpsertSecret(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
-		expectFaill                   bool
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
+		namespace         string
+		scrtName          string
+		expectFaill       bool
 	}{
 		"upsert a valid secret name should succeed": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			expectFaill:                 false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			namespace:         "foo.ns",
+			scrtName:          "istio.webhook.foo",
+			expectFaill:       false,
 		},
 		"upsert an invalid secret name should fail": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "bar.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.bar",
-			expectFaill:                 true,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"bar.ns"},
+			namespace:         "bar.ns",
+			scrtName:          "istio.webhook.bar",
+			expectFaill:       true,
 		},
 	}
 
@@ -190,8 +196,7 @@ func TestUpsertSecret(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -210,23 +215,24 @@ func TestUpsertSecret(t *testing.T) {
 }
 
 func TestScrtDeleted(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
+		namespace         string
+		scrtName          string
 	}{
 		"recover a deleted secret should succeed": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			scrtName:          "istio.webhook.foo",
 		},
 	}
 
@@ -245,9 +251,7 @@ func TestScrtDeleted(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace,
-			tc.mutatingWebhookSerivceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -288,59 +292,63 @@ func TestScrtDeleted(t *testing.T) {
 }
 
 func TestScrtUpdated(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
-		changeCACert                  bool
-		invalidNewSecret              bool
-		replaceWithExpiredCert        bool
-		expectUpdate                  bool
-		newScrtName                   string
+		gracePeriodRatio       float32
+		minGracePeriod         time.Duration
+		k8sCaCertFile          string
+		serviceNames           []string
+		serviceNamespaces      []string
+		namespace              string
+		scrtName               string
+		changeCACert           bool
+		invalidNewSecret       bool
+		replaceWithExpiredCert bool
+		expectUpdate           bool
+		newScrtName            string
 	}{
 		"invalid new secret should not affect existing secret": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			invalidNewSecret:            true,
-			expectUpdate:                false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			scrtName:          "istio.webhook.foo",
+			invalidNewSecret:  true,
+			expectUpdate:      false,
 		},
 		"non-webhook secret should not be updated": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			newScrtName:                 "bar",
-			invalidNewSecret:            false,
-			expectUpdate:                false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			scrtName:          "istio.webhook.foo",
+			newScrtName:       "bar",
+			invalidNewSecret:  false,
+			expectUpdate:      false,
 		},
 		"expired certificate should be updated": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			replaceWithExpiredCert:      true,
-			expectUpdate:                true,
+			gracePeriodRatio:       0.6,
+			k8sCaCertFile:          "./test-data/example-ca-cert.pem",
+			namespace:              "foo.ns",
+			serviceNames:           serviceNames,
+			serviceNamespaces:      []string{"foo.ns"},
+			scrtName:               "istio.webhook.foo",
+			replaceWithExpiredCert: true,
+			expectUpdate:           true,
 		},
 		"changing CA certificate should lead to updating secret": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			changeCACert:                true,
-			replaceWithExpiredCert:      false,
-			expectUpdate:                true,
+			gracePeriodRatio:       0.6,
+			k8sCaCertFile:          "./test-data/example-ca-cert.pem",
+			namespace:              "foo.ns",
+			serviceNames:           serviceNames,
+			serviceNamespaces:      []string{"foo.ns"},
+			scrtName:               "istio.webhook.foo",
+			changeCACert:           true,
+			replaceWithExpiredCert: false,
+			expectUpdate:           true,
 		},
 	}
 
@@ -359,9 +367,7 @@ func TestScrtUpdated(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace,
-			tc.mutatingWebhookSerivceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -417,27 +423,28 @@ func TestScrtUpdated(t *testing.T) {
 }
 
 func TestRefreshSecret(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
-		changeCACert                  bool
-		expectUpdate                  bool
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		namespace         string
+		serviceNames      []string
+		serviceNamespaces []string
+		scrtName          string
+		changeCACert      bool
+		expectUpdate      bool
 	}{
 		"refresh a secret with different CA cert should succeed": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			changeCACert:                true,
-			expectUpdate:                true,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			scrtName:          "istio.webhook.foo",
+			changeCACert:      true,
+			expectUpdate:      true,
 		},
 	}
 
@@ -456,8 +463,7 @@ func TestRefreshSecret(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace,
-			tc.mutatingWebhookSerivceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -502,21 +508,22 @@ func TestRefreshSecret(t *testing.T) {
 }
 
 func TestCleanUpCertGen(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		namespace         string
+		serviceNames      []string
+		serviceNamespaces []string
 	}{
 		"clean up a CSR should succeed": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
 		},
 	}
 
@@ -526,8 +533,7 @@ func TestCleanUpCertGen(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -585,45 +591,48 @@ func TestCleanUpCertGen(t *testing.T) {
 }
 
 func TestIsWebhookSecret(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo", "bar"}
+	serviceNames := []string{"foo", "bar"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookServiceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
-		scrtNameSpace                 string
-		expectedRet                   bool
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		namespace         string
+		serviceNames      []string
+		serviceNamespaces []string
+		scrtName          string
+		scrtNameSpace     string
+		expectedRet       bool
 	}{
 		"a valid webhook secret in valid namespace": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "ns.foo",
-			mutatingWebhookServiceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			scrtNameSpace:               "ns.foo",
-			expectedRet:                 true,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "ns.foo",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"ns.foo", "ns.bar"},
+			scrtName:          "istio.webhook.foo",
+			scrtNameSpace:     "ns.foo",
+			expectedRet:       true,
 		},
 		"an invalid webhook secret in valid namespace": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "ns.foo",
-			mutatingWebhookServiceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.invalid",
-			scrtNameSpace:               "ns.foo",
-			expectedRet:                 false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "ns.foo",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"ns.foo", "ns.bar"},
+			scrtName:          "istio.webhook.invalid",
+			scrtNameSpace:     "ns.foo",
+			expectedRet:       false,
 		},
 		"a valid webhook secret in invalid namespace": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "ns.foo",
-			mutatingWebhookServiceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			scrtNameSpace:               "ns.invalid",
-			expectedRet:                 false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "ns.foo",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"ns.foo", "ns.bar"},
+			scrtName:          "istio.webhook.foo",
+			scrtNameSpace:     "ns.invalid",
+			expectedRet:       false,
 		},
 	}
 
@@ -631,8 +640,7 @@ func TestIsWebhookSecret(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace,
-			tc.mutatingWebhookServiceNames, tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Fatalf("failed to create a webhook controller: %v", err)
 		}
@@ -647,23 +655,24 @@ func TestIsWebhookSecret(t *testing.T) {
 }
 
 func TestGetCACert(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo"}
+	serviceNames := []string{"foo"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookSerivceNames   []string
-		validatingWebhookServiceNames []string
-		expectFail                    bool
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		namespace         string
+		serviceNames      []string
+		serviceNamespaces []string
+		expectFail        bool
 	}{
 		"getCACert should succeed for a valid certificate": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			namespace:                   "foo.ns",
-			mutatingWebhookSerivceNames: mutatingWebhookServiceNames,
-			expectFail:                  false,
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			namespace:         "foo.ns",
+			serviceNames:      serviceNames,
+			serviceNamespaces: []string{"foo.ns"},
+			expectFail:        false,
 		},
 	}
 
@@ -672,8 +681,7 @@ func TestGetCACert(t *testing.T) {
 		// If the CA cert. is invalid, NewWebhookController will fail.
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookSerivceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Fatalf("failed at creating webhook controller: %v", err)
 		}
@@ -692,53 +700,34 @@ func TestGetCACert(t *testing.T) {
 }
 
 func TestGetServiceName(t *testing.T) {
-	mutatingWebhookServiceNames := []string{"foo", "bar"}
-	validatingWebhookServiceNames := []string{"baz"}
+	serviceNames := []string{"foo", "bar", "baz"}
+	serviceNamespaces := []string{"foo.ns", "bar.ns", "baz.ns"}
 
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookServiceNames   []string
-		validatingWebhookServiceNames []string
-		scrtName                      string
-		expectFound                   bool
-		expectedSvcName               string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
+		scrtName          string
+		expectFound       bool
+		expectedSvcName   string
 	}{
-		"a mutating webhook service corresponding to a secret exists": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			mutatingWebhookServiceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.foo",
-			expectFound:                 true,
-			expectedSvcName:             "foo",
+		"a service corresponding to a secret exists": {
+			gracePeriodRatio: 0.6,
+			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
+			serviceNames:     serviceNames,
+			scrtName:         "istio.webhook.foo",
+			expectFound:      true,
+			expectedSvcName:  "foo",
 		},
-		"a mutating service corresponding to a secret does not exists": {
-			gracePeriodRatio:            0.6,
-			k8sCaCertFile:               "./test-data/example-ca-cert.pem",
-			mutatingWebhookServiceNames: mutatingWebhookServiceNames,
-			scrtName:                    "istio.webhook.baz",
-			expectFound:                 false,
-			expectedSvcName:             "foo",
-		},
-		"a validating webhook service corresponding to a secret exists": {
-			gracePeriodRatio:              0.6,
-			k8sCaCertFile:                 "./test-data/example-ca-cert.pem",
-			mutatingWebhookServiceNames:   mutatingWebhookServiceNames,
-			validatingWebhookServiceNames: validatingWebhookServiceNames,
-			scrtName:                      "istio.webhook.baz",
-			expectFound:                   true,
-			expectedSvcName:               "baz",
-		},
-		"a validating webhook service corresponding to a secret does not exists": {
-			gracePeriodRatio:              0.6,
-			k8sCaCertFile:                 "./test-data/example-ca-cert.pem",
-			mutatingWebhookServiceNames:   mutatingWebhookServiceNames,
-			validatingWebhookServiceNames: validatingWebhookServiceNames,
-			scrtName:                      "istio.webhook.barr",
-			expectFound:                   false,
-			expectedSvcName:               "bar",
+		"a service corresponding to a secret does not exists": {
+			gracePeriodRatio: 0.6,
+			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
+			serviceNames:     serviceNames,
+			scrtName:         "istio.webhook.barr",
+			expectFound:      false,
+			expectedSvcName:  "bar",
 		},
 	}
 
@@ -746,8 +735,7 @@ func TestGetServiceName(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookServiceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed to create a webhook controller: %v", err)
 		}
@@ -765,20 +753,21 @@ func TestGetServiceName(t *testing.T) {
 
 func TestGetWebhookSecretNameFromSvcName(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookServiceNames   []string
-		validatingWebhookServiceNames []string
-		svcName                       string
-		expectedScrtName              string
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		serviceNames      []string
+		serviceNamespaces []string
+		svcName           string
+		expectedScrtName  string
 	}{
 		"expected secret name matches the return": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			svcName:          "foo",
-			expectedScrtName: "istio.webhook.foo",
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			serviceNames:      []string{"foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			svcName:           "foo",
+			expectedScrtName:  "istio.webhook.foo",
 		},
 	}
 
@@ -786,8 +775,7 @@ func TestGetWebhookSecretNameFromSvcName(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookServiceNames,
-			tc.validatingWebhookServiceNames)
+			tc.k8sCaCertFile, tc.serviceNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed to create a webhook controller: %v", err)
 		}

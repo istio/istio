@@ -50,7 +50,7 @@ var (
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "Istio Webhook Controller",
+		Use:   "chiron",
 		Short: "Istio Webhook Controller",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -64,19 +64,15 @@ var (
 )
 
 type cliOptions struct {
-	// The namespace of the webhook certificates
-	certificateNamespace string
-	kubeConfigFile       string
+	kubeConfigFile string
 
 	// The file path of k8s CA certificate
 	k8sCaCertFile string
 
-	// The names of the services of mutating webhooks to manage
-	// In prototype, only one is supported.
-	mutatingWebhookServiceNames string
-	// The names of the services of validating webhooks to manage
-	// In prototype, only one is supported.
-	validatingWebhookServiceNames string
+	// The names of the services for which Chiron manage certs
+	serviceNames string
+	// The namespaces of the services for which Chiron manage certs
+	serviceNamespaces string
 
 	// The minimum grace period for cert rotation.
 	certMinGracePeriod time.Duration
@@ -99,8 +95,6 @@ func init() {
 
 	flags.BoolVar(&opts.enableController, "enable-controller", false, "Specifies whether enabling "+
 		"Istio Webhook Controller.")
-	flags.StringVar(&opts.certificateNamespace, "certificate-namespace", "istio-system",
-		"The namespace of the webhook certificates.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -119,10 +113,10 @@ func init() {
 	flags.DurationVar(&opts.certMinGracePeriod, "cert-min-grace-period",
 		DefaultMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
-	flags.StringVar(&opts.mutatingWebhookServiceNames, "mutating-webhook-service-names", "istio-sidecar-injector",
-		"The names of the services of mutating webhooks, separated by comma. Currently, Chiron will only manage the first one.")
-	flags.StringVar(&opts.validatingWebhookServiceNames, "validating-webhook-service-names", "istio-galley",
-		"The names of the services of validating webhooks, separated by comma. Currently, Chiron will only manage the first one.")
+	flags.StringVar(&opts.serviceNames, "service-names", "istio-galley,istio-sidecar-injector",
+		"The names of the services for which Chiron manage certs.")
+	flags.StringVar(&opts.serviceNamespaces, "serviceNameSpaces", "istio-system,istio-system",
+		"The namespaces of the services for which Chiron manage certs; must be corresponding to the serviceNames parameter.")
 
 	// Hide the command line options for the prototype
 	_ = flags.MarkHidden("enable-controller")
@@ -130,9 +124,8 @@ func init() {
 	_ = flags.MarkHidden("kube-config")
 	_ = flags.MarkHidden("cert-grace-period-ratio")
 	_ = flags.MarkHidden("cert-min-grace-period")
-	_ = flags.MarkHidden("webhook-config-files")
-	_ = flags.MarkHidden("mutating-webhook-service-names")
-	_ = flags.MarkHidden("validating-webhook-service-names")
+	_ = flags.MarkHidden("service-names")
+	_ = flags.MarkHidden("service-namespaces")
 
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -167,22 +160,21 @@ func runWebhookController() {
 		os.Exit(1)
 	}
 
-	mutatingWebhookServiceNames := strings.Split(opts.mutatingWebhookServiceNames, ",")
-	validatingWebhookServiceNames := strings.Split(opts.validatingWebhookServiceNames, ",")
+	serviceNames := strings.Split(opts.serviceNames, ",")
+	serviceNamespaces := strings.Split(opts.serviceNamespaces, ",")
 
 	stopCh := make(chan struct{})
 
 	wc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
 		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
-		opts.k8sCaCertFile, opts.certificateNamespace, mutatingWebhookServiceNames,
-		validatingWebhookServiceNames)
+		opts.k8sCaCertFile, serviceNames, serviceNamespaces)
 
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)
 		os.Exit(1)
 	}
 
-	// Run the controller to manage the lifecycles of webhook certificates and webhook configurations
+	// Run the controller to manage the lifecycles of certificates
 	wc.Run(stopCh)
 
 	istiocmd.WaitSignal(stopCh)
