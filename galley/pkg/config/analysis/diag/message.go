@@ -32,13 +32,13 @@ type MessageType struct {
 	template string
 }
 
-//Level returns the level of the MessageType
+// Level returns the level of the MessageType
 func (m *MessageType) Level() Level { return m.level }
 
-//Code returns the code of the MessageType
+// Code returns the code of the MessageType
 func (m *MessageType) Code() string { return m.code }
 
-//Template returns the message template used by the MessageType
+// Template returns the message template used by the MessageType
 func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
@@ -68,7 +68,8 @@ func (m *Message) toString(includeOrigin bool) string {
 	if includeOrigin && m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
-	return fmt.Sprintf("%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+	return fmt.Sprintf(
+		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
 // NewMessageType returns a new MessageType instance.
