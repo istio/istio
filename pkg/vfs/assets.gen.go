@@ -211,14 +211,11 @@
 // ../../data/charts/security/nodeagent/templates/serviceaccount.yaml
 // ../../data/charts/security/nodeagent/values.yaml
 // ../../data/profiles/default.yaml
-// ../../data/profiles/default.yaml.orig
 // ../../data/profiles/demo-auth.yaml
-// ../../data/profiles/demo-auth.yaml.orig
 // ../../data/profiles/demo.yaml
-// ../../data/profiles/demo.yaml.orig
 // ../../data/profiles/minimal.yaml
 // ../../data/profiles/sds.yaml
-// ../../data/profiles/sds.yaml.orig
+// ../../data/translateConfig/translateConfig-1.3.yaml
 // DO NOT EDIT!
 
 package vfs
@@ -32409,713 +32406,6 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDefaultYamlOrig = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
-  defaultNamespace: istio-system
-
-  # Traffic management feature
-  trafficManagement:
-    enabled: true
-    components:
-      pilot:
-        enabled: true
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "1"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-pilot
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 30
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 500m
-              memory: 2048Mi
-
-  # Policy feature
-  policy:
-    enabled: true
-    components:
-      policy:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-policy
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          env:
-            - name: GODEBUG
-              value: "gctrace=1"
-
-  # Telemetry feature
-  telemetry:
-    enabled: true
-    components:
-      telemetry:
-        enabled: true
-        k8s:
-          env:
-          - name: GODEBUG
-            value: "gctrace=1"
-          - name: GOMAXPROCS
-            value: "6"
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-telemetry
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 1G
-            limits:
-              cpu: 4800m
-              memory: 4G
-
-  # Security feature
-  security:
-    enabled: true
-    components:
-      certManager:
-        enabled: false
-      nodeAgent:
-        enabled: false
-
-  # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-
-  # Istio Gateway feature
-  gateways:
-    enabled: true
-    components:
-      ingressGateway:
-        enabled: true
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-ingressgateway
-            metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-
-      egressGateway:
-        enabled: false
-        k8s:
-          hpaSpec:
-            maxReplicas: 5
-            minReplicas: 1
-            scaleTargetRef:
-              apiVersion: apps/v1
-              kind: Deployment
-              name: istio-egressgateway
-            metrics:
-              - type: Resource
-                resource:
-                  name: cpu
-                  targetAverageUtilization: 80
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 256Mi
-
-  # Global values passed through to helm global.yaml.
-  values:
-    global:
-      logging:
-        level: "default:info"
-      logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
-      proxy:
-        image: proxyv2
-        clusterDomain: "cluster.local"
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-        concurrency: 2
-        accessLogFile: ""
-        accessLogFormat: ""
-        accessLogEncoding: TEXT
-        envoyAccessLogService:
-          enabled: false
-          host: # example: accesslog-service.istio-system
-          port: # example: 15000
-        logLevel: warning
-        componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
-        privileged: false
-        enableCoreDump: false
-        statusPort: 15020
-        readinessInitialDelaySeconds: 1
-        readinessPeriodSeconds: 2
-        readinessFailureThreshold: 30
-        includeIPRanges: "*"
-        excludeIPRanges: ""
-        excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
-        excludeInboundPorts: ""
-        autoInject: enabled
-        envoyStatsd:
-          enabled: false
-          host: # example: statsd-svc.istio-system
-          port: # example: 9125
-        envoyMetricsService:
-          enabled: false
-          host: # example: metrics-service.istio-system
-          port: # example: 15000
-        tracer: "zipkin"
-      proxy_init:
-        image: proxy_init
-        resources:
-          limits:
-            cpu: 100m
-            memory: 50Mi
-          requests:
-            cpu: 10m
-            memory: 10Mi
-      imagePullPolicy: Always
-      controlPlaneSecurityEnabled: true
-      disablePolicyChecks: true
-      policyCheckFailOpen: false
-      enableTracing: true
-      tracer:
-        lightstep:
-          address: ""                # example: lightstep-satellite:443
-          accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
-        zipkin:
-          address: ""
-        datadog:
-          address: "$(HOST_IP):8126"
-      mtls:
-        enabled: false
-      imagePullSecrets: []
-      arch:
-        amd64: 2
-        s390x: 2
-        ppc64le: 2
-      oneNamespace: false
-      defaultNodeSelector: {}
-      configValidation: true
-      meshExpansion:
-        enabled: false
-        useILB: false
-      multiCluster:
-        enabled: false
-      defaultResources:
-        requests:
-          cpu: 10m
-      defaultPodDisruptionBudget:
-        enabled: true
-      priorityClassName: ""
-      useMCP: true
-      trustDomain: ""
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
-      sds:
-        enabled: false
-        udsPath: ""
-      meshNetworks: {}
-      localityLbSetting:
-        enabled: true
-      enableHelmTest: false
-
-    pilot:
-      autoscaleEnabled: true
-      autoscaleMin: 1
-      autoscaleMax: 5
-      replicaCount: 1
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
-      image: pilot
-      traceSampling: 1.0
-      configNamespace: istio-config
-      appNamespaces: []
-      env:
-        GODEBUG: gctrace=1
-      cpu:
-        targetAverageUtilization: 80
-      nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      keepaliveMaxServerConnectionAge: 30m
-      deploymentLabels:
-      meshNetworks:
-        networks: {}
-      configMap: true
-      ingress:
-        ingressService: istio-ingressgateway
-        ingressControllerMode: "OFF"
-        ingressClass: istio
-      telemetry:
-        enabled: true
-      policy:
-        enabled: false
-      useMCP: true
-
-    mixer:
-      adapters:
-        stdio:
-          enabled: false
-          outputAsJson: false
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        kubernetesenv:
-          enabled: true
-        stackdriver:
-          enabled: false
-          auth:
-            appCredentials: false
-            apiKey: ""
-            serviceAccountPath: ""
-          tracer:
-            enabled: false
-            sampleProbability: 1
-        useAdapterCRDs: false
-
-      telemetry:
-        image: mixer
-        replicaCount: 1
-        rollingMaxSurge: 100%
-        rollingMaxUnavailable: 25%
-        autoscaleEnabled: true
-        sessionAffinityEnabled: false
-        loadshedding:
-          mode: enforce
-          latencyThreshold: 100ms
-        reportBatchMaxEntries: 100
-        reportBatchMaxTime: 1s
-        useMCP: true
-        nodeSelector: {}
-        tolerations: []
-        podAntiAffinityLabelSelector: []
-        podAntiAffinityTermLabelSelector: []
-
-      policy:
-        image: mixer
-        rollingMaxSurge: 100%
-        rollingMaxUnavailable: 25%
-        adapters:
-          kubernetesenv:
-            enabled: true
-
-    galley:
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
-
-    citadel:
-      image: citadel
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
-      selfSigned: true # indicate if self-signed CA is used.
-      trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
-      enableNamespacesByDefault: true
-      dnsCerts:
-        istio-pilot-service-account.istio-system: istio-pilot.istio-system
-
-    certmanager:
-      hub: quay.io/jetstack
-      tag: v0.6.2
-      image: cert-manager-controller
-
-    nodeagent:
-      image: node-agent-k8s
-
-    gateways:
-      istio-ingressgateway:
-        autoscaleEnabled: true
-        rollingMaxSurge: 100%
-        rollingMaxUnavailable: 25%
-        applicationPorts: ""
-        debug: info
-        domain: ""
-        zvpn:
-          enabled: true
-          suffix: global
-        telemetry_domain_name: ""
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
-        ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
-          - port: 80
-            targetPort: 80
-            name: http2
-          - port: 443
-            name: https
-          - port: 15029
-            targetPort: 15029
-            name: kiali
-          - port: 15030
-            targetPort: 15030
-            name: prometheus
-          - port: 15031
-            targetPort: 15031
-            name: grafana
-          - port: 15032
-            targetPort: 15032
-            name: tracing
-          - port: 15443
-            targetPort: 15443
-            name: tls
-        meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 853
-            name: tcp-dns-tls
-        secretVolumes:
-          - name: ingressgateway-certs
-            secretName: istio-ingressgateway-certs
-            mountPath: /etc/istio/ingressgateway-certs
-          - name: ingressgateway-ca-certs
-            secretName: istio-ingressgateway-ca-certs
-            mountPath: /etc/istio/ingressgateway-ca-certs
-        telemetry_addon_gateways:
-          tracing_gateway:
-            name: tracing
-            port: 15032
-            desPort: 80
-            enabled: false
-            tls: false
-          kiali_gateway:
-            name: kiali
-            port: 15029
-            desPort: 20001
-            enabled: false
-            tls: false
-          grafana_gateway:
-            name: grafana
-            port: 15031
-            desPort: 3000
-            enabled: false
-            tls: false
-          prometheus_gateway:
-            name: prometheus
-            port: 15030
-            desPort: 9090
-            enabled: false
-            tls: false
-<<<<<<< HEAD
-      istio-egressgateway:
-        ports:
-          - port: 80
-            name: http2
-          - port: 443
-            name: https
-          - port: 15443
-            targetPort: 15443
-            name: tls
-        zvpn:
-          suffix: global
-          enabled: true
-        rollingMaxSurge: 100%
-        rollingMaxUnavailable: 25%
-        autoscaleEnabled: true
-        drainDuration: 45s
-        connectTimeout: 10s
-        serviceAnnotations: {}
-        podAnnotations: {}
-        type: ClusterIP # change to NodePort or LoadBalancer if need be
-        secretVolumes:
-          - name: egressgateway-certs
-            secretName: istio-egressgateway-certs
-            mountPath: /etc/istio/egressgateway-certs
-          - name: egressgateway-ca-certs
-            secretName: istio-egressgateway-ca-certs
-            mountPath: /etc/istio/egressgateway-ca-certs
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
-        nodeSelector: {}
-        tolerations: []
-        podAntiAffinityLabelSelector: []
-        podAntiAffinityTermLabelSelector: []
-=======
->>>>>>> 598103cf7e20c05c6aa466d2a6a30c1b4ce1f71b
-
-    sidecarInjectorWebhook:
-      rollingMaxSurge: 100%
-      rollingMaxUnavailable: 25%
-      image: sidecar_injector
-      enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
-      selfSigned: false
-      injectLabel: istio-injection
-
-    prometheus:
-      enabled: true
-      replicaCount: 1
-      hub: docker.io/prom
-      tag: v2.8.0
-      retention: 6h
-      scrapeInterval: 15s
-      contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
-      security:
-        enabled: true
-      nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-
-    grafana:
-      enabled: false
-      replicaCount: 1
-      image:
-        repository: grafana/grafana
-        tag: 6.1.6
-      persist: false
-      storageClassName: ""
-      accessMode: ReadWriteMany
-      security:
-        enabled: false
-        secretName: grafana
-        usernameKey: username
-        passphraseKey: passphrase
-
-      contextPath: /grafana
-      service:
-        annotations: {}
-        name: http
-        type: ClusterIP
-        externalPort: 3000
-        loadBalancerIP:
-        loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
-      datasources:
-        datasources.yaml:
-          apiVersion: 1
-          datasources:
-      dashboardProviders:
-        dashboardproviders.yaml:
-          apiVersion: 1
-          providers:
-            - name: 'istio'
-              orgId: 1
-              folder: 'istio'
-              type: file
-              disableDeletion: false
-              options:
-                path: /var/lib/grafana/dashboards/istio
-      nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      env: {}
-      envSecrets: {}
-
-    tracing:
-      enabled: false
-      provider: jaeger
-      nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      jaeger:
-        hub: docker.io/jaegertracing
-        tag: 1.12
-        memory:
-          max_traces: 50000
-        spanStorageType: badger
-        persist: false
-        storageClassName: ""
-        accessMode: ReadWriteMany
-      zipkin:
-        hub: docker.io/openzipkin
-        tag: 2.14.2
-        probeStartupDelay: 200
-        queryPort: 9411
-        resources:
-          limits:
-            cpu: 300m
-            memory: 900Mi
-          requests:
-            cpu: 150m
-            memory: 900Mi
-        javaOptsHeap: 700
-        maxSpans: 500000
-        node:
-          cpus: 2
-      opencensus:
-        hub: docker.io/omnition
-        tag: 0.1.9
-        resources:
-          limits:
-            cpu: 1
-            memory: 2Gi
-          requests:
-            cpu: 200m
-            memory: 400Mi
-        exporters:
-          stackdriver:
-            enable_tracing: true
-      service:
-        annotations: {}
-        name: http
-        type: ClusterIP
-        externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
-
-    kiali:
-      enabled: false
-      replicaCount: 1
-      hub: docker.io/kiali
-      tag: v1.1.0
-      contextPath: /kiali
-      nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
-      dashboard:
-        secretName: kiali
-        usernameKey: username
-        passphraseKey: passphrase
-        viewOnlyMode: false
-        grafanaURL:
-        jaegerURL:
-      prometheusNamespace:
-      createDemoSecret: true
-      security:
-        enabled: true
-        cert_file: /kiali-cert/cert-chain.pem
-        private_key_file: /kiali-cert/key.pem
-
-    # TODO: derive from operator API
-    version: ""
-    clusterResources: true
-`)
-
-func profilesDefaultYamlOrigBytes() ([]byte, error) {
-	return _profilesDefaultYamlOrig, nil
-}
-
-func profilesDefaultYamlOrig() (*asset, error) {
-	bytes, err := profilesDefaultYamlOrigBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/default.yaml.orig", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesDemoAuthYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -33241,159 +32531,6 @@ func profilesDemoAuthYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "profiles/demo-auth.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _profilesDemoAuthYamlOrig = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  gateways:
-    components:
-      egressGateway:
-<<<<<<< HEAD
-        enabled: false
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-=======
-        common:
-          enabled: true
-          k8s:
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
-              limits:
-                cpu: 2000m
-                memory: 256Mi
-          values:
-            autoscaleEnabled: false
->>>>>>> 0e53114f62ca1dafda5750c8817f10747379b0af
-      ingressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-  policy:
-    components:
-      policy:
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-  telemetry:
-    components:
-      telemetry:
-        k8s:
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
-
-
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "100"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-      proxy:
-        values:
-          accessLogFile: /dev/stdout
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-
-  values:
-    global:
-      disablePolicyChecks: false
-      mtls:
-        enabled: true
-
-    pilot:
-      autoscaleEnabled: false
-
-    proxy:
-      accessLogFile: /dev/stdout
-      resources:
-        requests:
-          cpu: 10m
-          memory: 40Mi
-
-    mixer:
-      adapters:
-        useAdapterCRDs: false
-        kubernetesenv:
-          enabled: true
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        stackdriver:
-          enabled: false
-        stdio:
-          enabled: true
-          outputAsJson: false
-      policy:
-        autoscaleEnabled: false
-      telemetry:
-        autoscaleEnabled: false
-
-    gateway:
-      istio-egressgateway:
-        autoscaleEnabled: false
-      istio-ingressgateway:
-        autoscaleEnabled: false
-
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
-    kiali:
-      enabled: true
-      createDemoSecret: true
-`)
-
-func profilesDemoAuthYamlOrigBytes() ([]byte, error) {
-	return _profilesDemoAuthYamlOrig, nil
-}
-
-func profilesDemoAuthYamlOrig() (*asset, error) {
-	bytes, err := profilesDemoAuthYamlOrigBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/demo-auth.yaml.orig", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -33527,150 +32664,6 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoYamlOrig = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  gateways:
-    components:
-      egressGateway:
-<<<<<<< HEAD
-        enabled: false
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-
-=======
-        common:
-          enabled: true
-          k8s:
-            resources:
-              requests:
-                cpu: 10m
-                memory: 40Mi
-              limits:
-                cpu: 2000m
-                memory: 256Mi
-          values:
-            autoscaleEnabled: false
->>>>>>> 0e53114f62ca1dafda5750c8817f10747379b0af
-      ingressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-
-  policy:
-    components:
-      policy:
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-  telemetry:
-    components:
-      telemetry:
-        k8s:
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
-
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "100"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-  values:
-    global:
-      disablePolicyChecks: false
-
-    pilot:
-      autoscaleEnabled: false
-
-    proxy:
-      accessLogFile: /dev/stdout
-      resources:
-        requests:
-          cpu: 10m
-          memory: 40Mi
-
-    mixer:
-      adapters:
-        useAdapterCRDs: false
-        kubernetesenv:
-          enabled: true
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        stackdriver:
-          enabled: false
-        stdio:
-          enabled: true
-          outputAsJson: false
-      policy:
-        autoscaleEnabled: false
-      telemetry:
-        autoscaleEnabled: false
-
-    gateway:
-      istio-egressgateway:
-        autoscaleEnabled: false
-      istio-ingressgateway:
-        autoscaleEnabled: false
-
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
-    kiali:
-      enabled: true
-      createDemoSecret: true
-`)
-
-func profilesDemoYamlOrigBytes() ([]byte, error) {
-	return _profilesDemoYamlOrig, nil
-}
-
-func profilesDemoYamlOrig() (*asset, error) {
-	bytes, err := profilesDemoYamlOrigBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/demo.yaml.orig", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesMinimalYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -33706,7 +32699,7 @@ spec:
         port:
 
     prometheus:
-      enabeld: false
+      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
@@ -33765,70 +32758,222 @@ func profilesSdsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesSdsYamlOrig = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  security:
-    components:
-      nodeAgent:
-        enabled: true
-<<<<<<< HEAD
-<<<<<<< HEAD
+var _translateconfigTranslateconfig13Yaml = []byte(`apiMapping:
+  Hub:
+    outPath: "global.hub"
+  Tag:
+    outPath: "global.tag"
+  K8SDefaults:
+    outPath: "global.resources"
+  DefaultNamespace:
+    outPath: "global.istioNamespace"
+  Values.Proxy:
+    outPath: "global.proxy"
+  ConfigManagement.Components.Namespace:
+    outPath: "global.configNamespace"
+  Policy.Components.Namespace:
+    outPath: "global.policyNamespace"
+  Telemetry.Components.Namespace:
+    outPath: "global.telemetryNamespace"
+  Security.Components.Namespace:
+    outPath: "global.securityNamespace"
+kubernetesMapping:
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec":
+    outPath: "[HorizontalPodAutoscaler:{{.ResourceName}}].spec"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ImagePullPolicy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].imagePullPolicy"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.NodeSelector":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.nodeSelector"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodDisruptionBudget":
+    outPath: "[PodDisruptionBudget:{{.ResourceName}}].spec"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PodAnnotations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.metadata.annotations"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.PriorityClassName":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.priorityClassName."
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReadinessProbe":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].readinessProbe"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.ReplicaCount":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.replicas"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Resources":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].resources"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Strategy":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.strategy"
+  "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
+toFeature:
+    crds:               Base
+    Pilot:              TrafficManagement
+    Galley:             ConfigManagement
+    Injector:           AutoInjection
+    Policy:             Policy
+    Telemetry:          Telemetry
+    Citadel:            Security
+    CertManager:        Security
+    NodeAgent:          Security
+    IngressGateway:     Gateways
+    EgressGateway:      Gateways
+    Grafana:            ThirdParty
+    Prometheus:         ThirdParty
+    Tracing:            ThirdParty
+    PrometheusOperator: ThirdParty
+    Kiali:              ThirdParty
+globalNamespaces:
+  Pilot:      "istioNamespace"
+  Galley:     "configNamespace"
+  Telemetry:  "telemetryNamespace"
+  Policy:     "policyNamespace"
+  Prometheus: "prometheusNamespace"
+  Citadel:    "securityNamespace"
+featureMaps:
+  Base:
+    alwaysEnabled: true
+    Components:
+      - crds
+  TrafficManagement:
+    Components:
+      - Pilot
+  Policy:
+    Components:
+      - Policy
+  Telemetry:
+    Components:
+      - Telemetry
+  Security:
+    Components:
+      - Citadel
+      - CertManager
+      - NodeAgent
+  ConfigManagement:
+    Components:
+      - Galley
+  AutoInjection:
+    Components:
+      - Injector
+  Gateways:
+    Components:
+      - IngressGateway
+      - EgressGateway
+  ThirdParty:
+    Components:
+      - CNI
+      - Grafana
+      - Prometheus
+      - Tracing
+      - PrometheusOperator
+      - Kiali
 
-=======
->>>>>>> 0584d5d7... add back the mandiff test. (#223)
-=======
-        k8s:
-          env:
-          - name: CA_ADDR
-            value: "istio-citadel:8060"
-          - name: CA_PROVIDER
-            value: Citadel
-          - name: Plugins
-            value: ""
-          - name: VALID_TOKEN
-            value: "true"
-          - name: Trust_Domain
-            value: ""
-          - name: NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
->>>>>>> a119f421... fix mandiff gaps. (#222)
-  values:
-    global:
-      controlPlaneSecurityEnabled: false
-      mtls:
-        enabled: true
-      controlPlaneSecurityEnabled: false
-      sds:
-        enabled: true
-        udsPath: "unix:/var/run/sds/uds_path"
-        useNormalJwt: false
-        useTrustworthyJwt: true
-    nodeagent:
-      image: node-agent-k8s
-      env:
-        CA_PROVIDER: "Citadel"
-        CA_ADDR: "istio-citadel:8060"
-        VALID_TOKEN: true
-<<<<<<< HEAD
-=======
-
->>>>>>> 0584d5d7... add back the mandiff test. (#223)
+componentMaps:
+  crds:
+    ToHelmValuesTreeRoot: "global"
+    HelmSubdir:           "crds"
+    AlwaysEnabled:        true
+  Pilot:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-pilot"
+    ContainerName:        "discovery"
+    HelmSubdir:           "istio-control/istio-discovery"
+    ToHelmValuesTreeRoot: "pilot"
+  Galley:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-galley"
+    ContainerName:        "galley"
+    HelmSubdir:           "istio-control/istio-config"
+    ToHelmValuesTreeRoot: "galley"
+  Injector:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-sidecar-injector"
+    ContainerName:        "sidecar-injector-webhook"
+    HelmSubdir:           "istio-control/istio-autoinject"
+    ToHelmValuesTreeRoot: "sidecarInjectorWebhook"
+  Policy:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-policy"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-policy"
+    ToHelmValuesTreeRoot: "mixer.policy"
+  Telemetry:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-telemetry"
+    ContainerName:        "mixer"
+    HelmSubdir:           "istio-telemetry/mixer-telemetry"
+    ToHelmValuesTreeRoot: "mixer.telemetry"
+  Citadel:
+    ResourceType:        "Deployment"
+    ResourceName:         "istio-citadel"
+    ContainerName:        "citadel"
+    HelmSubdir:           "security/citadel"
+    ToHelmValuesTreeRoot: "security"
+  NodeAgent:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-nodeagent"
+    ContainerName:        "nodeagent"
+    HelmSubdir:           "security/nodeagent"
+    ToHelmValuesTreeRoot: "nodeagent"
+  CertManager:
+    ResourceType:        "Deployment"
+    ResourceName:         "certmanager"
+    ContainerName:        "certmanager"
+    HelmSubdir:           "security/certmanager"
+    ToHelmValuesTreeRoot: "certmanager"
+  IngressGateway:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-ingressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-ingress"
+    ToHelmValuesTreeRoot: "gateways.istio-ingressgateway"
+  EgressGateway:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-egressgateway"
+    ContainerName:        "istio-proxy"
+    HelmSubdir:           "gateways/istio-egress"
+    ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+  Tracing:
+    ResourceType:         "Deployment"
+    ResourceName:         "istio-tracing"
+    ContainerName:        "jaeger"
+    HelmSubdir:           "istio-telemetry/tracing"
+    ToHelmValuesTreeRoot: "tracing.jaeger"
+  PrometheusOperator:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    ToHelmValuesTreeRoot: "prometheus"
+  Kiali:
+    ResourceType:         "Deployment"
+    ResourceName:         "kiali"
+    ContainerName:        "kiali"
+    HelmSubdir:           "istio-telemetry/kiali"
+    ToHelmValuesTreeRoot: "kiali"
+  Grafana:
+    ResourceType:        "Deployment"
+    ResourceName:         "grafana"
+    ContainerName:        "grafana"
+    HelmSubdir:           "istio-telemetry/grafana"
+    ToHelmValuesTreeRoot: "grafana"
+  Prometheus:
+    ResourceType:         "Deployment"
+    ResourceName:         "prometheus"
+    ContainerName:        "prometheus"
+    HelmSubdir:           "istio-telemetry/prometheus"
+    ToHelmValuesTreeRoot: "prometheus"
 `)
 
-func profilesSdsYamlOrigBytes() ([]byte, error) {
-	return _profilesSdsYamlOrig, nil
+func translateconfigTranslateconfig13YamlBytes() ([]byte, error) {
+	return _translateconfigTranslateconfig13Yaml, nil
 }
 
-func profilesSdsYamlOrig() (*asset, error) {
-	bytes, err := profilesSdsYamlOrigBytes()
+func translateconfigTranslateconfig13Yaml() (*asset, error) {
+	bytes, err := translateconfigTranslateconfig13YamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "profiles/sds.yaml.orig", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "translateConfig/translateConfig-1.3.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -34096,14 +33241,11 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/nodeagent/templates/serviceaccount.yaml": chartsSecurityNodeagentTemplatesServiceaccountYaml,
 	"charts/security/nodeagent/values.yaml": chartsSecurityNodeagentValuesYaml,
 	"profiles/default.yaml": profilesDefaultYaml,
-	"profiles/default.yaml.orig": profilesDefaultYamlOrig,
 	"profiles/demo-auth.yaml": profilesDemoAuthYaml,
-	"profiles/demo-auth.yaml.orig": profilesDemoAuthYamlOrig,
 	"profiles/demo.yaml": profilesDemoYaml,
-	"profiles/demo.yaml.orig": profilesDemoYamlOrig,
 	"profiles/minimal.yaml": profilesMinimalYaml,
 	"profiles/sds.yaml": profilesSdsYaml,
-	"profiles/sds.yaml.orig": profilesSdsYamlOrig,
+	"translateConfig/translateConfig-1.3.yaml": translateconfigTranslateconfig13Yaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -34450,14 +33592,13 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
 		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"default.yaml.orig": &bintree{profilesDefaultYamlOrig, map[string]*bintree{}},
 		"demo-auth.yaml": &bintree{profilesDemoAuthYaml, map[string]*bintree{}},
-		"demo-auth.yaml.orig": &bintree{profilesDemoAuthYamlOrig, map[string]*bintree{}},
 		"demo.yaml": &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"demo.yaml.orig": &bintree{profilesDemoYamlOrig, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"sds.yaml": &bintree{profilesSdsYaml, map[string]*bintree{}},
-		"sds.yaml.orig": &bintree{profilesSdsYamlOrig, map[string]*bintree{}},
+	}},
+	"translateConfig": &bintree{nil, map[string]*bintree{
+		"translateConfig-1.3.yaml": &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 	}},
 }}
 
