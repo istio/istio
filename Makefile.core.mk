@@ -141,6 +141,7 @@ export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
 export ARTIFACTS ?= $(ISTIO_OUT)
+export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -321,12 +322,9 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format:
-	scripts/run_gofmt.sh
-	go mod tidy
+format: fmt
 
-fmt:
-	scripts/run_gofmt.sh
+fmt: format-go format-python
 	go mod tidy
 
 # Build with -i to store the build caches into $GOPATH/pkg
@@ -379,10 +377,10 @@ MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pi
 
 lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml
 	@bin/check_helm.sh
-	@GOARCH=amd64 GOOS=linux bin/check_samples.sh
-	@GOARCH=amd64 GOOS=linux bin/check_dashboards.sh
-	@GOARCH=amd64 GOOS=linux go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@GOARCH=amd64 GOOS=linux bin/check_pilot_codegen.sh
+	@bin/check_samples.sh
+	@bin/check_dashboards.sh
+	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
+	@bin/check_pilot_codegen.sh
 	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
@@ -395,6 +393,11 @@ lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lin
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
+
+gen:
+	@mkdir -p /tmp/bin
+	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
+	@PATH=${PATH}:/tmp/bin go generate ./...
 
 #-----------------------------------------------------------------------------
 # Target: go build

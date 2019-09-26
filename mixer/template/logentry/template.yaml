@@ -1,5 +1,5 @@
 # this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/logentry/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/logentry/template.yaml -n logentry
+# mixgen template -d $REPO_ROOT/mixer/template/logentry/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/logentry/template.yaml -n logentry
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:

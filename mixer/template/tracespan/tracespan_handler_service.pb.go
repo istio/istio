@@ -32,7 +32,7 @@
 //       source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/observability/distributed-tracing/)
 // for information on tracing within Istio.
 //
 // TraceSpan represents an individual span within a distributed trace.

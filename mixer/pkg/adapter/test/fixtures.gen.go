@@ -265,7 +265,7 @@ func TestdataConfigAttributesYaml() (*asset, error) {
 }
 
 var _TemplateApikeyTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/apikey/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/apikey/template.yaml -n apikey
+# mixgen template -d $REPO_ROOT/mixer/template/apikey/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/apikey/template.yaml -n apikey
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -292,7 +292,7 @@ func TemplateApikeyTemplateYaml() (*asset, error) {
 }
 
 var _TemplateAuthorizationTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/authorization/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/authorization/template.yaml -n authorization
+# mixgen template -d $REPO_ROOT/mixer/template/authorization/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/authorization/template.yaml -n authorization
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -319,7 +319,7 @@ func TemplateAuthorizationTemplateYaml() (*asset, error) {
 }
 
 var _TemplateChecknothingTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/checknothing/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/checknothing/template.yaml -n checknothing
+# mixgen template -d $REPO_ROOT/mixer/template/checknothing/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/checknothing/template.yaml -n checknothing
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -346,7 +346,7 @@ func TemplateChecknothingTemplateYaml() (*asset, error) {
 }
 
 var _TemplateListentryTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/listentry/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/listentry/template.yaml -n listentry
+# mixgen template -d $REPO_ROOT/mixer/template/listentry/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/listentry/template.yaml -n listentry
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -373,7 +373,7 @@ func TemplateListentryTemplateYaml() (*asset, error) {
 }
 
 var _TemplateLogentryTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/logentry/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/logentry/template.yaml -n logentry
+# mixgen template -d $REPO_ROOT/mixer/template/logentry/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/logentry/template.yaml -n logentry
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -400,7 +400,7 @@ func TemplateLogentryTemplateYaml() (*asset, error) {
 }
 
 var _TemplateMetricTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/metric/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/metric/template.yaml -n metric
+# mixgen template -d $REPO_ROOT/mixer/template/metric/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/metric/template.yaml -n metric
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -427,7 +427,7 @@ func TemplateMetricTemplateYaml() (*asset, error) {
 }
 
 var _TemplateQuotaTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/quota/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/quota/template.yaml -n quota
+# mixgen template -d $REPO_ROOT/mixer/template/quota/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/quota/template.yaml -n quota
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -454,7 +454,7 @@ func TemplateQuotaTemplateYaml() (*asset, error) {
 }
 
 var _TemplateReportnothingTemplateYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/reportnothing/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/reportnothing/template.yaml -n reportnothing
+# mixgen template -d $REPO_ROOT/mixer/template/reportnothing/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/reportnothing/template.yaml -n reportnothing
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -481,7 +481,7 @@ func TemplateReportnothingTemplateYaml() (*asset, error) {
 }
 
 var _TemplateTracespanTracespanYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/tracespan/tracespan_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/tracespan/tracespan.yaml -n tracespan
+# mixgen template -d $REPO_ROOT/mixer/template/tracespan/tracespan_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/tracespan/tracespan.yaml -n tracespan
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -508,7 +508,7 @@ func TemplateTracespanTracespanYaml() (*asset, error) {
 }
 
 var _TestSpyadapterTemplateApaTmplYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/apa/tmpl.yaml -n apa
+# mixgen template -d $REPO_ROOT/mixer/test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set -o $REPO_ROOT/mixer/test/spyAdapter/template/apa/tmpl.yaml -n apa
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:
@@ -535,7 +535,7 @@ func TestSpyadapterTemplateApaTmplYaml() (*asset, error) {
 }
 
 var _TestSpyadapterTemplateCheckoutputTmplYaml = []byte(`# this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/checkoutput/tmpl_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/checkoutput/tmpl.yaml -n checkoutput
+# mixgen template -d $REPO_ROOT/mixer/test/spyAdapter/template/checkoutput/tmpl_handler_service.descriptor_set -o $REPO_ROOT/mixer/test/spyAdapter/template/checkoutput/tmpl.yaml -n checkoutput
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:

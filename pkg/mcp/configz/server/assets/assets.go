@@ -12,6 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg assets -o assets.gen.go ./templates/...
+//go:generate go-bindata --nocompress --nometadata --pkg assets -o assets.gen.go ./templates/...
 
 package assets

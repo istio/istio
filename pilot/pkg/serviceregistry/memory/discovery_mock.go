@@ -46,6 +46,7 @@ var (
 		ID:           "v0.default",
 		DNSDomain:    "default.svc.cluster.local",
 		IstioVersion: model.MaxIstioVersion,
+		Metadata:     &model.NodeMetadata{},
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services

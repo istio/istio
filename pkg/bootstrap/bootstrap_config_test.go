@@ -36,7 +36,6 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
@@ -331,7 +330,7 @@ func TestGolden(t *testing.T) {
 			checkOpencensusConfig(t, &realM, &goldenM)
 
 			if !reflect.DeepEqual(realM, goldenM) {
-				s, _ := diff.PrettyDiff(realM, goldenM)
+				s, _ := diff.PrettyDiff(goldenM, realM)
 				t.Logf("difference: %s", s)
 				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
 			}
@@ -607,15 +606,6 @@ func TestIsIPv6Proxy(t *testing.T) {
 	}
 }
 
-type encodeFn func(string) string
-
-func envEncode(m map[string]string, prefix string, encode encodeFn, out []string) []string {
-	for k, v := range m {
-		out = append(out, prefix+encode(k)+"="+encode(v))
-	}
-	return out
-}
-
 // createEnv takes labels and annotations are returns environment in go format.
 func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (map[string]string, []string) {
 	merged := map[string]string{}
@@ -642,58 +632,6 @@ func encodeAsJSON(t *testing.T, data map[string]string, name string) string {
 	return IstioMetaJSONPrefix + name + "=" + string(jsonStr)
 }
 
-func TestNodeMetadata(t *testing.T) {
-	labels := map[string]string{
-		"l1":    "v1",
-		"l2":    "v2",
-		"istio": "sidecar",
-	}
-	anno := map[string]string{
-		"istio.io/enable": "{20: 20}",
-	}
-
-	plat := &fakePlatform{meta: map[string]string{"some_env": "foo", "other_env": "bar"}}
-
-	wantMap := map[string]interface{}{
-		"istio":                            "sidecar",
-		model.NodeMetadataExchangeKeys:     metadataExchangeKeys,
-		model.NodeMetadataLabels:           labels,
-		model.NodeMetadataPlatformMetadata: map[string]string{"some_env": "foo", "other_env": "bar"},
-		"l1":                               "v1",
-		"l2":                               "v2",
-	}
-
-	_, envs := createEnv(t, labels, nil)
-	nm := getNodeMetaData(envs, plat)
-
-	if !reflect.DeepEqual(nm, wantMap) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
-	}
-
-	_, envs = createEnv(t, labels, anno)
-	for k, v := range anno {
-		wantMap[k] = v
-	}
-
-	nm = getNodeMetaData(envs, plat)
-	if !reflect.DeepEqual(nm, wantMap) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
-	}
-
-	t.Logf("envs => %v\nnm=> %v", envs, nm)
-
-	// encode string incorrectly,
-	// a warning is logged, but everything else works.
-	envs = envEncode(anno, IstioMetaJSONPrefix, func(s string) string {
-		return s
-	}, envs)
-
-	nm = getNodeMetaData(envs, plat)
-	if !reflect.DeepEqual(nm, wantMap) {
-		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, wantMap)
-	}
-}
-
 func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 	originalKey := "foo"
 	notIstioMetaKey := "NOT_AN_" + IstioMetaPrefix + originalKey
@@ -702,18 +640,38 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm := getNodeMetaData(envs, nil)
-	if _, ok := nm[notIstioMetaKey]; ok {
+	nm, _, err := getNodeMetaData(envs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := nm.Raw[notIstioMetaKey]; ok {
 		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
 	}
 
-	if _, ok := nm[anIstioMetaKey]; ok {
+	if _, ok := nm.Raw[anIstioMetaKey]; ok {
 		t.Fatalf("%s should not be encoded in node metadata. The prefix '%s' should be stripped", anIstioMetaKey, IstioMetaPrefix)
 	}
-	if val, ok := nm[originalKey]; !ok {
+	if val, ok := nm.Raw[originalKey]; !ok {
 		t.Fatalf("%s has the prefix %s and it should be encoded in the node metadata", originalKey, IstioMetaPrefix)
 	} else if val != "baz" {
 		t.Fatalf("unexpected value node metadata %s. got %s, want: %s", originalKey, val, "baz")
+	}
+}
+
+func TestNodeMetadata(t *testing.T) {
+	envs := []string{
+		"ISTIO_META_ISTIO_VERSION=1.0.0",
+		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
+	}
+	nm, _, err := getNodeMetaData(envs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nm.IstioVersion != "1.0.0" {
+		t.Fatalf("Expected IstioVersion 1.0.0, got %v", nm.IstioVersion)
+	}
+	if !reflect.DeepEqual(nm.Labels, map[string]string{"foo": "bar"}) {
+		t.Fatalf("Expected Labels foo: bar, got %v", nm.Labels)
 	}
 }
 

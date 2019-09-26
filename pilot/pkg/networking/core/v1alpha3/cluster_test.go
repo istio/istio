@@ -189,19 +189,19 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 		locality,
 		mesh,
 		destRule,
-		make(map[string]string),
+		&model.NodeMetadata{},
 		model.MaxIstioVersion)
 }
 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string), istioVersion)
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, &model.NodeMetadata{}, istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution,
 		nodeType, locality, mesh,
 		destRule, meta, istioVersion,
@@ -211,7 +211,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 
 func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -424,10 +424,10 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 
 	g := NewGomegaWithT(t)
 
-	envoyMetadata := map[string]string{
-		model.NodeMetadataTLSClientCertChain: expectedClientCertPath,
-		model.NodeMetadataTLSClientKey:       expectedClientKeyPath,
-		model.NodeMetadataTLSClientRootCert:  expectedRootCertPath,
+	envoyMetadata := &model.NodeMetadata{
+		TLSClientCertChain: expectedClientCertPath,
+		TLSClientKey:       expectedClientKeyPath,
+		TLSClientRootCert:  expectedRootCertPath,
 	}
 
 	destRule := &networking.DestinationRule{
@@ -484,14 +484,14 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 }
 
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
+	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{})
 }
 
 func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, map[string]string{"ROUTER_MODE": string(model.SniDnatRouter)})
+	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
 }
 
-func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) ([]*apiv2.Cluster, error) {
+func buildSniTestClustersWithMetadata(sniValue string, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata("foo.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
@@ -701,7 +701,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			tlsSettings,
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
-			&model.Proxy{Metadata: map[string]string{}},
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			tlsSettings,
 		},
 		{
@@ -716,7 +716,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			},
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
-			&model.Proxy{Metadata: map[string]string{}},
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -731,10 +731,10 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			tlsSettings,
 			[]string{},
 			"",
-			&model.Proxy{Metadata: map[string]string{
-				model.NodeMetadataTLSClientCertChain: "/custom/chain.pem",
-				model.NodeMetadataTLSClientKey:       "/custom/key.pem",
-				model.NodeMetadataTLSClientRootCert:  "/custom/root.pem",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
 			}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
@@ -1006,7 +1006,7 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
@@ -1027,7 +1027,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1065,7 +1065,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1252,7 +1252,7 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 					},
 				},
 			},
-			make(map[string]string),
+			&model.NodeMetadata{},
 			model.MaxIstioVersion,
 			inAndOut.ips,
 		)

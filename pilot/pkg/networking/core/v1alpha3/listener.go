@@ -506,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
@@ -945,7 +945,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
-	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpOpts.AcceptHttp_10 = true
 	}
 
@@ -1071,7 +1071,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rds:              rdsName,
 	}
 
-	if features.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || pluginParams.Node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
 				AcceptHttp_10: true,
@@ -1667,7 +1667,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
 		connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
