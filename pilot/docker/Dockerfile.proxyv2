@@ -12,7 +12,7 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 ADD ca-certificates.tgz /
 
 # Add WASM plugins for stats and metadata_exchange
-ADD wasm /
+COPY wasm /
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
