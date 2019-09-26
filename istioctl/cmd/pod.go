@@ -229,11 +229,14 @@ func pod() *cobra.Command {
 		},
 	}
 
-	levelListString := fmt.Sprintf("[%s, %s, %s, %s]",
+	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
+		levelToString[TraceLevel],
 		levelToString[DebugLevel],
 		levelToString[InfoLevel],
 		levelToString[WarningLevel],
-		levelToString[ErrorLevel])
+		levelToString[ErrorLevel],
+		levelToString[CriticalLevel],
+		levelToString[OffLevel])
 
 	s := strings.Join(activeLoggers, ", ")
 
