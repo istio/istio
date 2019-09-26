@@ -108,11 +108,13 @@ func (p *Processing2) Start() (err error) {
 		return
 	}
 
+	transformProviders := transforms.Providers(m)
+
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
 	if p.args.EnableConfigAnalysis {
-		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.AllCombined(), distributor, nil)
+		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.AllCombined(), distributor, nil,
+			kubeResources.GetDisabled(), transformProviders)
 	}
-	transformProviders := transforms.Providers(m)
 
 	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
 		return
