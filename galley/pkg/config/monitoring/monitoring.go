@@ -25,7 +25,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	"istio.io/istio/galley/pkg/runtime/log"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 const (
@@ -97,12 +97,12 @@ var (
 	stateTypeCollectionMutex sync.RWMutex
 )
 
-// RecordStrategyOnChange
+// RecordStrategyOnChange event
 func RecordStrategyOnChange() {
 	stats.Record(context.Background(), strategyOnChangeTotal.M(1))
 }
 
-// RecordOnTimer
+// RecordOnTimer event
 func RecordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 	if maxTimeReached {
 		stats.Record(context.Background(), strategyOnTimerMaxTimeReachedTotal.M(1))
@@ -115,30 +115,30 @@ func RecordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 	}
 }
 
-// RecordProcessorEventProcessed
+// RecordProcessorEventProcessed event
 func RecordProcessorEventProcessed(eventSpan time.Duration) {
 	stats.Record(context.Background(), processorEventsProcessed.M(1),
 		processorEventSpansMs.M(eventSpan.Nanoseconds()/1e6))
 }
 
-// RecordProcessorSnapshotPublished
+// RecordProcessorSnapshotPublished event
 func RecordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) {
 	stats.Record(context.Background(), processorSnapshotsPublished.M(1))
 	stats.Record(context.Background(), processorEventsPerSnapshot.M(events),
 		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
-// RecordStateTypeCount
+// RecordStateTypeCount event
 func RecordStateTypeCount(collection string, count int) {
 	ctx, err := tag.New(context.Background(), tag.Insert(CollectionTag, collection))
 	if err != nil {
-		log.Scope.Errorf("Error creating monitoring context for counting state: %v", err)
+		scope.Processing.Errorf("Error creating monitoring context for counting state: %v", err)
 	} else {
 		RecordStateTypeCountWithContext(ctx, count)
 	}
 }
 
-// RecordStateTypeCountWithContext
+// RecordStateTypeCountWithContext event
 func RecordStateTypeCountWithContext(ctx context.Context, count int) {
 	if ctx != nil {
 		stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
@@ -150,14 +150,14 @@ func RecordDetailedStateType(namespace, name string, collection fmt.Stringer, co
 	collectionStr := strings.Split(collection.String(), "/")
 	// collection is of the format istio/<kind>/<version>/<name>
 	if len(collectionStr) < 4 {
-		log.Scope.Errorf("length of collection is less than 4, does not match expectation. collection: %v",
+		scope.Processing.Errorf("length of collection is less than 4, does not match expectation. collection: %v",
 			collectionStr)
 		return
 	}
 	ctx, err := tag.New(context.Background(), tag.Insert(NamespaceTag, namespace),
 		tag.Insert(NameTag, name), tag.Insert(VersionTag, collectionStr[2]))
 	if err != nil {
-		log.Scope.Errorf("error creating monitoring context for counting state: %v", err)
+		scope.Processing.Errorf("error creating monitoring context for counting state: %v", err)
 		return
 	}
 
@@ -167,7 +167,7 @@ func RecordDetailedStateType(namespace, name string, collection fmt.Stringer, co
 	RecordDetailedStateTypeWithContext(ctx, collectionName, count)
 }
 
-// RecordDetailedStateTypeWithContext
+// RecordDetailedStateTypeWithContext event
 func RecordDetailedStateTypeWithContext(ctx context.Context, collection string, count int) {
 	if ctx == nil {
 		return
@@ -177,7 +177,7 @@ func RecordDetailedStateTypeWithContext(ctx context.Context, collection string, 
 	if stateTypeConfigTotal[collection] == nil {
 		err := registerNewStateTypeConfigView(collection)
 		if err != nil {
-			log.Scope.Errorf("could not register collection %v for monitoring", err)
+			scope.Processing.Errorf("could not register collection %v for monitoring", err)
 			return
 		}
 	}
