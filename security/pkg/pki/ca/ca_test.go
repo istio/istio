@@ -29,6 +29,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/k8s/configmap"
+	caitf "istio.io/istio/security/pkg/pki/interface"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -169,7 +171,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	initSecret := k8ssecret.BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(initSecret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -260,7 +262,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	}
 
 	// Should succeed once secret is ready.
-	secret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	secret := k8ssecret.BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err = client.CoreV1().Secrets("default").Create(secret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -493,8 +495,8 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
 	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
-	if signErr.(*Error).Error() != expectedErr {
-		t.Errorf("Expected error: %s but got error: %s.", signErr.(*Error).Error(), expectedErr)
+	if signErr.(*caitf.Error).Error() != expectedErr {
+		t.Errorf("Expected error: %s but got error: %s.", signErr.(*caitf.Error).Error(), expectedErr)
 	}
 }
 

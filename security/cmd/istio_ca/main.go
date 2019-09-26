@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/security/pkg/k8s/configmap"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	pkgcmd "istio.io/istio/pkg/cmd"
@@ -140,6 +142,8 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
+
+	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -173,8 +177,8 @@ func initCLI() {
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
-	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed "+
-		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
+	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
+		"cert and key from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
 		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
 		"to false.")
 
@@ -194,7 +198,7 @@ func initCLI() {
 		"The TTL of self-signed CA root certificate.")
 	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
 		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
-			"Should not be shorter than two minutes.")
+			"Should not be shorter than one minute.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -479,25 +483,32 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 	// a job that checks root certificate expiration time and rotates certificate
 	// automatically.
 	if opts.selfSignedCA {
-		if opts.selfSignedCACheckInternal < 2*time.Minute {
-			opts.selfSignedCACheckInternal = 2 * time.Minute
+		if opts.selfSignedCACheckInternal < 1*time.Minute {
+			opts.selfSignedCACheckInternal = 1 * time.Minute
 		}
-		config := &ca.SelfSignedCARootCertRotationConfig{
+		cfc := configmap.NewController(opts.istioCaStorageNamespace, client)
+		csc := controller.NewCaSecretController(client)
+		rotator := ca.NewSelfSignedCARootCertRotator(
 			opts.selfSignedCACheckInternal,
 			opts.selfSignedCACertTTL,
 			ca.ReadSigningCertCheckInterval,
 			cmd.DefaultCACertGracePeriodRatio,
-			client,
+			cfc,
+			csc,
 			opts.istioCaStorageNamespace,
 			opts.readSigningCertOnly,
 			opts.dualUse,
 			spiffe.GetTrustDomain(),
 			opts.rootCertFile,
 			metrics,
-		}
-		// Start auto root-upgrade in a separate goroutine.
-		go istioCA.RotateRootCert(config)
-		go pkgcmd.WaitSignal(istioCA.StopRotateJob)
+			istioCA,
+		)
+		// rootCertRotatorChan channel accepts signals to stop root cert rotator for
+		// self-signed CA.
+		rootCertRotatorChan = make(chan struct{})
+		// Start root cert rotator in a separate goroutine.
+		go rotator.Run(rootCertRotatorChan)
+		go pkgcmd.WaitSignal(rootCertRotatorChan)
 	}
 
 	return istioCA

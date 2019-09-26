@@ -58,12 +58,12 @@ var (
 
 	rootUpgradeSuccessCounts = monitoring.NewSum(
 		"citadel_root_cert_upgrade_count",
-		"The number of self-signed root certificate upgrade that have succeeded.",
+		"The number of self-signed root certificate transition that have succeeded.",
 	)
 
 	rootUpgradeErrorCounts = monitoring.NewSum(
 		"citadel_root_cert_upgrade_err_count",
-		"The number of self-signed root certificate upgrade that have failed.",
+		"The number of self-signed root certificate transition that have failed.",
 	)
 
 	RootCertExpiryTimestamp = monitoring.NewGauge(

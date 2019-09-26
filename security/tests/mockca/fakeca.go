@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mock
+package mockca
 
 import (
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	caitf "istio.io/istio/security/pkg/pki/interface"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/pki/util/mock"
 )
@@ -25,7 +25,7 @@ import (
 // FakeCA is a mock of CertificateAuthority.
 type FakeCA struct {
 	SignedCert    []byte
-	SignErr       *ca.Error
+	SignErr       *caitf.Error
 	KeyCertBundle util.KeyCertBundle
 	ReceivedIDs   []string
 }

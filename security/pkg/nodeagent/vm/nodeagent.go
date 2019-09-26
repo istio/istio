@@ -68,7 +68,7 @@ func (na *nodeAgentInternal) Start() error {
 
 		resp, err := na.caProtocol.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
-			waitTime, ttlErr := na.certUtil.GetWaitTime(resp.SignedCert, time.Now())
+			waitTime, ttlErr := na.certUtil.GetWaitTime(resp.SignedCert, time.Now(), time.Duration(0))
 			if ttlErr != nil {
 				log.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false

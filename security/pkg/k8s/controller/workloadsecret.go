@@ -31,8 +31,10 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/istio/security/pkg/pki/ca"
+	cainterface "istio.io/istio/security/pkg/pki/interface"
 	"istio.io/istio/security/pkg/pki/util"
+	certutil "istio.io/istio/security/pkg/util"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/pkg/log"
 )
 
@@ -90,12 +92,13 @@ type DNSNameEntry struct {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca             ca.CertificateAuthority
+	ca             cainterface.CertificateAuthority
 	certTTL        time.Duration
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
+	certUtil         certutil.CertUtil
 
 	// Whether controller loop should target namespaces without the NamespaceManagedLabel
 	enableNamespacesByDefault bool
@@ -133,7 +136,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
+func NewSecretController(ca cainterface.CertificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
@@ -151,6 +154,7 @@ func NewSecretController(ca ca.CertificateAuthority, enableNamespacesByDefault b
 		certTTL:                   certTTL,
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
+		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
 		enableNamespacesByDefault: enableNamespacesByDefault,
 		minGracePeriod:            minGracePeriod,
 		dualUse:                   dualUse,
@@ -272,7 +276,7 @@ func (sc *SecretController) saDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret := k8ssecret.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
@@ -437,8 +441,8 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Increment()
-		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*ca.Error))
+		sc.monitoring.GetCertSignError(signErr.(*cainterface.Error).ErrorType()).Increment()
+		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*cainterface.Error))
 	}
 	certPEM = append(certPEM, certChainPEM...)
 
@@ -454,34 +458,17 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	namespace := scrt.GetNamespace()
 	name := scrt.GetName()
 
-	certBytes := scrt.Data[CertChainID]
-	cert, err := util.ParsePemEncodedCertificate(certBytes)
-	if err != nil {
-		log.Warnf("Failed to parse cert in secret %s/%s (error: %v), refreshing.",
-			namespace, GetSecretName(name), err)
-		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errora(err)
-		}
-		return
-	}
-
-	certLifeTimeLeft := time.Until(cert.NotAfter)
-	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
 	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
 	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
-	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
-	if gracePeriod < sc.minGracePeriod {
-		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
-			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
-		gracePeriod = sc.minGracePeriod
-	}
+	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
+
 	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		// if the namespace is not managed, don't refresh the expired secret, delete it
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})
 		if err == nil {
@@ -493,8 +480,8 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			log.Errorf("Failed to retrieve details for namespace %s, err %v", namespace, err)
 		}
 
-		if certLifeTimeLeft < gracePeriod {
-			log.Infof("Refreshing about to expire secret %s/%s", namespace, GetSecretName(name))
+		if waitErr != nil {
+			log.Infof("Refreshing about to expire secret %s/%s: %s", namespace, GetSecretName(name), waitErr.Error())
 		} else {
 			log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
 		}
