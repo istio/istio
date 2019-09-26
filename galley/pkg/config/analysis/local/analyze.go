@@ -33,8 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
-	"istio.io/istio/galley/pkg/config/source/kube/util"
-	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 )
 
 const domainSuffix = "svc.local"
@@ -141,8 +140,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 func disableUnusedKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
 	// As an optimization, disable excluded resource kinds, respecting whether service discovery is enabled
-	args := settings.DefaultArgs()
-	withExcludedResources := util.DisableExcludedKubeResources(m.KubeSource().Resources(), args.ExcludedResourceKinds, serviceDiscovery)
+	withExcludedResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), kuberesource.DefaultExcludedResourceKinds(), serviceDiscovery)
 
 	// Additionally, filter out the resources we won't need for the current analysis.
 	// This matters because getting a snapshot from k8s is relatively time-expensive,
