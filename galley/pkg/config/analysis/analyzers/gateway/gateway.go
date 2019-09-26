@@ -72,9 +72,13 @@ func (*Analyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
 			gwSelectorMatches++
 			c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 				service := r.Item.(*v1.ServiceSpec)
-				for _, port := range service.Ports {
-					if port.Protocol == "TCP" {
-						servicePorts[uint32(port.Port)] = true
+				// TODO I want to match service.Namespace to pod.ObjectMeta.Namespace
+				svcSelector := k8s_labels.SelectorFromSet(service.Selector)
+				if svcSelector.Matches(podLabels) {
+					for _, port := range service.Ports {
+						if port.Protocol == "TCP" {
+							servicePorts[uint32(port.Port)] = true
+						}
 					}
 				}
 				return true

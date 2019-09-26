@@ -139,6 +139,16 @@ var testGrid = []testCase{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
 		},
 	},
+	{
+		name: "gatewayServiceMatchPod",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway-svcselector.yaml",
+		},
+		analyzer: &gateway.Analyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+		},
+	},
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.
