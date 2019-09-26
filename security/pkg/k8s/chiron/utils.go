@@ -27,10 +27,10 @@ import (
 
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
-
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 )
 
 // Generate a certificate and key from k8s CA
@@ -209,25 +209,30 @@ func submitCSR(wc *WebhookController, csrName string, csrPEM []byte, numRetries 
 // Read the signed certificate
 func readSignedCertificate(wc *WebhookController, csrName string,
 	readInterval time.Duration, maxNumRead int) ([]byte, []byte, error) {
-	var reqSigned *cert.CertificateSigningRequest
-	for i := 0; i < maxNumRead; i++ {
-		// It takes some time for certificate to be ready, so wait first.
-		time.Sleep(readInterval)
-		r, err := wc.certClient.CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("failed to get the CSR (%v): %v", csrName, err)
-			errCsr := wc.cleanUpCertGen(csrName)
-			if errCsr != nil {
-				log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+	// First try to read the signed CSR through a watching mechanism
+	reqSigned := readSignedCsr(wc, csrName, timeoutForReadingCSR)
+	if reqSigned == nil {
+		// If watching fails, retry reading the signed CSR a few times after waiting.
+		for i := 0; i < maxNumRead; i++ {
+			// It takes some time for certificate to be ready, so wait first.
+			time.Sleep(readInterval)
+			r, err := wc.certClient.CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
+			if err != nil {
+				log.Errorf("failed to get the CSR (%v): %v", csrName, err)
+				errCsr := wc.cleanUpCertGen(csrName)
+				if errCsr != nil {
+					log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+				}
+				return nil, nil, err
 			}
-			return nil, nil, err
-		}
-		if r.Status.Certificate != nil {
-			// Certificate is ready
-			reqSigned = r
-			break
+			if r.Status.Certificate != nil {
+				// Certificate is ready
+				reqSigned = r
+				break
+			}
 		}
 	}
+	// If still failed to read signed CSR, return error.
 	if reqSigned == nil {
 		log.Errorf("failed to read the certificate for CSR (%v), nil CSR", csrName)
 		errCsr := wc.cleanUpCertGen(csrName)
@@ -307,4 +312,30 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	certChain = append(certChain, caCert...)
 
 	return certChain, caCert, nil
+}
+
+// Return signed CSR through a watcher. If no CSR is read, return nil.
+func readSignedCsr(wc *WebhookController, csrName string, timeout time.Duration) *cert.CertificateSigningRequest {
+	watcher, err := wc.certClient.CertificateSigningRequests().Watch(metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+	})
+	if err != nil {
+		log.Errorf("err when watching CSR %v: %v", csrName, err)
+		return nil
+	}
+	// Set a timeout
+	timer := time.After(timeout)
+	for {
+		select {
+		case r := <-watcher.ResultChan():
+			reqSigned := r.Object.(*cert.CertificateSigningRequest)
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned
+			}
+		case <-timer:
+			log.Errorf("timeout when watching CSR %v", csrName)
+			return nil
+		}
+	}
+	return nil
 }

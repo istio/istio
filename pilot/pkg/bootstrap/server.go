@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/security/pkg/k8s/chiron"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -108,6 +110,13 @@ const (
 	// URL types supported by the config store
 	// example fs:///tmp/configroot
 	fsScheme = "fs"
+
+	// DefaultCertGracePeriodRatio is the default length of certificate rotation grace period,
+	// configured as the ratio of the certificate TTL.
+	DefaultCertGracePeriodRatio = 0.5
+
+	// DefaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
+	DefaultMinCertGracePeriod = 10 * time.Minute
 )
 
 var (
@@ -177,26 +186,6 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
-// ChironArgs provides the configuration of Chiron.
-type ChironArgs struct {
-	EnableChiron bool
-
-	// The file path of k8s CA certificate
-	K8sCaCertFile string
-
-	// The names of the services for which Chiron manage certs, delimited by comma
-	ServiceNames string
-	// The namespaces of the services for which Chiron manage certs, delimited by comma
-	ServiceNamespaces string
-
-	// The minimum grace period for cert rotation.
-	CertMinGracePeriod time.Duration
-	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
-	// If certGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
-	// after 24*(1-0.2) hours since the cert is issued.
-	CertGracePeriodRatio float32
-}
-
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions         envoy.DiscoveryServiceOptions
@@ -214,7 +203,6 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	Chiron    ChironArgs
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -243,6 +231,7 @@ type Server struct {
 	mux              *http.ServeMux
 	kubeRegistry     *controller2.Controller
 	fileWatcher      filewatcher.FileWatcher
+	certController   *chiron.WebhookController
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -294,6 +283,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
+	}
+	if err := s.initCertController(&args); err != nil {
+		return nil, fmt.Errorf("Chiron: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
@@ -1211,4 +1203,40 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	}
 
 	return true
+}
+
+func (s *Server) initCertController(args *PilotArgs) error {
+	var err error
+	var svcNames []string
+	var svcNamespaces []string
+	if !s.mesh.K8SCertificateSetting.Enabled {
+		log.Info("certificate controller is not enabled")
+		return nil
+	}
+	for _, svc := range s.mesh.K8SCertificateSetting.Services {
+		s := strings.Split(svc, ".")
+		if len(s) != 2 {
+			log.Error("each service must have a service name and service namespace, delimited by a '.'")
+			return nil
+		}
+	}
+
+	k8sClient := s.kubeClient
+	s.certController, err = chiron.NewWebhookController(DefaultCertGracePeriodRatio, DefaultMinCertGracePeriod,
+		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
+		s.mesh.K8SCertificateSetting.CaBundleFile, svcNames, svcNamespaces)
+	if err != nil {
+		return fmt.Errorf("failed to create Chiron: %v", err)
+	}
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go func() {
+			// Run Chiron to manage the lifecycles of certificates
+			s.certController.Run(stop)
+		}()
+
+		return nil
+	})
+
+	return nil
 }

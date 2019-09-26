@@ -50,7 +50,7 @@ var (
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "chiron",
+		Use:   "Istio Webhook Controller",
 		Short: "Istio Webhook Controller",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {

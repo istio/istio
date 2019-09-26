@@ -71,7 +71,9 @@ const (
 	// The interval for reading a certificate
 	certReadInterval = 500 * time.Millisecond
 	// The number of tries for reading a certificate
-	maxNumCertRead = 20
+	maxNumCertRead = 10
+	// timeout for reading signed CSR
+	timeoutForReadingCSR = 5 * time.Second
 )
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -157,7 +159,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 }
 
 // Run starts the WebhookController until stopCh is notified.
-func (wc *WebhookController) Run(stopCh chan struct{}) {
+func (wc *WebhookController) Run(stopCh <-chan struct{}) {
 	// Create secrets containing certificates for webhooks
 	for i, svcName := range wc.serviceNames {
 		err := wc.upsertSecret(wc.getWebhookSecretNameFromSvcName(svcName), wc.serviceNamespaces[i])

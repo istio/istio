@@ -17,12 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
-
-	"istio.io/istio/security/pkg/k8s/chiron"
-
-	kubelib "istio.io/istio/pkg/kube"
 
 	"istio.io/istio/pkg/spiffe"
 
@@ -38,15 +33,6 @@ import (
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-)
-
-const (
-	// DefaultCertGracePeriodRatio is the default length of certificate rotation grace period,
-	// configured as the ratio of the certificate TTL.
-	DefaultCertGracePeriodRatio = 0.5
-
-	// DefaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
-	DefaultMinCertGracePeriod = 10 * time.Minute
 )
 
 var (
@@ -88,24 +74,6 @@ var (
 			// Start the server
 			if err := discoveryServer.Start(stop); err != nil {
 				return fmt.Errorf("failed to start discovery service: %v", err)
-			}
-
-			if serverArgs.Chiron.EnableChiron {
-				opts := &serverArgs.Chiron
-				k8sClient, err := kubelib.CreateClientset(serverArgs.Config.KubeConfig, "")
-				if err != nil {
-					return fmt.Errorf("failed to connect to create a k8s client: %v", err)
-				}
-				serviceNames := strings.Split(opts.ServiceNames, ",")
-				serviceNamespaces := strings.Split(opts.ServiceNamespaces, ",")
-				wc, err := chiron.NewWebhookController(opts.CertGracePeriodRatio, opts.CertMinGracePeriod,
-					k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
-					opts.K8sCaCertFile, serviceNames, serviceNamespaces)
-				if err != nil {
-					return fmt.Errorf("failed to create Chiron: %v", err)
-				}
-				// Run Chiron to manage the lifecycles of certificates
-				wc.Run(stop)
 			}
 
 			cmd.WaitSignal(stop)
@@ -183,28 +151,6 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
-
-	// Chiron options
-	var chironServiceNames string
-	var chironServiceNamespaces string
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Chiron.EnableChiron, "enableChiron", false,
-		"Enable Chiron")
-	// Specifies the file path to k8s CA certificate.
-	// The default value is configured based on https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/:
-	// the CA certificate bundle is automatically mounted into pods using the default
-	// service account at the path /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Chiron.K8sCaCertFile, "k8sCaCertFile", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-		"Specifies the file path to k8s CA certificate.")
-	discoveryCmd.PersistentFlags().StringVar(&chironServiceNames, "serviceNames", "istio-galley,istio-sidecar-injector",
-		"The names of the services for which Chiron manage certs.")
-	discoveryCmd.PersistentFlags().StringVar(&chironServiceNamespaces, "serviceNameSpaces", "istio-system,istio-system",
-		"The namespaces of the services for which Chiron manage certs; must be corresponding to the serviceNames parameter.")
-	// Certificate issuance configuration.
-	discoveryCmd.PersistentFlags().Float32Var(&serverArgs.Chiron.CertGracePeriodRatio, "certGracePeriodRatio",
-		DefaultCertGracePeriodRatio, "The certificate rotation grace period, as a ratio of the "+
-			"certificate TTL.")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Chiron.CertMinGracePeriod, "certMinGracePeriod",
-		DefaultMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
