@@ -657,6 +657,11 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	}
 	adsClientsMutex.RUnlock()
 
+	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
+	if connection == nil {
+		return
+	}
+
 	currentlyPending := s.pushQueue.Pending()
 	if currentlyPending != 0 {
 		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
