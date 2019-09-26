@@ -18,8 +18,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os/exec"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,51 +35,141 @@ import (
 type Level int
 
 const (
+	DefaultLoggerName   = "level"
+	defaultOutputLevel = WarningLevel
+)
+
+const (
+	// OffLevel disables logging
+	OffLevel Level = iota
+	// CriticalLevel enables critical level logging
+	CriticalLevel
 	// ErrorLevel enables error level logging
-	ErrorLevel Level = iota
-	// WarnLevel enables warn level logging
-	WarnLevel
+	ErrorLevel
+	// WarningLevel enables warning level logging
+	WarningLevel
 	// InfoLevel enables info level logging
 	InfoLevel
 	// DebugLevel enables debug level logging
 	DebugLevel
+	// TraceLevel enables trace level logging
+	TraceLevel
 )
 
+// existing sorted active loggers
+var activeLoggers = []string{
+	"admin",
+	"all",
+	"aws",
+	"assert",
+	"backtrace",
+	"client",
+	"config",
+	"connection",
+	"dubbo",
+	"file",
+	"filter",
+	"forward_proxy",
+	"grpc",
+	"hc",
+	"health_checker",
+	"http",
+	"http2",
+	"hystrix",
+	"init",
+	"io",
+	"jwt",
+	"kafka",
+	"lua",
+	"main",
+	"misc",
+	"mongo",
+	"quic",
+	"pool",
+	"rbac",
+	"redis",
+	"router",
+	"runtime",
+	"stats",
+	"secret",
+	"tap",
+	"testing",
+	"thrift",
+	"tracing",
+	"upstream",
+	"udp",
+	"wasm",
+}
+
 var levelToString = map[Level]string{
-	DebugLevel: "debug",
-	InfoLevel:  "info",
-	WarnLevel:  "warning",
-	ErrorLevel: "error",
+	TraceLevel:    "trace",
+	DebugLevel:    "debug",
+	InfoLevel:     "info",
+	WarningLevel:  "warning",
+	ErrorLevel:    "error",
+	CriticalLevel: "critical",
+	OffLevel:      "off",
 }
 
 var stringToLevel = map[string]Level{
-	"debug":   DebugLevel,
-	"info":    InfoLevel,
-	"warning": WarnLevel,
-	"error":   ErrorLevel,
+	"trace":    TraceLevel,
+	"debug":    DebugLevel,
+	"info":     InfoLevel,
+	"warning":  WarningLevel,
+	"error":    ErrorLevel,
+	"critical": CriticalLevel,
+	"off":      OffLevel,
 }
 
 var (
-	logLevelString = levelToString[WarnLevel]
+	logLevelString = ""
 	follow         = false
 	tail           = -1
+	reset          = false
 )
 
 func pod() *cobra.Command {
 	podCmd := &cobra.Command{
 		Use:     "pod",
 		Aliases: []string{"p"},
-		Short:   "Update log level of istio-proxy in the specified pod, and get logs stream by optional.",
+		Short:   "Update logging level of istio-proxy in the specified pod, and get logs stream by optional.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("specify a pod")
 			}
 
-			logLevel, ok := stringToLevel[logLevelString]
-			if !ok {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("unknown log level")
+			destLoggerLevels := map[string]Level{}
+			if reset {
+				// reset logging level to `defaultOutputLevel`, and ignore the `--log_level` option
+				destLoggerLevels[DefaultLoggerName] = defaultOutputLevel
+			} else if logLevelString != "" {
+				// parse `logLevelString` and update logging level of envoy
+				levels := strings.Split(logLevelString, ",")
+				for _, ol := range levels {
+					if !strings.Contains(ol, ":") || strings.Index(ol, "all:") == 0 {
+						level, ok := stringToLevel[ol[strings.Index(ol, ":")+1:]]
+						if ok {
+							destLoggerLevels = map[string]Level{
+								DefaultLoggerName: level,
+							}
+							break
+						}
+					} else {
+						loggerLevel := strings.Split(ol, ":")
+						if len(loggerLevel) != 2 {
+							break
+						}
+
+						index := sort.SearchStrings(activeLoggers, loggerLevel[0])
+						ok1 := index < len(activeLoggers) && activeLoggers[index] == loggerLevel[0]
+						level, ok2 := stringToLevel[loggerLevel[1]]
+						if !ok1 || !ok2 {
+							break
+						}
+						destLoggerLevels[loggerLevel[0]] = level
+					}
+				}
 			}
 
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
@@ -91,20 +184,38 @@ func pod() *cobra.Command {
 			}
 
 			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
-				// update envoy sidecar log level
-				log.Debugf("port-forward to Envoy sidecar ready")
-				_, err := http.Post(fmt.Sprintf("http://localhost:%d/logging?level=%s", fw.LocalPort, levelToString[logLevel]),
-					"application/json", bytes.NewBufferString(""))
-				if err != nil {
-					return fmt.Errorf("failed to set log level")
+				log.Debugf("port-forward to envoy sidecar ready")
+
+				// traversing all keys in map `destLoggers`, and parse & print the last response
+				var resp *http.Response
+				var err error
+				if len(destLoggerLevels) == 0 {
+					resp, err = http.Post(fmt.Sprintf("http://localhost:%d/logging", fw.LocalPort),
+						"application/json", bytes.NewBufferString(""))
+				} else {
+					for l, level := range destLoggerLevels {
+						resp, err = http.Post(fmt.Sprintf("http://localhost:%d/logging?%s=%s", fw.LocalPort, l, levelToString[level]),
+							"application/json", bytes.NewBufferString(""))
+					}
 				}
+				if err != nil {
+					return fmt.Errorf("failure sending http post request to set log level of envoy sidecar")
+				}
+				defer resp.Body.Close()
+
+				var htmlData []byte
+				htmlData, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					return fmt.Errorf("failure getting http post response body")
+				}
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), string(htmlData))
+
 				close(fw.StopChannel)
 				return nil
 			}); err != nil {
 				return fmt.Errorf("failure running port forward process: %v", err)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Update log level of pod %s to %s\n", podName, levelToString[logLevel])
 			if follow {
 				_, _ = fmt.Fprint(cmd.OutOrStdout(), "====\n")
 				if tail < 0 {
@@ -121,14 +232,21 @@ func pod() *cobra.Command {
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s]",
 		levelToString[DebugLevel],
 		levelToString[InfoLevel],
-		levelToString[WarnLevel],
+		levelToString[WarningLevel],
 		levelToString[ErrorLevel])
 
+	s := strings.Join(activeLoggers, ", ")
+
+	podCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset logging level to default value (warning).")
 	podCmd.PersistentFlags().StringVar(&logLevelString, "log_level", logLevelString,
-		fmt.Sprintf("The minimum logging level of messages to output, can be one of %s", levelListString))
+		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
+			" <logger>:<level>,<logger>:<level>,... where logger can be one of %s and level can be one of %s",
+			s, levelListString))
+	podCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", follow, "Specify if the logs should be streamed.")
+	_ = podCmd.PersistentFlags().MarkHidden("follow")
 	podCmd.PersistentFlags().IntVar(&tail, "tail", tail,
 		"Lines of recent log file to display. Defaults to -1 showing all log lines.")
-	podCmd.PersistentFlags().BoolVarP(&follow, "follow", "f", follow, "Specify if the logs should be streamed.")
+	_ = podCmd.PersistentFlags().MarkHidden("tail")
 
 	return podCmd
 }

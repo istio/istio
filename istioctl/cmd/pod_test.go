@@ -43,8 +43,38 @@ func TestPod(t *testing.T) {
 			wantException:  true,
 		},
 		{ // case 3
+			args:           strings.Split("experimental pod pod-123456-7890 --log_level=all:debug", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 4
+			args:           strings.Split("experimental pod pod-123456-7890 --log_level=redis:debug,http:warning", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 5
+			args:           strings.Split("experimental pod pod-123456-7890 -r", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 6
+			args:           strings.Split("experimental pod pod-123456-7890 --reset", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 7
+			args:           strings.Split("experimental pod pod-123456-7890 --log_level=invalid:debug", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 8
 			args:           strings.Split("experimental pod pod-123456-7890 --log_level=invalid", " "),
-			expectedRegexp: regexp.MustCompile(".*Error: unknown log level"),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 9
+			args:           strings.Split("experimental pod pod-123456-7890 --log_level=invalid:invalid", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
 			wantException:  true,
 		},
 	}
