@@ -20,8 +20,6 @@ import (
 	"os/user"
 	"strings"
 
-	"istio.io/pkg/log"
-
 	"istio.io/pkg/env"
 )
 
@@ -42,16 +40,16 @@ func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
 
 // RunOrFail runs a command and panics, if it fails
 func (s *StdoutStubDependencies) RunOrFail(cmd Cmd, args ...string) {
-	log.Info(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 }
 
 // Run runs a command
 func (s *StdoutStubDependencies) Run(cmd Cmd, args ...string) error {
-	log.Info(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 	return nil
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
-	log.Info(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 }

@@ -20,8 +20,6 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
 	"istio.io/pkg/env"
@@ -91,18 +89,18 @@ func removeOldChains(ext dep.Dependencies) {
 
 func logConfig(c *config.Config) {
 	// Dump out our environment for debugging purposes.
-	log.Info("Environment:")
-	log.Info("------------")
-	log.Info(fmt.Sprintf("ENVOY_PORT=%s", os.Getenv("ENVOY_PORT")))
-	log.Info(fmt.Sprintf("INBOUND_CAPTURE_PORT=%s", os.Getenv("INBOUND_CAPTURE_PORT")))
-	log.Info(fmt.Sprintf("ISTIO_INBOUND_INTERCEPTION_MODE=%s", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")))
-	log.Info(fmt.Sprintf("ISTIO_INBOUND_TPROXY_MARK=%s", os.Getenv("ISTIO_INBOUND_TPROXY_MARK")))
-	log.Info(fmt.Sprintf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE")))
-	log.Info(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s", os.Getenv("ISTIO_INBOUND_PORTS")))
-	log.Info(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
-	log.Info(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s", os.Getenv("ISTIO_SERVICE_CIDR")))
-	log.Info(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
-	log.Info("")
+	fmt.Println("Environment:")
+	fmt.Println("------------")
+	fmt.Println(fmt.Sprintf("ENVOY_PORT=%s", os.Getenv("ENVOY_PORT")))
+	fmt.Println(fmt.Sprintf("INBOUND_CAPTURE_PORT=%s", os.Getenv("INBOUND_CAPTURE_PORT")))
+	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_INTERCEPTION_MODE=%s", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")))
+	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_TPROXY_MARK=%s", os.Getenv("ISTIO_INBOUND_TPROXY_MARK")))
+	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE")))
+	fmt.Println(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s", os.Getenv("ISTIO_INBOUND_PORTS")))
+	fmt.Println(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
+	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s", os.Getenv("ISTIO_SERVICE_CIDR")))
+	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
+	fmt.Println("")
 	c.Print()
 }
 
@@ -158,7 +156,7 @@ func handleInboundPortsInclude(ext dep.Dependencies, config *config.Config) {
 				// loopback interface.
 				err := ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-m", "socket", "-j", constants.ISTIODIVERT)
 				if err != nil {
-					log.Info("No socket match support")
+					fmt.Println("No socket match support")
 				}
 				// Otherwise, it's a new connection. Redirect it using TPROXY.
 				ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-j", constants.ISTIOTPROXY)
@@ -172,12 +170,12 @@ func handleInboundPortsInclude(ext dep.Dependencies, config *config.Config) {
 					err := ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP,
 						"--dport", port, "-m", "socket", "-j", constants.ISTIODIVERT)
 					if err != nil {
-						log.Info("No socket match support")
+						fmt.Println("No socket match support")
 					}
 					err = ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-m",
 						"socket", "-j", constants.ISTIODIVERT)
 					if err != nil {
-						log.Info("No socket match support")
+						fmt.Println("No socket match support")
 					}
 					ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
@@ -400,7 +398,7 @@ func run(config *config.Config) {
 
 	removeOldChains(ext)
 	if config.Clean {
-		log.Info("Only cleaning, no new rules added")
+		fmt.Println("Only cleaning, no new rules added")
 		return
 	}
 

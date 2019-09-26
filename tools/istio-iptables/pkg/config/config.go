@@ -51,25 +51,25 @@ func (c *Config) String() string {
 }
 
 func (c *Config) Print() {
-	log.Info("Variables:")
-	log.Info("----------")
-	log.Info(fmt.Sprintf("PROXY_PORT=%s", c.ProxyPort))
-	log.Info(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort))
-	log.Info(fmt.Sprintf("PROXY_UID=%s", c.ProxyUID))
-	log.Info(fmt.Sprintf("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode))
-	log.Info(fmt.Sprintf("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark))
-	log.Info(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable))
-	log.Info(fmt.Sprintf("INBOUND_PORTS_INCLUDE=%s", c.InboundPortsInclude))
-	log.Info(fmt.Sprintf("INBOUND_PORTS_EXCLUDE=%s", c.InboundPortsExclude))
-	log.Info(fmt.Sprintf("OUTBOUND_IP_RANGES_INCLUDE=%s", c.OutboundIPRangesInclude))
-	log.Info(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s", c.OutboundIPRangesExclude))
-	log.Info(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s", c.OutboundPortsExclude))
-	log.Info(fmt.Sprintf("KUBEVIRT_INTERFACES=%s", c.KubevirtInterfaces))
+	fmt.Println("Variables:")
+	fmt.Println("----------")
+	fmt.Println(fmt.Sprintf("PROXY_PORT=%s", c.ProxyPort))
+	fmt.Println(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort))
+	fmt.Println(fmt.Sprintf("PROXY_UID=%s", c.ProxyUID))
+	fmt.Println(fmt.Sprintf("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode))
+	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark))
+	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable))
+	fmt.Println(fmt.Sprintf("INBOUND_PORTS_INCLUDE=%s", c.InboundPortsInclude))
+	fmt.Println(fmt.Sprintf("INBOUND_PORTS_EXCLUDE=%s", c.InboundPortsExclude))
+	fmt.Println(fmt.Sprintf("OUTBOUND_IP_RANGES_INCLUDE=%s", c.OutboundIPRangesInclude))
+	fmt.Println(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s", c.OutboundIPRangesExclude))
+	fmt.Println(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s", c.OutboundPortsExclude))
+	fmt.Println(fmt.Sprintf("KUBEVIRT_INTERFACES=%s", c.KubevirtInterfaces))
 	// Print "" instead of <nil> to produce same output as script and satisfy golden tests
 	if c.EnableInboundIPv6s == nil {
-		log.Info(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", ""))
+		fmt.Println(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", ""))
 	} else {
-		log.Info(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", c.EnableInboundIPv6s))
+		fmt.Println(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", c.EnableInboundIPv6s))
 	}
-	log.Info("")
+	fmt.Println("")
 }
