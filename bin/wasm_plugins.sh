@@ -17,8 +17,6 @@
 # Istio Wasm Plugins Script download Stats and Metadata Exchange Plugins
 # and stores them in $OUTDIR/wasm directory.
 
-ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
-
 OUTDIR=${1?Error: no output dir given}
 
 # Gets the download command supported by the system (currently either curl or wget)
@@ -53,10 +51,10 @@ ISTIO_WASM_METADATAEXCHANGE_PLUGIN_URL=${ISTIO_WASM_METADATAEXCHANGE_PLUGIN_URL:
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-mkdir -p ${OUTDIR}/wasm
+mkdir -p "${OUTDIR}/wasm"
 
 # Download stats plugin
-${DOWNLOAD_COMMAND} "${ISTIO_WASM_STATS_PLUGIN_URL}" -o ${OUTDIR}/wasm/stats_1_3_1.wasm
+${DOWNLOAD_COMMAND} "${ISTIO_WASM_STATS_PLUGIN_URL}" -o "${OUTDIR}/wasm/stats_1_3_1.wasm"
 
 # Download metadata exchange plugin.
-${DOWNLOAD_COMMAND} "${ISTIO_WASM_METADATAEXCHANGE_PLUGIN_URL}" -o ${OUTDIR}/wasm/metadata_exchange_1_3_1.wasm
+${DOWNLOAD_COMMAND} "${ISTIO_WASM_METADATAEXCHANGE_PLUGIN_URL}" -o "${OUTDIR}/wasm/metadata_exchange_1_3_1.wasm"
