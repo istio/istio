@@ -35,7 +35,7 @@ import (
 type Level int
 
 const (
-	DefaultLoggerName   = "level"
+	DefaultLoggerName  = "level"
 	defaultOutputLevel = WarningLevel
 )
 
