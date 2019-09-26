@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+.DEFAULT_GOAL := default
+
 # this repo is not yet on the container plan by default
 BUILD_WITH_CONTAINER ?= 0
 
