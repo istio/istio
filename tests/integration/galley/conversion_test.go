@@ -136,8 +136,8 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
 		sp := metadata.MustGet().Collections().Get(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String())
-		typeUrl := "type.googleapis.com/" + sp.MessageName
-		if err := v.Equals(typeUrl, "{.TypeURL}").
+		typeURL := "type.googleapis.com/" + sp.MessageName
+		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
 			Check(); err != nil {
 			return err
