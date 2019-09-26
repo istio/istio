@@ -335,6 +335,7 @@ func TestUpdateSecret(t *testing.T) {
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
 				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
 			ttl:              time.Hour,
