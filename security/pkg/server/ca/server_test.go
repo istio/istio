@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/pki/ca"
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 
-	"istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -120,7 +120,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create key cert bundle %v", err)
 	}
-	ca := &mock.FakeCA{
+	ca := &mockca.FakeCA{
 		KeyCertBundle: kb,
 	}
 	testCases := []struct {
@@ -162,7 +162,7 @@ func TestCreateCertificate(t *testing.T) {
 			authenticators: nil,
 			code:           codes.Unauthenticated,
 			authorizer:     &mockAuthorizer{},
-			ca:             &mock.FakeCA{},
+			ca:             &mockca.FakeCA{},
 		},
 		"Unauthenticated request": {
 			authenticators: []authenticator{&mockAuthenticator{
@@ -170,36 +170,36 @@ func TestCreateCertificate(t *testing.T) {
 			}},
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
-			ca:         &mock.FakeCA{},
+			ca:         &mockca.FakeCA{},
 		},
 		"CA not ready": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
 			authenticators: []authenticator{&mockAuthenticator{}},
 			authorizer:     &mockAuthorizer{},
-			ca: &mock.FakeCA{
+			ca: &mockca.FakeCA{
 				SignedCert: []byte("cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{
 					CertChainBytes: []byte("cert_chain"),
@@ -247,7 +247,7 @@ func TestHandleCSR(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
 		authorizer     *mockAuthorizer
-		ca             *mock.FakeCA
+		ca             *mockca.FakeCA
 		csr            string
 		cert           string
 		certChain      string
@@ -257,7 +257,7 @@ func TestHandleCSR(t *testing.T) {
 		"No authenticator": {
 			authenticators: nil,
 			authorizer:     &mockAuthorizer{},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Unauthenticated,
 		},
 		"Unauthenticated request": {
@@ -265,7 +265,7 @@ func TestHandleCSR(t *testing.T) {
 				errMsg: "Not authorized",
 			}},
 			authorizer: &mockAuthorizer{},
-			ca:         &mock.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:         &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:       codes.Unauthenticated,
 		},
 		"No caller authenticated": {
@@ -288,14 +288,14 @@ func TestHandleCSR(t *testing.T) {
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			ca:             &mock.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
 			code:           codes.Internal,
 		},
 		"Successful signing": {
 			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			authorizer:     &mockAuthorizer{},
-			ca: &mock.FakeCA{
+			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
 			},
@@ -308,7 +308,7 @@ func TestHandleCSR(t *testing.T) {
 		"Multiple identities received by CA signer": {
 			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
 			authorizer:     &mockAuthorizer{},
-			ca: &mock.FakeCA{
+			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
 			},
@@ -406,7 +406,7 @@ func TestRun(t *testing.T) {
 		}
 	}
 	testCases := map[string]struct {
-		ca                        *mock.FakeCA
+		ca                        *mockca.FakeCA
 		hostname                  []string
 		port                      int
 		expectedErr               string
@@ -414,13 +414,13 @@ func TestRun(t *testing.T) {
 		expectedAuthenticatorsLen int
 	}{
 		"Invalid listening port number": {
-			ca:          &mock.FakeCA{SignedCert: []byte(csr)},
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:    []string{"localhost"},
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
-			ca:                        &mock.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:                        &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
@@ -428,7 +428,7 @@ func TestRun(t *testing.T) {
 			getServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
-			ca:                        &mock.FakeCA{SignedCert: []byte(csr)},
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
@@ -437,7 +437,7 @@ func TestRun(t *testing.T) {
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
-			ca:                        &mock.FakeCA{SignedCert: []byte(csr)},
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  []string{"localhost", "fancyhost"},
 			port:                      0,
 			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
@@ -445,7 +445,7 @@ func TestRun(t *testing.T) {
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Empty hostnames": {
-			ca:          &mock.FakeCA{SignedCert: []byte(csr)},
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:    []string{},
 			expectedErr: "failed to create grpc server hostlist empty",
 		},
