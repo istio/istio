@@ -17,6 +17,7 @@
 export K8S_VER=${K8S_VER:-v1.14.0}
 export MINIKUBE_VER=${MINIKUBE_VER:-v1.0.0}
 export HELM_VER=${HELM_VER:-v2.13.1}
+export ISTIO_VER=${ISTIO_VER:-1.3.0}
 set -x
 
 if [ ! -f /usr/local/bin/minikube ]; then
@@ -27,6 +28,9 @@ if [ ! -f /usr/local/bin/kubectl ]; then
 fi
 if [ ! -f /usr/local/bin/helm ]; then
    curl -Lo helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && tar -zxvf helm.tgz && chmod +x linux-amd64/helm && sudo mv linux-amd64/helm /usr/local/bin/
+fi
+if [ ! -f /usr/local/bin/istioctl ]; then
+   curl -Lo istio.tgz https://github.com/istio/istio/releases/download/${ISTIO_VER}/istio-${ISTIO_VER}-linux.tar.gz && tar -zxvf istio.tgz && chmod +x istio-${ISTIO_VER}/bin/istioctl && sudo mv istio-${ISTIO_VER}/bin/istioctl /usr/local/bin/
 fi
 
 

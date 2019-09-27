@@ -196,14 +196,10 @@ jobs:
       - checkout
       - run: bin/testEnvRootMinikube.sh start
       - run: bin/testEnvRootMinikube.sh wait
-      - run: make gitdep
       - run:
-          # Create KIND cluster (separate so we get time info)
-          command: make info dep prepare
+          command: make info dep
       - run:
-          command: make sync
-      - run:
-          command: make docker-run-test TEST_TARGET="run-test-demo"
+          command: make git.dep run-test-demo
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
