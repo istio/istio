@@ -25,7 +25,8 @@ import (
 func All() []analysis.Analyzer {
 	return []analysis.Analyzer{
 		&virtualservice.GatewayAnalyzer{},
-		&virtualservice.DestinationAnalyzer{},
+		&virtualservice.DestinationHostAnalyzer{},
+		&virtualservice.DestinationRuleAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&injection.Analyzer{},
 	}
