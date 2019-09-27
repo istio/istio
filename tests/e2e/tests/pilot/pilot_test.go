@@ -79,6 +79,9 @@ func TestCoreDumpGenerated(t *testing.T) {
 	if strings.Contains(os.Getenv("TEST_ENV"), "minikube") {
 		t.Skipf("Skipping %s in minikube environment", t.Name())
 	}
+	if os.Getenv("ENABLE_KUBECTL_CP") != "true " {
+		t.Skipf("Skipping %s, kubectl cp not enabled", t.Name())
+	}
 	// Simplest way to create out of process core file.
 	crashContainer := "istio-proxy"
 	crashProgPath := "/tmp/crashing_program"

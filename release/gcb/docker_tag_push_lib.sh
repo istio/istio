@@ -148,11 +148,11 @@ function set_image_vars() {
   TAR_NAME="${BASE_NAME%.*}"
   IMAGE_NAME="${TAR_NAME%.*}"
   VARIANT_NAME=""
-  #check if it is a build variant (e.g. sidecar_injector-distroless)
+  #check if it is a build variant (e.g. sidecar_injector-ubuntu)
   case "${IMAGE_NAME}" in
-    *-distroless)
-      # in case of a distroless tar file, we remove the "-distroless" from the image name
-      VARIANT_NAME="-distroless"
+    *-ubuntu)
+      # in case of a ubuntu tar file, we remove the "-ubuntu" from the image name
+      VARIANT_NAME="-ubuntu"
       IMAGE_NAME="${IMAGE_NAME%${VARIANT_NAME}}"
       ;;
   esac

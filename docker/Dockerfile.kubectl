@@ -2,8 +2,8 @@
 # Version is the base image version from the TLD Makefile
 ARG BASE_VERSION=latest
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
+# The following section is used as base image if BASE_DISTRIBUTION=ubuntu
+FROM docker.io/istio/base:${BASE_VERSION} as ubuntu
 
 # This container should only contain kubectl.  Hard-coding to use Linux K8s 1.13.10 version.
 ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/amd64/kubectl /usr/bin/kubectl

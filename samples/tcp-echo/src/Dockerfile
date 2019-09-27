@@ -20,12 +20,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
 
 
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
-ARG BASE_DISTRIBUTION=default
+ARG BASE_DISTRIBUTION=ubuntu
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
+# The following section is used as base image if BASE_DISTRIBUTION=ubuntu
 # No tag available https://hub.docker.com/_/scratch?tab=description
 # hadolint ignore=DL3006
-FROM scratch as default
+FROM scratch as ubuntu
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007

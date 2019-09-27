@@ -3,7 +3,7 @@
 # ISTIO_VERSION is used to specify the version of the release
 ARG BASE_VERSION=latest
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
+# The following section is used as base image if BASE_DISTRIBUTION=ubuntu
 FROM docker.io/istio/base:${BASE_VERSION}
 
 # hadolint ignore=DL3006
