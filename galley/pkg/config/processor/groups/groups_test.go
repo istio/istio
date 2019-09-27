@@ -12,26 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apiserver
+package groups_test
 
 import (
-	"time"
+	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
+	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/processor/groups"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 )
 
-// Options for the kube controller
-type Options struct {
-	// The Client interfaces to use for connecting to the API server.
-	Client kube.Interfaces
+func TestDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
+	actual := groups.IndexFunction("bogus", nil)
+	g.Expect(actual).To(Equal(groups.Default))
+}
 
-	ResyncPeriod time.Duration
-
-	Resources schema.KubeResources
-
-	StatusController status.Controller
-
-	// TODO: Add target namespaces here when we do namespace specific listeners.
+func TestSyntheticServiceEntry(t *testing.T) {
+	g := NewGomegaWithT(t)
+	actual := groups.IndexFunction(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String(), nil)
+	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
 }

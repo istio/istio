@@ -142,7 +142,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	b.StartTimer()
 
 	for _, eps := range endpoints {
-		if _, err := kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
+		if _, err = kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
 			b.Fatal(err)
 		}
 	}

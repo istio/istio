@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/source/kube/client"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -82,7 +82,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 				if err != nil {
 					return err
 				}
-				k := client.NewKube(restConfig)
+				k := cfgKube.NewInterfaces(restConfig)
 
 				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
 				if selectedNamespace == "" {
@@ -103,8 +103,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 					selectedNamespace = defaultNamespace
 				}
 
-				err := sa.AddFileKubeSource(files, selectedNamespace)
-				if err != nil {
+				if err = sa.AddFileKubeSource(files, selectedNamespace); err != nil {
 					return err
 				}
 			}

@@ -61,6 +61,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -88,6 +89,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -115,6 +117,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -142,6 +145,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -183,7 +187,7 @@ func (p *Provider) initKnownAdapters() {
 				// Endpoint updates can be noisy. Make sure that the subsets have actually changed.
 				return reflect.DeepEqual(r1.Subsets, r2.Subsets)
 			},
-
+			getStatus: noStatus,
 			isBuiltIn: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
@@ -209,6 +213,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -248,6 +253,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -265,5 +271,9 @@ func defaultExtractObject(o interface{}) metav1.Object {
 	if obj, ok := o.(metav1.Object); ok {
 		return obj
 	}
+	return nil
+}
+
+func noStatus(_ interface{}) interface{} {
 	return nil
 }

@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package groups_test
+package status
 
 import (
-	"testing"
+	"strings"
 
-	. "github.com/onsi/gomega"
-
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
-func TestDefault(t *testing.T) {
-	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction("bogus", nil)
-	g.Expect(actual).To(Equal(groups.Default))
-}
+// toStatusValue converts a set of diag.Messages to a status value.
+func toStatusValue(msgs diag.Messages) interface{} {
+	if len(msgs) == 0 {
+		return nil
+	}
 
-func TestSyntheticServiceEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String(), nil)
-	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
+	var lines strings.Builder
+
+	for _, m := range msgs {
+		lines.WriteString(m.StatusString())
+		lines.WriteString("\n")
+	}
+
+	return lines.String()
 }
