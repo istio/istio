@@ -521,9 +521,9 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
-			Full:             requireFull,
-			TargetNamespaces: map[string]struct{}{namespace: {}},
-			EdsUpdates:       edsUpdates,
+			Full:              requireFull,
+			NamespacesUpdated: map[string]struct{}{namespace: {}},
+			EdsUpdates:        edsUpdates,
 		})
 	}
 }
