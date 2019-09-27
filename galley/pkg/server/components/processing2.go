@@ -55,6 +55,8 @@ import (
 	"istio.io/istio/pkg/mcp/source"
 )
 
+const versionMetadataKey = "config.source.version"
+
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
 type Processing2 struct {
@@ -280,7 +282,7 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 	if p.k == nil {
-		p.k, err = newKubeFromConfigFile(p.args.KubeConfig)
+		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
 	k = p.k
 	return
@@ -389,4 +391,15 @@ func (p *Processing2) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
+}
+
+func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
+	for _, p := range pairs {
+		kv := strings.Split(p, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
+		}
+		md[kv[0]] = append(md[kv[0]], kv[1])
+	}
+	return nil
 }
