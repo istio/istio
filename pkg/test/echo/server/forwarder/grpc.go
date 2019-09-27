@@ -52,7 +52,7 @@ func (c *grpcProtocol) makeRequest(ctx context.Context, req *request) (string, e
 
 	var outBuffer bytes.Buffer
 	grpcReq := &proto.EchoRequest{
-		Message: fmt.Sprintf("request #%d", req.RequestID),
+		Message: req.Message,
 	}
 	outBuffer.WriteString(fmt.Sprintf("[%d] grpcecho.Echo(%v)\n", req.RequestID, req))
 
