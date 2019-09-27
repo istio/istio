@@ -123,6 +123,9 @@ var (
 		"github.com/signalfx/com_signalfx_metrics_protobuf": true, // in manual_append
 		"github.com/bmizerany/assert":                       true, // has license in README.md
 		"github.com/kr/logfmt":                              true, // Readme mentions MIT license
+		"bitbucket.org/ww/goautoneg":                        true, // BSD-3-Clause in README
+		"github.com/munnerz/goautoneg":                      true, // BSD-3-Clause in README
+		"github.com/heketi/utils":                           true, // Apache 2.0 in README
 	}
 	// Ignored modules
 	ignoredModules = []string{
