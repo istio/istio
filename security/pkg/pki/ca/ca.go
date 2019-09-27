@@ -130,7 +130,7 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
 	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
-	client corev1.CoreV1Interface, rootCertFile string, metrics monitoring.MonitoringMetrics) (caOpts *IstioCAOptions, err error) {
+	client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -166,7 +166,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			readSigningCertOnly: readSigningCertOnly,
 			org:                 org,
 			rootCertFile:        rootCertFile,
-			metrics:             metrics,
 			client:              client,
 		},
 	}

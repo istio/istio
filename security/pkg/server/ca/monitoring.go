@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitoring
+package ca
 
 import (
 	"istio.io/pkg/monitoring"
@@ -56,17 +56,7 @@ var (
 		"The number of certificates issuances that have succeeded.",
 	)
 
-	rootUpgradeSuccessCounts = monitoring.NewSum(
-		"citadel_root_cert_upgrade_count",
-		"The number of self-signed root certificate transition that have succeeded.",
-	)
-
-	rootUpgradeErrorCounts = monitoring.NewSum(
-		"citadel_root_cert_upgrade_err_count",
-		"The number of self-signed root certificate transition that have failed.",
-	)
-
-	RootCertExpiryTimestamp = monitoring.NewGauge(
+	rootCertExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_root_cert_expiry_timestamp",
 		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
 			"We set it to negative in case of internal error.",
@@ -81,14 +71,12 @@ func init() {
 		idExtractionErrorCounts,
 		certSignErrorCounts,
 		successCounts,
-		RootCertExpiryTimestamp,
-		rootUpgradeSuccessCounts,
-		rootUpgradeErrorCounts,
+		rootCertExpiryTimestamp,
 	)
 }
 
 // MonitoringMetrics are counters for certificate signing related operations.
-type MonitoringMetrics struct {
+type monitoringMetrics struct {
 	CSR                monitoring.Metric
 	AuthnError         monitoring.Metric
 	Success            monitoring.Metric
@@ -99,20 +87,18 @@ type MonitoringMetrics struct {
 	RootUpgradeErrors  monitoring.Metric
 }
 
-// NewMonitoringMetrics creates a new MonitoringMetrics.
-func NewMonitoringMetrics() MonitoringMetrics {
-	return MonitoringMetrics{
+// newMonitoringMetrics creates a new MonitoringMetrics.
+func newMonitoringMetrics() monitoringMetrics {
+	return monitoringMetrics{
 		CSR:                csrCounts,
 		AuthnError:         authnErrorCounts,
 		Success:            successCounts,
 		CSRError:           csrParsingErrorCounts,
 		IDExtractionError:  idExtractionErrorCounts,
 		certSignErrors:     certSignErrorCounts,
-		RootUpgradeSuccess: rootUpgradeSuccessCounts,
-		RootUpgradeErrors:  rootUpgradeErrorCounts,
 	}
 }
 
-func (m *MonitoringMetrics) GetCertSignError(err string) monitoring.Metric {
+func (m *monitoringMetrics) GetCertSignError(err string) monitoring.Metric {
 	return m.certSignErrors.With(errorTag.Value(err))
 }

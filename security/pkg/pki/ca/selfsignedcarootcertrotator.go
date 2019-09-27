@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/k8s/controller"
-	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
@@ -47,7 +46,6 @@ type SelfSignedCARootCertRotator struct {
 	readSigningCertOnly bool
 	org                 string
 	rootCertFile        string
-	metrics             monitoring.MonitoringMetrics
 	ca                  *IstioCA
 }
 
@@ -61,7 +59,6 @@ type SelfSignedCARootCertRotatorConfig struct {
 	readSigningCertOnly bool
 	org                 string
 	rootCertFile        string
-	metrics             monitoring.MonitoringMetrics
 	client              corev1.CoreV1Interface
 }
 
@@ -81,7 +78,6 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 		readSigningCertOnly: config.readSigningCertOnly,
 		org:                 config.org,
 		rootCertFile:        config.rootCertFile,
-		metrics:             config.metrics,
 		ca:                  ca,
 	}
 	return rotator
@@ -106,45 +102,28 @@ func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{
 	}
 }
 
-type RootUpgradeStatus int
-
-const (
-	UpgradeSkip    RootUpgradeStatus = 0
-	UpgradeSuccess RootUpgradeStatus = 1
-	UpgradeFailure RootUpgradeStatus = 2
-)
-
 // checkAndRotateRootCert decides whether root cert should be refreshed, and rotates
 // root cert for self-signed Citadel.
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
 	caSecret, scrtErr := rotator.caSecretController.LoadCASecretWithRetry(CASecret,
 		rotator.caStorageNamespace, rotator.retryInterval, 30*time.Second)
 
-	var status RootUpgradeStatus
 	if scrtErr != nil {
 		rootCertRotatorLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip cert rotation job",
 			rotator.caStorageNamespace, CASecret, scrtErr.Error())
-		status = UpgradeSkip
 	} else if rotator.readSigningCertOnly {
-		status = rotator.checkAndRotateRootCertForReadOnlyCitadel(caSecret)
+		rotator.checkAndRotateRootCertForReadOnlyCitadel(caSecret)
 	} else {
-		status = rotator.checkAndRotateRootCertForSigningCertCitadel(caSecret)
-	}
-
-	if status == UpgradeSuccess {
-		rotator.metrics.RootUpgradeSuccess.Increment()
-	}
-	if status == UpgradeFailure {
-		rotator.metrics.RootUpgradeErrors.Increment()
+		rotator.checkAndRotateRootCertForSigningCertCitadel(caSecret)
 	}
 }
 
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCitadel(
-	caSecret *v1.Secret) RootUpgradeStatus {
+	caSecret *v1.Secret) {
 	if caSecret == nil {
 		rootCertRotatorLog.Info("Root cert does not exist, skip root cert rotation for " +
 			"self-signed root cert read-only Citadel.")
-		return UpgradeSkip
+		return
 	}
 
 	rootCertificate := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
@@ -156,33 +135,33 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCit
 		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rotator.rootCertFile)
 		if err != nil {
 			rootCertRotatorLog.Errorf("failed to append root certificates (%v)", err)
-			return UpgradeFailure
+			return
 		}
 		if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
-			return UpgradeFailure
+			return
 		}
 		rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
-		return UpgradeSuccess
+		return
 		// For read-only self-signed CA instance, don't update root cert in config
 		// map. The self-signed CA instance that updates root cert is responsible for
 		// updating root cert in config map.
 	}
-	return UpgradeSkip
+	return
 }
 
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCertCitadel(
-	caSecret *v1.Secret) RootUpgradeStatus {
+	caSecret *v1.Secret) {
 	if caSecret == nil {
 		rootCertRotatorLog.Errorf("root cert secret %s is nil, skip cert rotation job",
 			CASecret)
-		return UpgradeSkip
+		return
 	}
 	// Check root certificate expiration time in CA secret
 	waitTime, err := rotator.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
-		return UpgradeSkip
+		return
 	}
 
 	rootCertRotatorLog.Info("Refresh root certificate")
@@ -198,18 +177,18 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
 	if ckErr != nil {
 		rootCertRotatorLog.Errorf("unable to generate CA cert and key for self-signed CA: %s", ckErr.Error())
-		return UpgradeFailure
+		return
 	}
 
 	rootCerts, err := appendRootCerts(pemCert, rotator.rootCertFile)
 	if err != nil {
 		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
-		return UpgradeFailure
+		return
 	}
 
 	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
 		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
-		return UpgradeFailure
+		return
 	}
 
 	caSecret.Data[caCertID] = pemCert
@@ -217,7 +196,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.retryInterval, 30*time.Second); err != nil {
 		rootCertRotatorLog.Errorf("Failed to write secret to CA secret (error: %s). "+
 			"Abort new root certificate.", err.Error())
-		return UpgradeFailure
+		return
 	}
 	rootCertRotatorLog.Infof("A new self-generated root certificate is written into secret: %v", string(rootCerts))
 
@@ -229,5 +208,5 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			err.Error())
 	}
 	rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
-	return UpgradeSuccess
+	return
 }

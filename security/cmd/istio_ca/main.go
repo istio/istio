@@ -33,12 +33,12 @@ import (
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/controller"
-	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/pki/ca"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/monitoring"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
@@ -315,12 +315,11 @@ func runCA() {
 			webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
 	}
 
-	metrics := monitoring.NewMonitoringMetrics()
 	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")
 	if err != nil {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
-	ca := createCA(cs.CoreV1(), metrics)
+	ca := createCA(cs.CoreV1())
 
 	stopCh := make(chan struct{})
 	if !opts.serverOnly {
@@ -367,7 +366,7 @@ func runCA() {
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
 			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
-			opts.sdsEnabled, metrics)
+			opts.sdsEnabled)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -427,7 +426,7 @@ func runCA() {
 	}
 }
 
-func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetrics) *ca.IstioCA {
+func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -450,8 +449,7 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 			opts.selfSignedCACertTTL,
 			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile,
-			metrics)
+			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
