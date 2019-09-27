@@ -368,19 +368,13 @@ $(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-li
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
-# Existence of build cache .a files actually affects the results of
-# some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
-
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml gen check-clean
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@bin/check_pilot_codegen.sh
 	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
@@ -398,6 +392,15 @@ gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
+
+CHANGES=$(shell git status --porcelain)
+
+check-clean:
+ifneq ($(CHANGES),)
+	@git diff
+	@echo "Please run 'make gen' and include any changed files in your PR"
+	@exit 1
+endif
 
 #-----------------------------------------------------------------------------
 # Target: go build
