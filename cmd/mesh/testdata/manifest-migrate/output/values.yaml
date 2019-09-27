@@ -8,12 +8,12 @@ autoInjection:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
-        tolerations: []
         replicaCount: 1
         strategy:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 configManagement:
   components:
@@ -25,7 +25,6 @@ configManagement:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
-        tolerations: []
         replicaCount: 1
         resources:
           requests:
@@ -34,6 +33,7 @@ configManagement:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 gateways:
   components:
@@ -60,7 +60,6 @@ gateways:
             kind: Deployment
             name: istio-gateways.istio-egressgateway
         nodeSelector: {}
-        tolerations: []
         podAnnotations: {}
         resources:
           limits:
@@ -73,6 +72,7 @@ gateways:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
     ingressGateway:
       enabled: true
       k8s:
@@ -96,7 +96,6 @@ gateways:
             kind: Deployment
             name: istio-gateways.istio-ingressgateway
         nodeSelector: {}
-        tolerations: []
         podAnnotations: {}
         resources:
           limits:
@@ -109,6 +108,7 @@ gateways:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 hub: gcr.io/istio-release
 policy:
@@ -136,13 +136,13 @@ policy:
             kind: Deployment
             name: istio-mixer.policy
         nodeSelector: {}
-        tolerations: []
         podAnnotations: {}
         replicaCount: 1
         strategy:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 security:
   components:
@@ -156,12 +156,12 @@ security:
             preferredDuringSchedulingIgnoredDuringExecution: []
             requiredDuringSchedulingIgnoredDuringExecution: []
         nodeSelector: {}
-        tolerations: []
         replicaCount: 1
         strategy:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
     nodeAgent:
       enabled: false
   enabled: true
@@ -188,7 +188,6 @@ telemetry:
             kind: Deployment
             name: istio-mixer.telemetry
         nodeSelector: {}
-        tolerations: []
         replicaCount: 1
         resources:
           limits:
@@ -201,6 +200,7 @@ telemetry:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 trafficManagement:
   components:
@@ -227,7 +227,6 @@ trafficManagement:
             kind: Deployment
             name: istio-pilot
         nodeSelector: {}
-        tolerations: []
         replicaCount: 1
         resources:
           requests:
@@ -237,6 +236,7 @@ trafficManagement:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
+        tolerations: []
   enabled: true
 values:
   certmanager:

@@ -87,29 +87,29 @@ $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons):
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
 	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
-	@go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
 
 generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
 
 clean-types:
 	@rm -fr $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
 
-values_v1alpha2_path := pkg/apis/istio/v1alpha2/values
-values_v1alpha2_protos := $(wildcard $(values_v1alpha2_path)/*.proto)
-values_v1alpha2_pb_gos := $(values_v1alpha2_protos:.proto=.pb.go)
-values_v1alpha2_pb_pythons := $(patsubst $(values_v1alpha2_path)/%.proto,$(python_output_path)/$(values_v1alpha2_path)/%_pb2.py,$(values_v1alpha2_protos))
-values_v1alpha2_pb_docs := $(values_v1alpha2_protos:.proto=.pb.html)
-values_v1alpha2_openapi := $(values_v1alpha2_protos:.proto=.json)
+values_v1alpha1_path := pkg/apis/istio/v1alpha1/
+values_v1alpha1_protos := $(wildcard $(values_v1alpha1_path)/values_types*.proto)
+values_v1alpha1_pb_gos := $(values_v1alpha1_protos:.proto=.pb.go)
+values_v1alpha1_pb_pythons := $(patsubst $(values_v1alpha1_path)/%.proto,$(python_output_path)/$(values_v1alpha1_path)/%_pb2.py,$(values_v1alpha1_protos))
+values_v1alpha1_pb_docs := $(values_v1alpha1_protos:.proto=.pb.html)
+values_v1alpha1_openapi := $(values_v1alpha1_protos:.proto=.json)
 
-$(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons): $(values_v1alpha2_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha2_path) $(protoc_gen_python_plugin) $^
+$(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons): $(values_v1alpha1_protos)
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
-	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha2_path)/values_types.pb.go
-	@go run $(values_v1alpha2_path)/fixup_structs/main.go -f $(values_v1alpha2_path)/values_types.pb.go
+	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha1_path)/values_types.pb.go
+	@GOARCH=amd64 GOOS=linux go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
 
-generate-values: $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
+generate-values: $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
 
 clean-values:
-	@rm -fr $(values_v1alpha2_pb_gos) $(values_v1alpha2_pb_docs) $(values_v1alpha2_pb_pythons)
+	@rm -fr $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
 
 include common/Makefile.common.mk

@@ -21,7 +21,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/kr/pretty"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
 )
@@ -364,8 +364,8 @@ autoInjection:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			valueStruct := v1alpha2.Values{}
-			err := yaml.Unmarshal([]byte(tt.valueYAML), &valueStruct)
+			valueStruct := v1alpha1.Values{}
+			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}

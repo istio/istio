@@ -8,20 +8,20 @@ metadata:
     app: prometheus
     release: istio
 rules:
-  - apiGroups: [""]
-    resources:
-      - nodes
-      - services
-      - endpoints
-      - pods
-      - nodes/proxy
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources:
-      - configmaps
-    verbs: ["get"]
-  - nonResourceURLs: ["/metrics"]
-    verbs: ["get"]
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  - nodes/proxy
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
 ---
 
 
@@ -37,9 +37,9 @@ roleRef:
   kind: ClusterRole
   name: prometheus-istio-control
 subjects:
-  - kind: ServiceAccount
-    name: prometheus
-    namespace: istio-control
+- kind: ServiceAccount
+  name: prometheus
+  namespace: istio-control
 ---
 
 
@@ -364,53 +364,53 @@ spec:
           resources:
             requests:
               cpu: 10m
-
+            
           volumeMounts:
-            - name: config-volume
-              mountPath: /etc/prometheus
-            - mountPath: /etc/istio-certs
-              name: istio-certs
+          - name: config-volume
+            mountPath: /etc/prometheus
+          - mountPath: /etc/istio-certs
+            name: istio-certs
       volumes:
-        - name: config-volume
-          configMap:
-            name: prometheus
-        - name: istio-certs
-          secret:
-            defaultMode: 420
-            secretName: istio.default
-      affinity:
+      - name: config-volume
+        configMap:
+          name: prometheus
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          secretName: istio.default
+      affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - ppc64le
-                      - s390x
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
           preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - ppc64le
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - s390x
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
 ---
 
 
@@ -454,9 +454,9 @@ spec:
   selector:
     app: prometheus
   ports:
-    - name: http-prometheus
-      protocol: TCP
-      port: 9090
+  - name: http-prometheus
+    protocol: TCP
+    port: 9090
 ---
 
 
@@ -483,10 +483,10 @@ metadata:
 spec:
   maxReplicas: 5
   metrics:
-    - resource:
-        name: cpu
-        targetAverageUtilization: 80
-      type: Resource
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
@@ -504,18 +504,18 @@ metadata:
     app: istio-telemetry
     release: istio
 rules:
-  - apiGroups: ["config.istio.io"] # istio CRD watcher
-    resources: ["*"]
-    verbs: ["create", "get", "list", "watch", "patch"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets", "replicationcontrollers"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions", "apps"]
-    resources: ["replicasets"]
-    verbs: ["get", "list", "watch"]
+- apiGroups: ["config.istio.io"] # istio CRD watcher
+  resources: ["*"]
+  verbs: ["create", "get", "list", "watch", "patch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets", "replicationcontrollers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
 ---
 
 
@@ -813,7 +813,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_code: rbac.permissive.response_code | "none" 
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -850,7 +850,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_code: rbac.permissive.response_code | "none" 
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -887,7 +887,7 @@ spec:
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_code: rbac.permissive.response_code | "none" 
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -1040,195 +1040,195 @@ spec:
     metricsExpirationPolicy:
       metricsExpiryDuration: "10m"
     metrics:
-      - name: requests_total
-        instance_name: requestcount.instance.istio-control
-        kind: COUNTER
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - request_protocol
-          - response_code
-          - response_flags
-          - permissive_response_code
-          - permissive_response_policyid
-          - connection_security_policy
-      - name: request_duration_seconds
-        instance_name: requestduration.instance.istio-control
-        kind: DISTRIBUTION
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - request_protocol
-          - response_code
-          - response_flags
-          - permissive_response_code
-          - permissive_response_policyid
-          - connection_security_policy
-        buckets:
-          explicit_buckets:
-            bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-      - name: request_bytes
-        instance_name: requestsize.instance.istio-control
-        kind: DISTRIBUTION
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - request_protocol
-          - response_code
-          - response_flags
-          - permissive_response_code
-          - permissive_response_policyid
-          - connection_security_policy
-        buckets:
-          exponentialBuckets:
-            numFiniteBuckets: 8
-            scale: 1
-            growthFactor: 10
-      - name: response_bytes
-        instance_name: responsesize.instance.istio-control
-        kind: DISTRIBUTION
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - request_protocol
-          - response_code
-          - response_flags
-          - permissive_response_code
-          - permissive_response_policyid
-          - connection_security_policy
-        buckets:
-          exponentialBuckets:
-            numFiniteBuckets: 8
-            scale: 1
-            growthFactor: 10
-      - name: tcp_sent_bytes_total
-        instance_name: tcpbytesent.instance.istio-control
-        kind: COUNTER
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - connection_security_policy
-          - response_flags
-      - name: tcp_received_bytes_total
-        instance_name: tcpbytereceived.instance.istio-control
-        kind: COUNTER
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - connection_security_policy
-          - response_flags
-      - name: tcp_connections_opened_total
-        instance_name: tcpconnectionsopened.instance.istio-control
-        kind: COUNTER
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - connection_security_policy
-          - response_flags
-      - name: tcp_connections_closed_total
-        instance_name: tcpconnectionsclosed.instance.istio-control
-        kind: COUNTER
-        label_names:
-          - reporter
-          - source_app
-          - source_principal
-          - source_workload
-          - source_workload_namespace
-          - source_version
-          - destination_app
-          - destination_principal
-          - destination_workload
-          - destination_workload_namespace
-          - destination_version
-          - destination_service
-          - destination_service_name
-          - destination_service_namespace
-          - connection_security_policy
-          - response_flags
+    - name: requests_total
+      instance_name: requestcount.instance.istio-control
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+    - name: request_duration_seconds
+      instance_name: requestduration.instance.istio-control
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    - name: request_bytes
+      instance_name: requestsize.instance.istio-control
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: response_bytes
+      instance_name: responsesize.instance.istio-control
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: tcp_sent_bytes_total
+      instance_name: tcpbytesent.instance.istio-control
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_received_bytes_total
+      instance_name: tcpbytereceived.instance.istio-control
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.instance.istio-control
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.instance.istio-control
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
 ---
 
 
@@ -1243,12 +1243,12 @@ metadata:
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
   actions:
-    - handler: prometheus
-      instances:
-        - requestcount
-        - requestduration
-        - requestsize
-        - responsesize
+  - handler: prometheus
+    instances:
+    - requestcount
+    - requestduration
+    - requestsize
+    - responsesize
 ---
 
 
@@ -1263,10 +1263,10 @@ metadata:
 spec:
   match: context.protocol == "tcp"
   actions:
-    - handler: prometheus
-      instances:
-        - tcpbytesent
-        - tcpbytereceived
+  - handler: prometheus
+    instances:
+    - tcpbytesent
+    - tcpbytereceived
 ---
 
 
@@ -1281,9 +1281,9 @@ metadata:
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "open")
   actions:
-    - handler: prometheus
-      instances:
-        - tcpconnectionsopened
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened
 ---
 
 
@@ -1298,9 +1298,9 @@ metadata:
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "close")
   actions:
-    - handler: prometheus
-      instances:
-        - tcpconnectionsclosed
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed
 ---
 
 
@@ -1315,12 +1315,12 @@ metadata:
 spec:
   compiledAdapter: kubernetesenv
   params:
-  # when running from mixer root, use the following config after adding a
-  # symbolic link to a kubernetes config file via:
-  #
-  # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
-  #
-  # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+    # when running from mixer root, use the following config after adding a
+    # symbolic link to a kubernetes config file via:
+    #
+    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+    #
+    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
 ---
 
 
@@ -1334,9 +1334,9 @@ metadata:
     release: istio
 spec:
   actions:
-    - handler: kubernetesenv
-      instances:
-        - attributes
+  - handler: kubernetesenv
+    instances:
+    - attributes
 ---
 
 
@@ -1351,9 +1351,9 @@ metadata:
 spec:
   match: context.protocol == "tcp"
   actions:
-    - handler: kubernetesenv
-      instances:
-        - attributes
+  - handler: kubernetesenv
+    instances:
+    - attributes
 ---
 
 
@@ -1412,10 +1412,10 @@ spec:
   host: istio-telemetry.istio-control.svc.cluster.local
   trafficPolicy:
     portLevelSettings:
-      - port:
-          number: 15004
-        tls:
-          mode: ISTIO_MUTUAL
+    - port:
+        number: 15004
+      tls:
+        mode: ISTIO_MUTUAL
     connectionPool:
       http:
         http2MaxRequests: 10000
@@ -1754,150 +1754,150 @@ spec:
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-            - preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-              weight: 2
-            - preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - ppc64le
-              weight: 2
-            - preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - s390x
-              weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - ppc64le
-                      - s390x
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
       containers:
-        - args:
-            - --monitoringPort=15014
-            - --address
-            - unix:///sock/mixer.socket
-            - --log_output_level=default:info
-            - --configStoreURL=mcp://localhost:15019
-            - --configDefaultNamespace=istio-control
-            - --useAdapterCRDs=false
-            - --useTemplateCRDs=false
-            - --trace_zipkin_url=http://zipkin.istio-control:9411/api/v1/spans
-          env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: GOMAXPROCS
-              value: "6"
-          image: docker.io/istio/mixer:1.1.4
-          imagePullPolicy: Always
-          livenessProbe:
-            httpGet:
-              path: /version
-              port: 15014
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          name: mixer
-          ports:
-            - containerPort: 9091
-            - containerPort: 15014
-            - containerPort: 42422
-          resources:
-            limits:
-              cpu: 4800m
-              memory: 4G
-            requests:
-              cpu: 1000m
-              memory: 1G
-          volumeMounts:
-            - mountPath: /etc/certs
-              name: istio-certs
-              readOnly: true
-            - mountPath: /sock
-              name: uds-socket
-            - mountPath: /var/run/secrets/istio.io/telemetry/adapter
-              name: telemetry-adapter-secret
-              readOnly: true
-        - args:
-            - proxy
-            - --domain
-            - $(POD_NAMESPACE).svc.cluster.local
-            - --serviceCluster
-            - istio-telemetry
-            - --templateFile
-            - /var/lib/envoy/envoy.yaml.tmpl
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: INSTANCE_IP
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: status.podIP
-          image: docker.io/istio/proxyv2:1.1.4
-          imagePullPolicy: Always
-          name: istio-proxy
-          ports:
-            - containerPort: 15004
-            - containerPort: 15090
-              name: http-envoy-prom
-              protocol: TCP
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          volumeMounts:
-            - mountPath: /var/lib/envoy
-              name: telemetry-envoy-config
-            - mountPath: /etc/certs
-              name: istio-certs
-              readOnly: true
-            - mountPath: /sock
-              name: uds-socket
+      - args:
+        - --monitoringPort=15014
+        - --address
+        - unix:///sock/mixer.socket
+        - --log_output_level=default:info
+        - --configStoreURL=mcp://localhost:15019
+        - --configDefaultNamespace=istio-control
+        - --useAdapterCRDs=false
+        - --useTemplateCRDs=false
+        - --trace_zipkin_url=http://zipkin.istio-control:9411/api/v1/spans
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GODEBUG
+          value: gctrace=1
+        - name: GOMAXPROCS
+          value: "6"
+        image: docker.io/istio/mixer:1.1.4
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        name: mixer
+        ports:
+        - containerPort: 9091
+        - containerPort: 15014
+        - containerPort: 42422
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+        - mountPath: /sock
+          name: uds-socket
+        - mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          name: telemetry-adapter-secret
+          readOnly: true
+      - args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /var/lib/envoy/envoy.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        image: docker.io/istio/proxyv2:1.1.4
+        imagePullPolicy: Always
+        name: istio-proxy
+        ports:
+        - containerPort: 15004
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/lib/envoy
+          name: telemetry-envoy-config
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+        - mountPath: /sock
+          name: uds-socket
       serviceAccountName: istio-mixer-service-account
       volumes:
-        - name: istio-certs
-          secret:
-            optional: true
-            secretName: istio.istio-mixer-service-account
-        - emptyDir: {}
-          name: uds-socket
-        - name: telemetry-adapter-secret
-          secret:
-            optional: true
-            secretName: telemetry-adapter-secret
-        - configMap:
-            name: telemetry-envoy-config
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.istio-mixer-service-account
+      - emptyDir: {}
+        name: uds-socket
+      - name: telemetry-adapter-secret
+        secret:
+          optional: true
+          secretName: telemetry-adapter-secret
+      - configMap:
           name: telemetry-envoy-config
+        name: telemetry-envoy-config
 
 ---
 
@@ -1934,14 +1934,14 @@ metadata:
     release: istio
 spec:
   ports:
-    - name: grpc-mixer
-      port: 9091
-    - name: grpc-mixer-mtls
-      port: 15004
-    - name: http-monitoring
-      port: 15014
-    - name: prometheus
-      port: 42422
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  - name: prometheus
+    port: 42422
   selector:
     istio: mixer
     istio-mixer-type: telemetry
@@ -1977,31 +1977,31 @@ spec:
     plural: virtualservices
     singular: virtualservice
     shortNames:
-      - vs
+    - vs
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.gateways
-      description: The names of gateways and sidecars that should apply these routes
-      name: Gateways
-      type: string
-    - JSONPath: .spec.hosts
-      description: The destination hosts to which traffic is being sent
-      name: Hosts
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.gateways
+    description: The names of gateways and sidecars that should apply these routes
+    name: Gateways
+    type: string
+  - JSONPath: .spec.hosts
+    description: The destination hosts to which traffic is being sent
+    name: Hosts
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -2022,27 +2022,27 @@ spec:
     plural: destinationrules
     singular: destinationrule
     shortNames:
-      - dr
+    - dr
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.host
-      description: The name of a service from the service registry
-      name: Host
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.host
+    description: The name of a service from the service registry
+    name: Host
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -2063,35 +2063,35 @@ spec:
     plural: serviceentries
     singular: serviceentry
     shortNames:
-      - se
+    - se
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.hosts
-      description: The hosts associated with the ServiceEntry
-      name: Hosts
-      type: string
-    - JSONPath: .spec.location
-      description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
-      name: Location
-      type: string
-    - JSONPath: .spec.resolution
-      description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
-      name: Resolution
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.hosts
+    description: The hosts associated with the ServiceEntry
+    name: Hosts
+    type: string
+  - JSONPath: .spec.location
+    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
+    name: Location
+    type: string
+  - JSONPath: .spec.resolution
+    description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    name: Resolution
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -2111,10 +2111,10 @@ spec:
     plural: gateways
     singular: gateway
     shortNames:
-      - gw
+    - gw
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
@@ -2139,8 +2139,8 @@ spec:
     plural: envoyfilters
     singular: envoyfilter
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
@@ -2165,8 +2165,8 @@ spec:
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Cluster
   versions:
     - name: v1alpha1
@@ -2191,8 +2191,8 @@ spec:
     plural: policies
     singular: policy
     categories:
-      - istio-io
-      - authentication-istio-io
+    - istio-io
+    - authentication-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -2218,8 +2218,8 @@ spec:
     plural: meshpolicies
     singular: meshpolicy
     categories:
-      - istio-io
-      - authentication-istio-io
+    - istio-io
+    - authentication-istio-io
   scope: Cluster
   versions:
     - name: v1alpha1
@@ -2244,8 +2244,8 @@ spec:
     plural: httpapispecbindings
     singular: httpapispecbinding
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2270,8 +2270,8 @@ spec:
     plural: httpapispecs
     singular: httpapispec
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2296,8 +2296,8 @@ spec:
     plural: quotaspecbindings
     singular: quotaspecbinding
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2322,8 +2322,8 @@ spec:
     plural: quotaspecs
     singular: quotaspec
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2350,8 +2350,8 @@ spec:
     plural: rules
     singular: rule
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2378,8 +2378,8 @@ spec:
     plural: attributemanifests
     singular: attributemanifest
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2406,8 +2406,8 @@ spec:
     plural: rbacconfigs
     singular: rbacconfig
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -2434,8 +2434,8 @@ spec:
     plural: serviceroles
     singular: servicerole
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -2462,25 +2462,25 @@ spec:
     plural: servicerolebindings
     singular: servicerolebinding
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.roleRef.name
-      description: The name of the ServiceRole object being referenced
-      name: Reference
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.roleRef.name
+    description: The name of the ServiceRole object being referenced
+    name: Reference
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -2502,8 +2502,8 @@ spec:
     plural: adapters
     singular: adapter
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2530,8 +2530,8 @@ spec:
     plural: instances
     singular: instance
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2558,8 +2558,8 @@ spec:
     plural: templates
     singular: template
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2586,8 +2586,8 @@ spec:
     plural: handlers
     singular: handler
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -2612,8 +2612,8 @@ spec:
     plural: sidecars
     singular: sidecar
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3

@@ -39,8 +39,8 @@ func TestValidateValues(t *testing.T) {
 			yamlStr: `
 global:
   proxy:
-    includeIpRanges: "*"
-    excludeIpRanges: "*"
+    includeIPRanges: "*"
+    excludeIPRanges: "*"
 `,
 		},
 		{
@@ -49,16 +49,16 @@ global:
 global:
   proxy:
     enabled: true
-    includeIpRanges: "1.1.0.0/16,2.2.0.0/16"
-    excludeIpRanges: "3.3.0.0/16,4.4.0.0/16"
+    includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
+    excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
     includeInboundPorts: "111,222"
     excludeInboundPorts: "333,444"
     clusterDomain: "my.domain"
-    podDnsSearchNamespaces: "my-namespace"
-    interceptionMode: TPROXY
+    podDnsSearchNamespaces: 
+    - "my-namespace"
     connectTimeout: "11s"
     drainDuration: "22s"
-    parentShutdownDuration : "33s"
+    parentShutdownDuration: "33s"
     concurrency: 5
 `,
 		},
@@ -67,32 +67,32 @@ global:
 			yamlStr: `
 global:
   proxy:
-    includeIpRanges: "1.1.0.256/16,2.2.0.257/16"
-    excludeIpRanges: "3.3.0.0/33,4.4.0.0/34"
+    includeIPRanges: "1.1.0.256/16,2.2.0.257/16"
+    excludeIPRanges: "3.3.0.0/33,4.4.0.0/34"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.excludeIpRanges invalid CIDR address: 3.3.0.0/33`,
-				`global.proxy.excludeIpRanges invalid CIDR address: 4.4.0.0/34`,
-				`global.proxy.includeIpRanges invalid CIDR address: 1.1.0.256/16`,
-				`global.proxy.includeIpRanges invalid CIDR address: 2.2.0.257/16`}),
+			wantErrs: makeErrors([]string{`global.proxy.excludeIPRanges invalid CIDR address: 3.3.0.0/33`,
+				`global.proxy.excludeIPRanges invalid CIDR address: 4.4.0.0/34`,
+				`global.proxy.includeIPRanges invalid CIDR address: 1.1.0.256/16`,
+				`global.proxy.includeIPRanges invalid CIDR address: 2.2.0.257/16`}),
 		},
 		{
 			desc: "BadIPMalformed",
 			yamlStr: `
 global:
   proxy:
-    includeIpRanges: "1.2.3/16,1.2.3.x/16"
+    includeIPRanges: "1.2.3/16,1.2.3.x/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: 1.2.3/16`,
-				`global.proxy.includeIpRanges invalid CIDR address: 1.2.3.x/16`}),
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: 1.2.3/16`,
+				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3.x/16`}),
 		},
 		{
 			desc: "BadIPWithStar",
 			yamlStr: `
 global:
   proxy:
-    includeIpRanges: "*,1.1.0.0/16,2.2.0.0/16"
+    includeIPRanges: "*,1.1.0.0/16,2.2.0.0/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: *`}),
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: *`}),
 		},
 		{
 			desc: "BadPortRange",

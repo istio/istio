@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	jsonpb2 "github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
 	"sigs.k8s.io/yaml"
 )
@@ -80,7 +81,7 @@ func MarshalWithJSONPB(val proto.Message) (string, error) {
 	return string(yb), nil
 }
 
-// UnmarshalWithJSONPB unmarshals y into out using jsonpb (required for many proto defined structs).
+// UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message) error {
 	jb, err := yaml.YAMLToJSON([]byte(y))
 	if err != nil {
@@ -88,6 +89,20 @@ func UnmarshalWithJSONPB(y string, out proto.Message) error {
 	}
 
 	u := jsonpb.Unmarshaler{AllowUnknownFields: false}
+	err = u.Unmarshal(bytes.NewReader(jb), out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalValuesWithJSONPB unmarshals y into out using golang jsonpb.
+func UnmarshalValuesWithJSONPB(y string, out proto.Message) error {
+	jb, err := yaml.YAMLToJSON([]byte(y))
+	if err != nil {
+		return err
+	}
+	u := jsonpb2.Unmarshaler{AllowUnknownFields: false}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
 	if err != nil {
 		return err

@@ -222,20 +222,11 @@ values:
     hub: quay.io/jetstack
     image: cert-manager-controller
     tag: v0.6.2
-  citadel:
-    dnsCerts:
-      istio-pilot-service-account.istio-system: istio-pilot.istio-system
-    enableNamespacesByDefault: true
-    image: citadel
-    selfSigned: true
-    trustDomain: cluster.local
   clusterResources: true
   galley: null
   gateways:
     istio-egressgateway:
       autoscaleEnabled: true
-      connectTimeout: 10s
-      drainDuration: 45s
       env:
         ISTIO_META_ROUTER_MODE: sni-dnat
       ports:
@@ -304,32 +295,6 @@ values:
       - mountPath: /etc/istio/ingressgateway-ca-certs
         name: ingressgateway-ca-certs
         secretName: istio-ingressgateway-ca-certs
-      telemetry_addon_gateways:
-        grafana_gateway:
-          desPort: 3000
-          enabled: false
-          name: grafana
-          port: 15031
-          tls: false
-        kiali_gateway:
-          desPort: 20001
-          enabled: false
-          name: kiali
-          port: 15029
-          tls: false
-        prometheus_gateway:
-          desPort: 9090
-          enabled: false
-          name: prometheus
-          port: 15030
-          tls: false
-        tracing_gateway:
-          desPort: 80
-          enabled: false
-          name: tracing
-          port: 15032
-          tls: false
-      telemetry_domain_name: ""
       zvpn:
         enabled: true
         suffix: global
@@ -611,6 +576,13 @@ values:
       enabled: true
     tag: v2.8.0
     tolerations: []
+  security:
+    dnsCerts:
+      istio-pilot-service-account.istio-control: istio-pilot.istio-control
+    enableNamespacesByDefault: true
+    image: citadel
+    selfSigned: true
+    trustDomain: cluster.local
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
     image: sidecar_injector
@@ -632,7 +604,7 @@ values:
       persist: false
       spanStorageType: badger
       storageClassName: ""
-      tag: 1.12
+      tag: "1.12"
     nodeSelector: {}
     opencensus:
       exporters:
@@ -641,7 +613,7 @@ values:
       hub: docker.io/omnition
       resources:
         limits:
-          cpu: 1
+          cpu: "1"
           memory: 2Gi
         requests:
           cpu: 200m

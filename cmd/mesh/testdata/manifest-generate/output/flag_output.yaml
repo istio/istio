@@ -8,20 +8,20 @@ metadata:
     app: prometheus
     release: istio
 rules:
-  - apiGroups: [""]
-    resources:
-      - nodes
-      - services
-      - endpoints
-      - pods
-      - nodes/proxy
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources:
-      - configmaps
-    verbs: ["get"]
-  - nonResourceURLs: ["/metrics"]
-    verbs: ["get"]
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  - nodes/proxy
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
 ---
 
 
@@ -37,9 +37,9 @@ roleRef:
   kind: ClusterRole
   name: prometheus-cp
 subjects:
-  - kind: ServiceAccount
-    name: prometheus
-    namespace: cp
+- kind: ServiceAccount
+  name: prometheus
+  namespace: cp
 ---
 
 
@@ -364,53 +364,53 @@ spec:
           resources:
             requests:
               cpu: 10m
-
+            
           volumeMounts:
-            - name: config-volume
-              mountPath: /etc/prometheus
-            - mountPath: /etc/istio-certs
-              name: istio-certs
+          - name: config-volume
+            mountPath: /etc/prometheus
+          - mountPath: /etc/istio-certs
+            name: istio-certs
       volumes:
-        - name: config-volume
-          configMap:
-            name: prometheus
-        - name: istio-certs
-          secret:
-            defaultMode: 420
-            secretName: istio.default
-      affinity:
+      - name: config-volume
+        configMap:
+          name: prometheus
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          secretName: istio.default
+      affinity:      
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - ppc64le
-                      - s390x
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
           preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - ppc64le
-            - weight: 2
-              preference:
-                matchExpressions:
-                  - key: beta.kubernetes.io/arch
-                    operator: In
-                    values:
-                      - s390x
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
 ---
 
 
@@ -454,9 +454,9 @@ spec:
   selector:
     app: prometheus
   ports:
-    - name: http-prometheus
-      protocol: TCP
-      port: 9090
+  - name: http-prometheus
+    protocol: TCP
+    port: 9090
 ---
 
 
@@ -489,31 +489,31 @@ spec:
     plural: virtualservices
     singular: virtualservice
     shortNames:
-      - vs
+    - vs
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.gateways
-      description: The names of gateways and sidecars that should apply these routes
-      name: Gateways
-      type: string
-    - JSONPath: .spec.hosts
-      description: The destination hosts to which traffic is being sent
-      name: Hosts
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.gateways
+    description: The names of gateways and sidecars that should apply these routes
+    name: Gateways
+    type: string
+  - JSONPath: .spec.hosts
+    description: The destination hosts to which traffic is being sent
+    name: Hosts
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -534,27 +534,27 @@ spec:
     plural: destinationrules
     singular: destinationrule
     shortNames:
-      - dr
+    - dr
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.host
-      description: The name of a service from the service registry
-      name: Host
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.host
+    description: The name of a service from the service registry
+    name: Host
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -575,35 +575,35 @@ spec:
     plural: serviceentries
     singular: serviceentry
     shortNames:
-      - se
+    - se
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.hosts
-      description: The hosts associated with the ServiceEntry
-      name: Hosts
-      type: string
-    - JSONPath: .spec.location
-      description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
-      name: Location
-      type: string
-    - JSONPath: .spec.resolution
-      description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
-      name: Resolution
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.hosts
+    description: The hosts associated with the ServiceEntry
+    name: Hosts
+    type: string
+  - JSONPath: .spec.location
+    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
+    name: Location
+    type: string
+  - JSONPath: .spec.resolution
+    description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    name: Resolution
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -623,10 +623,10 @@ spec:
     plural: gateways
     singular: gateway
     shortNames:
-      - gw
+    - gw
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
@@ -651,8 +651,8 @@ spec:
     plural: envoyfilters
     singular: envoyfilter
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3
@@ -677,8 +677,8 @@ spec:
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Cluster
   versions:
     - name: v1alpha1
@@ -703,8 +703,8 @@ spec:
     plural: policies
     singular: policy
     categories:
-      - istio-io
-      - authentication-istio-io
+    - istio-io
+    - authentication-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -730,8 +730,8 @@ spec:
     plural: meshpolicies
     singular: meshpolicy
     categories:
-      - istio-io
-      - authentication-istio-io
+    - istio-io
+    - authentication-istio-io
   scope: Cluster
   versions:
     - name: v1alpha1
@@ -756,8 +756,8 @@ spec:
     plural: httpapispecbindings
     singular: httpapispecbinding
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -782,8 +782,8 @@ spec:
     plural: httpapispecs
     singular: httpapispec
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -808,8 +808,8 @@ spec:
     plural: quotaspecbindings
     singular: quotaspecbinding
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -834,8 +834,8 @@ spec:
     plural: quotaspecs
     singular: quotaspec
     categories:
-      - istio-io
-      - apim-istio-io
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -862,8 +862,8 @@ spec:
     plural: rules
     singular: rule
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -890,8 +890,8 @@ spec:
     plural: attributemanifests
     singular: attributemanifest
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -918,8 +918,8 @@ spec:
     plural: rbacconfigs
     singular: rbacconfig
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -946,8 +946,8 @@ spec:
     plural: serviceroles
     singular: servicerole
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
@@ -974,25 +974,25 @@ spec:
     plural: servicerolebindings
     singular: servicerolebinding
     categories:
-      - istio-io
-      - rbac-istio-io
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha1
       served: true
       storage: true
   additionalPrinterColumns:
-    - JSONPath: .spec.roleRef.name
-      description: The name of the ServiceRole object being referenced
-      name: Reference
-      type: string
-    - JSONPath: .metadata.creationTimestamp
-      description: |-
-        CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+  - JSONPath: .spec.roleRef.name
+    description: The name of the ServiceRole object being referenced
+    name: Reference
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
-        Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-      name: Age
-      type: date
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 
 
@@ -1014,8 +1014,8 @@ spec:
     plural: adapters
     singular: adapter
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -1042,8 +1042,8 @@ spec:
     plural: instances
     singular: instance
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -1070,8 +1070,8 @@ spec:
     plural: templates
     singular: template
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -1098,8 +1098,8 @@ spec:
     plural: handlers
     singular: handler
     categories:
-      - istio-io
-      - policy-istio-io
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha2
@@ -1124,8 +1124,8 @@ spec:
     plural: sidecars
     singular: sidecar
     categories:
-      - istio-io
-      - networking-istio-io
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   versions:
     - name: v1alpha3

@@ -47,6 +47,17 @@ const (
 	goTypeToken = "// GOTYPE: "
 )
 
+var (
+	// nameMapping defines special mapping of fields names between proto and value.yaml.
+	// some fields naming is not a valid field name in proto but used in values.yaml, eg. istio-ingressgateway.
+	nameMapping = map[string]string{
+		"istioEgressgateway":  "istio-egressgateway",
+		"istioIngressgateway": "istio-ingressgateway",
+		"proxyInit":           "proxy_init",
+		"istioCni":            "istio_cni",
+	}
+)
+
 func main() {
 	var filePath string
 	flag.StringVar(&filePath, "f", "", "path to input file")
@@ -88,7 +99,6 @@ func main() {
 			i++
 			l = lines[i]
 		}
-
 		tmp = append(tmp, l)
 		i++
 	}
@@ -111,11 +121,25 @@ func main() {
 		}
 	}
 
+	if strings.Contains(filePath, "values_types") {
+		out = patchValues(out)
+	}
 	if err := ioutil.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0644); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
 
+// patchValues is helper function to patch generated values_types.pb.go based on special mapping.
+func patchValues(lines []string) (output []string) {
+	for _, line := range lines {
+		// patching naming issues
+		for oldv, newv := range nameMapping {
+			line = strings.ReplaceAll(line, oldv, newv)
+		}
+		output = append(output, line)
+	}
+	return output
 }
 
 // getFileLines reads the text file at filePath and returns it as a slice of strings.
