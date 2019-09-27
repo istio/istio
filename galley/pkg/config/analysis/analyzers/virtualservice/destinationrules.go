@@ -68,9 +68,10 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination, destHostsAndSubsets map[hostAndSubset]bool) bool {
-	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
+func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination,
+	destHostsAndSubsets map[hostAndSubset]bool) bool {
 
+	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
 	subset := destination.GetSubset()
 
 	// if there's no subset specified, we're done
