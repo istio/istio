@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/tests/mockca"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
-	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
+	"istio.io/istio/security/tests/mockca"
 )
 
 const (

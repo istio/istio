@@ -25,8 +25,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	pkgcmd "istio.io/istio/pkg/cmd"
@@ -62,9 +60,9 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA              bool
-	selfSignedCACertTTL       time.Duration
-	selfSignedCACheckInternal time.Duration
+	selfSignedCA                    bool
+	selfSignedCACertTTL             time.Duration
+	selfSignedRootCertCheckInterval time.Duration
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -196,7 +194,7 @@ func initCLI() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
-	flags.DurationVar(&opts.selfSignedCACheckInternal, "self-signed-ca-check-interval", cmd.DefaultSelfSignedCACertCheckInterval,
+	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "self-signed-root-check-interval", cmd.DefaultSelfSignedRootCertCheckInterval,
 		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
 			"Should not be shorter than one minute.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
@@ -441,13 +439,19 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = ca.ReadSigningCertCheckInterval
+			checkInterval = cmd.ReadSigningCertCheckInterval
 		} else {
 			checkInterval = -1
 		}
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
+		if opts.selfSignedRootCertCheckInterval > 0 && opts.selfSignedRootCertCheckInterval < 1 {
+			opts.selfSignedRootCertCheckInterval = 1 * time.Minute
+		}
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
+			opts.selfSignedCACertTTL,
+			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
+			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile,
+			metrics)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
@@ -478,38 +482,12 @@ func createCA(client corev1.CoreV1Interface, metrics monitoring.MonitoringMetric
 			livenessProbeChecker.Run()
 		}
 	}
-
-	// When this IstioCA instance auto-generates self-signed CA certificate, start
-	// a job that checks root certificate expiration time and rotates certificate
-	// automatically.
-	if opts.selfSignedCA {
-		if opts.selfSignedCACheckInternal < 1*time.Minute {
-			opts.selfSignedCACheckInternal = 1 * time.Minute
-		}
-		cfc := configmap.NewController(opts.istioCaStorageNamespace, client)
-		csc := controller.NewCaSecretController(client)
-		rotator := ca.NewSelfSignedCARootCertRotator(
-			opts.selfSignedCACheckInternal,
-			opts.selfSignedCACertTTL,
-			ca.ReadSigningCertCheckInterval,
-			cmd.DefaultCACertGracePeriodRatio,
-			cfc,
-			csc,
-			opts.istioCaStorageNamespace,
-			opts.readSigningCertOnly,
-			opts.dualUse,
-			spiffe.GetTrustDomain(),
-			opts.rootCertFile,
-			metrics,
-			istioCA,
-		)
-		// rootCertRotatorChan channel accepts signals to stop root cert rotator for
-		// self-signed CA.
-		rootCertRotatorChan = make(chan struct{})
-		// Start root cert rotator in a separate goroutine.
-		go rotator.Run(rootCertRotatorChan)
-		go pkgcmd.WaitSignal(rootCertRotatorChan)
-	}
+	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
+	// self-signed CA.
+	rootCertRotatorChan = make(chan struct{})
+	// Start root cert rotator in a separate goroutine.
+	istioCA.Run(rootCertRotatorChan)
+	go pkgcmd.WaitSignal(rootCertRotatorChan)
 
 	return istioCA
 }

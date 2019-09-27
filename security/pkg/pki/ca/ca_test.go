@@ -28,9 +28,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/security/pkg/monitoring"
+
 	"istio.io/istio/security/pkg/k8s/configmap"
-	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
+	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -96,9 +98,14 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
+	readSigningCertOnly := false
+	rootCertCheckInverval := time.Hour
+	metrics := monitoring.MonitoringMetrics{}
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(), rootCertFile)
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
+		org, false, caNamespace, -1, client.CoreV1(),
+		rootCertFile, metrics)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -183,9 +190,14 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
+	readSigningCertOnly := false
+	rootCertCheckInverval := time.Hour
+	metrics := monitoring.MonitoringMetrics{}
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, certTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(), rootCertFile)
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+		caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
+		org, false, caNamespace, -1, client.CoreV1(),
+		rootCertFile, metrics)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -245,6 +257,9 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
+	readSigningCertOnly := true
+	rootCertCheckInverval := time.Hour
+	metrics := monitoring.MonitoringMetrics{}
 
 	client := fake.NewSimpleClientset()
 
@@ -252,8 +267,10 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	expectedErr := "secret waiting thread is terminated"
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
-	_, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
-		org, false, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
+	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, caCertTTL,
+		certTTL, rootCertCheckInverval, maxCertTTL,
+		org, false, caNamespace, time.Millisecond*10, client.CoreV1(),
+		rootCertFile, metrics)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	} else if err.Error() != expectedErr {
@@ -270,8 +287,9 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
-		org, false, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, caCertTTL,
+		certTTL, rootCertCheckInverval, maxCertTTL, org, false,
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, metrics)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -437,7 +455,7 @@ func TestSignCSRForCA(t *testing.T) {
 	requestedTTL := 30 * 24 * time.Hour
 	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, true)
 	if signErr != nil {
-		t.Error(err)
+		t.Error(signErr)
 	}
 
 	fields := &util.VerifyFields{
@@ -623,10 +641,15 @@ func createCA(maxTTL time.Duration) (*IstioCA, error) {
 	if err != nil {
 		return nil, err
 	}
+	rootCertCheckInverval := time.Duration(0)
+
 	caOpts := &IstioCAOptions{
 		CertTTL:       time.Hour,
 		MaxCertTTL:    maxTTL,
 		KeyCertBundle: bundle,
+		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
+			CheckInterval: rootCertCheckInverval,
+		},
 	}
 
 	return NewIstioCA(caOpts)

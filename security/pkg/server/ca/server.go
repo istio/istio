@@ -29,8 +29,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/istio/security/pkg/pki/util"
 	caitf "istio.io/istio/security/pkg/pki/cainterface"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"

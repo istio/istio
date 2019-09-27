@@ -19,6 +19,8 @@ import (
 	"encoding/base64"
 	"time"
 
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
 	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/monitoring"
@@ -49,25 +51,39 @@ type SelfSignedCARootCertRotator struct {
 	ca                  *IstioCA
 }
 
+type SelfSignedCARootCertRotatorConfig struct {
+	CheckInterval       time.Duration
+	caCertTTL           time.Duration
+	retryInterval       time.Duration
+	certInspector       certutil.CertUtil
+	configMapController *configmap.Controller
+	caSecretController  *controller.CaSecretController
+	caStorageNamespace  string
+	dualUse             bool
+	readSigningCertOnly bool
+	org                 string
+	rootCertFile        string
+	metrics             monitoring.MonitoringMetrics
+	client              corev1.CoreV1Interface
+}
+
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
 // rotates self-signed root cert periodically.
-func NewSelfSignedCARootCertRotator(checkInterval, caCertTTL, retryInterval time.Duration,
-	gracePeriodRatio float32, cfc *configmap.Controller, csc *controller.CaSecretController, caStorageNamespace string,
-	dualUse bool, readSigningCertOnly bool, org, rootCertFile string, metrics monitoring.MonitoringMetrics,
+func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	ca *IstioCA) *SelfSignedCARootCertRotator {
 	rotator := &SelfSignedCARootCertRotator{
-		checkInterval:       checkInterval,
-		caCertTTL:           caCertTTL,
-		retryInterval:       retryInterval,
-		certInspector:       certutil.NewCertUtil(int(gracePeriodRatio * 100)),
-		configMapController: cfc,
-		caSecretController:  csc,
-		caStorageNamespace:  caStorageNamespace,
-		dualUse:             dualUse,
-		readSigningCertOnly: readSigningCertOnly,
-		org:                 org,
-		rootCertFile:        rootCertFile,
-		metrics:             metrics,
+		checkInterval:       config.CheckInterval,
+		caCertTTL:           config.caCertTTL,
+		retryInterval:       config.retryInterval,
+		certInspector:       config.certInspector,
+		configMapController: configmap.NewController(config.caStorageNamespace, config.client),
+		caSecretController:  controller.NewCaSecretController(config.client),
+		caStorageNamespace:  config.caStorageNamespace,
+		dualUse:             config.dualUse,
+		readSigningCertOnly: config.readSigningCertOnly,
+		org:                 config.org,
+		rootCertFile:        config.rootCertFile,
+		metrics:             config.metrics,
 		ca:                  ca,
 	}
 	return rotator
@@ -181,7 +197,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		RSAKeySize:    caKeySize,
 		IsDualUse:     rotator.dualUse,
 	}
-	pemCert, pemKey, ckErr := util.GenCACertFromExistingKey(options)
+	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
 	if ckErr != nil {
 		rootCertRotatorLog.Errorf("unable to generate CA cert and key for self-signed CA: %s", ckErr.Error())
 		return UpgradeFailure

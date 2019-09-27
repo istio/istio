@@ -127,9 +127,9 @@ func publicKey(priv interface{}) interface{} {
 	}
 }
 
-// GenCACertFromExistingKey generates a X.509 certificate using existing
+// GenRootCertFromExistingKey generates a X.509 certificate using existing
 // CA private key. Only called by a self-signed Citadel.
-func GenCACertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
+func GenRootCertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
 	if !options.IsSelfSigned || len(options.SignerPrivPem) == 0 {
 		return nil, nil, fmt.Errorf("skip cert " +
 			"generation. Citadel is not in self-signed mode or CA private key is not " +

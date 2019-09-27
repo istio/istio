@@ -26,16 +26,17 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/security/pkg/pki/ca"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki/ca"
 
 	"istio.io/istio/security/pkg/monitoring"
 	caitf "istio.io/istio/security/pkg/pki/cainterface"
-	"istio.io/istio/security/tests/mockca"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
+	"istio.io/istio/security/tests/mockca"
 )
 
 const csr = `

@@ -27,10 +27,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/monitoring"
+
 	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caitf "istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
+	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 )
@@ -53,8 +57,6 @@ const (
 	RootCertID = "root-cert.pem"
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
-	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
-	ReadSigningCertCheckInterval = time.Second * 5
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
@@ -95,6 +97,9 @@ type IstioCAOptions struct {
 
 	LivenessProbeOptions *probe.Options
 	ProbeCheckInterval   time.Duration
+
+	// Config for creating self-signed root cert rotator.
+	RotatorConfig *SelfSignedCARootCertRotatorConfig
 }
 
 // Append root certificates in RootCertFile to the input certificate.
@@ -122,8 +127,10 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
+	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
+	client corev1.CoreV1Interface, rootCertFile string, metrics monitoring.MonitoringMetrics) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -144,10 +151,24 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 	}
 
+	rootCertGracePeriod := cmd.DefaultRootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
+		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
+			CheckInterval:       rootCertCheckInverval,
+			caCertTTL:           caCertTTL,
+			retryInterval:       cmd.ReadSigningCertCheckInterval,
+			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriod)),
+			caStorageNamespace:  namespace,
+			dualUse:             dualUse,
+			readSigningCertOnly: readSigningCertOnly,
+			org:                 org,
+			rootCertFile:        rootCertFile,
+			metrics:             metrics,
+			client:              client,
+		},
 	}
 	if scrtErr != nil {
 		pkiCaLog.Infof("Failed to get secret (error: %s), will create one", scrtErr)
@@ -252,6 +273,10 @@ type IstioCA struct {
 	keyCertBundle util.KeyCertBundle
 
 	livenessProbe *probe.Probe
+
+	// rootCertRotator periodically rotates self-signed root cert for CA. It is nil
+	// if CA is not self-signed CA.
+	rootCertRotator *SelfSignedCARootCertRotator
 }
 
 // NewIstioCA returns a new IstioCA instance.
@@ -265,7 +290,17 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		livenessProbe: probe.NewProbe(),
 	}
 
+	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > 0 {
+		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
+	}
 	return ca, nil
+}
+
+func (ca *IstioCA) Run(stopChan chan struct{}) {
+	if ca.rootCertRotator != nil {
+		// Start root cert rotator in a separate goroutine.
+		go ca.rootCertRotator.Run(stopChan)
+	}
 }
 
 // Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate. If forCA is true,

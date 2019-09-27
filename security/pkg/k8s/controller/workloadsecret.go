@@ -30,11 +30,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/spiffe"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/cainterface"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/pkg/log"
 )
 
