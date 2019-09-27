@@ -18,41 +18,43 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name       string
-		toValidate *v1alpha2.Values
+		toValidate *v1alpha1.Values
 		validated  bool
 	}{
 		{
 			name:       "Empty struct",
-			toValidate: &v1alpha2.Values{},
+			toValidate: &v1alpha1.Values{},
 			validated:  true,
 		},
 		{
 			name: "With CNI defined",
-			toValidate: &v1alpha2.Values{
-				CNI: &v1alpha2.CNIConfig{
-					Enabled: makeBoolPtr(true),
+			toValidate: &v1alpha1.Values{
+				IstioCni: &v1alpha1.CNIConfig{
+					Enabled: &types.BoolValue{Value: true},
 				},
 			},
 			validated: true,
 		},
 		{
 			name: "With Slice",
-			toValidate: &v1alpha2.Values{
-				Gateways: &v1alpha2.GatewaysConfig{
-					Enabled: makeBoolPtr(true),
-					EgressGateway: &v1alpha2.EgressGatewayConfig{
-						Ports: []*v1alpha2.PortsConfig{
+			toValidate: &v1alpha1.Values{
+				Gateways: &v1alpha1.GatewaysConfig{
+					Enabled: &types.BoolValue{Value: true},
+					IstioEgressgateway: &v1alpha1.EgressGatewayConfig{
+						Ports: []*v1alpha1.PortsConfig{
 							{
-								Name: makeStringPtr("port1"),
+								Name: "port1",
 							},
 							{
-								Name: makeStringPtr("port2"),
+								Name: "port2",
 							},
 						},
 					},
@@ -71,11 +73,4 @@ func TestValidate(t *testing.T) {
 			t.Fatalf("Test %s failed as it is supposed to fail but succeeded", tt.name)
 		}
 	}
-}
-
-func makeBoolPtr(v bool) *bool {
-	return &v
-}
-func makeStringPtr(v string) *string {
-	return &v
 }

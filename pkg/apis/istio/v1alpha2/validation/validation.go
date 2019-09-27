@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
 )
@@ -27,14 +28,14 @@ const (
 )
 
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, values *v1alpha2.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func ValidateConfig(failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, icpls))
 
 	return validationErrors
 }
 
-func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *v1alpha2.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	// Dealing with receiver pointer and receiver value
 	ptr := e
 	k := e.Kind()
@@ -86,7 +87,7 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *v1a
 	return validationErrors
 }
 
-func processSlice(e reflect.Value, failOnMissingValidation bool, values *v1alpha2.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func processSlice(e reflect.Value, failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
 	for i := 0; i < e.Len(); i++ {
 		validationErrors = append(validationErrors, validateSubTypes(e.Index(i), failOnMissingValidation, values, icpls)...)
@@ -95,7 +96,7 @@ func processSlice(e reflect.Value, failOnMissingValidation bool, values *v1alpha
 	return validationErrors
 }
 
-func processMap(e reflect.Value, failOnMissingValidation bool, values *v1alpha2.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func processMap(e reflect.Value, failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
 	for _, k := range e.MapKeys() {
 		v := e.MapIndex(k)

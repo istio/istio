@@ -31915,7 +31915,7 @@ spec:
               maxSurge: "100%"
               maxUnavailable: "25%"
 
-  # Global values passed through to helm global.yaml.
+# Global values passed through to helm global.yaml.
   values:
     global:
       logging:
@@ -32025,7 +32025,6 @@ spec:
       localityLbSetting:
         enabled: true
       enableHelmTest: false
-
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -32103,13 +32102,13 @@ spec:
 
     galley:
 
-    citadel:
+    security:
       image: citadel
       selfSigned: true # indicate if self-signed CA is used.
       trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
       enableNamespacesByDefault: true
       dnsCerts:
-        istio-pilot-service-account.istio-system: istio-pilot.istio-system
+        istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
     certmanager:
       hub: quay.io/jetstack
@@ -32125,8 +32124,6 @@ spec:
         zvpn:
           suffix: global
           enabled: true
-        drainDuration: 45s
-        connectTimeout: 10s
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -32153,7 +32150,6 @@ spec:
         zvpn:
           enabled: true
           suffix: global
-        telemetry_domain_name: ""
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -32197,31 +32193,6 @@ spec:
           - name: ingressgateway-ca-certs
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
-        telemetry_addon_gateways:
-          tracing_gateway:
-            name: tracing
-            port: 15032
-            desPort: 80
-            enabled: false
-            tls: false
-          kiali_gateway:
-            name: kiali
-            port: 15029
-            desPort: 20001
-            enabled: false
-            tls: false
-          grafana_gateway:
-            name: grafana
-            port: 15031
-            desPort: 3000
-            enabled: false
-            tls: false
-          prometheus_gateway:
-            name: prometheus
-            port: 15030
-            desPort: 9090
-            enabled: false
-            tls: false
 
     sidecarInjectorWebhook:
       image: sidecar_injector
@@ -32265,7 +32236,6 @@ spec:
         secretName: grafana
         usernameKey: username
         passphraseKey: passphrase
-
       contextPath: /grafana
       service:
         annotations: {}
@@ -32301,7 +32271,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       env: {}
       envSecrets: {}
-
+#
     tracing:
       enabled: false
       provider: jaeger
@@ -32310,7 +32280,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: 1.12
+        tag: "1.12"
         memory:
           max_traces: 50000
         spanStorageType: badger
@@ -32338,7 +32308,7 @@ spec:
         tag: 0.1.9
         resources:
           limits:
-            cpu: 1
+            cpu: "1"
             memory: 2Gi
           requests:
             cpu: 200m
@@ -32688,15 +32658,14 @@ spec:
   values:
     global:
       useMCP: false
+      proxy:
+        envoyStatsd:
+          enabled: false
+          host:
+          port:
 
     pilot:
       sidecar: false
-
-    proxy:
-      envoyStatsd:
-        enabled: false
-        host:
-        port:
 
     prometheus:
       enabled: false

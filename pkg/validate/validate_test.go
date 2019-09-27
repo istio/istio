@@ -93,8 +93,8 @@ trafficManagement:
 values:
   global:
     proxy:
-      includeIpRanges: "1.1.0.0/16,2.2.0.0/16"
-      excludeIpRanges: "3.3.0.0/16,4.4.0.0/16"
+      includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
+      excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
 
 `,
 		},
@@ -124,9 +124,9 @@ installPackagePath: /local/file/path
 values:
   global:
     proxy:
-      includeIpRanges: "1.1.0.300/16,2.2.0.0/16"
+      includeIPRanges: "1.1.0.300/16,2.2.0.0/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIpRanges invalid CIDR address: 1.1.0.300/16`}),
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: 1.1.0.300/16`}),
 		},
 		{
 			desc: "EmptyValuesIP",
@@ -134,7 +134,7 @@ values:
 values:
   global:
     proxy:
-      includeIpRanges: ""
+      includeIPRanges: ""
       includeInboundPorts: "*"
 `,
 		},

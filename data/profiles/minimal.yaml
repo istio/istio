@@ -22,15 +22,14 @@ spec:
   values:
     global:
       useMCP: false
+      proxy:
+        envoyStatsd:
+          enabled: false
+          host:
+          port:
 
     pilot:
       sidecar: false
-
-    proxy:
-      envoyStatsd:
-        enabled: false
-        host:
-        port:
 
     prometheus:
       enabled: false
