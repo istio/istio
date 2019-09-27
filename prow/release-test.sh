@@ -39,7 +39,7 @@ VERSION="${NEXT_VERSION}-alpha.${DATE}"
 
 # In CI we want to store the outputs to artifacts, which will preserve the build
 # If not specified, we can just create a temporary directory
-WORK_DIR="${ARTIFACTS:-$(mktemp -d)}/build"
+WORK_DIR="$(mktemp -d)/build"
 mkdir -p "${WORK_DIR}"
 
 # TODO pin version of CNI
@@ -70,4 +70,4 @@ export GOSUMDB=sum.golang.org
 (cd /tmp; go get istio.io/release-builder)
 
 release-builder build --manifest <(echo "${MANIFEST}")
-#go run "${ROOT}/main.go" publish --release "${WORK_DIR}/out" --gcsbucket howardjohn/release --dockerhub "gcr.io/howardjohn-istio"
+release-builder publish --release "${WORK_DIR}/out" --gcsbucket istio-release-pipeline-data/commit --dockerhub gcr.io/istio-prerelease-testing
