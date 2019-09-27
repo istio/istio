@@ -47,3 +47,7 @@ func (e *extensionsv1Impl) PodSecurityPolicies() extensionsv1.PodSecurityPolicyI
 func (e *extensionsv1Impl) ReplicaSets(namespace string) extensionsv1.ReplicaSetInterface {
 	panic("not implemented")
 }
+
+func (e *extensionsv1Impl) NetworkPolicies(namespace string) extensionsv1.NetworkPolicyInterface {
+	panic("not implemented")
+}
