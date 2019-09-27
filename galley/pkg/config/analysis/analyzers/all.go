@@ -25,7 +25,7 @@ import (
 // All returns all analyzers
 func All() []analysis.Analyzer {
 	return []analysis.Analyzer{
-		&gateway.Analyzer{},
+		&gateway.IngressGatewayPortAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.DestinationAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},

@@ -27,15 +27,28 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// GatewayAnalyzer checks the gateways associated with each virtual service
-type Analyzer struct{}
+// IngressGatewayPortAnalyzer checks a Gateway's ports against the gateway's K8s Service ports.
+type IngressGatewayPortAnalyzer struct{}
 
-var _ analysis.Analyzer = &Analyzer{}
+var (
+	// The ports from install/kubernetes/istio.yaml's istio-ingressgateway service.
+	// Use this only if we validate a Gateway that selects the system gateway and
+	// the user doesn't supply it.
+	defaultIngressGatewayPorts = map[uint32]bool{
+		80:    true,
+		443:   true,
+		31400: true,
+		15443: true,
+	}
+
+	// (compile-time check that we implement the interface)
+	_ analysis.Analyzer = &IngressGatewayPortAnalyzer{}
+)
 
 // Metadata implements analysis.Analyzer
-func (*Analyzer) Metadata() analysis.Metadata {
+func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "gateway.GatewayAnalyzer",
+		Name: "gateway.IngressGatewayPortAnalyzer",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.K8SCoreV1Pods,
@@ -44,22 +57,22 @@ func (*Analyzer) Metadata() analysis.Metadata {
 	}
 }
 
-// Analyze implements Analyzer
-func (s *Analyzer) Analyze(c analysis.Context) {
+// Analyze implements analysis.Analyzer
+func (s *IngressGatewayPortAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
 		s.analyzeGateway(r, c)
 		return true
 	})
 }
 
-func (*Analyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
+func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
 
 	gw := r.Item.(*v1alpha3.Gateway)
 
 	// Typically there will be a single istio-ingressgateway service, which will select
 	// the same ingress gateway pod workload as the Gateway resource.  If there are multiple
 	// Kubernetes services, and they offer different TCP port combinations, this validator will
-	// not report a problem if any service exposes the Gateway port.
+	// not report a problem if *any* selecting service exposes the Gateway's port.
 	servicePorts := map[uint32]bool{}
 	gwSelectorMatches := 0
 
@@ -93,7 +106,7 @@ func (*Analyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
 	})
 
 	if gwSelectorMatches == 0 {
-		// We found no service for the Gateway's workload selector.  If the Gateway does select
+		// We found no service for the Gateway's workload selector.  If the Gateway doesn't select
 		// the Istio system ingress gateway complain about a missing referenced resource.  (We
 		// don't want to complain about missing system resources, because a user may want to analyze
 		// only his own application files.)
@@ -102,12 +115,7 @@ func (*Analyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
 			return
 		}
 		// The unreferenced Ingress is the System ingress, pretend we have found it.
-		servicePorts = map[uint32]bool{
-			80:    true,
-			443:   true,
-			31400: true,
-			15443: true,
-		}
+		servicePorts = defaultIngressGatewayPorts
 	}
 
 	// Check each Gateway port against what the workload ingress service offers

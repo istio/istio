@@ -94,7 +94,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-no-workload.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
 		},
@@ -104,7 +104,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-no-port.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
 		},
@@ -114,7 +114,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-correct-port.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
@@ -124,7 +124,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-custom-ingressgateway.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
@@ -134,7 +134,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-custom-ingressgateway-badport.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
 		},
@@ -144,7 +144,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/gateway-custom-ingressgateway-svcselector.yaml",
 		},
-		analyzer: &gateway.Analyzer{},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
 		},
