@@ -55,8 +55,6 @@ dependencies:
   - org: istio
     repo: cni
     branch: master
-outputs:
-- archive
 EOF
 )
 
