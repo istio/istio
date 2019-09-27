@@ -67,7 +67,7 @@ func (permission *Permission) Match(service *ServiceMetadata) bool {
 					continue
 				}
 				constraintValue, present = service.Labels[label]
-			case key == attrDestName || key == attrDestNamespace:
+			case key == attrDestName || key == attrDestNamespace || key == attrDestUser:
 				constraintValue, present = service.Attributes[key]
 			default:
 				continue
