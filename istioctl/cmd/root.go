@@ -125,7 +125,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(Analyze())
-	experimentalCmd.AddCommand(pod())
 
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
@@ -158,7 +157,7 @@ debug and diagnose their Istio mesh.
 func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	orig.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		for _, hidden := range hidden {
-			cmd.Flags().MarkHidden(hidden) // nolint: errcheck
+			_ = cmd.Flags().MarkHidden(hidden) // nolint: errcheck
 		}
 
 		orig.SetHelpFunc(nil)

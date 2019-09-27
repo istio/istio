@@ -72,6 +72,11 @@ func TestProxyConfig(t *testing.T) {
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config listeners invalid" should fail
 		},
+		{ // logging invalid
+			args:           strings.Split("proxy-config logging invalid", " "),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
+			wantException:  true, // "istioctl proxy-config logging invalid" should fail
+		},
 		{ // routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
@@ -161,6 +166,12 @@ default           Cert Chain     ACTIVE      true           17232678821166591831
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config listener", " "),
 			expectedString:   `Error: listener requires pod name`,
+			wantException:    true,
+		},
+		{ // logging no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config logging", " "),
+			expectedString:   `Error: logging requires pod name`,
 			wantException:    true,
 		},
 		{ // route no args
