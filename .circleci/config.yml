@@ -7,7 +7,7 @@ integrationDefaults: &integrationDefaults
   working_directory: /go/src/istio.io/installer
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
-    - SKIP_CLEANUP: true
+    - SKIP_CLEANUP: false
     - GOPATH: /go
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
@@ -19,7 +19,7 @@ integrationRemoteOneNamespace: &integrationRemoteOneNamespace
     - image: istionightly/ci:2019-08-30
       environment:
         GOPATH: /go
-        SKIP_CLEANUP: 1
+        SKIP_CLEANUP: false
         ONE_NAMESPACE: 1
         TMPDIR: /go/tmp
 
@@ -79,11 +79,11 @@ jobs:
       - run:
           command: make docker-run-test TEST_TARGET="install-crds install-base install-ingress"
       - run:
+          command: make docker-run-test TEST_TARGET="run-bookinfo"
+      - run:
           command: make docker-run-test TEST_TARGET="run-simple"
       - run:
           command: make docker-run-test TEST_TARGET="run-simple-strict"
-      - run:
-          command: make docker-run-test TEST_TARGET="run-bookinfo"
       - run:
           when: always
           command: make kind-logs
