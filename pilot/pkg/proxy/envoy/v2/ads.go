@@ -647,7 +647,6 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *XdsConnection
 
 	adsClientsMutex.RLock()
-	// Create a temp map to avoid locking the add/remove
 	for _, v := range adsClients {
 		if v.modelNode.ClusterID == clusterID && v.modelNode.IPAddresses[0] == ip {
 			connection = v
