@@ -56,8 +56,6 @@ type SelfSignedCARootCertRotatorConfig struct {
 	caCertTTL           time.Duration
 	retryInterval       time.Duration
 	certInspector       certutil.CertUtil
-	configMapController *configmap.Controller
-	caSecretController  *controller.CaSecretController
 	caStorageNamespace  string
 	dualUse             bool
 	readSigningCertOnly bool
