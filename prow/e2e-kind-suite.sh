@@ -54,7 +54,7 @@ function build_kind_images() {
 
 	# If a variant is specified, load those images as well.
 	# We should load non-variant images as well for things like `app` which do not use variants
-	if [[ "${VARIANT:-}" != "distroless" ]] && [[ "${VARIANT:-}" != "" ]]; then
+	if [[ "${VARIANT:-}" != "" ]]; then
 	  docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
   fi
 }
@@ -88,7 +88,11 @@ for ((i=1; i<=$#; i++)); do
         --timeout) ((i++)); E2E_TIMEOUT=${!i}
         continue
         ;;
-        --variant) ((i++)); VARIANT="${!i}"
+        --variant) ((i++));
+          # Distroless is the default, so if set as variant we don't need to add the suffix
+          if [[ "${!i}" != "distroless" ]]; then
+            VARIANT="${!i}"
+          fi
         continue
         ;;
     esac
@@ -123,8 +127,7 @@ fi
 if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon_kind
 fi
-
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+  echo make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}

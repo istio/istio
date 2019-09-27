@@ -35,7 +35,6 @@ import (
 
 const (
 	proxyContainerName = "istio-proxy"
-	proxyAdminPort     = 15000
 )
 
 var _ echo.Sidecar = &sidecar{}
