@@ -75,7 +75,7 @@ func init() {
 	)
 }
 
-// MonitoringMetrics are counters for certificate signing related operations.
+// monitoringMetrics are counters for certificate signing related operations.
 type monitoringMetrics struct {
 	CSR                monitoring.Metric
 	AuthnError         monitoring.Metric
@@ -83,19 +83,17 @@ type monitoringMetrics struct {
 	CSRError           monitoring.Metric
 	IDExtractionError  monitoring.Metric
 	certSignErrors     monitoring.Metric
-	RootUpgradeSuccess monitoring.Metric
-	RootUpgradeErrors  monitoring.Metric
 }
 
 // newMonitoringMetrics creates a new MonitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
-		CSR:                csrCounts,
-		AuthnError:         authnErrorCounts,
-		Success:            successCounts,
-		CSRError:           csrParsingErrorCounts,
-		IDExtractionError:  idExtractionErrorCounts,
-		certSignErrors:     certSignErrorCounts,
+		CSR:               csrCounts,
+		AuthnError:        authnErrorCounts,
+		Success:           successCounts,
+		CSRError:          csrParsingErrorCounts,
+		IDExtractionError: idExtractionErrorCounts,
+		certSignErrors:    certSignErrorCounts,
 	}
 }
 
