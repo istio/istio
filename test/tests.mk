@@ -88,7 +88,7 @@ run-bookinfo:
 	#kubectl label namespace bookinfo istio-env=${ISTIO_CONTROL_NS} --overwrite
 	kubectl -n bookinfo apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n bookinfo apply -f test/k8s/sidecar-local.yaml
-	ONE_NAMESPACE=1 SKIP_CLEANUP=1 ISTIO_CONTROL=${ISTIO_SYSTEM_NS} INGRESS_NS=${ISTIO_SYSTEM_NS} SKIP_DELETE=1 SKIP_LABEL=1 \
+	ONE_NAMESPACE=1 SKIP_CLEANUP=${SKIP_CLEANUP} ISTIO_CONTROL=${ISTIO_SYSTEM_NS} INGRESS_NS=${ISTIO_SYSTEM_NS} SKIP_DELETE=1 SKIP_LABEL=1 \
 	  bin/test.sh ${GOPATH}/src/istio.io/istio
 
 # Simple fortio install and curl command
