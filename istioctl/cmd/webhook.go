@@ -21,15 +21,12 @@ import (
 	"io/ioutil"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-
-	"github.com/ghodss/yaml"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -50,12 +47,12 @@ type enableCliOptions struct {
 	validatingWebhookConfigName string
 	// The service name of the validating webhook to manage
 	validatingWebhookServiceName string
-	// Max time (in seconds) for checking the validating webhook.
+	// Max time for checking the validating webhook.
 	// If the validating webhook is not ready in the given time, exit.
 	// Otherwise, apply the webhook configuration.
-	maxTimeForCheckingWebhookServer int
-	// Max time (in seconds) for waiting the webhook certificate to be readable.
-	maxTimeForReadingWebhookCert int
+	maxTimeForCheckingWebhookServer time.Duration
+	// Max time for waiting the webhook certificate to be readable.
+	maxTimeForReadingWebhookCert time.Duration
 	// The name of a webhook secret in the cluster.
 	// istioctl will check whether the webhook certificate
 	// in the secret is issued by the certificate in the k8s service account or the given
@@ -81,70 +78,59 @@ type statusCliOptions struct {
 
 // Webhook command to manage webhook configurations
 func Webhook() *cobra.Command {
-	var (
-		enableOpts  = enableCliOptions{}
-		disableOpts = disableCliOptions{}
-		statusOpts  = statusCliOptions{}
-	)
-
 	cmd := &cobra.Command{
 		Use:   "webhook",
 		Short: "webhook command to manage webhook configurations",
 	}
 
-	cmd.AddCommand(newEnableCmd(&enableOpts))
-	cmd.AddCommand(newDisableCmd(&disableOpts))
-	cmd.AddCommand(newStatusCmd(&statusOpts))
+	cmd.AddCommand(newEnableCmd())
+	cmd.AddCommand(newDisableCmd())
+	cmd.AddCommand(newStatusCmd())
 
 	return cmd
 }
 
-func newEnableCmd(opts *enableCliOptions) *cobra.Command {
+func newEnableCmd() *cobra.Command {
+	opts := &enableCliOptions{}
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Enable webhook configurations",
 		Example: `
 # Enable the webhook configuration of Galley with the given webhook configuration
 istioctl experimental post-install webhook enable --validation --webhook-secret-name istio.webhook.galley 
-    --webhook-secret-namespace istio-system --namespace istio-system --config-path /etc/validatingwebhookconfiguration.yaml
+    --webhook-secret-namespace istio-system --namespace istio-system --config-path validatingwebhookconfiguration.yaml
 
 # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
 istioctl experimental post-install webhook enable --validation --webhook-secret-name istio.webhook.galley 
-    --webhook-secret-namespace istio-system --namespace istio-system --namespace istio-system
-    --config-path /etc/validatingwebhookconfiguration.yaml --ca-cert-path ./k8s-ca-cert.pem
+    --webhook-secret-namespace istio-system --namespace istio-system 
+    --config-path validatingwebhookconfiguration.yaml --ca-cert-path ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(opts.webhookConfigPath) == 0 {
-				fmt.Println("must specify a valid --config-path")
-				return nil
+				return fmt.Errorf("must specify a valid --config-path")
 			}
 			if len(opts.webhookSecretName) == 0 || len(opts.webhookSecretNameSpace) == 0 {
-				fmt.Println("must specify a valid --webhook-secret-name and --webhook-secret-namespace")
-				return nil
+				return fmt.Errorf("must specify a valid --webhook-secret-name and --webhook-secret-namespace")
 			}
 			if !opts.enableValidationWebhook {
-				fmt.Println("not enabling validation webhook")
-				return nil
+				return fmt.Errorf("not enabling validation webhook")
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				fmt.Printf("err when creating k8s client interface: %v\n", err)
-				return err
+				return fmt.Errorf("err when creating k8s client interface: %v\n", err)
 			}
 			// Read k8s CA certificate that will be used as the CA bundle of the webhook configuration
 			caCert, err := readCACert(client, opts.caCertPath, opts.webhookSecretName, opts.webhookSecretNameSpace,
-				time.Duration(opts.maxTimeForReadingWebhookCert)*time.Second)
+				opts.maxTimeForReadingWebhookCert)
 			if err != nil {
-				fmt.Printf("err when reading CA cert: %v\n", err)
-				return err
+				return fmt.Errorf("err when reading CA cert: %v\n", err)
 			}
 			fmt.Printf("Webhook CA certificate:\n%v\n", string(caCert))
 			// Apply the webhook configuration when the Galley webhook server is running.
 			err = waitForServerRunning(client, namespace, opts.validatingWebhookServiceName,
-				time.Duration(opts.maxTimeForCheckingWebhookServer)*time.Second)
+				opts.maxTimeForCheckingWebhookServer)
 			if err != nil {
-				fmt.Printf("err when checking webhook server: %v\n", err)
-				return err
+				return fmt.Errorf("err when checking webhook server: %v\n", err)
 			}
 			webhookConfig, err := buildValidatingWebhookConfig(
 				caCert,
@@ -152,17 +138,11 @@ istioctl experimental post-install webhook enable --validation --webhook-secret-
 				opts.validatingWebhookConfigName,
 			)
 			if err != nil {
-				fmt.Printf("err when build validatingwebhookconfiguration: %v\n", err)
-				return err
+				return fmt.Errorf("err when build validatingwebhookconfiguration: %v\n", err)
 			}
-			whRet, err := createValidatingWebhookConfig(client, webhookConfig)
+			_, err = createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				fmt.Printf("error when creating validatingwebhookconfiguration: %v\n", err)
-				return err
-			}
-			if whRet == nil {
-				fmt.Println("validatingwebhookconfiguration created is nil")
-				return fmt.Errorf("validatingwebhookconfiguration created is nil")
+				return fmt.Errorf("error when creating validatingwebhookconfiguration: %v\n", err)
 			}
 			return nil
 		},
@@ -171,11 +151,15 @@ istioctl experimental post-install webhook enable --validation --webhook-secret-
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Specifies whether enabling"+
 		"the validating webhook.")
-	// Specifies the local file path to webhook CA certificate.
-	// If empty, will read CA certificate from k8s service account.
-	flags.StringVar(&opts.caCertPath, "ca-cert-path", "",
-		"Specifies the local file path to webhook CA certificate. If your cluster has custom k8s CA siging "+
-			"certificate --cluster-signing-cert-file, you need to specify this parameter.")
+	// Specifies the local file path to webhook CA bundle.
+	// If empty, will read CA bundle from k8s service account.
+	flags.StringVar(&opts.caCertPath, "ca-bundle-path", "",
+		"Specifies the local file path to the k8s signing CA bundle. This parameter needs to "+
+			"be consistent with the k8s CA signing certificate, which may be customized through --cluster-signing-cert-file "+
+			"(the Kubernetes CA certificate used to sign certificates on kube-controller-manager, details in "+
+			"https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/). In the case "+
+			"that k8s signing certificate is the same as that of the k8s API server, this parameter may be configured as "+
+			"the pod certificate at /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.")
 	flags.StringVar(&opts.webhookConfigPath, "config-path", "",
 		"Specifies the file path of the webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
@@ -187,16 +171,17 @@ istioctl experimental post-install webhook enable --validation --webhook-secret-
 			"in the secret is issued by the CA certificate in the k8s service account or the given CA certificate, if any.")
 	flags.StringVar(&opts.webhookSecretNameSpace, "webhook-secret-namespace", "",
 		"The namespace of a webhook secret in the cluster, which is used together with --webhook-secret-name.")
-	flags.IntVar(&opts.maxTimeForCheckingWebhookServer, "timeout", 60,
-		"	Max time (in seconds) for checking the validating webhook server. If the validating webhook server is not ready"+
+	flags.DurationVar(&opts.maxTimeForCheckingWebhookServer, "timeout", 60*time.Second,
+		"	Max time for checking the validating webhook server. If the validating webhook server is not ready"+
 			"in the given time, exit. Otherwise, apply the webhook configuration.")
-	flags.IntVar(&opts.maxTimeForReadingWebhookCert, "read-cert-timeout", 60,
-		"	Max time (in seconds) for waiting the webhook certificate to be readable.")
+	flags.DurationVar(&opts.maxTimeForReadingWebhookCert, "read-cert-timeout", 60*time.Second,
+		"	Max time for waiting the webhook certificate to be readable.")
 
 	return cmd
 }
 
-func newDisableCmd(opts *disableCliOptions) *cobra.Command {
+func newDisableCmd() *cobra.Command {
+	opts := &disableCliOptions{}
 	cmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disable webhook configurations",
@@ -206,18 +191,15 @@ istioctl experimental post-install webhook disable --validation --config-name is
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !opts.disableValidationWebhook {
-				fmt.Println("not disabling validation webhook")
-				return nil
+				return fmt.Errorf("not disabling validation webhook")
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				fmt.Printf("err when creating k8s client interface: %v\n", err)
-				return err
+				return fmt.Errorf("err when creating k8s client interface: %v\n", err)
 			}
 			err = deleteValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
 			if err != nil {
-				fmt.Printf("error when deleting validatingwebhookconfiguration: %v\n", err)
-				return err
+				return fmt.Errorf("error when deleting validatingwebhookconfiguration: %v\n", err)
 			}
 			fmt.Printf("validatingwebhookconfiguration %v has been deleted\n", opts.validatingWebhookConfigName)
 			return nil
@@ -233,7 +215,8 @@ istioctl experimental post-install webhook disable --validation --config-name is
 	return cmd
 }
 
-func newStatusCmd(opts *statusCliOptions) *cobra.Command {
+func newStatusCmd() *cobra.Command {
+	opts := &statusCliOptions{}
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Get webhook configurations",
@@ -243,23 +226,19 @@ istioctl experimental post-install webhook status --validation --config-name ist
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !opts.validationWebhook {
-				fmt.Println("not displaying validation webhook")
-				return nil
+				return fmt.Errorf("not displaying validation webhook status")
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				fmt.Printf("err when creating k8s client interface: %v\n", err)
-				return err
+				return fmt.Errorf("err when creating k8s client interface: %v\n", err)
 			}
 			config, err := getValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
 			if err != nil {
-				fmt.Printf("error getting validatingwebhookconfiguration: %v\n", err)
-				return err
+				return fmt.Errorf("error getting validatingwebhookconfiguration: %v\n", err)
 			}
 			b, err := yaml.Marshal(config)
 			if err != nil {
-				fmt.Printf("error when marshaling validatingwebhookconfiguration to yaml: %v\n", err)
-				return err
+				return fmt.Errorf("error when marshaling validatingwebhookconfiguration to yaml: %v\n", err)
 			}
 			fmt.Printf("validatingwebhookconfiguration %v is:\n%v\n", opts.validatingWebhookConfigName, string(b))
 			return nil
@@ -280,9 +259,6 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 	config *v1beta1.ValidatingWebhookConfiguration) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	var whConfig *v1beta1.ValidatingWebhookConfiguration
 	var err error
-	if config == nil {
-		return nil, fmt.Errorf("validatingwebhookconfiguration is nil")
-	}
 	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	_, err = client.Get(config.Name, metav1.GetOptions{})
 	if err == nil {
@@ -297,29 +273,25 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 
 // Delete the validatingwebhookconfiguration
 func deleteValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) error {
-	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-	err := client.Delete(name, &metav1.DeleteOptions{})
-	return err
+	return k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, &metav1.DeleteOptions{})
 }
 
 // Get the validatingwebhookconfiguration
 func getValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) (*v1beta1.ValidatingWebhookConfiguration, error) {
-	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-	return client.Get(name, metav1.GetOptions{})
+	return k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, metav1.GetOptions{})
 }
 
 // Read CA certificate and check whether it is a valid certificate.
 func readCACert(client kubernetes.Interface, certPath, secretName, secretNamespace string, maxWaitTime time.Duration) ([]byte, error) {
 	var caCert []byte
 	var err error
-	readLocal := len(certPath) > 0
-	if readLocal {
+	if len(certPath) > 0 { // read the CA certificate from a local file
 		caCert, err = ioutil.ReadFile(certPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", certPath, err)
 		}
 	} else {
-		// Read CA certificate from default service account
+		// Read the CA certificate from the default service account
 		caCert, err = readCACertFromSA(client, caCertServiceAccountNamespace, caCertServiceAccount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA cert from %v/%v, error: %v",
