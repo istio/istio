@@ -28,11 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/monitoring"
-
 	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
-	caitf "istio.io/istio/security/pkg/pki/cainterface"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -100,12 +98,11 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	rootCertFile := ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
-	metrics := monitoring.MonitoringMetrics{}
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
 		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, metrics)
+		rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -192,12 +189,11 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	const rootCertFile = ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
-	metrics := monitoring.MonitoringMetrics{}
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
 		caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, metrics)
+		rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -259,7 +255,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	const rootCertFile = ""
 	readSigningCertOnly := true
 	rootCertCheckInverval := time.Hour
-	metrics := monitoring.MonitoringMetrics{}
 
 	client := fake.NewSimpleClientset()
 
@@ -270,7 +265,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, caCertTTL,
 		certTTL, rootCertCheckInverval, maxCertTTL,
 		org, false, caNamespace, time.Millisecond*10, client.CoreV1(),
-		rootCertFile, metrics)
+		rootCertFile)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	} else if err.Error() != expectedErr {
@@ -289,7 +284,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, caCertTTL,
 		certTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, metrics)
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -513,8 +508,8 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
 	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
-	if signErr.(*caitf.Error).Error() != expectedErr {
-		t.Errorf("Expected error: %s but got error: %s.", signErr.(*caitf.Error).Error(), expectedErr)
+	if signErr.(*caerror.Error).Error() != expectedErr {
+		t.Errorf("Expected error: %s but got error: %s.", signErr.(*caerror.Error).Error(), expectedErr)
 	}
 }
 

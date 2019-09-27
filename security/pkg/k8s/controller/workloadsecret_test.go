@@ -29,9 +29,9 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
-	"istio.io/istio/security/tests/mockca"
 )
 
 const (

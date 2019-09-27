@@ -28,11 +28,10 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/cmd"
-	"istio.io/istio/security/pkg/monitoring"
 
 	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
-	caitf "istio.io/istio/security/pkg/pki/cainterface"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
@@ -73,17 +72,6 @@ const (
 	// pluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
 )
-
-// CertificateAuthority contains methods to be supported by a CA.
-type CertificateAuthority interface {
-	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
-	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
-	GetCAKeyCertBundle() util.KeyCertBundle
-}
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
 // TODO(myidpt): remove IstioCAOptions.
@@ -308,12 +296,12 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
-		return nil, caitf.NewError(caitf.CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
+		return nil, caerror.NewError(caerror.CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
 	}
 
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, caitf.NewError(caitf.CSRError, err)
+		return nil, caerror.NewError(caerror.CSRError, err)
 	}
 
 	lifetime := requestedLifetime
@@ -323,13 +311,13 @@ func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	}
 	// If the requested TTL is greater than maxCertTTL, return an error
 	if requestedLifetime.Seconds() > ca.maxCertTTL.Seconds() {
-		return nil, caitf.NewError(caitf.TTLError, fmt.Errorf(
+		return nil, caerror.NewError(caerror.TTLError, fmt.Errorf(
 			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, ca.maxCertTTL))
 	}
 
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, lifetime, forCA)
 	if err != nil {
-		return nil, caitf.NewError(caitf.CertGenError, err)
+		return nil, caerror.NewError(caerror.CertGenError, err)
 	}
 
 	block := &pem.Block{

@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/istio/security/pkg/pki/cainterface"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
@@ -92,9 +92,20 @@ type DNSNameEntry struct {
 	CustomDomains []string
 }
 
+// CertificateAuthority contains methods to be supported by a CA.
+type CertificateAuthority interface {
+	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
+	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
+	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	GetCAKeyCertBundle() util.KeyCertBundle
+}
+
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca             cainterface.CertificateAuthority
+	ca             CertificateAuthority
 	certTTL        time.Duration
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
@@ -138,7 +149,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca cainterface.CertificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
+func NewSecretController(ca CertificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
@@ -443,8 +454,8 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		k8sControllerLog.Errorf("CSR signing error (%v)", signErr.Error())
-		sc.monitoring.GetCertSignError(signErr.(*cainterface.Error).ErrorType()).Increment()
-		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*cainterface.Error))
+		sc.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
+		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*caerror.Error))
 	}
 	certPEM = append(certPEM, certChainPEM...)
 
