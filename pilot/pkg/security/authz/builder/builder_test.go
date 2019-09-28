@@ -211,7 +211,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(service, nil, "a", p, true)
 
 		t.Run(tc.name, func(t *testing.T) {
 			got := b.BuildTCPFilter()
