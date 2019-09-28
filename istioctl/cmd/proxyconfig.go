@@ -328,10 +328,9 @@ func proxyConfig() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			destLoggerLevels := map[string]Level{}
 			if reset {
-				// reset logging level to `defaultOutputLevel`, and ignore the `--log_level` option
+				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
 				destLoggerLevels[defaultLoggerName] = defaultOutputLevel
 			} else if loggerLevelString != "" {
-				// parse `loggerLevelString` and update logging level of envoy
 				levels := strings.Split(loggerLevelString, ",")
 				for _, ol := range levels {
 					if !strings.Contains(ol, ":") && !strings.Contains(ol, "=") {
@@ -341,7 +340,7 @@ func proxyConfig() *cobra.Command {
 								defaultLoggerName: level,
 							}
 						} else {
-							return fmt.Errorf("unrecognized logging level name: %v", ol)
+							return fmt.Errorf("unrecognized logging level: %v", ol)
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
@@ -351,7 +350,7 @@ func proxyConfig() *cobra.Command {
 						}
 						level, ok2 := stringToLevel[loggerLevel[1]]
 						if !ok2 {
-							return fmt.Errorf("unrecognized logging level name: %v", loggerLevel[1])
+							return fmt.Errorf("unrecognized logging level: %v", loggerLevel[1])
 						}
 						destLoggerLevels[loggerLevel[0]] = level
 					}
