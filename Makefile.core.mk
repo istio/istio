@@ -329,7 +329,7 @@ fmt: format-go format-python
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
-	GOBUILDFLAGS=-i $(MAKE) build
+	GOBUILDFLAGS=-i $(MAKE) -f Makefile.core.mk build
 
 # List of all binaries to build
 BINARIES:=./istioctl/cmd/istioctl \
@@ -485,8 +485,8 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
-	$(MAKE) --keep-going $(TEST_OBJ) \
+	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
+	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
@@ -578,7 +578,7 @@ common-coverage:
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	$(MAKE) --keep-going $(RACE_TESTS) \
+	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
@@ -640,7 +640,7 @@ gcs.push.deb: deb
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
-	$(MAKE) istio.yaml
+	$(MAKE) -f Makefile.core.mk istio.yaml
 
 $(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
@@ -693,7 +693,7 @@ generate_e2e_yaml: $(e2e_files)
 
 generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
 generate_e2e_yaml_coredump:
-	$(MAKE) generate_e2e_yaml
+	$(MAKE) -f Makefile.core.mk generate_e2e_yaml
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
 $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
