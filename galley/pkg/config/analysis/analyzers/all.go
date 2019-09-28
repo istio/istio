@@ -17,6 +17,7 @@ package analyzers
 import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
@@ -24,6 +25,7 @@ import (
 // All returns all analyzers
 func All() []analysis.Analyzer {
 	return []analysis.Analyzer{
+		&gateway.IngressGatewayPortAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.DestinationAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
