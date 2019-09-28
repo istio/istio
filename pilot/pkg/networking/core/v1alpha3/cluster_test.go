@@ -902,10 +902,10 @@ func TestStatNamePattern(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(clusters[3].AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
-func TestLocalityLB(t *testing.T) {
+func TestSidecarLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
