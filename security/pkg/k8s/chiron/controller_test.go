@@ -579,7 +579,7 @@ func TestCleanUpCertGen(t *testing.T) {
 		}
 
 		// The CSR should be deleted.
-		err = wc.cleanUpCertGen(csrName)
+		err = cleanUpCertGen(wc.certClient, csrName)
 		if err != nil {
 			t.Errorf("cleanUpCertGen returns an error: %v", err)
 		}

@@ -135,7 +135,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 			continue
 		}
 
-		_, _, _, err = genKeyCertK8sCA(wc, tc.secretName, tc.secretNameSpace, tc.svcName)
+		_, _, _, err = GenKeyCertK8sCA(wc.certClient, tc.secretName, tc.secretNameSpace, tc.svcName, wc.k8sCaCertFile)
 		if tc.expectFaill {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -354,7 +354,7 @@ func TestSubmitCSR(t *testing.T) {
 			}
 		}
 
-		r, err := submitCSR(wc, csrName, []byte(csrPEM), numRetries)
+		r, err := submitCSR(wc.certClient, csrName, []byte(csrPEM), numRetries)
 		if tc.expectFaill {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -437,7 +437,7 @@ func TestReadSignedCertificate(t *testing.T) {
 
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
-		_, _, err = readSignedCertificate(wc, csrName, certReadInterval, maxNumCertRead)
+		_, _, err = readSignedCertificate(wc.certClient, csrName, certReadInterval, maxNumCertRead, wc.k8sCaCertFile)
 
 		if tc.expectFaill {
 			if err == nil {

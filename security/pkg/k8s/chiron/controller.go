@@ -114,9 +114,6 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	if len(serviceNames) != len(serviceNamespaces) {
 		return nil, fmt.Errorf("the size of service names must be the same as the size of service namespaces")
 	}
-	if len(serviceNames) == 0 {
-		return nil, fmt.Errorf("the service names must be non-empty")
-	}
 
 	c := &WebhookController{
 		gracePeriodRatio:  gracePeriodRatio,
@@ -134,26 +131,29 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	if err != nil {
 		return nil, err
 	}
-
-	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioWebhookSecretType}).String()
-	scrtLW := listwatch.MultiNamespaceListerWatcher(serviceNamespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.FieldSelector = istioSecretSelector
-				return core.Secrets(namespace).List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.FieldSelector = istioSecretSelector
-				return core.Secrets(namespace).Watch(options)
-			},
-		}
-	})
-	// The certificate rotation is handled by scrtUpdated().
-	c.scrtStore, c.scrtController =
-		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
-			DeleteFunc: c.scrtDeleted,
-			UpdateFunc: c.scrtUpdated,
+	if len(serviceNames) == 0 {
+		log.Warn("the input services are empty, no services to manage certificates for")
+	} else {
+		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioWebhookSecretType}).String()
+		scrtLW := listwatch.MultiNamespaceListerWatcher(serviceNamespaces, func(namespace string) cache.ListerWatcher {
+			return &cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+					options.FieldSelector = istioSecretSelector
+					return core.Secrets(namespace).List(options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.FieldSelector = istioSecretSelector
+					return core.Secrets(namespace).Watch(options)
+				},
+			}
 		})
+		// The certificate rotation is handled by scrtUpdated().
+		c.scrtStore, c.scrtController =
+			cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+				DeleteFunc: c.scrtDeleted,
+				UpdateFunc: c.scrtUpdated,
+			})
+	}
 
 	return c, nil
 }
@@ -168,13 +168,14 @@ func (wc *WebhookController) Run(stopCh <-chan struct{}) {
 		}
 	}
 
-	// Manage the secrets of webhooks
-	go wc.scrtController.Run(stopCh)
-
-	// upsertSecret to update and insert secret
-	// it throws error if the secret cache is not synchronized, but the secret exists in the system.
-	// Hence waiting for the cache is synced.
-	cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
+	if len(wc.serviceNames) > 0 {
+		// Manage the secrets
+		go wc.scrtController.Run(stopCh)
+		// upsertSecret to update and insert secret
+		// it throws error if the secret cache is not synchronized, but the secret exists in the system.
+		// Hence waiting for the cache is synced.
+		cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
+	}
 }
 
 func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) error {
@@ -203,7 +204,7 @@ func (wc *WebhookController) upsertSecret(secretName, secretNamespace string) er
 	}
 
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key, caCert, err := genKeyCertK8sCA(wc, secretName, secretNamespace, svcName)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient, secretName, secretNamespace, svcName, wc.k8sCaCertFile)
 	if err != nil {
 		log.Errorf("failed to generate key and certificate for secret %v in namespace %v (error %v)",
 			secretName, secretNamespace, err)
@@ -327,7 +328,7 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 		return fmt.Errorf("failed to find the service name for the secret (%v) to refresh", scrtName)
 	}
 
-	chain, key, caCert, err := genKeyCertK8sCA(wc, scrtName, namespace, svcName)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.certClient, scrtName, namespace, svcName, wc.k8sCaCertFile)
 	if err != nil {
 		return err
 	}
@@ -338,18 +339,6 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 
 	_, err = wc.core.Secrets(namespace).Update(scrt)
 	return err
-}
-
-// Clean up the CSR
-func (wc *WebhookController) cleanUpCertGen(csrName string) error {
-	// Delete CSR
-	log.Debugf("delete CSR: %v", csrName)
-	err := wc.certClient.CertificateSigningRequests().Delete(csrName, nil)
-	if err != nil {
-		log.Errorf("failed to delete CSR (%v): %v", csrName, err)
-		return err
-	}
-	return nil
 }
 
 // Return whether the input secret name is a Webhook secret

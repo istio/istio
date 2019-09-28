@@ -285,7 +285,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 	if err := s.initCertController(&args); err != nil {
-		return nil, fmt.Errorf("Chiron: %v", err)
+		return nil, fmt.Errorf("certificate controller: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
@@ -1210,9 +1210,29 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	var svcNames []string
 	var svcNamespaces []string
 	if !s.mesh.K8SCertificateSetting.Enabled {
-		log.Info("certificate controller is not enabled")
+		log.Info("k8s certificate provision is not enabled")
 		return nil
 	}
+
+	k8sClient := s.kubeClient
+	if len(s.mesh.K8SCertificateSetting.PilotService) > 0 {
+		// Generate a key and certificate for Pilot and save it
+		// a directory.
+		pilotSvcNs := strings.Split(s.mesh.K8SCertificateSetting.PilotService, ".")
+		if len(pilotSvcNs) != 2 {
+			log.Error("pilot service must have a service name and service namespace, delimited by a '.'")
+			return nil
+		}
+		// TO-DO (lei-tang):
+		// - Make a directory at s.mesh.K8SCertificateSetting.PilotCertificatePath
+		// - Generate Pilot certificate by calling
+		// chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1(), pilotSvcNs[0] + ".secret",
+		// pilotSvcNs[1], pilotSvcNs[0], s.mesh.K8SCertificateSetting.CaBundleFile).
+		// - Save the key.pem, cert-chain.pem, and root.pem to the directory.
+	}
+
+	// Provision and manage the certificates for non-Pilot services.
+	// If services are empty, the certificate controller will do nothing.
 	for _, svc := range s.mesh.K8SCertificateSetting.Services {
 		s := strings.Split(svc, ".")
 		if len(s) != 2 {
@@ -1220,15 +1240,12 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			return nil
 		}
 	}
-
-	k8sClient := s.kubeClient
 	s.certController, err = chiron.NewWebhookController(DefaultCertGracePeriodRatio, DefaultMinCertGracePeriod,
 		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
 		s.mesh.K8SCertificateSetting.CaBundleFile, svcNames, svcNamespaces)
 	if err != nil {
-		return fmt.Errorf("failed to create Chiron: %v", err)
+		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}
-
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
 			// Run Chiron to manage the lifecycles of certificates
