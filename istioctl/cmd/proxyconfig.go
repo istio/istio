@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -49,7 +50,7 @@ var (
 type Level int
 
 const (
-	DefaultLoggerName  = "level"
+	defaultLoggerName  = "level"
 	defaultOutputLevel = WarningLevel
 )
 
@@ -136,8 +137,8 @@ var stringToLevel = map[string]Level{
 }
 
 var (
-	logLevelString = ""
-	reset          = false
+	loggerLevelString = ""
+	reset             = false
 )
 
 func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
@@ -158,7 +159,7 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 	return cw, nil
 }
 
-func setupLoggingEnvoyConfigWriter(param, podName, podNamespace string) ([]byte, error) {
+func setEnvoyLogConfig(param, podName, podNamespace string) ([]byte, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
@@ -303,24 +304,24 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
 
-	loggingCmd := &cobra.Command{
-		Use:   "logging <pod-name[.namespace]>",
+	logCmd := &cobra.Command{
+		Use:   "log <pod-name[.namespace]>",
 		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
 		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
-  istioctl proxy-config logging <pod-name[.namespace]>
+  istioctl proxy-config log <pod-name[.namespace]>
 
   # Update levels of the specified loggers and retrieve all the information about logging levels.
-  istioctl proxy-config logging <pod-name[.namespace]> --log_level=all:debug
+  istioctl proxy-config log <pod-name[.namespace]> --level all:warning,http:debug,redis:debug
 
   # Reset levels of all the loggers to default value (warning) and retrieve all the information about logging levels.
-  istioctl proxy-config logging <pod-name[.namespace]> -r
+  istioctl proxy-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("logging requires pod name")
+				return fmt.Errorf("log command requires pod name")
 			}
 			return nil
 		},
@@ -328,30 +329,29 @@ func proxyConfig() *cobra.Command {
 			destLoggerLevels := map[string]Level{}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `--log_level` option
-				destLoggerLevels[DefaultLoggerName] = defaultOutputLevel
-			} else if logLevelString != "" {
-				// parse `logLevelString` and update logging level of envoy
-				levels := strings.Split(logLevelString, ",")
+				destLoggerLevels[defaultLoggerName] = defaultOutputLevel
+			} else if loggerLevelString != "" {
+				// parse `loggerLevelString` and update logging level of envoy
+				levels := strings.Split(loggerLevelString, ",")
 				for _, ol := range levels {
-					if !strings.Contains(ol, ":") || strings.Index(ol, "all:") == 0 {
-						level, ok := stringToLevel[ol[strings.Index(ol, ":")+1:]]
+					if !strings.Contains(ol, ":") && !strings.Contains(ol, "=") {
+						level, ok := stringToLevel[ol]
 						if ok {
 							destLoggerLevels = map[string]Level{
-								DefaultLoggerName: level,
+								defaultLoggerName: level,
 							}
-							break
+						} else {
+							return fmt.Errorf("unrecognized logging level name: %v", ol)
 						}
 					} else {
-						loggerLevel := strings.Split(ol, ":")
-						if len(loggerLevel) != 2 {
-							break
-						}
-
+						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
 						index := sort.SearchStrings(activeLoggers, loggerLevel[0])
-						ok1 := index < len(activeLoggers) && activeLoggers[index] == loggerLevel[0]
+						if ok1 := index < len(activeLoggers) && activeLoggers[index] == loggerLevel[0]; !ok1 {
+							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+						}
 						level, ok2 := stringToLevel[loggerLevel[1]]
-						if !ok1 || !ok2 {
-							break
+						if !ok2 {
+							return fmt.Errorf("unrecognized logging level name: %v", loggerLevel[1])
 						}
 						destLoggerLevels[loggerLevel[0]] = level
 					}
@@ -362,10 +362,15 @@ func proxyConfig() *cobra.Command {
 			var resp []byte
 			var err error
 			if len(destLoggerLevels) == 0 {
-				resp, err = setupLoggingEnvoyConfigWriter("", podName, ns)
+				resp, err = setEnvoyLogConfig("", podName, ns)
 			} else {
-				for l, level := range destLoggerLevels {
-					resp, err = setupLoggingEnvoyConfigWriter(l+"="+levelToString[level], podName, ns)
+				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+					// update levels of all loggers first
+					resp, err = setEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
+					delete(destLoggerLevels, defaultLoggerName)
+				}
+				for lg, ll := range destLoggerLevels {
+					resp, err = setEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
 				}
 			}
 			if err != nil {
@@ -385,8 +390,8 @@ func proxyConfig() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
-	loggingCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset logging level to default value (warning).")
-	loggingCmd.PersistentFlags().StringVar(&logLevelString, "log_level", logLevelString,
+	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset log level to default value (warning).")
+	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" <logger>:<level>,<logger>:<level>,... where logger can be one of %s and level can be one of %s",
 			s, levelListString))
@@ -550,7 +555,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	configCmd.AddCommand(
-		clusterConfigCmd, listenerConfigCmd, loggingCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd, secretConfigCmd)
+		clusterConfigCmd, listenerConfigCmd, logCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd, secretConfigCmd)
 
 	return configCmd
 }
