@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -159,10 +158,10 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 	return cw, nil
 }
 
-func setEnvoyLogConfig(param, podName, podNamespace string) ([]byte, error) {
+func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create k8s client: %v", err)
+		return "", fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "logging"
 	if param != "" {
@@ -170,9 +169,13 @@ func setEnvoyLogConfig(param, podName, podNamespace string) ([]byte, error) {
 	}
 	result, err := kubeClient.EnvoyDo(podName, podNamespace, "POST", path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
+		return "", fmt.Errorf("failed to execute command on envoy: %v", err)
 	}
-	return result, nil
+	return string(result), nil
+}
+
+func validateCurLogger(loggers, cur string) bool {
+	return false
 }
 
 // TODO(fisherxu): migrate this to config dump when implemented in Envoy
@@ -321,11 +324,17 @@ func proxyConfig() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("log command requires pod name")
+				return fmt.Errorf("log requires pod name")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			loggerNames, err := setupEnvoyLogConfig("", podName, ns)
+			if err != nil {
+				return err
+			}
+
 			destLoggerLevels := map[string]Level{}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
@@ -344,12 +353,11 @@ func proxyConfig() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						index := sort.SearchStrings(activeLoggers, loggerLevel[0])
-						if ok1 := index < len(activeLoggers) && activeLoggers[index] == loggerLevel[0]; !ok1 {
+						if !strings.Contains(loggerNames, loggerLevel[0]) {
 							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 						}
-						level, ok2 := stringToLevel[loggerLevel[1]]
-						if !ok2 {
+						level, ok := stringToLevel[loggerLevel[1]]
+						if !ok {
 							return fmt.Errorf("unrecognized logging level: %v", loggerLevel[1])
 						}
 						destLoggerLevels[loggerLevel[0]] = level
@@ -357,25 +365,23 @@ func proxyConfig() *cobra.Command {
 				}
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			var resp []byte
-			var err error
+			var resp string
 			if len(destLoggerLevels) == 0 {
-				resp, err = setEnvoyLogConfig("", podName, ns)
+				resp, err = setupEnvoyLogConfig("", podName, ns)
 			} else {
 				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
 					// update levels of all loggers first
-					resp, err = setEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
 					delete(destLoggerLevels, defaultLoggerName)
 				}
 				for lg, ll := range destLoggerLevels {
-					resp, err = setEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
 				}
 			}
 			if err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), string(resp))
+			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 			return nil
 		},
 	}

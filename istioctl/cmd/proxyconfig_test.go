@@ -53,6 +53,9 @@ func TestProxyConfig(t *testing.T) {
 	endpointConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/clusters/testdata/clusters.json", t),
 	}
+	loggingConfig := map[string][]byte{
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/logging/testdata/logging.txt", t),
+	}
 	cases := []execTestCase{
 		{
 			args:           strings.Split("proxy-config", " "),
@@ -77,25 +80,29 @@ func TestProxyConfig(t *testing.T) {
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config logging invalid" should fail
 		},
-		{
-			args:           strings.Split("proxy-config log valid --level xxx", " "),
-			expectedString: "unrecognized logging level: xxx",
-			wantException:  true,
+		{ // logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx", " "),
+			expectedString:   "unrecognized logging level: xxx",
+			wantException:    true,
 		},
-		{
-			args:           strings.Split("proxy-config log valid --level xxx:debug", " "),
-			expectedString: "unrecognized logger name: xxx",
-			wantException:  true,
+		{ // logger name invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx:debug", " "),
+			expectedString:   "unrecognized logger name: xxx",
+			wantException:    true,
 		},
-		{
-			args:           strings.Split("proxy-config log valid --level http:yyy", " "),
-			expectedString: "unrecognized logging level: yyy",
-			wantException:  true,
+		{ // logger name valid, but logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level http:yyy", " "),
+			expectedString:   "unrecognized logging level: yyy",
+			wantException:    true,
 		},
-		{
-			args:           strings.Split("proxy-config log valid --level xxx:yyy", " "),
-			expectedString: "unrecognized logger name: xxx",
-			wantException:  true,
+		{ // both logger name and logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx:yyy", " "),
+			expectedString:   "unrecognized logger name: xxx",
+			wantException:    true,
 		},
 		{ // routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
@@ -191,7 +198,7 @@ default           Cert Chain     ACTIVE      true           17232678821166591831
 		{ // logging no args
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config log", " "),
-			expectedString:   `Error: logging requires pod name`,
+			expectedString:   `Error: log requires pod name`,
 			wantException:    true,
 		},
 		{ // route no args
