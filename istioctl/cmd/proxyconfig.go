@@ -174,10 +174,6 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	return string(result), nil
 }
 
-func validateCurLogger(loggers, cur string) bool {
-	return false
-}
-
 // TODO(fisherxu): migrate this to config dump when implemented in Envoy
 // Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
 func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
