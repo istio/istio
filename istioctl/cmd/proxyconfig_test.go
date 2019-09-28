@@ -80,22 +80,22 @@ func TestProxyConfig(t *testing.T) {
 		{
 			args:           strings.Split("proxy-config log valid --level xxx", " "),
 			expectedString: "unrecognized logging level name: xxx",
-			wantException: true,
+			wantException:  true,
 		},
 		{
 			args:           strings.Split("proxy-config log valid --level xxx:debug", " "),
 			expectedString: "unrecognized logger name: xxx",
-			wantException: true,
+			wantException:  true,
 		},
 		{
 			args:           strings.Split("proxy-config log valid --level http:yyy", " "),
 			expectedString: "unrecognized logging level name: yyy",
-			wantException: true,
+			wantException:  true,
 		},
 		{
 			args:           strings.Split("proxy-config log valid --level xxx:yyy", " "),
 			expectedString: "unrecognized logger name: xxx",
-			wantException: true,
+			wantException:  true,
 		},
 		{ // routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
