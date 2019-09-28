@@ -1,0 +1,80 @@
+# Gateways for 8001 and 8002 correct matching
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin8001-gateway
+spec:
+  selector:
+    myapp: ingressgateway-8001
+  servers:
+  - port:
+      number: 8001
+      name: http2
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin8002-gateway
+spec:
+  selector:
+    myapp: ingressgateway-8001
+  servers:
+  - port:
+      number: 8002
+      name: http2
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    myapp: ingressgateway-8001
+  name: my-ingressgateway-8001
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    myapp: ingressgateway-8002
+  name: my-ingressgateway-8002
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-8002
+spec:
+  ports:
+  - name: http2
+    nodePort: 31380
+    port: 8002
+    protocol: TCP
+    targetPort: 80
+  selector:
+    myapp: ingressgateway-8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-8001
+spec:
+  ports:
+  - name: http2
+    port: 8001
+    protocol: TCP
+  selector:
+    myapp: ingressgateway-8001
+    

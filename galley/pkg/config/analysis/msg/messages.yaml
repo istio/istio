@@ -69,3 +69,14 @@ messages:
         type: string
       - name: namespace
         type: string
+
+  - name: "GatewayPortNotOnWorkload"
+    code: IST0104
+    level: Warning
+    description: "Unhandled gateway port"
+    template: "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)"
+    args:
+      - name: selector
+        type: string
+      - name: port
+        type: int
