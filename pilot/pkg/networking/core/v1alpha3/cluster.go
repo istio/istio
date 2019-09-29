@@ -228,7 +228,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			destinationRule := autoFillMTLSSettings(destRule, authn_v1alpha1_applier.GetMutualTLSMode(
 				push.AuthenticationPolicyForWorkload(service, port)))
 			if destinationRule != nil {
-				destinationRule := destRule.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 				opts := buildClusterOpts{
 					env:             env,
