@@ -16,7 +16,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -27,7 +26,7 @@ import (
 	istiocmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/cmd"
-	chiron "istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -70,9 +69,9 @@ type cliOptions struct {
 	k8sCaCertFile string
 
 	// The names of the services for which Chiron manage certs
-	serviceNames string
+	serviceNames []string
 	// The namespaces of the services for which Chiron manage certs
-	serviceNamespaces string
+	serviceNamespaces []string
 
 	// The minimum grace period for cert rotation.
 	certMinGracePeriod time.Duration
@@ -113,10 +112,10 @@ func init() {
 	flags.DurationVar(&opts.certMinGracePeriod, "cert-min-grace-period",
 		DefaultMinCertGracePeriod, "The minimum certificate rotation grace period.")
 
-	flags.StringVar(&opts.serviceNames, "service-names", "istio-galley,istio-sidecar-injector",
-		"The names of the services for which Chiron manage certs.")
-	flags.StringVar(&opts.serviceNamespaces, "serviceNameSpaces", "istio-system,istio-system",
-		"The namespaces of the services for which Chiron manage certs; must be corresponding to the serviceNames parameter.")
+	flags.StringSliceVar(&opts.serviceNames, "service-names", []string{"istio-galley", "istio-sidecar-injector"},
+		"The names of the services (delimited by comma) for which Chiron manage certs.")
+	flags.StringSliceVar(&opts.serviceNamespaces, "service-namespaces", []string{"istio-system", "istio-system"},
+		"The namespaces of the services (delimited by comma) for which Chiron manage certs; must be corresponding to the serviceNames parameter.")
 
 	// Hide the command line options for the prototype
 	_ = flags.MarkHidden("enable-controller")
@@ -160,14 +159,11 @@ func runWebhookController() {
 		os.Exit(1)
 	}
 
-	serviceNames := strings.Split(opts.serviceNames, ",")
-	serviceNamespaces := strings.Split(opts.serviceNamespaces, ",")
-
 	stopCh := make(chan struct{})
 
 	wc, err := chiron.NewWebhookController(opts.certGracePeriodRatio, opts.certMinGracePeriod,
 		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
-		opts.k8sCaCertFile, serviceNames, serviceNamespaces)
+		opts.k8sCaCertFile, opts.serviceNames, opts.serviceNamespaces)
 
 	if err != nil {
 		log.Errorf("failed to create webhook controller: %v", err)

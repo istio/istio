@@ -30,13 +30,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/security/pkg/k8s/chiron"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"google.golang.org/grpc"
@@ -1209,6 +1210,10 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	var err error
 	var svcNames []string
 	var svcNamespaces []string
+	if s.mesh.K8SCertificateSetting == nil {
+		log.Info("nil k8s certificate config")
+		return nil
+	}
 	if !s.mesh.K8SCertificateSetting.Enabled {
 		log.Info("k8s certificate provision is not enabled")
 		return nil
@@ -1216,19 +1221,44 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 	k8sClient := s.kubeClient
 	if len(s.mesh.K8SCertificateSetting.PilotService) > 0 {
-		// Generate a key and certificate for Pilot and save it
-		// a directory.
+		// Generate a key and certificate for Pilot and save it into a directory.
 		pilotSvcNs := strings.Split(s.mesh.K8SCertificateSetting.PilotService, ".")
 		if len(pilotSvcNs) != 2 {
-			log.Error("pilot service must have a service name and service namespace, delimited by a '.'")
+			return fmt.Errorf("pilot service must have a service name and service namespace, delimited by a '.'")
+		}
+		if len(s.mesh.K8SCertificateSetting.PilotCertificatePath) == 0 {
+			return fmt.Errorf("empty path for Pilot key and certificate")
+		}
+		// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
+		if _, err := os.Stat(s.mesh.K8SCertificateSetting.PilotCertificatePath); os.IsNotExist(err) {
+			err := os.Mkdir(s.mesh.K8SCertificateSetting.PilotCertificatePath, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("err to create directory %v: %v", s.mesh.K8SCertificateSetting.PilotCertificatePath, err)
+			}
+		}
+		// Generate Pilot certificate
+		certChain, keyPEM, caCert, err := chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1(), pilotSvcNs[0]+".csr.secret",
+			pilotSvcNs[1], pilotSvcNs[0], s.mesh.K8SCertificateSetting.CaBundleFile)
+		if err != nil {
+			log.Errorf("err to generate key cert for (%v): %v", s.mesh.K8SCertificateSetting.PilotService, err)
 			return nil
 		}
-		// TO-DO (lei-tang):
-		// - Make a directory at s.mesh.K8SCertificateSetting.PilotCertificatePath
-		// - Generate Pilot certificate by calling
-		// chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1(), pilotSvcNs[0] + ".secret",
-		// pilotSvcNs[1], pilotSvcNs[0], s.mesh.K8SCertificateSetting.CaBundleFile).
-		// - Save the key.pem, cert-chain.pem, and root.pem to the directory.
+		// Save cert-chain.pem, root.pem, and key.pem to the directory.
+		file := path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "cert-chain.pem")
+		if err = ioutil.WriteFile(file, certChain, 0644); err != nil {
+			log.Errorf("err to write cert-chain.pem (%v): %v", file, err)
+			return nil
+		}
+		file = path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "root.pem")
+		if err = ioutil.WriteFile(file, caCert, 0644); err != nil {
+			log.Errorf("err to write root.pem (%v): %v", file, err)
+			return nil
+		}
+		file = path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "key.pem")
+		if err = ioutil.WriteFile(file, keyPEM, 0600); err != nil {
+			log.Errorf("err to write key.pem (%v): %v", file, err)
+			return nil
+		}
 	}
 
 	// Provision and manage the certificates for non-Pilot services.
