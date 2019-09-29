@@ -54,11 +54,19 @@ type PushContext struct {
 	defaultVirtualServiceExportTo  map[visibility.Instance]bool
 	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
+	// Service related
+	// TODO: move to a sub struct
+
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
 	// publicServices are services reachable within the mesh.
 	publicServices []*Service
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
+	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
+	// VirtualService related
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
@@ -84,18 +92,12 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
-	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
-
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
-
-	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
@@ -694,7 +696,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment) error {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
 	ps.Mutex.Lock()
 	defer ps.Mutex.Unlock()
 	if ps.initDone {
@@ -708,11 +710,24 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	// use the default export map
 	ps.initDefaultExportMaps()
 
-	if err = ps.initServiceRegistry(env); err != nil {
-		return err
+	// create new or incremental update
+	if pushReq == nil || oldPushContext == nil || len(pushReq.ConfigTypesUpdated) == 0 {
+		if err = ps.createNewContext(env); err != nil {
+			return err
+		}
+	} else {
+		if err = ps.updateContext(env, oldPushContext, pushReq); err != nil {
+			return nil
+		}
 	}
 
-	if err = ps.initAuthnPolicies(env); err != nil {
+	ps.initDone = true
+	return nil
+}
+
+func (ps *PushContext) createNewContext(env *Environment) error {
+	var err error
+	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
 
@@ -721,6 +736,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	if err = ps.initDestinationRules(env); err != nil {
+		return err
+	}
+
+	if err = ps.initAuthnPolicies(env); err != nil {
 		return err
 	}
 
@@ -741,8 +760,103 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
+	return nil
+}
 
-	ps.initDone = true
+func (ps *PushContext) updateContext(
+	env *Environment,
+	oldPushContext *PushContext,
+	pushReq *PushRequest) (err error) {
+	var servicesChanged, virtualServicesChanged, destinationRulesChanged,
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+
+	for k := range pushReq.ConfigTypesUpdated {
+		switch k {
+		case schemas.ServiceEntry.Type:
+			servicesChanged = true
+		case schemas.DestinationRule.Type:
+			destinationRulesChanged = true
+		case schemas.VirtualService.Type:
+			virtualServicesChanged = true
+		case schemas.Sidecar.Type:
+			sidecarsChanged = true
+		case schemas.EnvoyFilter.Type:
+			envoyFiltersChanged = true
+		case schemas.ServiceRoleBinding.Type, schemas.ServiceRole.Type,
+			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
+			schemas.AuthorizationPolicy.Type:
+			authzChanged = true
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+			authnChanged = true
+		}
+	}
+
+	if servicesChanged {
+		// Services have changed. initialize service registry
+		if err = ps.initServiceRegistry(env); err != nil {
+			return err
+		}
+	} else {
+		// copy all the relevant data structures from old push context
+		ps.privateServicesByNamespace = oldPushContext.privateServicesByNamespace
+		ps.publicServices = oldPushContext.publicServices
+		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+		ps.ServiceByHostnameAndNamespace = oldPushContext.ServiceByHostnameAndNamespace
+	}
+
+	if virtualServicesChanged {
+		if err = ps.initVirtualServices(env); err != nil {
+			return err
+		}
+	} else {
+		ps.publicVirtualServices = oldPushContext.publicVirtualServices
+		ps.privateVirtualServicesByNamespace = oldPushContext.privateVirtualServicesByNamespace
+	}
+
+	if destinationRulesChanged {
+		if err = ps.initDestinationRules(env); err != nil {
+			return err
+		}
+	} else {
+		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
+		ps.allExportedDestRules = oldPushContext.allExportedDestRules
+		ps.namespaceExportedDestRules = oldPushContext.namespaceExportedDestRules
+	}
+	if authnChanged {
+		if err = ps.initAuthnPolicies(env); err != nil {
+			return err
+		}
+	} else {
+		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+	}
+
+	if authzChanged {
+		if err = ps.initAuthorizationPolicies(env); err != nil {
+			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+			return err
+		}
+	} else {
+		ps.AuthzPolicies = oldPushContext.AuthzPolicies
+	}
+
+	if envoyFiltersChanged {
+		if err = ps.initEnvoyFilters(env); err != nil {
+			return err
+		}
+	} else {
+		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
+	}
+
+	// Must be initialized in the end
+	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+		if err = ps.initSidecarScopes(env); err != nil {
+			return err
+		}
+	} else {
+		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+	}
+
 	return nil
 }
 
