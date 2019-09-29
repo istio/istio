@@ -192,10 +192,9 @@ func getLogLevelFromConfigMap() (string, error) {
 		} `json:"sidecarInjectorWebhook"`
 	}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
-		return "", fmt.Errorf("failed to parse values config: %v [%v]\n", err, valuesConfig)
-	} else {
-		return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
+		return "", fmt.Errorf("failed to parse values config: %v [%v]", err, valuesConfig)
 	}
+	return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
 }
 
 // TODO(fisherxu): migrate this to config dump when implemented in Envoy
