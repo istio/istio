@@ -18,8 +18,7 @@ import (
 	"sync"
 	"time"
 
-	// TODO: Referencing this package directly, as duplicating it causes conflicts.
-	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/config/monitoring"
 )
 
 const (

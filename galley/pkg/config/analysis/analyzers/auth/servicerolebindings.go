@@ -52,6 +52,11 @@ func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Entry, ctx a
 	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
+	// If no servicerole is defined at all, just skip. The field is required, but that should be enforced elsewhere.
+	if srb.RoleRef == nil {
+		return
+	}
+
 	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewName(ns, srb.RoleRef.Name)) {
 		ctx.Report(metadata.IstioRbacV1Alpha1Servicerolebindings, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
 	}

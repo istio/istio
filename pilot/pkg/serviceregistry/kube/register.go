@@ -118,7 +118,7 @@ func addLabelsAndAnnotations(obj *meta_v1.ObjectMeta, labels []string, annotatio
 // optional labels.
 func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
 	ip string, portsList []NamedPort, labels []string, annotations []string) error {
-	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	getOpt := meta_v1.GetOptions{}
 	_, err := client.CoreV1().Services(namespace).Get(svcName, getOpt)
 	if err != nil {
 		log.Warnf("Got '%v' looking up svc '%s' in namespace '%s', attempting to create it", err, svcName, namespace)

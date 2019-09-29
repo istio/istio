@@ -28,6 +28,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 )
 
 //	Virtual service topology
@@ -47,10 +49,11 @@ import (
 //
 
 type VirtualServiceMirrorConfig struct {
-	Name      string
-	Namespace string
-	Absent    bool
-	Percent   float64
+	Name       string
+	Namespace  string
+	Absent     bool
+	Percent    float64
+	MirrorHost string
 }
 
 type testCaseMirror struct {
@@ -59,6 +62,10 @@ type testCaseMirror struct {
 	percentage float64
 	threshold  float64
 }
+
+var (
+	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
+)
 
 func TestMirroring(t *testing.T) {
 	cases := []testCaseMirror{
@@ -113,6 +120,7 @@ func TestMirroring(t *testing.T) {
 						ns.Name(),
 						c.absent,
 						c.percentage,
+						instances[2].Config().Service,
 					}
 
 					deployment := tmpl.EvaluateOrFail(t,
@@ -124,11 +132,12 @@ func TestMirroring(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Failed to get workloads. Error: %v", err)
 					}
+					mirrorClusterName := fmt.Sprintf("%s.%s.svc.%s", instances[2].Config().Service, instances[2].Config().Namespace.Name(), instances[2].Config().Domain)
 
 					for _, w := range workloads {
 						if err = w.Sidecar().WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 							validator := structpath.ForProto(cfg)
-							if err = checkIfMirrorWasApplied(instances[1], instances[2], c, validator); err != nil {
+							if err = checkIfMirrorWasApplied(instances[1], mirrorClusterName, c, validator); err != nil {
 								return false, err
 							}
 							return true, nil
@@ -137,15 +146,19 @@ func TestMirroring(t *testing.T) {
 						}
 					}
 
-					testID := util.RandomString(16)
-					sendTrafficMirror(t, instances, testID)
-					verifyTrafficMirror(t, instances, c, testID)
+					for _, proto := range mirrorProtocols {
+						t.Run(string(proto), func(t *testing.T) {
+							testID := util.RandomString(16)
+							sendTrafficMirror(t, instances, proto, testID)
+							verifyTrafficMirror(t, instances, c, testID)
+						})
+					}
 				})
 			}
 		})
 }
 
-func checkIfMirrorWasApplied(target, mirror echo.Instance, tc testCaseMirror, validator *structpath.Instance) error {
+func checkIfMirrorWasApplied(target echo.Instance, mirrorClusterName string, tc testCaseMirror, validator *structpath.Instance) error {
 	for _, port := range target.Config().Ports {
 		vsName := vsName(target, port)
 		instance := validator.Select(
@@ -155,7 +168,7 @@ func checkIfMirrorWasApplied(target, mirror echo.Instance, tc testCaseMirror, va
 		if tc.percentage > 0 {
 			instance.Exists("{.requestMirrorPolicy}")
 
-			clusterName := clusterName(mirror, port)
+			clusterName := fmt.Sprintf("outbound|%d||%s", port.ServicePort, mirrorClusterName)
 			instance.Equals(clusterName, "{.requestMirrorPolicy.cluster}")
 
 			instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
@@ -175,7 +188,20 @@ func vsName(target echo.Instance, port echo.Port) string {
 	return fmt.Sprintf("%s.%s.svc.%s:%d", cfg.Service, cfg.Namespace.Name(), cfg.Domain, port.ServicePort)
 }
 
-func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, testID string) {
+func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, proto protocol.Instance, testID string) {
+	options := echo.CallOptions{
+		Target:   instances[1],
+		Count:    50,
+		PortName: strings.ToLower(string(proto)),
+	}
+	switch proto {
+	case protocol.HTTP:
+		options.Path = "/" + testID
+	case protocol.GRPC:
+		options.Message = testID
+	default:
+		t.Fatalf("protocol not supported in mirror testing: %s", proto)
+	}
 	const totalThreads = 10
 	errs := make(chan error, totalThreads)
 
@@ -184,12 +210,7 @@ func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, testID string) 
 
 	for i := 0; i < totalThreads; i++ {
 		go func() {
-			_, err := instances[0].Call(echo.CallOptions{
-				Target:   instances[1],
-				PortName: "http",
-				Path:     "/" + testID,
-				Count:    50,
-			})
+			_, err := instances[0].Call(options)
 			if err != nil {
 				errs <- err
 			}
@@ -241,8 +262,125 @@ func logCount(t *testing.T, instance echo.Instance, testID string) float64 {
 
 	var logs string
 	for _, w := range workloads {
-		logs += w.Sidecar().LogsOrFail(t)
+		logs += w.LogsOrFail(t)
 	}
 
 	return float64(strings.Count(logs, testID))
+}
+
+// Tests mirroring to an external service. Uses same topology as the test above, a -> b -> c, with "c" being external.
+//
+// Since we don't want to rely on actual external websites, we simulate that by using a Sidecar to limit connectivity
+// from "a" so that it cannot reach "c" directly, and we use a ServiceEntry to define our "external" website, which
+// is static and points to the service "c" ip.
+
+// Thus when "a" tries to mirror to the external service, it is actually connecting to "c" (which is not part of the
+// mesh because of the Sidecar), then we can inspect "c" logs to verify the requests were properly mirrored.
+
+const (
+	fakeExternalURL = "external-website-url-just-for-testing.extension"
+
+	serviceEntry = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  hosts:
+  - %s
+  location: MESH_EXTERNAL
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: grpc
+    number: 7070
+    protocol: GRPC
+  resolution: STATIC
+  endpoints:
+  - address: %s
+`
+
+	sidecar = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-to-service-entry
+spec:
+  egress:
+  - hosts:
+    - "istio-system/*"
+    - "./b.%s.svc.%s"
+    - "*/%s"
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+`
+)
+
+func TestMirroringExternalService(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "external",
+				Inject: true,
+			})
+
+			var instances [3]echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&instances[0], echoConfig(ns, "a")). // client
+				With(&instances[1], echoConfig(ns, "b")). // target
+				With(&instances[2], echoConfig(ns, "c")). // receives mirrored requests
+				BuildOrFail(t)
+
+			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(), instances[1].Config().Domain, fakeExternalURL))
+			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
+			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
+				t.Fatalf("failed to apply sidecar, %v", err)
+			}
+
+			c := testCaseMirror{
+				name:       "mirror-external",
+				absent:     true,
+				percentage: 100.0,
+				threshold:  0.0,
+			}
+			vsc := VirtualServiceMirrorConfig{
+				"mirror-external",
+				ns.Name(),
+				true,
+				100,
+				fakeExternalURL,
+			}
+
+			deployment := tmpl.EvaluateOrFail(t,
+				file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
+			g.ApplyConfigOrFail(t, ns, deployment)
+
+			workloads, err := instances[0].Workloads()
+			if err != nil {
+				t.Fatalf("Failed to get workloads. Error: %v", err)
+			}
+
+			for _, w := range workloads {
+				if err = w.Sidecar().WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+					validator := structpath.ForProto(cfg)
+					if err = checkIfMirrorWasApplied(instances[1], fakeExternalURL, c, validator); err != nil {
+						return false, err
+					}
+					return true, nil
+				}); err != nil {
+					t.Fatalf("Failed to apply configuration. Error: %v", err)
+				}
+			}
+
+			for _, proto := range mirrorProtocols {
+				t.Run(string(proto), func(t *testing.T) {
+					testID := util.RandomString(16)
+					sendTrafficMirror(t, instances, proto, testID)
+					verifyTrafficMirror(t, instances, c, testID)
+				})
+			}
+		})
 }
