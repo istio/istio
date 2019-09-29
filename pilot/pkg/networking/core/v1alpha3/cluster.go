@@ -157,7 +157,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 // This function should be called for each service port, with the mTLS mode for that service + port.
 func autoFillMTLSSettings(config *model.Config,
 	destServiceMTLSMode authn_v1alpha1_applier.MutualTLSMode) *networking.DestinationRule {
-	var destinationRule *networking.DestinationRule
+	destinationRule := &networking.DestinationRule{}
 	if config != nil {
 		destinationRule = config.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil && destinationRule.TrafficPolicy.Tls != nil {
@@ -178,10 +178,7 @@ func autoFillMTLSSettings(config *model.Config,
 		return destinationRule
 	}
 
-	// Injecting service-level TLS settings for ISTIO_MUTUAL. Initialize destination rule and its traffic policy if needed.
-	if destinationRule == nil {
-		destinationRule = &networking.DestinationRule{}
-	}
+	// Injecting service-level TLS settings for ISTIO_MUTUAL. Initialize its traffic policy if needed.
 	if destinationRule.TrafficPolicy == nil {
 		destinationRule.TrafficPolicy = &networking.TrafficPolicy{}
 	}
@@ -231,11 +228,40 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if destRule != nil {
 				clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
 			}
-			if destinationRule != nil {
-				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+
+			defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			opts := buildClusterOpts{
+				env:             env,
+				cluster:         defaultCluster,
+				policy:          destinationRule.TrafficPolicy,
+				port:            port,
+				serviceAccounts: serviceAccounts,
+				sni:             defaultSni,
+				clusterMode:     DefaultClusterMode,
+				direction:       model.TrafficDirectionOutbound,
+				proxy:           proxy,
+			}
+
+			applyTrafficPolicy(opts, proxy)
+			defaultCluster.Metadata = clusterMetadata
+			for _, subset := range destinationRule.Subsets {
+				subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+
+				// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
+				// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+				if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
+					lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
+				}
+				subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
+				if len(env.Mesh.OutboundClusterStatName) != 0 {
+					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
+				}
+				setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
+
 				opts := buildClusterOpts{
 					env:             env,
-					cluster:         defaultCluster,
+					cluster:         subsetCluster,
 					policy:          destinationRule.TrafficPolicy,
 					port:            port,
 					serviceAccounts: serviceAccounts,
@@ -244,59 +270,29 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 				}
-
 				applyTrafficPolicy(opts, proxy)
-				defaultCluster.Metadata = clusterMetadata
-				for _, subset := range destinationRule.Subsets {
-					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
-					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
-					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
-					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
-					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
-					if len(env.Mesh.OutboundClusterStatName) != 0 {
-						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
-					}
-					setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
-
-					opts := buildClusterOpts{
-						env:             env,
-						cluster:         subsetCluster,
-						policy:          destinationRule.TrafficPolicy,
-						port:            port,
-						serviceAccounts: serviceAccounts,
-						sni:             defaultSni,
-						clusterMode:     DefaultClusterMode,
-						direction:       model.TrafficDirectionOutbound,
-						proxy:           proxy,
-					}
-					applyTrafficPolicy(opts, proxy)
-
-					opts = buildClusterOpts{
-						env:             env,
-						cluster:         subsetCluster,
-						policy:          subset.TrafficPolicy,
-						port:            port,
-						serviceAccounts: serviceAccounts,
-						sni:             defaultSni,
-						clusterMode:     DefaultClusterMode,
-						direction:       model.TrafficDirectionOutbound,
-						proxy:           proxy,
-					}
-					applyTrafficPolicy(opts, proxy)
-
-					updateEds(subsetCluster)
-
-					subsetCluster.Metadata = clusterMetadata
-					// call plugins
-					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(inputParams, subsetCluster)
-					}
-					clusters = append(clusters, subsetCluster)
+				opts = buildClusterOpts{
+					env:             env,
+					cluster:         subsetCluster,
+					policy:          subset.TrafficPolicy,
+					port:            port,
+					serviceAccounts: serviceAccounts,
+					sni:             defaultSni,
+					clusterMode:     DefaultClusterMode,
+					direction:       model.TrafficDirectionOutbound,
+					proxy:           proxy,
 				}
+				applyTrafficPolicy(opts, proxy)
+
+				updateEds(subsetCluster)
+
+				subsetCluster.Metadata = clusterMetadata
+				// call plugins
+				for _, p := range configgen.Plugins {
+					p.OnOutboundCluster(inputParams, subsetCluster)
+				}
+				clusters = append(clusters, subsetCluster)
 			}
 
 			updateEds(defaultCluster)
