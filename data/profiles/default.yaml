@@ -234,6 +234,12 @@ spec:
             rollingUpdate:
               maxSurge: "100%"
               maxUnavailable: "25%"
+  # Istio CNI feature
+  cni:
+    enabled: false
+    components:
+      cni:
+        enabled: false
 
 # Global values passed through to helm global.yaml.
   values:

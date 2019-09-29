@@ -49,6 +49,7 @@ const (
 	ConfigManagementFeatureName  FeatureName = "ConfigManagement"
 	AutoInjectionFeatureName     FeatureName = "AutoInjection"
 	GatewayFeatureName           FeatureName = "Gateways"
+	CNIFeatureName               FeatureName = "Cni"
 	ThirdPartyFeatureName        FeatureName = "ThirdParty"
 )
 
@@ -76,7 +77,7 @@ const (
 	PrometheusOperatorComponentName ComponentName = "PrometheusOperator"
 	GrafanaComponentName            ComponentName = "Grafana"
 	KialiComponentName              ComponentName = "Kiali"
-	CNIComponentName                ComponentName = "CNI"
+	CNIComponentName                ComponentName = "Cni"
 	TracingComponentName            ComponentName = "Tracing"
 )
 
@@ -93,14 +94,13 @@ var (
 		NodeAgentComponentName:       SecurityFeatureName,
 		IngressComponentName:         GatewayFeatureName,
 		EgressComponentName:          GatewayFeatureName,
+		CNIComponentName:             CNIFeatureName,
 		// External
 		PrometheusComponentName:         ThirdPartyFeatureName,
 		PrometheusOperatorComponentName: ThirdPartyFeatureName,
 		GrafanaComponentName:            ThirdPartyFeatureName,
 		KialiComponentName:              ThirdPartyFeatureName,
 		TracingComponentName:            ThirdPartyFeatureName,
-		// ThirdParty
-		CNIComponentName: ThirdPartyFeatureName,
 	}
 )
 

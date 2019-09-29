@@ -56,6 +56,7 @@ toFeature:
     NodeAgent:          Security
     IngressGateway:     Gateways
     EgressGateway:      Gateways
+    Cni:                Cni
     Grafana:            ThirdParty
     Prometheus:         ThirdParty
     Tracing:            ThirdParty
@@ -97,9 +98,11 @@ featureMaps:
     Components:
       - IngressGateway
       - EgressGateway
+  Cni:
+    Components:
+      - Cni
   ThirdParty:
     Components:
-      - CNI
       - Grafana
       - Prometheus
       - Tracing
@@ -171,6 +174,12 @@ componentMaps:
     ContainerName:        "istio-proxy"
     HelmSubdir:           "gateways/istio-egress"
     ToHelmValuesTreeRoot: "gateways.istio-egressgateway"
+  Cni:
+    ResourceType:         "DaemonSet"
+    ResourceName:         "istio-cni-node"
+    ContainerName:        "install-cni"
+    HelmSubdir:           "istio-cni"
+    ToHelmValuesTreeRoot: "cni"
   Tracing:
     ResourceType:         "Deployment"
     ResourceName:         "istio-tracing"

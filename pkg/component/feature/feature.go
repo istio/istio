@@ -65,6 +65,8 @@ func NewFeature(ft name.FeatureName, opts *Options) IstioFeature {
 		feature = NewAutoInjectionFeature(opts)
 	case name.GatewayFeatureName:
 		feature = NewGatewayFeature(opts)
+	case name.CNIFeatureName:
+		feature = NewCNIFeature(opts)
 	case name.ThirdPartyFeatureName:
 		feature = NewThirdPartyFeature(opts)
 	}
@@ -257,7 +259,7 @@ func (f *GatewayFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
-// ThirdPartyFeature is the traffic management feature.
+// ThirdPartyFeature is the third party feature.
 type ThirdPartyFeature struct {
 	// CommonFeatureFields is the struct shared among all features.
 	CommonFeatureFields
@@ -278,6 +280,30 @@ func (f *ThirdPartyFeature) Run() error {
 
 // RenderManifest implements the IstioFeature interface.
 func (f *ThirdPartyFeature) RenderManifest() (name.ManifestMap, util.Errors) {
+	return renderComponents(f.components)
+}
+
+// CNIFeature is the cni feature.
+type CNIFeature struct {
+	// CommonFeatureFields is the struct shared among all features.
+	CommonFeatureFields
+}
+
+// NewCNIFeature creates a new CNIFeature and returns a pointer to it.
+func NewCNIFeature(opts *Options) *CNIFeature {
+	cff := buildCommonFeatureFields(opts, name.CNIFeatureName)
+	return &CNIFeature{
+		CommonFeatureFields: *cff,
+	}
+}
+
+// Run implements the IstioFeature interface.
+func (f *CNIFeature) Run() error {
+	return runComponents(f.components)
+}
+
+// RenderManifest implements the IstioFeature interface.
+func (f *CNIFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 
