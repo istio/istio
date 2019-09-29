@@ -11,6 +11,7 @@ integrationDefaults: &integrationDefaults
     - GOPATH: /go
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
+    - GOPROXY: https://proxy.golang.org
 
 # remote docker environment for one namespace. Appears to be faster
 integrationRemoteOneNamespace: &integrationRemoteOneNamespace
@@ -22,6 +23,7 @@ integrationRemoteOneNamespace: &integrationRemoteOneNamespace
         SKIP_CLEANUP: false
         ONE_NAMESPACE: 1
         TMPDIR: /go/tmp
+        GOPROXY: https://proxy.golang.org
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -51,6 +53,7 @@ jobs:
         environment:
           GOPATH: /go
           TMPDIR: /go/tmp
+          GOPROXY: https://proxy.golang.org
 
     # Can run multiple images, first is primary, all use localhost
     steps:
