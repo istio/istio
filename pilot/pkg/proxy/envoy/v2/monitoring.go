@@ -125,7 +125,7 @@ var (
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay between config change and a proxy receiving all required configuration.",
-		[]float64{.1, .5, 1,  3, 5, 10, 20, 30},
+		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
 	pushContextErrors = monitoring.NewSum(
