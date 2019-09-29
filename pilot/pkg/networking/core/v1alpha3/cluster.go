@@ -227,6 +227,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			clusters = append(clusters, defaultCluster)
 			destinationRule := autoFillMTLSSettings(destRule, authn_v1alpha1_applier.GetMutualTLSMode(
 				push.AuthenticationPolicyForWorkload(service, port)))
+			var clusterMetadata *core.Metadata
+			if destRule != nil {
+				clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+			}
 			if destinationRule != nil {
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 				opts := buildClusterOpts{
@@ -242,7 +246,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				}
 
 				applyTrafficPolicy(opts, proxy)
-				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+				defaultCluster.Metadata = clusterMetadata
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -286,7 +290,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 					updateEds(subsetCluster)
 
-					subsetCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+					subsetCluster.Metadata = clusterMetadata
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
