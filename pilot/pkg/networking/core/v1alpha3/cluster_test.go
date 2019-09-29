@@ -247,7 +247,8 @@ func buildTestClustersWithAuthNPolicy(serviceHostname string, serviceResolution 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authNPolicy proto.Message, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, authNPolicy, &model.NodeMetadata{}, istioVersion)
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule,
+		authNPolicy, &model.NodeMetadata{}, istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
@@ -1612,10 +1613,10 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
 
-	// For 9090, the settings that are explicitely specified in DR will be used (which disable TLS)
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
 
-	// Sanity check: make sure TLS is not accidently added to other clusters.
+	// Sanity check: make sure TLS is not accidentaly added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
 		g.Expect(cluster.TlsContext).To(BeNil())

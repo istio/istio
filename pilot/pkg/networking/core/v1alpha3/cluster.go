@@ -156,8 +156,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 // has (service-level) TLS settings.
 // This function should be called for each service port, with the mTLS mode for that service + port.
 func autoFillMTLSSettings(config *model.Config,
-	destServiceMTLSMode authn_v1alpha1_applier.MutualTLSMode,
-	meshEnableAutoMtls bool) *networking.DestinationRule {
+	destServiceMTLSMode authn_v1alpha1_applier.MutualTLSMode) *networking.DestinationRule {
 	var destinationRule *networking.DestinationRule
 	if config != nil {
 		destinationRule = config.Spec.(*networking.DestinationRule)
@@ -179,7 +178,7 @@ func autoFillMTLSSettings(config *model.Config,
 		return destinationRule
 	}
 
-	// Injecting service-level TLS settins for ISTIO_MUTUAL. Initialize destination rule and its traffic policy if needed.
+	// Injecting service-level TLS settings for ISTIO_MUTUAL. Initialize destination rule and its traffic policy if needed.
 	if destinationRule == nil {
 		destinationRule = &networking.DestinationRule{}
 	}
@@ -202,7 +201,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 		Node: proxy,
 	}
 	networkView := model.GetNetworkView(proxy)
-	enableAutoMTLS := env.Mesh.EnableAutoMtls != nil && env.Mesh.EnableAutoMtls.GetValue()
 
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
@@ -228,7 +226,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
 			destinationRule := autoFillMTLSSettings(destRule, authn_v1alpha1_applier.GetMutualTLSMode(
-				push.AuthenticationPolicyForWorkload(service, port)), enableAutoMTLS)
+				push.AuthenticationPolicyForWorkload(service, port)))
 			if destinationRule != nil {
 				destinationRule := destRule.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
