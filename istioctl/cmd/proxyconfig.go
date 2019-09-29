@@ -20,6 +20,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ghodss/yaml"
+	"istio.io/pkg/log"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -172,6 +175,27 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 		return "", fmt.Errorf("failed to execute command on envoy: %v", err)
 	}
 	return string(result), nil
+}
+
+func getLogLevelFromConfigMap() (string, error) {
+	valuesConfig, err := getValuesFromConfigMap(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+	var values struct {
+		SidecarInjectorWebhook struct {
+			Global struct {
+				Proxy struct {
+					LogLevel string `json:"logLevel"`
+				} `json:"proxy"`
+			} `json:"global"`
+		} `json:"sidecarInjectorWebhook"`
+	}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		return "", fmt.Errorf("failed to parse values config: %v [%v]\n", err, valuesConfig)
+	} else {
+		return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
+	}
 }
 
 // TODO(fisherxu): migrate this to config dump when implemented in Envoy
@@ -334,7 +358,15 @@ func proxyConfig() *cobra.Command {
 			destLoggerLevels := map[string]Level{}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
-				destLoggerLevels[defaultLoggerName] = defaultOutputLevel
+				levelString, _ := getLogLevelFromConfigMap()
+				level, ok := stringToLevel[levelString]
+				if ok {
+					destLoggerLevels[defaultLoggerName] = level
+				} else {
+					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value: %v",
+						levelToString[defaultOutputLevel])
+					destLoggerLevels[defaultLoggerName] = defaultOutputLevel
+				}
 			} else if loggerLevelString != "" {
 				levels := strings.Split(loggerLevelString, ",")
 				for _, ol := range levels {
