@@ -711,8 +711,6 @@ func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType 
 }
 
 // conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
-// creates and populates the config as if they are set as ISTIO_MUTUAL.
 func conditionallyConvertToIstioMtls(
 	tls *networking.TLSSettings,
 	serviceAccounts []string,
