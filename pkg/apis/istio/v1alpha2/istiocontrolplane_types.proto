@@ -15,7 +15,6 @@
 syntax = "proto3";
 
 import "k8s.io/api/core/v1/generated.proto";
-import "k8s.io/api/apps/v1/generated.proto";
 import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
@@ -189,6 +188,7 @@ message IstioControlPlaneSpec {
     ConfigManagementFeatureSpec config_management = 29;
     AutoInjectionFeatureSpec auto_injection = 30;
     GatewayFeatureSpec gateways = 31;
+    CNIFeatureSpec cni = 32;
     // Overrides for default global values.yaml.
     TypeMapStringInterface values = 50;
     // Unvalidated overrides for default global values.yaml.
@@ -325,6 +325,21 @@ message GatewayFeatureSpec {
     Components components = 50;
 }
 
+// Configuration options for cni feature.
+message CNIFeatureSpec {
+    // Selects whether gateway feature is installed. Must be set for any sub-component to be installed.
+    google.protobuf.BoolValue enabled = 1;
+
+    message Components {
+        // Namespace that cni components are installed into.
+        string namespace = 1;
+
+        CNIComponentSpec cni = 20;
+    }
+
+    Components components = 50;
+}
+
 // Configuration common to all components.
 
 // Selects whether this component is installed.
@@ -393,7 +408,7 @@ message NodeAgentComponentSpec {
     KubernetesResourcesSpec k8s = 80;
 }
 
-// Configuration options for node agent component.
+// Configuration options for galley component.
 message GalleyComponentSpec {
     google.protobuf.BoolValue enabled = 1;
     string namespace = 2;
@@ -409,6 +424,13 @@ message IngressGatewayComponentSpec {
 
 // Configuration options for egress gateways.
 message EgressGatewayComponentSpec {
+    google.protobuf.BoolValue enabled = 1;
+    string namespace = 2;
+    KubernetesResourcesSpec k8s = 80;
+}
+
+// Configuration options for cni component.
+message CNIComponentSpec {
     google.protobuf.BoolValue enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;

@@ -8,6 +8,7 @@ replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3 // indirect
+	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7

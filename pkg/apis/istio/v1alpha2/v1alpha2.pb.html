@@ -4,7 +4,7 @@ description: Configuration for Istio control plane installation through the Oper
 location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 52
+number_of_entries: 55
 ---
 <p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
@@ -203,6 +203,98 @@ value: --livenessProbeInterval=123s
 <tr id="AutoInjectionFeatureSpec-Components-injector">
 <td><code>injector</code></td>
 <td><code><a href="#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNIComponentSpec">CNIComponentSpec</h2>
+<section>
+<p>Configuration options for cni component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNIComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="CNIComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="CNIComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNIFeatureSpec">CNIFeatureSpec</h2>
+<section>
+<p>Configuration options for cni feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNIFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+</tr>
+<tr id="CNIFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#CNIFeatureSpec-Components">CNIFeatureSpec.Components</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNIFeatureSpec-Components">CNIFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNIFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that cni components are installed into.</p>
+
+</td>
+</tr>
+<tr id="CNIFeatureSpec-Components-cni">
+<td><code>cni</code></td>
+<td><code><a href="#CNIComponentSpec">CNIComponentSpec</a></code></td>
 <td>
 </td>
 </tr>
@@ -421,7 +513,7 @@ value: --livenessProbeInterval=123s
 </section>
 <h2 id="GalleyComponentSpec">GalleyComponentSpec</h2>
 <section>
-<p>Configuration options for node agent component.</p>
+<p>Configuration options for galley component.</p>
 
 <table class="message-fields">
 <thead>
@@ -836,6 +928,12 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <tr id="IstioControlPlaneSpec-gateways">
 <td><code>gateways</code></td>
 <td><code><a href="#GatewayFeatureSpec">GatewayFeatureSpec</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-cni">
+<td><code>cni</code></td>
+<td><code><a href="#CNIFeatureSpec">CNIFeatureSpec</a></code></td>
 <td>
 </td>
 </tr>
