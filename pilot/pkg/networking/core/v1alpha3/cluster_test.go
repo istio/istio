@@ -1616,7 +1616,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
 
-	// Sanity check: make sure TLS is not accidentaly added to other clusters.
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
 		g.Expect(cluster.TlsContext).To(BeNil())

@@ -78,8 +78,15 @@ func TestReachability(t *testing.T) {
 						return src != rctx.Headless || opts.Target != rctx.Headless
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// With no destination rule, success only when talking to naked server.
-						return opts.Target == rctx.Naked
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule as in previous test case.
+						if src == rctx.Naked && opts.Target == rctx.Naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != rctx.Naked && opts.Target != rctx.Naked
 					},
 				},
 				{
