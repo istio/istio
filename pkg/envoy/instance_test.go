@@ -418,7 +418,6 @@ func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint
 		"wildcard":     "0.0.0.0",
 		"adminPort":    adminPort,
 		"listenerPort": listenerPort,
-		"pilotPort":    1234,
 	}
 
 	// Read the template file.
