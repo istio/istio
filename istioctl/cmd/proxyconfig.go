@@ -21,10 +21,9 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/pkg/log"
-
-	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
