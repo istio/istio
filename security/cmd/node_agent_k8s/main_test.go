@@ -17,6 +17,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -44,6 +45,15 @@ func TestValidateOptions(t *testing.T) {
 				workloadSdsCacheOptions.InitialBackoff = 120001
 			},
 			errorMsg: "initial backoff should be within range 10 to 120000",
+		},
+		{
+			name: "eviction duration too small",
+			setExtraOptions: func() {
+				workloadSdsCacheOptions.EvictionDuration = 1 * time.Hour
+				workloadSdsCacheOptions.SecretTTL = 2 * time.Hour
+				workloadSdsCacheOptions.SecretRefreshGraceDuration = 5 * time.Minute
+			},
+			errorMsg: "EvictionDuration is less than (TTL - GraceDuration), found: 1h0m0s < 1h55m0s",
 		},
 		{
 			name: "same path for workload SDS and ingress SDS",

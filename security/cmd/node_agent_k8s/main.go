@@ -106,6 +106,11 @@ const (
 	SecretRefreshGraceDuration     = "SECRET_GRACE_DURATION"
 	secretRefreshGraceDurationFlag = "secretRefreshGraceDuration"
 
+	// The environmental variable name for the duration before a secret is evicted from cache
+	// example value format like "10m"
+	SecretEvictionDuration     = "SECRET_EVICTION_DURATION"
+	secretEvictionDurationFlag = "secretEvictionDuration"
+
 	// The environmental variable name for key rotation job running interval.
 	// example value format like "20m"
 	SecretRotationInterval     = "SECRET_JOB_RUN_INTERVAL"
@@ -245,6 +250,7 @@ var (
 	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
 	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 1*time.Hour, "").Get()
+	secretEvictionDurationEnv          = env.RegisterDurationVar(SecretEvictionDuration, 24*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
@@ -313,6 +319,10 @@ func applyEnvVars(cmd *cobra.Command) {
 		workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
 	}
 
+	if !cmd.Flag(secretEvictionDurationFlag).Changed {
+		workloadSdsCacheOptions.EvictionDuration = secretEvictionDurationEnv
+	}
+
 	if !cmd.Flag(secretRotationIntervalFlag).Changed {
 		workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	}
@@ -336,6 +346,12 @@ func validateOptions() error {
 	initBackoff := workloadSdsCacheOptions.InitialBackoff
 	if initBackoff < 10 || initBackoff > 120000 {
 		return fmt.Errorf("initial backoff should be within range 10 to 120000, found: %d", initBackoff)
+	}
+
+	if workloadSdsCacheOptions.EvictionDuration < workloadSdsCacheOptions.SecretTTL-workloadSdsCacheOptions.SecretRefreshGraceDuration {
+		return fmt.Errorf("EvictionDuration is less than (TTL - GraceDuration), found: %v < %v",
+			workloadSdsCacheOptions.EvictionDuration,
+			workloadSdsCacheOptions.SecretTTL-workloadSdsCacheOptions.SecretRefreshGraceDuration)
 	}
 
 	if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
@@ -388,7 +404,7 @@ func main() {
 	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, InitialBackoffFlag, 10,
 		"The initial backoff interval in milliseconds, must be within the range [10, 120000]")
 
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, secretEvictionDurationFlag,
 		24*time.Hour, "Secret eviction time duration")
 
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
