@@ -9,26 +9,29 @@ See [Canary deployments using Istio](https://istio.io/blog/2017/0.1-canary.html)
 
 ## Start the helloworld service
 
-Make sure you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection)
+The following commands assume you have
+[automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection)
 enabled in your cluster.
+If not, you'll need to modify them to include
+[manual sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#manual-sidecar-injection).
 
 To run both versions of the helloworld service, use the following command:
 
 ```bash
-kubectl create -f helloworld.yaml
+kubectl apply -f helloworld.yaml
 ```
 
 Alternatively, you can run just one version at a time by first defining the service:
 
 ```bash
-kubectl create -f helloworld.yaml -l app=helloworld
+kubectl apply -f helloworld.yaml -l app=helloworld
 ```
 
 and then deploying version v1, v2, or both:
 
 ```bash
-kubectl create -f helloworld.yaml -l version=v1
-kubectl create -f helloworld.yaml -l version=v2
+kubectl apply -f helloworld.yaml -l version=v1
+kubectl apply -f helloworld.yaml -l version=v2
 ```
 
 ## Configure the helloworld gateway
@@ -36,7 +39,7 @@ kubectl create -f helloworld.yaml -l version=v2
 Apply the helloworld gateway configuration:
 
 ```bash
-kubectl create -f helloworld-gateway.yaml
+kubectl apply -f helloworld-gateway.yaml
 ```
 
 Follow [these instructions](https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports)
@@ -55,7 +58,7 @@ containers in `helloworld.yaml` are configured with the request.
 The injected istio-proxy containers also include cpu requests,
 making the helloworld service ready for autoscaling.
 
-Enable autoscaling on both versoins of the service:
+Enable autoscaling on both versions of the service:
 
 ```bash
 kubectl autoscale deployment helloworld-v1 --cpu-percent=50 --min=1 --max=10
