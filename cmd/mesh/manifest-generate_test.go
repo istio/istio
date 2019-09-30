@@ -181,7 +181,8 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			for _, v := range []bool{true, false} {
-				diff, err := object.ManifestDiffWithSelectAndIgnore(got, want, diffSelect, tt.diffIgnore, v)
+				diff, err := object.ManifestDiffWithRenameSelectIgnore(got, want,
+					"", diffSelect, tt.diffIgnore, v)
 				if err != nil {
 					t.Fatal(err)
 				}

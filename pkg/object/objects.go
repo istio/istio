@@ -385,14 +385,35 @@ func ManifestDiff(a, b string, verbose bool) (string, error) {
 
 // ManifestDiffWithSelect checks the manifest differences with selected and ignored resources.
 // The selected filter will apply before the ignored filter.
-func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources string, verbose bool) (string, error) {
+func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, ignoreResources string, verbose bool) (string, error) {
+	rnm := getKeyValueMap(renameResources)
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
-	aosm, err := filterResourceWithSelectAndIgnore(a, sm, im)
+
+	ao, err := ParseK8sObjectsFromYAMLManifest(a)
 	if err != nil {
 		return "", err
 	}
-	bosm, err := filterResourceWithSelectAndIgnore(b, sm, im)
+	aom := ao.ToMap()
+
+	bo, err := ParseK8sObjectsFromYAMLManifest(b)
+	if err != nil {
+		return "", err
+	}
+	bom := bo.ToMap()
+
+	if len(rnm) != 0 {
+		aom, err = renameResource(aom, rnm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	aosm, err := filterResourceWithSelectAndIgnore(aom, sm, im)
+	if err != nil {
+		return "", err
+	}
+	bosm, err := filterResourceWithSelectAndIgnore(bom, sm, im)
 	if err != nil {
 		return "", err
 	}
@@ -400,13 +421,53 @@ func ManifestDiffWithSelectAndIgnore(a, b, selectResources, ignoreResources stri
 	return manifestDiff(aosm, bosm, im, verbose)
 }
 
-// filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
-func filterResourceWithSelectAndIgnore(a string, sm, im map[string]string) (map[string]*K8sObject, error) {
-	ao, err := ParseK8sObjectsFromYAMLManifest(a)
-	if err != nil {
-		return nil, err
+// renameResource filter the input resources with selected and ignored filter.
+func renameResource(iom map[string]*K8sObject, rnm map[string]string) (map[string]*K8sObject, error) {
+	oom := make(map[string]*K8sObject)
+	for name, obj := range iom {
+		isRenamed := false
+		for fromPat, toPat := range rnm {
+			fromRe, err := buildResourceRegexp(strings.TrimSpace(fromPat))
+			if err != nil {
+				return nil, fmt.Errorf("error building the regexp from "+
+					"rename-from string: %v, error: %v", fromPat, err)
+			}
+			if fromRe.MatchString(name) {
+				fromList := strings.Split(name, ":")
+				if len(fromList) != 3 {
+					return nil, fmt.Errorf("failed to split the old name,"+
+						" length != 3: %v", name)
+				}
+				toList := strings.Split(toPat, ":")
+				if len(toList) != 3 {
+					return nil, fmt.Errorf("failed to split the rename-to string,"+
+						" length != 3: %v", toPat)
+				}
+
+				// Use the old name if toList has "*" or ""
+				// Otherwise, use the name in toList
+				newList := make([]string, 3)
+				for i := range toList {
+					if toList[i] == "" || toList[i] == "*" {
+						newList[i] = fromList[i]
+					} else {
+						newList[i] = toList[i]
+					}
+				}
+				tk := strings.Join(newList, ":")
+				oom[tk] = obj
+				isRenamed = true
+			}
+		}
+		if !isRenamed {
+			oom[name] = obj
+		}
 	}
-	aom := ao.ToMap()
+	return oom, nil
+}
+
+// filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
+func filterResourceWithSelectAndIgnore(aom map[string]*K8sObject, sm, im map[string]string) (map[string]*K8sObject, error) {
 	aosm := make(map[string]*K8sObject)
 	for ak, av := range aom {
 		for selected := range sm {
@@ -510,6 +571,21 @@ func getObjPathMap(rs string) map[string]string {
 		kind, namespace, name, path := split[0], split[1], split[2], split[3]
 		obj := fmt.Sprintf("%v:%v:%v", kind, namespace, name)
 		rm[obj] = path
+	}
+	return rm
+}
+
+func getKeyValueMap(rs string) map[string]string {
+	rm := make(map[string]string)
+	if len(rs) == 0 {
+		return rm
+	}
+	for _, r := range strings.Split(rs, ",") {
+		split := strings.Split(r, "->")
+		if len(split) != 2 {
+			continue
+		}
+		rm[split[0]] = split[1]
 	}
 	return rm
 }

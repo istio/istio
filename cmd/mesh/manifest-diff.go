@@ -41,6 +41,10 @@ type manifestDiffArgs struct {
 	selectResources string
 	// ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources.
 	ignoreResources string
+	// renameResources identifies renamed resources before comparison.
+	// The format of each renaming pair is A->B, all renaming pairs are comma separated.
+	// e.g. Service:*:istio-pilot->Service:*:istio-control - rename istio-pilot service into istio-control
+	renameResources string
 }
 
 func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
@@ -54,6 +58,10 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 			"    Service:*:istio-pilot - compare Services called \"istio-pilot\" in all namespaces")
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
 		"ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources")
+	cmd.PersistentFlags().StringVar(&diffArgs.renameResources, "rename", "",
+		"renameResources identifies renamed resources before comparison.\n"+
+			"The format of each renaming pair is A->B, all renaming pairs are comma separated.\n"+
+			"e.g. Service:*:istio-pilot->Service:*:istio-control - rename istio-pilot service into istio-control")
 }
 
 func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
@@ -70,16 +78,19 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if diffArgs.compareDir {
-				compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.selectResources, diffArgs.ignoreResources)
+				compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.renameResources,
+					diffArgs.selectResources, diffArgs.ignoreResources)
 			} else {
-				compareManifestsFromFiles(rootArgs, args, diffArgs.selectResources, diffArgs.ignoreResources, l)
+				compareManifestsFromFiles(rootArgs, args, diffArgs.renameResources,
+					diffArgs.selectResources, diffArgs.ignoreResources, l)
 			}
 		}}
 	return cmd
 }
 
 //compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResources, ignoreResources string, l *logger) {
+func compareManifestsFromFiles(rootArgs *rootArgs, args []string,
+	renameResources, selectResources, ignoreResources string, l *logger) {
 	initLogsOrExit(rootArgs)
 
 	a, err := ioutil.ReadFile(args[0])
@@ -91,7 +102,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string, selectResource
 		l.logAndFatal(fmt.Sprintf("Could not read %q: %v\n", args[1], err.Error()))
 	}
 
-	diff, err := object.ManifestDiffWithSelectAndIgnore(string(a), string(b), selectResources,
+	diff, err := object.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
 		log.Error(err.Error())
@@ -110,7 +121,8 @@ func yamlFileFilter(path string) bool {
 }
 
 //compareManifestsFromDirs compares manifests from two directories
-func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2, selectResources, ignoreResources string) {
+func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2,
+	renameResources, selectResources, ignoreResources string) {
 	initLogsOrExit(rootArgs)
 
 	mf1, err := util.ReadFilesWithFilter(dirName1, yamlFileFilter)
@@ -124,7 +136,7 @@ func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2, selectReso
 		os.Exit(1)
 	}
 
-	diff, err := object.ManifestDiffWithSelectAndIgnore(mf1, mf2, selectResources,
+	diff, err := object.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
 		log.Error(err.Error())
