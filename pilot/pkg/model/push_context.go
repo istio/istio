@@ -711,7 +711,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || len(pushReq.ConfigTypesUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigTypesUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
