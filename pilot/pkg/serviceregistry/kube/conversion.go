@@ -161,18 +161,28 @@ func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, saname)
+	return spiffe.MustGenSpiffeURI("", ns, saname)
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
 func SecureNamingSAN(pod *coreV1.Pod) string {
-
 	//use the identity annotation
 	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {
 		return spiffe.GenCustomSpiffe(identity)
 	}
+	return spiffe.MustGenSpiffeURI("", pod.Namespace, pod.Spec.ServiceAccountName)
+}
 
-	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
+// SecureNamingSANAliases creates the secure naming aliases based on the trust domain aliases.
+func SecureNamingSANAliases(pod *coreV1.Pod) []string {
+	secureNamingAliases := []string{}
+	for _, alias := range spiffe.GetTrustDomainAliases() {
+		if alias == "" {
+			continue
+		}
+		secureNamingAliases = append(secureNamingAliases, spiffe.MustGenSpiffeURI(alias, pod.Namespace, pod.Spec.ServiceAccountName))
+	}
+	return secureNamingAliases
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

@@ -61,6 +61,7 @@ var (
 			}
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
+			spiffe.SetTrustDomainAliases(serverArgs.Config.ControllerOptions.TrustDomainAliases)
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -133,6 +134,8 @@ func init() {
 		"DNS domain suffix")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")
+	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Config.ControllerOptions.TrustDomainAliases, "trust-domain-aliases", nil,
+		"The aliases of the trust domain")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,

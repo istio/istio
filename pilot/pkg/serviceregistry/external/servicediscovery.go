@@ -268,3 +268,7 @@ func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	// service, with service instances, and dns.
 	return nil
 }
+
+func (d *ServiceEntryStore) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	return nil
+}

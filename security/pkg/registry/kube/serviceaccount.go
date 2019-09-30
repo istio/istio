@@ -79,7 +79,7 @@ func (c *ServiceAccountController) Run(stopCh chan struct{}) {
 }
 
 func getSpiffeID(sa *v1.ServiceAccount) string {
-	return spiffe.MustGenSpiffeURI(sa.GetNamespace(), sa.GetName())
+	return spiffe.MustGenSpiffeURI("", sa.GetNamespace(), sa.GetName())
 }
 
 func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {

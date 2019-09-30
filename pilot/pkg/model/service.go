@@ -257,10 +257,11 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
-	Service        *Service        `json:"service,omitempty"`
-	Labels         labels.Instance `json:"labels,omitempty"`
-	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	Endpoint              NetworkEndpoint `json:"endpoint,omitempty"`
+	Service               *Service        `json:"service,omitempty"`
+	Labels                labels.Instance `json:"labels,omitempty"`
+	ServiceAccount        string          `json:"serviceaccount,omitempty"`
+	ServiceAccountAliases []string        `json:"-"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -328,6 +329,10 @@ type IstioEndpoint struct {
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
+
+	// ServiceAccountAliases are the aliases of the ServiceAccount.
+	// This concept is the same as trust domain aliases and trust domain.
+	ServiceAccountAliases []string
 
 	// Network holds the network where this endpoint is present
 	Network string
@@ -445,6 +450,10 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
+
+	// GetIstioServiceAccountAliases returns a list of service account aliases looked up from
+	// the specified service hostname and ports.
+	GetIstioServiceAccountAliases(svc *Service, ports []int) []string
 }
 
 // Match returns true if port matches with authentication port selector criteria.

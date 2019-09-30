@@ -175,6 +175,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
+			serviceAccountAliases := push.ServiceAccountAliases[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
@@ -188,15 +189,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				destinationRule := destRule.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 				opts := buildClusterOpts{
-					env:             env,
-					cluster:         defaultCluster,
-					policy:          destinationRule.TrafficPolicy,
-					port:            port,
-					serviceAccounts: serviceAccounts,
-					sni:             defaultSni,
-					clusterMode:     DefaultClusterMode,
-					direction:       model.TrafficDirectionOutbound,
-					proxy:           proxy,
+					env:                   env,
+					cluster:               defaultCluster,
+					policy:                destinationRule.TrafficPolicy,
+					port:                  port,
+					serviceAccounts:       serviceAccounts,
+					serviceAccountAliases: serviceAccountAliases,
+					sni:                   defaultSni,
+					clusterMode:           DefaultClusterMode,
+					direction:             model.TrafficDirectionOutbound,
+					proxy:                 proxy,
 				}
 
 				applyTrafficPolicy(opts, proxy)
@@ -217,28 +219,30 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
 					opts := buildClusterOpts{
-						env:             env,
-						cluster:         subsetCluster,
-						policy:          destinationRule.TrafficPolicy,
-						port:            port,
-						serviceAccounts: serviceAccounts,
-						sni:             defaultSni,
-						clusterMode:     DefaultClusterMode,
-						direction:       model.TrafficDirectionOutbound,
-						proxy:           proxy,
+						env:                   env,
+						cluster:               subsetCluster,
+						policy:                destinationRule.TrafficPolicy,
+						port:                  port,
+						serviceAccounts:       serviceAccounts,
+						serviceAccountAliases: serviceAccountAliases,
+						sni:                   defaultSni,
+						clusterMode:           DefaultClusterMode,
+						direction:             model.TrafficDirectionOutbound,
+						proxy:                 proxy,
 					}
 					applyTrafficPolicy(opts, proxy)
 
 					opts = buildClusterOpts{
-						env:             env,
-						cluster:         subsetCluster,
-						policy:          subset.TrafficPolicy,
-						port:            port,
-						serviceAccounts: serviceAccounts,
-						sni:             defaultSni,
-						clusterMode:     DefaultClusterMode,
-						direction:       model.TrafficDirectionOutbound,
-						proxy:           proxy,
+						env:                   env,
+						cluster:               subsetCluster,
+						policy:                subset.TrafficPolicy,
+						port:                  port,
+						serviceAccounts:       serviceAccounts,
+						serviceAccountAliases: serviceAccountAliases,
+						sni:                   defaultSni,
+						clusterMode:           DefaultClusterMode,
+						direction:             model.TrafficDirectionOutbound,
+						proxy:                 proxy,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -666,12 +670,7 @@ func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType 
 }
 
 // conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func conditionallyConvertToIstioMtls(
-	tls *networking.TLSSettings,
-	serviceAccounts []string,
-	sni string,
-	proxy *model.Proxy,
-) *networking.TLSSettings {
+func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, serviceAccountAliases []string, sni string, proxy *model.Proxy) *networking.TLSSettings {
 	if tls == nil {
 		return nil
 	}
@@ -685,6 +684,12 @@ func conditionallyConvertToIstioMtls(
 		subjectAltNamesToUse := tls.SubjectAltNames
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
+			// Append service account aliases to subjectAltNamesToUse for trust domain aliases secure naming.
+			if serviceAccountAliases != nil {
+				for _, saAlias := range serviceAccountAliases {
+					subjectAltNamesToUse = append(subjectAltNamesToUse, saAlias)
+				}
+			}
 		}
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy)
 	}
@@ -752,15 +757,16 @@ const (
 )
 
 type buildClusterOpts struct {
-	env             *model.Environment
-	cluster         *apiv2.Cluster
-	policy          *networking.TrafficPolicy
-	port            *model.Port
-	serviceAccounts []string
-	sni             string
-	clusterMode     ClusterMode
-	direction       model.TrafficDirection
-	proxy           *model.Proxy
+	env                   *model.Environment
+	cluster               *apiv2.Cluster
+	policy                *networking.TrafficPolicy
+	port                  *model.Port
+	serviceAccounts       []string
+	serviceAccountAliases []string
+	sni                   string
+	clusterMode           ClusterMode
+	direction             model.TrafficDirection
+	proxy                 *model.Proxy
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
@@ -770,7 +776,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
-		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy)
+		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.serviceAccountAliases, opts.sni, opts.proxy)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy.Metadata)
 	}
 }
@@ -1180,15 +1186,16 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	opts := buildClusterOpts{
-		env:             env,
-		cluster:         cluster,
-		policy:          defaultTrafficPolicy,
-		port:            port,
-		serviceAccounts: nil,
-		sni:             "",
-		clusterMode:     DefaultClusterMode,
-		direction:       direction,
-		proxy:           proxy,
+		env:                   env,
+		cluster:               cluster,
+		policy:                defaultTrafficPolicy,
+		port:                  port,
+		serviceAccounts:       nil,
+		serviceAccountAliases: nil,
+		sni:                   "",
+		clusterMode:           DefaultClusterMode,
+		direction:             direction,
+		proxy:                 proxy,
 	}
 	applyTrafficPolicy(opts, proxy)
 	return cluster

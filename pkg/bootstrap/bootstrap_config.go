@@ -140,7 +140,7 @@ func setStatsOptions(opts map[string]interface{}, meta *model.NodeMetadata, node
 
 func defaultPilotSan() []string {
 	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
+		spiffe.MustGenSpiffeURI("", "istio-system", "istio-pilot-service-account")}
 }
 
 func configFile(config string, epoch int) string {

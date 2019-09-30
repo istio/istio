@@ -73,6 +73,10 @@ spec:
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+{{- if .Values.global.trustDomainAliases }}
+          # Non-empty list will end with a comma.
+          - --trust-domain-aliases={{- range .Values.global.trustDomainAliases }}{{ . | quote }},{{- end }}
+{{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.keepaliveMaxServerConnectionAge }}"
           ports:

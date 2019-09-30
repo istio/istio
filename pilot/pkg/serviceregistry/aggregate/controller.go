@@ -324,3 +324,12 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	}
 	return nil
 }
+
+func (c *Controller) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	for _, r := range c.GetRegistries() {
+		if svcAccountAliases := r.GetIstioServiceAccountAliases(svc, ports); svcAccountAliases != nil {
+			return svcAccountAliases
+		}
+	}
+	return nil
+}

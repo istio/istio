@@ -100,6 +100,9 @@ type Options struct {
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
+
+	// The aliases of TrustDomain
+	TrustDomainAliases []string
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -418,7 +421,6 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
-
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
@@ -463,9 +465,11 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			}
 
 			az, sa, uid := "", "", ""
+			saAliases := []string{}
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
+				saAliases = kube.SecureNamingSANAliases(pod)
 				if mixerEnabled {
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
@@ -484,9 +488,10 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 							Network:     c.endpointNetwork(ea.IP),
 							Locality:    az,
 						},
-						Service:        svc,
-						Labels:         podLabels,
-						ServiceAccount: sa,
+						Service:               svc,
+						Labels:                podLabels,
+						ServiceAccount:        sa,
+						ServiceAccountAliases: saAliases,
 					})
 				}
 			}
@@ -748,9 +753,11 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 	podLabels, _ := c.pods.labelsByIP(podIP)
 	pod := c.pods.getPodByIP(podIP)
 	az, sa := "", ""
+	saAliases := []string{}
 	if pod != nil {
 		az = c.GetPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
+		saAliases = kube.SecureNamingSANAliases(pod)
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -760,13 +767,14 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 			Network:     c.endpointNetwork(address),
 			Locality:    az,
 		},
-		Service:        svc,
-		Labels:         podLabels,
-		ServiceAccount: sa,
+		Service:               svc,
+		Labels:                podLabels,
+		ServiceAccount:        sa,
+		ServiceAccountAliases: saAliases,
 	}
 }
 
-// GetIstioServiceAccounts returns the Istio service accounts running a serivce
+// GetIstioServiceAccounts returns the Istio service accounts running a service
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
@@ -798,6 +806,41 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 	saArray := make([]string, 0, len(saSet))
 	for sa := range saSet {
+		saArray = append(saArray, sa)
+	}
+
+	return saArray
+}
+
+// GetIstioServiceAccountAliases is similar to GetIstioServiceAccountAliases.
+// However, it returns the service account aliases based on trust domain aliases instead of the real
+// service account.
+func (c *Controller) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	saAliasesSet := make(map[string]bool)
+
+	instances := make([]*model.ServiceInstance, 0)
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, port := range ports {
+		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
+			return nil
+		}
+		instances = append(instances, svcinstances...)
+	}
+
+	for _, si := range instances {
+		if si.ServiceAccountAliases == nil {
+			continue
+		}
+		for _, saAlias := range si.ServiceAccountAliases {
+			saAliasesSet[saAlias] = true
+		}
+	}
+
+	saArray := make([]string, 0, len(saAliasesSet))
+	for sa := range saAliasesSet {
 		saArray = append(saArray, sa)
 	}
 
@@ -912,9 +955,11 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 				var labels map[string]string
 				locality, sa, uid := "", "", ""
+				saAliases := []string{}
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
+					saAliases = kube.SecureNamingSANAliases(pod)
 					if mixerEnabled {
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
@@ -925,15 +970,16 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				// map to numbers.
 				for _, port := range ss.Ports {
 					endpoints = append(endpoints, &model.IstioEndpoint{
-						Address:         ea.IP,
-						EndpointPort:    uint32(port.Port),
-						ServicePortName: port.Name,
-						Labels:          labels,
-						UID:             uid,
-						ServiceAccount:  sa,
-						Network:         c.endpointNetwork(ea.IP),
-						Locality:        locality,
-						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						Address:               ea.IP,
+						EndpointPort:          uint32(port.Port),
+						ServicePortName:       port.Name,
+						Labels:                labels,
+						UID:                   uid,
+						ServiceAccount:        sa,
+						ServiceAccountAliases: saAliases,
+						Network:               c.endpointNetwork(ea.IP),
+						Locality:              locality,
+						Attributes:            model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
 					})
 				}
 			}

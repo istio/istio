@@ -264,9 +264,13 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+			spiffe.MustGenSpiffeURI("", "default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("", "default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)
+}
+
+func (sd *ServiceDiscovery) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	return nil
 }

@@ -231,5 +231,5 @@ func getLocality(region, zone string) string {
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, saname)
+	return spiffe.MustGenSpiffeURI("", ns, saname)
 }

@@ -32,8 +32,10 @@ const (
 )
 
 var (
-	trustDomain      = defaultTrustDomain
-	trustDomainMutex sync.RWMutex
+	trustDomain             = defaultTrustDomain
+	trustDomainAliases      = []string{}
+	trustDomainMutex        sync.RWMutex
+	trustDomainAliasesMutex sync.RWMutex
 )
 
 func SetTrustDomain(value string) {
@@ -44,10 +46,24 @@ func SetTrustDomain(value string) {
 	trustDomainMutex.Unlock()
 }
 
+func SetTrustDomainAliases(aliases []string) {
+	for _, alias := range aliases {
+		trustDomainAliasesMutex.Lock()
+		trustDomainAliases = append(trustDomainAliases, alias)
+		trustDomainAliasesMutex.Unlock()
+	}
+}
+
 func GetTrustDomain() string {
 	trustDomainMutex.RLock()
 	defer trustDomainMutex.RUnlock()
 	return trustDomain
+}
+
+func GetTrustDomainAliases() []string {
+	trustDomainAliasesMutex.RLock()
+	defer trustDomainAliasesMutex.RUnlock()
+	return trustDomainAliases
 }
 
 func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) string {
@@ -61,18 +77,28 @@ func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) stri
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
-func GenSpiffeURI(ns, serviceAccount string) (string, error) {
+// If the trust domain parameter is empty, the trust domain will be determined by the GetTrustDomain
+// function, which returns a default trust domain or a user-provided trust domain.
+func GenSpiffeURI(td, ns, serviceAccount string) (string, error) {
 	var err error
+	var trustDomain string
+	if td != "" {
+		trustDomain = td
+	} else {
+		trustDomain = GetTrustDomain()
+	}
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
+	return URIPrefix + trustDomain + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
-func MustGenSpiffeURI(ns, serviceAccount string) string {
-	uri, err := GenSpiffeURI(ns, serviceAccount)
+// If the trust domain parameter is empty, the trust domain will be determined by the GetTrustDomain
+// function, which returns a default trust domain or a user-provided trust domain.
+func MustGenSpiffeURI(td, ns, serviceAccount string) string {
+	uri, err := GenSpiffeURI(td, ns, serviceAccount)
 	if err != nil {
 		log.Debug(err.Error())
 	}

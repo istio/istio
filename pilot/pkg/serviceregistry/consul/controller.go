@@ -234,8 +234,12 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	// Follow - https://goo.gl/Dt11Ct
 
 	return []string{
-		spiffe.MustGenSpiffeURI("default", "default"),
+		spiffe.MustGenSpiffeURI("", "default", "default"),
 	}
+}
+
+func (c *Controller) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	return nil
 }
 
 func (c *Controller) initCache() error {

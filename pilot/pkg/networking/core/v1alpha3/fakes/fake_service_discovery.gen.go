@@ -138,6 +138,10 @@ func (fake *ServiceDiscovery) GetIstioServiceAccounts(arg1 *model.Service, arg2 
 	return fakeReturns.result1
 }
 
+func (fake *ServiceDiscovery) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	return nil
+}
+
 func (fake *ServiceDiscovery) GetIstioServiceAccountsCallCount() int {
 	fake.getIstioServiceAccountsMutex.RLock()
 	defer fake.getIstioServiceAccountsMutex.RUnlock()

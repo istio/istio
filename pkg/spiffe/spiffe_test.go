@@ -61,7 +61,7 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 	for id, tc := range testCases {
 		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := GenSpiffeURI("", tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}
@@ -107,7 +107,7 @@ func TestGetSetTrustDomain(t *testing.T) {
 }
 
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	if nonsense := MustGenSpiffeURI("", "", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }

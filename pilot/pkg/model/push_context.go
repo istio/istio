@@ -97,6 +97,9 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
+	// ServiceAccountAliases contains a map of hostname and port to service accounts aliases.
+	ServiceAccountAliases map[host.Name]map[int][]string `json:"-"`
+
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
@@ -433,6 +436,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
+		ServiceAccountAliases:         map[host.Name]map[int][]string{},
 		AuthnPolicies: processedAuthnPolicies{
 			policies: map[host.Name][]*authnPolicyByPort{},
 		},
@@ -777,6 +781,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	}
 
 	ps.initServiceAccounts(env, allServices)
+	ps.initServiceAccountAliases(env, allServices)
 
 	return nil
 }
@@ -800,6 +805,21 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				continue
 			}
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+		}
+	}
+}
+
+// Caches list of service account aliases in the registry
+func (ps *PushContext) initServiceAccountAliases(env *Environment, services []*Service) {
+	for _, svc := range services {
+		if ps.ServiceAccountAliases[svc.Hostname] == nil {
+			ps.ServiceAccountAliases[svc.Hostname] = map[int][]string{}
+		}
+		for _, port := range svc.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+			ps.ServiceAccountAliases[svc.Hostname][port.Port] = env.GetIstioServiceAccountAliases(svc, []int{port.Port})
 		}
 	}
 }

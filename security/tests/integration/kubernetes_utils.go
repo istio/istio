@@ -349,7 +349,7 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID, err := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
+	expectedID, err := spiffe.GenSpiffeURI("", secret.GetNamespace(), "default")
 	if err != nil {
 		return err
 	}

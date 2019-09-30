@@ -360,9 +360,13 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports
 	defer sd.mutex.Unlock()
 	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+			spiffe.MustGenSpiffeURI("", "default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("", "default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)
+}
+
+func (sd *MemServiceDiscovery) GetIstioServiceAccountAliases(svc *model.Service, ports []int) []string {
+	return nil
 }
