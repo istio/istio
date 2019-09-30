@@ -767,9 +767,6 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 
-	// copy all critical fields into the new push context
-	oldPushContext.copyInto(ps)
-
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 
@@ -801,24 +798,38 @@ func (ps *PushContext) updateContext(
 		if err := ps.initServiceRegistry(env); err != nil {
 			return err
 		}
+	} else {
+		ps.privateServicesByNamespace = oldPushContext.privateServicesByNamespace
+		ps.publicServices = oldPushContext.publicServices
+		ps.ServiceByHostnameAndNamespace = oldPushContext.ServiceByHostnameAndNamespace
+		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
 
 	if virtualServicesChanged {
 		if err := ps.initVirtualServices(env); err != nil {
 			return err
 		}
+	} else {
+		ps.privateVirtualServicesByNamespace = oldPushContext.privateVirtualServicesByNamespace
+		ps.publicVirtualServices = oldPushContext.publicVirtualServices
 	}
 
 	if destinationRulesChanged {
 		if err := ps.initDestinationRules(env); err != nil {
 			return err
 		}
+	} else {
+		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
+		ps.namespaceExportedDestRules = oldPushContext.namespaceExportedDestRules
+		ps.allExportedDestRules = oldPushContext.allExportedDestRules
 	}
 
 	if authnChanged {
 		if err := ps.initAuthnPolicies(env); err != nil {
 			return err
 		}
+	} else {
+		ps.AuthnPolicies = oldPushContext.AuthnPolicies
 	}
 
 	if authzChanged {
@@ -826,18 +837,25 @@ func (ps *PushContext) updateContext(
 			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 			return err
 		}
+	} else {
+		ps.AuthzPolicies = oldPushContext.AuthzPolicies
 	}
 
 	if envoyFiltersChanged {
 		if err := ps.initEnvoyFilters(env); err != nil {
 			return err
 		}
+	} else {
+		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
 
 	if gatewayChanged {
 		if err := ps.initGateways(env); err != nil {
 			return err
 		}
+	} else {
+		ps.gatewaysByNamespace = oldPushContext.gatewaysByNamespace
+		ps.allGateways = oldPushContext.allGateways
 	}
 
 	// Must be initialized in the end
@@ -846,6 +864,8 @@ func (ps *PushContext) updateContext(
 		if err := ps.initSidecarScopes(env); err != nil {
 			return err
 		}
+	} else {
+		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
 	}
 
 	return nil
@@ -963,6 +983,8 @@ func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSe
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
+	ps.privateVirtualServicesByNamespace = map[string][]Config{}
+	ps.publicVirtualServices = []Config{}
 	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -1423,37 +1445,4 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	return MergeGateways(out...)
-}
-
-func (ps *PushContext) copyInto(out *PushContext) {
-	// service related
-	out.privateServicesByNamespace = ps.privateServicesByNamespace
-	out.publicServices = ps.publicServices
-	out.ServiceByHostnameAndNamespace = ps.ServiceByHostnameAndNamespace
-	out.ServiceAccounts = ps.ServiceAccounts
-
-	// virtualservice related
-	out.privateVirtualServicesByNamespace = ps.privateVirtualServicesByNamespace
-	out.publicVirtualServices = ps.publicVirtualServices
-
-	// destination rule related
-	out.namespaceLocalDestRules = ps.namespaceLocalDestRules
-	out.namespaceExportedDestRules = ps.namespaceExportedDestRules
-	out.allExportedDestRules = ps.allExportedDestRules
-
-	// sidecars
-	out.sidecarsByNamespace = ps.sidecarsByNamespace
-
-	// envoyfilters
-	out.envoyFiltersByNamespace = ps.envoyFiltersByNamespace
-
-	// gateways
-	out.gatewaysByNamespace = ps.gatewaysByNamespace
-	out.allGateways = ps.allGateways
-
-	// authz
-	out.AuthzPolicies = ps.AuthzPolicies
-
-	// authn
-	out.AuthnPolicies = ps.AuthnPolicies
 }
