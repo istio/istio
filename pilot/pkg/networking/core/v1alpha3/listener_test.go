@@ -288,22 +288,22 @@ func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
 	}{
 		{
 			"http on 443",
-			buildServiceWithPort("test1.com", CanonicalHttpsPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
 			[]string{},
 		},
 		{
 			"http on 80",
-			buildServiceWithPort("test1.com", CanonicalHttpsPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
 			[]string{},
 		},
 		{
 			"https on 443",
-			buildServiceWithPort("test1.com", CanonicalHttpsPort, protocol.HTTPS, tnow.Add(1*time.Second)),
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTPS, tnow.Add(1*time.Second)),
 			[]string{"0.0.0.0_443"},
 		},
 		{
 			"tcp on 443",
-			buildServiceWithPort("test1.com", CanonicalHttpsPort, protocol.TCP, tnow.Add(1*time.Second)),
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.TCP, tnow.Add(1*time.Second)),
 			[]string{"0.0.0.0_443"},
 		},
 	}
