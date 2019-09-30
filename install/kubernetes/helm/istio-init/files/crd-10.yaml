@@ -1,33 +1,3523 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualservices.networking.istio.io
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: core
+    package: istio.io.mixer
+    release: istio
+  name: attributemanifests.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - policy-istio-io
+    kind: attributemanifest
+    plural: attributemanifests
+    singular: attributemanifest
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            attributes:
+              additionalProperties:
+                properties:
+                  description:
+                    format: string
+                    type: string
+                  valueType:
+                    enum:
+                    - VALUE_TYPE_UNSPECIFIED
+                    - STRING
+                    - INT64
+                    - DOUBLE
+                    - BOOL
+                    - TIMESTAMP
+                    - IP_ADDRESS
+                    - EMAIL_ADDRESS
+                    - URI
+                    - DNS_NAME
+                    - DURATION
+                    - STRING_MAP
+                    type: string
+                type: object
+              type: object
+            name:
+              format: string
+              type: string
+            revision:
+              format: string
+              type: string
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    heritage: Tiller
+    istio: rbac
+    release: istio
+  name: clusterrbacconfigs.rbac.istio.io
+spec:
+  group: rbac.istio.io
+  names:
+    categories:
+    - istio-io
+    - rbac-istio-io
+    kind: ClusterRbacConfig
+    plural: clusterrbacconfigs
+    singular: clusterrbacconfig
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            enforcementMode:
+              enum:
+              - ENFORCED
+              - PERMISSIVE
+              type: string
+            exclusion:
+              properties:
+                namespaces:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                services:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
+            inclusion:
+              properties:
+                namespaces:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                services:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
+            mode:
+              enum:
+              - "OFF"
+              - "ON"
+              - ON_WITH_INCLUSION
+              - ON_WITH_EXCLUSION
+              type: string
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
   labels:
     app: istio-pilot
     chart: istio
     heritage: Tiller
     release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
+  name: destinationrules.networking.istio.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.host
+    description: The name of a service from the service registry
+    name: Host
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
   group: networking.istio.io
   names:
-    kind: VirtualService
-    listKind: VirtualServiceList
-    plural: virtualservices
-    singular: virtualservice
-    shortNames:
-    - vs
     categories:
     - istio-io
     - networking-istio-io
+    kind: DestinationRule
+    listKind: DestinationRuleList
+    plural: destinationrules
+    shortNames:
+    - dr
+    singular: destinationrule
   scope: Namespaced
   subresources:
     status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            exportTo:
+              items:
+                format: string
+                type: string
+              type: array
+            host:
+              format: string
+              type: string
+            subsets:
+              items:
+                properties:
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  name:
+                    format: string
+                    type: string
+                  trafficPolicy:
+                    properties:
+                      connectionPool:
+                        properties:
+                          http:
+                            properties:
+                              h2UpgradePolicy:
+                                enum:
+                                - DEFAULT
+                                - DO_NOT_UPGRADE
+                                - UPGRADE
+                                type: string
+                              http1MaxPendingRequests:
+                                format: int32
+                                type: integer
+                              http2MaxRequests:
+                                format: int32
+                                type: integer
+                              idleTimeout:
+                                type: string
+                              maxRequestsPerConnection:
+                                format: int32
+                                type: integer
+                              maxRetries:
+                                format: int32
+                                type: integer
+                            type: object
+                          tcp:
+                            properties:
+                              connectTimeout:
+                                type: string
+                              maxConnections:
+                                format: int32
+                                type: integer
+                              tcpKeepalive:
+                                properties:
+                                  interval:
+                                    type: string
+                                  probes:
+                                    type: integer
+                                  time:
+                                    type: string
+                                type: object
+                            type: object
+                        type: object
+                      loadBalancer:
+                        oneOf:
+                        - required:
+                          - simple
+                        - properties:
+                            consistentHash:
+                              oneOf:
+                              - required:
+                                - httpHeaderName
+                              - required:
+                                - httpCookie
+                              - required:
+                                - useSourceIp
+                          required:
+                          - consistentHash
+                        properties:
+                          consistentHash:
+                            properties:
+                              httpCookie:
+                                properties:
+                                  name:
+                                    format: string
+                                    type: string
+                                  path:
+                                    format: string
+                                    type: string
+                                  ttl:
+                                    type: string
+                                type: object
+                              httpHeaderName:
+                                format: string
+                                type: string
+                              minimumRingSize:
+                                type: integer
+                              useSourceIp:
+                                type: boolean
+                            type: object
+                          simple:
+                            enum:
+                            - ROUND_ROBIN
+                            - LEAST_CONN
+                            - RANDOM
+                            - PASSTHROUGH
+                            type: string
+                        type: object
+                      outlierDetection:
+                        properties:
+                          baseEjectionTime:
+                            type: string
+                          consecutiveErrors:
+                            format: int32
+                            type: integer
+                          interval:
+                            type: string
+                          maxEjectionPercent:
+                            format: int32
+                            type: integer
+                          minHealthPercent:
+                            format: int32
+                            type: integer
+                        type: object
+                      portLevelSettings:
+                        items:
+                          properties:
+                            connectionPool:
+                              properties:
+                                http:
+                                  properties:
+                                    h2UpgradePolicy:
+                                      enum:
+                                      - DEFAULT
+                                      - DO_NOT_UPGRADE
+                                      - UPGRADE
+                                      type: string
+                                    http1MaxPendingRequests:
+                                      format: int32
+                                      type: integer
+                                    http2MaxRequests:
+                                      format: int32
+                                      type: integer
+                                    idleTimeout:
+                                      type: string
+                                    maxRequestsPerConnection:
+                                      format: int32
+                                      type: integer
+                                    maxRetries:
+                                      format: int32
+                                      type: integer
+                                  type: object
+                                tcp:
+                                  properties:
+                                    connectTimeout:
+                                      type: string
+                                    maxConnections:
+                                      format: int32
+                                      type: integer
+                                    tcpKeepalive:
+                                      properties:
+                                        interval:
+                                          type: string
+                                        probes:
+                                          type: integer
+                                        time:
+                                          type: string
+                                      type: object
+                                  type: object
+                              type: object
+                            loadBalancer:
+                              oneOf:
+                              - required:
+                                - simple
+                              - properties:
+                                  consistentHash:
+                                    oneOf:
+                                    - required:
+                                      - httpHeaderName
+                                    - required:
+                                      - httpCookie
+                                    - required:
+                                      - useSourceIp
+                                required:
+                                - consistentHash
+                              properties:
+                                consistentHash:
+                                  properties:
+                                    httpCookie:
+                                      properties:
+                                        name:
+                                          format: string
+                                          type: string
+                                        path:
+                                          format: string
+                                          type: string
+                                        ttl:
+                                          type: string
+                                      type: object
+                                    httpHeaderName:
+                                      format: string
+                                      type: string
+                                    minimumRingSize:
+                                      type: integer
+                                    useSourceIp:
+                                      type: boolean
+                                  type: object
+                                simple:
+                                  enum:
+                                  - ROUND_ROBIN
+                                  - LEAST_CONN
+                                  - RANDOM
+                                  - PASSTHROUGH
+                                  type: string
+                              type: object
+                            outlierDetection:
+                              properties:
+                                baseEjectionTime:
+                                  type: string
+                                consecutiveErrors:
+                                  format: int32
+                                  type: integer
+                                interval:
+                                  type: string
+                                maxEjectionPercent:
+                                  format: int32
+                                  type: integer
+                                minHealthPercent:
+                                  format: int32
+                                  type: integer
+                              type: object
+                            port:
+                              properties:
+                                number:
+                                  type: integer
+                              type: object
+                            tls:
+                              properties:
+                                caCertificates:
+                                  format: string
+                                  type: string
+                                clientCertificate:
+                                  format: string
+                                  type: string
+                                mode:
+                                  enum:
+                                  - DISABLE
+                                  - SIMPLE
+                                  - MUTUAL
+                                  - ISTIO_MUTUAL
+                                  type: string
+                                privateKey:
+                                  format: string
+                                  type: string
+                                sni:
+                                  format: string
+                                  type: string
+                                subjectAltNames:
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                              type: object
+                          type: object
+                        type: array
+                      tls:
+                        properties:
+                          caCertificates:
+                            format: string
+                            type: string
+                          clientCertificate:
+                            format: string
+                            type: string
+                          mode:
+                            enum:
+                            - DISABLE
+                            - SIMPLE
+                            - MUTUAL
+                            - ISTIO_MUTUAL
+                            type: string
+                          privateKey:
+                            format: string
+                            type: string
+                          sni:
+                            format: string
+                            type: string
+                          subjectAltNames:
+                            items:
+                              format: string
+                              type: string
+                            type: array
+                        type: object
+                    type: object
+                type: object
+              type: array
+            trafficPolicy:
+              properties:
+                connectionPool:
+                  properties:
+                    http:
+                      properties:
+                        h2UpgradePolicy:
+                          enum:
+                          - DEFAULT
+                          - DO_NOT_UPGRADE
+                          - UPGRADE
+                          type: string
+                        http1MaxPendingRequests:
+                          format: int32
+                          type: integer
+                        http2MaxRequests:
+                          format: int32
+                          type: integer
+                        idleTimeout:
+                          type: string
+                        maxRequestsPerConnection:
+                          format: int32
+                          type: integer
+                        maxRetries:
+                          format: int32
+                          type: integer
+                      type: object
+                    tcp:
+                      properties:
+                        connectTimeout:
+                          type: string
+                        maxConnections:
+                          format: int32
+                          type: integer
+                        tcpKeepalive:
+                          properties:
+                            interval:
+                              type: string
+                            probes:
+                              type: integer
+                            time:
+                              type: string
+                          type: object
+                      type: object
+                  type: object
+                loadBalancer:
+                  oneOf:
+                  - required:
+                    - simple
+                  - properties:
+                      consistentHash:
+                        oneOf:
+                        - required:
+                          - httpHeaderName
+                        - required:
+                          - httpCookie
+                        - required:
+                          - useSourceIp
+                    required:
+                    - consistentHash
+                  properties:
+                    consistentHash:
+                      properties:
+                        httpCookie:
+                          properties:
+                            name:
+                              format: string
+                              type: string
+                            path:
+                              format: string
+                              type: string
+                            ttl:
+                              type: string
+                          type: object
+                        httpHeaderName:
+                          format: string
+                          type: string
+                        minimumRingSize:
+                          type: integer
+                        useSourceIp:
+                          type: boolean
+                      type: object
+                    simple:
+                      enum:
+                      - ROUND_ROBIN
+                      - LEAST_CONN
+                      - RANDOM
+                      - PASSTHROUGH
+                      type: string
+                  type: object
+                outlierDetection:
+                  properties:
+                    baseEjectionTime:
+                      type: string
+                    consecutiveErrors:
+                      format: int32
+                      type: integer
+                    interval:
+                      type: string
+                    maxEjectionPercent:
+                      format: int32
+                      type: integer
+                    minHealthPercent:
+                      format: int32
+                      type: integer
+                  type: object
+                portLevelSettings:
+                  items:
+                    properties:
+                      connectionPool:
+                        properties:
+                          http:
+                            properties:
+                              h2UpgradePolicy:
+                                enum:
+                                - DEFAULT
+                                - DO_NOT_UPGRADE
+                                - UPGRADE
+                                type: string
+                              http1MaxPendingRequests:
+                                format: int32
+                                type: integer
+                              http2MaxRequests:
+                                format: int32
+                                type: integer
+                              idleTimeout:
+                                type: string
+                              maxRequestsPerConnection:
+                                format: int32
+                                type: integer
+                              maxRetries:
+                                format: int32
+                                type: integer
+                            type: object
+                          tcp:
+                            properties:
+                              connectTimeout:
+                                type: string
+                              maxConnections:
+                                format: int32
+                                type: integer
+                              tcpKeepalive:
+                                properties:
+                                  interval:
+                                    type: string
+                                  probes:
+                                    type: integer
+                                  time:
+                                    type: string
+                                type: object
+                            type: object
+                        type: object
+                      loadBalancer:
+                        oneOf:
+                        - required:
+                          - simple
+                        - properties:
+                            consistentHash:
+                              oneOf:
+                              - required:
+                                - httpHeaderName
+                              - required:
+                                - httpCookie
+                              - required:
+                                - useSourceIp
+                          required:
+                          - consistentHash
+                        properties:
+                          consistentHash:
+                            properties:
+                              httpCookie:
+                                properties:
+                                  name:
+                                    format: string
+                                    type: string
+                                  path:
+                                    format: string
+                                    type: string
+                                  ttl:
+                                    type: string
+                                type: object
+                              httpHeaderName:
+                                format: string
+                                type: string
+                              minimumRingSize:
+                                type: integer
+                              useSourceIp:
+                                type: boolean
+                            type: object
+                          simple:
+                            enum:
+                            - ROUND_ROBIN
+                            - LEAST_CONN
+                            - RANDOM
+                            - PASSTHROUGH
+                            type: string
+                        type: object
+                      outlierDetection:
+                        properties:
+                          baseEjectionTime:
+                            type: string
+                          consecutiveErrors:
+                            format: int32
+                            type: integer
+                          interval:
+                            type: string
+                          maxEjectionPercent:
+                            format: int32
+                            type: integer
+                          minHealthPercent:
+                            format: int32
+                            type: integer
+                        type: object
+                      port:
+                        properties:
+                          number:
+                            type: integer
+                        type: object
+                      tls:
+                        properties:
+                          caCertificates:
+                            format: string
+                            type: string
+                          clientCertificate:
+                            format: string
+                            type: string
+                          mode:
+                            enum:
+                            - DISABLE
+                            - SIMPLE
+                            - MUTUAL
+                            - ISTIO_MUTUAL
+                            type: string
+                          privateKey:
+                            format: string
+                            type: string
+                          sni:
+                            format: string
+                            type: string
+                          subjectAltNames:
+                            items:
+                              format: string
+                              type: string
+                            type: array
+                        type: object
+                    type: object
+                  type: array
+                tls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      format: string
+                      type: string
+                    sni:
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
+          type: object
+      type: object
   versions:
-    - name: v1alpha3
-      served: true
-      storage: true
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: envoyfilters.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: EnvoyFilter
+    plural: envoyfilters
+    singular: envoyfilter
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            configPatches:
+              items:
+                properties:
+                  applyTo:
+                    enum:
+                    - INVALID
+                    - LISTENER
+                    - FILTER_CHAIN
+                    - NETWORK_FILTER
+                    - HTTP_FILTER
+                    - ROUTE_CONFIGURATION
+                    - VIRTUAL_HOST
+                    - HTTP_ROUTE
+                    - CLUSTER
+                    type: string
+                  match:
+                    oneOf:
+                    - required:
+                      - listener
+                    - required:
+                      - routeConfiguration
+                    - required:
+                      - cluster
+                    properties:
+                      cluster:
+                        properties:
+                          name:
+                            format: string
+                            type: string
+                          portNumber:
+                            type: integer
+                          service:
+                            format: string
+                            type: string
+                          subset:
+                            format: string
+                            type: string
+                        type: object
+                      context:
+                        enum:
+                        - ANY
+                        - SIDECAR_INBOUND
+                        - SIDECAR_OUTBOUND
+                        - GATEWAY
+                        type: string
+                      listener:
+                        properties:
+                          filterChain:
+                            properties:
+                              applicationProtocols:
+                                format: string
+                                type: string
+                              filter:
+                                properties:
+                                  name:
+                                    format: string
+                                    type: string
+                                  subFilter:
+                                    properties:
+                                      name:
+                                        format: string
+                                        type: string
+                                    type: object
+                                type: object
+                              name:
+                                format: string
+                                type: string
+                              sni:
+                                format: string
+                                type: string
+                              transportProtocol:
+                                format: string
+                                type: string
+                            type: object
+                          name:
+                            format: string
+                            type: string
+                          portName:
+                            format: string
+                            type: string
+                          portNumber:
+                            type: integer
+                        type: object
+                      proxy:
+                        properties:
+                          metadata:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                          proxyVersion:
+                            format: string
+                            type: string
+                        type: object
+                      routeConfiguration:
+                        properties:
+                          gateway:
+                            format: string
+                            type: string
+                          name:
+                            format: string
+                            type: string
+                          portName:
+                            format: string
+                            type: string
+                          portNumber:
+                            type: integer
+                          vhost:
+                            properties:
+                              name:
+                                format: string
+                                type: string
+                              route:
+                                properties:
+                                  action:
+                                    enum:
+                                    - ANY
+                                    - ROUTE
+                                    - REDIRECT
+                                    - DIRECT_RESPONSE
+                                    type: string
+                                  name:
+                                    format: string
+                                    type: string
+                                type: object
+                            type: object
+                        type: object
+                    type: object
+                  patch:
+                    properties:
+                      operation:
+                        enum:
+                        - INVALID
+                        - MERGE
+                        - ADD
+                        - REMOVE
+                        - INSERT_BEFORE
+                        - INSERT_AFTER
+                        type: string
+                      value:
+                        type: object
+                    type: object
+                type: object
+              type: array
+            filters:
+              items:
+                properties:
+                  filterConfig:
+                    type: object
+                  filterName:
+                    format: string
+                    type: string
+                  filterType:
+                    enum:
+                    - INVALID
+                    - HTTP
+                    - NETWORK
+                    type: string
+                  insertPosition:
+                    properties:
+                      index:
+                        enum:
+                        - FIRST
+                        - LAST
+                        - BEFORE
+                        - AFTER
+                        type: string
+                      relativeTo:
+                        format: string
+                        type: string
+                    type: object
+                  listenerMatch:
+                    properties:
+                      address:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      listenerProtocol:
+                        enum:
+                        - ALL
+                        - HTTP
+                        - TCP
+                        type: string
+                      listenerType:
+                        enum:
+                        - ANY
+                        - SIDECAR_INBOUND
+                        - SIDECAR_OUTBOUND
+                        - GATEWAY
+                        type: string
+                      portNamePrefix:
+                        format: string
+                        type: string
+                      portNumber:
+                        type: integer
+                    type: object
+                type: object
+              type: array
+            workloadLabels:
+              additionalProperties:
+                format: string
+                type: string
+              type: object
+            workloadSelector:
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: gateways.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: Gateway
+    plural: gateways
+    shortNames:
+    - gw
+    singular: gateway
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            selector:
+              additionalProperties:
+                format: string
+                type: string
+              type: object
+            servers:
+              items:
+                properties:
+                  bind:
+                    format: string
+                    type: string
+                  defaultEndpoint:
+                    format: string
+                    type: string
+                  hosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  port:
+                    properties:
+                      name:
+                        format: string
+                        type: string
+                      number:
+                        type: integer
+                      protocol:
+                        format: string
+                        type: string
+                    type: object
+                  tls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      cipherSuites:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        format: string
+                        type: string
+                      serverCertificate:
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: httpapispecbindings.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - apim-istio-io
+    kind: HTTPAPISpecBinding
+    plural: httpapispecbindings
+    singular: httpapispecbinding
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            api_specs:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  namespace:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            apiSpecs:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  namespace:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            services:
+              items:
+                properties:
+                  domain:
+                    format: string
+                    type: string
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  name:
+                    format: string
+                    type: string
+                  namespace:
+                    format: string
+                    type: string
+                  service:
+                    format: string
+                    type: string
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: httpapispecs.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - apim-istio-io
+    kind: HTTPAPISpec
+    plural: httpapispecs
+    singular: httpapispec
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            api_keys:
+              items:
+                oneOf:
+                - required:
+                  - query
+                - required:
+                  - header
+                - required:
+                  - cookie
+                properties:
+                  cookie:
+                    format: string
+                    type: string
+                  header:
+                    format: string
+                    type: string
+                  query:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            apiKeys:
+              items:
+                oneOf:
+                - required:
+                  - query
+                - required:
+                  - header
+                - required:
+                  - cookie
+                properties:
+                  cookie:
+                    format: string
+                    type: string
+                  header:
+                    format: string
+                    type: string
+                  query:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            attributes:
+              properties:
+                attributes:
+                  additionalProperties:
+                    oneOf:
+                    - required:
+                      - stringValue
+                    - required:
+                      - int64Value
+                    - required:
+                      - doubleValue
+                    - required:
+                      - boolValue
+                    - required:
+                      - bytesValue
+                    - required:
+                      - timestampValue
+                    - required:
+                      - durationValue
+                    - required:
+                      - stringMapValue
+                    properties:
+                      boolValue:
+                        type: boolean
+                      bytesValue:
+                        format: binary
+                        type: string
+                      doubleValue:
+                        format: double
+                        type: number
+                      durationValue:
+                        type: string
+                      int64Value:
+                        format: int64
+                        type: integer
+                      stringMapValue:
+                        properties:
+                          entries:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                        type: object
+                      stringValue:
+                        format: string
+                        type: string
+                      timestampValue:
+                        format: dateTime
+                        type: string
+                    type: object
+                  type: object
+              type: object
+            patterns:
+              items:
+                oneOf:
+                - required:
+                  - uriTemplate
+                - required:
+                  - regex
+                properties:
+                  attributes:
+                    properties:
+                      attributes:
+                        additionalProperties:
+                          oneOf:
+                          - required:
+                            - stringValue
+                          - required:
+                            - int64Value
+                          - required:
+                            - doubleValue
+                          - required:
+                            - boolValue
+                          - required:
+                            - bytesValue
+                          - required:
+                            - timestampValue
+                          - required:
+                            - durationValue
+                          - required:
+                            - stringMapValue
+                          properties:
+                            boolValue:
+                              type: boolean
+                            bytesValue:
+                              format: binary
+                              type: string
+                            doubleValue:
+                              format: double
+                              type: number
+                            durationValue:
+                              type: string
+                            int64Value:
+                              format: int64
+                              type: integer
+                            stringMapValue:
+                              properties:
+                                entries:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  type: object
+                              type: object
+                            stringValue:
+                              format: string
+                              type: string
+                            timestampValue:
+                              format: dateTime
+                              type: string
+                          type: object
+                        type: object
+                    type: object
+                  httpMethod:
+                    format: string
+                    type: string
+                  regex:
+                    format: string
+                    type: string
+                  uriTemplate:
+                    format: string
+                    type: string
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-citadel
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: meshpolicies.authentication.istio.io
+spec:
+  group: authentication.istio.io
+  names:
+    categories:
+    - istio-io
+    - authentication-istio-io
+    kind: MeshPolicy
+    listKind: MeshPolicyList
+    plural: meshpolicies
+    singular: meshpolicy
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            originIsOptional:
+              type: boolean
+            origins:
+              items:
+                properties:
+                  jwt:
+                    properties:
+                      audiences:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      issuer:
+                        format: string
+                        type: string
+                      jwks:
+                        format: string
+                        type: string
+                      jwks_uri:
+                        format: string
+                        type: string
+                      jwksUri:
+                        format: string
+                        type: string
+                      jwt_headers:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtParams:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      trigger_rules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                      triggerRules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                    type: object
+                type: object
+              type: array
+            peerIsOptional:
+              type: boolean
+            peers:
+              items:
+                oneOf:
+                - required:
+                  - mtls
+                - required:
+                  - jwt
+                properties:
+                  jwt:
+                    properties:
+                      audiences:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      issuer:
+                        format: string
+                        type: string
+                      jwks:
+                        format: string
+                        type: string
+                      jwks_uri:
+                        format: string
+                        type: string
+                      jwksUri:
+                        format: string
+                        type: string
+                      jwt_headers:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtParams:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      trigger_rules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                      triggerRules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                    type: object
+                  mtls:
+                    properties:
+                      allowTls:
+                        type: boolean
+                      mode:
+                        enum:
+                        - STRICT
+                        - PERMISSIVE
+                        type: string
+                    type: object
+                type: object
+              type: array
+            principalBinding:
+              enum:
+              - USE_PEER
+              - USE_ORIGIN
+              type: string
+            targets:
+              items:
+                properties:
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  name:
+                    format: string
+                    type: string
+                  ports:
+                    items:
+                      oneOf:
+                      - required:
+                        - number
+                      - required:
+                        - name
+                      properties:
+                        name:
+                          format: string
+                          type: string
+                        number:
+                          type: integer
+                      type: object
+                    type: array
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-citadel
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: policies.authentication.istio.io
+spec:
+  group: authentication.istio.io
+  names:
+    categories:
+    - istio-io
+    - authentication-istio-io
+    kind: Policy
+    plural: policies
+    singular: policy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            originIsOptional:
+              type: boolean
+            origins:
+              items:
+                properties:
+                  jwt:
+                    properties:
+                      audiences:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      issuer:
+                        format: string
+                        type: string
+                      jwks:
+                        format: string
+                        type: string
+                      jwks_uri:
+                        format: string
+                        type: string
+                      jwksUri:
+                        format: string
+                        type: string
+                      jwt_headers:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtParams:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      trigger_rules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                      triggerRules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                    type: object
+                type: object
+              type: array
+            peerIsOptional:
+              type: boolean
+            peers:
+              items:
+                oneOf:
+                - required:
+                  - mtls
+                - required:
+                  - jwt
+                properties:
+                  jwt:
+                    properties:
+                      audiences:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      issuer:
+                        format: string
+                        type: string
+                      jwks:
+                        format: string
+                        type: string
+                      jwks_uri:
+                        format: string
+                        type: string
+                      jwksUri:
+                        format: string
+                        type: string
+                      jwt_headers:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      jwtParams:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      trigger_rules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                      triggerRules:
+                        items:
+                          properties:
+                            excluded_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            excludedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            included_paths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                            includedPaths:
+                              items:
+                                oneOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - suffix
+                                - required:
+                                  - regex
+                                properties:
+                                  exact:
+                                    format: string
+                                    type: string
+                                  prefix:
+                                    format: string
+                                    type: string
+                                  regex:
+                                    format: string
+                                    type: string
+                                  suffix:
+                                    format: string
+                                    type: string
+                                type: object
+                              type: array
+                          type: object
+                        type: array
+                    type: object
+                  mtls:
+                    properties:
+                      allowTls:
+                        type: boolean
+                      mode:
+                        enum:
+                        - STRICT
+                        - PERMISSIVE
+                        type: string
+                    type: object
+                type: object
+              type: array
+            principalBinding:
+              enum:
+              - USE_PEER
+              - USE_ORIGIN
+              type: string
+            targets:
+              items:
+                properties:
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  name:
+                    format: string
+                    type: string
+                  ports:
+                    items:
+                      oneOf:
+                      - required:
+                        - number
+                      - required:
+                        - name
+                      properties:
+                        name:
+                          format: string
+                          type: string
+                        number:
+                          type: integer
+                      type: object
+                    type: array
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: quotaspecbindings.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - apim-istio-io
+    kind: QuotaSpecBinding
+    plural: quotaspecbindings
+    singular: quotaspecbinding
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            quotaSpecs:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  namespace:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            services:
+              items:
+                properties:
+                  domain:
+                    format: string
+                    type: string
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  name:
+                    format: string
+                    type: string
+                  namespace:
+                    format: string
+                    type: string
+                  service:
+                    format: string
+                    type: string
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-mixer
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: quotaspecs.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - apim-istio-io
+    kind: QuotaSpec
+    plural: quotaspecs
+    singular: quotaspec
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            rules:
+              items:
+                properties:
+                  match:
+                    items:
+                      properties:
+                        clause:
+                          additionalProperties:
+                            oneOf:
+                            - required:
+                              - exact
+                            - required:
+                              - prefix
+                            - required:
+                              - regex
+                            properties:
+                              exact:
+                                format: string
+                                type: string
+                              prefix:
+                                format: string
+                                type: string
+                              regex:
+                                format: string
+                                type: string
+                            type: object
+                          type: object
+                      type: object
+                    type: array
+                  quotas:
+                    items:
+                      properties:
+                        charge:
+                          format: int64
+                          type: integer
+                        quota:
+                          format: string
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: rbac
+    package: istio.io.mixer
+    release: istio
+  name: rbacconfigs.rbac.istio.io
+spec:
+  group: rbac.istio.io
+  names:
+    categories:
+    - istio-io
+    - rbac-istio-io
+    kind: RbacConfig
+    plural: rbacconfigs
+    singular: rbacconfig
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            enforcementMode:
+              enum:
+              - ENFORCED
+              - PERMISSIVE
+              type: string
+            exclusion:
+              properties:
+                namespaces:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                services:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
+            inclusion:
+              properties:
+                namespaces:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+                services:
+                  items:
+                    format: string
+                    type: string
+                  type: array
+              type: object
+            mode:
+              enum:
+              - "OFF"
+              - "ON"
+              - ON_WITH_INCLUSION
+              - ON_WITH_EXCLUSION
+              type: string
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: core
+    package: istio.io.mixer
+    release: istio
+  name: rules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    categories:
+    - istio-io
+    - policy-istio-io
+    kind: rule
+    plural: rules
+    singular: rule
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            actions:
+              items:
+                properties:
+                  handler:
+                    format: string
+                    type: string
+                  instances:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  name:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            match:
+              format: string
+              type: string
+            requestHeaderOperations:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  operation:
+                    enum:
+                    - REPLACE
+                    - REMOVE
+                    - APPEND
+                    type: string
+                  values:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                type: object
+              type: array
+            responseHeaderOperations:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  operation:
+                    enum:
+                    - REPLACE
+                    - REMOVE
+                    - APPEND
+                    type: string
+                  values:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                type: object
+              type: array
+            sampling:
+              properties:
+                random:
+                  properties:
+                    attributeExpression:
+                      format: string
+                      type: string
+                    percentSampled:
+                      properties:
+                        denominator:
+                          enum:
+                          - HUNDRED
+                          - TEN_THOUSAND
+                          type: string
+                        numerator:
+                          type: integer
+                      type: object
+                    useIndependentRandomness:
+                      type: boolean
+                  type: object
+                rateLimit:
+                  properties:
+                    maxUnsampledEntries:
+                      format: int64
+                      type: integer
+                    samplingDuration:
+                      type: string
+                    samplingRate:
+                      format: int64
+                      type: integer
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: serviceentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.hosts
+    description: The hosts associated with the ServiceEntry
+    name: Hosts
+    type: string
+  - JSONPath: .spec.location
+    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL
+      or MESH_INTERNAL)
+    name: Location
+    type: string
+  - JSONPath: .spec.resolution
+    description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    name: Resolution
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: ServiceEntry
+    listKind: ServiceEntryList
+    plural: serviceentries
+    shortNames:
+    - se
+    singular: serviceentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            addresses:
+              items:
+                format: string
+                type: string
+              type: array
+            endpoints:
+              items:
+                properties:
+                  address:
+                    format: string
+                    type: string
+                  labels:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  locality:
+                    format: string
+                    type: string
+                  network:
+                    format: string
+                    type: string
+                  ports:
+                    additionalProperties:
+                      type: integer
+                    type: object
+                  weight:
+                    type: integer
+                type: object
+              type: array
+            exportTo:
+              items:
+                format: string
+                type: string
+              type: array
+            hosts:
+              items:
+                format: string
+                type: string
+              type: array
+            location:
+              enum:
+              - MESH_EXTERNAL
+              - MESH_INTERNAL
+              type: string
+            ports:
+              items:
+                properties:
+                  name:
+                    format: string
+                    type: string
+                  number:
+                    type: integer
+                  protocol:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            resolution:
+              enum:
+              - NONE
+              - STATIC
+              - DNS
+              type: string
+            subjectAltNames:
+              items:
+                format: string
+                type: string
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: rbac
+    package: istio.io.mixer
+    release: istio
+  name: servicerolebindings.rbac.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.roleRef.name
+    description: The name of the ServiceRole object being referenced
+    name: Reference
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: rbac.istio.io
+  names:
+    categories:
+    - istio-io
+    - rbac-istio-io
+    kind: ServiceRoleBinding
+    plural: servicerolebindings
+    singular: servicerolebinding
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            actions:
+              items:
+                properties:
+                  constraints:
+                    items:
+                      properties:
+                        key:
+                          format: string
+                          type: string
+                        values:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    type: array
+                  hosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  methods:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notHosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notMethods:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notPaths:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notPorts:
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  paths:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  ports:
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  services:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                type: object
+              type: array
+            mode:
+              enum:
+              - ENFORCED
+              - PERMISSIVE
+              type: string
+            role:
+              format: string
+              type: string
+            roleRef:
+              properties:
+                kind:
+                  format: string
+                  type: string
+                name:
+                  format: string
+                  type: string
+              type: object
+            subjects:
+              items:
+                properties:
+                  group:
+                    format: string
+                    type: string
+                  groups:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  ips:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  names:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  namespaces:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notGroups:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notIps:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notNames:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notNamespaces:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  properties:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  user:
+                    format: string
+                    type: string
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: mixer
+    chart: istio
+    heritage: Tiller
+    istio: rbac
+    package: istio.io.mixer
+    release: istio
+  name: serviceroles.rbac.istio.io
+spec:
+  group: rbac.istio.io
+  names:
+    categories:
+    - istio-io
+    - rbac-istio-io
+    kind: ServiceRole
+    plural: serviceroles
+    singular: servicerole
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            rules:
+              items:
+                properties:
+                  constraints:
+                    items:
+                      properties:
+                        key:
+                          format: string
+                          type: string
+                        values:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    type: array
+                  hosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  methods:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notHosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notMethods:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notPaths:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  notPorts:
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  paths:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  ports:
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  services:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                type: object
+              type: array
+          type: object
+      type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: virtualservices.networking.istio.io
+spec:
   additionalPrinterColumns:
   - JSONPath: .spec.gateways
     description: The names of gateways and sidecars that should apply these routes
@@ -40,521 +3530,599 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     description: |-
       CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
       Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
     name: Age
     type: date
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: destinationrules.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
   group: networking.istio.io
   names:
-    kind: DestinationRule
-    listKind: DestinationRuleList
-    plural: destinationrules
-    singular: destinationrule
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
     shortNames:
-    - dr
-    categories:
-    - istio-io
-    - networking-istio-io
+    - vs
+    singular: virtualservice
   scope: Namespaced
   subresources:
     status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            exportTo:
+              items:
+                format: string
+                type: string
+              type: array
+            gateways:
+              items:
+                format: string
+                type: string
+              type: array
+            hosts:
+              items:
+                format: string
+                type: string
+              type: array
+            http:
+              items:
+                properties:
+                  appendHeaders:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  appendRequestHeaders:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  appendResponseHeaders:
+                    additionalProperties:
+                      format: string
+                      type: string
+                    type: object
+                  corsPolicy:
+                    properties:
+                      allowCredentials:
+                        nullable: true
+                        type: boolean
+                      allowHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      allowMethods:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      allowOrigin:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      exposeHeaders:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      maxAge:
+                        type: string
+                    type: object
+                  fault:
+                    properties:
+                      abort:
+                        oneOf:
+                        - properties:
+                            percent: {}
+                          required:
+                          - httpStatus
+                        - properties:
+                            percent: {}
+                          required:
+                          - grpcStatus
+                        - properties:
+                            percent: {}
+                          required:
+                          - http2Error
+                        properties:
+                          grpcStatus:
+                            format: string
+                            type: string
+                          http2Error:
+                            format: string
+                            type: string
+                          httpStatus:
+                            format: int32
+                            type: integer
+                          percent:
+                            format: int32
+                            type: integer
+                          percentage:
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                      delay:
+                        oneOf:
+                        - properties:
+                            percent: {}
+                          required:
+                          - fixedDelay
+                        - properties:
+                            percent: {}
+                          required:
+                          - exponentialDelay
+                        properties:
+                          exponentialDelay:
+                            type: string
+                          fixedDelay:
+                            type: string
+                          percent:
+                            format: int32
+                            type: integer
+                          percentage:
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                    type: object
+                  headers:
+                    properties:
+                      request:
+                        properties:
+                          add:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                          remove:
+                            items:
+                              format: string
+                              type: string
+                            type: array
+                          set:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                        type: object
+                      response:
+                        properties:
+                          add:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                          remove:
+                            items:
+                              format: string
+                              type: string
+                            type: array
+                          set:
+                            additionalProperties:
+                              format: string
+                              type: string
+                            type: object
+                        type: object
+                    type: object
+                  match:
+                    items:
+                      properties:
+                        authority:
+                          oneOf:
+                          - required:
+                            - exact
+                          - required:
+                            - prefix
+                          - required:
+                            - regex
+                          properties:
+                            exact:
+                              format: string
+                              type: string
+                            prefix:
+                              format: string
+                              type: string
+                            regex:
+                              format: string
+                              type: string
+                          type: object
+                        gateways:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        headers:
+                          additionalProperties:
+                            oneOf:
+                            - required:
+                              - exact
+                            - required:
+                              - prefix
+                            - required:
+                              - regex
+                            properties:
+                              exact:
+                                format: string
+                                type: string
+                              prefix:
+                                format: string
+                                type: string
+                              regex:
+                                format: string
+                                type: string
+                            type: object
+                          type: object
+                        ignoreUriCase:
+                          type: boolean
+                        method:
+                          oneOf:
+                          - required:
+                            - exact
+                          - required:
+                            - prefix
+                          - required:
+                            - regex
+                          properties:
+                            exact:
+                              format: string
+                              type: string
+                            prefix:
+                              format: string
+                              type: string
+                            regex:
+                              format: string
+                              type: string
+                          type: object
+                        name:
+                          format: string
+                          type: string
+                        port:
+                          type: integer
+                        queryParams:
+                          additionalProperties:
+                            oneOf:
+                            - required:
+                              - exact
+                            - required:
+                              - prefix
+                            - required:
+                              - regex
+                            properties:
+                              exact:
+                                format: string
+                                type: string
+                              prefix:
+                                format: string
+                                type: string
+                              regex:
+                                format: string
+                                type: string
+                            type: object
+                          type: object
+                        scheme:
+                          oneOf:
+                          - required:
+                            - exact
+                          - required:
+                            - prefix
+                          - required:
+                            - regex
+                          properties:
+                            exact:
+                              format: string
+                              type: string
+                            prefix:
+                              format: string
+                              type: string
+                            regex:
+                              format: string
+                              type: string
+                          type: object
+                        sourceLabels:
+                          additionalProperties:
+                            format: string
+                            type: string
+                          type: object
+                        uri:
+                          oneOf:
+                          - required:
+                            - exact
+                          - required:
+                            - prefix
+                          - required:
+                            - regex
+                          properties:
+                            exact:
+                              format: string
+                              type: string
+                            prefix:
+                              format: string
+                              type: string
+                            regex:
+                              format: string
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                  mirror:
+                    properties:
+                      host:
+                        format: string
+                        type: string
+                      port:
+                        properties:
+                          number:
+                            type: integer
+                        type: object
+                      subset:
+                        format: string
+                        type: string
+                    type: object
+                  mirrorPercent:
+                    nullable: true
+                    type: integer
+                  name:
+                    format: string
+                    type: string
+                  redirect:
+                    properties:
+                      authority:
+                        format: string
+                        type: string
+                      redirectCode:
+                        type: integer
+                      uri:
+                        format: string
+                        type: string
+                    type: object
+                  removeRequestHeaders:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  removeResponseHeaders:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  retries:
+                    properties:
+                      attempts:
+                        format: int32
+                        type: integer
+                      perTryTimeout:
+                        type: string
+                      retryOn:
+                        format: string
+                        type: string
+                    type: object
+                  rewrite:
+                    properties:
+                      authority:
+                        format: string
+                        type: string
+                      uri:
+                        format: string
+                        type: string
+                    type: object
+                  route:
+                    items:
+                      properties:
+                        appendRequestHeaders:
+                          additionalProperties:
+                            format: string
+                            type: string
+                          type: object
+                        appendResponseHeaders:
+                          additionalProperties:
+                            format: string
+                            type: string
+                          type: object
+                        destination:
+                          properties:
+                            host:
+                              format: string
+                              type: string
+                            port:
+                              properties:
+                                number:
+                                  type: integer
+                              type: object
+                            subset:
+                              format: string
+                              type: string
+                          type: object
+                        headers:
+                          properties:
+                            request:
+                              properties:
+                                add:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  type: object
+                                remove:
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                set:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  type: object
+                              type: object
+                            response:
+                              properties:
+                                add:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  type: object
+                                remove:
+                                  items:
+                                    format: string
+                                    type: string
+                                  type: array
+                                set:
+                                  additionalProperties:
+                                    format: string
+                                    type: string
+                                  type: object
+                              type: object
+                          type: object
+                        removeRequestHeaders:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        removeResponseHeaders:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        weight:
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                  timeout:
+                    type: string
+                  websocketUpgrade:
+                    type: boolean
+                type: object
+              type: array
+            tcp:
+              items:
+                properties:
+                  match:
+                    items:
+                      properties:
+                        destinationSubnets:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        gateways:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        port:
+                          type: integer
+                        sourceLabels:
+                          additionalProperties:
+                            format: string
+                            type: string
+                          type: object
+                        sourceSubnet:
+                          format: string
+                          type: string
+                      type: object
+                    type: array
+                  route:
+                    items:
+                      properties:
+                        destination:
+                          properties:
+                            host:
+                              format: string
+                              type: string
+                            port:
+                              properties:
+                                number:
+                                  type: integer
+                              type: object
+                            subset:
+                              format: string
+                              type: string
+                          type: object
+                        weight:
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                type: object
+              type: array
+            tls:
+              items:
+                properties:
+                  match:
+                    items:
+                      properties:
+                        destinationSubnets:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        gateways:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        port:
+                          type: integer
+                        sniHosts:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        sourceLabels:
+                          additionalProperties:
+                            format: string
+                            type: string
+                          type: object
+                        sourceSubnet:
+                          format: string
+                          type: string
+                      type: object
+                    type: array
+                  route:
+                    items:
+                      properties:
+                        destination:
+                          properties:
+                            host:
+                              format: string
+                              type: string
+                            port:
+                              properties:
+                                number:
+                                  type: integer
+                              type: object
+                            subset:
+                              format: string
+                              type: string
+                          type: object
+                        weight:
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                type: object
+              type: array
+          type: object
+      type: object
   versions:
-    - name: v1alpha3
-      served: true
-      storage: true
-  additionalPrinterColumns:
-  - JSONPath: .spec.host
-    description: The name of a service from the service registry
-    name: Host
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: |-
-      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-    name: Age
-    type: date
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: serviceentries.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: networking.istio.io
-  names:
-    kind: ServiceEntry
-    listKind: ServiceEntryList
-    plural: serviceentries
-    singular: serviceentry
-    shortNames:
-    - se
-    categories:
-    - istio-io
-    - networking-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha3
-      served: true
-      storage: true
-  additionalPrinterColumns:
-  - JSONPath: .spec.hosts
-    description: The hosts associated with the ServiceEntry
-    name: Hosts
-    type: string
-  - JSONPath: .spec.location
-    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
-    name: Location
-    type: string
-  - JSONPath: .spec.resolution
-    description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
-    name: Resolution
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: |-
-      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-    name: Age
-    type: date
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: gateways.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: networking.istio.io
-  names:
-    kind: Gateway
-    plural: gateways
-    singular: gateway
-    shortNames:
-    - gw
-    categories:
-    - istio-io
-    - networking-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha3
-      served: true
-      storage: true
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: envoyfilters.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: networking.istio.io
-  names:
-    kind: EnvoyFilter
-    plural: envoyfilters
-    singular: envoyfilter
-    categories:
-    - istio-io
-    - networking-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha3
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: clusterrbacconfigs.rbac.istio.io
-  labels:
-    app: istio-pilot
-    istio: rbac
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: rbac.istio.io
-  names:
-    kind: ClusterRbacConfig
-    plural: clusterrbacconfigs
-    singular: clusterrbacconfig
-    categories:
-    - istio-io
-    - rbac-istio-io
-  scope: Cluster
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: policies.authentication.istio.io
-  labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: authentication.istio.io
-  names:
-    kind: Policy
-    plural: policies
-    singular: policy
-    categories:
-    - istio-io
-    - authentication-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: meshpolicies.authentication.istio.io
-  labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: authentication.istio.io
-  names:
-    kind: MeshPolicy
-    listKind: MeshPolicyList
-    plural: meshpolicies
-    singular: meshpolicy
-    categories:
-    - istio-io
-    - authentication-istio-io
-  scope: Cluster
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: httpapispecbindings.config.istio.io
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: HTTPAPISpecBinding
-    plural: httpapispecbindings
-    singular: httpapispecbinding
-    categories:
-    - istio-io
-    - apim-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: httpapispecs.config.istio.io
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: HTTPAPISpec
-    plural: httpapispecs
-    singular: httpapispec
-    categories:
-    - istio-io
-    - apim-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: quotaspecbindings.config.istio.io
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: QuotaSpecBinding
-    plural: quotaspecbindings
-    singular: quotaspecbinding
-    categories:
-    - istio-io
-    - apim-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: quotaspecs.config.istio.io
-  labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: QuotaSpec
-    plural: quotaspecs
-    singular: quotaspec
-    categories:
-    - istio-io
-    - apim-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: rules.config.istio.io
-  labels:
-    app: mixer
-    package: istio.io.mixer
-    istio: core
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: rule
-    plural: rules
-    singular: rule
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: attributemanifests.config.istio.io
-  labels:
-    app: mixer
-    package: istio.io.mixer
-    istio: core
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: attributemanifest
-    plural: attributemanifests
-    singular: attributemanifest
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: rbacconfigs.rbac.istio.io
-  labels:
-    app: mixer
-    package: istio.io.mixer
-    istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: rbac.istio.io
-  names:
-    kind: RbacConfig
-    plural: rbacconfigs
-    singular: rbacconfig
-    categories:
-    - istio-io
-    - rbac-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: serviceroles.rbac.istio.io
-  labels:
-    app: mixer
-    package: istio.io.mixer
-    istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: rbac.istio.io
-  names:
-    kind: ServiceRole
-    plural: serviceroles
-    singular: servicerole
-    categories:
-    - istio-io
-    - rbac-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: servicerolebindings.rbac.istio.io
-  labels:
-    app: mixer
-    package: istio.io.mixer
-    istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: rbac.istio.io
-  names:
-    kind: ServiceRoleBinding
-    plural: servicerolebindings
-    singular: servicerolebinding
-    categories:
-    - istio-io
-    - rbac-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  additionalPrinterColumns:
-  - JSONPath: .spec.roleRef.name
-    description: The name of the ServiceRole object being referenced
-    name: Reference
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: |-
-      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
-
-      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
-    name: Age
-    type: date
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1

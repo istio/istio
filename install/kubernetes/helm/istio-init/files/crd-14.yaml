@@ -1,26 +1,122 @@
-kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: authorizationpolicies.security.istio.io
+  creationTimestamp: null
   labels:
     app: istio-pilot
-    istio: security
     heritage: Tiller
+    istio: security
     release: istio
+  name: authorizationpolicies.security.istio.io
 spec:
   group: security.istio.io
   names:
+    categories:
+    - istio-io
+    - security-istio-io
     kind: AuthorizationPolicy
     plural: authorizationpolicies
     singular: authorizationpolicy
-    categories:
-      - istio-io
-      - security-istio-io
   scope: Namespaced
   subresources:
     status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            rules:
+              items:
+                properties:
+                  from:
+                    items:
+                      properties:
+                        source:
+                          properties:
+                            ipBlocks:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            namespaces:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            principals:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            requestPrincipals:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  to:
+                    items:
+                      properties:
+                        operation:
+                          properties:
+                            hosts:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            methods:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            paths:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            ports:
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  when:
+                    items:
+                      properties:
+                        key:
+                          format: string
+                          type: string
+                        values:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    type: array
+                type: object
+              type: array
+            selector:
+              properties:
+                matchLabels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
   versions:
-    - name: v1beta1
-      served: true
-      storage: true
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
