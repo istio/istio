@@ -17,8 +17,8 @@ package status
 import (
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Status state for a given resource. This contains both desired and last known status of the resource. It also acts

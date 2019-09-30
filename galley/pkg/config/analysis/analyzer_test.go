@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
@@ -49,7 +49,7 @@ func (ctx *context) Report(c collection.Name, t diag.Message)                   
 func (ctx *context) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
 func (ctx *context) Exists(c collection.Name, name resource.Name) bool          { return false }
 func (ctx *context) ForEach(c collection.Name, fn IteratorFn)                   {}
-func (ctx *context) Canceled() bool                                             { return false }
+func (ctx *context) Canceled() bool                                              { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewGomegaWithT(t)
