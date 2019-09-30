@@ -1226,13 +1226,12 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 }
 
 func shortHostName(host string, dnsDomain string) string {
-	shortHost := strings.TrimSuffix(host, dnsDomain)
-	if parts := strings.Split(dnsDomain, "."); len(parts) > 1 {
-		shortHost += parts[0] // k8s will have namespace.<domain>
+	if index := strings.Index(dnsDomain, "."); index != -1 {
+		// Exclude the namespace from dnsDomain and trim the actual domain part from host.
+		return strings.TrimSuffix(host, dnsDomain[strings.Index(dnsDomain, "."):len(dnsDomain)])
 	} else {
-		shortHost = host
+		return host
 	}
-	return shortHost
 }
 
 func lbPolicyClusterProvided(proxy *model.Proxy) apiv2.Cluster_LbPolicy {
