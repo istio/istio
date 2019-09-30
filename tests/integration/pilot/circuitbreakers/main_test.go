@@ -128,11 +128,15 @@ func TestCircuitBreakers(t *testing.T) {
 			gomega.Expect(len(clusters)).To(Equal(4))
 
 			for _, c := range clusters {
-				t.Logf("Processing cluster %v", c.Name)
-				for _, thresholds := range c.GetCircuitBreakers().GetThresholds() {
-					if c.Name != "BlackHoleCluster" && c.Name[:7] != "inbound" {
+				if c.Name != "BlackHoleCluster" {
+					t.Logf("Processing %v", c.Name)
+					t.Logf("%v", c.GetCircuitBreakers().GetThresholds())
+					gomega.Expect(len(c.GetCircuitBreakers().GetThresholds())).To(Equal(1))
+					for _, thresholds := range c.GetCircuitBreakers().GetThresholds() {
 						gomega.Expect(*thresholds).To(Equal(defaultCircuitBreakerThresholds))
 					}
+				} else {
+					t.Logf("Ignoring %v", c.Name)
 				}
 			}
 		})
