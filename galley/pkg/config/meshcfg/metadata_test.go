@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metadata
+package meshcfg
 
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 )
 
 func TestMeshConfigNameValidity(t *testing.T) {
-	m := MustGet()
-	_, found := m.Collections().Lookup(meshcfg.IstioMeshconfig.String())
+	m := metadata.MustGet()
+	_, found := m.Collections().Lookup(IstioMeshconfig.String())
 	if !found {
 		t.Fatalf("Mesh config collection not found in metadata.")
 	}
