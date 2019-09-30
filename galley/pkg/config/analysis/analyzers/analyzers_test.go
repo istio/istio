@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
@@ -147,6 +148,20 @@ var testGrid = []testCase{
 		analyzer: &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+		},
+	},
+	{
+		name: "deprecation",
+		inputFiles: []string{
+			"testdata/deprecation.yaml",
+		},
+		analyzer: &deprecation.FieldAnalyzer{},
+		expected: []message{
+			{msg.Deprecated, "VirtualService/route-egressgateway"},
+			{msg.Deprecated, "VirtualService/tornado"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
+			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
 		},
 	},
 }
