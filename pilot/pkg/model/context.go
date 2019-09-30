@@ -588,7 +588,11 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
-	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
+	if len(metadata.IstioVersion) == 0 {
+		log.Warnf("Istio Version is not found in metadata, which may have undesirable side effects")
+	} else {
+		out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
+	}
 
 	if len(metadata.Labels) > 0 {
 		out.WorkloadLabels = labels.Collection{metadata.Labels}
