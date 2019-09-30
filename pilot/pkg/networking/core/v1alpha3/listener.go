@@ -141,6 +141,10 @@ const (
 
 	// TODO(yxue): separate h2c vs h2
 	H2Protocol = "h2"
+
+	// CanonicalHttpsPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
+	// are not allowed on this port.
+	CanonicalHttpsPort = 443
 )
 
 var (
@@ -1203,7 +1207,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
-
+	if features.BlockHTTPonHTTPSPort {
+		if listenerOpts.port == CanonicalHttpsPort && pluginParams.Port.Protocol == protocol.HTTP {
+			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.", pluginParams.Service.Hostname, CanonicalHttpsPort)
+			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			return
+		}
+	}
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
