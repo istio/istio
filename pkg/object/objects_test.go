@@ -819,8 +819,8 @@ spec:
 	for _, tt := range manifestDiffWithSelectAndIgnoreTests {
 		for _, v := range []bool{true, false} {
 			t.Run(tt.desc, func(t *testing.T) {
-				got, err := ManifestDiffWithSelectAndIgnore(tt.yamlStringA, tt.yamlStringB,
-					tt.selectResources, tt.ignoreResources, v)
+				got, err := ManifestDiffWithRenameSelectIgnore(tt.yamlStringA, tt.yamlStringB,
+					"", tt.selectResources, tt.ignoreResources, v)
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -829,5 +829,197 @@ spec:
 				}
 			})
 		}
+	}
+}
+
+func TestManifestDiffWithRenameSelectIgnore(t *testing.T) {
+	testDeploymentYaml := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+  labels:
+    istio: citadel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: citadel
+  template:
+    metadata:
+      labels:
+        istio: citadel
+    spec:
+      containers:
+      - name: citadel
+        image: docker.io/istio/citadel:1.1.8
+---
+`
+
+	testDeploymentYamlRenamed := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ca
+  namespace: istio-system
+  labels:
+    istio: citadel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: citadel
+  template:
+    metadata:
+      labels:
+        istio: citadel
+    spec:
+      containers:
+      - name: citadel
+        image: docker.io/istio/citadel:1.1.8
+---
+`
+
+	testServiceYaml := `apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+  name: istio-pilot
+  namespace: istio-system
+spec:
+  type: ClusterIP
+  ports:
+  - name: grpc-xds
+    port: 15010
+    protocol: TCP
+    targetPort: 15010
+  - name: http-monitoring
+    port: 15014
+    protocol: TCP
+    targetPort: 15014
+  selector:
+    istio: pilot
+---
+`
+
+	testServiceYamlRenamed := `apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+  name: istio-control
+  namespace: istio-system
+spec:
+  type: ClusterIP
+  ports:
+  - name: grpc-xds
+    port: 15010
+    protocol: TCP
+    targetPort: 15010
+  - name: http-monitoring
+    port: 15014
+    protocol: TCP
+    targetPort: 15014
+  selector:
+    istio: pilot
+---
+`
+
+	manifestDiffWithRenameSelectIgnoreTests := []struct {
+		desc            string
+		yamlStringA     string
+		yamlStringB     string
+		renameResources string
+		selectResources string
+		ignoreResources string
+		want            string
+	}{
+		{
+			"ManifestDiffDeployWithRenamedFlagMultiResourceWildcard",
+			testDeploymentYaml + YAMLSeparator + testServiceYaml,
+			testDeploymentYamlRenamed + YAMLSeparator + testServiceYamlRenamed,
+			"Service:*:istio-pilot->::istio-control,Deployment::istio-citadel->::istio-ca",
+			"::",
+			"",
+			`
+
+Object Deployment:istio-system:istio-ca has diffs:
+
+metadata:
+  name: istio-citadel -> istio-ca
+
+
+Object Service:istio-system:istio-control has diffs:
+
+metadata:
+  name: istio-pilot -> istio-control
+`,
+		},
+		{
+			"ManifestDiffDeployWithRenamedFlagMultiResource",
+			testDeploymentYaml + YAMLSeparator + testServiceYaml,
+			testDeploymentYamlRenamed + YAMLSeparator + testServiceYamlRenamed,
+			"Service:istio-system:istio-pilot->Service:istio-system:istio-control,Deployment:istio-system:istio-citadel->Deployment:istio-system:istio-ca",
+			"::",
+			"",
+			`
+
+Object Deployment:istio-system:istio-ca has diffs:
+
+metadata:
+  name: istio-citadel -> istio-ca
+
+
+Object Service:istio-system:istio-control has diffs:
+
+metadata:
+  name: istio-pilot -> istio-control
+`,
+		},
+		{
+			"ManifestDiffDeployWithRenamedFlag",
+			testDeploymentYaml,
+			testDeploymentYamlRenamed,
+			"Deployment:istio-system:istio-citadel->Deployment:istio-system:istio-ca",
+			"::",
+			"",
+			`
+
+Object Deployment:istio-system:istio-ca has diffs:
+
+metadata:
+  name: istio-citadel -> istio-ca
+`,
+		},
+		{
+			"ManifestDiffRenamedDeploy",
+			testDeploymentYaml,
+			testDeploymentYamlRenamed,
+			"",
+			"::",
+			"",
+			`
+
+Object Deployment:istio-system:istio-ca is missing in A:
+
+
+
+Object Deployment:istio-system:istio-citadel is missing in B:
+
+`,
+		},
+	}
+
+	for _, tt := range manifestDiffWithRenameSelectIgnoreTests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got, err := ManifestDiffWithRenameSelectIgnore(tt.yamlStringA, tt.yamlStringB,
+				tt.renameResources, tt.selectResources, tt.ignoreResources, false)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("%s:\ngot:\n%v\ndoes't equals to\nwant:\n%v", tt.desc, got, tt.want)
+			}
+		})
 	}
 }
