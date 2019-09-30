@@ -456,7 +456,7 @@ func waitForError(t *testing.T, i envoy.Instance) {
 
 func waitLive(t *testing.T, i envoy.Instance) {
 	t.Helper()
-	if err := i.WaitLive().WithTimeout(2 * time.Second).Do(); err != nil {
+	if err := i.WaitLive().WithTimeout(10 * time.Second).Do(); err != nil {
 		t.Fatal(err)
 	}
 }
