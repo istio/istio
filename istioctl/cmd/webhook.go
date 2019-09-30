@@ -66,6 +66,24 @@ type disableCliOptions struct {
 	disableValidationWebhook bool
 	// The name of the ValidatingWebhookConfiguration to manage
 	validatingWebhookConfigName string
+	// Whether disable the webhook configuration of Sidecar Injector
+	disableInjectionWebhook bool
+	// The name of the injection webhook to manage
+	mutatingWebhookConfigName string
+}
+
+// Validate return nil if no error. Otherwise, return the error.
+func (opts *disableCliOptions) Validate() error {
+	if !opts.disableValidationWebhook && !opts.disableInjectionWebhook {
+		return fmt.Errorf("no webhook configuration to disable")
+	}
+	if opts.disableValidationWebhook && opts.validatingWebhookConfigName == "" {
+		return fmt.Errorf("validating webhook config to disable has empty name")
+	}
+	if opts.disableInjectionWebhook && opts.mutatingWebhookConfigName == "" {
+		return fmt.Errorf("mutating webhook config to disable has empty name")
+	}
+	return nil
 }
 
 type statusCliOptions struct {
@@ -188,30 +206,36 @@ func newDisableCmd() *cobra.Command {
 		Short: "Disable webhook configurations",
 		Example: `
 # Disable the webhook configuration of Galley
-istioctl experimental post-install webhook disable --validation --config-name istio-galley
+istioctl experimental post-install webhook disable --validation --validation-config istio-galley
+# Disable the webhook configuration of Galley and Sidecar Injector
+istioctl experimental post-install webhook disable --validation --validation-config istio-galley --injection --injection-config istio-sidecarinjector
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !opts.disableValidationWebhook {
-				return fmt.Errorf("not disabling validation webhook")
+			if err := opts.Validate(); err != nil {
+				return err
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return fmt.Errorf("err when creating k8s client interface: %v", err)
 			}
-			err = deleteValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
+			err = disableWebhookConfig(client, opts)
 			if err != nil {
-				return fmt.Errorf("error when deleting validatingwebhookconfiguration: %v", err)
+				return fmt.Errorf("error when disabling webhook configurations: %v", err)
 			}
-			fmt.Printf("validatingwebhookconfiguration %v has been deleted\n", opts.validatingWebhookConfigName)
+			fmt.Println("webhook configurations have been disabled")
 			return nil
 		},
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.disableValidationWebhook, "validation", true, "Specifies whether disabling"+
+	flags.BoolVar(&opts.disableValidationWebhook, "validation", false, "Specifies whether disabling"+
 		"the validating webhook.")
-	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
+	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to disable.")
+	flags.BoolVar(&opts.disableInjectionWebhook, "injection", false, "Specifies whether disabling"+
+		"the validating webhook.")
+	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecarinjector",
+		"The name of the MutatingWebhookConfiguration to disable.")
 
 	return cmd
 }
@@ -272,9 +296,38 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 	return whConfig, err
 }
 
-// Delete the validatingwebhookconfiguration
-func deleteValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) error {
-	return k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, &metav1.DeleteOptions{})
+// Create the mutatingwebhookconfiguration
+func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
+	config *v1beta1.MutatingWebhookConfiguration) (*v1beta1.MutatingWebhookConfiguration, error) {
+	var whConfig *v1beta1.MutatingWebhookConfiguration
+	var err error
+	client := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	_, err = client.Get(config.Name, metav1.GetOptions{})
+	if err == nil {
+		fmt.Printf("update webhook configuration %v\n", config.Name)
+		whConfig, err = client.Update(config)
+	} else {
+		fmt.Printf("create webhook configuration %v\n", config.Name)
+		whConfig, err = client.Create(config)
+	}
+	return whConfig, err
+}
+
+// Disable webhook configurations
+func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions) error {
+	if opt.disableValidationWebhook {
+		err := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(opt.validatingWebhookConfigName, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	if opt.disableInjectionWebhook {
+		err := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(opt.mutatingWebhookConfigName, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get the validatingwebhookconfiguration
@@ -370,6 +423,33 @@ func buildValidatingWebhookConfig(
 	var webhookConfig v1beta1.ValidatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
+			webhookConfigPath, err)
+	}
+
+	// the webhook name is fixed at startup time
+	webhookConfig.Name = webhookConfigName
+
+	// patch the ca-cert into the user provided configuration
+	for i := range webhookConfig.Webhooks {
+		webhookConfig.Webhooks[i].ClientConfig.CABundle = caCert
+	}
+
+	return &webhookConfig, nil
+}
+
+// Build the desired mutatingwebhookconfiguration from the specified CA
+// and webhook config file.
+func buildMutatingWebhookConfig(
+	caCert []byte, webhookConfigPath, webhookConfigName string,
+) (*v1beta1.MutatingWebhookConfiguration, error) {
+	// load and validate configuration
+	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	var webhookConfig v1beta1.MutatingWebhookConfiguration
+	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
+		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)
 	}
 
