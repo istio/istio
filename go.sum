@@ -1168,8 +1168,11 @@ istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20190913194855-8920ca438254 h1:lVu91tmr/xL+vaZSDLUqPu8oTfO8C3OHOL5TnWQZKx4=
 istio.io/api v0.0.0-20190913194855-8920ca438254/go.mod h1:42cBjnu/rTJcCaKi8nLdIvq0n71RcLrkgZ9IQSvDdSQ=
+istio.io/api v0.0.0-20190930220724-33a483a29b8e h1:AQi92NmFX9l17eEwT69x3ug28WkhAc5N+DH3nTk0nKs=
+istio.io/api v0.0.0-20190930220724-33a483a29b8e/go.mod h1:UP3a6saAz6eoOaXQqzy49/ygIjzUcEGZ0QTFpcfmSEA=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P+Wr2dOdPriJu09cU8wGMG+/M=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
+istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/operator v0.0.0-20190923170413-6e6db1228c1f h1:brs//uV6My1Y+nKZDFdiG5sXn6B+ZthFhElzI/5VqEo=
 istio.io/operator v0.0.0-20190923170413-6e6db1228c1f/go.mod h1:zXW7+gecpItHqIChrAAepMbnLSOoV7AkUkKpI8Gx4Yo=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
