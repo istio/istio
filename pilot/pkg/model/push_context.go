@@ -1425,35 +1425,35 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	return MergeGateways(out...)
 }
 
-func (in *PushContext) copyInto(out *PushContext) {
+func (ps *PushContext) copyInto(out *PushContext) {
 	// service related
-	out.privateServicesByNamespace = in.privateServicesByNamespace
-	out.publicServices = in.publicServices
-	out.ServiceByHostnameAndNamespace = in.ServiceByHostnameAndNamespace
-	out.ServiceAccounts = in.ServiceAccounts
+	out.privateServicesByNamespace = ps.privateServicesByNamespace
+	out.publicServices = ps.publicServices
+	out.ServiceByHostnameAndNamespace = ps.ServiceByHostnameAndNamespace
+	out.ServiceAccounts = ps.ServiceAccounts
 
 	// virtualservice related
-	out.privateVirtualServicesByNamespace = in.privateVirtualServicesByNamespace
-	out.publicVirtualServices = in.publicVirtualServices
+	out.privateVirtualServicesByNamespace = ps.privateVirtualServicesByNamespace
+	out.publicVirtualServices = ps.publicVirtualServices
 
 	// destination rule related
-	out.namespaceLocalDestRules = in.namespaceLocalDestRules
-	out.namespaceExportedDestRules = in.namespaceExportedDestRules
-	out.allExportedDestRules = in.allExportedDestRules
+	out.namespaceLocalDestRules = ps.namespaceLocalDestRules
+	out.namespaceExportedDestRules = ps.namespaceExportedDestRules
+	out.allExportedDestRules = ps.allExportedDestRules
 
 	// sidecars
-	out.sidecarsByNamespace = in.sidecarsByNamespace
+	out.sidecarsByNamespace = ps.sidecarsByNamespace
 
 	// envoyfilters
-	out.envoyFiltersByNamespace = in.envoyFiltersByNamespace
+	out.envoyFiltersByNamespace = ps.envoyFiltersByNamespace
 
 	// gateways
-	out.gatewaysByNamespace = in.gatewaysByNamespace
-	out.allGateways = in.allGateways
+	out.gatewaysByNamespace = ps.gatewaysByNamespace
+	out.allGateways = ps.allGateways
 
 	// authz
-	out.AuthzPolicies = in.AuthzPolicies
+	out.AuthzPolicies = ps.AuthzPolicies
 
 	// authn
-	out.AuthnPolicies = in.AuthnPolicies
+	out.AuthnPolicies = ps.AuthnPolicies
 }
