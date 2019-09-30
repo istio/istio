@@ -196,8 +196,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			serviceMTLSMode := authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
-			// autoFillMTLSSettings(destRule, service.MeshExternal, authn_v1alpha1_applier.GetMutualTLSMode(
-			// 	push.AuthenticationPolicyForWorkload(service, port)))
 
 			var clusterMetadata *core.Metadata
 			if destRule != nil {
