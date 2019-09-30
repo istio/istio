@@ -29,8 +29,8 @@ To use it:
 
     ```bash
     export SLEEP_POD=$(kubectl get pod -l app=sleep -o jsonpath={.items..metadata.name})
-    kubectl exec -it $SLEEP_POD -c sleep curl http://ratings.default.svc.cluster.local:9080/ratings
-    {"Reviewer1":5,"Reviewer2":4}
+    kubectl exec -it $SLEEP_POD -c sleep curl http://ratings.default.svc.cluster.local:9080/ratings/1
+    {"id":1,"ratings":{"Reviewer1":5,"Reviewer2":4}}
     ```
 
 You can also use the sleep service to test accessing services outside of the mesh.
