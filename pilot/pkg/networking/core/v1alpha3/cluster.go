@@ -178,7 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", proxy.DNSDomain, port)
+				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", port)
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
@@ -212,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					if len(env.Mesh.OutboundClusterStatName) != 0 {
-						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
+						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port)
 					}
 					setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
@@ -625,7 +625,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
+			string(instance.Service.Hostname), "", instance.Endpoint.ServicePort)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
@@ -1216,8 +1216,8 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 	}
 }
 
-func altStatName(statPattern string, host string, subset string, dnsDomain string, port *model.Port) string {
-	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, dnsDomain))
+func altStatName(statPattern string, host string, subset string, port *model.Port) string {
+	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host))
 	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
 	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
 	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
@@ -1225,14 +1225,12 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 	return name
 }
 
-func shortHostName(host string, dnsDomain string) string {
-	shortHost := strings.TrimSuffix(host, dnsDomain)
-	if parts := strings.Split(dnsDomain, "."); len(parts) > 1 {
-		shortHost += parts[0] // k8s will have namespace.<domain>
+func shortHostName(host string) string {
+	if parts := strings.Split(host, "."); len(parts) > 2 {
+		return parts[0] + "." + parts[1] // k8s will have service.namespace.<domain>
 	} else {
-		shortHost = host
+		return host
 	}
-	return shortHost
 }
 
 func lbPolicyClusterProvided(proxy *model.Proxy) apiv2.Cluster_LbPolicy {
