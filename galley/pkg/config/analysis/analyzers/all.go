@@ -28,7 +28,8 @@ func All() []analysis.Analyzer {
 	return []analysis.Analyzer{
 		&gateway.IngressGatewayPortAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
-		&virtualservice.DestinationAnalyzer{},
+		&virtualservice.DestinationHostAnalyzer{},
+		&virtualservice.DestinationRuleAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&injection.Analyzer{},
 		&deprecation.FieldAnalyzer{},

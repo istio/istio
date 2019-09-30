@@ -69,13 +69,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "virtualServiceDestinations",
+		name: "virtualServiceDestinationHosts",
 		inputFiles: []string{
-			"testdata/virtualservice_destinations.yaml",
+			"testdata/virtualservice_destinationhosts.yaml",
 		},
-		analyzer: &virtualservice.DestinationAnalyzer{},
+		analyzer: &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+		},
+	},
+	{
+		name: "virtualServiceDestinationRules",
+		inputFiles: []string{
+			"testdata/virtualservice_destinationrules.yaml",
+		},
+		analyzer: &virtualservice.DestinationRuleAnalyzer{},
+		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
 		},
 	},
