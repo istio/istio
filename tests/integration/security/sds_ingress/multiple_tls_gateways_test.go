@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multipletlsgateway
+package sds_ingress
 
 import (
 	"testing"
@@ -24,18 +24,15 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
-
 // testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
 func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
+	credNames := []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts := []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)

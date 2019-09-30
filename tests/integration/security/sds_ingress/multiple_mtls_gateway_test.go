@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multiplemtlsgateway
+package sds_ingress
 
 import (
 	"time"
@@ -25,18 +25,16 @@ import (
 	"testing"
 )
 
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
-
 // testMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.
 func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
+
+	credNames := []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts := []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
 
 	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, ingressutil.IngressCredentialA)
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)

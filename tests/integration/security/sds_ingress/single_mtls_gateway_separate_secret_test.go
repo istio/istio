@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package singlemtlsgatewayseparatesecret
+package sds_ingress
 
 import (
 	"testing"
@@ -22,12 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-)
-
-var (
-	credName   = []string{"bookinfo-credential-1"}
-	credCaName = []string{"bookinfo-credential-1-cacert"}
-	host       = "bookinfo1.example.com"
 )
 
 // TestSingleMTLSGateway_ServerKeyCertRotation tests a single mTLS ingress gateway with SDS enabled.
@@ -44,6 +38,9 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			credName := []string{"bookinfo-credential-1"}
+			credCaName := []string{"bookinfo-credential-1-cacert"}
+			host := "bookinfo1.example.com"
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
 
 			// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
