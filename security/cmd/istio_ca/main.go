@@ -442,7 +442,8 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		} else {
 			checkInterval = -1
 		}
-		if opts.selfSignedRootCertCheckInterval > 0 && opts.selfSignedRootCertCheckInterval < 1 {
+		if opts.selfSignedRootCertCheckInterval > time.Duration(0) &&
+			opts.selfSignedRootCertCheckInterval < time.Duration(1) {
 			opts.selfSignedRootCertCheckInterval = 1 * time.Minute
 		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,

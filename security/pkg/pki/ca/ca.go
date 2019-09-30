@@ -139,7 +139,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		}
 	}
 
-	rootCertGracePeriod := cmd.DefaultRootCertGracePeriodRatio * 100
+	rootCertGracePeriodPercentile := cmd.DefaultRootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -148,7 +148,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			CheckInterval:       rootCertCheckInverval,
 			caCertTTL:           caCertTTL,
 			retryInterval:       cmd.ReadSigningCertCheckInterval,
-			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriod)),
+			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriodPercentile)),
 			caStorageNamespace:  namespace,
 			dualUse:             dualUse,
 			readSigningCertOnly: readSigningCertOnly,
@@ -271,8 +271,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
-		// When IstioCA is being created, the cert rotation thread is not started yet.
-		// No need to lock protect accessing keyCertBundle.
 		keyCertBundle: opts.KeyCertBundle,
 		livenessProbe: probe.NewProbe(),
 	}

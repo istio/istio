@@ -92,8 +92,8 @@ type DNSNameEntry struct {
 	CustomDomains []string
 }
 
-// CertificateAuthority contains methods to be supported by a CA.
-type CertificateAuthority interface {
+// certificateAuthority contains methods to be supported by a CA.
+type certificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
 	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
 	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
@@ -105,13 +105,38 @@ type CertificateAuthority interface {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca             CertificateAuthority
-	certTTL        time.Duration
-	core           corev1.CoreV1Interface
-	minGracePeriod time.Duration
+	monitoring			monitoringMetrics
+	ca							certificateAuthority
+	core						corev1.CoreV1Interface
+	certUtil        certutil.CertUtil
+
+	// Controller and store for service account objects.
+	saController 		cache.Controller
+	saStore      		cache.Store
+
+	// Controller and store for secret objects.
+	scrtController cache.Controller
+	scrtStore      cache.Store
+
+	// Controller and store for namespace objects
+	namespaceController cache.Controller
+	namespaceStore      cache.Store
+
+	// Used to coordinate with label and check if this instance of Citadel should create secret
+	istioCaStorageNamespace string
+
+	certTTL					time.Duration
+
+	minGracePeriod	time.Duration
+
+	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
+	namespaces 			map[string]struct{}
+
+	// DNS-enabled serviceAccount.namespace to service pair
+	dnsNames 				map[string]*DNSNameEntry
+
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
-	certUtil         certutil.CertUtil
 
 	// Whether controller loop should target namespaces without the NamespaceManagedLabel
 	enableNamespacesByDefault bool
@@ -124,32 +149,10 @@ type SecretController struct {
 
 	// If true, generate a PKCS#8 private key.
 	pkcs8Key bool
-
-	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
-	namespaces map[string]struct{}
-
-	// DNS-enabled serviceAccount.namespace to service pair
-	dnsNames map[string]*DNSNameEntry
-
-	// Controller and store for service account objects.
-	saController cache.Controller
-	saStore      cache.Store
-
-	// Controller and store for secret objects.
-	scrtController cache.Controller
-	scrtStore      cache.Store
-
-	// Controller and store for namespace objects
-	namespaceController cache.Controller
-	namespaceStore      cache.Store
-
-	// Used to coordinate with label and check if this instance of Citadel should create secret
-	istioCaStorageNamespace string
-	monitoring              monitoringMetrics
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca CertificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
+func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
@@ -471,8 +474,6 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	namespace := scrt.GetNamespace()
 	name := scrt.GetName()
 
-	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
-	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
 	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
