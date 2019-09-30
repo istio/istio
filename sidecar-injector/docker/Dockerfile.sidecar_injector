@@ -7,7 +7,7 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
-USER istio-proxy
+USER 1337:1337
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
