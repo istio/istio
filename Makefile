@@ -28,61 +28,70 @@
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 
-ifeq ($(BUILD_WITH_CONTAINER),1)
-IMG = gcr.io/istio-testing/build-tools:2019-09-11T09-52-48
-UID = $(shell id -u)
-PWD = $(shell pwd)
-GOBIN_SOURCE ?= $(GOPATH)/bin
-GOBIN ?= /work/out/bin
-
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
-GOARCH_LOCAL := amd64
+    TARGET_ARCH ?= amd64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
-GOARCH_LOCAL := arm64
+    TARGET_ARCH ?= arm64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
-GOARCH_LOCAL := arm
+    TARGET_ARCH ?= arm
 else
-GOARCH_LOCAL := $(LOCAL_ARCH)
+   $(error "This system's architecture $(LOCAL_ARCH) isn't recognized/supported")
 endif
-
-GOARCH ?= $(GOARCH_LOCAL)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   GOOS_LOCAL = linux
+   TARGET_OS ?= linux
+   READLINK_FLAGS="-f"
 else ifeq ($(LOCAL_OS),Darwin)
-   GOOS_LOCAL = darwin
+   TARGET_OS ?= darwin
+   READLINK_FLAGS=""
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-GOOS ?= $(GOOS_LOCAL)
+REPO_ROOT = $(shell git rev-parse --show-toplevel)
+REPO_NAME = $(shell basename $(REPO_ROOT))
+TARGET_OUT ?= $(HOME)/istio_out/$(REPO_NAME)
 
-RUN = docker run -t -i --sig-proxy=true -u $(UID) --rm \
-	-e GOOS="$(GOOS)" \
-	-e GOARCH="$(GOARCH)" \
-	-e GOBIN="$(GOBIN)" \
-	-e BUILD_WITH_CONTAINER="$(BUILD_WITH_CONTAINER)" \
+ifeq ($(BUILD_WITH_CONTAINER),1)
+CONTAINER_CLI ?= docker
+DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
+IMG ?= gcr.io/istio-testing/build-tools:2019-09-30T05-55-33
+UID = $(shell id -u)
+PWD = $(shell pwd)
+
+$(info Building with the build container: $(IMG).)
+
+# Determine the timezone across various platforms to pass into the
+# docker run operation. This operation assumes zoneinfo is within
+# the path of the file.
+TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
+
+RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID) --rm \
+	-e TZ="$(TIMEZONE)" \
+	-e TARGET_ARCH="$(TARGET_ARCH)" \
+	-e TARGET_OS="$(TARGET_OS)" \
 	-v /etc/passwd:/etc/passwd:ro \
-	-v $(readlink /etc/localtime):/etc/localtime:ro \
-	-v /var/run/docker.sock:/var/run/docker.sock \
+	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
-	--mount type=volume,source=istio-go-mod,destination="/go/pkg/mod" \
-	--mount type=volume,source=istio-go-cache,destination="/gocache" \
-	--mount type=bind,source="$(GOBIN_SOURCE)",destination="/go/out/bin" \
+	--mount type=bind,source="$(TARGET_OUT)",destination="/targetout" \
+	--mount type=volume,source=home,destination="/home" \
 	-w /work $(IMG)
 else
+$(info Building with your local toolchain.)
 RUN =
 endif
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 %:
+	@mkdir -p $(TARGET_OUT)
 	@$(MAKE) $@
 
 default:
+	@mkdir -p $(TARGET_OUT)
 	@$(MAKE)
 
 .PHONY: default
