@@ -322,7 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if node.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			return nil
 		}
 
