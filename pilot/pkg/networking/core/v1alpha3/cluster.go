@@ -1229,9 +1229,8 @@ func shortHostName(host string, dnsDomain string) string {
 	if index := strings.Index(dnsDomain, "."); index != -1 {
 		// Exclude the namespace from dnsDomain and trim the actual domain part from host.
 		return strings.TrimSuffix(host, dnsDomain[strings.Index(dnsDomain, "."):len(dnsDomain)])
-	} else {
-		return host
 	}
+	return host
 }
 
 func lbPolicyClusterProvided(proxy *model.Proxy) apiv2.Cluster_LbPolicy {
