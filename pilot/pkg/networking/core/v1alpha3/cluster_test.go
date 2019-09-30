@@ -1306,7 +1306,7 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default",
 		},
 		{
-			"Service only pattern",
+			"Service only pattern across namespace",
 			"%SERVICE%",
 			"reviews.namespace1.svc.cluster.local",
 			"",
