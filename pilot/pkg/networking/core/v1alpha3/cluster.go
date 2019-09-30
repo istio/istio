@@ -1196,6 +1196,8 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
+	passthroughSettings := &networking.ConnectionPoolSettings{}
+	applyConnectionPool(env, cluster, passthroughSettings, model.TrafficDirectionOutbound)
 	return cluster
 }
 
