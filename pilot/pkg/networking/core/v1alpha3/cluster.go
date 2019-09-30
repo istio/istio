@@ -155,7 +155,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 // (destination service can accept mTLS). The function returns the origin destination rule if it is already
 // has (service-level) TLS settings.
 // This function should be called for each service port, with the mTLS mode for that service + port.
-func autoFillMTLSSettings(config *model.Config,
+func autoFillMTLSSettings(config *model.Config, externalService bool,
 	destServiceMTLSMode authn_v1alpha1_applier.MutualTLSMode) *networking.DestinationRule {
 	destinationRule := &networking.DestinationRule{}
 	if config != nil {
@@ -166,6 +166,11 @@ func autoFillMTLSSettings(config *model.Config,
 			// However, as port-level (or subset) will override the service-level, the code is simpler to add them regardless.
 			return destinationRule
 		}
+	}
+
+	if externalService {
+		// If service is (mesh)External, return DR as is.
+		return destinationRule
 	}
 
 	// The destination service is eligible to use mTLS if
@@ -222,7 +227,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
-			destinationRule := autoFillMTLSSettings(destRule, authn_v1alpha1_applier.GetMutualTLSMode(
+			destinationRule := autoFillMTLSSettings(destRule, service.MeshExternal, authn_v1alpha1_applier.GetMutualTLSMode(
 				push.AuthenticationPolicyForWorkload(service, port)))
 			var clusterMetadata *core.Metadata
 			if destRule != nil {
