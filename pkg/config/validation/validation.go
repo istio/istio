@@ -2352,8 +2352,9 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("invalid host %s", hostname))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(hostname))
-			if strings.HasPrefix(hostname, "*") && serviceEntry.Resolution == networking.ServiceEntry_DNS {
-				errs = appendErrors(errs, fmt.Errorf("wildcard hostname %s must not be set DNS resolution", hostname))
+			if strings.HasPrefix(hostname, "*") && len(serviceEntry.Endpoints) == 0 &&
+				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				errs = appendErrors(errs, fmt.Errorf("wildcard hostname %s without endpoints must not be set DNS resolution", hostname))
 			}
 		}
 	}
