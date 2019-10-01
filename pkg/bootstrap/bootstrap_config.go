@@ -168,7 +168,6 @@ func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, c
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
 		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
-		"--allow-unknown-fields",
 	}
 
 	startupArgs = append(startupArgs, cliarg...)
