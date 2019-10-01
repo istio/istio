@@ -86,7 +86,6 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.node,
 		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--allow-unknown-fields",
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
