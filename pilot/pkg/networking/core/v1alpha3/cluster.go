@@ -60,6 +60,7 @@ const (
 	servicePortStatPattern     = "%SERVICE_PORT%"
 	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
 	subsetNameStatPattern      = "%SUBSET_NAME%"
+	k8sDomain                  = ".svc.cluster.local"
 )
 
 var (
@@ -1217,7 +1218,7 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 }
 
 func altStatName(statPattern string, host string, subset string, dnsDomain string, port *model.Port) string {
-	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, dnsDomain))
+	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host))
 	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
 	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
 	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
@@ -1225,10 +1226,11 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 	return name
 }
 
-func shortHostName(host string, dnsDomain string) string {
-	if index := strings.Index(dnsDomain, "."); index != -1 {
-		// Exclude the namespace from dnsDomain and trim the actual domain part from host.
-		return strings.TrimSuffix(host, dnsDomain[index:])
+func shortHostName(host string) string {
+	// If the host is a k8s host, we skip the domain part for evaluating short name. 
+	// For others like VM hosts, we return host as is as there is no standard pattern.
+	if strings.HasSuffix(host, k8sDomain) {
+		return strings.TrimSuffix(host, k8sDomain)
 	}
 	return host
 }
