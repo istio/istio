@@ -24,12 +24,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         prometheus.io/scrape: "true"
-        prometheus.io/port: "16686"
-{{- if .Values.contextPath }}
-        prometheus.io/path: "{{ .Values.contextPath }}/metrics"
-{{- else }}
-        prometheus.io/path: "/{{ .Values.provider }}/metrics"
-{{- end }}
+        prometheus.io/port: "14269"
 {{- if .Values.jaeger.podAnnotations }}
 {{ toYaml .Values.jaeger.podAnnotations | indent 8 }}
 {{- end }}
@@ -50,6 +45,10 @@ spec:
           ports:
             - containerPort: 9411
             - containerPort: 16686
+            - containerPort: 14250
+            - containerPort: 14267
+            - containerPort: 14268
+            - containerPort: 14269
             - containerPort: 5775
               protocol: UDP
             - containerPort: 6831
@@ -81,11 +80,11 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: 16686
+              port: 14269
           readinessProbe:
             httpGet:
               path: /
-              port: 16686
+              port: 14269
 {{- if eq .Values.jaeger.spanStorageType "badger" }}
           volumeMounts:
           - name: data
