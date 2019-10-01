@@ -20,9 +20,9 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
-if [[ $(command -v gcloud &> /dev/null) ]]; then
+if [[ $(command -v gcloud) ]]; then
   gcloud auth configure-docker -q
-elif [[ $(command -v docker-credential-gcr &> /dev/null) ]]; then
+elif [[ $(command -v docker-credential-gcr) ]]; then
   docker-credential-gcr configure-docker
 else
   echo "No credential helpers found, push to docker may not function properly"
