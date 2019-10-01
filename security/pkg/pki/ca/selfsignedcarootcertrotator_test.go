@@ -209,20 +209,20 @@ func TestRootCertRotatorGoroutineForSigningCitadel(t *testing.T) {
 	// a copy of root cert from config map for verification.
 	certItem0 := loadCert(rotator)
 
-	// Config rotator to periodically rotates root cert.
+	// Configure rotator to periodically rotates root cert.
 	rotator.config.certInspector = certutil.NewCertUtil(100)
 	rotator.config.caCertTTL = 1 * time.Minute
-	rotator.config.CheckInterval = 3 * time.Second
+	rotator.config.CheckInterval = 500 * time.Millisecond
 	rootCertRotatorChan := make(chan struct{})
 	go rotator.Run(rootCertRotatorChan)
 	defer close(rootCertRotatorChan)
 
 	// Wait until root cert rotation is done.
-	time.Sleep(4 * time.Second)
+	time.Sleep(600 * time.Millisecond)
 	certItem1 := loadCert(rotator)
 	verifyRootCertAndPrivateKey(t, false, certItem0, certItem1)
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(600 * time.Millisecond)
 	certItem2 := loadCert(rotator)
 	verifyRootCertAndPrivateKey(t, false, certItem1, certItem2)
 }
