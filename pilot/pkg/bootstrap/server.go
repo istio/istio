@@ -118,6 +118,13 @@ const (
 
 	// DefaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
 	DefaultMinCertGracePeriod = 10 * time.Minute
+
+	// Default directory to store Pilot key and certificate
+	DefaultDirectoryForKeyCert = "/pilot/key-cert"
+
+	// Default CA certificate path
+	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
+	DefaultCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 var (
@@ -1208,71 +1215,70 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 func (s *Server) initCertController(args *PilotArgs) error {
 	var err error
-	var svcNames []string
-	var svcNamespaces []string
-	if s.mesh.K8SCertificateSetting == nil {
-		log.Info("nil k8s certificate config")
-		return nil
-	}
-	if !s.mesh.K8SCertificateSetting.Enabled {
-		log.Info("k8s certificate provision is not enabled")
+	var secretNames, dnsNames, namespaces []string
+	// Whether a key and cert are generated for Pilot
+	var pilotCertGenerated bool
+
+	if s.mesh.GetCertificates() == nil || len(s.mesh.GetCertificates()) == 0 {
+		log.Info("nil certificate config")
 		return nil
 	}
 
 	k8sClient := s.kubeClient
-	if len(s.mesh.K8SCertificateSetting.PilotService) > 0 {
-		// Generate a key and certificate for Pilot and save it into a directory.
-		pilotSvcNs := strings.Split(s.mesh.K8SCertificateSetting.PilotService, ".")
-		if len(pilotSvcNs) != 2 {
-			return fmt.Errorf("pilot service must have a service name and service namespace, delimited by a '.'")
+	for _, c := range s.mesh.GetCertificates() {
+		name := strings.Join(c.GetDnsNames(), ",")
+		if len(name) == 0 { // must have a DNS name
+			continue
 		}
-		if len(s.mesh.K8SCertificateSetting.PilotCertificatePath) == 0 {
-			return fmt.Errorf("empty path for Pilot key and certificate")
-		}
-		// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
-		if _, err := os.Stat(s.mesh.K8SCertificateSetting.PilotCertificatePath); os.IsNotExist(err) {
-			err := os.Mkdir(s.mesh.K8SCertificateSetting.PilotCertificatePath, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("err to create directory %v: %v", s.mesh.K8SCertificateSetting.PilotCertificatePath, err)
+		if len(c.GetSecretName()) > 0 { //
+			// Chiron will generate the key and certificate and save them in a secret
+			secretNames = append(secretNames, c.GetSecretName())
+			dnsNames = append(dnsNames, name)
+			namespaces = append(namespaces, args.Namespace)
+		} else if !pilotCertGenerated {
+			// Generate a key and certificate for the service and save them into a hard-coded directory.
+			// Only one service (currently Pilot) will save the key and certificate in a directory.
+			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
+			svcName := "istio.pilot"
+			dir := DefaultDirectoryForKeyCert
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				err := os.Mkdir(dir, os.ModePerm)
+				if err != nil {
+					return fmt.Errorf("err to create directory %v: %v", dir, err)
+				}
 			}
-		}
-		// Generate Pilot certificate
-		certChain, keyPEM, caCert, err := chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1(), pilotSvcNs[0]+".csr.secret",
-			pilotSvcNs[1], pilotSvcNs[0], s.mesh.K8SCertificateSetting.CaBundleFile)
-		if err != nil {
-			log.Errorf("err to generate key cert for (%v): %v", s.mesh.K8SCertificateSetting.PilotService, err)
-			return nil
-		}
-		// Save cert-chain.pem, root.pem, and key.pem to the directory.
-		file := path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "cert-chain.pem")
-		if err = ioutil.WriteFile(file, certChain, 0644); err != nil {
-			log.Errorf("err to write cert-chain.pem (%v): %v", file, err)
-			return nil
-		}
-		file = path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "root.pem")
-		if err = ioutil.WriteFile(file, caCert, 0644); err != nil {
-			log.Errorf("err to write root.pem (%v): %v", file, err)
-			return nil
-		}
-		file = path.Join(s.mesh.K8SCertificateSetting.PilotCertificatePath, "key.pem")
-		if err = ioutil.WriteFile(file, keyPEM, 0600); err != nil {
-			log.Errorf("err to write key.pem (%v): %v", file, err)
-			return nil
+			// Generate Pilot certificate
+			certChain, keyPEM, caCert, err := chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1().CertificateSigningRequests(),
+				name, svcName+".csr.secret", args.Namespace, DefaultCACertPath)
+			if err != nil {
+				log.Errorf("err to generate key cert for %v: %v", svcName, err)
+				return nil
+			}
+			// Save cert-chain.pem, root.pem, and key.pem to the directory.
+			file := path.Join(dir, "cert-chain.pem")
+			if err = ioutil.WriteFile(file, certChain, 0644); err != nil {
+				log.Errorf("err to write %v cert-chain.pem (%v): %v", svcName, file, err)
+				return nil
+			}
+			file = path.Join(dir, "root.pem")
+			if err = ioutil.WriteFile(file, caCert, 0644); err != nil {
+				log.Errorf("err to write %v root.pem (%v): %v", svcName, file, err)
+				return nil
+			}
+			file = path.Join(dir, "key.pem")
+			if err = ioutil.WriteFile(file, keyPEM, 0600); err != nil {
+				log.Errorf("err to write %v key.pem (%v): %v", svcName, file, err)
+				return nil
+			}
+			pilotCertGenerated = true
 		}
 	}
 
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
-	for _, svc := range s.mesh.K8SCertificateSetting.Services {
-		s := strings.Split(svc, ".")
-		if len(s) != 2 {
-			log.Error("each service must have a service name and service namespace, delimited by a '.'")
-			return nil
-		}
-	}
 	s.certController, err = chiron.NewWebhookController(DefaultCertGracePeriodRatio, DefaultMinCertGracePeriod,
 		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
-		s.mesh.K8SCertificateSetting.CaBundleFile, svcNames, svcNamespaces)
+		DefaultCACertPath, secretNames, dnsNames, namespaces)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}

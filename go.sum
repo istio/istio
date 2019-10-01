@@ -1179,6 +1179,8 @@ istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20190930180221-6b9215326786 h1:g0rZzL/3NiG6Eo5Ej7FzFFyRk3Ygl0+a/RlbATaUCq4=
 istio.io/api v0.0.0-20190930180221-6b9215326786/go.mod h1:UP3a6saAz6eoOaXQqzy49/ygIjzUcEGZ0QTFpcfmSEA=
+istio.io/api v0.0.0-20191001004624-ca4d65802c86 h1:h3jdUnPw7biZbhtbz8T87gxJ7ehxBwuXNbXrjNbnXZg=
+istio.io/api v0.0.0-20191001004624-ca4d65802c86/go.mod h1:UP3a6saAz6eoOaXQqzy49/ygIjzUcEGZ0QTFpcfmSEA=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a h1:w7zILua2dnYo9CxImhpNW4NE/8ZxEoc/wfBfHrhUhrE=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/operator v0.0.0-20190923170413-6e6db1228c1f h1:brs//uV6My1Y+nKZDFdiG5sXn6B+ZthFhElzI/5VqEo=
