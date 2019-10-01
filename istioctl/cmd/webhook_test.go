@@ -18,6 +18,11 @@ import (
 	"bytes"
 	"testing"
 
+	"istio.io/istio/security/pkg/pki/ca"
+
+	"k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -124,20 +129,116 @@ func TestVerifyCertChain(t *testing.T) {
 	}
 }
 
-func TestBuildValidatingWebhookConfig(t *testing.T) {
-	configFile := "./testdata/webhook/example-validating-webhook-config.yaml"
-	configName := "proto-validate"
-	webhookConfig, err := buildValidatingWebhookConfig(fakeCACert, configFile, configName)
-	if err != nil {
-		t.Fatalf("err building validating webhook config %v: %v", configName, err)
+func TestEnableCliOptionsValidation(t *testing.T) {
+	testCases := map[string]struct {
+		opt        enableCliOptions
+		shouldFail bool
+	}{
+		"valid option 1": {
+			opt: enableCliOptions{
+				enableValidationWebhook:      true,
+				validatingWebhookConfigName:  "foo",
+				validationWebhookConfigPath:  "config",
+				validatingWebhookServiceName: "service",
+				webhookSecretName:            "secret",
+			},
+			shouldFail: false,
+		},
+		"valid option 2": {
+			opt: enableCliOptions{
+				enableMutationWebhook:      true,
+				mutatingWebhookConfigName:  "bar",
+				mutatingWebhookConfigPath:  "config",
+				mutatingWebhookServiceName: "service",
+				webhookSecretName:          "secret",
+			},
+			shouldFail: false,
+		},
+		"valid option 3": {
+			opt: enableCliOptions{
+				enableValidationWebhook:      true,
+				validatingWebhookConfigName:  "foo",
+				validationWebhookConfigPath:  "config",
+				validatingWebhookServiceName: "service",
+				enableMutationWebhook:        true,
+				mutatingWebhookConfigName:    "bar",
+				mutatingWebhookConfigPath:    "config",
+				mutatingWebhookServiceName:   "service",
+				webhookSecretName:            "secret",
+			},
+			shouldFail: false,
+		},
+		"invalid option 1": {
+			opt: enableCliOptions{
+				enableValidationWebhook:      true,
+				validatingWebhookConfigName:  "foo",
+				validatingWebhookServiceName: "service",
+				webhookSecretName:            "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 2": {
+			opt: enableCliOptions{
+				enableValidationWebhook:      true,
+				validationWebhookConfigPath:  "config",
+				validatingWebhookServiceName: "service",
+				webhookSecretName:            "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 3": {
+			opt: enableCliOptions{
+				enableValidationWebhook:     true,
+				validatingWebhookConfigName: "foo",
+				validationWebhookConfigPath: "config",
+				webhookSecretName:           "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 4": {
+			opt: enableCliOptions{
+				enableMutationWebhook:      true,
+				mutatingWebhookConfigName:  "foo",
+				mutatingWebhookServiceName: "service",
+				webhookSecretName:          "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 5": {
+			opt: enableCliOptions{
+				enableMutationWebhook:      true,
+				mutatingWebhookConfigPath:  "config",
+				mutatingWebhookServiceName: "service",
+				webhookSecretName:          "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 6": {
+			opt: enableCliOptions{
+				enableMutationWebhook:     true,
+				mutatingWebhookConfigName: "foo",
+				mutatingWebhookConfigPath: "config",
+				webhookSecretName:         "secret",
+			},
+			shouldFail: true,
+		},
+		"invalid option 7": {
+			opt: enableCliOptions{
+				enableValidationWebhook: false,
+				enableMutationWebhook:   false,
+			},
+			shouldFail: true,
+		},
 	}
-	if webhookConfig.Name != configName {
-		t.Fatalf("webhookConfig.Name (%v) is different from %v", webhookConfig.Name, configName)
-	}
-	for i := range webhookConfig.Webhooks {
-		if !bytes.Equal(webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert) {
-			t.Fatalf("webhookConfig CA bundle(%v) is different from %v",
-				webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert)
+
+	for _, tc := range testCases {
+		err := tc.opt.Validate()
+		if tc.shouldFail {
+			if err == nil {
+				t.Errorf("opt (%v) should have failed", tc.opt)
+			}
+		} else if err != nil {
+			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
 		}
 	}
 }
@@ -188,6 +289,69 @@ func TestDisableCliOptionsValidation(t *testing.T) {
 			opt: disableCliOptions{
 				disableValidationWebhook: false,
 				disableInjectionWebhook:  false,
+			},
+			shouldFail: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		err := tc.opt.Validate()
+		if tc.shouldFail {
+			if err == nil {
+				t.Errorf("opt (%v) should have failed", tc.opt)
+			}
+		} else if err != nil {
+			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
+		}
+	}
+}
+
+func TestStatusCliOptionsValidation(t *testing.T) {
+	testCases := map[string]struct {
+		opt        statusCliOptions
+		shouldFail bool
+	}{
+		"valid option 1": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			shouldFail: false,
+		},
+		"valid option 2": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "bar",
+			},
+			shouldFail: false,
+		},
+		"valid option 3": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+				injectionWebhook:            true,
+				mutatingWebhookConfigName:   "bar",
+			},
+			shouldFail: false,
+		},
+		"invalid option 1": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "",
+			},
+			shouldFail: true,
+		},
+		"invalid option 2": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "",
+			},
+			shouldFail: true,
+		},
+		"invalid option 3": {
+			opt: statusCliOptions{
+				validationWebhook: false,
+				injectionWebhook:  false,
 			},
 			shouldFail: true,
 		},
@@ -303,6 +467,507 @@ func TestDisableWebhookConfig(t *testing.T) {
 			}
 			if injectionErr != nil {
 				t.Errorf("should not fail, but err when disabling injection webhook: %v", injectionErr)
+			}
+		}
+	}
+}
+
+func TestBuildValidatingWebhookConfig(t *testing.T) {
+	configFile := "./testdata/webhook/example-validating-webhook-config.yaml"
+	configName := "proto-validate"
+	webhookConfig, err := buildValidatingWebhookConfig(fakeCACert, configFile, configName)
+	if err != nil {
+		t.Fatalf("err building validating webhook config %v: %v", configName, err)
+	}
+	if webhookConfig.Name != configName {
+		t.Fatalf("webhookConfig.Name (%v) is different from %v", webhookConfig.Name, configName)
+	}
+	for i := range webhookConfig.Webhooks {
+		if !bytes.Equal(webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert) {
+			t.Fatalf("webhookConfig CA bundle(%v) is different from %v",
+				webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert)
+		}
+	}
+}
+
+func TestBuildMutatingWebhookConfig(t *testing.T) {
+	configFile := "./testdata/webhook/example-mutating-webhook-config.yaml"
+	configName := "proto-mutate"
+	webhookConfig, err := buildMutatingWebhookConfig(fakeCACert, configFile, configName)
+	if err != nil {
+		t.Fatalf("err building mutating webhook config %v: %v", configName, err)
+	}
+	if webhookConfig.Name != configName {
+		t.Fatalf("webhookConfig.Name (%v) is different from %v", webhookConfig.Name, configName)
+	}
+	for i := range webhookConfig.Webhooks {
+		if !bytes.Equal(webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert) {
+			t.Fatalf("webhookConfig CA bundle(%v) is different from %v",
+				webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert)
+		}
+	}
+}
+
+func TestCreateValidatingWebhookConfig(t *testing.T) {
+	testCases := map[string]struct {
+		opt                 statusCliOptions
+		createWebhookConfig bool
+		updateWebhookConfig bool
+		shouldFail          bool
+	}{
+		"create a valid webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createWebhookConfig: true,
+			updateWebhookConfig: false,
+			shouldFail:          false,
+		},
+		"update a valid webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createWebhookConfig: true,
+			updateWebhookConfig: true,
+			shouldFail:          false,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		var webhookConfig *v1beta1.ValidatingWebhookConfiguration
+		var err error
+		if tc.createWebhookConfig {
+			webhookConfig, err = buildValidatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-validating-webhook-config.yaml",
+				tc.opt.validatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build ValidatingWebhookConfiguration: %v", err)
+			}
+			_, err = createValidatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating ValidatingWebhookConfiguration: %v", err)
+			}
+			if len(webhookConfig.Webhooks) == 0 {
+				t.Fatalf("empty webhooks in the webhook configuration")
+			}
+		}
+		if tc.updateWebhookConfig {
+			webhookConfig.Webhooks[0].ClientConfig.CABundle = []byte("new-ca-bundle")
+			updated, err := createValidatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when updating ValidatingWebhookConfiguration: %v", err)
+			}
+			if len(updated.Webhooks) == 0 {
+				t.Fatalf("empty webhooks in the updated webhook configuration")
+			}
+			if string(updated.Webhooks[0].ClientConfig.CABundle) != "new-ca-bundle" {
+				t.Fatalf("the updated CA bundle does not match new-ca-bundle")
+			}
+		}
+	}
+}
+
+func TestCreateMutatingWebhookConfig(t *testing.T) {
+	testCases := map[string]struct {
+		opt                 statusCliOptions
+		createWebhookConfig bool
+		updateWebhookConfig bool
+		shouldFail          bool
+	}{
+		"create a valid webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "foo",
+			},
+			createWebhookConfig: true,
+			updateWebhookConfig: false,
+			shouldFail:          false,
+		},
+		"update a valid webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "foo",
+			},
+			createWebhookConfig: true,
+			updateWebhookConfig: true,
+			shouldFail:          false,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		var webhookConfig *v1beta1.MutatingWebhookConfiguration
+		var err error
+		if tc.createWebhookConfig {
+			webhookConfig, err = buildMutatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-mutating-webhook-config.yaml",
+				tc.opt.mutatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build MutatingWebhookConfiguration: %v", err)
+			}
+			_, err = createMutatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating MutatingWebhookConfiguration: %v", err)
+			}
+			if len(webhookConfig.Webhooks) == 0 {
+				t.Fatalf("empty webhooks in the webhook configuration")
+			}
+		}
+		if tc.updateWebhookConfig {
+			webhookConfig.Webhooks[0].ClientConfig.CABundle = []byte("new-ca-bundle")
+			updated, err := createMutatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when updating MutatingWebhookConfiguration: %v", err)
+			}
+			if len(updated.Webhooks) == 0 {
+				t.Fatalf("empty webhooks in the updated webhook configuration")
+			}
+			if string(updated.Webhooks[0].ClientConfig.CABundle) != "new-ca-bundle" {
+				t.Fatalf("the updated CA bundle does not match new-ca-bundle")
+			}
+		}
+	}
+}
+
+func TestDisplayValidationWebhookConfig(t *testing.T) {
+	testCases := map[string]struct {
+		opt                           statusCliOptions
+		createValidatingWebhookConfig bool
+		shouldFail                    bool
+	}{
+		"display validating webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createValidatingWebhookConfig: true,
+			shouldFail:                    false,
+		},
+		"display non-existing validating webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createValidatingWebhookConfig: false,
+			shouldFail:                    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		if tc.createValidatingWebhookConfig {
+			webhookConfig, err := buildValidatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-validating-webhook-config.yaml",
+				tc.opt.validatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build validatingwebhookconfiguration: %v", err)
+			}
+			_, err = createValidatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating validatingwebhookconfiguration: %v", err)
+			}
+		}
+
+		validationErr := displayValidationWebhookConfig(client, &tc.opt)
+		if tc.shouldFail {
+			if validationErr == nil {
+				t.Errorf("should have failed")
+			}
+		} else {
+			if validationErr != nil {
+				t.Errorf("should not fail, but err when displaying validation webhook: %v", validationErr)
+			}
+		}
+	}
+}
+
+func TestDisplayMutationWebhookConfig(t *testing.T) {
+	testCases := map[string]struct {
+		opt                         statusCliOptions
+		createMutatingWebhookConfig bool
+		shouldFail                  bool
+	}{
+		"disable mutating webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "bar",
+			},
+			createMutatingWebhookConfig: true,
+			shouldFail:                  false,
+		},
+		"disable non-existing mutating webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "bar",
+			},
+			createMutatingWebhookConfig: false,
+			shouldFail:                  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+
+		if tc.createMutatingWebhookConfig {
+			webhookConfig, err := buildMutatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-mutating-webhook-config.yaml",
+				tc.opt.mutatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build mutatingwebhookconfiguration: %v", err)
+			}
+			_, err = createMutatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating mutatingwebhookconfiguration: %v", err)
+			}
+		}
+
+		injectionErr := displayMutationWebhookConfig(client, &tc.opt)
+		if tc.shouldFail {
+			if injectionErr == nil {
+				t.Errorf("should have failed")
+			}
+		} else {
+			if injectionErr != nil {
+				t.Errorf("should not fail, but err when displaying injection webhook: %v", injectionErr)
+			}
+		}
+	}
+}
+
+func TestDisplayWebhookConfig(t *testing.T) {
+	testCases := map[string]struct {
+		opt                           statusCliOptions
+		createValidatingWebhookConfig bool
+		createMutatingWebhookConfig   bool
+		shouldFail                    bool
+	}{
+		"display validating webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createValidatingWebhookConfig: true,
+			createMutatingWebhookConfig:   true,
+			shouldFail:                    false,
+		},
+		"display mutating webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "bar",
+			},
+			createValidatingWebhookConfig: true,
+			createMutatingWebhookConfig:   true,
+			shouldFail:                    false,
+		},
+		"display validating and mutating webhook configs": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+				injectionWebhook:            true,
+				mutatingWebhookConfigName:   "bar",
+			},
+			createValidatingWebhookConfig: true,
+			createMutatingWebhookConfig:   true,
+			shouldFail:                    false,
+		},
+		"display non-existing validating webhook config": {
+			opt: statusCliOptions{
+				validationWebhook:           true,
+				validatingWebhookConfigName: "foo",
+			},
+			createValidatingWebhookConfig: false,
+			createMutatingWebhookConfig:   false,
+			shouldFail:                    true,
+		},
+		"display non-existing mutating webhook config": {
+			opt: statusCliOptions{
+				injectionWebhook:          true,
+				mutatingWebhookConfigName: "bar",
+			},
+			createValidatingWebhookConfig: false,
+			createMutatingWebhookConfig:   false,
+			shouldFail:                    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		if tc.createValidatingWebhookConfig {
+			webhookConfig, err := buildValidatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-validating-webhook-config.yaml",
+				tc.opt.validatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build validatingwebhookconfiguration: %v", err)
+			}
+			_, err = createValidatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating validatingwebhookconfiguration: %v", err)
+			}
+		}
+		if tc.createMutatingWebhookConfig {
+			webhookConfig, err := buildMutatingWebhookConfig(
+				[]byte(exampleCACert),
+				"./testdata/webhook/example-mutating-webhook-config.yaml",
+				tc.opt.mutatingWebhookConfigName,
+			)
+			if err != nil {
+				t.Fatalf("err when build mutatingwebhookconfiguration: %v", err)
+			}
+			_, err = createMutatingWebhookConfig(client, webhookConfig)
+			if err != nil {
+				t.Fatalf("error when creating mutatingwebhookconfiguration: %v", err)
+			}
+		}
+
+		validationErr, injectionErr := displayWebhookConfig(client, &tc.opt)
+		if tc.shouldFail {
+			if validationErr == nil && injectionErr == nil {
+				t.Errorf("should have failed")
+			}
+		} else {
+			if validationErr != nil {
+				t.Errorf("should not fail, but err when displaying validation webhook: %v", validationErr)
+			}
+			if injectionErr != nil {
+				t.Errorf("should not fail, but err when displaying injection webhook: %v", injectionErr)
+			}
+		}
+	}
+}
+
+func TestReadCertFromSecret(t *testing.T) {
+	testCases := map[string]struct {
+		createSecret bool
+		shouldFail   bool
+	}{
+		"read a valid secret": {
+			createSecret: true,
+			shouldFail:   false,
+		},
+		"read an invalid secret": {
+			createSecret: false,
+			shouldFail:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+
+		if tc.createSecret {
+			secret := &v1.Secret{
+				Data: map[string][]byte{},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Name:        "foo",
+					Namespace:   "bar",
+				},
+				Type: "test-secret",
+			}
+			secret.Data = map[string][]byte{
+				ca.CertChainID:  []byte("dummy-cert"),
+				ca.PrivateKeyID: []byte("dummy-key"),
+				ca.RootCertID:   []byte("dummy-root"),
+			}
+			_, err := client.CoreV1().Secrets("bar").Create(secret)
+			if err != nil {
+				t.Fatalf("error when creating secret foo: %v", err)
+			}
+		}
+		cert, err := readCertFromSecret(client, "foo", "bar")
+
+		if tc.shouldFail {
+			if err == nil {
+				t.Errorf("should have failed")
+			}
+		} else {
+			if err != nil {
+				t.Errorf("should not fail, but err: %v", err)
+			}
+			if len(cert) == 0 {
+				t.Errorf("should not fail, but read returns empty cert")
+			}
+		}
+	}
+}
+
+func TestReadCACertFromSA(t *testing.T) {
+	testCases := map[string]struct {
+		create     bool
+		shouldFail bool
+	}{
+		"read a valid service account": {
+			create:     true,
+			shouldFail: false,
+		},
+		"read an invalid service account": {
+			create:     false,
+			shouldFail: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		if tc.create {
+			secret := &v1.Secret{
+				Data: map[string][]byte{},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Name:        "foo",
+					Namespace:   "bar",
+				},
+				Type: "test-secret",
+			}
+			secret.Data = map[string][]byte{
+				ca.CertChainID:   []byte("dummy-cert"),
+				ca.PrivateKeyID:  []byte("dummy-key"),
+				ca.RootCertID:    []byte("dummy-root"),
+				caKeyInK8sSecret: []byte("dummy-cert"),
+			}
+			_, err := client.CoreV1().Secrets("bar").Create(secret)
+			if err != nil {
+				t.Fatalf("error when creating secret foo: %v", err)
+			}
+			sa := &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Name:        "foo",
+					Namespace:   "bar",
+				},
+			}
+			sa.Secrets = append(sa.Secrets, v1.ObjectReference{
+				Name:      "foo",
+				Namespace: "bar",
+			})
+			_, err = client.CoreV1().ServiceAccounts("bar").Create(sa)
+			if err != nil {
+				t.Fatalf("error when creating service account foo: %v", err)
+			}
+		}
+
+		cert, err := readCACertFromSA(client, "bar", "foo")
+		if tc.shouldFail {
+			if err == nil {
+				t.Errorf("should have failed")
+			}
+		} else {
+			if err != nil {
+				t.Errorf("should not fail, but err: %v", err)
+			}
+			if len(cert) == 0 {
+				t.Errorf("should not fail, but read returns empty cert")
 			}
 		}
 	}

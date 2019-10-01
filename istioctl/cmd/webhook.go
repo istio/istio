@@ -39,26 +39,70 @@ const (
 type enableCliOptions struct {
 	// Whether enable the webhook configuration of Galley
 	enableValidationWebhook bool
+	// Whether enable the webhook configuration of Sidecar Injector
+	enableMutationWebhook bool
 	// The local file path of webhook CA certificate
 	caCertPath string
-	// The file path of the webhook configuration.
-	webhookConfigPath string
+	// The file path of the validation webhook configuration.
+	validationWebhookConfigPath string
 	// The name of the ValidatingWebhookConfiguration to manage
 	validatingWebhookConfigName string
 	// The service name of the validating webhook to manage
 	validatingWebhookServiceName string
+	// The file path of the mutating webhook configuration.
+	mutatingWebhookConfigPath string
+	// The name of the MutatingWebhookConfiguration to manage
+	mutatingWebhookConfigName string
+	// The service name of the mutating webhook to manage
+	mutatingWebhookServiceName string
 	// Max time for checking the validating webhook.
 	// If the validating webhook is not ready in the given time, exit.
 	// Otherwise, apply the webhook configuration.
 	maxTimeForCheckingWebhookServer time.Duration
 	// Max time for waiting the webhook certificate to be readable.
 	maxTimeForReadingWebhookCert time.Duration
-	// The name of the secret of the validation webhook.
+	// The name of the secret of a webhook.
 	// istioctl will check whether the certificate in the secret is issued by
 	// the certificate in the Kubernetes service account or the given CA cert, if any.
-	validationSecretName string
-	// The namespace of the validation secret.
-	validationSecretNameSpace string
+	webhookSecretName string
+	// The namespace of the webhook secret.
+	webhookSecretNameSpace string
+}
+
+// Validate return nil if no error. Otherwise, return the error.
+func (opts *enableCliOptions) Validate() error {
+	if !opts.enableValidationWebhook && !opts.enableMutationWebhook {
+		return fmt.Errorf("no webhook to enable")
+	}
+	if opts.enableValidationWebhook {
+		if len(opts.validatingWebhookConfigName) == 0 {
+			return fmt.Errorf("must specify a valid --validation-config")
+		}
+		if len(opts.validationWebhookConfigPath) == 0 {
+			return fmt.Errorf("must specify a valid --validation-config-path")
+		}
+		if len(opts.validatingWebhookServiceName) == 0 {
+			return fmt.Errorf("must specify a valid --validation-service")
+		}
+		if len(opts.webhookSecretName) == 0 {
+			return fmt.Errorf("must specify a valid --webhook-secret")
+		}
+	}
+	if opts.enableMutationWebhook {
+		if len(opts.mutatingWebhookConfigName) == 0 {
+			return fmt.Errorf("must specify a valid --injection-config")
+		}
+		if len(opts.mutatingWebhookConfigPath) == 0 {
+			return fmt.Errorf("must specify a valid --injection-config-path")
+		}
+		if len(opts.mutatingWebhookServiceName) == 0 {
+			return fmt.Errorf("must specify a valid --injection-service")
+		}
+		if len(opts.webhookSecretName) == 0 {
+			return fmt.Errorf("must specify a valid --webhook-secret")
+		}
+	}
+	return nil
 }
 
 type disableCliOptions struct {
@@ -89,8 +133,26 @@ func (opts *disableCliOptions) Validate() error {
 type statusCliOptions struct {
 	// Whether display the webhook configuration of Galley
 	validationWebhook bool
+	// Whether display the webhook configuration of Sidecar Injector
+	injectionWebhook bool
 	// The name of the ValidatingWebhookConfiguration to manage
 	validatingWebhookConfigName string
+	// The name of the MutatingWebhookConfiguration to manage
+	mutatingWebhookConfigName string
+}
+
+// Validate return nil if no error. Otherwise, return the error.
+func (opts *statusCliOptions) Validate() error {
+	if !opts.validationWebhook && !opts.injectionWebhook {
+		return fmt.Errorf("no webhook configuration to display")
+	}
+	if opts.validationWebhook && opts.validatingWebhookConfigName == "" {
+		return fmt.Errorf("validating webhook config to display has empty name")
+	}
+	if opts.injectionWebhook && opts.mutatingWebhookConfigName == "" {
+		return fmt.Errorf("mutating webhook config to display has empty name")
+	}
+	return nil
 }
 
 // Webhook command to manage webhook configurations
@@ -122,53 +184,30 @@ istioctl experimental post-install webhook enable --validation --validation-secr
     --namespace istio-system --config-path validatingwebhookconfiguration.yaml --ca-bundle-file ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// --namespace is used as the namespace of the validation secret
-			opts.validationSecretNameSpace = namespace
-			if len(opts.webhookConfigPath) == 0 {
-				return fmt.Errorf("must specify a valid --config-path")
-			}
-			if len(opts.validationSecretName) == 0 {
-				return fmt.Errorf("must specify a valid --validation-secret")
-			}
-			if !opts.enableValidationWebhook {
-				return fmt.Errorf("not enabling validation webhook")
+			// --namespace is used as the namespace of the webhook secret
+			opts.webhookSecretNameSpace = namespace
+			if err := opts.Validate(); err != nil {
+				return err
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
-			// Read Kubernetes CA certificate that will be used as the CA bundle of the webhook configuration
-			caCert, err := readCACert(client, opts.caCertPath, opts.validationSecretName, opts.validationSecretNameSpace,
-				opts.maxTimeForReadingWebhookCert)
-			if err != nil {
-				return fmt.Errorf("err when reading CA certificate: %v", err)
+			validationErr, injectionErr := enableWebhookConfig(client, opts)
+			if validationErr != nil || injectionErr != nil {
+				return fmt.Errorf("error when enabling webhook configurations. validation err: %v. injection err: %v",
+					validationErr, injectionErr)
 			}
-			fmt.Printf("Webhook CA certificate:\n%v\n", string(caCert))
-			// Apply the webhook configuration when the Galley webhook server is running.
-			err = waitForServerRunning(client, namespace, opts.validatingWebhookServiceName,
-				opts.maxTimeForCheckingWebhookServer)
-			if err != nil {
-				return fmt.Errorf("err when checking webhook server: %v", err)
-			}
-			webhookConfig, err := buildValidatingWebhookConfig(
-				caCert,
-				opts.webhookConfigPath,
-				opts.validatingWebhookConfigName,
-			)
-			if err != nil {
-				return fmt.Errorf("err when build validatingwebhookconfiguration: %v", err)
-			}
-			_, err = createValidatingWebhookConfig(client, webhookConfig)
-			if err != nil {
-				return fmt.Errorf("error when creating validatingwebhookconfiguration: %v", err)
-			}
+			fmt.Println("webhook configurations have been enabled")
 			return nil
 		},
 	}
 
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Enable "+
-		"validating webhook (default true).")
+		"validatation webhook (default true).")
+	flags.BoolVar(&opts.enableMutationWebhook, "injection", true, "Enable "+
+		"injection webhook (default true).")
 	// Specifies the local file path to webhook CA bundle.
 	// If empty, will read CA bundle from default Kubernetes service account.
 	flags.StringVar(&opts.caCertPath, "ca-bundle-file", "",
@@ -176,14 +215,20 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
 			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
 			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
-	flags.StringVar(&opts.webhookConfigPath, "config-path", "",
-		"The file path of the webhook configuration.")
-	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
+	flags.StringVar(&opts.validationWebhookConfigPath, "validation-config-path", "",
+		"The file path of the validation webhook configuration.")
+	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-config-path", "",
+		"The file path of the injection webhook configuration.")
+	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to manage.")
-	flags.StringVar(&opts.validatingWebhookServiceName, "service", "istio-galley",
-		"The service name of the validating webhook to manage.")
-	flags.StringVar(&opts.validationSecretName, "validation-secret", "",
-		"The name of the secret of the validation webhook. istioctl will verify that the webhook certificate "+
+	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecar-injector",
+		"The name of the MutatingWebhookConfiguration to manage.")
+	flags.StringVar(&opts.validatingWebhookServiceName, "validation-service", "istio-galley",
+		"The service name of the validation webhook to manage.")
+	flags.StringVar(&opts.mutatingWebhookServiceName, "injection-service", "istio-sidecar-injector",
+		"The service name of the injection webhook to manage.")
+	flags.StringVar(&opts.webhookSecretName, "webhook-secret", "",
+		"The name of the secret of a webhook. istioctl will verify that the webhook certificate "+
 			"is issued by the CA certificate.")
 	flags.DurationVar(&opts.maxTimeForCheckingWebhookServer, "timeout", 60*time.Second,
 		"	Max time for checking the validating webhook server. If the validating webhook server is not ready"+
@@ -203,7 +248,8 @@ func newDisableCmd() *cobra.Command {
 # Disable the webhook configuration of Galley
 istioctl experimental post-install webhook disable --validation --validation-config istio-galley
 # Disable the webhook configuration of Galley and Sidecar Injector
-istioctl experimental post-install webhook disable --validation --validation-config istio-galley --injection --injection-config istio-sidecar-injector
+istioctl experimental post-install webhook disable --validation --validation-config istio-galley 
+  --injection --injection-config istio-sidecar-injector
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
@@ -243,25 +289,24 @@ func newStatusCmd() *cobra.Command {
 		Short: "Get webhook configurations",
 		Example: `
 # Display the webhook configuration of Galley
-istioctl experimental post-install webhook status --validation --config-name istio-galley
+istioctl experimental post-install webhook status --validation --validation-config istio-galley
+# Display the webhook configuration of Galley and Sidecar Injector
+istioctl experimental post-install webhook status --validation --validation-config istio-galley 
+  --injection --injection-config istio-sidecar-injector
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !opts.validationWebhook {
-				return fmt.Errorf("not displaying validation webhook status")
+			if err := opts.Validate(); err != nil {
+				return err
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
-			config, err := getValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
-			if err != nil {
-				return fmt.Errorf("error getting validatingwebhookconfiguration: %v", err)
+			validationErr, injectionErr := displayWebhookConfig(client, opts)
+			if validationErr != nil || injectionErr != nil {
+				return fmt.Errorf("error when displaying webhook configurations. validation err: %v. injection err: %v",
+					validationErr, injectionErr)
 			}
-			b, err := yaml.Marshal(config)
-			if err != nil {
-				return fmt.Errorf("error when marshaling validatingwebhookconfiguration to yaml: %v", err)
-			}
-			fmt.Printf("validatingwebhookconfiguration %v is:\n%v\n", opts.validatingWebhookConfigName, string(b))
 			return nil
 		},
 	}
@@ -269,8 +314,12 @@ istioctl experimental post-install webhook status --validation --config-name ist
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.validationWebhook, "validation", true, "Display "+
 		"the validating webhook configuration.")
-	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
+	flags.BoolVar(&opts.injectionWebhook, "injection", true, "Display "+
+		"the injection webhook configuration.")
+	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to display.")
+	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecar-injector",
+		"The name of the MutatingWebhookConfiguration to display.")
 
 	return cmd
 }
@@ -309,6 +358,75 @@ func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
 	return whConfig, err
 }
 
+// Enable webhook configurations
+func enableWebhookConfig(client kubernetes.Interface, opt *enableCliOptions) (error, error) {
+	var validationErr, injectionErr error
+
+	// Read Kubernetes CA certificate that will be used as the CA bundle of the webhook configurations
+	caCert, err := readCACert(client, opt.caCertPath, opt.webhookSecretName, opt.webhookSecretNameSpace,
+		opt.maxTimeForReadingWebhookCert)
+	if err != nil {
+		validationErr = fmt.Errorf("err when reading CA certificate: %v", err)
+		injectionErr = validationErr
+		return validationErr, injectionErr
+	}
+	fmt.Printf("Webhook CA certificate:\n%v\n", string(caCert))
+
+	if opt.enableValidationWebhook {
+		validationErr = enableValidationWebhookConfig(client, caCert, opt)
+	}
+	if opt.enableMutationWebhook {
+		injectionErr = enableMutationWebhookConfig(client, caCert, opt)
+	}
+	return validationErr, injectionErr
+}
+
+// Enable validation webhook configuration
+func enableValidationWebhookConfig(client kubernetes.Interface, caCert []byte, opt *enableCliOptions) error {
+	// Apply the webhook configuration when the Galley webhook server is running.
+	err := waitForServerRunning(client, namespace, opt.validatingWebhookServiceName,
+		opt.maxTimeForCheckingWebhookServer)
+	if err != nil {
+		return fmt.Errorf("err when checking validation webhook server: %v", err)
+	}
+	webhookConfig, err := buildValidatingWebhookConfig(
+		caCert,
+		opt.validationWebhookConfigPath,
+		opt.validatingWebhookConfigName,
+	)
+	if err != nil {
+		return fmt.Errorf("err when build validatingwebhookconfiguration: %v", err)
+	}
+	_, err = createValidatingWebhookConfig(client, webhookConfig)
+	if err != nil {
+		return fmt.Errorf("error when creating validatingwebhookconfiguration: %v", err)
+	}
+	return nil
+}
+
+// Enable mutation webhook configuration
+func enableMutationWebhookConfig(client kubernetes.Interface, caCert []byte, opt *enableCliOptions) error {
+	// Apply the webhook configuration when the Sidecar Injector webhook server is running.
+	err := waitForServerRunning(client, namespace, opt.mutatingWebhookServiceName,
+		opt.maxTimeForCheckingWebhookServer)
+	if err != nil {
+		return fmt.Errorf("err when checking injection webhook server: %v", err)
+	}
+	webhookConfig, err := buildMutatingWebhookConfig(
+		caCert,
+		opt.mutatingWebhookConfigPath,
+		opt.mutatingWebhookConfigName,
+	)
+	if err != nil {
+		return fmt.Errorf("err when build mutatingwebhookconfiguration: %v", err)
+	}
+	_, err = createMutatingWebhookConfig(client, webhookConfig)
+	if err != nil {
+		return fmt.Errorf("error when creating mutatingwebhookconfiguration: %v", err)
+	}
+	return nil
+}
+
 // Disable webhook configurations
 func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions) (error, error) {
 	var validationErr error
@@ -322,9 +440,49 @@ func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions
 	return validationErr, injectionErr
 }
 
-// Get the validatingwebhookconfiguration
-func getValidatingWebhookConfig(k8sClient kubernetes.Interface, name string) (*v1beta1.ValidatingWebhookConfiguration, error) {
-	return k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, metav1.GetOptions{})
+// Display webhook configurations
+func displayWebhookConfig(client kubernetes.Interface, opt *statusCliOptions) (error, error) {
+	var validationErr error
+	var injectionErr error
+	if opt.validationWebhook {
+		validationErr = displayValidationWebhookConfig(client, opt)
+	}
+	if opt.injectionWebhook {
+		injectionErr = displayMutationWebhookConfig(client, opt)
+	}
+	return validationErr, injectionErr
+}
+
+// Display validation webhook configuration
+func displayValidationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions) error {
+	config, err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(
+		opt.validatingWebhookConfigName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error getting ValidatingWebhookConfiguration %v: %v", opt.validatingWebhookConfigName, err)
+	}
+	b, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("error when marshaling ValidatingWebhookConfiguration %v to yaml: %v",
+			opt.validatingWebhookConfigName, err)
+	}
+	fmt.Printf("ValidatingWebhookConfiguration %v is:\n%v\n", opt.validatingWebhookConfigName, string(b))
+	return nil
+}
+
+// Display mutation webhook configuration
+func displayMutationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions) error {
+	config, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(
+		opt.mutatingWebhookConfigName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error getting MutatingWebhookConfiguration %v: %v", opt.mutatingWebhookConfigName, err)
+	}
+	b, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("error when marshaling MutatingWebhookConfiguration %v to yaml: %v",
+			opt.mutatingWebhookConfigName, err)
+	}
+	fmt.Printf("MutatingWebhookConfiguration %v is:\n%v\n", opt.mutatingWebhookConfigName, string(b))
+	return nil
 }
 
 // Read CA certificate and check whether it is a valid certificate.
