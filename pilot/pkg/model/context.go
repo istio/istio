@@ -481,12 +481,20 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 
 // SetWorkloadLabels will reset the proxy.WorkloadLabels if `force` = true,
 // otherwise only set it when it is nil.
-func (node *Proxy) SetWorkloadLabels(env *Environment, force bool) error {
+func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 	// The WorkloadLabels is already parsed from Node metadata["LABELS"]
 	if node.WorkloadLabels != nil {
 		return nil
 	}
 
+	// TODO: remove WorkloadLabels and use node.Metadata.Labels directly
+	// First get the workload labels from node meta
+	if len(node.Metadata.Labels) > 0 {
+		node.WorkloadLabels = labels.Collection{node.Metadata.Labels}
+		return nil
+	}
+
+	// Fallback to calling GetProxyWorkloadLabels
 	l, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
 		log.Errorf("failed to get service proxy labels: %v", err)
@@ -580,8 +588,10 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 
 	out.ID = parts[2]
 	out.DNSDomain = parts[3]
+	if len(metadata.IstioVersion) == 0 {
+		log.Warnf("Istio Version is not found in metadata, which may have undesirable side effects")
+	}
 	out.IstioVersion = ParseIstioVersion(metadata.IstioVersion)
-
 	if len(metadata.Labels) > 0 {
 		out.WorkloadLabels = labels.Collection{metadata.Labels}
 	}

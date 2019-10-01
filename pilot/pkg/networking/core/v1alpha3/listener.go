@@ -138,10 +138,17 @@ const (
 	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
+
+	// TODO(yxue): separate h2c vs h2
+	H2Protocol = "h2"
+
+	// CanonicalHTTPSPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
+	// are not allowed on this port.
+	CanonicalHTTPSPort = 443
 )
 
 var (
-	applicationProtocols = []string{"http/1.1", "http/1.0"}
+	applicationProtocols = []string{"http/1.0", "http/1.1"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &structpb.Struct{
@@ -319,7 +326,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if node.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			return nil
 		}
 
@@ -1200,7 +1207,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
-
+	if features.BlockHTTPonHTTPSPort {
+		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
+			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
+				pluginParams.Service.Hostname, CanonicalHTTPSPort)
+			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			return
+		}
+	}
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
@@ -1274,6 +1288,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
+			// TODO(yxue): merge applicationProtocols and H2Protocol when sniffing is enabled for inbound
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, H2Protocol)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -2136,6 +2152,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		}
 
 		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
 		newFilterChan = append(newFilterChan, fc)
 
 	}

@@ -19,9 +19,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )

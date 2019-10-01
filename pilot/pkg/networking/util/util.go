@@ -309,6 +309,14 @@ func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool 
 	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
+func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+}
+
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
 // networks in the config and if it's not an IP address it will try to lookup
 // that hostname and replace it with the IP address in the config

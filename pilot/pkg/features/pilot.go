@@ -216,8 +216,15 @@ var (
 		true,
 		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
-			"if headless services have a large number of pods. ",
+			"if headless services have a large number of pods.",
 	)
+
+	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
+		"PILOT_BLOCK_HTTP_ON_443",
+		true,
+		"If enabled, any HTTP services will be blocked on HTTPS port (443). If this is disabled, any "+
+			"HTTP service on port 443 could block all external traffic",
+	).Get()
 )
 
 var (

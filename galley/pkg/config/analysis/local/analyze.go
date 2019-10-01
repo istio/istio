@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -29,10 +28,11 @@ import (
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
-	"istio.io/istio/galley/pkg/source/kube/client"
 )
 
 const domainSuffix = "svc.local"
@@ -59,7 +59,7 @@ type SourceAnalyzer struct {
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer analysis.Analyzer, cr snapshotter.CollectionReporterFn) *SourceAnalyzer {
-	//collectionReporter hook function defaults to no-op
+	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
@@ -122,7 +122,7 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) er
 }
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddRunningKubeSource(k client.Interfaces) {
+func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	// As an optimization, filter out the resources we won't need for the current analysis.
 	// This matters because getting a snapshot from k8s is relatively time-expensive,
 	// so removing unnecessary resources makes a useful difference.

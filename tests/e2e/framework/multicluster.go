@@ -55,7 +55,7 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 }
 
 func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
-	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	getOpt := meta_v1.GetOptions{}
 	var eps *v1.Endpoints
 	// Wait until endpoint is obtained
 	for i := 0; i <= 200; i++ {

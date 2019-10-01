@@ -329,7 +329,7 @@ fmt: format-go format-python
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
-	GOBUILDFLAGS=-i $(MAKE) build
+	GOBUILDFLAGS=-i $(MAKE) -f Makefile.core.mk build
 
 # List of all binaries to build
 BINARIES:=./istioctl/cmd/istioctl \
@@ -368,19 +368,13 @@ $(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-li
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
-# Existence of build cache .a files actually affects the results of
-# some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
-
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml gen check-clean
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@bin/check_pilot_codegen.sh
 	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
@@ -398,6 +392,15 @@ gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
+
+CHANGES=$(shell git status --porcelain)
+
+check-clean:
+ifneq ($(CHANGES),)
+	@git diff
+	@echo "Please run 'make gen' and include any changed files in your PR"
+	@exit 1
+endif
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -482,8 +485,8 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
-	$(MAKE) --keep-going $(TEST_OBJ) \
+	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
+	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
@@ -575,7 +578,7 @@ common-coverage:
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	$(MAKE) --keep-going $(RACE_TESTS) \
+	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
@@ -637,7 +640,7 @@ gcs.push.deb: deb
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
-	$(MAKE) istio.yaml
+	$(MAKE) -f Makefile.core.mk istio.yaml
 
 $(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
@@ -690,7 +693,7 @@ generate_e2e_yaml: $(e2e_files)
 
 generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
 generate_e2e_yaml_coredump:
-	$(MAKE) generate_e2e_yaml
+	$(MAKE) -f Makefile.core.mk generate_e2e_yaml
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
 $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml

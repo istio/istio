@@ -16,7 +16,6 @@ package ready
 
 import (
 	"fmt"
-	"net"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
@@ -32,7 +31,6 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	listenersBound      bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -50,7 +48,7 @@ func (p *Probe) Check() error {
 		}
 	}
 
-	return p.isEnvoyReady()
+	return p.checkServerInfo()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -97,16 +95,6 @@ func (p *Probe) checkUpdated() error {
 	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 }
 
-func (p *Probe) isEnvoyReady() error {
-	if se := p.checkServerInfo(); se != nil {
-		return se
-	}
-	if pe := p.pingVirtualListeners(); pe != nil {
-		return pe
-	}
-	return nil
-}
-
 // checkServerInfo checks to ensure that Envoy is in the READY state
 func (p *Probe) checkServerInfo() error {
 	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
@@ -116,32 +104,6 @@ func (p *Probe) checkServerInfo() error {
 
 	if info.GetState() != admin.ServerInfo_LIVE {
 		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
-	}
-
-	return nil
-}
-
-// pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
-func (p *Probe) pingVirtualListeners() error {
-
-	if p.listenersBound {
-		return nil
-	}
-
-	// Check if traffic capture ports are actually listening.
-	vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
-	if err != nil {
-		return err
-	}
-	for _, vport := range vports {
-		con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.LocalHostAddr, vport))
-		if err != nil {
-			return fmt.Errorf("listener on port %d is still not listening: %v", vport, err)
-		}
-		p.listenersBound = true
-		if con != nil {
-			con.Close()
-		}
 	}
 
 	return nil

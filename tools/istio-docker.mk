@@ -55,11 +55,12 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
 
 # rule for the test certs.
 $(ISTIO_DOCKER)/certs:
+	mkdir -p $(ISTIO_DOCKER)
 	cp -a tests/testdata/certs $(ISTIO_DOCKER)/.
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh \
                           tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
 # $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
@@ -100,7 +101,6 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxy_debug: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxy_debug: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxy_debug: ${ISTIO_ENVOY_LINUX_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
@@ -120,7 +120,6 @@ docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SH
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxyv2: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
@@ -135,7 +134,6 @@ docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REP
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxytproxy: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
@@ -176,7 +174,6 @@ docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
 docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
 docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
@@ -204,7 +201,6 @@ docker.kubectl: docker/Dockerfile$$(suffix $$@)
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
-docker.mixer: $(ISTIO_DOCKER)/ca-certificates.tgz
 	$(DOCKER_RULE)
 
 # mixer codegen docker images
@@ -225,7 +221,6 @@ docker.galley: $(ISTIO_DOCKER)/galley
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
-docker.citadel: $(ISTIO_DOCKER)/ca-certificates.tgz
 	$(DOCKER_RULE)
 
 docker.citadel-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}

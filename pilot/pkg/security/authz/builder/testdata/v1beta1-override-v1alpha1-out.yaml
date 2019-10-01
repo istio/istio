@@ -1,0 +1,15 @@
+rules:
+  policies:
+    ns[foo]-policy[httpbin-1]-rule[0]:
+      permissions:
+        - andRules:
+            rules:
+              - orRules:
+                  rules:
+                    - header:
+                        exactMatch: GET
+                        name: :method
+      principals:
+        - andIds:
+            ids:
+              - any: true

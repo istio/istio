@@ -22,7 +22,7 @@ import "google/protobuf/duration.proto";
 
 option go_package="policy";
 
-// Config for policy backend, which could be used as a fake adpater for integration test,
+// Config for policy backend, which could be used as a fake adapter for integration test,
 // supports checknothing and keyval template.
 message Params {
   // Check params which controls check result returned by policy backend.
