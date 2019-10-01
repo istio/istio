@@ -15,8 +15,6 @@
 package status
 
 import (
-	"strings"
-
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
@@ -26,13 +24,16 @@ func toStatusValue(msgs diag.Messages) interface{} {
 		return nil
 	}
 
-	var lines strings.Builder
-
-	// TODO: This should be structured, not just a string
+	result := make([]interface{}, 0)
 	for _, m := range msgs {
-		lines.WriteString(m.StatusString())
-		lines.WriteString("\n")
+		u := m.Unstructured()
+
+		// For the purposes of status update, the origin field is redundant
+		// since we're attaching the message to the origin resource.
+		delete(u, "origin")
+
+		result = append(result, u)
 	}
 
-	return lines.String()
+	return result
 }
