@@ -193,7 +193,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
-			serviceMTLSMode := authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
+
+			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
+			if !service.MeshExternal {
+				// Only need the authentication MTLS mode when service is not external.
+				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
+			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
 
