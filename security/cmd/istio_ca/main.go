@@ -60,8 +60,9 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA        bool
-	selfSignedCACertTTL time.Duration
+	selfSignedCA                    bool
+	selfSignedCACertTTL             time.Duration
+	selfSignedRootCertCheckInterval time.Duration
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -139,6 +140,8 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
+
+	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -173,7 +176,7 @@ func initCLI() {
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
-		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
+		"cert and key from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
 		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
 		"to false.")
 
@@ -191,6 +194,9 @@ func initCLI() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
+	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "self-signed-root-check-interval", cmd.DefaultSelfSignedRootCertCheckInterval,
+		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
+			"Should not be shorter than one minute.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -358,8 +364,9 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames,
-			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
+			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
+			opts.sdsEnabled)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -431,11 +438,17 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = ca.ReadSigningCertCheckInterval
+			checkInterval = cmd.ReadSigningCertCheckInterval
 		} else {
 			checkInterval = -1
 		}
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
+		if opts.selfSignedRootCertCheckInterval > time.Duration(0) &&
+			opts.selfSignedRootCertCheckInterval < time.Duration(1) {
+			opts.selfSignedRootCertCheckInterval = 1 * time.Minute
+		}
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
+			opts.selfSignedCACertTTL,
+			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
 			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
 		if err != nil {
@@ -468,6 +481,12 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			livenessProbeChecker.Run()
 		}
 	}
+	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
+	// self-signed CA.
+	rootCertRotatorChan = make(chan struct{})
+	// Start root cert rotator in a separate goroutine.
+	istioCA.Run(rootCertRotatorChan)
+	go pkgcmd.WaitSignal(rootCertRotatorChan)
 
 	return istioCA
 }
