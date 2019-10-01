@@ -37,7 +37,7 @@ func TestIstioctlMetrics(t *testing.T) {
 		})
 }
 
-func testIstioctl(t *testing.T, ctx framework.TestContext, workload string) {
+func testIstioctl(t *testing.T, ctx framework.TestContext, workload string) { // nolint:interfacer
 	istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}
 	output, fErr := istioCtl.Invoke(args)
