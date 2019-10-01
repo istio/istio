@@ -718,15 +718,8 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 		foundPort := false
 		for _, p := range policy.PortLevelSettings {
 			if p.Port != nil {
-				switch selector := p.Port.Port.(type) {
-				case *networking.PortSelector_Name:
-					if port.Name == selector.Name {
-						foundPort = true
-					}
-				case *networking.PortSelector_Number:
-					if uint32(port.Port) == selector.Number {
-						foundPort = true
-					}
+				if uint32(port.Port) == p.Port.Number {
+					foundPort = true
 				}
 			}
 			if foundPort {

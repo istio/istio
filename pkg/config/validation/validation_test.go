@@ -2017,9 +2017,7 @@ func TestValidateDestination(t *testing.T) {
 				Host:   "foo.bar",
 				Subset: "shiny",
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 5000,
-					},
+					Number: 5000,
 				},
 			},
 			valid: true,
