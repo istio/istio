@@ -55,21 +55,21 @@ type enableCliOptions struct {
 	maxTimeForReadingWebhookCert time.Duration
 	// The name of the secret of the validation webhook.
 	// istioctl will check whether the certificate in the secret is issued by
-	// the certificate in the k8s service account or the given CA cert, if any.
+	// the certificate in the Kubernetes service account or the given CA cert, if any.
 	validationSecretName string
 	// The namespace of the validation secret.
 	validationSecretNameSpace string
 }
 
 type disableCliOptions struct {
-	// Whether disable the webhook configuration of Galley
-	disableValidationWebhook bool
 	// The name of the ValidatingWebhookConfiguration to manage
 	validatingWebhookConfigName string
+	// The name of the MutatingWebhookConfiguration to manage
+	mutatingWebhookConfigName string
+	// Whether disable the webhook configuration of Galley
+	disableValidationWebhook bool
 	// Whether disable the webhook configuration of Sidecar Injector
 	disableInjectionWebhook bool
-	// The name of the injection webhook to manage
-	mutatingWebhookConfigName string
 }
 
 // Validate return nil if no error. Otherwise, return the error.
@@ -135,13 +135,13 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				return fmt.Errorf("err when creating k8s client interface: %v", err)
+				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
-			// Read k8s CA certificate that will be used as the CA bundle of the webhook configuration
+			// Read Kubernetes CA certificate that will be used as the CA bundle of the webhook configuration
 			caCert, err := readCACert(client, opts.caCertPath, opts.validationSecretName, opts.validationSecretNameSpace,
 				opts.maxTimeForReadingWebhookCert)
 			if err != nil {
-				return fmt.Errorf("err when reading CA cert: %v", err)
+				return fmt.Errorf("err when reading CA certificate: %v", err)
 			}
 			fmt.Printf("Webhook CA certificate:\n%v\n", string(caCert))
 			// Apply the webhook configuration when the Galley webhook server is running.
@@ -167,22 +167,22 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Specifies whether enabling"+
-		"the validating webhook.")
+	flags.BoolVar(&opts.enableValidationWebhook, "validation", true, "Enable "+
+		"validating webhook (default true).")
 	// Specifies the local file path to webhook CA bundle.
-	// If empty, will read CA bundle from default k8s service account.
+	// If empty, will read CA bundle from default Kubernetes service account.
 	flags.StringVar(&opts.caCertPath, "ca-bundle-file", "",
-		"Specifies the local file path to the webhook certificate signing CA bundle. "+
-			"If the certificate is signed by k8s CA, this parameter needs to "+
-			"be consistent with the k8s CA signing certificate, which may be customized through --cluster-signing-cert-file "+
+		"Certificate signing CA bundle .pem file. "+
+			"If the certificate is signed by Kubernetes CA, this parameter needs to "+
+			"be consistent with the Kubernetes CA signing certificate, which may be customized through --cluster-signing-cert-file "+
 			"(the Kubernetes CA certificate used to sign certificates on kube-controller-manager, details in "+
 			"https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/). In the case "+
-			"that k8s signing certificate is the same as that of the k8s API server, this parameter may be configured as "+
+			"that Kubernetes signing certificate is the same as that of the k8s API server, this parameter may be configured as "+
 			"the pod certificate at /var/run/secrets/kubernetes.io/serviceaccount/ca.crt. "+
 			"If no local file is specified, the CA certificate will be read from default service account. "+
 			"The CA certificate will be verified against the webhook certificate specified in --valiation-secret.")
 	flags.StringVar(&opts.webhookConfigPath, "config-path", "",
-		"Specifies the file path of the webhook configuration.")
+		"The file path of the webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to manage.")
 	flags.StringVar(&opts.validatingWebhookServiceName, "service", "istio-galley",
@@ -216,7 +216,7 @@ istioctl experimental post-install webhook disable --validation --validation-con
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				return fmt.Errorf("err when creating k8s client interface: %v", err)
+				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
 			err = disableWebhookConfig(client, opts)
 			if err != nil {
@@ -228,14 +228,14 @@ istioctl experimental post-install webhook disable --validation --validation-con
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.disableValidationWebhook, "validation", false, "Specifies whether disabling"+
-		"the validating webhook.")
+	flags.BoolVar(&opts.disableValidationWebhook, "validation", false, "Disable "+
+		"validating webhook (default false).")
 	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
-		"The name of the ValidatingWebhookConfiguration to disable.")
-	flags.BoolVar(&opts.disableInjectionWebhook, "injection", false, "Specifies whether disabling"+
-		"the validating webhook.")
+		"The validating webhook configuration to disable.")
+	flags.BoolVar(&opts.disableInjectionWebhook, "injection", false, "Disable "+
+		"mutating webhook (default false).")
 	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecarinjector",
-		"The name of the MutatingWebhookConfiguration to disable.")
+		"The mutating webhook configuration to disable.")
 
 	return cmd
 }
@@ -255,7 +255,7 @@ istioctl experimental post-install webhook status --validation --config-name ist
 			}
 			client, err := createInterface(kubeconfig)
 			if err != nil {
-				return fmt.Errorf("err when creating k8s client interface: %v", err)
+				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
 			config, err := getValidatingWebhookConfig(client, opts.validatingWebhookConfigName)
 			if err != nil {
@@ -271,7 +271,7 @@ istioctl experimental post-install webhook status --validation --config-name ist
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.validationWebhook, "validation", true, "Specifies whether displaying"+
+	flags.BoolVar(&opts.validationWebhook, "validation", true, "Display "+
 		"the validating webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to display.")
@@ -380,8 +380,8 @@ func readCACert(client kubernetes.Interface, certPath, secretName, secretNamespa
 		return nil, fmt.Errorf("webhook certificate is invalid: %v", err)
 	}
 	if err = veriyCertChain(cert, caCert); err != nil {
-		return nil, fmt.Errorf("k8s CA cert and the webhook cert do not form a valid cert chain. "+
-			"if your cluster has a custom k8s signing cert, please specify it in --ca-bundle-file parameter. error: %v", err)
+		return nil, fmt.Errorf("Kubernetes CA cert and the webhook cert do not form a valid cert chain. "+
+			"if your cluster has a custom Kubernetes signing cert, please specify it in --ca-bundle-file parameter. error: %v", err)
 	}
 
 	return caCert, nil
