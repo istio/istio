@@ -28,6 +28,7 @@ func toStatusValue(msgs diag.Messages) interface{} {
 
 	var lines strings.Builder
 
+	// TODO: This should be structured, not just a string
 	for _, m := range msgs {
 		lines.WriteString(m.StatusString())
 		lines.WriteString("\n")

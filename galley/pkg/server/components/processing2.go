@@ -310,7 +310,7 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 
 		var statusCtl status.Controller
 		if p.args.EnableConfigAnalysis {
-			statusCtl = status.NewController()
+			statusCtl = status.NewController("validationMessages")
 		}
 
 		o := apiserver.Options{
