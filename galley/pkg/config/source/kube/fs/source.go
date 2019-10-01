@@ -77,6 +77,10 @@ func (s *source) Start() {
 
 	c := make(chan appsignals.Signal, 1)
 	appsignals.Watch(c)
+	shut := make(chan os.Signal, 1)
+	if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
+		scope.Source.Errorf("Unable to setup FileTrigger for %s: %v", s.root, err)
+	}
 	go func() {
 		s.reload()
 		s.s.Start()
@@ -88,6 +92,7 @@ func (s *source) Start() {
 					s.reload()
 				}
 			case <-done:
+				shut <- syscall.SIGTERM
 				return
 			}
 		}
