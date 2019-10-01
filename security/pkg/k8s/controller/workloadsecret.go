@@ -105,14 +105,14 @@ type certificateAuthority interface {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	monitoring			monitoringMetrics
-	ca							certificateAuthority
-	core						corev1.CoreV1Interface
-	certUtil        certutil.CertUtil
+	monitoring monitoringMetrics
+	ca         certificateAuthority
+	core       corev1.CoreV1Interface
+	certUtil   certutil.CertUtil
 
 	// Controller and store for service account objects.
-	saController 		cache.Controller
-	saStore      		cache.Store
+	saController cache.Controller
+	saStore      cache.Store
 
 	// Controller and store for secret objects.
 	scrtController cache.Controller
@@ -125,15 +125,15 @@ type SecretController struct {
 	// Used to coordinate with label and check if this instance of Citadel should create secret
 	istioCaStorageNamespace string
 
-	certTTL					time.Duration
+	certTTL time.Duration
 
-	minGracePeriod	time.Duration
+	minGracePeriod time.Duration
 
 	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
-	namespaces 			map[string]struct{}
+	namespaces map[string]struct{}
 
 	// DNS-enabled serviceAccount.namespace to service pair
-	dnsNames 				map[string]*DNSNameEntry
+	dnsNames map[string]*DNSNameEntry
 
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32

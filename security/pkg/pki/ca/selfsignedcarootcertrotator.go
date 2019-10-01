@@ -115,7 +115,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCit
 	}
 
 	rootCertificate := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
-	if !bytes.Equal(rootCertificate, caSecret.Data[RootCertID]) {
+	if !bytes.Equal(rootCertificate, caSecret.Data[caCertID]) {
 		// If the CA secret holds a different root cert than the root cert stored in
 		// KeyCertBundle, this indicates that the local stored root cert is not
 		// up-to-date. Update root cert and key in KeyCertBundle and config map.
