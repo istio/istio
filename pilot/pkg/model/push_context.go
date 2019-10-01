@@ -297,6 +297,13 @@ var (
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
+	// HTTP listeners that conflicted with well known HTTPS ports
+	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_http_over_https",
+		"Number of conflicting HTTP listeners with well known HTTPS ports",
+	)
+
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
@@ -361,6 +368,7 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
