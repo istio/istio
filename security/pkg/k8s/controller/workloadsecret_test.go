@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -50,7 +50,7 @@ var (
 	certChain       = []byte("fake cert chain")
 	rootCert        = []byte("fake root cert")
 	signedCert      = []byte("fake signed cert")
-	istioTestSecret = ca.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
 )
 
 func TestSecretController(t *testing.T) {
@@ -122,7 +122,7 @@ func TestSecretController(t *testing.T) {
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns",
-					ca.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
+					k8ssecret.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
 			shouldFail:       false,
@@ -198,7 +198,7 @@ func TestSecretContent(t *testing.T) {
 	}
 	controller.saAdded(createServiceAccount(saName, saNamespace))
 
-	_ = ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	_ = k8ssecret.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
 	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
@@ -242,21 +242,21 @@ func TestDeletedIstioSecret(t *testing.T) {
 		expectedActions []ktesting.Action
 	}{
 		"Recover secret for existing service account": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa"),
 				ktesting.NewGetAction(nsGvr, "test-ns", "test-ns"),
-				ktesting.NewCreateAction(scrtGvr, "test-ns", ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(scrtGvr, "test-ns", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 		"Do not recover secret for non-existing service account in the same namespace": {
-			secret: ca.BuildSecret("test-sa2", "istio.test-sa2", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa2", "istio.test-sa2", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa2"),
 			},
 		},
 		"Do not recover secret for service account in different namespace": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns2", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns2", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns2", "test-sa"),
 			},
@@ -335,6 +335,7 @@ func TestUpdateSecret(t *testing.T) {
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
 				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
 			ttl:              time.Hour,
@@ -470,13 +471,13 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			istioCaStorageNamespace:   "citadel",
 			oldNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: ""}),
 			newNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: "citadel"}),
-			secret:                    ca.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:                    k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
 			sa:                        createServiceAccount("test-sa", "test"),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
 				ktesting.NewCreateAction(saSchema, "test", createServiceAccount("test-sa", "test")),
 				ktesting.NewListAction(saSchema, schema.GroupVersionKind{}, "test", metav1.ListOptions{}),
-				ktesting.NewCreateAction(secretSchema, "test", ca.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(secretSchema, "test", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 		"toggling label ca.istio.io/env from unlabeled to false should not generate secret": {
@@ -484,7 +485,7 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			istioCaStorageNamespace:   "citadel",
 			oldNamespace:              createNS("test", map[string]string{}),
 			newNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: "false"}),
-			secret:                    ca.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:                    k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
 			sa:                        createServiceAccount("test-sa", "test"),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
