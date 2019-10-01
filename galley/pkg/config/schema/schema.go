@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Metadata is the top-level container.
