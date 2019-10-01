@@ -1,18 +1,5 @@
 version: 2
 
-# VM environment. Includes docker, can run priv.
-integrationDefaults: &integrationDefaults
-  machine:
-    image: ubuntu-1604:201903-01
-  working_directory: /go/src/istio.io/installer
-  environment:
-    - CHANGE_MINIKUBE_NONE_USER: true
-    - SKIP_CLEANUP: false
-    - GOPATH: /go
-    - KUBECONFIG: /go/out/minikube.conf
-    - TEST_ENV: minikube-none
-    - GOPROXY: https://proxy.golang.org
-
 # remote docker environment for one namespace. Appears to be faster
 integrationRemoteOneNamespace: &integrationRemoteOneNamespace
   working_directory: /go/src/istio.io/installer
@@ -24,22 +11,6 @@ integrationRemoteOneNamespace: &integrationRemoteOneNamespace
         ONE_NAMESPACE: 1
         TMPDIR: /go/tmp
         GOPROXY: https://proxy.golang.org
-
-# Common procedure to initialize working directory
-initWorkingDir: &initWorkingDir
-  type: shell
-  name: Initialize Working Directory
-  pwd: /
-  command: |
-    sudo mkdir -p /go/bin
-    sudo chown -R $USER /go
-    cd /go/bin
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-    chmod +x ./kubectl
-
-# Environment:
-#  by default runs in /home/circleci/project, and checkout is in current directory
-#  ID is circleci(3434)
 
 jobs:
 
@@ -183,35 +154,6 @@ jobs:
       - store_artifacts:
           path: /go/out/logs
 
-  # Uses machine and minikube --root, using one-step installation
-  # Used to verify that minikube still works, and get a baseline/compare performance with remote docker.
-  # This is testing the demo - should match install-demo results and time.
-  install-minikube:
-    <<: *integrationDefaults
-    environment: &minikubeEnv
-            - KUBECONFIG: /go/out/minikube.conf
-            - GOPATH: /go
-            - ISTIO_CONTROL: istio-control
-            - TEST_ENV: minikube-none
-            - RESOURCES_FLAGS: "-f test/kind/user-values.yaml"
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - run: bin/testEnvRootMinikube.sh start
-      - run: bin/testEnvRootMinikube.sh wait
-      - run:
-          command: make info dep
-      - run:
-          command: make git.dep run-test-demo
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-      - store_test_results:
-          path: /go/out/tests
-
   run-test-on-base-installation:
     <<: *integrationRemoteOneNamespace
     steps:
@@ -250,7 +192,6 @@ workflows:
     jobs:
       - build
       - integration-old-kind
-      - install-minikube
       - install-demo
       - noauth
       - knative
@@ -260,7 +201,6 @@ workflows:
     jobs:
       - build
       - integration-old-kind
-      - install-minikube
       - install-demo
       - noauth
       - run-test-on-base-installation
