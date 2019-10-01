@@ -291,11 +291,6 @@ func IsIstioVersionGE13(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
-// IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
-func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
-	return !features.DisableXDSMarshalingToAny
-}
-
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
 func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
 	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)

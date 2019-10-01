@@ -30,7 +30,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pkg/proto"
@@ -346,11 +345,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Name = routeName
 		// add a name to the route
 	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-	} else {
-		out.PerFilterConfig = make(map[string]*structpb.Struct)
-	}
+	out.TypedPerFilterConfig = make(map[string]*any.Any)
 
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -515,11 +510,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
-		} else {
-			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
-		}
+		out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	return out

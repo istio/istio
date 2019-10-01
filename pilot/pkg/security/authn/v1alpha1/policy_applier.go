@@ -297,7 +297,7 @@ type v1alpha1PolicyApplier struct {
 	policy *authn_v1alpha1.Policy
 }
 
-func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	// v2 api will use inline public key.
 	filterName, filterConfigProto := convertPolicyToJwtConfig(a.policy)
 	if filterConfigProto == nil {
@@ -306,15 +306,11 @@ func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	out := &http_conn.HttpFilter{
 		Name: filterName,
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
 	return out
 }
 
-func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter {
 	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
@@ -322,11 +318,7 @@ func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 	out := &http_conn.HttpFilter{
 		Name: AuthnFilterName,
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
 	return out
 }
 

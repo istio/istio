@@ -35,13 +35,12 @@ var (
 
 // Builder wraps all needed information for building the RBAC filter for a service.
 type Builder struct {
-	isXDSMarshalingToAnyEnabled bool
-	generator                   policy.Generator
+	generator policy.Generator
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
 func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
-	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+	policies *model.AuthorizationPolicies) *Builder {
 	var generator policy.Generator
 
 	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
@@ -72,8 +71,7 @@ func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Co
 	}
 
 	return &Builder{
-		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
-		generator:                   generator,
+		generator: generator,
 	}
 }
 
@@ -90,11 +88,7 @@ func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
 	httpConfig := http_filter.HttpFilter{
 		Name: authz_model.RBACHTTPFilterName,
 	}
-	if b.isXDSMarshalingToAnyEnabled {
-		httpConfig.ConfigType = &http_filter.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		httpConfig.ConfigType = &http_filter.HttpFilter_Config{Config: util.MessageToStruct(rbacConfig)}
-	}
+	httpConfig.ConfigType = &http_filter.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
 
 	rbacLog.Debugf("built http filter config: %v", httpConfig)
 	return &httpConfig
@@ -121,11 +115,7 @@ func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
 	tcpConfig := tcp_filter.Filter{
 		Name: authz_model.RBACTCPFilterName,
 	}
-	if b.isXDSMarshalingToAnyEnabled {
-		tcpConfig.ConfigType = &tcp_filter.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		tcpConfig.ConfigType = &tcp_filter.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
-	}
+	tcpConfig.ConfigType = &tcp_filter.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
 
 	rbacLog.Debugf("built tcp filter config: %v", tcpConfig)
 	return &tcpConfig

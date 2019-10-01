@@ -1305,10 +1305,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// When this happens, Envoy will infinite loop sending requests to itself.
 	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
 	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
-		blackhole := blackholeStructMarshalling
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			blackhole = blackholeAnyMarshalling
-		}
+		blackhole := blackholeAnyMarshalling
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
 			networkFilters:   []*listener.Filter{blackhole},
@@ -1708,11 +1705,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 		buildAccessLog(node, fl, env)
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
+		acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
@@ -1735,11 +1728,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: wellknown.HTTPGRPCAccessLog,
 		}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
+		acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
@@ -1900,11 +1889,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 			StatPrefix:       util.PassthroughCluster,
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
+		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 
 		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
 			networkFilters: []*listener.Filter{tcpFilter},
@@ -1959,11 +1944,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			filter := &listener.Filter{
 				Name: wellknown.HTTPConnectionManager,
 			}
-			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
-			}
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)

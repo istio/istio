@@ -25,7 +25,6 @@ import (
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
@@ -51,7 +50,7 @@ func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, insta
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, tcpProxy)
-	return buildNetworkFiltersStack(node, instance.Endpoint.ServicePort, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(instance.Endpoint.ServicePort, tcpFilter, clusterName, clusterName)
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
@@ -66,12 +65,7 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		}
 		buildAccessLog(node, fl, env)
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			c, _ := conversion.MessageToStruct(fl)
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: c}
-		}
+		acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 
 		config.AccessLog = append(config.AccessLog, acc)
 	}
@@ -88,11 +82,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 	tcpFilter := &listener.Filter{
 		Name: wellknown.TCPProxy,
 	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	return tcpFilter
 }
 
@@ -113,7 +103,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, tcpProxy)
-	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(port, tcpFilter, clusterName, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -151,26 +141,26 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
-	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
+	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
+func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
 	switch port.Protocol {
 	case protocol.Mongo:
-		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), tcpFilter)
+		filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
 	case protocol.Redis:
 		if features.EnableRedisFilter.Get() {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
-			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
+			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName))
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
 	case protocol.MySQL:
 		if features.EnableMysqlFilter.Get() {
-			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
 	default:
@@ -196,7 +186,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.
-func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildMongoFilter(statPrefix string) *listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -208,11 +198,7 @@ func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *list
 	out := &listener.Filter{
 		Name: wellknown.MongoProxy,
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(mongoProxy)}
-	}
+	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)}
 
 	return out
 }
@@ -235,7 +221,7 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 // buildRedisFilter builds an outbound Envoy RedisProxy filter.
 // Currently, if multiple clusters are defined, one of them will be picked for
 // configuring the Redis proxy.
-func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 	redisProxy := &redis_proxy.RedisProxy{
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
@@ -252,17 +238,13 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 	out := &listener.Filter{
 		Name: wellknown.RedisProxy,
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(redisProxy)}
-	}
+	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)}
 
 	return out
 }
 
 // buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
-func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildMySQLFilter(statPrefix string) *listener.Filter {
 	mySQLProxy := &mysql_proxy.MySQLProxy{
 		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
 	}
@@ -271,11 +253,7 @@ func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *list
 		Name: wellknown.MySQLProxy,
 	}
 
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(mySQLProxy)}
-	}
+	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)}
 
 	return out
 }

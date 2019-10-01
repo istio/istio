@@ -84,7 +84,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 					// Insert into http connection manager
-					deprecatedInsertHTTPFilter(listener.Name, listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+					deprecatedInsertHTTPFilter(listener.Name, listener.FilterChains[cnum], httpConnectionManagers[cnum], f)
 				} else {
 					// http listener, tcp filter
 					deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
@@ -211,7 +211,7 @@ func deprecatedListenerMatch(in *plugin.InputParams, listenerIP net.IP,
 }
 
 func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.FilterChain, hcm *http_conn.HttpConnectionManager,
-	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
@@ -255,11 +255,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 	filterStruct := xdslistener.Filter{
 		Name: xdsutil.HTTPConnectionManager,
 	}
-	if isXDSMarshalingToAnyEnabled {
-		filterStruct.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
-	} else {
-		filterStruct.ConfigType = &xdslistener.Filter_Config{Config: util.MessageToStruct(hcm)}
-	}
+	filterStruct.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
 	filterChain.Filters[len(filterChain.Filters)-1] = &filterStruct
 	log.Debugf("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))

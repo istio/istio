@@ -272,10 +272,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 		for _, ip := range node.IPAddresses {
 			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
 		}
-		blackhole := blackholeStructMarshalling
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			blackhole = blackholeAnyMarshalling
-		}
+		blackhole := blackholeAnyMarshalling
 		filterChains = append([]*listener.FilterChain{{
 			FilterChainMatch: &listener.FilterChainMatch{
 				PrefixRanges: cidrRanges,
@@ -443,11 +440,7 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		filterChain := &listener.FilterChain{
 			FilterChainMatch: &filterChainMatch,
 			Filters: []*listener.Filter{
@@ -507,11 +500,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
 		}
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)}
-		}
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)}
 
 		filterChainMatch := listener.FilterChainMatch{
 			// Port : EMPTY to match all ports
@@ -553,11 +542,7 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 		Name: xdsutil.TCPProxy,
 	}
 
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-	} else {
-		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-	}
+	filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 	return &filter
 }
 

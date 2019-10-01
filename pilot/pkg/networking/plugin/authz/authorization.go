@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authz_builder "istio.io/istio/pilot/pkg/security/authz/builder"
 	istiolog "istio.io/pkg/log"
 )
@@ -80,7 +79,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	}
 
 	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Node.WorkloadLabels, in.Node.ConfigNamespace,
-		in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
+		in.Push.AuthzPolicies)
 	if builder == nil {
 		return
 	}
