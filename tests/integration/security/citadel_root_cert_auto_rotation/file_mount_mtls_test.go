@@ -33,59 +33,59 @@ import (
 func TestMtlsWithRootCertUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
+		Run(func(ctx framework.TestContext) {
 
-				istioCfg := istio.DefaultConfigOrFail(t, ctx)
+			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-				namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-				ns := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix: "sds-citadel-flow",
-					Inject: true,
-				})
+			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "sds-citadel-flow",
+				Inject: true,
+			})
 
-				var a, b, c echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-					With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-					With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-					BuildOrFail(t)
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				BuildOrFail(t)
 
-				checkers := []connection.Checker{
-					{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   b,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-						ExpectSuccess: true,
+			checkers := []connection.Checker{
+				{
+					From: a,
+					Options: echo.CallOptions{
+						Target:   b,
+						PortName: "http",
+						Scheme:   scheme.HTTP,
 					},
-					{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   c,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-						ExpectSuccess: true,
+					ExpectSuccess: true,
+				},
+				{
+					From: a,
+					Options: echo.CallOptions{
+						Target:   c,
+						PortName: "http",
+						Scheme:   scheme.HTTP,
 					},
-					{
-						From: b,
-						Options: echo.CallOptions{
-							Target:   c,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-						ExpectSuccess: true,
+					ExpectSuccess: true,
+				},
+				{
+					From: b,
+					Options: echo.CallOptions{
+						Target:   c,
+						PortName: "http",
+						Scheme:   scheme.HTTP,
 					},
+					ExpectSuccess: true,
+				},
+			}
+			for i := 0; i < 3; i++ {
+				for _, checker := range checkers {
+					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				}
-				for i := 0; i < 3; i++ {
-					for _, checker := range checkers {
-						retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-					}
-					// Wait for at least one root upgrade to let workloads use new CA cert
-					// to set up mTLS connections.
-					time.Sleep(1 * time.Second)
-				}
-	})
+				// Wait for at least one root upgrade to let workloads use new CA cert
+				// to set up mTLS connections.
+				time.Sleep(1 * time.Second)
+			}
+		})
 }

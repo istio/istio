@@ -48,10 +48,10 @@ import (
 )
 
 const (
-	selfSignedCaCertTtl        = "SELF_SIGNED_CA_CERT_TTL"
-	selfSignedRootCertCheckInterval  = "SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
-	selfSignedRootCertMinCheckInterval  = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
-	workloadCertMinGracePeriod = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
+	selfSignedCaCertTtl                = "SELF_SIGNED_CA_CERT_TTL"
+	selfSignedRootCertCheckInterval    = "SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
+	selfSignedRootCertMinCheckInterval = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
+	workloadCertMinGracePeriod         = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -67,10 +67,10 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA                    		bool
-	selfSignedCACertTTL             		time.Duration
-	selfSignedRootCertCheckInterval 		time.Duration
-	selfSignedRootCertMinCheckInterval	time.Duration
+	selfSignedCA                       bool
+	selfSignedCACertTTL                time.Duration
+	selfSignedRootCertCheckInterval    time.Duration
+	selfSignedRootCertMinCheckInterval time.Duration
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -134,13 +134,13 @@ var (
 		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
 			cmd.DefaultSelfSignedRootCertCheckInterval,
 			"The interval that self-signed CA checks its root certificate "+
-					"expiration time and rotates root certificate. Setting this interval " +
-					"to zero or a negative value disables "+
-					"automated root cert check and rotation.").Get(),
+				"expiration time and rotates root certificate. Setting this interval "+
+				"to zero or a negative value disables "+
+				"automated root cert check and rotation.").Get(),
 		selfSignedRootCertMinCheckInterval: env.RegisterDurationVar(selfSignedRootCertMinCheckInterval,
 			cmd.SelfSignedRootCertMinCheckInterval,
 			"The minimum interval that self-signed CA checks its root certificate "+
-					"expiration time and rotates root certificate.").Get(),
+				"expiration time and rotates root certificate.").Get(),
 		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
 			cmd.DefaultWorkloadMinCertGracePeriod,
 			"The minimum workload certificate rotation grace period.").Get(),

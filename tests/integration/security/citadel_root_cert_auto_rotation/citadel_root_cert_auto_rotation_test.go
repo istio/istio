@@ -38,27 +38,27 @@ const (
 func TestCitadelRootCertUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
-			Run(func(ctx framework.TestContext) {
-				istioCfg := istio.DefaultConfigOrFail(t, ctx)
+		Run(func(ctx framework.TestContext) {
+			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
-				// Get initial root cert.
-				kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
-				systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-				caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			// Get initial root cert.
+			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("unable to load root secret: %s", err.Error())
+			}
+
+			for i := 0; i < 2; i++ {
+				// Wait for the next round of root cert upgrade
+				time.Sleep(1 * time.Second)
+				newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("unable to load root secret: %s", err.Error())
 				}
-
-				for i := 0; i < 2; i++ {
-					// Wait for the next round of root cert upgrade
-					time.Sleep(1 * time.Second)
-					newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
-					if err != nil {
-						t.Fatalf("unable to load root secret: %s", err.Error())
-					}
-					verifyRootUpgrade(t, caScrt, newCaScrt)
-				}
-			})
+				verifyRootUpgrade(t, caScrt, newCaScrt)
+			}
+		})
 }
 
 func verifyRootUpgrade(t *testing.T, lastScrt, newScrt *v1.Secret) {
@@ -71,5 +71,5 @@ func verifyRootUpgrade(t *testing.T, lastScrt, newScrt *v1.Secret) {
 	cert, _ := util.ParsePemEncodedCertificate(newScrt.Data[caCertID])
 	timeToExpire := cert.NotAfter
 	t.Logf("verified that root cert is upgraded successfully, "+
-			"ca cert expiration time %v", timeToExpire.String())
+		"ca cert expiration time %v", timeToExpire.String())
 }
