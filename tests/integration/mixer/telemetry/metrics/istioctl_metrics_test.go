@@ -33,11 +33,11 @@ func TestIstioctlMetrics(t *testing.T) {
 			labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
 			testMetric(t, ctx, label, labelValue)
 			workload := "productpage-v1"
-			testIstioctl(t, ctx, label, labelValue, workload)
+			testIstioctl(t, ctx, workload)
 		})
 }
 
-func testIstioctl(t *testing.T, ctx framework.TestContext, label string, labelValue string, workload string) {
+func testIstioctl(t *testing.T, ctx framework.TestContext, workload string) {
 	istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}
 	output, fErr := istioCtl.Invoke(args)
