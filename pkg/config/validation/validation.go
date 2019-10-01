@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -1491,11 +1491,21 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
 
-	// TODO(yangminzhu): Add more validation.
+	if in.Selector != nil {
+		for k, v := range in.Selector.MatchLabels {
+			if k == "" || v == "" {
+				return fmt.Errorf("selector has empty key or values")
+			}
+		}
+	}
+
 	for _, rule := range in.GetRules() {
 		for _, condition := range rule.GetWhen() {
 			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
 				return fmt.Errorf("condition has empty key or values")
+			}
+			if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
+				return fmt.Errorf("invalid condition: %v", err)
 			}
 		}
 	}
@@ -1980,6 +1990,12 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+		}
+	}
+
+	if http.MirrorPercent != nil {
+		if value := http.MirrorPercent.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
 		}
 	}
 

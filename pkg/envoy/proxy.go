@@ -86,7 +86,6 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.node,
 		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--allow-unknown-fields",
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
@@ -167,7 +166,7 @@ func (e *envoy) Cleanup(epoch int) {
 }
 
 func (e *envoy) Panic(epoch interface{}) {
-	log.Error("cannot start the e with the desired configuration")
+	log.Error("cannot start the proxy with the desired configuration")
 	if epochInt, ok := epoch.(int); ok {
 		// print the failed config file
 		filePath := configFile(e.config.ConfigPath, epochInt)

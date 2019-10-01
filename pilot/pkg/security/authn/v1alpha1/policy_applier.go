@@ -18,19 +18,18 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ldsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -41,6 +40,9 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	protovalue "istio.io/istio/pkg/proto"
+	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 )
 
 const (
@@ -166,7 +168,7 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 				},
 				Requires: &envoy_jwt.JwtRequirement{
 					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-						AllowMissingOrFailed: &types.Empty{},
+						AllowMissingOrFailed: &empty.Empty{},
 					},
 				},
 			},
@@ -241,21 +243,27 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 		return nil
 	}
 
-	p := proto.Clone(policy).(*authn_v1alpha1.Policy)
+	// cloning proto from gogo to golang world
+	bytes, _ := policy.Marshal()
+	p := &authn_filter_policy.Policy{}
+	if err := proto.Unmarshal(bytes, p); err != nil {
+		return nil
+	}
+
 	// Create default mTLS params for params type mTLS but value is nil.
 	// This walks around the issue https://github.com/istio/istio/issues/4763
-	var usedPeers []*authn_v1alpha1.PeerAuthenticationMethod
+	var usedPeers []*authn_filter_policy.PeerAuthenticationMethod
 	for _, peer := range p.Peers {
 		switch peer.GetParams().(type) {
-		case *authn_v1alpha1.PeerAuthenticationMethod_Mtls:
+		case *authn_filter_policy.PeerAuthenticationMethod_Mtls:
 			// Only enable mTLS for sidecar, not Ingress/Router for now.
 			if proxyType == model.SidecarProxy {
 				if peer.GetMtls() == nil {
-					peer.Params = &authn_v1alpha1.PeerAuthenticationMethod_Mtls{Mtls: &authn_v1alpha1.MutualTls{}}
+					peer.Params = &authn_filter_policy.PeerAuthenticationMethod_Mtls{Mtls: &authn_filter_policy.MutualTls{}}
 				}
 				usedPeers = append(usedPeers, peer)
 			}
-		case *authn_v1alpha1.PeerAuthenticationMethod_Jwt:
+		case *authn_filter_policy.PeerAuthenticationMethod_Jwt:
 			usedPeers = append(usedPeers, peer)
 		}
 	}
@@ -322,7 +330,7 @@ func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 	return out
 }
 
-func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[string]string) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
@@ -345,13 +353,13 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[st
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
-		base := meta[features.BaseDir] + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+constants.RootCertFilename)
+		base := meta.SdsBase + constants.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefault(meta.TLSServerRootCert, base+constants.RootCertFilename)
 
 		tls.CommonTlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
-		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+constants.KeyFilename)
+		tlsServerCertChain := model.GetOrDefault(meta.TLSServerCertChain, base+constants.CertChainFilename)
+		tlsServerKey := model.GetOrDefault(meta.TLSServerKey, base+constants.KeyFilename)
 
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
@@ -400,7 +408,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta map[st
 				ListenerFilters: []*ldsv2.ListenerFilter{
 					{
 						Name:       xdsutil.TlsInspector,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
+						ConfigType: &ldsv2.ListenerFilter_Config{Config: &structpb.Struct{}},
 					},
 				},
 			},

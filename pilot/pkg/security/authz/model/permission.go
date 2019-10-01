@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
@@ -35,9 +35,10 @@ type Permission struct {
 	NotPaths    []string
 	Methods     []string
 	NotMethods  []string
-	Ports       []int32
-	NotPorts    []int32
+	Ports       []string
+	NotPorts    []string
 	Constraints []KeyValues
+	AllowAll    bool
 }
 
 // Match returns True if the calling service's attributes and/or labels match to the ServiceRole constraints.
@@ -66,7 +67,7 @@ func (permission *Permission) Match(service *ServiceMetadata) bool {
 					continue
 				}
 				constraintValue, present = service.Labels[label]
-			case key == attrDestName || key == attrDestNamespace:
+			case key == attrDestName || key == attrDestNamespace || key == attrDestUser:
 				constraintValue, present = service.Attributes[key]
 			default:
 				continue
@@ -128,6 +129,11 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 	pg := permissionGenerator{}
 
+	if permission.AllowAll {
+		pg.append(permissionAny(true))
+		return pg.andPermissions(), nil
+	}
+
 	if len(permission.Hosts) > 0 {
 		permission := permissionForKeyValues(hostHeader, permission.Hosts)
 		pg.append(permission)
@@ -159,12 +165,12 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	if len(permission.Ports) > 0 {
-		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.Ports))
+		permission := permissionForKeyValues(attrDestPort, permission.Ports)
 		pg.append(permission)
 	}
 
 	if len(permission.NotPorts) > 0 {
-		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.NotPorts))
+		permission := permissionForKeyValues(attrDestPort, permission.NotPorts)
 		pg.append(permissionNot(permission))
 	}
 
@@ -191,6 +197,21 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	return pg.andPermissions(), nil
+}
+
+// isSupportedPermission returns true if the key is supported to be used in permission.
+func isSupportedPermission(key string) bool {
+	switch {
+	case key == attrDestIP:
+	case key == attrDestPort:
+	case key == pathHeader || key == methodHeader || key == hostHeader:
+	case strings.HasPrefix(key, attrRequestHeader):
+	case key == attrConnSNI:
+	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
+	default:
+		return false
+	}
+	return true
 }
 
 // permissionForKeyValues converts a key-values pair to an envoy RBAC permission. The key specify the

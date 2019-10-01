@@ -26,7 +26,8 @@ import (
 	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	gogo_types "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
 
 	v1 "k8s.io/api/core/v1"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -49,12 +51,13 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 )
 
-type myGogoValue struct {
-	*gogo_types.Value
+type myProtoValue struct {
+	*structpb.Value
 }
 
 const (
-	k8sSuffix = ".svc.cluster.local"
+	k8sSuffix         = ".svc.cluster.local"
+	noVersionMetadata = "no-metadata"
 )
 
 var (
@@ -149,6 +152,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return fmt.Errorf("can't parse sidecar config_dump: %v", err)
 			}
 
+			// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
+			istioVersion := model.ParseIstioVersion(getIstioVersion(&cd))
+
 			var configClient model.ConfigStore
 			if configClient, err = clientFactory(); err != nil {
 				return err
@@ -156,7 +162,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			for _, svc := range matchingServices {
 				fmt.Fprintf(writer, "--------------------\n")
-				printService(writer, svc, pod)
+				printService(writer, svc, pod, istioVersion)
 
 				for _, port := range svc.Spec.Ports {
 					matchingSubsets := []string{}
@@ -236,7 +242,31 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
-func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
+func getIstioVersion(cd *configdump.Wrapper) string {
+	bootstrapDump, err := cd.GetBootstrapConfigDump()
+	if err == nil {
+		bootstrapNode := bootstrapDump.GetBootstrap().Node
+		if bootstrapNode.Metadata == nil {
+			// Happens if there has been no dynamic config, e.g. on Pilot itself
+			return noVersionMetadata
+		}
+
+		return asMyProtoValue(bootstrapNode.Metadata).keyAsString("ISTIO_VERSION")
+	}
+
+	return "undetected"
+}
+
+func containerPortOptional(istioVersion *model.IstioVersion) bool {
+	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
+}
+
+func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
+	// No version of Istio currently detects inbound protocol
+	return false
+}
+
+func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
 	retval := []string{}
 
 	// Build list of ports exposed by pod
@@ -254,14 +284,25 @@ func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 	} else {
 		_, ok := containerPorts[nport]
 		if !ok {
-			retval = append(retval,
-				fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
+			if !containerPortOptional(istioVersion) {
+				retval = append(retval,
+					fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
+			}
 		}
 	}
 
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
-		retval = append(retval,
-			fmt.Sprintf("%s is named %q which does not follow Istio conventions", port.TargetPort.String(), port.Name))
+		if !supportsProtocolDetection(istioVersion) {
+			if port.Name == "" {
+				retval = append(retval,
+					fmt.Sprintf("%s is unnamed which does not follow Istio conventions",
+						port.TargetPort.String()))
+			} else {
+				retval = append(retval,
+					fmt.Sprintf("%s is named %q which does not follow Istio conventions",
+						port.TargetPort.String(), port.Name))
+			}
+		}
 	}
 
 	return retval
@@ -527,7 +568,7 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	}
 
 	if !isMeshed(pod) {
-		fmt.Fprintf(writer, "WARNING: %s is part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
+		fmt.Fprintf(writer, "WARNING: %s is not part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
 		return
 	}
 
@@ -563,7 +604,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
+func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *model.IstioVersion) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -573,9 +614,16 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 		// Get port number
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
-			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, servicePortProtocol(port.Name))
+			var protocol string
+			if port.Name == "" && supportsProtocolDetection(istioVersion) {
+				protocol = "auto-detect"
+			} else {
+				protocol = string(servicePortProtocol(port.Name))
+			}
+
+			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, protocol)
 		}
-		msgs := validatePort(port, pod)
+		msgs := validatePort(port, pod, istioVersion)
 		for _, msg := range msgs {
 			fmt.Fprintf(writer, "   %s\n", msg)
 		}
@@ -660,26 +708,26 @@ func isMeshed(pod *v1.Pod) bool {
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
-func (v *myGogoValue) keyAsStruct(key string) *myGogoValue {
+func (v *myProtoValue) keyAsStruct(key string) *myProtoValue {
 	if v == nil || v.GetStructValue() == nil {
-		return asMyGogoValue(&gogo_types.Struct{Fields: make(map[string]*gogo_types.Value)})
+		return asMyProtoValue(&structpb.Struct{Fields: make(map[string]*structpb.Value)})
 	}
 
-	return &myGogoValue{v.GetStructValue().Fields[key]}
+	return &myProtoValue{v.GetStructValue().Fields[key]}
 }
 
-// asMyGogoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
-func asMyGogoValue(s *gogo_types.Struct) *myGogoValue {
-	return &myGogoValue{
-		&gogo_types.Value{
-			Kind: &gogo_types.Value_StructValue{
+// asMyProtoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
+func asMyProtoValue(s *structpb.Struct) *myProtoValue {
+	return &myProtoValue{
+		&structpb.Value{
+			Kind: &structpb.Value_StructValue{
 				StructValue: s,
 			},
 		},
 	}
 }
 
-func (v *myGogoValue) keyAsString(key string) string {
+func (v *myProtoValue) keyAsString(key string) string {
 	s := v.keyAsStruct(key)
 	return s.GetStringValue()
 }
@@ -695,7 +743,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == authz_model.RBACHTTPFilterName {
 			rbac := &rbac_http_filter.RBAC{}
-			if err := gogo_types.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
+			if err := ptypes.UnmarshalAny(httpFilter.GetTypedConfig(), rbac); err == nil {
 				policies := []string{}
 				for polName := range rbac.Rules.Policies {
 					policies = append(policies, polName)
@@ -731,7 +779,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 			for _, filterChain := range listener.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
-					if err := gogo_types.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
 						return hcm, nil
 					}
 				}
@@ -832,9 +880,9 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 }
 
 // getMixerDestinationSvc returns name, namespace, err
-func getMixerDestinationSvc(mixer *gogo_types.Struct) (string, string, error) {
+func getMixerDestinationSvc(mixer *structpb.Struct) (string, string, error) {
 	if mixer != nil {
-		attributes := asMyGogoValue(mixer).
+		attributes := asMyProtoValue(mixer).
 			keyAsStruct("mixer_attributes").
 			keyAsStruct("attributes")
 		svcName := attributes.keyAsStruct("destination.service.name").
@@ -849,7 +897,7 @@ func getMixerDestinationSvc(mixer *gogo_types.Struct) (string, string, error) {
 // getIstioConfig returns .metadata.filter_metadata.istio.config, err
 func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 	if metadata != nil {
-		istioConfig := asMyGogoValue(metadata.FilterMetadata["istio"]).
+		istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 			keyAsString("config")
 		return istioConfig, nil
 	}
@@ -893,7 +941,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		if filter.Verify(cluster) {
 			metadata := cluster.Metadata
 			if metadata != nil {
-				istioConfig := asMyGogoValue(metadata.FilterMetadata["istio"]).
+				istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 					keyAsString("config")
 				return istioConfig, nil
 			}
@@ -1006,7 +1054,7 @@ func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.Authentic
 	}
 
 	if count == 0 {
-		fmt.Fprintf(writer, "None\n")
+		fmt.Fprintf(writer, "Authn: None\n")
 	}
 }
 

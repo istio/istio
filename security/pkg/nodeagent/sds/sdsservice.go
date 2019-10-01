@@ -27,9 +27,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -210,6 +210,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
+	var node *core.Node
 	for {
 		// Block until a request is received.
 		select {
@@ -221,8 +222,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if discReq.Node == nil {
-				sdsServiceLog.Errorf("Close connection. Invalid discovery request with no node")
-				return fmt.Errorf("invalid discovery request with no node")
+				discReq.Node = node
+			} else {
+				node = discReq.Node
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
@@ -280,18 +282,18 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 				continue
 			}
 
 			if firstRequestFlag {
 				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
 					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 			} else {
 				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 			}
 
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
@@ -458,6 +460,9 @@ func recycleConnection(conID, resourceName string) {
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
+	if discReq.Node == nil {
+		return "", fmt.Errorf("discovery request %+v missing node", discReq)
+	}
 	if discReq.Node.Id == "" {
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
@@ -599,7 +604,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		}
 	}
 
-	ms, err := types.MarshalAny(secret)
+	ms, err := ptypes.MarshalAny(secret)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err

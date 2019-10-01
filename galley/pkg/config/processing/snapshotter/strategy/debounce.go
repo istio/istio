@@ -18,13 +18,12 @@ import (
 	"sync"
 	"time"
 
-	// TODO: Referencing this package directly, as duplicating it would cause conflicts.
-	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/config/monitoring"
 )
 
 const (
 	// Maximum wait time before deciding to publish the events.
-	defaultMaxWaitDuration = time.Second * 2
+	defaultMaxWaitDuration = time.Second
 
 	// Minimum time distance between two events for deciding on the quiesce point. If the time delay
 	// between two events is larger than this, then we can deduce that we hit a quiesce point.

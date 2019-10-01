@@ -59,6 +59,8 @@ const (
 	caKeySize = 2048
 )
 
+var pkiCaLog = log.RegisterScope("pkiCaLog", "Citadel CA log", 0)
+
 // caTypes is the enum for the CA type.
 type caTypes int
 
@@ -113,12 +115,12 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 		copy(rootCerts, pemCert)
 	}
 	if len(rootCertFile) > 0 {
-		log.Debugf("append root certificates from %v", rootCertFile)
+		pkiCaLog.Debugf("append root certificates from %v", rootCertFile)
 		certBytes, err := ioutil.ReadFile(rootCertFile)
 		if err != nil {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
-		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
+		pkiCaLog.Debugf("The root certificates to be appended is: %v", rootCertFile)
 		if len(rootCerts) > 0 {
 			// Append a newline after the last cert
 			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
@@ -136,17 +138,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
 	if scrtErr != nil && readCertRetryInterval > 0 {
-		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
+		pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
 		for scrtErr != nil {
 			select {
 			case <-ticker.C:
 				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
-					log.Infof("Citadel successfully loaded the secret.")
-					break
+					pkiCaLog.Infof("Citadel successfully loaded the secret.")
 				}
 			case <-ctx.Done():
-				log.Errorf("Secret waiting thread is terminated.")
+				pkiCaLog.Errorf("Secret waiting thread is terminated.")
 				return nil, fmt.Errorf("secret waiting thread is terminated")
 			}
 		}
@@ -158,7 +159,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		MaxCertTTL: maxCertTTL,
 	}
 	if scrtErr != nil {
-		log.Infof("Failed to get secret (error: %s), will create one", scrtErr)
+		pkiCaLog.Infof("Failed to get secret (error: %s), will create one", scrtErr)
 
 		options := util.CertOptions{
 			TTL:          caCertTTL,
@@ -185,12 +186,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
 		secret := BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 		if _, err = client.Secrets(namespace).Create(secret); err != nil {
-			log.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
+			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
 		}
-		log.Infof("Using self-generated public key: %v", string(rootCerts))
+		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
-		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
+		pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
 		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
@@ -199,13 +200,13 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
-		log.Infof("Using existing public key: %v", string(rootCerts))
+		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 	}
 
 	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
-		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
+		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	} else {
-		log.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
+		pkiCaLog.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
 	}
 	return caOpts, nil
 }
@@ -247,7 +248,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		crt = caOpts.KeyCertBundle.GetRootCertPem()
 	}
 	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
-		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
+		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
 }

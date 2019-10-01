@@ -16,16 +16,16 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
+
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/source/kube/client"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
-		Use:   "analyze <file|globpattern>...",
+		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
 		Example: `
 # Analyze yaml files
@@ -64,22 +64,46 @@ istioctl experimental analyze -k a.yaml b.yaml
 			}
 			cancel := make(chan struct{})
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.All())
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil)
+
+			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
+			// for file resources that don't have one specified.
+			// Note that the current implementation (in root.go) doesn't correctly default this value based on --context, so we do that ourselves
+			// below since for the time being we want to keep changes isolated to experimental code. When we merge this into
+			// istioctl validate (see https://github.com/istio/istio/issues/16777) we should look into fixing getDefaultNamespace in root
+			// so it properly handles the --context option.
+			selectedNamespace := namespace
 
 			// If we're using kube, use that as a base source.
 			if useKube {
-				config, err := kube.BuildClientConfig(kubeconfig, configContext)
+				// Set up the kube client
+				config := kube.BuildClientCmd(kubeconfig, configContext)
+				restConfig, err := config.ClientConfig()
 				if err != nil {
 					return err
 				}
-				k := client.NewKube(config)
+				k := cfgKube.NewInterfaces(restConfig)
+
+				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
+				if selectedNamespace == "" {
+					ns, _, err := config.Namespace()
+					if err != nil {
+						return err
+					}
+					selectedNamespace = ns
+				}
+
 				sa.AddRunningKubeSource(k)
 			}
 
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
-				err := sa.AddFileKubeSource(files)
-				if err != nil {
+				// // If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
+				if selectedNamespace == "" {
+					selectedNamespace = defaultNamespace
+				}
+
+				if err = sa.AddFileKubeSource(files, selectedNamespace); err != nil {
 					return err
 				}
 			}
@@ -106,11 +130,10 @@ istioctl experimental analyze -k a.yaml b.yaml
 func gatherFiles(args []string) ([]string, error) {
 	var result []string
 	for _, a := range args {
-		paths, err := filepath.Glob(a)
-		if err != nil {
-			return nil, err
+		if _, err := os.Stat(a); err != nil {
+			return nil, fmt.Errorf("could not find file %q", a)
 		}
-		result = append(result, paths...)
+		result = append(result, a)
 	}
 	return result, nil
 }

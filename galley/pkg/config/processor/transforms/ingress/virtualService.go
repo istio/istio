@@ -25,11 +25,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/collection"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -44,18 +46,24 @@ type virtualServiceXform struct {
 	vsByHost  map[string]*syntheticVirtualService
 }
 
-func newVirtualServiceXform(o processing.ProcessorOptions) event.Transformer {
-	xform := &virtualServiceXform{
-		options: o,
-	}
-	xform.FnTransform = event.NewFnTransform(
-		collection.Names{metadata.K8SExtensionsV1Beta1Ingresses},
-		collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices},
-		xform.start,
-		xform.stop,
-		xform.handle)
+func getVirtualServiceXformProvider() transformer.Provider {
+	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
+	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices}
 
-	return xform
+	createFn := func(o processing.ProcessorOptions) event.Transformer {
+		xform := &virtualServiceXform{
+			options: o,
+		}
+		xform.FnTransform = event.NewFnTransform(
+			inputs,
+			outputs,
+			xform.start,
+			xform.stop,
+			xform.handle)
+
+		return xform
+	}
+	return transformer.NewProvider(inputs, outputs, createFn)
 }
 
 // Start implements processing.Transformer

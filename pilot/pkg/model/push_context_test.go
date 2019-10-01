@@ -19,8 +19,10 @@ import (
 	"testing"
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema"
@@ -56,22 +58,25 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"simple merge",
 			&PushRequest{
-				Full:             true,
-				Push:             push0,
-				Start:            t0,
-				TargetNamespaces: map[string]struct{}{"ns1": {}},
+				Full:               true,
+				Push:               push0,
+				Start:              t0,
+				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
+				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}},
 			},
 			&PushRequest{
-				Full:             false,
-				Push:             push1,
-				Start:            t1,
-				TargetNamespaces: map[string]struct{}{"ns2": {}},
+				Full:               false,
+				Push:               push1,
+				Start:              t1,
+				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
+				ConfigTypesUpdated: map[string]struct{}{"cfg2": {}},
 			},
 			PushRequest{
-				Full:             true,
-				Push:             push1,
-				Start:            t0,
-				TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}},
+				Full:               true,
+				Push:               push1,
+				Start:              t0,
+				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
+				ConfigTypesUpdated: map[string]struct{}{"cfg1": {}, "cfg2": {}},
 			},
 		},
 		{
@@ -94,9 +99,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"incremental merge",
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, TargetNamespaces: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
 		},
 	}
 
@@ -108,6 +113,161 @@ func TestMergeUpdateRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthNPolicies(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
+	ps.Env = env
+	authNPolicies := map[string]*authn.Policy{
+		constants.DefaultAuthenticationPolicyName: {},
+
+		"mtls-strict-svc-port": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-port",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			},
+			}},
+
+		"mtls-permissive-svc-port": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-permissive-svc-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_PERMISSIVE,
+					},
+				},
+			}},
+		},
+
+		"mtls-strict-svc-named-port": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-strict-svc-named-port",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Name{
+							Name: "http",
+						},
+					},
+				},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
+
+		"mtls-disable-svc": {
+			Targets: []*authn.TargetSelector{{
+				Name: "mtls-disable-svc",
+			}},
+		},
+	}
+	configStore := newFakeStore()
+	for key, value := range authNPolicies {
+		cfg := Config{
+			ConfigMeta: ConfigMeta{
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Domain:    "cluster.local",
+				Namespace: "default",
+			},
+			Spec: value,
+		}
+		if key == constants.DefaultAuthenticationPolicyName {
+			// Cluster-scoped policy
+			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Namespace = NamespaceAll
+		} else {
+			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
+		}
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Error(err)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	if err := ps.initAuthnPolicies(env); err != nil {
+		t.Fatalf("init authn policies failed: %v", err)
+	}
+
+	cases := []struct {
+		hostname  host.Name
+		namespace string
+		port      Port
+		expected  string
+	}{
+		{
+			hostname:  "mtls-strict-svc-port.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Port: 80},
+			expected:  "mtls-strict-svc-port",
+		},
+		{
+			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Port: 80},
+			expected:  "mtls-permissive-svc-port",
+		},
+		{
+			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Port: 90},
+			expected:  constants.DefaultAuthenticationPolicyName,
+		},
+		{
+			hostname:  "mtls-disable-svc.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Port: 80},
+			expected:  "mtls-disable-svc",
+		},
+		{
+			hostname:  "mtls-strict-svc-port.another-namespace.svc.cluster.local",
+			namespace: "another-namespace",
+			port:      Port{Port: 80},
+			expected:  constants.DefaultAuthenticationPolicyName,
+		},
+		{
+			hostname:  "mtls-default-svc-port.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Port: 80},
+			expected:  constants.DefaultAuthenticationPolicyName,
+		},
+		{
+			hostname:  "mtls-strict-svc-named-port.default.svc.cluster.local",
+			namespace: "default",
+			port:      Port{Name: "http"},
+			expected:  "mtls-strict-svc-named-port",
+		},
+	}
+
+	for _, c := range cases {
+		ps.ServiceByHostnameAndNamespace[c.hostname] = map[string]*Service{"default": nil}
+	}
+
+	for i, c := range cases {
+		service := &Service{
+			Hostname:   c.hostname,
+			Attributes: ServiceAttributes{Namespace: c.namespace},
+		}
+
+		if got := ps.AuthenticationPolicyForWorkload(service, &c.port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
+			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
+		}
+	}
+
 }
 
 func TestEnvoyFilters(t *testing.T) {

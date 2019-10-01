@@ -64,7 +64,6 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(proxyConfig.StatNameLength),
 		"--local-address-ip-version", "v4",
-		"--allow-unknown-fields",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
 		"--config-yaml", `{"key": "value"}`,

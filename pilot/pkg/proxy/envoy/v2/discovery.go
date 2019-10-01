@@ -155,13 +155,18 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
+	serviceHandler := func(*model.Service, model.Event) { out.clearCache(&model.PushRequest{Full: true}) }
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		adsLog.Errorf("Append service handler failed: %v", err)
 		return nil
 	}
 
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
+	instanceHandler := func(*model.ServiceInstance, model.Event) {
+		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// In all cases, this is simply an instance update and not a config update. So, we need to update
+		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
+		out.clearCache(&model.PushRequest{Full: true})
+	}
 	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		adsLog.Errorf("Append instance handler failed: %v", err)
 		return nil
@@ -173,7 +178,11 @@ func NewDiscoveryServer(
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		configHandler := func(c model.Config, e model.Event) {
+			updateReq := &model.PushRequest{Full: true}
+			updateReq.ConfigTypesUpdated = map[string]struct{}{c.Type: {}}
+			out.clearCache(updateReq)
+		}
 		for _, descriptor := range schemas.Istio {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
@@ -293,13 +302,13 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
 func (s *DiscoveryServer) ClearCache() {
-	s.clearCache()
+	s.clearCache(&model.PushRequest{Full: true})
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
-func (s *DiscoveryServer) clearCache() {
-	s.ConfigUpdate(&model.PushRequest{Full: true})
+func (s *DiscoveryServer) clearCache(updateRequest *model.PushRequest) {
+	s.ConfigUpdate(updateRequest)
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
@@ -423,7 +432,8 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					edsUpdatedServices: edsUpdates,
 					done:               doneFunc,
 					start:              info.Start,
-					targetNamespaces:   info.TargetNamespaces,
+					namespacesUpdated:  info.NamespacesUpdated,
+					configTypesUpdated: info.ConfigTypesUpdated,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed

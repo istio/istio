@@ -32,15 +32,18 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -51,6 +54,8 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 )
+
+const versionMetadataKey = "config.source.version"
 
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
@@ -89,6 +94,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
+	var updater snapshotter.StatusUpdater
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
@@ -98,13 +104,17 @@ func (p *Processing2) Start() (err error) {
 
 	kubeResources := p.disableExcludedKubeResources(m)
 
-	if src, err = p.createSource(kubeResources); err != nil {
+	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	if p.args.EnableConfigAnalysis {
+		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.AllCombined(), distributor, nil)
+	}
+	transformProviders := transforms.Providers(m)
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
+	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
 		return
 	}
 
@@ -128,7 +138,7 @@ func (p *Processing2) Start() (err error) {
 	grpc.EnableTracing = p.args.EnableGRPCTracing
 	p.grpcServer = grpc.NewServer(grpcOptions...)
 
-	p.reporter = mcpMetricReporter("galley/mcp/source")
+	p.reporter = mcpMetricReporter("galley")
 
 	options := &source.Options{
 		Watcher:            p.mcpCache,
@@ -140,8 +150,8 @@ func (p *Processing2) Start() (err error) {
 	md := grpcMetadata.MD{
 		versionMetadataKey: []string{version.Info.Version},
 	}
-	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
-		return err
+	if err = parseSinkMeta(p.args.SinkMeta, md); err != nil {
+		return
 	}
 
 	if p.args.SinkAddress != "" {
@@ -272,17 +282,20 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 	if p.k == nil {
-		p.k, err = newKubeFromConfigFile(p.args.KubeConfig)
+		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
 	k = p.k
 	return
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
+func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+	src event.Source, updater snapshotter.StatusUpdater, err error) {
+
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 			return
 		}
+		updater = &snapshotter.InMemoryStatusUpdater{}
 	} else {
 		var k kube.Interfaces
 		if k, err = p.getKubeInterfaces(); err != nil {
@@ -295,12 +308,20 @@ func (p *Processing2) createSource(resources schema.KubeResources) (src event.So
 			}
 		}
 
-		o := apiserver.Options{
-			Client:       k,
-			ResyncPeriod: p.args.ResyncPeriod,
-			Resources:    resources,
+		var statusCtl status.Controller
+		if p.args.EnableConfigAnalysis {
+			statusCtl = status.NewController()
 		}
-		src = apiserver.New(o)
+
+		o := apiserver.Options{
+			Client:           k,
+			ResyncPeriod:     p.args.ResyncPeriod,
+			Resources:        resources,
+			StatusController: statusCtl,
+		}
+		s := apiserver.New(o)
+		src = s
+		updater = s
 	}
 	return
 }
@@ -370,4 +391,15 @@ func (p *Processing2) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
+}
+
+func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
+	for _, p := range pairs {
+		kv := strings.Split(p, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
+		}
+		md[kv[0]] = append(md[kv[0]], kv[1])
+	}
+	return nil
 }

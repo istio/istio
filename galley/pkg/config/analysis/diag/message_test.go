@@ -28,7 +28,8 @@ func (o testOrigin) FriendlyName() string {
 
 func TestMessage_String(t *testing.T) {
 	g := NewGomegaWithT(t)
-	m := NewMessage(Error, "IST-0042", nil, "Cheese type not found: %q", "Feta")
+	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
+	m := NewMessage(mt, nil, "Feta")
 
 	g.Expect(m.String()).To(Equal(`Error [IST-0042] Cheese type not found: "Feta"`))
 }
@@ -36,7 +37,9 @@ func TestMessage_String(t *testing.T) {
 func TestMessageWithOrigin_String(t *testing.T) {
 	g := NewGomegaWithT(t)
 	o := testOrigin("toppings/cheese")
-	m := NewMessage(Error, "IST-0042", o, "Cheese type not found: %q", "Feta")
+	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
+	m := NewMessage(mt, o, "Feta")
 
 	g.Expect(m.String()).To(Equal(`Error [IST-0042](toppings/cheese) Cheese type not found: "Feta"`))
+	g.Expect(m.StatusString()).To(Equal(`Error [IST-0042] Cheese type not found: "Feta"`))
 }

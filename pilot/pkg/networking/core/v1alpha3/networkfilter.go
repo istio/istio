@@ -18,14 +18,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -60,14 +62,15 @@ func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.T
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: xdsutil.FileAccessLog,
+			Name: wellknown.FileAccessLog,
 		}
 		buildAccessLog(node, fl, env)
 
 		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+			c, _ := conversion.MessageToStruct(fl)
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: c}
 		}
 
 		config.AccessLog = append(config.AccessLog, acc)
@@ -83,7 +86,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 	setAccessLog(env, node, config)
 
 	tcpFilter := &listener.Filter{
-		Name: xdsutil.TCPProxy,
+		Name: wellknown.TCPProxy,
 	}
 	if util.IsXDSMarshalingToAnyEnabled(node) {
 		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
@@ -104,9 +107,9 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		// TODO: Need to set other fields such as Idle timeouts
 	}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		tcpProxy.IdleTimeout = &idleTimeout
+		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, tcpProxy)
@@ -129,9 +132,9 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 		// TODO: Need to set other fields such as Idle timeouts
 	}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		proxyConfig.IdleTimeout = &idleTimeout
+		proxyConfig.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
 	for _, route := range routes {
@@ -203,7 +206,7 @@ func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *list
 	}
 
 	out := &listener.Filter{
-		Name: xdsutil.MongoProxy,
+		Name: wellknown.MongoProxy,
 	}
 	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)}
@@ -237,7 +240,7 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Settings: &redis_proxy.RedisProxy_ConnPoolSettings{
-			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
+			OpTimeout: ptypes.DurationProto(redisOpTimeout), // TODO: Make this user configurable
 		},
 		PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
 			CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
@@ -247,7 +250,7 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 	}
 
 	out := &listener.Filter{
-		Name: xdsutil.RedisProxy,
+		Name: wellknown.RedisProxy,
 	}
 	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)}
@@ -265,7 +268,7 @@ func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *list
 	}
 
 	out := &listener.Filter{
-		Name: xdsutil.MySQLProxy,
+		Name: wellknown.MySQLProxy,
 	}
 
 	if isXDSMarshalingToAnyEnabled {

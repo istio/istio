@@ -20,14 +20,19 @@ import (
 	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	proto2 "istio.io/istio/pkg/proto"
+
+	"github.com/golang/protobuf/proto"
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -50,7 +55,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"1.2.3.4",
 			&core.CidrRange{
 				AddressPrefix: "1.2.3.4",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 32,
 				},
 			},
@@ -60,7 +65,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"1.2.3.4/16",
 			&core.CidrRange{
 				AddressPrefix: "1.2.3.4",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 16,
 				},
 			},
@@ -70,7 +75,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"2001:db8::",
 			&core.CidrRange{
 				AddressPrefix: "2001:db8::",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 128,
 				},
 			},
@@ -80,7 +85,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"2001:db8::/64",
 			&core.CidrRange{
 				AddressPrefix: "2001:db8::",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 64,
 				},
 			},
@@ -394,11 +399,11 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Type:      "destination-rule",
 			},
 			&core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
+				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
-						Fields: map[string]*types.Value{
+						Fields: map[string]*structpb.Value{
 							"config": {
-								Kind: &types.Value_StringValue{
+								Kind: &structpb.Value_StringValue{
 									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
 								},
 							},
@@ -450,7 +455,7 @@ func buildFakeCluster() *v2.Cluster {
 						SubZone: "subzone1",
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
+					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 1,
 					},
 					Priority: 0,
@@ -462,7 +467,7 @@ func buildFakeCluster() *v2.Cluster {
 						SubZone: "subzone2",
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
+					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 1,
 					},
 					Priority: 0,
@@ -559,13 +564,13 @@ func TestGetByAddress(t *testing.T) {
 
 func TestMergeAnyWithStruct(t *testing.T) {
 	inHCM := &http_conn.HttpConnectionManager{
-		CodecType:  http_conn.HTTP1,
+		CodecType:  http_conn.HttpConnectionManager_HTTP1,
 		StatPrefix: "123",
 		HttpFilters: []*http_conn.HttpFilter{
 			{
 				Name: "filter1",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: &types.Any{},
+					TypedConfig: &any.Any{},
 				},
 			},
 		},
@@ -575,12 +580,12 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	inAny := MessageToAny(inHCM)
 
 	// listener.go sets this to 0
-	newTimeout := 5 * time.Minute
+	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
-		AddUserAgent:      &types.BoolValue{Value: true},
-		IdleTimeout:       &newTimeout,
-		StreamIdleTimeout: &newTimeout,
-		UseRemoteAddress:  &types.BoolValue{Value: true},
+		AddUserAgent:      proto2.BoolTrue,
+		IdleTimeout:       newTimeout,
+		StreamIdleTimeout: newTimeout,
+		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
 		ServerName:        "foobar",
 		HttpFilters: []*http_conn.HttpFilter{
@@ -607,11 +612,40 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	}
 
 	outHCM := http_conn.HttpConnectionManager{}
-	if err = types.UnmarshalAny(outAny, &outHCM); err != nil {
+	if err = ptypes.UnmarshalAny(outAny, &outHCM); err != nil {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedHCM, &outHCM) {
 		t.Errorf("Merged HCM does not match the expected output")
 	}
+}
+
+func TestHandleCrash(t *testing.T) {
+	defer func() {
+		if x := recover(); x != nil {
+			t.Errorf("Expected no panic ")
+		}
+	}()
+
+	defer HandleCrash()
+	panic("test")
+}
+
+func TestCustomHandleCrash(t *testing.T) {
+	ch := make(chan struct{}, 1)
+	defer func() {
+		select {
+		case <-ch:
+			t.Logf("crash handler called")
+		case <-time.After(1 * time.Second):
+			t.Errorf("Custom handler not called")
+		}
+	}()
+
+	defer HandleCrash(func() {
+		ch <- struct{}{}
+	})
+
+	panic("test")
 }

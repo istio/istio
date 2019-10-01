@@ -24,12 +24,15 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"istio.io/istio/pkg/config/schemas"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -84,10 +87,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Sending on this channel results in a reset on proxy attributes.
-	// Generally it comes before a XdsEvent.
-	updateChannel chan *UpdateEvent
-
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -132,7 +131,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
 	}
-	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
@@ -145,7 +144,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	for _, cs := range listeners {
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
 	}
-	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
 		VersionInfo:            versionInfo(),
 		DynamicActiveListeners: dynamicActiveListeners,
 	})
@@ -154,22 +153,22 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
-	routeConfigAny, _ := types.MarshalAny(&adminapi.RoutesConfigDump{})
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
-		routeConfigAny, err = types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	bootstrapAny, _ := types.MarshalAny(&adminapi.BootstrapConfigDump{})
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*types.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
 	return configDump, nil
 }
 
@@ -179,7 +178,9 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
-	targetNamespaces map[string]struct{}
+	namespacesUpdated map[string]struct{}
+
+	configTypesUpdated map[string]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -191,22 +192,15 @@ type XdsEvent struct {
 	done func()
 }
 
-// UpdateEvent represents a update request for the proxy.
-// This will trigger proxy specific attributes reset before each push.
-type UpdateEvent struct {
-	workloadLabel bool
-}
-
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:   make(chan *XdsEvent),
-		updateChannel: make(chan *UpdateEvent, 1),
-		PeerAddr:      peerAddr,
-		Clusters:      []string{},
-		Connect:       time.Now(),
-		stream:        stream,
-		LDSListeners:  []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:  make(chan *XdsEvent),
+		PeerAddr:     peerAddr,
+		Clusters:     []string{},
+		Connect:      time.Now(),
+		stream:       stream,
+		LDSListeners: []*xdsapi.Listener{},
+		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -272,6 +266,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
+	node := &core.Node{}
 	for {
 		// Block until either a request is received or a push is triggered.
 		select {
@@ -280,9 +275,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			err = s.initConnectionNode(discReq, con)
-			if err != nil {
-				return err
+			// This should be only set for the first request. Guard with ID check regardless.
+			if discReq.Node != nil && discReq.Node.Id != "" {
+				node = discReq.Node
+				err = s.initConnectionNode(discReq.Node, con)
+				if err != nil {
+					return err
+				}
 			}
 
 			switch discReq.TypeUrl {
@@ -292,7 +291,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(cdsReject, discReq.Node.Id, errCode.String())
+						incrementXDSRejects(cdsReject, node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
@@ -315,7 +314,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(ldsReject, discReq.Node.Id, errCode.String())
+						incrementXDSRejects(ldsReject, node.Id, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
@@ -334,7 +333,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
+					incrementXDSRejects(rdsReject, node.Id, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -365,7 +364,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						if discReq.ErrorDetail != nil {
 							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
-							incrementXDSRejects(rdsReject, discReq.Node.Id, errCode.String())
+							incrementXDSRejects(rdsReject, node.Id, errCode.String())
 						}
 						continue
 					} else if len(routes) == 0 {
@@ -391,7 +390,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(edsReject, discReq.Node.Id, errCode.String())
+					incrementXDSRejects(edsReject, node.Id, errCode.String())
 					continue
 				}
 				clusters := discReq.GetResourceNames()
@@ -455,10 +454,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			} else {
 				con.mu.Unlock()
 			}
-		case updateEv := <-con.updateChannel:
-			if updateEv.workloadLabel && con.modelNode != nil {
-				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
-			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
@@ -480,7 +475,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 }
 
 // update the node associated with the connection, after receiving a a packet from envoy.
-func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection) error {
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
 	if con.modelNode != nil {
 		con.mu.RUnlock()
@@ -488,10 +483,14 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.RUnlock()
 
-	if discReq.Node == nil || discReq.Node.Id == "" {
+	if node == nil || node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(discReq.Node.Id, model.ParseMetadata(discReq.Node.Metadata))
+	meta, err := model.ParseMetadata(node.Metadata)
+	if err != nil {
+		return err
+	}
+	nt, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return err
 	}
@@ -512,10 +511,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(nt.Locality) {
-		nt.Locality = discReq.Node.Locality
+		nt.Locality = node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
@@ -527,7 +526,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	con.modelNode = nt
 	if con.ConID == "" {
 		// first request
-		con.ConID = connectionID(discReq.Node.Id)
+		con.ConID = connectionID(node.Id)
 	}
 	con.mu.Unlock()
 
@@ -545,7 +544,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+		if !ProxyNeedsPush(con.modelNode, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -559,7 +558,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
+	// TODO: remove this ?
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
@@ -582,7 +582,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !proxyNeedsPush(con, pushEv.targetNamespaces) {
+	if !ProxyNeedsPush(con.modelNode, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -595,7 +595,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if con.CDSWatch {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayCdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
@@ -603,21 +602,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if len(con.Clusters) > 0 {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
-			proxiesConvergeDelayEdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayLdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
-			proxiesConvergeDelayRdsErrors.Record(time.Since(pushEv.start).Seconds())
 			return err
 		}
 	}
@@ -631,6 +627,37 @@ func adsClientCount() int {
 	n = len(adsClients)
 	adsClientsMutex.RUnlock()
 	return n
+}
+
+func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+	var connection *XdsConnection
+
+	adsClientsMutex.RLock()
+	for _, v := range adsClients {
+		if v.modelNode.ClusterID == clusterID && v.modelNode.IPAddresses[0] == ip {
+			connection = v
+			break
+		}
+
+	}
+	adsClientsMutex.RUnlock()
+
+	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
+	if connection == nil {
+		return
+	}
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Debugf("Starting new push while %v were still pending", currentlyPending)
+		}
+	}
+
+	s.pushQueue.Enqueue(connection, &model.PushRequest{
+		Full:  true,
+		Push:  s.globalPushContext(),
+		Start: time.Now(),
+	})
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
@@ -690,9 +717,11 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 	adsClientsMutex.RUnlock()
 
-	currentlyPending := s.pushQueue.Pending()
-	if currentlyPending != 0 {
-		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+		}
 	}
 	req.Start = time.Now()
 	for _, p := range pending {
@@ -700,10 +729,32 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bool {
+func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
+	}
+
+	targetNamespaces := pushEv.namespacesUpdated
+	configs := pushEv.configTypesUpdated
+
+	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
+	appliesToProxy := false
+	// If no config specified, this request applies to all proxies
+	if len(configs) == 0 {
+		appliesToProxy = true
+	}
+	for config := range configs {
+		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
+			// Gateways do not impact sidecars, so no need to push
+		} else {
+			// This config may impact the proxy, so we do need to push
+			appliesToProxy = true
+		}
+	}
+
+	if !appliesToProxy {
+		return false
 	}
 
 	// If no only namespaces specified, this request applies to all proxies
@@ -713,11 +764,10 @@ func proxyNeedsPush(con *XdsConnection, targetNamespaces map[string]struct{}) bo
 
 	// Otherwise, only apply if the egress listener will import the config present in the update
 	for ns := range targetNamespaces {
-		if con.modelNode.SidecarScope.DependsOnNamespace(ns) {
+		if proxy.SidecarScope.DependsOnNamespace(ns) {
 			return true
 		}
 	}
-
 	return false
 }
 

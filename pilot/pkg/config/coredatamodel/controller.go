@@ -43,7 +43,7 @@ type CoreDataModel interface {
 // Options stores the configurable attributes of a Control
 type Options struct {
 	DomainSuffix              string
-	ClearDiscoveryServerCache func()
+	ClearDiscoveryServerCache func(configType string)
 }
 
 // Controller is a temporary storage for the changes received
@@ -192,7 +192,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 	if descriptor.Type == schemas.ServiceEntry.Type {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else {
-		c.options.ClearDiscoveryServerCache()
+		c.options.ClearDiscoveryServerCache(descriptor.Type)
 	}
 
 	return nil

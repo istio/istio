@@ -20,6 +20,7 @@ import (
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/pkg/log"
 )
@@ -121,8 +122,8 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 		permission.NotPaths = accessRule.NotPaths
 		permission.Methods = accessRule.Methods
 		permission.NotMethods = accessRule.NotMethods
-		permission.Ports = accessRule.Ports
-		permission.NotPorts = accessRule.NotPorts
+		permission.Ports = convertPortsToString(accessRule.Ports)
+		permission.NotPorts = convertPortsToString(accessRule.NotPorts)
 
 		constraints := KeyValues{}
 		for _, constraint := range accessRule.Constraints {
@@ -160,6 +161,73 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 	return m
 }
 
+// NewModel constructs a Model from v1beta1 Rule.
+func NewModelFromV1beta1(rule *security.Rule) *Model {
+	m := &Model{}
+
+	conditionsForPrincipal := make([]KeyValues, 0)
+	conditionsForPermission := make([]KeyValues, 0)
+	for _, when := range rule.When {
+		if isSupportedPrincipal(when.Key) {
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: when.Values})
+		} else if isSupportedPermission(when.Key) {
+			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
+		} else {
+			rbacLog.Errorf("ignored unsupported condition: %v", when)
+		}
+	}
+
+	for _, from := range rule.From {
+		if source := from.Source; source != nil {
+			principal := Principal{
+				IPs:               source.IpBlocks,
+				Names:             source.Principals,
+				Namespaces:        source.Namespaces,
+				RequestPrincipals: source.RequestPrincipals,
+				Properties:        conditionsForPrincipal,
+			}
+			m.Principals = append(m.Principals, principal)
+		}
+	}
+	if len(rule.From) == 0 {
+		if len(conditionsForPrincipal) != 0 {
+			m.Principals = []Principal{{
+				Properties: conditionsForPrincipal,
+			}}
+		} else {
+			m.Principals = []Principal{{
+				AllowAll: true,
+			}}
+		}
+	}
+
+	for _, to := range rule.To {
+		if operation := to.Operation; operation != nil {
+			permission := Permission{
+				Methods:     operation.Methods,
+				Hosts:       operation.Hosts,
+				Ports:       operation.Ports,
+				Paths:       operation.Paths,
+				Constraints: conditionsForPermission,
+			}
+			m.Permissions = append(m.Permissions, permission)
+		}
+	}
+	if len(rule.To) == 0 {
+		if len(conditionsForPermission) != 0 {
+			m.Permissions = []Permission{{
+				Constraints: conditionsForPermission,
+			}}
+		} else {
+			m.Permissions = []Permission{{
+				AllowAll: true,
+			}}
+		}
+	}
+
+	return m
+}
+
 // Generate generates the envoy RBAC filter policy based on the permission and principals specified
 // in the model for the given service. This function only generates the policy if the constraints
 // and properties specified in the model is matched with the given service. It also validates if the
@@ -167,7 +235,7 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
-		if permission.Match(service) {
+		if service == nil || permission.Match(service) {
 			p, err := permission.Generate(forTCPFilter)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)

@@ -19,10 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/schema"
 )
 
@@ -31,6 +28,7 @@ func Initialize(
 	m *schema.Metadata,
 	domainSuffix string,
 	source event.Source,
+	transformProviders transformer.Providers,
 	distributor snapshotter.Distributor) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
@@ -51,8 +49,10 @@ func Initialize(
 
 	// TODO: Add a precondition test here to ensure the panic below will not fire during runtime.
 
-	provider := func(o processing.ProcessorOptions) event.Processor {
-		xforms := createTransforms(o, m)
+	// This is passed as a provider so it can be evaluated once ProcessorOptions become available
+	procProvider := func(o processing.ProcessorOptions) event.Processor {
+		xforms := transformProviders.Create(o)
+
 		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {
 			panic(err)
@@ -61,28 +61,10 @@ func Initialize(
 	}
 
 	rtOpt := processing.RuntimeOptions{
-		ProcessorProvider: provider,
+		ProcessorProvider: procProvider,
 		DomainSuffix:      domainSuffix,
 		Source:            source,
 	}
 
 	return processing.NewRuntime(rtOpt), nil
-}
-
-func createTransforms(o processing.ProcessorOptions, m *schema.Metadata) []event.Transformer {
-	var xforms []event.Transformer
-
-	xf := direct.Create(m.DirectTransform().Mapping())
-	xforms = append(xforms, xf...)
-
-	xf = ingress.Create(o)
-	xforms = append(xforms, xf...)
-
-	xf = authpolicy.Create()
-	xforms = append(xforms, xf...)
-
-	xf = serviceentry.Create(o)
-	xforms = append(xforms, xf...)
-
-	return xforms
 }

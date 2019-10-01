@@ -1,33 +1,49 @@
 # Helloworld service
 
-This sample runs two versions of a simple helloworld service that return their
-version and instance (hostname) when called. It's used to demonstrate canary deployments
-working in conjunction with autoscaling.
+This sample includes two versions of a simple helloworld service that returns its version
+and instance (hostname) when called.
+It can be used as a test service when experimenting with version routing.
+
+This service is also used to demonstrate canary deployments working in conjunction with autoscaling.
 See [Canary deployments using Istio](https://istio.io/blog/2017/0.1-canary.html).
 
-## Start the services
+## Start the helloworld service
 
-If you don't have [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection.html#automatic-sidecar-injection)
-set in your cluster you will need to manually inject it to the services:
+The following commands assume you have
+[automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection)
+enabled in your cluster.
+If not, you'll need to modify them to include
+[manual sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#manual-sidecar-injection).
 
-```bash
-istioctl kube-inject -f helloworld.yaml -o helloworld-istio.yaml
-```
-
-Note that Kubernetes [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
-only work if all containers in the pods requests cpu. In this sample the deployment
-containers within the `helloworld.yaml` are pre-defined with the request. The (manually/automatically)
-injected istio-proxy containers also have the requests cpu therefore making the `helloworld`
-ready for autoscaling.
-
-Now create the deployment using the updated yaml file and create the gateway configuration:
+To run both versions of the helloworld service, use the following command:
 
 ```bash
-kubectl create -f helloworld-istio.yaml
-kubectl create -f helloworld-gateway.yaml
+kubectl apply -f helloworld.yaml
 ```
 
-Follow the [instructions](https://preliminary.istio.io/docs/tasks/traffic-management/ingress.html#determining-the-ingress-ip-and-ports) to set the INGRESS_HOST and INGRESS_PORT variables then confirm it's running using curl.
+Alternatively, you can run just one version at a time by first defining the service:
+
+```bash
+kubectl apply -f helloworld.yaml -l app=helloworld
+```
+
+and then deploying version v1, v2, or both:
+
+```bash
+kubectl apply -f helloworld.yaml -l version=v1
+kubectl apply -f helloworld.yaml -l version=v2
+```
+
+## Configure the helloworld gateway
+
+Apply the helloworld gateway configuration:
+
+```bash
+kubectl apply -f helloworld-gateway.yaml
+```
+
+Follow [these instructions](https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports)
+to set the INGRESS_HOST and INGRESS_PORT variables and then confirm the sample is running using curl:
 
 ```bash
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
@@ -36,7 +52,13 @@ curl http://$GATEWAY_URL/hello
 
 ## Autoscale the services
 
-Enable autoscale on both services:
+Note that a Kubernetes [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+only works if all containers in the pods request cpu. In this sample the deployment
+containers in `helloworld.yaml` are configured with the request.
+The injected istio-proxy containers also include cpu requests,
+making the helloworld service ready for autoscaling.
+
+Enable autoscaling on both versions of the service:
 
 ```bash
 kubectl autoscale deployment helloworld-v1 --cpu-percent=50 --min=1 --max=10
@@ -51,19 +73,18 @@ kubectl get hpa
 ./loadgen.sh & # run it twice to generate lots of load
 ```
 
-Wait for about 2min and check the number of replicas:
+Wait for about 2 minutes and then check the number of replicas:
 
 ```bash
 kubectl get hpa
 ```
 
-If autoscaler is functioning correctly the `REPLICAS` column should have a
-value > 1.
+If the autoscaler is functioning correctly, the `REPLICAS` column should have a value > 1.
 
 ## Cleanup
 
 ```bash
-kubectl delete -f helloworld-istio.yaml
+kubectl delete -f helloworld.yaml
 kubectl delete -f helloworld-gateway.yaml
 kubectl delete hpa helloworld-v1 helloworld-v2
 ```

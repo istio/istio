@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -162,8 +163,7 @@ http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{
-				IncludeUninitialized: true})
+			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
 			if err != nil {
 				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
 			}
@@ -311,7 +311,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 		portList = append(portList, &model.Port{
 			Port:     int(np.Port),
 			Protocol: protocol,
-			Name:     np.Name,
+			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
 		})
 	}
 	return portList, nil
@@ -360,9 +360,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}

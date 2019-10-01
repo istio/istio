@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/schema"
@@ -114,7 +115,8 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	m := metadata.MustGet()
 	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
-	processor, err := processor.Initialize(m, domainSuffix, src, distributor)
+	transformProviders := transforms.Providers(metadata.MustGet())
+	processor, err := processor.Initialize(m, domainSuffix, src, transformProviders, distributor)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -140,7 +142,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	b.StartTimer()
 
 	for _, eps := range endpoints {
-		if _, err := kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
+		if _, err = kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
 			b.Fatal(err)
 		}
 	}

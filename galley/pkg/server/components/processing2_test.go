@@ -30,10 +30,10 @@ import (
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
@@ -46,7 +46,7 @@ loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
 		mk := mock.NewKube()
-		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+		newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 
 		e := fmt.Errorf("err%d", i)
@@ -69,11 +69,11 @@ loop:
 
 		switch i {
 		case 0:
-			newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
+			newInterfaces = func(string) (kube.Interfaces, error) { return nil, e }
 		case 1:
 			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ snapshotter.Distributor) (*processing.Runtime, error) {
+			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ transformer.Providers, _ snapshotter.Distributor) (*processing.Runtime, error) {
 				return nil, e
 			}
 		case 3:
@@ -115,7 +115,7 @@ func TestProcessing2_Basic(t *testing.T) {
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
 
 	mk.AddResponse(cl, nil)
-	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}

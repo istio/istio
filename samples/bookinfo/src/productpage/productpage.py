@@ -16,6 +16,7 @@
 
 
 from __future__ import print_function
+from flask_bootstrap import Bootstrap
 from flask import Flask, request, session, render_template, redirect, url_for
 from flask import _request_ctx_stack as stack
 from jaeger_client import Tracer, ConstSampler
@@ -44,7 +45,7 @@ except ImportError:
 http_client.HTTPConnection.debuglevel = 1
 
 app = Flask(__name__)
-logging.basicConfig(filename='microservice.log',filemode='w',level=logging.DEBUG)
+logging.basicConfig(filename='microservice.log', filemode='w', level=logging.DEBUG)
 requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
@@ -54,44 +55,43 @@ app.logger.setLevel(logging.DEBUG)
 # Set the secret key to some random bytes. Keep this really secret!
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
-from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
-servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") == None) else "." + os.environ.get("SERVICES_DOMAIN")
-detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") == None) else os.environ.get("DETAILS_HOSTNAME")
-ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") == None) else os.environ.get("RATINGS_HOSTNAME")
-reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") == None) else os.environ.get("REVIEWS_HOSTNAME")
+servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
+detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
+ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") is None) else os.environ.get("RATINGS_HOSTNAME")
+reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") is None) else os.environ.get("REVIEWS_HOSTNAME")
 
-flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") == None) else int(os.environ.get("FLOOD_FACTOR"))
+flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") is None) else int(os.environ.get("FLOOD_FACTOR"))
 
 details = {
-    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
-    "endpoint" : "details",
-    "children" : []
+    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "endpoint": "details",
+    "children": []
 }
 
 ratings = {
-    "name" : "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
-    "endpoint" : "ratings",
-    "children" : []
+    "name": "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
+    "endpoint": "ratings",
+    "children": []
 }
 
 reviews = {
-    "name" : "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
-    "endpoint" : "reviews",
-    "children" : [ratings]
+    "name": "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
+    "endpoint": "reviews",
+    "children": [ratings]
 }
 
 productpage = {
-    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
-    "endpoint" : "details",
-    "children" : [details, reviews]
+    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "endpoint": "details",
+    "children": [details, reviews]
 }
 
 service_dict = {
-    "productpage" : productpage,
-    "details" : details,
-    "reviews" : reviews,
+    "productpage": productpage,
+    "details": details,
+    "reviews": reviews,
 }
 
 # A note on distributed tracing:
@@ -192,7 +192,7 @@ def getForwardHeaders(request):
         val = request.headers.get(ihdr)
         if val is not None:
             headers[ihdr] = val
-            #print "incoming: "+ihdr+":"+val
+            # print "incoming: "+ihdr+":"+val
 
     return headers
 
@@ -230,24 +230,31 @@ def logout():
     return response
 
 # a helper function for asyncio.gather, does not return a value
+
+
 async def getProductReviewsIgnoreResponse(product_id, headers):
     getProductReviews(product_id, headers)
 
 # flood reviews with unnecessary requests to demonstrate Istio rate limiting, asynchoronously
+
+
 async def floodReviewsAsynchronously(product_id, headers):
     # the response is disregarded
     await asyncio.gather(*(getProductReviewsIgnoreResponse(product_id, headers) for _ in range(flood_factor)))
 
 # flood reviews with unnecessary requests to demonstrate Istio rate limiting
+
+
 def floodReviews(product_id, headers):
     loop = asyncio.new_event_loop()
     loop.run_until_complete(floodReviewsAsynchronously(product_id, headers))
     loop.close()
 
+
 @app.route('/productpage')
 @trace()
 def front():
-    product_id = 0 # TODO: replace default value
+    product_id = 0  # TODO: replace default value
     headers = getForwardHeaders(request)
     user = session.get('user', '')
     product = getProduct(product_id)
@@ -297,7 +304,6 @@ def ratingsRoute(product_id):
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
 
 
-
 # Data providers:
 def getProducts():
     return [
@@ -321,7 +327,7 @@ def getProductDetails(product_id, headers):
     try:
         url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
         res = requests.get(url, headers=headers, timeout=3.0)
-    except:
+    except BaseException:
         res = None
     if res and res.status_code == 200:
         return 200, res.json()
@@ -331,13 +337,13 @@ def getProductDetails(product_id, headers):
 
 
 def getProductReviews(product_id, headers):
-    ## Do not remove. Bug introduced explicitly for illustration in fault injection task
-    ## TODO: Figure out how to achieve the same effect using Envoy retries/timeouts
+    # Do not remove. Bug introduced explicitly for illustration in fault injection task
+    # TODO: Figure out how to achieve the same effect using Envoy retries/timeouts
     for _ in range(2):
         try:
             url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
             res = requests.get(url, headers=headers, timeout=3.0)
-        except:
+        except BaseException:
             res = None
         if res and res.status_code == 200:
             return 200, res.json()
@@ -349,7 +355,7 @@ def getProductRatings(product_id, headers):
     try:
         url = ratings['name'] + "/" + ratings['endpoint'] + "/" + str(product_id)
         res = requests.get(url, headers=headers, timeout=3.0)
-    except:
+    except BaseException:
         res = None
     if res and res.status_code == 200:
         return 200, res.json()
@@ -357,15 +363,17 @@ def getProductRatings(product_id, headers):
         status = res.status_code if res is not None and res.status_code else 500
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
+
 class Writer(object):
     def __init__(self, filename):
-        self.file = open(filename,'w')
+        self.file = open(filename, 'w')
 
     def write(self, data):
         self.file.write(data)
 
     def flush(self):
         self.file.flush()
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -377,4 +385,3 @@ if __name__ == '__main__':
     sys.stdout = Writer('stdout.log')
     print("start at port %s" % (p))
     app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
-

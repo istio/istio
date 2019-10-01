@@ -22,7 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
-
+	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -119,6 +119,230 @@ func TestNewModel(t *testing.T) {
 	}
 	if !reflect.DeepEqual(*got, want) {
 		t.Errorf("got %v but want %v", *got, want)
+	}
+}
+
+func TestNewModelFromV1beta1(t *testing.T) {
+	testCases := []struct {
+		name string
+		rule *security.Rule
+		want Model
+	}{
+		{
+			name: "only from",
+			rule: &security.Rule{
+				From: []*security.Rule_From{
+					{
+						Source: &security.Source{
+							Principals: []string{"principal"},
+						},
+					},
+				},
+			},
+			want: Model{
+				Principals: []Principal{
+					{
+						Names:      []string{"principal"},
+						Properties: []KeyValues{},
+					},
+				},
+				Permissions: []Permission{
+					{
+						AllowAll: true,
+					},
+				},
+			},
+		},
+		{
+			name: "only to",
+			rule: &security.Rule{
+				To: []*security.Rule_To{
+					{
+						Operation: &security.Operation{
+							Hosts: []string{"host"},
+						},
+					},
+				},
+			},
+			want: Model{
+				Principals: []Principal{
+					{
+						AllowAll: true,
+					},
+				},
+				Permissions: []Permission{
+					{
+						Hosts:       []string{"host"},
+						Constraints: []KeyValues{},
+					},
+				},
+			},
+		},
+		{
+			name: "one permission condition",
+			rule: &security.Rule{
+				When: []*security.Condition{
+					newCondition(attrDestIP),
+				},
+			},
+			want: Model{
+				Permissions: []Permission{
+					{
+						Constraints: []KeyValues{
+							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
+						},
+					},
+				},
+				Principals: []Principal{
+					{
+						AllowAll: true,
+					},
+				},
+			},
+		},
+		{
+			name: "one principal condition",
+			rule: &security.Rule{
+				When: []*security.Condition{
+					newCondition(attrRequestHeader),
+				},
+			},
+			want: Model{
+				Permissions: []Permission{
+					{
+						AllowAll: true,
+					},
+				},
+				Principals: []Principal{
+					{
+						Properties: []KeyValues{
+							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "full rule",
+			rule: &security.Rule{
+				From: []*security.Rule_From{
+					{
+						Source: &security.Source{
+							Principals:        []string{"p1", "p2"},
+							RequestPrincipals: []string{"rp1", "rp2"},
+							IpBlocks:          []string{"1.1.1.1", "2.2.2.2"},
+							Namespaces:        []string{"ns1", "ns2"},
+						},
+					},
+					{
+						Source: &security.Source{
+							Principals: []string{"p3"},
+						},
+					},
+				},
+				To: []*security.Rule_To{
+					{
+						Operation: &security.Operation{
+							Hosts:   []string{"h1", "h2"},
+							Ports:   []string{"10", "20"},
+							Paths:   []string{"/p1", "/p2"},
+							Methods: []string{"m1", "m2"},
+						},
+					},
+					{
+						Operation: &security.Operation{
+							Hosts: []string{"h3"},
+						},
+					},
+				},
+				When: []*security.Condition{
+					newCondition(attrRequestHeader),
+					newCondition(attrSrcIP),
+					newCondition(attrSrcNamespace),
+					newCondition(attrSrcUser),
+					newCondition(attrSrcPrincipal),
+					newCondition(attrRequestPrincipal),
+					newCondition(attrRequestAudiences),
+					newCondition(attrRequestPresenter),
+					newCondition(attrRequestClaims),
+					newCondition(attrRequestClaimGroups),
+					newCondition(attrDestIP),
+					newCondition(attrDestPort),
+					newCondition(attrDestLabel),     // Should be ignored.
+					newCondition(attrDestName),      // Should be ignored.
+					newCondition(attrDestNamespace), // Should be ignored.
+					newCondition(attrDestUser),      // Should be ignored.
+					newCondition(attrConnSNI),
+				},
+			},
+			want: Model{
+				Permissions: []Permission{
+					{
+						Hosts:   []string{"h1", "h2"},
+						Paths:   []string{"/p1", "/p2"},
+						Methods: []string{"m1", "m2"},
+						Ports:   []string{"10", "20"},
+						Constraints: []KeyValues{
+							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
+							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
+							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
+						},
+					},
+					{
+						Hosts: []string{"h3"},
+						Constraints: []KeyValues{
+							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
+							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
+							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
+						},
+					},
+				},
+				Principals: []Principal{
+					{
+						Names:             []string{"p1", "p2"},
+						Namespaces:        []string{"ns1", "ns2"},
+						IPs:               []string{"1.1.1.1", "2.2.2.2"},
+						RequestPrincipals: []string{"rp1", "rp2"},
+						Properties: []KeyValues{
+							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
+							{"source.ip": []string{"value-source.ip-1", "value-source.ip-2"}},
+							{"source.namespace": []string{"value-source.namespace-1", "value-source.namespace-2"}},
+							{"source.user": []string{"value-source.user-1", "value-source.user-2"}},
+							{"source.principal": []string{"value-source.principal-1", "value-source.principal-2"}},
+							{"request.auth.principal": []string{"value-request.auth.principal-1", "value-request.auth.principal-2"}},
+							{"request.auth.audiences": []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"}},
+							{"request.auth.presenter": []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"}},
+							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
+							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
+						},
+					},
+					{
+						Names: []string{"p3"},
+						Properties: []KeyValues{
+							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
+							{"source.ip": []string{"value-source.ip-1", "value-source.ip-2"}},
+							{"source.namespace": []string{"value-source.namespace-1", "value-source.namespace-2"}},
+							{"source.user": []string{"value-source.user-1", "value-source.user-2"}},
+							{"source.principal": []string{"value-source.principal-1", "value-source.principal-2"}},
+							{"request.auth.principal": []string{"value-request.auth.principal-1", "value-request.auth.principal-2"}},
+							{"request.auth.audiences": []string{"value-request.auth.audiences-1", "value-request.auth.audiences-2"}},
+							{"request.auth.presenter": []string{"value-request.auth.presenter-1", "value-request.auth.presenter-2"}},
+							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
+							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := NewModelFromV1beta1(tc.rule)
+			if !reflect.DeepEqual(*got, tc.want) {
+				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
+			}
+		})
 	}
 }
 

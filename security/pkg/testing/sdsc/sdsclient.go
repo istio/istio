@@ -21,13 +21,14 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/pkg/log"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -151,7 +152,7 @@ func ValidateResponse(response *xdsapi.DiscoveryResponse) error {
 		return fmt.Errorf("unexpected resource size in the response, %v ", response.Resources)
 	}
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(response.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(response.Resources[0], &pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 	return nil

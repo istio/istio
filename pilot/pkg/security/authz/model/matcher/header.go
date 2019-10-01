@@ -17,7 +17,7 @@ package matcher
 import (
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.

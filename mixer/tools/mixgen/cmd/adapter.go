@@ -112,9 +112,9 @@ spec:
 		}
 	}
 
-	goPath := env.RegisterStringVar("GOPATH", "", "Specifies directories outside of $GOROOT that contain the source for Go projects and their binaries.").Get()
+	repoRoot := env.RegisterStringVar("REPO_ROOT", "", "Absolute path to the base of the source repository.").Get()
 	adapterObj := &adapterCRVar{
-		RawCommand:   strings.Replace(rawCommand, goPath, "$GOPATH", -1),
+		RawCommand:   strings.Replace(rawCommand, repoRoot, "$REPO_ROOT", -1),
 		Name:         name,
 		Namespace:    namespace,
 		Description:  description,

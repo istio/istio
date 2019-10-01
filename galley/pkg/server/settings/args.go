@@ -108,6 +108,9 @@ type Args struct { // nolint:maligned
 	// Enable service discovery / endpoint processing.
 	EnableServiceDiscovery bool
 
+	// Enable Config Analysis service, that will analyze and update CRD status. UseOldProcessor must be set to false.
+	EnableConfigAnalysis bool
+
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
@@ -153,7 +156,8 @@ func DefaultArgs() *Args {
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
-		UseOldProcessor:             true,
+		UseOldProcessor:             false,
+		EnableConfigAnalysis:        false,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,

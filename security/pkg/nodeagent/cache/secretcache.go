@@ -570,7 +570,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
 	timeBeforeTokenExchange := time.Now()
-	exchangedToken, err := sc.getExchangedToken(ctx, token)
+	exchangedToken, err := sc.getExchangedToken(ctx, token, connKey)
 	tokenExchangeLatency := float64(time.Since(timeBeforeTokenExchange).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(TokenExchange)).Record(tokenExchangeLatency)
 	if err != nil {
@@ -745,19 +745,23 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 
 // getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
 // workload or another token from a plug in provider.
-func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string) (string, error) {
+func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string, connKey ConnKey) (string, error) {
+	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	cacheLog.Debugf("Start token exchange process for %s", conIDresourceNamePrefix)
 	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+		cacheLog.Debugf("Return k8s token for %s", conIDresourceNamePrefix)
 		return k8sJwtToken, nil
 	}
 	if len(sc.configOptions.Plugins) > 1 {
-		cacheLog.Error("found more than one plugin")
+		cacheLog.Errorf("Found more than one plugin for %s", conIDresourceNamePrefix)
 		return "", fmt.Errorf("found more than one plugin")
 	}
 	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken,
 		ConnKey{ConnectionID: "", ResourceName: ""}, false)
 	if err != nil || len(exchangedTokens) == 0 {
-		cacheLog.Errorf("failed to exchange token: %v", err)
+		cacheLog.Errorf("Failed to exchange token for %s: %v", conIDresourceNamePrefix, err)
 		return "", err
 	}
+	cacheLog.Debugf("Token exchange succeeded for %s", conIDresourceNamePrefix)
 	return exchangedTokens[0], nil
 }
