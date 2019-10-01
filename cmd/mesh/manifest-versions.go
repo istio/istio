@@ -86,6 +86,7 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) {
 	for _, v := range versions {
 		if v.OperatorVersion.Equal(binversion.OperatorBinaryGoVersion) {
 			myVersionMap = v
+			break
 		}
 	}
 
