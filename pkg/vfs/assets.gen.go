@@ -228,6 +228,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -4153,7 +4154,7 @@ The new label is 'istio-env' and the value is the namespace where the injector i
 
 Note that it is possible to install a profile with only the injector app - using remote Pilot and MCP.
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
     # New style, using the istio-pilot11 profile
     kubectl create ns fortio
     kubectl label ns fortio istio-env=istio-control
@@ -4165,17 +4166,17 @@ Note that it is possible to install a profile with only the injector app - using
     # Old-style, using istio-system and Istio 1.0 or 1.1 default installations.
     kubectl create ns fortio-istio-system
     kubectl label ns fortio istio-injection=enabled
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 
 # Uninstall
 
 After uninstalling, you should cleanup the global CRD using:
 
-`+"`"+``+"`"+``+"`"+`bash
+` + "`" + `` + "`" + `` + "`" + `bash
 
   kubectl delete MutatingWebhookConfiguration istio-sidecar-injector-istio-control
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 
 Any app using the uninstalled istio-env label will no longer be auto-injected once the config is deleted.
 `)
@@ -4199,7 +4200,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{- if not .Values.istio_cni.enabled }}
   - name: istio-init
   {{- if contains "/" .Values.global.proxy_init.image }}
@@ -4216,24 +4217,24 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
@@ -4264,7 +4265,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       runAsUser: 0
@@ -4274,8 +4275,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -4294,16 +4295,16 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "/usr/local/bin/envoy"
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
     - --drainDuration
     - "{{ formatDuration .ProxyConfig.DrainDuration }}"
     - --parentShutdownDuration
     - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
     - --discoveryAddress
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/discoveryAddress`+"`"+` .ProxyConfig.DiscoveryAddress }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/discoveryAddress` + "`" + ` .ProxyConfig.DiscoveryAddress }}"
   {{- if eq .Values.global.proxy.tracer "lightstep" }}
     - --lightstepAddress
     - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -4319,8 +4320,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - --datadogAgentAddress
     - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
   {{- end }}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
     - --connectTimeout
     - "{{ formatDuration .ProxyConfig.ConnectTimeout }}"
   {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -4352,9 +4353,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - {{ valueOrDefault .Values.global.proxy.dnsRefreshRate "300s" }}
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}"
     - --applicationPorts
-    - "{{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/applicationPorts`+"`"+` (applicationPorts .Spec.Containers) }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/applicationPorts` + "`" + ` (applicationPorts .Spec.Containers) }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -4363,7 +4364,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - --log_as_json
   {{- end }}
     - --controlPlaneBootstrap=false
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
   {{- end }}
     env:
@@ -4392,9 +4393,9 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
         fieldRef:
           fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-      value: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (applicationPorts .Spec.Containers) }}"
+      value: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` (applicationPorts .Spec.Containers) }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -4409,7 +4410,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       value: |
              {{ toJSON .ObjectMeta.Labels }}
     {{ end }}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -4424,15 +4425,15 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
-        port: {{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+        port: {{ annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       {{- if .Values.global.proxy.privileged }}
@@ -4441,7 +4442,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{- if ne .Values.global.proxy.enableCoreDump true }}
       readOnlyRootFilesystem: true
       {{- end }}
-      {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+      {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
       capabilities:
         add:
         - NET_ADMIN
@@ -4450,13 +4451,13 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{- end }}
       runAsGroup: 1337
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{ else -}}
   {{- if .Values.global.proxy.resources }}
@@ -4464,7 +4465,7 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- end }}
     {{  end -}}
     volumeMounts:
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -4491,17 +4492,17 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   - emptyDir:
       medium: Memory
@@ -4531,8 +4532,8 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       {{ else -}}
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -5415,12 +5416,12 @@ A cluster should have a single galley with validation enabled - usually the prod
 It is possible to enable validation on other environments as well - but each Galley will do its own
 validation, and a staging version may impact production validation.
 
-`+"`"+``+"`"+``+"`"+`bash
+` + "`" + `` + "`" + `` + "`" + `bash
 
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 
-`+"`"+``+"`"+``+"`"+`yamml
+` + "`" + `` + "`" + `` + "`" + `yamml
 
 security:
     ...
@@ -5429,7 +5430,7 @@ security:
         istio-galley-service-account.MY_NAMESPACE: istio-galley.MY_NAMESPACE.svc
 
 
-`+"`"+``+"`"+``+"`"+`
+` + "`" + `` + "`" + `` + "`" + `
 `)
 
 func chartsIstioControlIstioConfigReadmeMdBytes() ([]byte, error) {
@@ -24319,7 +24320,7 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 # addon kiali
 #
 kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
+  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be ` + "`" + `true` + "`" + `.
   replicaCount: 1
   hub: docker.io/kiali
   tag: v1.1.0
@@ -32999,222 +33000,222 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"charts/crds/Chart.yaml": chartsCrdsChartYaml,
-	"charts/crds/files/crd-10.yaml": chartsCrdsFilesCrd10Yaml,
-	"charts/crds/files/crd-11.yaml": chartsCrdsFilesCrd11Yaml,
-	"charts/crds/files/crd-12.yaml": chartsCrdsFilesCrd12Yaml,
-	"charts/crds/files/crd-14.yaml": chartsCrdsFilesCrd14Yaml,
-	"charts/crds/files/crd-certmanager-10.yaml": chartsCrdsFilesCrdCertmanager10Yaml,
-	"charts/crds/files/crd-certmanager-11.yaml": chartsCrdsFilesCrdCertmanager11Yaml,
-	"charts/crds/kustomization.yaml": chartsCrdsKustomizationYaml,
-	"charts/crds/templates/crds.yaml": chartsCrdsTemplatesCrdsYaml,
-	"charts/crds/templates/namespaces.yaml": chartsCrdsTemplatesNamespacesYaml,
-	"charts/gateways/istio-egress/Chart.yaml": chartsGatewaysIstioEgressChartYaml,
-	"charts/gateways/istio-egress/NOTES.txt": chartsGatewaysIstioEgressNotesTxt,
-	"charts/gateways/istio-egress/templates/_affinity.tpl": chartsGatewaysIstioEgressTemplates_affinityTpl,
-	"charts/gateways/istio-egress/templates/_helpers.tpl": chartsGatewaysIstioEgressTemplates_helpersTpl,
-	"charts/gateways/istio-egress/templates/autoscale.yaml": chartsGatewaysIstioEgressTemplatesAutoscaleYaml,
-	"charts/gateways/istio-egress/templates/deployment.yaml": chartsGatewaysIstioEgressTemplatesDeploymentYaml,
-	"charts/gateways/istio-egress/templates/poddisruptionbudget.yaml": chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml,
-	"charts/gateways/istio-egress/templates/preconfigured.yaml": chartsGatewaysIstioEgressTemplatesPreconfiguredYaml,
-	"charts/gateways/istio-egress/templates/service.yaml": chartsGatewaysIstioEgressTemplatesServiceYaml,
-	"charts/gateways/istio-egress/templates/serviceaccount.yaml": chartsGatewaysIstioEgressTemplatesServiceaccountYaml,
-	"charts/gateways/istio-egress/values.yaml": chartsGatewaysIstioEgressValuesYaml,
-	"charts/gateways/istio-ingress/Chart.yaml": chartsGatewaysIstioIngressChartYaml,
-	"charts/gateways/istio-ingress/NOTES.txt": chartsGatewaysIstioIngressNotesTxt,
-	"charts/gateways/istio-ingress/templates/_affinity.tpl": chartsGatewaysIstioIngressTemplates_affinityTpl,
-	"charts/gateways/istio-ingress/templates/addongateway.yaml": chartsGatewaysIstioIngressTemplatesAddongatewayYaml,
-	"charts/gateways/istio-ingress/templates/autoscale.yaml": chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
-	"charts/gateways/istio-ingress/templates/certificate.yaml": chartsGatewaysIstioIngressTemplatesCertificateYaml,
-	"charts/gateways/istio-ingress/templates/deployment.yaml": chartsGatewaysIstioIngressTemplatesDeploymentYaml,
-	"charts/gateways/istio-ingress/templates/gateway.yaml": chartsGatewaysIstioIngressTemplatesGatewayYaml,
-	"charts/gateways/istio-ingress/templates/hosts.yaml": chartsGatewaysIstioIngressTemplatesHostsYaml,
-	"charts/gateways/istio-ingress/templates/meshexpansion.yaml": chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
-	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml": chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
-	"charts/gateways/istio-ingress/templates/preconfigured.yaml": chartsGatewaysIstioIngressTemplatesPreconfiguredYaml,
-	"charts/gateways/istio-ingress/templates/role.yaml": chartsGatewaysIstioIngressTemplatesRoleYaml,
-	"charts/gateways/istio-ingress/templates/rolebindings.yaml": chartsGatewaysIstioIngressTemplatesRolebindingsYaml,
-	"charts/gateways/istio-ingress/templates/service.yaml": chartsGatewaysIstioIngressTemplatesServiceYaml,
-	"charts/gateways/istio-ingress/templates/serviceaccount.yaml": chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
-	"charts/gateways/istio-ingress/templates/sidecar.yaml": chartsGatewaysIstioIngressTemplatesSidecarYaml,
-	"charts/gateways/istio-ingress/values.yaml": chartsGatewaysIstioIngressValuesYaml,
-	"charts/istio-cni/Chart.yaml": chartsIstioCniChartYaml,
-	"charts/istio-cni/templates/clusterrole.yaml": chartsIstioCniTemplatesClusterroleYaml,
-	"charts/istio-cni/templates/clusterrolebinding.yaml": chartsIstioCniTemplatesClusterrolebindingYaml,
-	"charts/istio-cni/templates/configmap-cni.yaml": chartsIstioCniTemplatesConfigmapCniYaml,
-	"charts/istio-cni/templates/daemonset.yaml": chartsIstioCniTemplatesDaemonsetYaml,
-	"charts/istio-cni/templates/serviceaccount.yaml": chartsIstioCniTemplatesServiceaccountYaml,
-	"charts/istio-cni/values.yaml": chartsIstioCniValuesYaml,
-	"charts/istio-cni/values_gke.yaml": chartsIstioCniValues_gkeYaml,
-	"charts/istio-control/istio-autoinject/Chart.yaml": chartsIstioControlIstioAutoinjectChartYaml,
-	"charts/istio-control/istio-autoinject/NOTES.txt": chartsIstioControlIstioAutoinjectNotesTxt,
-	"charts/istio-control/istio-autoinject/files/injection-template.yaml": chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml,
-	"charts/istio-control/istio-autoinject/templates/_affinity.tpl": chartsIstioControlIstioAutoinjectTemplates_affinityTpl,
-	"charts/istio-control/istio-autoinject/templates/_helpers.tpl": chartsIstioControlIstioAutoinjectTemplates_helpersTpl,
-	"charts/istio-control/istio-autoinject/templates/clusterrole.yaml": chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml,
-	"charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml": chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-autoinject/templates/configmap.yaml": chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml,
-	"charts/istio-control/istio-autoinject/templates/deployment.yaml": chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml,
-	"charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml": chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml,
-	"charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml": chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-autoinject/templates/service.yaml": chartsIstioControlIstioAutoinjectTemplatesServiceYaml,
-	"charts/istio-control/istio-autoinject/templates/serviceaccount.yaml": chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml,
-	"charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml": chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml,
-	"charts/istio-control/istio-autoinject/values.yaml": chartsIstioControlIstioAutoinjectValuesYaml,
-	"charts/istio-control/istio-config/Chart.yaml": chartsIstioControlIstioConfigChartYaml,
-	"charts/istio-control/istio-config/OWNERS": chartsIstioControlIstioConfigOwners,
-	"charts/istio-control/istio-config/README.md": chartsIstioControlIstioConfigReadmeMd,
-	"charts/istio-control/istio-config/templates/_affinity.tpl": chartsIstioControlIstioConfigTemplates_affinityTpl,
-	"charts/istio-control/istio-config/templates/_helpers.tpl": chartsIstioControlIstioConfigTemplates_helpersTpl,
-	"charts/istio-control/istio-config/templates/clusterrole.yaml": chartsIstioControlIstioConfigTemplatesClusterroleYaml,
-	"charts/istio-control/istio-config/templates/clusterrolebinding.yaml": chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-config/templates/configmap-envoy.yaml": chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml,
-	"charts/istio-control/istio-config/templates/configmap-mesh.yaml": chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml,
-	"charts/istio-control/istio-config/templates/configmap.yaml": chartsIstioControlIstioConfigTemplatesConfigmapYaml,
-	"charts/istio-control/istio-config/templates/deployment.yaml": chartsIstioControlIstioConfigTemplatesDeploymentYaml,
-	"charts/istio-control/istio-config/templates/poddisruptionbudget.yaml": chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-config/templates/service.yaml": chartsIstioControlIstioConfigTemplatesServiceYaml,
-	"charts/istio-control/istio-config/templates/serviceaccount.yaml": chartsIstioControlIstioConfigTemplatesServiceaccountYaml,
+	"charts/crds/Chart.yaml":                                                              chartsCrdsChartYaml,
+	"charts/crds/files/crd-10.yaml":                                                       chartsCrdsFilesCrd10Yaml,
+	"charts/crds/files/crd-11.yaml":                                                       chartsCrdsFilesCrd11Yaml,
+	"charts/crds/files/crd-12.yaml":                                                       chartsCrdsFilesCrd12Yaml,
+	"charts/crds/files/crd-14.yaml":                                                       chartsCrdsFilesCrd14Yaml,
+	"charts/crds/files/crd-certmanager-10.yaml":                                           chartsCrdsFilesCrdCertmanager10Yaml,
+	"charts/crds/files/crd-certmanager-11.yaml":                                           chartsCrdsFilesCrdCertmanager11Yaml,
+	"charts/crds/kustomization.yaml":                                                      chartsCrdsKustomizationYaml,
+	"charts/crds/templates/crds.yaml":                                                     chartsCrdsTemplatesCrdsYaml,
+	"charts/crds/templates/namespaces.yaml":                                               chartsCrdsTemplatesNamespacesYaml,
+	"charts/gateways/istio-egress/Chart.yaml":                                             chartsGatewaysIstioEgressChartYaml,
+	"charts/gateways/istio-egress/NOTES.txt":                                              chartsGatewaysIstioEgressNotesTxt,
+	"charts/gateways/istio-egress/templates/_affinity.tpl":                                chartsGatewaysIstioEgressTemplates_affinityTpl,
+	"charts/gateways/istio-egress/templates/_helpers.tpl":                                 chartsGatewaysIstioEgressTemplates_helpersTpl,
+	"charts/gateways/istio-egress/templates/autoscale.yaml":                               chartsGatewaysIstioEgressTemplatesAutoscaleYaml,
+	"charts/gateways/istio-egress/templates/deployment.yaml":                              chartsGatewaysIstioEgressTemplatesDeploymentYaml,
+	"charts/gateways/istio-egress/templates/poddisruptionbudget.yaml":                     chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml,
+	"charts/gateways/istio-egress/templates/preconfigured.yaml":                           chartsGatewaysIstioEgressTemplatesPreconfiguredYaml,
+	"charts/gateways/istio-egress/templates/service.yaml":                                 chartsGatewaysIstioEgressTemplatesServiceYaml,
+	"charts/gateways/istio-egress/templates/serviceaccount.yaml":                          chartsGatewaysIstioEgressTemplatesServiceaccountYaml,
+	"charts/gateways/istio-egress/values.yaml":                                            chartsGatewaysIstioEgressValuesYaml,
+	"charts/gateways/istio-ingress/Chart.yaml":                                            chartsGatewaysIstioIngressChartYaml,
+	"charts/gateways/istio-ingress/NOTES.txt":                                             chartsGatewaysIstioIngressNotesTxt,
+	"charts/gateways/istio-ingress/templates/_affinity.tpl":                               chartsGatewaysIstioIngressTemplates_affinityTpl,
+	"charts/gateways/istio-ingress/templates/addongateway.yaml":                           chartsGatewaysIstioIngressTemplatesAddongatewayYaml,
+	"charts/gateways/istio-ingress/templates/autoscale.yaml":                              chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
+	"charts/gateways/istio-ingress/templates/certificate.yaml":                            chartsGatewaysIstioIngressTemplatesCertificateYaml,
+	"charts/gateways/istio-ingress/templates/deployment.yaml":                             chartsGatewaysIstioIngressTemplatesDeploymentYaml,
+	"charts/gateways/istio-ingress/templates/gateway.yaml":                                chartsGatewaysIstioIngressTemplatesGatewayYaml,
+	"charts/gateways/istio-ingress/templates/hosts.yaml":                                  chartsGatewaysIstioIngressTemplatesHostsYaml,
+	"charts/gateways/istio-ingress/templates/meshexpansion.yaml":                          chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
+	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml":                    chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
+	"charts/gateways/istio-ingress/templates/preconfigured.yaml":                          chartsGatewaysIstioIngressTemplatesPreconfiguredYaml,
+	"charts/gateways/istio-ingress/templates/role.yaml":                                   chartsGatewaysIstioIngressTemplatesRoleYaml,
+	"charts/gateways/istio-ingress/templates/rolebindings.yaml":                           chartsGatewaysIstioIngressTemplatesRolebindingsYaml,
+	"charts/gateways/istio-ingress/templates/service.yaml":                                chartsGatewaysIstioIngressTemplatesServiceYaml,
+	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                         chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
+	"charts/gateways/istio-ingress/templates/sidecar.yaml":                                chartsGatewaysIstioIngressTemplatesSidecarYaml,
+	"charts/gateways/istio-ingress/values.yaml":                                           chartsGatewaysIstioIngressValuesYaml,
+	"charts/istio-cni/Chart.yaml":                                                         chartsIstioCniChartYaml,
+	"charts/istio-cni/templates/clusterrole.yaml":                                         chartsIstioCniTemplatesClusterroleYaml,
+	"charts/istio-cni/templates/clusterrolebinding.yaml":                                  chartsIstioCniTemplatesClusterrolebindingYaml,
+	"charts/istio-cni/templates/configmap-cni.yaml":                                       chartsIstioCniTemplatesConfigmapCniYaml,
+	"charts/istio-cni/templates/daemonset.yaml":                                           chartsIstioCniTemplatesDaemonsetYaml,
+	"charts/istio-cni/templates/serviceaccount.yaml":                                      chartsIstioCniTemplatesServiceaccountYaml,
+	"charts/istio-cni/values.yaml":                                                        chartsIstioCniValuesYaml,
+	"charts/istio-cni/values_gke.yaml":                                                    chartsIstioCniValues_gkeYaml,
+	"charts/istio-control/istio-autoinject/Chart.yaml":                                    chartsIstioControlIstioAutoinjectChartYaml,
+	"charts/istio-control/istio-autoinject/NOTES.txt":                                     chartsIstioControlIstioAutoinjectNotesTxt,
+	"charts/istio-control/istio-autoinject/files/injection-template.yaml":                 chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml,
+	"charts/istio-control/istio-autoinject/templates/_affinity.tpl":                       chartsIstioControlIstioAutoinjectTemplates_affinityTpl,
+	"charts/istio-control/istio-autoinject/templates/_helpers.tpl":                        chartsIstioControlIstioAutoinjectTemplates_helpersTpl,
+	"charts/istio-control/istio-autoinject/templates/clusterrole.yaml":                    chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml,
+	"charts/istio-control/istio-autoinject/templates/clusterrolebinding.yaml":             chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml,
+	"charts/istio-control/istio-autoinject/templates/configmap.yaml":                      chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml,
+	"charts/istio-control/istio-autoinject/templates/deployment.yaml":                     chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml,
+	"charts/istio-control/istio-autoinject/templates/mutatingwebhook.yaml":                chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml,
+	"charts/istio-control/istio-autoinject/templates/poddisruptionbudget.yaml":            chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-control/istio-autoinject/templates/service.yaml":                        chartsIstioControlIstioAutoinjectTemplatesServiceYaml,
+	"charts/istio-control/istio-autoinject/templates/serviceaccount.yaml":                 chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml,
+	"charts/istio-control/istio-autoinject/templates/sidecar-injector-configmap.yaml":     chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml,
+	"charts/istio-control/istio-autoinject/values.yaml":                                   chartsIstioControlIstioAutoinjectValuesYaml,
+	"charts/istio-control/istio-config/Chart.yaml":                                        chartsIstioControlIstioConfigChartYaml,
+	"charts/istio-control/istio-config/OWNERS":                                            chartsIstioControlIstioConfigOwners,
+	"charts/istio-control/istio-config/README.md":                                         chartsIstioControlIstioConfigReadmeMd,
+	"charts/istio-control/istio-config/templates/_affinity.tpl":                           chartsIstioControlIstioConfigTemplates_affinityTpl,
+	"charts/istio-control/istio-config/templates/_helpers.tpl":                            chartsIstioControlIstioConfigTemplates_helpersTpl,
+	"charts/istio-control/istio-config/templates/clusterrole.yaml":                        chartsIstioControlIstioConfigTemplatesClusterroleYaml,
+	"charts/istio-control/istio-config/templates/clusterrolebinding.yaml":                 chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml,
+	"charts/istio-control/istio-config/templates/configmap-envoy.yaml":                    chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml,
+	"charts/istio-control/istio-config/templates/configmap-mesh.yaml":                     chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml,
+	"charts/istio-control/istio-config/templates/configmap.yaml":                          chartsIstioControlIstioConfigTemplatesConfigmapYaml,
+	"charts/istio-control/istio-config/templates/deployment.yaml":                         chartsIstioControlIstioConfigTemplatesDeploymentYaml,
+	"charts/istio-control/istio-config/templates/poddisruptionbudget.yaml":                chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-control/istio-config/templates/service.yaml":                            chartsIstioControlIstioConfigTemplatesServiceYaml,
+	"charts/istio-control/istio-config/templates/serviceaccount.yaml":                     chartsIstioControlIstioConfigTemplatesServiceaccountYaml,
 	"charts/istio-control/istio-config/templates/validatingwebhookconfiguration.yaml.tpl": chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl,
-	"charts/istio-control/istio-config/values.yaml": chartsIstioControlIstioConfigValuesYaml,
-	"charts/istio-control/istio-discovery/Chart.yaml": chartsIstioControlIstioDiscoveryChartYaml,
-	"charts/istio-control/istio-discovery/NOTES.txt": chartsIstioControlIstioDiscoveryNotesTxt,
-	"charts/istio-control/istio-discovery/templates/_affinity.tpl": chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
-	"charts/istio-control/istio-discovery/templates/_helpers.tpl": chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
-	"charts/istio-control/istio-discovery/templates/autoscale.yaml": chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
-	"charts/istio-control/istio-discovery/templates/clusterrole.yaml": chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml,
-	"charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml": chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-discovery/templates/configmap-envoy.yaml": chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml,
-	"charts/istio-control/istio-discovery/templates/configmap.yaml": chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
-	"charts/istio-control/istio-discovery/templates/deployment.yaml": chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
-	"charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml": chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml,
-	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml": chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-discovery/templates/service.yaml": chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
-	"charts/istio-control/istio-discovery/templates/serviceaccount.yaml": chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml,
-	"charts/istio-control/istio-discovery/values.yaml": chartsIstioControlIstioDiscoveryValuesYaml,
-	"charts/istio-policy/Chart.yaml": chartsIstioPolicyChartYaml,
-	"charts/istio-policy/templates/_affinity.tpl": chartsIstioPolicyTemplates_affinityTpl,
-	"charts/istio-policy/templates/_helpers.tpl": chartsIstioPolicyTemplates_helpersTpl,
-	"charts/istio-policy/templates/autoscale.yaml": chartsIstioPolicyTemplatesAutoscaleYaml,
-	"charts/istio-policy/templates/clusterrole.yaml": chartsIstioPolicyTemplatesClusterroleYaml,
-	"charts/istio-policy/templates/clusterrolebinding.yaml": chartsIstioPolicyTemplatesClusterrolebindingYaml,
-	"charts/istio-policy/templates/config.yaml": chartsIstioPolicyTemplatesConfigYaml,
-	"charts/istio-policy/templates/deployment.yaml": chartsIstioPolicyTemplatesDeploymentYaml,
-	"charts/istio-policy/templates/poddisruptionbudget.yaml": chartsIstioPolicyTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-policy/templates/service.yaml": chartsIstioPolicyTemplatesServiceYaml,
-	"charts/istio-policy/templates/serviceaccount.yaml": chartsIstioPolicyTemplatesServiceaccountYaml,
-	"charts/istio-policy/values.yaml": chartsIstioPolicyValuesYaml,
-	"charts/istio-telemetry/grafana/Chart.yaml": chartsIstioTelemetryGrafanaChartYaml,
-	"charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json": chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/galley-dashboard.json": chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json": chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json": chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json": chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson,
-	"charts/istio-telemetry/grafana/fix_datasources.sh": chartsIstioTelemetryGrafanaFix_datasourcesSh,
-	"charts/istio-telemetry/grafana/templates/_affinity.tpl": chartsIstioTelemetryGrafanaTemplates_affinityTpl,
-	"charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml": chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml,
-	"charts/istio-telemetry/grafana/templates/configmap.yaml": chartsIstioTelemetryGrafanaTemplatesConfigmapYaml,
-	"charts/istio-telemetry/grafana/templates/deployment.yaml": chartsIstioTelemetryGrafanaTemplatesDeploymentYaml,
-	"charts/istio-telemetry/grafana/templates/destination-rule.yaml": chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml,
-	"charts/istio-telemetry/grafana/templates/grafana-policy.yaml": chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml,
-	"charts/istio-telemetry/grafana/templates/pvc.yaml": chartsIstioTelemetryGrafanaTemplatesPvcYaml,
-	"charts/istio-telemetry/grafana/templates/service.yaml": chartsIstioTelemetryGrafanaTemplatesServiceYaml,
-	"charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml": chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml,
-	"charts/istio-telemetry/grafana/values.yaml": chartsIstioTelemetryGrafanaValuesYaml,
-	"charts/istio-telemetry/kiali/Chart.yaml": chartsIstioTelemetryKialiChartYaml,
-	"charts/istio-telemetry/kiali/templates/_affinity.tpl": chartsIstioTelemetryKialiTemplates_affinityTpl,
-	"charts/istio-telemetry/kiali/templates/clusterrole.yaml": chartsIstioTelemetryKialiTemplatesClusterroleYaml,
-	"charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml": chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml,
-	"charts/istio-telemetry/kiali/templates/configmap.yaml": chartsIstioTelemetryKialiTemplatesConfigmapYaml,
-	"charts/istio-telemetry/kiali/templates/demosecret.yaml": chartsIstioTelemetryKialiTemplatesDemosecretYaml,
-	"charts/istio-telemetry/kiali/templates/deployment.yaml": chartsIstioTelemetryKialiTemplatesDeploymentYaml,
-	"charts/istio-telemetry/kiali/templates/service.yaml": chartsIstioTelemetryKialiTemplatesServiceYaml,
-	"charts/istio-telemetry/kiali/templates/serviceaccount.yaml": chartsIstioTelemetryKialiTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/kiali/values.yaml": chartsIstioTelemetryKialiValuesYaml,
-	"charts/istio-telemetry/mixer-telemetry/Chart.yaml": chartsIstioTelemetryMixerTelemetryChartYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl": chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl,
-	"charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml": chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml": chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml": chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/config.yaml": chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml": chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml": chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml": chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/service.yaml": chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml": chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml": chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml,
-	"charts/istio-telemetry/mixer-telemetry/values.yaml": chartsIstioTelemetryMixerTelemetryValuesYaml,
-	"charts/istio-telemetry/prometheus/Chart.yaml": chartsIstioTelemetryPrometheusChartYaml,
-	"charts/istio-telemetry/prometheus/templates/_affinity.tpl": chartsIstioTelemetryPrometheusTemplates_affinityTpl,
-	"charts/istio-telemetry/prometheus/templates/clusterrole.yaml": chartsIstioTelemetryPrometheusTemplatesClusterroleYaml,
-	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml": chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
-	"charts/istio-telemetry/prometheus/templates/configmap.yaml": chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
-	"charts/istio-telemetry/prometheus/templates/deployment.yaml": chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/destination-rule.yaml": chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml,
-	"charts/istio-telemetry/prometheus/templates/inrgess.yaml": chartsIstioTelemetryPrometheusTemplatesInrgessYaml,
-	"charts/istio-telemetry/prometheus/templates/service.yaml": chartsIstioTelemetryPrometheusTemplatesServiceYaml,
-	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml": chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml": chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
-	"charts/istio-telemetry/prometheus/values.yaml": chartsIstioTelemetryPrometheusValuesYaml,
-	"charts/istio-telemetry/prometheus-operator/Chart.yaml": chartsIstioTelemetryPrometheusOperatorChartYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl": chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl,
-	"charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml": chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml": chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml,
-	"charts/istio-telemetry/prometheus-operator/values.yaml": chartsIstioTelemetryPrometheusOperatorValuesYaml,
-	"charts/istio-telemetry/tracing/Chart.yaml": chartsIstioTelemetryTracingChartYaml,
-	"charts/istio-telemetry/tracing/templates/_affinity.tpl": chartsIstioTelemetryTracingTemplates_affinityTpl,
-	"charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml": chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml,
-	"charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml": chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml,
-	"charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml": chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml,
-	"charts/istio-telemetry/tracing/templates/pvc.yaml": chartsIstioTelemetryTracingTemplatesPvcYaml,
-	"charts/istio-telemetry/tracing/templates/service-jaeger.yaml": chartsIstioTelemetryTracingTemplatesServiceJaegerYaml,
-	"charts/istio-telemetry/tracing/templates/service.yaml": chartsIstioTelemetryTracingTemplatesServiceYaml,
-	"charts/istio-telemetry/tracing/values.yaml": chartsIstioTelemetryTracingValuesYaml,
-	"charts/istiocoredns/Chart.yaml": chartsIstiocorednsChartYaml,
-	"charts/istiocoredns/templates/_affinity.tpl": chartsIstiocorednsTemplates_affinityTpl,
-	"charts/istiocoredns/templates/clusterrole.yaml": chartsIstiocorednsTemplatesClusterroleYaml,
-	"charts/istiocoredns/templates/clusterrolebinding.yaml": chartsIstiocorednsTemplatesClusterrolebindingYaml,
-	"charts/istiocoredns/templates/configmap.yaml": chartsIstiocorednsTemplatesConfigmapYaml,
-	"charts/istiocoredns/templates/deployment.yaml": chartsIstiocorednsTemplatesDeploymentYaml,
-	"charts/istiocoredns/templates/service.yaml": chartsIstiocorednsTemplatesServiceYaml,
-	"charts/istiocoredns/templates/serviceaccount.yaml": chartsIstiocorednsTemplatesServiceaccountYaml,
-	"charts/istiocoredns/values.yaml": chartsIstiocorednsValuesYaml,
-	"charts/security/certmanager/Chart.yaml": chartsSecurityCertmanagerChartYaml,
-	"charts/security/certmanager/templates/NOTES.txt": chartsSecurityCertmanagerTemplatesNotesTxt,
-	"charts/security/certmanager/templates/_affinity.tpl": chartsSecurityCertmanagerTemplates_affinityTpl,
-	"charts/security/certmanager/templates/deployment.yaml": chartsSecurityCertmanagerTemplatesDeploymentYaml,
-	"charts/security/certmanager/templates/issuer.yaml": chartsSecurityCertmanagerTemplatesIssuerYaml,
-	"charts/security/certmanager/templates/poddisruptionbudget.yaml": chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml,
-	"charts/security/certmanager/templates/rbac.yaml": chartsSecurityCertmanagerTemplatesRbacYaml,
-	"charts/security/certmanager/templates/serviceaccount.yaml": chartsSecurityCertmanagerTemplatesServiceaccountYaml,
-	"charts/security/certmanager/values.yaml": chartsSecurityCertmanagerValuesYaml,
-	"charts/security/citadel/Chart.yaml": chartsSecurityCitadelChartYaml,
-	"charts/security/citadel/templates/NOTES.txt": chartsSecurityCitadelTemplatesNotesTxt,
-	"charts/security/citadel/templates/_affinity.tpl": chartsSecurityCitadelTemplates_affinityTpl,
-	"charts/security/citadel/templates/_helpers.tpl": chartsSecurityCitadelTemplates_helpersTpl,
-	"charts/security/citadel/templates/clusterrole.yaml": chartsSecurityCitadelTemplatesClusterroleYaml,
-	"charts/security/citadel/templates/clusterrolebinding.yaml": chartsSecurityCitadelTemplatesClusterrolebindingYaml,
-	"charts/security/citadel/templates/deployment.yaml": chartsSecurityCitadelTemplatesDeploymentYaml,
-	"charts/security/citadel/templates/poddisruptionbudget.yaml": chartsSecurityCitadelTemplatesPoddisruptionbudgetYaml,
-	"charts/security/citadel/templates/service.yaml": chartsSecurityCitadelTemplatesServiceYaml,
-	"charts/security/citadel/templates/serviceaccount.yaml": chartsSecurityCitadelTemplatesServiceaccountYaml,
-	"charts/security/citadel/values.yaml": chartsSecurityCitadelValuesYaml,
-	"charts/security/nodeagent/Chart.yaml": chartsSecurityNodeagentChartYaml,
-	"charts/security/nodeagent/templates/_affinity.tpl": chartsSecurityNodeagentTemplates_affinityTpl,
-	"charts/security/nodeagent/templates/clusterrole.yaml": chartsSecurityNodeagentTemplatesClusterroleYaml,
-	"charts/security/nodeagent/templates/clusterrolebinding.yaml": chartsSecurityNodeagentTemplatesClusterrolebindingYaml,
-	"charts/security/nodeagent/templates/daemonset.yaml": chartsSecurityNodeagentTemplatesDaemonsetYaml,
-	"charts/security/nodeagent/templates/serviceaccount.yaml": chartsSecurityNodeagentTemplatesServiceaccountYaml,
-	"charts/security/nodeagent/values.yaml": chartsSecurityNodeagentValuesYaml,
-	"profiles/default.yaml": profilesDefaultYaml,
-	"profiles/demo-auth.yaml": profilesDemoAuthYaml,
-	"profiles/demo.yaml": profilesDemoYaml,
-	"profiles/minimal.yaml": profilesMinimalYaml,
-	"profiles/sds.yaml": profilesSdsYaml,
-	"translateConfig/translateConfig-1.3.yaml": translateconfigTranslateconfig13Yaml,
+	"charts/istio-control/istio-config/values.yaml":                                       chartsIstioControlIstioConfigValuesYaml,
+	"charts/istio-control/istio-discovery/Chart.yaml":                                     chartsIstioControlIstioDiscoveryChartYaml,
+	"charts/istio-control/istio-discovery/NOTES.txt":                                      chartsIstioControlIstioDiscoveryNotesTxt,
+	"charts/istio-control/istio-discovery/templates/_affinity.tpl":                        chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
+	"charts/istio-control/istio-discovery/templates/_helpers.tpl":                         chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
+	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                       chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
+	"charts/istio-control/istio-discovery/templates/clusterrole.yaml":                     chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml,
+	"charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml":              chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml,
+	"charts/istio-control/istio-discovery/templates/configmap-envoy.yaml":                 chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml,
+	"charts/istio-control/istio-discovery/templates/configmap.yaml":                       chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
+	"charts/istio-control/istio-discovery/templates/deployment.yaml":                      chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
+	"charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml":                chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml,
+	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":             chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-control/istio-discovery/templates/service.yaml":                         chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
+	"charts/istio-control/istio-discovery/templates/serviceaccount.yaml":                  chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml,
+	"charts/istio-control/istio-discovery/values.yaml":                                    chartsIstioControlIstioDiscoveryValuesYaml,
+	"charts/istio-policy/Chart.yaml":                                                      chartsIstioPolicyChartYaml,
+	"charts/istio-policy/templates/_affinity.tpl":                                         chartsIstioPolicyTemplates_affinityTpl,
+	"charts/istio-policy/templates/_helpers.tpl":                                          chartsIstioPolicyTemplates_helpersTpl,
+	"charts/istio-policy/templates/autoscale.yaml":                                        chartsIstioPolicyTemplatesAutoscaleYaml,
+	"charts/istio-policy/templates/clusterrole.yaml":                                      chartsIstioPolicyTemplatesClusterroleYaml,
+	"charts/istio-policy/templates/clusterrolebinding.yaml":                               chartsIstioPolicyTemplatesClusterrolebindingYaml,
+	"charts/istio-policy/templates/config.yaml":                                           chartsIstioPolicyTemplatesConfigYaml,
+	"charts/istio-policy/templates/deployment.yaml":                                       chartsIstioPolicyTemplatesDeploymentYaml,
+	"charts/istio-policy/templates/poddisruptionbudget.yaml":                              chartsIstioPolicyTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-policy/templates/service.yaml":                                          chartsIstioPolicyTemplatesServiceYaml,
+	"charts/istio-policy/templates/serviceaccount.yaml":                                   chartsIstioPolicyTemplatesServiceaccountYaml,
+	"charts/istio-policy/values.yaml":                                                     chartsIstioPolicyValuesYaml,
+	"charts/istio-telemetry/grafana/Chart.yaml":                                           chartsIstioTelemetryGrafanaChartYaml,
+	"charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json":                    chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/galley-dashboard.json":                     chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json":                 chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json":          chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json":              chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json":             chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json":                      chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json":                      chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson,
+	"charts/istio-telemetry/grafana/fix_datasources.sh":                                   chartsIstioTelemetryGrafanaFix_datasourcesSh,
+	"charts/istio-telemetry/grafana/templates/_affinity.tpl":                              chartsIstioTelemetryGrafanaTemplates_affinityTpl,
+	"charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml":                  chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml,
+	"charts/istio-telemetry/grafana/templates/configmap.yaml":                             chartsIstioTelemetryGrafanaTemplatesConfigmapYaml,
+	"charts/istio-telemetry/grafana/templates/deployment.yaml":                            chartsIstioTelemetryGrafanaTemplatesDeploymentYaml,
+	"charts/istio-telemetry/grafana/templates/destination-rule.yaml":                      chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml,
+	"charts/istio-telemetry/grafana/templates/grafana-policy.yaml":                        chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml,
+	"charts/istio-telemetry/grafana/templates/pvc.yaml":                                   chartsIstioTelemetryGrafanaTemplatesPvcYaml,
+	"charts/istio-telemetry/grafana/templates/service.yaml":                               chartsIstioTelemetryGrafanaTemplatesServiceYaml,
+	"charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml":         chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml,
+	"charts/istio-telemetry/grafana/values.yaml":                                          chartsIstioTelemetryGrafanaValuesYaml,
+	"charts/istio-telemetry/kiali/Chart.yaml":                                             chartsIstioTelemetryKialiChartYaml,
+	"charts/istio-telemetry/kiali/templates/_affinity.tpl":                                chartsIstioTelemetryKialiTemplates_affinityTpl,
+	"charts/istio-telemetry/kiali/templates/clusterrole.yaml":                             chartsIstioTelemetryKialiTemplatesClusterroleYaml,
+	"charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml":                      chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml,
+	"charts/istio-telemetry/kiali/templates/configmap.yaml":                               chartsIstioTelemetryKialiTemplatesConfigmapYaml,
+	"charts/istio-telemetry/kiali/templates/demosecret.yaml":                              chartsIstioTelemetryKialiTemplatesDemosecretYaml,
+	"charts/istio-telemetry/kiali/templates/deployment.yaml":                              chartsIstioTelemetryKialiTemplatesDeploymentYaml,
+	"charts/istio-telemetry/kiali/templates/service.yaml":                                 chartsIstioTelemetryKialiTemplatesServiceYaml,
+	"charts/istio-telemetry/kiali/templates/serviceaccount.yaml":                          chartsIstioTelemetryKialiTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/kiali/values.yaml":                                            chartsIstioTelemetryKialiValuesYaml,
+	"charts/istio-telemetry/mixer-telemetry/Chart.yaml":                                   chartsIstioTelemetryMixerTelemetryChartYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl":                      chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl,
+	"charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml":                     chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml":                   chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml":            chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/config.yaml":                        chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml":               chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml":                    chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml":           chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/service.yaml":                       chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml":                chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml":                   chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml,
+	"charts/istio-telemetry/mixer-telemetry/values.yaml":                                  chartsIstioTelemetryMixerTelemetryValuesYaml,
+	"charts/istio-telemetry/prometheus/Chart.yaml":                                        chartsIstioTelemetryPrometheusChartYaml,
+	"charts/istio-telemetry/prometheus/templates/_affinity.tpl":                           chartsIstioTelemetryPrometheusTemplates_affinityTpl,
+	"charts/istio-telemetry/prometheus/templates/clusterrole.yaml":                        chartsIstioTelemetryPrometheusTemplatesClusterroleYaml,
+	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
+	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                          chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
+	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                         chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
+	"charts/istio-telemetry/prometheus/templates/destination-rule.yaml":                   chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml,
+	"charts/istio-telemetry/prometheus/templates/inrgess.yaml":                            chartsIstioTelemetryPrometheusTemplatesInrgessYaml,
+	"charts/istio-telemetry/prometheus/templates/service.yaml":                            chartsIstioTelemetryPrometheusTemplatesServiceYaml,
+	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                     chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":   chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
+	"charts/istio-telemetry/prometheus/values.yaml":                                       chartsIstioTelemetryPrometheusValuesYaml,
+	"charts/istio-telemetry/prometheus-operator/Chart.yaml":                               chartsIstioTelemetryPrometheusOperatorChartYaml,
+	"charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl":                  chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl,
+	"charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml":                chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml,
+	"charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml":           chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml,
+	"charts/istio-telemetry/prometheus-operator/values.yaml":                              chartsIstioTelemetryPrometheusOperatorValuesYaml,
+	"charts/istio-telemetry/tracing/Chart.yaml":                                           chartsIstioTelemetryTracingChartYaml,
+	"charts/istio-telemetry/tracing/templates/_affinity.tpl":                              chartsIstioTelemetryTracingTemplates_affinityTpl,
+	"charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml":                     chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml,
+	"charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml":                 chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml,
+	"charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml":                     chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml,
+	"charts/istio-telemetry/tracing/templates/pvc.yaml":                                   chartsIstioTelemetryTracingTemplatesPvcYaml,
+	"charts/istio-telemetry/tracing/templates/service-jaeger.yaml":                        chartsIstioTelemetryTracingTemplatesServiceJaegerYaml,
+	"charts/istio-telemetry/tracing/templates/service.yaml":                               chartsIstioTelemetryTracingTemplatesServiceYaml,
+	"charts/istio-telemetry/tracing/values.yaml":                                          chartsIstioTelemetryTracingValuesYaml,
+	"charts/istiocoredns/Chart.yaml":                                                      chartsIstiocorednsChartYaml,
+	"charts/istiocoredns/templates/_affinity.tpl":                                         chartsIstiocorednsTemplates_affinityTpl,
+	"charts/istiocoredns/templates/clusterrole.yaml":                                      chartsIstiocorednsTemplatesClusterroleYaml,
+	"charts/istiocoredns/templates/clusterrolebinding.yaml":                               chartsIstiocorednsTemplatesClusterrolebindingYaml,
+	"charts/istiocoredns/templates/configmap.yaml":                                        chartsIstiocorednsTemplatesConfigmapYaml,
+	"charts/istiocoredns/templates/deployment.yaml":                                       chartsIstiocorednsTemplatesDeploymentYaml,
+	"charts/istiocoredns/templates/service.yaml":                                          chartsIstiocorednsTemplatesServiceYaml,
+	"charts/istiocoredns/templates/serviceaccount.yaml":                                   chartsIstiocorednsTemplatesServiceaccountYaml,
+	"charts/istiocoredns/values.yaml":                                                     chartsIstiocorednsValuesYaml,
+	"charts/security/certmanager/Chart.yaml":                                              chartsSecurityCertmanagerChartYaml,
+	"charts/security/certmanager/templates/NOTES.txt":                                     chartsSecurityCertmanagerTemplatesNotesTxt,
+	"charts/security/certmanager/templates/_affinity.tpl":                                 chartsSecurityCertmanagerTemplates_affinityTpl,
+	"charts/security/certmanager/templates/deployment.yaml":                               chartsSecurityCertmanagerTemplatesDeploymentYaml,
+	"charts/security/certmanager/templates/issuer.yaml":                                   chartsSecurityCertmanagerTemplatesIssuerYaml,
+	"charts/security/certmanager/templates/poddisruptionbudget.yaml":                      chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml,
+	"charts/security/certmanager/templates/rbac.yaml":                                     chartsSecurityCertmanagerTemplatesRbacYaml,
+	"charts/security/certmanager/templates/serviceaccount.yaml":                           chartsSecurityCertmanagerTemplatesServiceaccountYaml,
+	"charts/security/certmanager/values.yaml":                                             chartsSecurityCertmanagerValuesYaml,
+	"charts/security/citadel/Chart.yaml":                                                  chartsSecurityCitadelChartYaml,
+	"charts/security/citadel/templates/NOTES.txt":                                         chartsSecurityCitadelTemplatesNotesTxt,
+	"charts/security/citadel/templates/_affinity.tpl":                                     chartsSecurityCitadelTemplates_affinityTpl,
+	"charts/security/citadel/templates/_helpers.tpl":                                      chartsSecurityCitadelTemplates_helpersTpl,
+	"charts/security/citadel/templates/clusterrole.yaml":                                  chartsSecurityCitadelTemplatesClusterroleYaml,
+	"charts/security/citadel/templates/clusterrolebinding.yaml":                           chartsSecurityCitadelTemplatesClusterrolebindingYaml,
+	"charts/security/citadel/templates/deployment.yaml":                                   chartsSecurityCitadelTemplatesDeploymentYaml,
+	"charts/security/citadel/templates/poddisruptionbudget.yaml":                          chartsSecurityCitadelTemplatesPoddisruptionbudgetYaml,
+	"charts/security/citadel/templates/service.yaml":                                      chartsSecurityCitadelTemplatesServiceYaml,
+	"charts/security/citadel/templates/serviceaccount.yaml":                               chartsSecurityCitadelTemplatesServiceaccountYaml,
+	"charts/security/citadel/values.yaml":                                                 chartsSecurityCitadelValuesYaml,
+	"charts/security/nodeagent/Chart.yaml":                                                chartsSecurityNodeagentChartYaml,
+	"charts/security/nodeagent/templates/_affinity.tpl":                                   chartsSecurityNodeagentTemplates_affinityTpl,
+	"charts/security/nodeagent/templates/clusterrole.yaml":                                chartsSecurityNodeagentTemplatesClusterroleYaml,
+	"charts/security/nodeagent/templates/clusterrolebinding.yaml":                         chartsSecurityNodeagentTemplatesClusterrolebindingYaml,
+	"charts/security/nodeagent/templates/daemonset.yaml":                                  chartsSecurityNodeagentTemplatesDaemonsetYaml,
+	"charts/security/nodeagent/templates/serviceaccount.yaml":                             chartsSecurityNodeagentTemplatesServiceaccountYaml,
+	"charts/security/nodeagent/values.yaml":                                               chartsSecurityNodeagentValuesYaml,
+	"profiles/default.yaml":                                                               profilesDefaultYaml,
+	"profiles/demo-auth.yaml":                                                             profilesDemoAuthYaml,
+	"profiles/demo.yaml":                                                                  profilesDemoYaml,
+	"profiles/minimal.yaml":                                                               profilesMinimalYaml,
+	"profiles/sds.yaml":                                                                   profilesSdsYaml,
+	"translateConfig/translateConfig-1.3.yaml":                                            translateconfigTranslateconfig13Yaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -33256,59 +33257,60 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"charts": &bintree{nil, map[string]*bintree{
 		"crds": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsCrdsChartYaml, map[string]*bintree{}},
 			"files": &bintree{nil, map[string]*bintree{
-				"crd-10.yaml": &bintree{chartsCrdsFilesCrd10Yaml, map[string]*bintree{}},
-				"crd-11.yaml": &bintree{chartsCrdsFilesCrd11Yaml, map[string]*bintree{}},
-				"crd-12.yaml": &bintree{chartsCrdsFilesCrd12Yaml, map[string]*bintree{}},
-				"crd-14.yaml": &bintree{chartsCrdsFilesCrd14Yaml, map[string]*bintree{}},
+				"crd-10.yaml":             &bintree{chartsCrdsFilesCrd10Yaml, map[string]*bintree{}},
+				"crd-11.yaml":             &bintree{chartsCrdsFilesCrd11Yaml, map[string]*bintree{}},
+				"crd-12.yaml":             &bintree{chartsCrdsFilesCrd12Yaml, map[string]*bintree{}},
+				"crd-14.yaml":             &bintree{chartsCrdsFilesCrd14Yaml, map[string]*bintree{}},
 				"crd-certmanager-10.yaml": &bintree{chartsCrdsFilesCrdCertmanager10Yaml, map[string]*bintree{}},
 				"crd-certmanager-11.yaml": &bintree{chartsCrdsFilesCrdCertmanager11Yaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsCrdsKustomizationYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"crds.yaml": &bintree{chartsCrdsTemplatesCrdsYaml, map[string]*bintree{}},
+				"crds.yaml":       &bintree{chartsCrdsTemplatesCrdsYaml, map[string]*bintree{}},
 				"namespaces.yaml": &bintree{chartsCrdsTemplatesNamespacesYaml, map[string]*bintree{}},
 			}},
 		}},
 		"gateways": &bintree{nil, map[string]*bintree{
 			"istio-egress": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsGatewaysIstioEgressChartYaml, map[string]*bintree{}},
-				"NOTES.txt": &bintree{chartsGatewaysIstioEgressNotesTxt, map[string]*bintree{}},
+				"NOTES.txt":  &bintree{chartsGatewaysIstioEgressNotesTxt, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsGatewaysIstioEgressTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl": &bintree{chartsGatewaysIstioEgressTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml": &bintree{chartsGatewaysIstioEgressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsGatewaysIstioEgressTemplatesDeploymentYaml, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsGatewaysIstioEgressTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":             &bintree{chartsGatewaysIstioEgressTemplates_helpersTpl, map[string]*bintree{}},
+					"autoscale.yaml":           &bintree{chartsGatewaysIstioEgressTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsGatewaysIstioEgressTemplatesDeploymentYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"preconfigured.yaml": &bintree{chartsGatewaysIstioEgressTemplatesPreconfiguredYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsGatewaysIstioEgressTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsGatewaysIstioEgressTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"preconfigured.yaml":       &bintree{chartsGatewaysIstioEgressTemplatesPreconfiguredYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsGatewaysIstioEgressTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioEgressTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsGatewaysIstioEgressValuesYaml, map[string]*bintree{}},
 			}},
 			"istio-ingress": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsGatewaysIstioIngressChartYaml, map[string]*bintree{}},
-				"NOTES.txt": &bintree{chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
+				"NOTES.txt":  &bintree{chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
-					"addongateway.yaml": &bintree{chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
-					"autoscale.yaml": &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"certificate.yaml": &bintree{chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"gateway.yaml": &bintree{chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
-					"hosts.yaml": &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
-					"meshexpansion.yaml": &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
+					"addongateway.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
+					"autoscale.yaml":           &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"certificate.yaml":         &bintree{chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
+					"gateway.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
+					"hosts.yaml":               &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
+					"meshexpansion.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"preconfigured.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
-					"role.yaml": &bintree{chartsGatewaysIstioIngressTemplatesRoleYaml, map[string]*bintree{}},
-					"rolebindings.yaml": &bintree{chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar.yaml": &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
+					"preconfigured.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
+					"role.yaml":                &bintree{chartsGatewaysIstioIngressTemplatesRoleYaml, map[string]*bintree{}},
+					"rolebindings.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"sidecar.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},
@@ -33316,73 +33318,73 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"istio-cni": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioCniChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"clusterrole.yaml": &bintree{chartsIstioCniTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrole.yaml":        &bintree{chartsIstioCniTemplatesClusterroleYaml, map[string]*bintree{}},
 				"clusterrolebinding.yaml": &bintree{chartsIstioCniTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"configmap-cni.yaml": &bintree{chartsIstioCniTemplatesConfigmapCniYaml, map[string]*bintree{}},
-				"daemonset.yaml": &bintree{chartsIstioCniTemplatesDaemonsetYaml, map[string]*bintree{}},
-				"serviceaccount.yaml": &bintree{chartsIstioCniTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"configmap-cni.yaml":      &bintree{chartsIstioCniTemplatesConfigmapCniYaml, map[string]*bintree{}},
+				"daemonset.yaml":          &bintree{chartsIstioCniTemplatesDaemonsetYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     &bintree{chartsIstioCniTemplatesServiceaccountYaml, map[string]*bintree{}},
 			}},
-			"values.yaml": &bintree{chartsIstioCniValuesYaml, map[string]*bintree{}},
+			"values.yaml":     &bintree{chartsIstioCniValuesYaml, map[string]*bintree{}},
 			"values_gke.yaml": &bintree{chartsIstioCniValues_gkeYaml, map[string]*bintree{}},
 		}},
 		"istio-control": &bintree{nil, map[string]*bintree{
 			"istio-autoinject": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioControlIstioAutoinjectChartYaml, map[string]*bintree{}},
-				"NOTES.txt": &bintree{chartsIstioControlIstioAutoinjectNotesTxt, map[string]*bintree{}},
+				"NOTES.txt":  &bintree{chartsIstioControlIstioAutoinjectNotesTxt, map[string]*bintree{}},
 				"files": &bintree{nil, map[string]*bintree{
 					"injection-template.yaml": &bintree{chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml, map[string]*bintree{}},
 				}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioControlIstioAutoinjectTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl": &bintree{chartsIstioControlIstioAutoinjectTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, map[string]*bintree{}},
-					"mutatingwebhook.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"_affinity.tpl":                   &bintree{chartsIstioControlIstioAutoinjectTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":                    &bintree{chartsIstioControlIstioAutoinjectTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":                &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":         &bintree{chartsIstioControlIstioAutoinjectTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap.yaml":                  &bintree{chartsIstioControlIstioAutoinjectTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                 &bintree{chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml, map[string]*bintree{}},
+					"mutatingwebhook.yaml":            &bintree{chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":        &bintree{chartsIstioControlIstioAutoinjectTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                    &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":             &bintree{chartsIstioControlIstioAutoinjectTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"sidecar-injector-configmap.yaml": &bintree{chartsIstioControlIstioAutoinjectTemplatesSidecarInjectorConfigmapYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioAutoinjectValuesYaml, map[string]*bintree{}},
 			}},
 			"istio-config": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioControlIstioConfigChartYaml, map[string]*bintree{}},
-				"OWNERS": &bintree{chartsIstioControlIstioConfigOwners, map[string]*bintree{}},
-				"README.md": &bintree{chartsIstioControlIstioConfigReadmeMd, map[string]*bintree{}},
+				"OWNERS":     &bintree{chartsIstioControlIstioConfigOwners, map[string]*bintree{}},
+				"README.md":  &bintree{chartsIstioControlIstioConfigReadmeMd, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioControlIstioConfigTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl": &bintree{chartsIstioControlIstioConfigTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioControlIstioConfigTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml": &bintree{chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"configmap-mesh.yaml": &bintree{chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioControlIstioConfigTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioControlIstioConfigTemplatesDeploymentYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml": &bintree{chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioControlIstioConfigTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioControlIstioConfigTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"_affinity.tpl":                           &bintree{chartsIstioControlIstioConfigTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":                            &bintree{chartsIstioControlIstioConfigTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":                        &bintree{chartsIstioControlIstioConfigTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":                 &bintree{chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":                    &bintree{chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"configmap-mesh.yaml":                     &bintree{chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml, map[string]*bintree{}},
+					"configmap.yaml":                          &bintree{chartsIstioControlIstioConfigTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                         &bintree{chartsIstioControlIstioConfigTemplatesDeploymentYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":                &bintree{chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                            &bintree{chartsIstioControlIstioConfigTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":                     &bintree{chartsIstioControlIstioConfigTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"validatingwebhookconfiguration.yaml.tpl": &bintree{chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioConfigValuesYaml, map[string]*bintree{}},
 			}},
 			"istio-discovery": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioControlIstioDiscoveryChartYaml, map[string]*bintree{}},
-				"NOTES.txt": &bintree{chartsIstioControlIstioDiscoveryNotesTxt, map[string]*bintree{}},
+				"NOTES.txt":  &bintree{chartsIstioControlIstioDiscoveryNotesTxt, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl": &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
-					"enable-mesh-mtls.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":             &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
+					"autoscale.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"clusterrole.yaml":         &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":  &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"configmap.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
+					"enable-mesh-mtls.yaml":    &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
@@ -33390,16 +33392,16 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"_affinity.tpl": &bintree{chartsIstioPolicyTemplates_affinityTpl, map[string]*bintree{}},
-				"_helpers.tpl": &bintree{chartsIstioPolicyTemplates_helpersTpl, map[string]*bintree{}},
-				"autoscale.yaml": &bintree{chartsIstioPolicyTemplatesAutoscaleYaml, map[string]*bintree{}},
-				"clusterrole.yaml": &bintree{chartsIstioPolicyTemplatesClusterroleYaml, map[string]*bintree{}},
-				"clusterrolebinding.yaml": &bintree{chartsIstioPolicyTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"config.yaml": &bintree{chartsIstioPolicyTemplatesConfigYaml, map[string]*bintree{}},
-				"deployment.yaml": &bintree{chartsIstioPolicyTemplatesDeploymentYaml, map[string]*bintree{}},
+				"_affinity.tpl":            &bintree{chartsIstioPolicyTemplates_affinityTpl, map[string]*bintree{}},
+				"_helpers.tpl":             &bintree{chartsIstioPolicyTemplates_helpersTpl, map[string]*bintree{}},
+				"autoscale.yaml":           &bintree{chartsIstioPolicyTemplatesAutoscaleYaml, map[string]*bintree{}},
+				"clusterrole.yaml":         &bintree{chartsIstioPolicyTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml":  &bintree{chartsIstioPolicyTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+				"config.yaml":              &bintree{chartsIstioPolicyTemplatesConfigYaml, map[string]*bintree{}},
+				"deployment.yaml":          &bintree{chartsIstioPolicyTemplatesDeploymentYaml, map[string]*bintree{}},
 				"poddisruptionbudget.yaml": &bintree{chartsIstioPolicyTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-				"service.yaml": &bintree{chartsIstioPolicyTemplatesServiceYaml, map[string]*bintree{}},
-				"serviceaccount.yaml": &bintree{chartsIstioPolicyTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"service.yaml":             &bintree{chartsIstioPolicyTemplatesServiceYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":      &bintree{chartsIstioPolicyTemplatesServiceaccountYaml, map[string]*bintree{}},
 			}},
 			"values.yaml": &bintree{chartsIstioPolicyValuesYaml, map[string]*bintree{}},
 		}},
@@ -33407,25 +33409,25 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"grafana": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
 				"dashboards": &bintree{nil, map[string]*bintree{
-					"citadel-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
-					"galley-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
-					"istio-mesh-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
+					"citadel-dashboard.json":           &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
+					"galley-dashboard.json":            &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
+					"istio-mesh-dashboard.json":        &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
 					"istio-performance-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},
-					"istio-service-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
-					"istio-workload-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson, map[string]*bintree{}},
-					"mixer-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson, map[string]*bintree{}},
-					"pilot-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson, map[string]*bintree{}},
+					"istio-service-dashboard.json":     &bintree{chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
+					"istio-workload-dashboard.json":    &bintree{chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson, map[string]*bintree{}},
+					"mixer-dashboard.json":             &bintree{chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson, map[string]*bintree{}},
+					"pilot-dashboard.json":             &bintree{chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson, map[string]*bintree{}},
 				}},
 				"fix_datasources.sh": &bintree{chartsIstioTelemetryGrafanaFix_datasourcesSh, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryGrafanaTemplates_affinityTpl, map[string]*bintree{}},
+					"_affinity.tpl":             &bintree{chartsIstioTelemetryGrafanaTemplates_affinityTpl, map[string]*bintree{}},
 					"configmap-dashboards.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesDeploymentYaml, map[string]*bintree{}},
-					"destination-rule.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml, map[string]*bintree{}},
-					"grafana-policy.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml, map[string]*bintree{}},
-					"pvc.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesPvcYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesServiceYaml, map[string]*bintree{}},
+					"configmap.yaml":            &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":           &bintree{chartsIstioTelemetryGrafanaTemplatesDeploymentYaml, map[string]*bintree{}},
+					"destination-rule.yaml":     &bintree{chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml, map[string]*bintree{}},
+					"grafana-policy.yaml":       &bintree{chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml, map[string]*bintree{}},
+					"pvc.yaml":                  &bintree{chartsIstioTelemetryGrafanaTemplatesPvcYaml, map[string]*bintree{}},
+					"service.yaml":              &bintree{chartsIstioTelemetryGrafanaTemplatesServiceYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
 						"test-grafana-connection.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml, map[string]*bintree{}},
 					}},
@@ -33435,46 +33437,46 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"kiali": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryKialiChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioTelemetryKialiTemplatesClusterroleYaml, map[string]*bintree{}},
+					"_affinity.tpl":           &bintree{chartsIstioTelemetryKialiTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":        &bintree{chartsIstioTelemetryKialiTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebinding.yaml": &bintree{chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioTelemetryKialiTemplatesConfigmapYaml, map[string]*bintree{}},
-					"demosecret.yaml": &bintree{chartsIstioTelemetryKialiTemplatesDemosecretYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioTelemetryKialiTemplatesDeploymentYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioTelemetryKialiTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioTelemetryKialiTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"configmap.yaml":          &bintree{chartsIstioTelemetryKialiTemplatesConfigmapYaml, map[string]*bintree{}},
+					"demosecret.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDemosecretYaml, map[string]*bintree{}},
+					"deployment.yaml":         &bintree{chartsIstioTelemetryKialiTemplatesDeploymentYaml, map[string]*bintree{}},
+					"service.yaml":            &bintree{chartsIstioTelemetryKialiTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":     &bintree{chartsIstioTelemetryKialiTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryKialiValuesYaml, map[string]*bintree{}},
 			}},
 			"mixer-telemetry": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryMixerTelemetryChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl, map[string]*bintree{}},
-					"autoscale.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"config.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml, map[string]*bintree{}},
-					"configmap-envoy.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl, map[string]*bintree{}},
+					"autoscale.yaml":           &bintree{chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"clusterrole.yaml":         &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":  &bintree{chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"config.yaml":              &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml, map[string]*bintree{}},
+					"configmap-envoy.yaml":     &bintree{chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"stackdriver.yaml": &bintree{chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"stackdriver.yaml":         &bintree{chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryMixerTelemetryValuesYaml, map[string]*bintree{}},
 			}},
 			"prometheus": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryPrometheusTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterroleYaml, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsIstioTelemetryPrometheusTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":         &bintree{chartsIstioTelemetryPrometheusTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
-					"configmap.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"destination-rule.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml, map[string]*bintree{}},
-					"inrgess.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesInrgessYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
+					"destination-rule.yaml":    &bintree{chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml, map[string]*bintree{}},
+					"inrgess.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesInrgessYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
 						"test-prometheus-connection.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml, map[string]*bintree{}},
 					}},
@@ -33484,8 +33486,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"prometheus-operator": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
-					"prometheus.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
+					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
+					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
 					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorValuesYaml, map[string]*bintree{}},
@@ -33493,13 +33495,13 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"tracing": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryTracingChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsIstioTelemetryTracingTemplates_affinityTpl, map[string]*bintree{}},
-					"deployment-jaeger.yaml": &bintree{chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml, map[string]*bintree{}},
+					"_affinity.tpl":              &bintree{chartsIstioTelemetryTracingTemplates_affinityTpl, map[string]*bintree{}},
+					"deployment-jaeger.yaml":     &bintree{chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml, map[string]*bintree{}},
 					"deployment-opencensus.yaml": &bintree{chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml, map[string]*bintree{}},
-					"deployment-zipkin.yaml": &bintree{chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml, map[string]*bintree{}},
-					"pvc.yaml": &bintree{chartsIstioTelemetryTracingTemplatesPvcYaml, map[string]*bintree{}},
-					"service-jaeger.yaml": &bintree{chartsIstioTelemetryTracingTemplatesServiceJaegerYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsIstioTelemetryTracingTemplatesServiceYaml, map[string]*bintree{}},
+					"deployment-zipkin.yaml":     &bintree{chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml, map[string]*bintree{}},
+					"pvc.yaml":                   &bintree{chartsIstioTelemetryTracingTemplatesPvcYaml, map[string]*bintree{}},
+					"service-jaeger.yaml":        &bintree{chartsIstioTelemetryTracingTemplatesServiceJaegerYaml, map[string]*bintree{}},
+					"service.yaml":               &bintree{chartsIstioTelemetryTracingTemplatesServiceYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryTracingValuesYaml, map[string]*bintree{}},
 			}},
@@ -33507,13 +33509,13 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"istiocoredns": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstiocorednsChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
-				"_affinity.tpl": &bintree{chartsIstiocorednsTemplates_affinityTpl, map[string]*bintree{}},
-				"clusterrole.yaml": &bintree{chartsIstiocorednsTemplatesClusterroleYaml, map[string]*bintree{}},
+				"_affinity.tpl":           &bintree{chartsIstiocorednsTemplates_affinityTpl, map[string]*bintree{}},
+				"clusterrole.yaml":        &bintree{chartsIstiocorednsTemplatesClusterroleYaml, map[string]*bintree{}},
 				"clusterrolebinding.yaml": &bintree{chartsIstiocorednsTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-				"configmap.yaml": &bintree{chartsIstiocorednsTemplatesConfigmapYaml, map[string]*bintree{}},
-				"deployment.yaml": &bintree{chartsIstiocorednsTemplatesDeploymentYaml, map[string]*bintree{}},
-				"service.yaml": &bintree{chartsIstiocorednsTemplatesServiceYaml, map[string]*bintree{}},
-				"serviceaccount.yaml": &bintree{chartsIstiocorednsTemplatesServiceaccountYaml, map[string]*bintree{}},
+				"configmap.yaml":          &bintree{chartsIstiocorednsTemplatesConfigmapYaml, map[string]*bintree{}},
+				"deployment.yaml":         &bintree{chartsIstiocorednsTemplatesDeploymentYaml, map[string]*bintree{}},
+				"service.yaml":            &bintree{chartsIstiocorednsTemplatesServiceYaml, map[string]*bintree{}},
+				"serviceaccount.yaml":     &bintree{chartsIstiocorednsTemplatesServiceaccountYaml, map[string]*bintree{}},
 			}},
 			"values.yaml": &bintree{chartsIstiocorednsValuesYaml, map[string]*bintree{}},
 		}},
@@ -33521,50 +33523,50 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"certmanager": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsSecurityCertmanagerChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"NOTES.txt": &bintree{chartsSecurityCertmanagerTemplatesNotesTxt, map[string]*bintree{}},
-					"_affinity.tpl": &bintree{chartsSecurityCertmanagerTemplates_affinityTpl, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsSecurityCertmanagerTemplatesDeploymentYaml, map[string]*bintree{}},
-					"issuer.yaml": &bintree{chartsSecurityCertmanagerTemplatesIssuerYaml, map[string]*bintree{}},
+					"NOTES.txt":                &bintree{chartsSecurityCertmanagerTemplatesNotesTxt, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsSecurityCertmanagerTemplates_affinityTpl, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsSecurityCertmanagerTemplatesDeploymentYaml, map[string]*bintree{}},
+					"issuer.yaml":              &bintree{chartsSecurityCertmanagerTemplatesIssuerYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsSecurityCertmanagerTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"rbac.yaml": &bintree{chartsSecurityCertmanagerTemplatesRbacYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsSecurityCertmanagerTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"rbac.yaml":                &bintree{chartsSecurityCertmanagerTemplatesRbacYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsSecurityCertmanagerTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsSecurityCertmanagerValuesYaml, map[string]*bintree{}},
 			}},
 			"citadel": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsSecurityCitadelChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"NOTES.txt": &bintree{chartsSecurityCitadelTemplatesNotesTxt, map[string]*bintree{}},
-					"_affinity.tpl": &bintree{chartsSecurityCitadelTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl": &bintree{chartsSecurityCitadelTemplates_helpersTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsSecurityCitadelTemplatesClusterroleYaml, map[string]*bintree{}},
-					"clusterrolebinding.yaml": &bintree{chartsSecurityCitadelTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"deployment.yaml": &bintree{chartsSecurityCitadelTemplatesDeploymentYaml, map[string]*bintree{}},
+					"NOTES.txt":                &bintree{chartsSecurityCitadelTemplatesNotesTxt, map[string]*bintree{}},
+					"_affinity.tpl":            &bintree{chartsSecurityCitadelTemplates_affinityTpl, map[string]*bintree{}},
+					"_helpers.tpl":             &bintree{chartsSecurityCitadelTemplates_helpersTpl, map[string]*bintree{}},
+					"clusterrole.yaml":         &bintree{chartsSecurityCitadelTemplatesClusterroleYaml, map[string]*bintree{}},
+					"clusterrolebinding.yaml":  &bintree{chartsSecurityCitadelTemplatesClusterrolebindingYaml, map[string]*bintree{}},
+					"deployment.yaml":          &bintree{chartsSecurityCitadelTemplatesDeploymentYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsSecurityCitadelTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml": &bintree{chartsSecurityCitadelTemplatesServiceYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsSecurityCitadelTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"service.yaml":             &bintree{chartsSecurityCitadelTemplatesServiceYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":      &bintree{chartsSecurityCitadelTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsSecurityCitadelValuesYaml, map[string]*bintree{}},
 			}},
 			"nodeagent": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsSecurityNodeagentChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl": &bintree{chartsSecurityNodeagentTemplates_affinityTpl, map[string]*bintree{}},
-					"clusterrole.yaml": &bintree{chartsSecurityNodeagentTemplatesClusterroleYaml, map[string]*bintree{}},
+					"_affinity.tpl":           &bintree{chartsSecurityNodeagentTemplates_affinityTpl, map[string]*bintree{}},
+					"clusterrole.yaml":        &bintree{chartsSecurityNodeagentTemplatesClusterroleYaml, map[string]*bintree{}},
 					"clusterrolebinding.yaml": &bintree{chartsSecurityNodeagentTemplatesClusterrolebindingYaml, map[string]*bintree{}},
-					"daemonset.yaml": &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
-					"serviceaccount.yaml": &bintree{chartsSecurityNodeagentTemplatesServiceaccountYaml, map[string]*bintree{}},
+					"daemonset.yaml":          &bintree{chartsSecurityNodeagentTemplatesDaemonsetYaml, map[string]*bintree{}},
+					"serviceaccount.yaml":     &bintree{chartsSecurityNodeagentTemplatesServiceaccountYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsSecurityNodeagentValuesYaml, map[string]*bintree{}},
 			}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
-		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
+		"default.yaml":   &bintree{profilesDefaultYaml, map[string]*bintree{}},
 		"demo-auth.yaml": &bintree{profilesDemoAuthYaml, map[string]*bintree{}},
-		"demo.yaml": &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"sds.yaml": &bintree{profilesSdsYaml, map[string]*bintree{}},
+		"demo.yaml":      &bintree{profilesDemoYaml, map[string]*bintree{}},
+		"minimal.yaml":   &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"sds.yaml":       &bintree{profilesSdsYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"translateConfig-1.3.yaml": &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
@@ -33617,4 +33619,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

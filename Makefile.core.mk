@@ -13,9 +13,6 @@
 # limitations under the License.
 
 export GO111MODULE=on
-ifeq ($(BUILD_WITH_CONTAINER),0)
-override GOBIN := $(GOPATH)/bin
-endif
 
 pwd := $(shell pwd)
 
@@ -53,7 +50,8 @@ clean: clean-values clean-types
 default: mesh
 
 mesh: vfsgen
-	go build -o ${GOBIN}/mesh ./cmd/mesh.go
+	go build -o $(GOPATH)/bin/mesh ./cmd/mesh.go
+	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o /work/mesh ./cmd/mesh.go
 
 update-goldens:
 	export REFRESH_GOLDEN=true
