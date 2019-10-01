@@ -40,6 +40,10 @@ spec:
     port: 14268
     targetPort: 14268
     protocol: TCP
+  - name: jaeger-collector-grpc
+    port: 14250
+    targetPort: 14250
+    protocol: TCP
   selector:
     app: jaeger
   type: ClusterIP
