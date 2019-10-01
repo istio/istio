@@ -124,7 +124,7 @@ func TestBuildSecret(t *testing.T) {
 	}
 	val, ok := serverSecret.ObjectMeta.Annotations[ServiceAccountNameAnnotationKey]
 	if !ok {
-		t.Fatal("Failed to find annotation for %s", ServiceAccountNameAnnotationKey)
+		t.Fatalf("Failed to find annotation for %s", ServiceAccountNameAnnotationKey)
 	}
 	if val != serviceAccount {
 		t.Fatalf("annotation does not match, got %s want %s", val, serviceAccount)
