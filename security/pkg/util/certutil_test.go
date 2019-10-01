@@ -83,7 +83,7 @@ func TestGetWaitTime(t *testing.T) {
 			// Now is earlier than the start of default grace period 2017-08-24 07:00:40 +0000 UTC, but with min grace period,
 			// the cert is in grace period after 2017-08-24 5:00:40 +0000 UTC.
 			cert:           testCert,
-			now:            time.Date(2017, time.August, 24, 6, 0, 40, 00, time.UTC),
+			now:            time.Date(2017, time.August, 24, 6, 0, 40, 0, time.UTC),
 			expectedErr:    "got a certificate that should be renewed now",
 			minGracePeriod: 14 * time.Hour,
 		},
