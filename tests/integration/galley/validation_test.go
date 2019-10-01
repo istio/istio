@@ -78,7 +78,11 @@ func TestValidation(t *testing.T) {
 				if err == nil {
 					return false
 				}
-				return strings.Contains(err.Error(), "denied the request")
+				// We are only checking the string literals of the rejection reasons
+				// from the webhook and the k8s api server as the returned errors are not
+				// k8s typed errors.
+				return strings.Contains(err.Error(), "denied the request") ||
+					strings.Contains(err.Error(), "error validating data")
 			}
 
 			for _, d := range dataset {

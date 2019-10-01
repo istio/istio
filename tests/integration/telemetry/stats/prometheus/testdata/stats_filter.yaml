@@ -16,7 +16,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.wasm
+          name: envoy.filters.http.wasm
           config:
             configuration: |
               {

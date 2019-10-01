@@ -12,24 +12,6 @@
       }
     }
   },
-  "dynamic_resources": {
-    "lds_config": {
-      "ads": {}
-    },
-    "cds_config": {
-      "ads": {}
-    },
-    "ads_config": {
-      "api_type": "GRPC",
-      "grpc_services": [
-        {
-          "envoy_grpc": {
-            "cluster_name": "xds-grpc"
-          }
-        }
-      ]
-    }
-  },
   "static_resources": {
     "clusters": [
       {
@@ -46,22 +28,6 @@
             }
           }
         ]
-      },
-      {
-        "name": "xds-grpc",
-        "type": "STRICT_DNS",
-        "lb_policy": "ROUND_ROBIN",
-        "connect_timeout": "0.250s",
-        "hosts": [
-          {
-            "socket_address": {
-              "protocol": "TCP",
-              "address": "{{ .localhost }}",
-              "port_value": {{ .pilotPort }}
-            }
-          }
-        ],
-        "http2_protocol_options": { }
       }
     ],
     "listeners":[

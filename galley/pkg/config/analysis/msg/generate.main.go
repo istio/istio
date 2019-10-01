@@ -30,7 +30,7 @@ import (
 const codeRegex = `^IST\d\d\d\d$`
 const nameRegex = `^[[:upper:]]\w*$`
 
-// Utility for generating staticinit.gen.go. Called from gen.go
+// Utility for generating messages.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Invalid args:", os.Args)

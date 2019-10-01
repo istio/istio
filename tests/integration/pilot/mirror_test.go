@@ -28,6 +28,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -61,6 +62,10 @@ type testCaseMirror struct {
 	percentage float64
 	threshold  float64
 }
+
+var (
+	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
+)
 
 func TestMirroring(t *testing.T) {
 	cases := []testCaseMirror{
@@ -141,9 +146,13 @@ func TestMirroring(t *testing.T) {
 						}
 					}
 
-					testID := util.RandomString(16)
-					sendTrafficMirror(t, instances, testID)
-					verifyTrafficMirror(t, instances, c, testID)
+					for _, proto := range mirrorProtocols {
+						t.Run(string(proto), func(t *testing.T) {
+							testID := util.RandomString(16)
+							sendTrafficMirror(t, instances, proto, testID)
+							verifyTrafficMirror(t, instances, c, testID)
+						})
+					}
 				})
 			}
 		})
@@ -179,7 +188,20 @@ func vsName(target echo.Instance, port echo.Port) string {
 	return fmt.Sprintf("%s.%s.svc.%s:%d", cfg.Service, cfg.Namespace.Name(), cfg.Domain, port.ServicePort)
 }
 
-func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, testID string) {
+func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, proto protocol.Instance, testID string) {
+	options := echo.CallOptions{
+		Target:   instances[1],
+		Count:    50,
+		PortName: strings.ToLower(string(proto)),
+	}
+	switch proto {
+	case protocol.HTTP:
+		options.Path = "/" + testID
+	case protocol.GRPC:
+		options.Message = testID
+	default:
+		t.Fatalf("protocol not supported in mirror testing: %s", proto)
+	}
 	const totalThreads = 10
 	errs := make(chan error, totalThreads)
 
@@ -188,12 +210,7 @@ func sendTrafficMirror(t *testing.T, instances [3]echo.Instance, testID string) 
 
 	for i := 0; i < totalThreads; i++ {
 		go func() {
-			_, err := instances[0].Call(echo.CallOptions{
-				Target:   instances[1],
-				PortName: "http",
-				Path:     "/" + testID,
-				Count:    50,
-			})
+			_, err := instances[0].Call(options)
 			if err != nil {
 				errs <- err
 			}
@@ -245,7 +262,7 @@ func logCount(t *testing.T, instance echo.Instance, testID string) float64 {
 
 	var logs string
 	for _, w := range workloads {
-		logs += w.Sidecar().LogsOrFail(t)
+		logs += w.LogsOrFail(t)
 	}
 
 	return float64(strings.Count(logs, testID))
@@ -276,6 +293,9 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
+  - name: grpc
+    number: 7070
+    protocol: GRPC
   resolution: STATIC
   endpoints:
   - address: %s
@@ -355,8 +375,12 @@ func TestMirroringExternalService(t *testing.T) {
 				}
 			}
 
-			testID := util.RandomString(16)
-			sendTrafficMirror(t, instances, testID)
-			verifyTrafficMirror(t, instances, c, testID)
+			for _, proto := range mirrorProtocols {
+				t.Run(string(proto), func(t *testing.T) {
+					testID := util.RandomString(16)
+					sendTrafficMirror(t, instances, proto, testID)
+					verifyTrafficMirror(t, instances, c, testID)
+				})
+			}
 		})
 }

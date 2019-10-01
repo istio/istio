@@ -124,8 +124,8 @@ var (
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
-		"Delay between config change and all proxies converging.",
-		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
+		"Delay between config change and a proxy receiving all required configuration.",
+		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
 	pushContextErrors = monitoring.NewSum(
