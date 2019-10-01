@@ -172,15 +172,10 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 	// Specifies the local file path to webhook CA bundle.
 	// If empty, will read CA bundle from default Kubernetes service account.
 	flags.StringVar(&opts.caCertPath, "ca-bundle-file", "",
-		"Certificate signing CA bundle .pem file. "+
-			"If the certificate is signed by Kubernetes CA, this parameter needs to "+
-			"be consistent with the Kubernetes CA signing certificate, which may be customized through --cluster-signing-cert-file "+
-			"(the Kubernetes CA certificate used to sign certificates on kube-controller-manager, details in "+
-			"https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/). In the case "+
-			"that Kubernetes signing certificate is the same as that of the k8s API server, this parameter may be configured as "+
-			"the pod certificate at /var/run/secrets/kubernetes.io/serviceaccount/ca.crt. "+
-			"If no local file is specified, the CA certificate will be read from default service account. "+
-			"The CA certificate will be verified against the webhook certificate specified in --valiation-secret.")
+		"PEM encoded CA bundle which will be used to validate the webhook's server certificates. "+
+			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
+			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
+			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
 	flags.StringVar(&opts.webhookConfigPath, "config-path", "",
 		"The file path of the webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "config-name", "istio-galley",
@@ -208,7 +203,7 @@ func newDisableCmd() *cobra.Command {
 # Disable the webhook configuration of Galley
 istioctl experimental post-install webhook disable --validation --validation-config istio-galley
 # Disable the webhook configuration of Galley and Sidecar Injector
-istioctl experimental post-install webhook disable --validation --validation-config istio-galley --injection --injection-config istio-sidecarinjector
+istioctl experimental post-install webhook disable --validation --validation-config istio-galley --injection --injection-config istio-sidecar-injector
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
@@ -218,9 +213,10 @@ istioctl experimental post-install webhook disable --validation --validation-con
 			if err != nil {
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
-			err = disableWebhookConfig(client, opts)
-			if err != nil {
-				return fmt.Errorf("error when disabling webhook configurations: %v", err)
+			validationErr, injectionErr := disableWebhookConfig(client, opts)
+			if validationErr != nil || injectionErr != nil {
+				return fmt.Errorf("error when disabling webhook configurations. validation err: %v. injection err: %v",
+					validationErr, injectionErr)
 			}
 			fmt.Println("webhook configurations have been disabled")
 			return nil
@@ -228,13 +224,13 @@ istioctl experimental post-install webhook disable --validation --validation-con
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.disableValidationWebhook, "validation", false, "Disable "+
-		"validating webhook (default false).")
+	flags.BoolVar(&opts.disableValidationWebhook, "validation", true, "Disable "+
+		"validating webhook (default true).")
 	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
 		"The validating webhook configuration to disable.")
-	flags.BoolVar(&opts.disableInjectionWebhook, "injection", false, "Disable "+
-		"mutating webhook (default false).")
-	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecarinjector",
+	flags.BoolVar(&opts.disableInjectionWebhook, "injection", true, "Disable "+
+		"mutating webhook (default true).")
+	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecar-injector",
 		"The mutating webhook configuration to disable.")
 
 	return cmd
@@ -314,20 +310,16 @@ func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
 }
 
 // Disable webhook configurations
-func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions) error {
+func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions) (error, error) {
+	var validationErr error
+	var injectionErr error
 	if opt.disableValidationWebhook {
-		err := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(opt.validatingWebhookConfigName, &metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
+		validationErr = k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(opt.validatingWebhookConfigName, &metav1.DeleteOptions{})
 	}
 	if opt.disableInjectionWebhook {
-		err := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(opt.mutatingWebhookConfigName, &metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
+		injectionErr = k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(opt.mutatingWebhookConfigName, &metav1.DeleteOptions{})
 	}
-	return nil
+	return validationErr, injectionErr
 }
 
 // Get the validatingwebhookconfiguration
@@ -380,7 +372,7 @@ func readCACert(client kubernetes.Interface, certPath, secretName, secretNamespa
 		return nil, fmt.Errorf("webhook certificate is invalid: %v", err)
 	}
 	if err = veriyCertChain(cert, caCert); err != nil {
-		return nil, fmt.Errorf("Kubernetes CA cert and the webhook cert do not form a valid cert chain. "+
+		return nil, fmt.Errorf("kubernetes CA cert and the webhook cert do not form a valid cert chain. "+
 			"if your cluster has a custom Kubernetes signing cert, please specify it in --ca-bundle-file parameter. error: %v", err)
 	}
 

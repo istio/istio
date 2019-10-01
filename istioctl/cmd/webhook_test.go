@@ -197,10 +197,10 @@ func TestDisableCliOptionsValidation(t *testing.T) {
 		err := tc.opt.Validate()
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("should have failed")
+				t.Errorf("opt (%v) should have failed", tc.opt)
 			}
 		} else if err != nil {
-			t.Errorf("should not fail, but err: %v", err)
+			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
 		}
 	}
 }
@@ -292,13 +292,18 @@ func TestDisableWebhookConfig(t *testing.T) {
 			}
 		}
 
-		err := disableWebhookConfig(client, &tc.opt)
+		validationErr, injectionErr := disableWebhookConfig(client, &tc.opt)
 		if tc.shouldFail {
-			if err == nil {
+			if validationErr == nil && injectionErr == nil {
 				t.Errorf("should have failed")
 			}
-		} else if err != nil {
-			t.Errorf("should not fail, but err: %v", err)
+		} else {
+			if validationErr != nil {
+				t.Errorf("should not fail, but err when disabling validation webhook: %v", validationErr)
+			}
+			if injectionErr != nil {
+				t.Errorf("should not fail, but err when disabling injection webhook: %v", injectionErr)
+			}
 		}
 	}
 }
