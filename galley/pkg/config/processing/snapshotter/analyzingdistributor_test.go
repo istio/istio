@@ -21,8 +21,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -92,11 +93,11 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 }
 
 func getTestSnapshot(names ...string) *Snapshot {
-	c := make([]*collection.Instance, 0)
+	c := make([]*coll.Instance, 0)
 	for _, name := range names {
-		c = append(c, collection.New(collection.NewName(name)))
+		c = append(c, coll.New(collection.NewName(name)))
 	}
 	return &Snapshot{
-		set: collection.NewSetFromCollections(c),
+		set: coll.NewSetFromCollections(c),
 	}
 }

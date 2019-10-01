@@ -20,9 +20,11 @@ import (
 	"strings"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -30,7 +32,7 @@ import (
 // Snapshot is an implementation of MCP's snapshot.Snapshot interface. It also exposes additional query methods
 // for analysis purposes.
 type Snapshot struct {
-	set *collection.Set
+	set *coll.Set
 }
 
 var _ snapshot.Snapshot = &Snapshot{}

@@ -19,8 +19,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -50,7 +51,7 @@ const syntheticSnapshotGroup = "syntheticServiceEntry"
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
 func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr CollectionReporterFn) *AnalyzingDistributor {
-	//collectionReport hook function defaults to no-op
+	// collectionReport hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
@@ -121,7 +122,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *S
 // getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group
 // Important assumption: the collections in each snapshot don't overlap.
 func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
-	var collections []*collection.Instance
+	var collections []*coll.Instance
 
 	d.snapshotsMu.RLock()
 	defer d.snapshotsMu.RUnlock()
@@ -134,7 +135,7 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 		}
 	}
 
-	return &Snapshot{set: collection.NewSetFromCollections(collections)}
+	return &Snapshot{set: coll.NewSetFromCollections(collections)}
 }
 
 type context struct {
