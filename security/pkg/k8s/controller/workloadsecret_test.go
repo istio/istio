@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -48,7 +48,7 @@ var (
 	certChain       = []byte("fake cert chain")
 	rootCert        = []byte("fake root cert")
 	signedCert      = []byte("fake signed cert")
-	istioTestSecret = ca.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
 )
 
 func TestSecretController(t *testing.T) {
@@ -133,7 +133,7 @@ func TestSecretController(t *testing.T) {
 			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(gvr, "test-ns",
-					ca.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
+					k8ssecret.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
 			shouldFail:       false,
@@ -161,9 +161,7 @@ func TestSecretController(t *testing.T) {
 				Namespace:   "test-ns",
 			},
 		}
-		controller, err := NewSecretController(createFakeCA(), defaultTTL,
-			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-			[]string{metav1.NamespaceAll}, webhooks)
+		controller, err := NewSecretController(createFakeCA(), defaultTTL, tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll}, webhooks, "")
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed to create secret controller")
@@ -202,16 +200,14 @@ func TestSecretContent(t *testing.T) {
 	saName := "test-serviceaccount"
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
+	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll}, map[string]*DNSNameEntry{}, "")
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
 	controller.saAdded(createServiceAccount(saName, saNamespace))
 
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
-	secret, err = client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
+	_ = k8ssecret.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
 	}
@@ -224,9 +220,7 @@ func TestSecretContent(t *testing.T) {
 }
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		[]string{metav1.NamespaceAll}, nil)
+	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll}, nil, "")
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -249,20 +243,21 @@ func TestDeletedIstioSecret(t *testing.T) {
 		expectedActions []ktesting.Action
 	}{
 		"Recover secret for existing service account": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa"),
-				ktesting.NewCreateAction(scrtGvr, "test-ns", ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewGetAction(nsGvr, "test-ns", "test-ns"),
+				ktesting.NewCreateAction(scrtGvr, "test-ns", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 		"Do not recover secret for non-existing service account in the same namespace": {
-			secret: ca.BuildSecret("test-sa2", "istio.test-sa2", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa2", "istio.test-sa2", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa2"),
 			},
 		},
 		"Do not recover secret for service account in different namespace": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns2", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns2", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns2", "test-sa"),
 			},
@@ -332,7 +327,8 @@ func TestUpdateSecret(t *testing.T) {
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
 			ttl:              time.Hour,
 			gracePeriodRatio: 0.5,
@@ -343,8 +339,7 @@ func TestUpdateSecret(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller, err := NewSecretController(createFakeCA(), time.Hour,
-			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll}, nil)
+		controller, err := NewSecretController(createFakeCA(), time.Hour, tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll}, nil, "")
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -372,6 +367,142 @@ func TestUpdateSecret(t *testing.T) {
 		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
 			t.Errorf("Case %q: %s", k, err.Error())
 		}
+	}
+}
+
+func TestManagedNamespaceRules(t *testing.T) {
+	testCases := map[string]struct {
+		ns                        *v1.Namespace
+		istioCaStorageNamespace   string
+		enableNamespacesByDefault bool
+		result                    bool
+	}{
+		"not managed by default, no override, and namespace label does not match actual ns => no secret": {
+			ns:                        createNS("unlabeled", map[string]string{}),
+			istioCaStorageNamespace:   "random",
+			enableNamespacesByDefault: false,
+			result:                    false,
+		},
+		"not managed by default, no override, and namespace matches => secret": {
+			ns:                        createNS("unlabeled", map[string]string{NamespaceManagedLabel: "test-ns"}),
+			istioCaStorageNamespace:   "test-ns",
+			enableNamespacesByDefault: false,
+			result:                    true,
+		},
+		"not managed by default, override is false, and namespace matches => no secret": {
+			ns:                        createNS("unlabeled", map[string]string{NamespaceManagedLabel: "test-ns", NamespaceOverrideLabel: "false"}),
+			istioCaStorageNamespace:   "test-ns",
+			enableNamespacesByDefault: false,
+			result:                    false,
+		},
+		"is managed by default, override is not present, and no namespace tag => secret": {
+			ns:                        createNS("unlabeled", map[string]string{}),
+			istioCaStorageNamespace:   "test-ns",
+			enableNamespacesByDefault: true,
+			result:                    true,
+		},
+		"is managed by default, override is false, and no namespace tag => no secret": {
+			ns:                        createNS("unlabeled", map[string]string{NamespaceOverrideLabel: "false"}),
+			istioCaStorageNamespace:   "test-ns",
+			enableNamespacesByDefault: true,
+			result:                    false,
+		},
+	}
+
+	for k, tc := range testCases {
+		t.Run(k, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			controller, err := NewSecretController(createFakeCA(), tc.enableNamespacesByDefault, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false, []string{metav1.NamespaceAll}, "")
+			if err != nil {
+				t.Errorf("failed to create secret controller: %v", err)
+			}
+			client.ClearActions()
+
+			if err != nil {
+				t.Errorf("failed to create ns in %s: %v", k, err)
+			}
+			isManaged := controller.namespaceIsManaged(tc.ns)
+
+			if isManaged != tc.result {
+				t.Errorf("Failure in test case %s: expected %t but got %t", k, tc.result, isManaged)
+			}
+		})
+	}
+}
+
+func TestRetroactiveNamespaceActivation(t *testing.T) {
+	nsSchema := schema.GroupVersionResource{
+		Resource: "namespaces",
+		Version:  "v1",
+	}
+	saSchema := schema.GroupVersionResource{
+		Resource: "serviceaccounts",
+		Version:  "v1",
+	}
+	secretSchema := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+
+	testCases := map[string]struct {
+		enableNamespacesByDefault bool
+		istioCaStorageNamespace   string
+		oldNamespace              *v1.Namespace
+		newNamespace              *v1.Namespace
+		secret                    *v1.Secret
+		sa                        *v1.ServiceAccount
+		expectedActions           []ktesting.Action
+	}{
+		"toggling label ca.istio.io/env from false->true generates service accounts": {
+			enableNamespacesByDefault: false,
+			istioCaStorageNamespace:   "citadel",
+			oldNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: ""}),
+			newNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: "citadel"}),
+			secret:                    k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
+			sa:                        createServiceAccount("test-sa", "test"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
+				ktesting.NewCreateAction(saSchema, "test", createServiceAccount("test-sa", "test")),
+				ktesting.NewListAction(saSchema, schema.GroupVersionKind{}, "test", metav1.ListOptions{}),
+				ktesting.NewCreateAction(secretSchema, "test", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType)),
+			},
+		},
+		"toggling label ca.istio.io/env from unlabeled to false should not generate secret": {
+			enableNamespacesByDefault: false,
+			istioCaStorageNamespace:   "citadel",
+			oldNamespace:              createNS("test", map[string]string{}),
+			newNamespace:              createNS("test", map[string]string{NamespaceManagedLabel: "false"}),
+			secret:                    k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test", nil, nil, nil, nil, nil, IstioSecretType),
+			sa:                        createServiceAccount("test-sa", "test"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("test", map[string]string{})),
+				ktesting.NewCreateAction(saSchema, "test", createServiceAccount("test-sa", "test")),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		t.Run(k, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			controller, err := NewSecretController(createFakeCA(), tc.enableNamespacesByDefault, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false, []string{metav1.NamespaceAll}, "")
+			if err != nil {
+				t.Errorf("failed to create secret controller: %v", err)
+			}
+			client.ClearActions()
+
+			if _, err := client.CoreV1().Namespaces().Create(tc.oldNamespace); err != nil {
+				t.Error(err)
+			}
+			if _, err := client.CoreV1().ServiceAccounts(tc.oldNamespace.GetName()).Create(tc.sa); err != nil {
+				t.Error(err)
+			}
+
+			controller.namespaceUpdated(tc.oldNamespace, tc.newNamespace)
+
+			if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+				t.Errorf("Failure in test case %s: %v", k, err)
+			}
+		})
 	}
 }
 

@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -49,6 +49,15 @@ type authenticator interface {
 	AuthenticatorType() string
 }
 
+// CertificateAuthority contains methods to be supported by a CA.
+type CertificateAuthority interface {
+	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
+	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
+	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	GetCAKeyCertBundle() util.KeyCertBundle
+}
+
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
@@ -56,7 +65,7 @@ type Server struct {
 	authenticators []authenticator
 	hostnames      []string
 	authorizer     authorizer
-	ca             ca.CertificateAuthority
+	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 	certificate    *tls.Certificate
 	port           int
@@ -85,8 +94,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
-		return nil, status.Errorf(signErr.(*ca.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*ca.Error))
+		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Inc()
+		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
 	respCertChain := []string{string(cert)}
 	if len(certChainBytes) != 0 {
@@ -99,6 +108,21 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	log.Debug("CSR successfully signed.")
 
 	return response, nil
+}
+
+// extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+func extractRootCertExpiryTimestamp(ca CertificateAuthority) float64 {
+	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
+	cert, err := util.ParsePemEncodedCertificate(rb)
+	if err != nil {
+		log.Errorf("Failed to parse the root cert: %v", err)
+		return -1
+	}
+	end := cert.NotAfter
+	if end.Before(time.Now()) {
+		log.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+	}
+	return float64(end.Unix())
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -136,8 +160,8 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
-		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*ca.Error))
+		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Inc()
+		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
 
 	response := &pb.CsrResponse{
@@ -183,8 +207,8 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int,
-	trustDomain string, sdsEnabled bool) (*Server, error) {
+func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
+	hostlist []string, port int, trustDomain string, sdsEnabled bool) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -265,7 +289,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 
 	certPEM, signErr := s.ca.Sign(csrPEM, s.hostnames, s.serverCertTTL, false)
 	if signErr != nil {
-		return nil, signErr.(*ca.Error)
+		return nil, signErr.(*caerror.Error)
 	}
 
 	cert, err := tls.X509KeyPair(certPEM, privPEM)

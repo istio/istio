@@ -19,16 +19,21 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/configmap"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
+	certutil "istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const (
@@ -49,8 +54,6 @@ const (
 	RootCertID = "root-cert.pem"
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
-	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
-	ReadSigningCertCheckInterval = time.Second * 5
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
@@ -66,15 +69,6 @@ const (
 	pluggedCertCA
 )
 
-// CertificateAuthority contains methods to be supported by a CA.
-type CertificateAuthority interface {
-	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
-	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
-	GetCAKeyCertBundle() util.KeyCertBundle
-}
-
 // IstioCAOptions holds the configurations for creating an Istio CA.
 // TODO(myidpt): remove IstioCAOptions.
 type IstioCAOptions struct {
@@ -87,26 +81,45 @@ type IstioCAOptions struct {
 
 	LivenessProbeOptions *probe.Options
 	ProbeCheckInterval   time.Duration
+
+	// Config for creating self-signed root cert rotator.
+	RotatorConfig *SelfSignedCARootCertRotatorConfig
 }
 
-// IstioCA generates keys and certificates for Istio identities.
-type IstioCA struct {
-	certTTL    time.Duration
-	maxCertTTL time.Duration
-
-	keyCertBundle util.KeyCertBundle
-
-	livenessProbe *probe.Probe
+// Append root certificates in RootCertFile to the input certificate.
+func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
+	var rootCerts []byte
+	if len(pemCert) > 0 {
+		// Copy the input certificate
+		rootCerts = make([]byte, len(pemCert))
+		copy(rootCerts, pemCert)
+	}
+	if len(rootCertFile) > 0 {
+		log.Debugf("append root certificates from %v", rootCertFile)
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
+		}
+		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
+		if len(rootCerts) > 0 {
+			// Append a newline after the last cert
+			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
+		}
+		rootCerts = append(rootCerts, certBytes...)
+	}
+	return rootCerts, nil
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
+	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
+	client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
-	if scrtErr != nil && readCertRetryInterval > 0 {
+	if scrtErr != nil && readCertRetryInterval > time.Duration(0) {
 		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
 		for scrtErr != nil {
@@ -123,10 +136,23 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 	}
 
+	rootCertGracePeriodPercentile := cmd.DefaultRootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
+		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
+			CheckInterval:       rootCertCheckInverval,
+			caCertTTL:           caCertTTL,
+			retryInterval:       cmd.ReadSigningCertCheckInterval,
+			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriodPercentile)),
+			caStorageNamespace:  namespace,
+			dualUse:             dualUse,
+			readSigningCertOnly: readSigningCertOnly,
+			org:                 org,
+			rootCertFile:        rootCertFile,
+			client:              client,
+		},
 	}
 	if scrtErr != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", scrtErr)
@@ -149,7 +175,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
-		secret := BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 		if _, err = client.Secrets(namespace).Create(secret); err != nil {
 			log.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
@@ -164,7 +190,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		log.Infof("Using existing public key: %v", string(caSecret.Data[caCertID]))
 	}
 
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
@@ -182,10 +208,24 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
+}
+
+// IstioCA generates keys and certificates for Istio identities.
+type IstioCA struct {
+	certTTL    time.Duration
+	maxCertTTL time.Duration
+
+	keyCertBundle util.KeyCertBundle
+
+	livenessProbe *probe.Probe
+
+	// rootCertRotator periodically rotates self-signed root cert for CA. It is nil
+	// if CA is not self-signed CA.
+	rootCertRotator *SelfSignedCARootCertRotator
 }
 
 // NewIstioCA returns a new IstioCA instance.
@@ -197,7 +237,17 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		livenessProbe: probe.NewProbe(),
 	}
 
+	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
+		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
+	}
 	return ca, nil
+}
+
+func (ca *IstioCA) Run(stopChan chan struct{}) {
+	if ca.rootCertRotator != nil {
+		// Start root cert rotator in a separate goroutine.
+		go ca.rootCertRotator.Run(stopChan)
+	}
 }
 
 // Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate. If forCA is true,
@@ -206,12 +256,12 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
-		return nil, NewError(CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
+		return nil, caerror.NewError(caerror.CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
 	}
 
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, NewError(CSRError, err)
+		return nil, caerror.NewError(caerror.CSRError, err)
 	}
 
 	lifetime := requestedLifetime
@@ -221,13 +271,13 @@ func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	}
 	// If the requested TTL is greater than maxCertTTL, return an error
 	if requestedLifetime.Seconds() > ca.maxCertTTL.Seconds() {
-		return nil, NewError(TTLError, fmt.Errorf(
+		return nil, caerror.NewError(caerror.TTLError, fmt.Errorf(
 			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, ca.maxCertTTL))
 	}
 
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, lifetime, forCA)
 	if err != nil {
-		return nil, NewError(CertGenError, err)
+		return nil, caerror.NewError(caerror.CertGenError, err)
 	}
 
 	block := &pem.Block{
@@ -244,33 +294,7 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-// BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
-func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
-	var ServiceAccountNameAnnotation map[string]string
-	if saName == "" {
-		ServiceAccountNameAnnotation = nil
-	} else {
-		ServiceAccountNameAnnotation = map[string]string{ServiceAccountNameAnnotationKey: saName}
-	}
-	return &v1.Secret{
-		Data: map[string][]byte{
-			CertChainID:    certChain,
-			PrivateKeyID:   privateKey,
-			RootCertID:     rootCert,
-			caCertID:       caCert,
-			caPrivateKeyID: caPrivateKey,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: ServiceAccountNameAnnotation,
-			Name:        scrtName,
-			Namespace:   namespace,
-		},
-		Type: secretType,
-	}
-}
-
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
-	_, _, _, cert := keyCertBundle.GetAllPem()
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)
