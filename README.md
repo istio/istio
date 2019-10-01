@@ -155,6 +155,14 @@ This is currently required if any mTLS is used. In future other Spifee implement
 it is possible to use other tools that create the expected certificates for Istio.
 
 ```bash
+# use the default HUB=gcr.io/istio-release, TAG=master-latest-daily defined in global.yaml
+iop istio-system citadel $IBASE/security/citadel
+```
+
+If you want to use a different `HUB` and `TAG`, the following example shows how to install istio 1.3.0's citadel:
+
+```bash
+export HUB=docker.io/istio TAG=1.3.0
 iop istio-system citadel $IBASE/security/citadel
 ```
 
@@ -218,6 +226,8 @@ iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
             --set global.configNamespace=istio-control \
             --set global.telemetryNamespace=istio-telemetry \
             --set global.policyNamespace=istio-policy
+
+# Second istio-discovery, using master version of istio
 TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
             --set global.istioNamespace=istio-master \
