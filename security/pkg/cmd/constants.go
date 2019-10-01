@@ -24,6 +24,10 @@ const (
 	// CA checks and rotates its root certificate.
 	DefaultSelfSignedRootCertCheckInterval = 1 * time.Hour
 
+	// SelfSignedRootCertMinCheckInterval is the minimum interval a self-signed
+	// CA checks and rotates its root certificate.
+	SelfSignedRootCertMinCheckInterval = 1 * time.Minute
+
 	// DefaultRootCertGracePeriodRatio is the default length of root certificate
 	// rotation grace period, configured as the ratio of the certificate TTL.
 	DefaultRootCertGracePeriodRatio = 0.2
