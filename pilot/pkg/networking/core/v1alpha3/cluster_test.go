@@ -221,9 +221,10 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithauthnPolicy(
+	return buildTestClustersWithAuthnPolicy(
 		serviceHostname,
 		serviceResolution,
+		false, // exteranalService
 		nodeType,
 		locality,
 		mesh,
@@ -232,12 +233,13 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 	)
 }
 
-func buildTestClustersWithauthnPolicy(serviceHostname string, serviceResolution model.Resolution,
+func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
+		exteranalService,
 		nodeType,
 		locality,
 		mesh,
@@ -250,21 +252,21 @@ func buildTestClustersWithauthnPolicy(serviceHostname string, serviceResolution 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule,
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* exteranalService */, nodeType, locality, mesh, destRule,
 		authnPolicy, &model.NodeMetadata{}, istioVersion)
 }
 
-func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
+func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution,
+	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, exteranalService,
 		nodeType, locality, mesh,
 		destRule, authnPolicy, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
-func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution,
+func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
@@ -288,12 +290,13 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		Namespace: TestServiceNamespace,
 	}
 	service := &model.Service{
-		Hostname:    host.Name(serviceHostname),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
-		Ports:       servicePort,
-		Resolution:  serviceResolution,
-		Attributes:  serviceAttribute,
+		Hostname:     host.Name(serviceHostname),
+		Address:      "1.1.1.1",
+		ClusterVIPs:  make(map[string]string),
+		Ports:        servicePort,
+		Resolution:   serviceResolution,
+		MeshExternal: exteranalService,
+		Attributes:   serviceAttribute,
 	}
 
 	instances := []*model.ServiceInstance{
@@ -552,7 +555,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		},
 	}
 
-	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
+	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
 		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
@@ -587,7 +590,7 @@ func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
 }
 
 func buildSniTestClustersWithMetadata(sniValue string, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", 0, model.Router, nil, testMesh,
+	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -1055,7 +1058,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, model.Router,
+	clusters, err := buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
 		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
@@ -1103,7 +1106,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	// Test failover
 	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
 
-	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, model.Router,
+	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
 		&core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
@@ -1525,7 +1528,7 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 		{[]string{"6.6.6.6"}, []bool{true, false}},
 		{[]string{"::1"}, []bool{false, true}},
 	} {
-		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
 			&networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -1576,7 +1579,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 		Peers: []*authn.PeerAuthenticationMethod{},
 	}
 
-	clusters, err := buildTestClustersWithauthnPolicy(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
@@ -1621,7 +1624,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithauthnPolicy(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -1633,6 +1636,51 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
+		g.Expect(cluster.TlsContext).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Port: &networking.PortSelector_Number{Number: 9090},
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_STRICT,
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, true, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Service is external, use the TLS settings specified in DR.
+	for _, cluster := range clusters {
 		g.Expect(cluster.TlsContext).To(BeNil())
 	}
 }
@@ -1675,7 +1723,7 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithauthnPolicy(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
