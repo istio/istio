@@ -25,11 +25,6 @@ spec:
         sidecar.istio.io/inject: "false"
         prometheus.io/scrape: "true"
         prometheus.io/port: "14269"
-{{- if .Values.contextPath }}
-        prometheus.io/path: "{{ .Values.contextPath }}/metrics"
-{{- else }}
-        prometheus.io/path: "/{{ .Values.provider }}/metrics"
-{{- end }}
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"

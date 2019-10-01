@@ -32,7 +32,6 @@ jaeger:
   hub: docker.io/jaegertracing
   image: all-in-one
   tag: 1.14
-  podAnnotations: {}
   memory:
     max_traces: 50000
   # spanStorageType value can be "memory" and "badger" for all-in-one image
