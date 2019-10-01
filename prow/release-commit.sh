@@ -47,11 +47,10 @@ version: ${VERSION}
 docker: docker.io/istio
 directory: ${WORK_DIR}
 dependencies:
-  - org: istio
-    repo: istio
+  istio:
     localpath: ${ROOT}
-  - org: istio
-    repo: cni
+  cni:
+    git: https://github.com/istio/cni
     auto: deps
 EOF
 )
