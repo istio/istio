@@ -1226,7 +1226,7 @@ func altStatName(statPattern string, host string, subset string, port *model.Por
 	return name
 }
 
-// shotHostName returns short host name skipping the domain part for k8s hosts. 
+// shotHostName returns short host name removing domain part for k8s hosts. 
 // For other hosts like VM hosts, this method does not do any thing.
 func shortHostName(host string) string {
 	if strings.HasSuffix(host, k8sDomain) {
