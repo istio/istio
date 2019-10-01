@@ -59,6 +59,12 @@ sidecarInjectorWebhook:
   neverInjectSelector: []
   alwaysInjectSelector: []
 
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
+
 # If set, no iptable init will be added. It assumes CNI is installed.
 # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
 istio_cni:

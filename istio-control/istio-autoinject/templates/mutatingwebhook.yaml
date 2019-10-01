@@ -48,6 +48,19 @@ webhooks:
       matchLabels:
         istio-env: {{ .Release.Namespace }}
 {{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
 ---
 {{- if .Values.sidecarInjectorWebhook.selfSigned }}
   {{- $cn := "istio-sidecar-injector" }}
