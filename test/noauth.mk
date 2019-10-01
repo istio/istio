@@ -4,10 +4,7 @@
 # Security is not enabled - this can be used for users who have ipsec or other secure VPC, or don't need the
 # security features. It is also intended to verify that Istio can work without citadel for a-la-carte modes.
 
-test-noauth: run-build-cluster run-build-minimal run-build-ingress
-	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-noauth maybe-clean maybe-prepare sync
-	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-noauth kind-run TARGET="run-test-noauth-micro"
-	$(MAKE) KIND_CLUSTER=${KIND_CLUSTER}-noauth kind-run TARGET="run-test-knative"
+run-test-noauth: ${TOP}/bin/istioctl run-test-noauth-micro run-test-noauth-full run-test-knative
 
 # Run a test with the smallest/simplest install possible
 run-test-noauth-micro:
@@ -80,7 +77,9 @@ run-test-knative: run-build-cluster run-build-minimal run-build-ingress
 	kubectl apply --filename test/knative/service.yaml
 
 	# The route may take some small period of time to be create (WAIT_TIMEOUT default is 240s)
-	kubectl wait routes helloworld-go --for=condition=ready --timeout=600s
+	# kubectl wait is problematic, as the pod may not exist before the command is issued.
+	until timeout 120s kubectl get routes helloworld-go; do echo "Waiting for routes to be created..."; done
+	kubectl wait routes helloworld-go --for=condition=ready --timeout=120s
 
 	# Verify that ingress, pilot and knative are all happy
 	#curl localhost:30090/hello -v -H Host:helloworld-go.default.example.com
