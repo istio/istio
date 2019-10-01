@@ -214,10 +214,15 @@ func (s *source) Start(handler resource.EventHandler) error {
 		s.initialCheck()
 		c := make(chan appsignals.Signal, 1)
 		appsignals.Watch(c)
+		shut := make(chan os.Signal, 1)
+		if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
+			log.Scope.Errorf("Unable to setup FileTrigger %s: %v", s.root, err)
+		}
 
 		for {
 			select {
 			case <-ctx.Done():
+				shut <- syscall.SIGTERM
 				return
 			case trigger := <-c:
 				if trigger.Signal == syscall.SIGUSR1 {
