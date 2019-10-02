@@ -57,7 +57,7 @@ TARGET_OUT ?= $(HOME)/istio_out/$(REPO_NAME)
 ifeq ($(BUILD_WITH_CONTAINER),1)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-01T21-32-16
+IMG ?= gcr.io/istio-testing/build-tools:2019-10-02T14-57-08
 UID = $(shell id -u)
 PWD = $(shell pwd)
 
@@ -69,6 +69,7 @@ $(info Building with the build container: $(IMG).)
 TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
 
 RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):docker --rm \
+	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
