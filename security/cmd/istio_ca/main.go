@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	selfSignedCaCertTtl                = "SELF_SIGNED_CA_CERT_TTL"
+	selfSignedCaCertTTL                = "SELF_SIGNED_CA_CERT_TTL"
 	selfSignedRootCertCheckInterval    = "SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
 	selfSignedRootCertMinCheckInterval = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
 	workloadCertMinGracePeriod         = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
@@ -128,7 +128,7 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
-		selfSignedCACertTTL: env.RegisterDurationVar(selfSignedCaCertTtl,
+		selfSignedCACertTTL: env.RegisterDurationVar(selfSignedCaCertTTL,
 			cmd.DefaultSelfSignedCACertTTL,
 			"The TTL of self-signed CA root certificate.").Get(),
 		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
