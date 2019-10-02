@@ -579,9 +579,12 @@ var xxx_messageInfo_Params_LogInfo_HttpRequestMapping proto.InternalMessageInfo
 // Ex: If you want to export it to a GCS bucket, id would be a unique idetifier you want for the sink,
 // destination would be the storage be name of GCS Storage bucket and filter would be user defined condition for
 // filtering logs. See below for a sample config:
-//      id: 'info-errors-to-gcs'
-//      destination: 'storage.googleapis.com/<bucket_name>'
-//      filter: 'severity >= Default'
+//
+// ```yaml
+// id: 'info-errors-to-gcs'
+// destination: 'storage.googleapis.com/<bucket_name>'
+// filter: 'severity >= Default'
+// ```
 type Params_LogInfo_SinkInfo struct {
 	// Client assigned sink identifier.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

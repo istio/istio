@@ -86,7 +86,7 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
 	Quotas []Params_Quota `protobuf:"bytes,1,rep,name=quotas,proto3" json:"quotas"`
-	// Redis connection string <hostname>:<port number>
+	// Redis connection string `<hostname>:<port number>`
 	// ex) localhost:6379
 	RedisServerUrl string `protobuf:"bytes,2,opt,name=redis_server_url,json=redisServerUrl,proto3" json:"redis_server_url,omitempty"`
 	// Maximum number of idle connections to redis

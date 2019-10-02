@@ -64,7 +64,7 @@ type Params struct {
 	// List of OPA policies
 	Policy []string `protobuf:"bytes,1,rep,name=policy,proto3" json:"policy,omitempty"`
 	// Query method to check.
-	// Format: data.<package name>.<method name>
+	// Format: `data.<package name>.<method name>`
 	CheckMethod string `protobuf:"bytes,2,opt,name=check_method,json=checkMethod,proto3" json:"check_method,omitempty"`
 	// Close the client request when adapter has a issue.
 	// If failClose is set to true and there is a runtime error,
