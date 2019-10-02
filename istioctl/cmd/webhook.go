@@ -79,7 +79,7 @@ func (opts *enableCliOptions) Validate() error {
 			return fmt.Errorf("must specify a valid --validation-config")
 		}
 		if len(opts.validationWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --validation-config-path")
+			return fmt.Errorf("must specify a valid --validation-path")
 		}
 		if len(opts.validatingWebhookServiceName) == 0 {
 			return fmt.Errorf("must specify a valid --validation-service")
@@ -93,7 +93,7 @@ func (opts *enableCliOptions) Validate() error {
 			return fmt.Errorf("must specify a valid --injection-config")
 		}
 		if len(opts.mutatingWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --injection-config-path")
+			return fmt.Errorf("must specify a valid --injection-path")
 		}
 		if len(opts.mutatingWebhookServiceName) == 0 {
 			return fmt.Errorf("must specify a valid --injection-service")
@@ -177,11 +177,11 @@ func newEnableCmd() *cobra.Command {
 		Example: `
 # Enable the webhook configuration of Galley with the given webhook configuration
 istioctl experimental post-install webhook enable --validation --validation-secret istio.webhook.galley 
-    --namespace istio-system --config-path validatingwebhookconfiguration.yaml
+    --namespace istio-system --validation-path validatingwebhookconfiguration.yaml
 
 # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
 istioctl experimental post-install webhook enable --validation --validation-secret istio.webhook.galley 
-    --namespace istio-system --config-path validatingwebhookconfiguration.yaml --ca-bundle-file ./k8s-ca-cert.pem
+    --namespace istio-system --validation-path validatingwebhookconfiguration.yaml --ca-bundle-file ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// --namespace is used as the namespace of the webhook secret
@@ -215,9 +215,9 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
 			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
 			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
-	flags.StringVar(&opts.validationWebhookConfigPath, "validation-config-path", "",
+	flags.StringVar(&opts.validationWebhookConfigPath, "validation-path", "",
 		"The file path of the validation webhook configuration.")
-	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-config-path", "",
+	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-path", "",
 		"The file path of the injection webhook configuration.")
 	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
 		"The name of the ValidatingWebhookConfiguration to manage.")
@@ -245,11 +245,11 @@ func newDisableCmd() *cobra.Command {
 		Use:   "disable",
 		Short: "Disable webhook configurations",
 		Example: `
-# Disable the webhook configuration of Galley
-istioctl experimental post-install webhook disable --validation --validation-config istio-galley
-# Disable the webhook configuration of Galley and Sidecar Injector
-istioctl experimental post-install webhook disable --validation --validation-config istio-galley 
-  --injection --injection-config istio-sidecar-injector
+# Disable all webhooks
+istioctl experimental post-install webhook disable
+
+# Disable all webhooks except injection
+istioctl experimental post-install webhook disable --injection=false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {

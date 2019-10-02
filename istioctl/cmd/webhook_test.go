@@ -87,14 +87,14 @@ func TestCheckCertificate(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		err := checkCertificate([]byte(tc.cert))
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else if err != nil {
-			t.Errorf("should not fail, but err: %v", err)
+			t.Errorf("%v: should not fail, but err: %v", tcName, err)
 		}
 	}
 }
@@ -117,14 +117,14 @@ func TestVerifyCertChain(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		err := veriyCertChain([]byte(tc.cert), []byte(tc.caCert))
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else if err != nil {
-			t.Errorf("should not fail, but err: %v", err)
+			t.Errorf("%v: should not fail, but err: %v", tcName, err)
 		}
 	}
 }
@@ -231,14 +231,14 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		err := tc.opt.Validate()
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("opt (%v) should have failed", tc.opt)
+				t.Errorf("%v: opt (%v) should have failed", tcName, tc.opt)
 			}
 		} else if err != nil {
-			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
+			t.Errorf("%v: opt (%v) should not fail, but err: %v", tcName, tc.opt, err)
 		}
 	}
 }
@@ -294,14 +294,14 @@ func TestDisableCliOptionsValidation(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		err := tc.opt.Validate()
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("opt (%v) should have failed", tc.opt)
+				t.Errorf("%v: opt (%v) should have failed", tcName, tc.opt)
 			}
 		} else if err != nil {
-			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
+			t.Errorf("%v: opt (%v) should not fail, but err: %v", tcName, tc.opt, err)
 		}
 	}
 }
@@ -357,14 +357,14 @@ func TestStatusCliOptionsValidation(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		err := tc.opt.Validate()
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("opt (%v) should have failed", tc.opt)
+				t.Errorf("%v: opt (%v) should have failed", tcName, tc.opt)
 			}
 		} else if err != nil {
-			t.Errorf("opt (%v) should not fail, but err: %v", tc.opt, err)
+			t.Errorf("%v: opt (%v) should not fail, but err: %v", tcName, tc.opt, err)
 		}
 	}
 }
@@ -425,7 +425,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
@@ -434,11 +434,11 @@ func TestDisableWebhookConfig(t *testing.T) {
 				tc.opt.validatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when creating validatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 		if tc.createMutatingWebhookConfig {
@@ -448,25 +448,25 @@ func TestDisableWebhookConfig(t *testing.T) {
 				tc.opt.mutatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createMutatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: error when creating mutatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 
 		validationErr, injectionErr := disableWebhookConfig(client, &tc.opt)
 		if tc.shouldFail {
 			if validationErr == nil && injectionErr == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if validationErr != nil {
-				t.Errorf("should not fail, but err when disabling validation webhook: %v", validationErr)
+				t.Errorf("%v: should not fail, but err when disabling validation webhook: %v", tcName, validationErr)
 			}
 			if injectionErr != nil {
-				t.Errorf("should not fail, but err when disabling injection webhook: %v", injectionErr)
+				t.Errorf("%v: should not fail, but err when disabling injection webhook: %v", tcName, injectionErr)
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		var webhookConfig *v1beta1.ValidatingWebhookConfiguration
 		var err error
@@ -546,27 +546,27 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 				tc.opt.validatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build ValidatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: err when build ValidatingWebhookConfiguration: %v", tcName, err)
 			}
 			_, err = createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating ValidatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: error when creating ValidatingWebhookConfiguration: %v", tcName, err)
 			}
 			if len(webhookConfig.Webhooks) == 0 {
-				t.Fatalf("empty webhooks in the webhook configuration")
+				t.Fatalf("%v: empty webhooks in the webhook configuration", tcName)
 			}
 		}
 		if tc.updateWebhookConfig {
 			webhookConfig.Webhooks[0].ClientConfig.CABundle = []byte("new-ca-bundle")
 			updated, err := createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when updating ValidatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: error when updating ValidatingWebhookConfiguration: %v", tcName, err)
 			}
 			if len(updated.Webhooks) == 0 {
-				t.Fatalf("empty webhooks in the updated webhook configuration")
+				t.Fatalf("%v: empty webhooks in the updated webhook configuration", tcName)
 			}
 			if string(updated.Webhooks[0].ClientConfig.CABundle) != "new-ca-bundle" {
-				t.Fatalf("the updated CA bundle does not match new-ca-bundle")
+				t.Fatalf("%v: the updated CA bundle does not match new-ca-bundle", tcName)
 			}
 		}
 	}
@@ -599,7 +599,7 @@ func TestCreateMutatingWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		var webhookConfig *v1beta1.MutatingWebhookConfiguration
 		var err error
@@ -610,27 +610,27 @@ func TestCreateMutatingWebhookConfig(t *testing.T) {
 				tc.opt.mutatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build MutatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: err when build MutatingWebhookConfiguration: %v", tcName, err)
 			}
 			_, err = createMutatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating MutatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: error when creating MutatingWebhookConfiguration: %v", tcName, err)
 			}
 			if len(webhookConfig.Webhooks) == 0 {
-				t.Fatalf("empty webhooks in the webhook configuration")
+				t.Fatalf("%v: empty webhooks in the webhook configuration", tcName)
 			}
 		}
 		if tc.updateWebhookConfig {
 			webhookConfig.Webhooks[0].ClientConfig.CABundle = []byte("new-ca-bundle")
 			updated, err := createMutatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when updating MutatingWebhookConfiguration: %v", err)
+				t.Fatalf("%v: error when updating MutatingWebhookConfiguration: %v", tcName, err)
 			}
 			if len(updated.Webhooks) == 0 {
-				t.Fatalf("empty webhooks in the updated webhook configuration")
+				t.Fatalf("%v: empty webhooks in the updated webhook configuration", tcName)
 			}
 			if string(updated.Webhooks[0].ClientConfig.CABundle) != "new-ca-bundle" {
-				t.Fatalf("the updated CA bundle does not match new-ca-bundle")
+				t.Fatalf("%v: the updated CA bundle does not match new-ca-bundle", tcName)
 			}
 		}
 	}
@@ -660,7 +660,7 @@ func TestDisplayValidationWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
@@ -669,22 +669,22 @@ func TestDisplayValidationWebhookConfig(t *testing.T) {
 				tc.opt.validatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: error when creating validatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 
 		validationErr := displayValidationWebhookConfig(client, &tc.opt)
 		if tc.shouldFail {
 			if validationErr == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if validationErr != nil {
-				t.Errorf("should not fail, but err when displaying validation webhook: %v", validationErr)
+				t.Errorf("%v: should not fail, but err when displaying validation webhook: %v", tcName, validationErr)
 			}
 		}
 	}
@@ -714,7 +714,7 @@ func TestDisplayMutationWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 
 		if tc.createMutatingWebhookConfig {
@@ -724,22 +724,22 @@ func TestDisplayMutationWebhookConfig(t *testing.T) {
 				tc.opt.mutatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createMutatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: error when creating mutatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 
 		injectionErr := displayMutationWebhookConfig(client, &tc.opt)
 		if tc.shouldFail {
 			if injectionErr == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if injectionErr != nil {
-				t.Errorf("should not fail, but err when displaying injection webhook: %v", injectionErr)
+				t.Errorf("%v: should not fail, but err when displaying injection webhook: %v", tcName, injectionErr)
 			}
 		}
 	}
@@ -801,7 +801,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
@@ -810,11 +810,11 @@ func TestDisplayWebhookConfig(t *testing.T) {
 				tc.opt.validatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createValidatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating validatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: error when creating validatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 		if tc.createMutatingWebhookConfig {
@@ -824,25 +824,25 @@ func TestDisplayWebhookConfig(t *testing.T) {
 				tc.opt.mutatingWebhookConfigName,
 			)
 			if err != nil {
-				t.Fatalf("err when build mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}
 			_, err = createMutatingWebhookConfig(client, webhookConfig)
 			if err != nil {
-				t.Fatalf("error when creating mutatingwebhookconfiguration: %v", err)
+				t.Fatalf("%v: error when creating mutatingwebhookconfiguration: %v", tcName, err)
 			}
 		}
 
 		validationErr, injectionErr := displayWebhookConfig(client, &tc.opt)
 		if tc.shouldFail {
 			if validationErr == nil && injectionErr == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if validationErr != nil {
-				t.Errorf("should not fail, but err when displaying validation webhook: %v", validationErr)
+				t.Errorf("%v: should not fail, but err when displaying validation webhook: %v", tcName, validationErr)
 			}
 			if injectionErr != nil {
-				t.Errorf("should not fail, but err when displaying injection webhook: %v", injectionErr)
+				t.Errorf("%v: should not fail, but err when displaying injection webhook: %v", tcName, injectionErr)
 			}
 		}
 	}
@@ -863,7 +863,7 @@ func TestReadCertFromSecret(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 
 		if tc.createSecret {
@@ -883,21 +883,21 @@ func TestReadCertFromSecret(t *testing.T) {
 			}
 			_, err := client.CoreV1().Secrets("bar").Create(secret)
 			if err != nil {
-				t.Fatalf("error when creating secret foo: %v", err)
+				t.Fatalf("%v: error when creating secret foo: %v", tcName, err)
 			}
 		}
 		cert, err := readCertFromSecret(client, "foo", "bar")
 
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("should not fail, but err: %v", err)
+				t.Errorf("%v: should not fail, but err: %v", tcName, err)
 			}
 			if len(cert) == 0 {
-				t.Errorf("should not fail, but read returns empty cert")
+				t.Errorf("%v: should not fail, but read returns empty cert", tcName)
 			}
 		}
 	}
@@ -918,7 +918,7 @@ func TestReadCACertFromSA(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		if tc.create {
 			secret := &v1.Secret{
@@ -938,7 +938,7 @@ func TestReadCACertFromSA(t *testing.T) {
 			}
 			_, err := client.CoreV1().Secrets("bar").Create(secret)
 			if err != nil {
-				t.Fatalf("error when creating secret foo: %v", err)
+				t.Fatalf("%v: error when creating secret foo: %v", tcName, err)
 			}
 			sa := &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
@@ -953,21 +953,21 @@ func TestReadCACertFromSA(t *testing.T) {
 			})
 			_, err = client.CoreV1().ServiceAccounts("bar").Create(sa)
 			if err != nil {
-				t.Fatalf("error when creating service account foo: %v", err)
+				t.Fatalf("%v: error when creating service account foo: %v", tcName, err)
 			}
 		}
 
 		cert, err := readCACertFromSA(client, "bar", "foo")
 		if tc.shouldFail {
 			if err == nil {
-				t.Errorf("should have failed")
+				t.Errorf("%v: should have failed", tcName)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("should not fail, but err: %v", err)
+				t.Errorf("%v: should not fail, but err: %v", tcName, err)
 			}
 			if len(cert) == 0 {
-				t.Errorf("should not fail, but read returns empty cert")
+				t.Errorf("%v: should not fail, but read returns empty cert", tcName)
 			}
 		}
 	}
