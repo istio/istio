@@ -141,9 +141,7 @@ var (
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 80,
-								},
+								Number: 80,
 							},
 						},
 						Weight: 100,

@@ -65,9 +65,7 @@
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/bar"
-                  }
+                  "exact": "/bar"
                 }
               }
             ],
@@ -76,9 +74,7 @@
                 "destination": {
                   "host": "service2.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 2400
-                    }
+                    "number": 2400
                   }
                 },
                 "weight": 100
@@ -89,9 +85,7 @@
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/foo"
-                  }
+                  "exact": "/foo"
                 }
               }
             ],
@@ -100,9 +94,7 @@
                 "destination": {
                   "host": "service1.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 4200
-                    }
+                    "number": 4200
                   }
                 },
                 "weight": 100

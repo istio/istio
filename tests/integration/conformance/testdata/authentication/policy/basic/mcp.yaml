@@ -6,9 +6,7 @@ constraints:
         "Body": {
           "peers": [
           {
-            "Params": {
-              "Mtls": {}
-            }
+            "mtls": {}
           }
           ],
           "targets": [
@@ -16,19 +14,13 @@ constraints:
             "name": "d",
             "ports": [
             {
-              "Port": {
-                "Number": 80
-              }
+              "number": 80
             },
             {
-              "Port": {
-                "Number": 7070
-              }
+              "number": 7070
             },
             {
-              "Port": {
-                "Number": 9090
-              }
+              "number": 9090
             }
             ]
           }
@@ -40,4 +32,3 @@ constraints:
         "TypeURL": "type.googleapis.com/istio.authentication.v1alpha1.Policy"
       }
 
-          
