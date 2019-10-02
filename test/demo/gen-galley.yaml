@@ -1,5 +1,6 @@
 ---
 # Source: istio-config/templates/configmap-envoy.yaml
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -90,7 +91,6 @@ data:
             require_client_certificate: true
 ---
 
-
 ---
 # Source: istio-config/templates/configmap-mesh.yaml
 apiVersion: v1
@@ -101,8 +101,6 @@ metadata:
   labels:
     release: istio-system-istio
 data:
-
-
   mesh: |-
     {}
     
@@ -266,42 +264,44 @@ metadata:
   labels:
     release: istio-system-istio
 rules:
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["validatingwebhookconfigurations"]
-  verbs: ["*"]
-- apiGroups: ["config.istio.io"] # istio mixer CRD watcher
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["security.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions","apps"]
-  resources: ["deployments"]
-  resourceNames: ["istio-galley"]
-  verbs: ["get"]
-- apiGroups: [""]
-  resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["deployments/finalizers"]
-  resourceNames: ["istio-galley"]
-  verbs: ["update"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list", "watch"]
----
+  # For reading Istio resources
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+    # For updating Istio resource statuses
+  - apiGroups: [
+    "authentication.istio.io",
+    "config.istio.io",
+    "networking.istio.io",
+    "rbac.istio.io",
+    "security.istio.io"]
+    resources: ["*/status"]
+    verbs: ["update"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["*"]
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments"]
+    resourceNames: ["istio-galley"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["deployments/finalizers"]
+    resourceNames: ["istio-galley"]
+    verbs: ["update"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
 
 ---
 # Source: istio-config/templates/clusterrolebinding.yaml
@@ -393,8 +393,8 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/healthliveness
-          - --readinessProbePath=/healthready
+          - --livenessProbePath=/tmp/healthliveness
+          - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
           - --enable-validation=true
@@ -420,7 +420,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthliveness
+                - --probe-path=/tmp/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -429,7 +429,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthready
+                - --probe-path=/tmp/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -474,7 +474,6 @@ spec:
               cpu: 10m
               memory: 40Mi
             
-
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs

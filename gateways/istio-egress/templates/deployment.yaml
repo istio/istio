@@ -178,9 +178,9 @@ spec:
                 apiVersion: v1
                 fieldPath: status.hostIP
           - name: SERVICE_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.serviceAccountName
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-egressgateway
           - name: ISTIO_META_OWNER

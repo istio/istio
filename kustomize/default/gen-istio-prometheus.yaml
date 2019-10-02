@@ -395,7 +395,8 @@ spec:
               port: 9090
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
           volumeMounts:
           - name: config-volume
@@ -469,7 +470,7 @@ spec:
       mode: DISABLE
 
 ---
-# Source: prometheus/templates/inrgess.yaml
+# Source: prometheus/templates/ingress.yaml
 
 ---
 # Source: prometheus/templates/tests/test-prometheus-connection.yaml

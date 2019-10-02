@@ -26,6 +26,11 @@ metadata:
     release: istio-system-istio
 data:
   config.yaml: |
+    istio_component_namespaces:
+      grafana: istio-system
+      tracing: istio-system
+      pilot: istio-system
+      prometheus: istio-system
     istio_namespace: istio-system
     server:
       port: 20001
@@ -40,6 +45,7 @@ data:
     identity:
       cert_file: /kiali-cert/cert-chain.pem
       private_key_file: /kiali-cert/key.pem
+
 ---
 # Source: kiali/templates/serviceaccount.yaml
 apiVersion: v1
@@ -98,82 +104,13 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: ["config.istio.io"]
-    resources:
-      - apikeys
-      - authorizations
-      - checknothings
-      - circonuses
-      - deniers
-      - fluentds
-      - handlers
-      - kubernetesenvs
-      - kuberneteses
-      - listcheckers
-      - listentries
-      - logentries
-      - memquotas
-      - metrics
-      - opas
-      - prometheuses
-      - quotas
-      - quotaspecbindings
-      - quotaspecs
-      - rbacs
-      - reportnothings
-      - rules
-      - solarwindses
-      - stackdrivers
-      - statsds
-      - stdios
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  - apiGroups: ["networking.istio.io"]
-    resources:
-      - destinationrules
-      - gateways
-      - serviceentries
-      - sidecars
-      - virtualservices
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  - apiGroups: ["authentication.istio.io"]
-    resources:
-      - policies
-      - meshpolicies
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  - apiGroups: ["rbac.istio.io"]
-    resources:
-      - clusterrbacconfigs
-      - rbacconfigs
-      - serviceroles
-      - servicerolebindings
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  - apiGroups: ["security.istio.io"]
-    resources:
-      - authorizationpolicies
+  - apiGroups: 
+    - config.istio.io
+    - networking.istio.io
+    - authentication.istio.io
+    - rbac.istio.io
+    - security.istio.io
+    resources: ["*"]
     verbs:
       - create
       - delete
@@ -232,72 +169,13 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: ["config.istio.io"]
-    resources:
-      - apikeys
-      - authorizations
-      - checknothings
-      - circonuses
-      - deniers
-      - fluentds
-      - handlers
-      - kubernetesenvs
-      - kuberneteses
-      - listcheckers
-      - listentries
-      - logentries
-      - memquotas
-      - metrics
-      - opas
-      - prometheuses
-      - quotas
-      - quotaspecbindings
-      - quotaspecs
-      - rbacs
-      - reportnothings
-      - rules
-      - servicecontrolreports
-      - servicecontrols
-      - solarwindses
-      - stackdrivers
-      - statsds
-      - stdios
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["networking.istio.io"]
-    resources:
-      - destinationrules
-      - gateways
-      - serviceentries
-      - sidecars
-      - virtualservices
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["authentication.istio.io"]
-    resources:
-      - policies
-      - meshpolicies
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["rbac.istio.io"]
-    resources:
-      - clusterrbacconfigs
-      - rbacconfigs
-      - serviceroles
-      - servicerolebindings
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups: ["security.istio.io"]
-    resources:
-      - authorizationpolicies
+  - apiGroups: 
+    - config.istio.io
+    - networking.istio.io
+    - authentication.istio.io
+    - rbac.istio.io
+    - security.istio.io
+    resources: ["*"]
     verbs:
       - get
       - list
@@ -375,7 +253,7 @@ spec:
     spec:
       serviceAccountName: kiali-service-account
       containers:
-      - image: "docker.io/kiali/kiali:v1.1.0"
+      - image: "docker.io/kiali/kiali:v1.4.0"
         imagePullPolicy: Always
         name: kiali
         command:
@@ -417,7 +295,8 @@ spec:
           mountPath: "/kiali-secret"
         resources:
           requests:
-            cpu: 10m
+            cpu: 0m
+            memory: 1Mi
           
       volumes:
       - name: kiali-configuration

@@ -34,6 +34,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -77,6 +79,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -116,6 +120,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -162,6 +168,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -186,6 +194,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -210,6 +220,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -234,6 +246,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -259,6 +273,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -283,6 +299,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -307,6 +325,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -331,6 +351,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -355,6 +377,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -381,6 +405,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -407,6 +433,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -433,6 +461,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -459,6 +489,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -485,6 +517,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -523,6 +557,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -549,6 +585,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -575,6 +613,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -601,6 +641,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -626,6 +668,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -651,6 +695,8 @@ spec:
       - istio-io
       - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -676,6 +722,8 @@ spec:
       - istio-io
       - security-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1beta1
       served: true
