@@ -32,7 +32,7 @@ func Initialize(
 	distributor snapshotter.Distributor) (*processing.Runtime, error) {
 
 	var options []snapshotter.SnapshotOptions
-	for _, s := range m.Snapshots() {
+	for _, s := range m.AllSnapshots() {
 		str, err := strategy.Create(s.Strategy)
 		if err != nil {
 			return nil, err

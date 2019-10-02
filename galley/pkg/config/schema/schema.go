@@ -25,17 +25,17 @@ import (
 
 // Metadata is the top-level container.
 type Metadata struct {
-	collections collection.Specs
-	snapshots   map[string]*Snapshot
-	sources     []Source
-	transforms  []Transform
+	collections       collection.Specs
+	snapshots         map[string]*Snapshot
+	sources           []Source
+	transformSettings []TransformSettings
 }
 
-// Collections is all known collections
-func (m *Metadata) Collections() collection.Specs { return m.collections }
+// AllCollections is all known collections
+func (m *Metadata) AllCollections() collection.Specs { return m.collections }
 
-// Snapshots returns all known snapshots
-func (m *Metadata) Snapshots() []*Snapshot {
+// AllSnapshots returns all known snapshots
+func (m *Metadata) AllSnapshots() []*Snapshot {
 	result := make([]*Snapshot, 0, len(m.snapshots))
 	for _, s := range m.snapshots {
 		result = append(result, s)
@@ -43,8 +43,8 @@ func (m *Metadata) Snapshots() []*Snapshot {
 	return result
 }
 
-// Sources is all known sources
-func (m *Metadata) Sources() []Source {
+// AllSources is all known sources
+func (m *Metadata) AllSources() []Source {
 	result := make([]Source, len(m.sources))
 	copy(result, m.sources)
 	return result
@@ -62,23 +62,23 @@ func (m *Metadata) KubeSource() *KubeSource {
 	panic("Metadata.KubeSource: KubeSource not found")
 }
 
-// Transforms is all known transforms
-func (m *Metadata) Transforms() []Transform {
-	result := make([]Transform, len(m.transforms))
-	copy(result, m.transforms)
+// TransformSettings is all known transformSettings
+func (m *Metadata) TransformSettings() []TransformSettings {
+	result := make([]TransformSettings, len(m.transformSettings))
+	copy(result, m.transformSettings)
 	return result
 }
 
-// DirectTransform is a temporary convenience function for getting the Direct Transform config. As the
+// DirectTransformSettings is a temporary convenience function for getting the Direct TransformSettings config. As the
 // infrastructure is generified, then this method should disappear.
-func (m *Metadata) DirectTransform() *DirectTransform {
-	for _, s := range m.transforms {
-		if ks, ok := s.(*DirectTransform); ok {
+func (m *Metadata) DirectTransformSettings() *DirectTransformSettings {
+	for _, s := range m.transformSettings {
+		if ks, ok := s.(*DirectTransformSettings); ok {
 			return ks
 		}
 	}
 
-	panic("Metadata.DirectTransform: DirectTransform not found")
+	panic("Metadata.DirectTransformSettings: DirectTransformSettings not found")
 }
 
 // AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in snapshots.
@@ -114,8 +114,9 @@ type Snapshot struct {
 type Source interface {
 }
 
-// Transform configuration metadata.
-type Transform interface {
+// TransformSettings is configuration that is supplied to a particular transform.
+type TransformSettings interface {
+	Type() string
 }
 
 // KubeSource is configuration for K8s based input sources.
@@ -123,7 +124,7 @@ type KubeSource struct {
 	resources []*KubeResource
 }
 
-// KubeResources is all known resources
+// Resources is all known K8s resources
 func (k *KubeSource) Resources() KubeResources {
 	result := make([]KubeResource, len(k.resources))
 	for i, r := range k.resources {
@@ -187,13 +188,20 @@ func (k KubeResources) MustFind(group, kind string) KubeResource {
 	return r
 }
 
-// DirectTransform configuration
-type DirectTransform struct {
+// DirectTransformSettings configuration
+type DirectTransformSettings struct {
 	mapping map[collection.Name]collection.Name
 }
 
+var _ TransformSettings = &DirectTransformSettings{}
+
+// Type implements TransformSettings
+func (d *DirectTransformSettings) Type() string {
+	return ast.Direct
+}
+
 // Mapping from source to destination
-func (d *DirectTransform) Mapping() map[collection.Name]collection.Name {
+func (d *DirectTransformSettings) Mapping() map[collection.Name]collection.Name {
 	m := make(map[collection.Name]collection.Name)
 	for k, v := range d.mapping {
 		m[k] = v
@@ -280,23 +288,23 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 		}
 	}
 
-	var transforms []Transform
-	for _, t := range astm.Transforms {
+	var transforms []TransformSettings
+	for _, t := range astm.TransformSettings {
 		switch v := t.(type) {
-		case *ast.DirectTransform:
+		case *ast.DirectTransformSettings:
 			mapping := make(map[collection.Name]collection.Name)
-			for k, v := range v.Mapping {
+			for k, val := range v.Mapping {
 				from, ok := collections.Lookup(k)
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", k)
 				}
-				to, ok := collections.Lookup(v)
+				to, ok := collections.Lookup(val)
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", v)
 				}
 				mapping[from.Name] = to.Name
 			}
-			tr := &DirectTransform{
+			tr := &DirectTransformSettings{
 				mapping: mapping,
 			}
 			transforms = append(transforms, tr)
@@ -307,9 +315,9 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 	}
 
 	return &Metadata{
-		collections: collections,
-		snapshots:   snapshots,
-		sources:     sources,
-		transforms:  transforms,
+		collections:       collections,
+		snapshots:         snapshots,
+		sources:           sources,
+		transformSettings: transforms,
 	}, nil
 }

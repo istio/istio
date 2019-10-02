@@ -43,7 +43,7 @@ func main() {
 	}
 
 	var packages []string
-	for _, r := range c.Collections().All() {
+	for _, r := range c.AllCollections().All() {
 		packages = append(packages, r.ProtoPackage)
 	}
 	contents, err := codegen.StaticInit(pkg, packages)
