@@ -1,6 +1,3 @@
-[![CircleCI](https://circleci.com/gh/istio/installer.svg?style=shield)](https://circleci.com/gh/istio/installer)
-[![Build Status](https://badge.buildkite.com/a22a72134042949c314994a6d0e0abe0281444541d25d2d105.svg)](https://buildkite.com/istio/istio-installer)
-
 # Istio Installer
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
@@ -32,7 +29,7 @@ where the corresponding control plane components (config, discovery, auto-inject
 In the examples below, by default this is the `istio-control` namespace. Pod annotations can also
 be used to select a different 'environment'.
 
-# Installing
+## Installing
 
 The new installer is intended to be modular and very explicit about what is installed. It has
 far more steps than the Istio installer - but each step is smaller and focused on a specific
@@ -55,7 +52,7 @@ across environments ( for example canary -> prod )
 Note: there are still some cluster roles that may need to be fixed, most likely cluster permissions
 will need to move to the security component.
 
-# Everything is Optional
+## Everything is Optional
 
 Each component in the new installer is optional. Users can install the component defined in the new installer,
 use the equivalent component in `istio-system`, configured with the official installer, or use a different
@@ -69,7 +66,7 @@ This is a work in progress - building on top of the multi-cluster installer.
 As an extreme, the goal is to be possible to run Istio workloads in a cluster without installing any Istio component
 in that cluster. Currently the minimum we require is the security provider (node agent or citadel).
 
-# Namespaces
+## Namespaces
 
 The new installer recommends isolating components in different namespaces with different service accounts and access.
 
@@ -121,11 +118,11 @@ to the commands above.
 
 In the instructions below, `$IBASE` refers to the working tree of this repo.
 
-## Common options
+### Common options
 
 TODO: replicas, cpu allocs, etc.
 
-## Install Istio CRDs
+### Install Istio CRDs
 
 This is the first step of the install. Please do not remove or edit any CRD - config currently requires
 all CRDs to be present. On each upgrade it is recommended to reapply the file, to make sure
@@ -144,7 +141,7 @@ or
 kubectl apply -f crds/files
 ```
 
-## Install Security
+### Install Security
 
 Security should be installed in `istio-system`, since it needs access to the root CA.
 For upgrades from the official installer, it is recommended to install the security component in
@@ -172,7 +169,7 @@ By default it supports `istio-control`, `istio-master` namespaces used in the ex
 
 Access to the security namespace and `istio-system` should be highly restricted.
 
-## Install Istio-CNI
+### Install Istio-CNI
 
 This is an optional step - CNI must run in a dedicated namespace, it is a 'singleton' and extremely
 security sensitive. Access to the CNI namespace must be highly restricted.
@@ -191,11 +188,11 @@ iop istio-cni istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
 
 TODO. It is possible to add Istio-CNI later, and gradually migrate.
 
-## Install Control plane
+### Install Control plane
 
 The control plane contains 3 components.
 
-### Config (Galley)
+#### Config (Galley)
 
 This can be run in any other cluster having the CRDs configured via CI/CD systems or other sync mechanisms.
 It should not be run in 'secondary' clusters, where the configs are not replicated.
@@ -215,7 +212,7 @@ Other MCP providers can be used - currently the address and credentials need to 
 Discovery, Policy and Telemetry components will need to be configured with the address of the config
 server - either in the local cluster or in a central cluster.
 
-### Discovery (Pilot)
+#### Discovery (Pilot)
 
 This can run in any cluster. A mesh should have at least one cluster should run Pilot or equivalent XDS server,
 and it is recommended to have Pilot running in each region and in multiple availability zones for multi cluster.
@@ -236,7 +233,7 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discover
             --set global.policyNamespace=istio-policy-master
 ```
 
-### Auto-injection
+#### Auto-injection
 
 This is optional - `istioctl kube-inject` can be used instead.
 
@@ -264,7 +261,7 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinje
         --set global.configNamespace=istio-master
 ```
 
-## Gateways
+### Gateways
 
 A cluster may use multiple Gateways, each with a different load balancer IP, domains and certificates.
 
@@ -273,7 +270,7 @@ gateway in a dedicated namespace and restrict access.
 
 For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
 
-## K8S Ingress
+### K8S Ingress
 
 To support K8S ingress we currently use a separate namespace. In Istio 1.1, this requires using a dedicated
 Pilot instance in the ingress namespace. This will be fixed in future releases.
@@ -287,7 +284,7 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-ingress-master istio-
         --set global.configNamespace=istio-master\
 ```
 
-## Telemetry
+### Telemetry
 
 ```bash
 iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.configNamespace=istio-control
@@ -316,7 +313,7 @@ TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master isti
         --set global.policyNamespace=istio-policy-master
 ```
 
-## Kiali
+### Kiali
 
 ```bash
 iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
@@ -327,7 +324,7 @@ iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
         --set global.prometheusNamespace=istio-telemetry
 ```
 
-## Additional test templates
+### Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
 Istio works properly and allow testing the specific install.
