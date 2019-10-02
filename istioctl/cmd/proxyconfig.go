@@ -164,7 +164,7 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return "", fmt.Errorf("failed to create k8s client: %v", err)
+		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
 	path := "logging"
 	if param != "" {
@@ -172,7 +172,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	}
 	result, err := kubeClient.EnvoyDo(podName, podNamespace, "POST", path, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command on envoy: %v", err)
+		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
 	return string(result), nil
 }
