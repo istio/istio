@@ -92,11 +92,7 @@ func TestReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
-						if opts.Target == rctx.Naked {
-							return false
-						}
-
-						return true
+						return opts.Target != rctx.Naked
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
