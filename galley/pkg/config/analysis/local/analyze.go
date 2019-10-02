@@ -87,8 +87,25 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	src := newPrecedenceSource(sa.sources)
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
-	distributor := snapshotter.NewAnalyzingDistributor(updater, sa.analyzer, snapshotter.NewInMemoryDistributor(), sa.collectionReporter)
-	rt, err := processor.Initialize(sa.m, domainSuffix, event.CombineSources(src, meshsrc), sa.transformerProviders, distributor)
+	distributorSettings := snapshotter.AnalyzingDistributorSettings{
+		StatusUpdater:      updater,
+		Analyzer:           sa.analyzer,
+		Distributor:        snapshotter.NewInMemoryDistributor(),
+		AnalysisSnapshots:  []string{schema.LocalAnalysis, schema.SyntheticServiceEntry},
+		TriggerSnapshot:    schema.LocalAnalysis,
+		CollectionReporter: sa.collectionReporter,
+	}
+	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
+
+	processorSettings := processor.Settings{
+		Metadata:           sa.m,
+		DomainSuffix:       domainSuffix,
+		Source:             event.CombineSources(src, meshsrc),
+		TransformProviders: sa.transformerProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{schema.LocalAnalysis, schema.SyntheticServiceEntry},
+	}
+	rt, err := processor.Initialize(processorSettings)
 	if err != nil {
 		return nil, err
 	}

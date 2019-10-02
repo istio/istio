@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
 
@@ -60,7 +61,16 @@ func TestProcessor(t *testing.T) {
 	distributor := snapshotter.NewInMemoryDistributor()
 	transformProviders := transforms.Providers(metadata.MustGet())
 
-	rt, err := Initialize(metadata.MustGet(), "svc.local", event.CombineSources(srcs...), transformProviders, distributor)
+	processorSettings := Settings{
+		Metadata:           metadata.MustGet(),
+		DomainSuffix:       "svc.local",
+		Source:             event.CombineSources(srcs...),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{schema.Default},
+	}
+
+	rt, err := Initialize(processorSettings)
 	g.Expect(err).To(BeNil())
 
 	rt.Start()

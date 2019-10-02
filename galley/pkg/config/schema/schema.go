@@ -23,6 +23,18 @@ import (
 	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
+// Well-known snapshot names
+const (
+	// Default snapshot. Used by Galley to distribute config.
+	Default = "default"
+
+	// SyntheticServiceEntry snapshot. Used for service discovery.
+	SyntheticServiceEntry = "syntheticServiceEntry"
+
+	// LocalAnalysis snapshot. Used by command-line tools to perform local analysis.
+	LocalAnalysis = "localAnalysis"
+)
+
 // Metadata is the top-level container.
 type Metadata struct {
 	collections       collection.Specs
