@@ -842,9 +842,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 80,
-								},
+								Number: 80,
 							},
 						},
 					},
@@ -884,9 +882,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 							Destination: &networking.Destination{
 								Host: "example.org",
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{
-										Number: 80,
-									},
+									Number: 80,
 								},
 							},
 						},

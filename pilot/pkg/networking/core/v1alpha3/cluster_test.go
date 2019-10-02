@@ -499,7 +499,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 						{
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{Number: 8080},
+								Number: 8080,
 							},
 						},
 					},
@@ -554,7 +554,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta *model.NodeMetadata)
 						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 							{
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{Number: 8080},
+									Number: 8080,
 								},
 								Tls: &networking.TLSSettings{
 									Mode: networking.TLSSettings_ISTIO_MUTUAL,
@@ -657,7 +657,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 							{
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{Number: 8080},
+									Number: 8080,
 								},
 								ConnectionPool: &networking.ConnectionPoolSettings{
 									Tcp: &networking.ConnectionPoolSettings_TCPSettings{

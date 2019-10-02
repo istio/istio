@@ -24,7 +24,7 @@ import (
 func GetProviders(m *schema.Metadata) transformer.Providers {
 	var result []transformer.Provider
 
-	for k, v := range m.DirectTransform().Mapping() {
+	for k, v := range m.DirectTransformSettings().Mapping() {
 		from := k
 		to := v
 
