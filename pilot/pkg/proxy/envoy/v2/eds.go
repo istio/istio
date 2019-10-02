@@ -848,7 +848,8 @@ func buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
+					Locality:    util.ConvertLocality(ep.Locality),
+					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality] = locLbEps
 			}
