@@ -241,7 +241,7 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	rootCertCheckInverval := time.Hour
 
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		cmd.DefaultRootCertGracePeriodRatio, caCertTTL, rootCertCheckInverval,
+		cmd.DefaultRootCertGracePeriodPercentile, caCertTTL, rootCertCheckInverval,
 		defaultCertTTL, maxCertTTL, org, false, caNamespace, -1, client, rootCertFile)
 	return caopts
 }
