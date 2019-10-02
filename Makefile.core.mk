@@ -43,8 +43,10 @@ update-charts: installer.sha
 vfsgen: data/ update-charts
 	go generate ./...
 
-gen: generate
-generate: generate-values generate-types vfsgen
+gen: generate-values generate-types vfsgen
+generate: gen
+
+gen-check: clean gen check-clean-repo
 
 clean: clean-values clean-types
 
