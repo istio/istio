@@ -140,7 +140,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		}
 	}
 
-	rootCertGracePeriodPercentile := int(rootCertGracePeriodRatio * 100)
+	rootCertGracePeriodPercentile := rootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
