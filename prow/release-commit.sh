@@ -28,6 +28,9 @@ else
   echo "No credential helpers found, push to docker may not function properly"
 fi
 
+# Old prow image does not set this, so needed explicitly here as this is not called through make
+export GO111MODULE=on
+
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-release}
 GCS_BUCKET=${GCS_BUCKET:-istio-prerelease/dev}
 
