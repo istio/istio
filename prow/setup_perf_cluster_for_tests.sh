@@ -81,7 +81,7 @@ function export_metrics() {
     do
       echo "Running for $i min"
       sleep 1m
-      python prom.py http://localhost:8060 60 --no-aggregate >> "${perf_metrics}"
+      python3 prom.py http://localhost:8060 60 --no-aggregate >> "${perf_metrics}"
     done
 
     gsutil -q cp "${perf_metrics}" "gs://$CB_GCS_BUILD_PATH/perf_metrics.txt"
