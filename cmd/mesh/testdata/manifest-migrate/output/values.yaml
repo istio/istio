@@ -15,6 +15,11 @@ autoInjection:
             maxUnavailable: 25%
         tolerations: []
   enabled: true
+cni:
+  components:
+    cni:
+      enabled: false
+  enabled: false
 configManagement:
   components:
     galley:
