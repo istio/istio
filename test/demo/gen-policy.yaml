@@ -172,6 +172,11 @@ spec:
           - --useTemplateCRDs=false
           - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: GODEBUG
           value: "gctrace=1"
         resources:
@@ -244,7 +249,6 @@ spec:
           mountPath: /sock
 ---
 
-
 ---
 # Source: istio-policy/templates/config.yaml
 
@@ -266,9 +270,13 @@ spec:
   trafficPolicy:
     portLevelSettings:
     - port:
-        number: 15004
+        number: 15004 # grpc-mixer-mtls
       tls:
         mode: ISTIO_MUTUAL
+    - port:
+        number: 9091 # grpc-mixer
+      tls:
+        mode: DISABLE
     connectionPool:
       http:
         http2MaxRequests: 10000
@@ -278,27 +286,6 @@ spec:
 ---
 # Source: istio-policy/templates/autoscale.yaml
 
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-policy
-  namespace: istio-system
-  labels:
-    app: istio-policy
-    release: istio-system-istio
-spec:
-    maxReplicas: 5
-    minReplicas: 1
-    scaleTargetRef:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: istio-policy
-    metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
 
 ---
 # Source: istio-policy/templates/poddisruptionbudget.yaml

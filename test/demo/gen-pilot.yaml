@@ -209,6 +209,7 @@ data:
     meshNetworks:
       networks: {}
     nodeSelector: {}
+    podAnnotations: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     policy:
@@ -265,6 +266,11 @@ data:
     # this flag is ignored if enableSdsTokenMount is set.
     # This isn't supported for non-k8s case.
     sdsUseK8sSaJwt: false
+
+    # If true, automatically configure client side mTLS settings to match the corresponding service's
+    # server side mTLS authentication policy, when destination rule for that service does not specify
+    # TLS settings.
+    enableAutoMtls: false
     config_sources:
     - address: localhost:15019
 
@@ -426,9 +432,6 @@ metadata:
     app: pilot
     release: istio-system-istio
     istio: pilot
-  annotations:
-    checksum/config-volume-envoy:  9726bd6803a3694896aebf780e59da64a778683d1fa5460467e3ed4188143ba8
-    checksum/config-volume:  f55f0648496785933730755842a0a5aedeea53925fa15339ce737b04feabeb2d
 spec:
   replicas: 1
   strategy:
@@ -450,8 +453,6 @@ spec:
         chart: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
-        checksum/config-volume: ed521864d32d701035ce91edefc645cb606e7fa0c7bf971ed2af09ca45aba460
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:

@@ -40,7 +40,6 @@ metadata:
     istio: egressgateway
     release: istio-system-istio
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: istio-egressgateway
@@ -141,6 +140,14 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.hostIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: istio-egressgateway
+          - name: ISTIO_META_OWNER
+            value: kubernetes://api/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -305,5 +312,6 @@ spec:
 
 ---
 # Source: istio-egress/templates/serviceaccount.yaml
+
 
 

@@ -231,6 +231,7 @@ data:
       networks: {}
     nodeSelector: {}
     plugins: health
+    podAnnotations: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     policy:
@@ -254,7 +255,7 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
+    accessLogFile: "/dev/stdout"
 
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -287,6 +288,11 @@ data:
     # this flag is ignored if enableSdsTokenMount is set.
     # This isn't supported for non-k8s case.
     sdsUseK8sSaJwt: false
+
+    # If true, automatically configure client side mTLS settings to match the corresponding service's
+    # server side mTLS authentication policy, when destination rule for that service does not specify
+    # TLS settings.
+    enableAutoMtls: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -446,9 +452,6 @@ metadata:
     app: pilot
     release: istio-system-istio-discovery
     istio: pilot
-  annotations:
-    checksum/config-volume-envoy:  ce051e0f3f422f8fad7318cba46a4e5bc0973ca751be5652c5bdc0397f5fca89
-    checksum/config-volume:  0e1ce2f69bdbcc3825ad9e21c24baaed9012de87744682a1a9506f346e415e6d
 spec:
   strategy:
     rollingUpdate:
@@ -469,8 +472,6 @@ spec:
         chart: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
-        checksum/config-volume: ed521864d32d701035ce91edefc645cb606e7fa0c7bf971ed2af09ca45aba460
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:

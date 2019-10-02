@@ -43,6 +43,7 @@ spec:
     app: jaeger
   type: ClusterIP
 
+
 ---
 # Source: tracing/templates/service.yaml
 apiVersion: v1
@@ -54,12 +55,11 @@ metadata:
     app: jaeger
     release: istio-system-istio
 spec:
-  type: ClusterIP
   ports:
     - port: 9411
       targetPort: 9411
       protocol: TCP
-      name: http
+      name: http-query
   selector:
     app: jaeger
 ---
@@ -73,9 +73,10 @@ metadata:
     app: jaeger
     release: istio-system-istio
 spec:
+  type: ClusterIP
   ports:
     - name: http-query
-      port: 80
+      port: 9411
       protocol: TCP
 
       targetPort: 16686
@@ -156,7 +157,8 @@ spec:
             mountPath: /badger
           resources:
             requests:
-              cpu: 10m
+              cpu: 0m
+              memory: 1Mi
             
       affinity:      
         nodeAffinity:
@@ -206,4 +208,5 @@ spec:
 
 ---
 # Source: tracing/templates/pvc.yaml
+
 
