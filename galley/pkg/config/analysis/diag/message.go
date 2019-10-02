@@ -53,12 +53,12 @@ type Message struct {
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
-func (m *Message) Unstructured() map[string]interface{} {
+func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["code"] = m.Type.Code()
-	result["level"] = m.Type.Level()
-	if m.Origin != nil {
+	result["level"] = string(m.Type.Level())
+	if includeOrigin && m.Origin != nil {
 		result["origin"] = m.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)

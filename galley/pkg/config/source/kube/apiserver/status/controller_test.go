@@ -32,10 +32,12 @@ import (
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
+const subfield = "testMessages"
+
 func TestBasicStartStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -51,7 +53,7 @@ func TestBasicStartStop(t *testing.T) {
 func TestDoubleStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -68,7 +70,7 @@ func TestDoubleStart(t *testing.T) {
 func TestDoubleStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -84,7 +86,7 @@ func TestDoubleStop(t *testing.T) {
 func TestNoReconcilation(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -100,15 +102,19 @@ func TestNoReconcilation(t *testing.T) {
 func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
 	k.AddResponse(cl, nil)
 
+	s := map[string]interface{}{
+		subfield: "s1",
+	}
+
 	r := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"status": "s1",
+			"status": s,
 		},
 	}
 
@@ -125,7 +131,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	})
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
+	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
 
@@ -138,15 +144,19 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
 	k.AddResponse(cl, nil)
 
+	s := map[string]interface{}{
+		subfield: "s1",
+	}
+
 	r := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"status": "s1",
+			"status": s,
 		},
 	}
 
@@ -167,7 +177,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
+		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -179,7 +189,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 func TestBasicReconcilation_NewStatus(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -225,13 +235,15 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	g.Eventually(cl.Actions).Should(HaveLen(2))
 	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
-	g.Expect(u.Object["status"]).To(HavePrefix("Error [IST0001] Internal error: foo"))
+
+	actualStatusMap := u.Object["status"].(map[string]interface{})
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
 }
 
 func TestBasicReconcilation_UpdateError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -274,13 +286,15 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 	g.Eventually(cl.Actions).Should(HaveLen(2))
 	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
-	g.Expect(u.Object["status"]).To(HavePrefix("Error [IST0001] Internal error: foo"))
+
+	actualStatusMap := u.Object["status"].(map[string]interface{})
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
 }
 
 func TestBasicReconcilation_GetError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
@@ -313,7 +327,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	c := NewController()
+	c := NewController(subfield)
 	k := mock.NewKube()
 
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())

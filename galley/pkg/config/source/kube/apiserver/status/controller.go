@@ -102,7 +102,15 @@ func (c *ControllerImpl) Stop() {
 // UpdateResourceStatus is called by the source to relay the currently observed status of a resource.
 func (c *ControllerImpl) UpdateResourceStatus(
 	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
-	c.state.setObserved(col, name, version, status)
+
+	// Extract the subfield this controller manages
+	statusMap, ok := status.(map[string]interface{})
+	if !ok {
+		// If the status field was something other than a map, treat it like it was empty
+		// for the purpose of "observed"
+	}
+
+	c.state.setObserved(col, name, version, statusMap[c.subfield])
 }
 
 // Report the given set of messages towards particular resources.
