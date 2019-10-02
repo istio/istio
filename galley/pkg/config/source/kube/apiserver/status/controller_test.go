@@ -144,6 +144,41 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	g.Expect(u.Object["status"]).To(BeNil())
 }
 
+func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	c := NewController(subfield)
+
+	otherSubfield := "otherMessages"
+	s := map[string]interface{}{
+		subfield:      "s1",
+		otherSubfield: "s2",
+	}
+
+	r := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"status": s,
+		},
+	}
+
+	k, cl := setupClientWithReactors(r, nil)
+
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	c.Report(diag.Messages{})
+	c.UpdateResourceStatus(
+		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+	defer c.Stop()
+
+	g.Eventually(cl.Actions).Should(HaveLen(2))
+	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
+	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
+
+	g.Expect(u.Object["status"]).To(Not(BeNil()))
+	actualStatusMap := u.Object["status"].(map[string]interface{})
+	g.Expect(actualStatusMap).To(Not(HaveKey(subfield)))
+	g.Expect(actualStatusMap).To(HaveKeyWithValue(otherSubfield, "s2"))
+}
+
 func TestBasicReconcilation_NewStatus(t *testing.T) {
 	g := NewGomegaWithT(t)
 
