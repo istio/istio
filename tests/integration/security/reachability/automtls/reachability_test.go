@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package manualmtls
+package automtls
 
 import (
 	"testing"
@@ -33,7 +33,7 @@ import (
 // - Configure authn policy.
 // - Wait for config propagation.
 // - Send HTTP/gRPC requests between apps.
-func TestReachability(t *testing.T) {
+func TestReachabilityAuto(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
@@ -78,8 +78,6 @@ func TestReachability(t *testing.T) {
 						return src != rctx.Headless || opts.Target != rctx.Headless
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
-						// be the same as having global DR rule as in previous test case.
 						if src == rctx.Naked && opts.Target == rctx.Naked {
 							// naked->naked should always succeed.
 							return true

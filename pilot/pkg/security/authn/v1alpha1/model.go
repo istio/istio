@@ -56,18 +56,8 @@ const (
 	MTLSStrict
 )
 
-// GetServiceMutualTLSMode returns the mTLS mode for given service-port.
-func GetServiceMutualTLSMode(store model.IstioConfigStore, service *model.Service, port *model.Port) MutualTLSMode {
-	// TODO(diemtvu) when authentication poicy changes to workload-selector model, this should be changed to
-	// iterate over all service instances to examine the mTLS mode. May also cache this to avoid
-	// querying config store and process policy everytime.
-	if config := store.AuthenticationPolicyForWorkload(service, nil, port); config != nil {
-		return getMutualTLSMode(config.Spec.(*authn.Policy))
-	}
-	return MTLSDisable
-}
-
-func getMutualTLSMode(policy *authn.Policy) MutualTLSMode {
+// GetMutualTLSMode returns the mTLS mode for given. If the policy is nil, or doesn't define mTLS, it returns MTLSDisable.
+func GetMutualTLSMode(policy *authn.Policy) MutualTLSMode {
 	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
 		if mTLSSetting.GetMode() == authn.MutualTls_STRICT {
 			return MTLSStrict
