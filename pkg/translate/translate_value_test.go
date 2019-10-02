@@ -93,6 +93,11 @@ mixer:
 hub: docker.io/istio
 tag: 1.2.3
 defaultNamespace: istio-system
+cni:
+  components:
+    cni:
+      enabled: false
+  enabled: false
 telemetry:
  components:
    namespace: istio-telemetry
@@ -232,6 +237,11 @@ sidecarInjectorWebhook:
 hub: docker.io/istio
 tag: 1.2.3
 defaultNamespace: istio-system
+cni:
+  components:
+    cni:
+      enabled: false
+  enabled: false
 telemetry:
   components:
     namespace: istio-telemetry
@@ -322,6 +332,11 @@ policy:
    policy:
      enabled: true
  enabled: true
+cni:
+  components:
+    cni:
+      enabled: false
+  enabled: false
 configManagement:
  components:
    galley:

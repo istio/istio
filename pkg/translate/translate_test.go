@@ -39,6 +39,9 @@ defaultNamespace: istio-system
 			want: `certmanager:
   enabled: false
   namespace: istio-system
+cni:
+  enabled: false
+  namespace: istio-system
 galley:
   enabled: false
   namespace: istio-system
@@ -100,6 +103,9 @@ tag: 1.2.3
 defaultNamespace: istio-system
 `,
 			want: `certmanager:
+  enabled: false
+  namespace: istio-system
+cni:
   enabled: false
   namespace: istio-system
 galley:

@@ -1,3 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+    istio: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  ports:
+  - name: grpc-xds
+    port: 11111
+  - name: https-xds
+    port: 15011
+  - name: http-legacy-discovery
+    port: 8080
+  - name: http-monitoring
+    port: 15014
+  selector:
+    istio: pilot
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -167,50 +190,6 @@ spec:
           secretName: istio.istio-pilot-service-account
 
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: pilot
-    istio: pilot
-    release: istio
-  name: istio-pilot
-  namespace: istio-control
-spec:
-  ports:
-  - name: grpc-xds
-    port: 11111
-  - name: https-xds
-    port: 15011
-  - name: http-legacy-discovery
-    port: 8080
-  - name: http-monitoring
-    port: 15014
-  selector:
-    istio: pilot
-
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: pilot
-    release: istio
-  name: istio-pilot
-  namespace: istio-control
-spec:
-  maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -246,6 +225,22 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-pilot-istio-control
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: istio-control
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -418,6 +413,19 @@ data:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
+  name: "api-server"
+  namespace: istio-control
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
   name: "default"
   namespace: istio-control
   labels:
@@ -427,6 +435,36 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-pilot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-control
+  labels:
+    app: pilot
+    release: istio
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -444,31 +482,6 @@ spec:
       app: pilot
       release: istio
       istio: pilot
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-control
-  labels:
-    app: pilot
-    release: istio
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-control
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-control
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-control
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -608,19 +621,6 @@ data:
       #
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-control:15011
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 # Resources for Prometheus component
