@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Copyright 2018 Istio Authors
-
-#   Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
-
-#       http://www.apache.org/licenses/LICENSE-2.0
-
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
-#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#   See the License for the specific language governing permissions and
-#   limitations under the License.
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
@@ -30,6 +30,9 @@ fi
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-release}
 GCS_BUCKET=${GCS_BUCKET:-istio-prerelease/dev}
+
+# Use a pinned version in case breaking changes are needed
+BUILDER_SHA=71ba9ef6db35d21df8fc88af5e74eb3bba569b9a
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -59,7 +62,7 @@ EOF
 export PATH=${GOPATH}/bin:${PATH}
 
 # cd to not impact go.mod
-(cd /tmp; go get istio.io/release-builder)
+(cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
 
 release-builder build --manifest <(echo "${MANIFEST}")
 
