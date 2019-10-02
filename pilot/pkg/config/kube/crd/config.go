@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint: lll
+//go:generate go run $REPO_ROOT/pilot/tools/generate_config_crd_types.go --template $REPO_ROOT/pilot/tools/types.go.tmpl --output $REPO_ROOT/pilot/pkg/config/kube/crd/types.gen.go
+
 package crd
 
 import (

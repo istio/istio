@@ -1,5 +1,5 @@
 # this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/apa/tmpl.yaml -n apa
+# mixgen template -d $REPO_ROOT/mixer/test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set -o $REPO_ROOT/mixer/test/spyAdapter/template/apa/tmpl.yaml -n apa
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:

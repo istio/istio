@@ -113,8 +113,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{
-				IncludeUninitialized: true})
+			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
 			if err == nil {
 				return removeServiceOnVMFromMesh(seClient, client, ns, args[0], writer)
 			}
@@ -183,9 +182,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
 	svcName string, writer io.Writer) error {
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}

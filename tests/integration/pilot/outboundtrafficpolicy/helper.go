@@ -65,6 +65,20 @@ spec:
     number: 80
     protocol: HTTP
   resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http-on-443
+spec:
+  hosts:
+  - c.istio.io
+  location: MESH_EXTERNAL
+  ports:
+  - name: http
+    number: 443
+    protocol: HTTP
+  resolution: DNS
 `
 	SidecarScope = `
 apiVersion: networking.istio.io/v1alpha3

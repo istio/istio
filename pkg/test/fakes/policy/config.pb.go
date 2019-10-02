@@ -29,7 +29,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Config for policy backend, which could be used as a fake adpater for integration test,
+// Config for policy backend, which could be used as a fake adapter for integration test,
 // supports checknothing and keyval template.
 type Params struct {
 	// Specify check related params.

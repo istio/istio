@@ -100,8 +100,6 @@ type Options struct {
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
-
-	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -319,6 +317,11 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 
 // GetPodLocality retrieves the locality for a pod.
 func (c *Controller) GetPodLocality(pod *v1.Pod) string {
+	// if pod has `istio-locality` label, skip below ops
+	if len(pod.Labels[model.LocalityLabel]) > 0 {
+		return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], "")
+	}
+
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
@@ -332,8 +335,8 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	if region == "" && zone == "" {
 		return ""
 	}
-	locality := fmt.Sprintf("%v/%v", region, zone)
-	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
+
+	return fmt.Sprintf("%v/%v", region, zone)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -496,19 +499,8 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-
 	proxyNamespace := ""
 	if len(proxy.IPAddresses) > 0 {
-		// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
-		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
-		// metadata already. Because of this, we can still get most of the information we need.
-		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
-		// attempt to read the real pod.
-		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
-		if err == nil {
-			return instances, nil
-		}
-
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
@@ -524,7 +516,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 			proxyNamespace = pod.Namespace
 			// 1. find proxy service by label selector, if not any, there may exist headless service
-			// failover to 2
+			// failover to 3
 			svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
 			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
@@ -532,27 +524,38 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 				return out, nil
 			}
-		}
-	}
 
-	// 2. Headless service
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-	for _, item := range c.endpoints.informer.GetStore().List() {
-		ep := *item.(*v1.Endpoints)
-		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
-	}
+		// 2. The pod is not present when this is called
+		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+		// metadata already. Because of this, we can still get most of the information we need.
+		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+		// attempt to read the real pod.
+		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
+		if err == nil {
+			return instances, nil
+		}
 
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+		// 3. Headless service
+		endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+		endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
+		for _, item := range c.endpoints.informer.GetStore().List() {
+			ep := *item.(*v1.Endpoints)
+			endpoints := &endpointsForPodInSameNS
+			if ep.Namespace != proxyNamespace {
+				endpoints = &endpointsForPodInDifferentNS
+			}
+
+			*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+		}
+
+		// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+		// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+		// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+		// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+		out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+	}
 
 	if len(out) == 0 {
 		if c.Env != nil {
@@ -872,7 +875,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			}
 			ep, ok = tombstone.Obj.(*v1.Endpoints)
 			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				log.Errorf("Tombstone contained an object that is not an endpoint %#v", obj)
 				return nil
 			}
 		}
@@ -952,7 +955,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
 				return
 			}
 		}

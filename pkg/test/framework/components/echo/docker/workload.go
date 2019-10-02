@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test"
+
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
@@ -298,4 +300,17 @@ func discoveryPort(p pilot.Instance) int {
 		return p.(pilot.Native).GetSecureDiscoveryAddress().Port
 	}
 	return p.(pilot.Native).GetDiscoveryAddress().Port
+}
+
+func (w *workload) Logs() (string, error) {
+	return w.container.Logs()
+}
+
+func (w *workload) LogsOrFail(t test.Failer) string {
+	t.Helper()
+	logs, err := w.Logs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return logs
 }

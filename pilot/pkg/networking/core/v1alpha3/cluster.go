@@ -96,16 +96,14 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
-	if env.Mesh.LocalityLbSetting != nil {
-		// apply load balancer setting fot cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
-	}
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 
 	switch proxy.Type {
 	case model.SidecarProxy:
+		// apply load balancer setting for cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
@@ -124,6 +122,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
+		// apply load balancer setting for cluster endpoints
+		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
 		clusters = outboundClusters
 	}
@@ -181,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", proxy.DNSDomain, port)
 			}
 
-			setUpstreamProtocol(defaultCluster, port)
+			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
 
 			if destRule != nil {
@@ -214,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					if len(env.Mesh.OutboundClusterStatName) != 0 {
 						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
 					}
-					setUpstreamProtocol(subsetCluster, port)
+					setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
 					opts := buildClusterOpts{
 						env:             env,
@@ -517,7 +517,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy, nil)
-			setUpstreamProtocol(mgmtCluster, port)
+			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
@@ -627,7 +627,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
 	}
-	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+	setUpstreamProtocol(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
 	for _, p := range configgen.Plugins {
 		p.OnInboundCluster(pluginParams, localCluster)
@@ -1096,7 +1096,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 }
 
-func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
+func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.Port, direction model.TrafficDirection) {
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
@@ -1104,6 +1104,22 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 				Value: 1073741824,
 			},
 		}
+	}
+
+	if (util.IsProtocolSniffingEnabledForInboundPort(node, port) && direction == model.TrafficDirectionInbound) ||
+		(util.IsProtocolSniffingEnabledForOutboundPort(node, port) && direction == model.TrafficDirectionOutbound) {
+		// setup http2 protocol options for upstream connection.
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+			// Envoy default value of 100 is too low for data path.
+			MaxConcurrentStreams: &wrappers.UInt32Value{
+				Value: 1073741824,
+			},
+		}
+
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		cluster.ProtocolSelection = apiv2.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 }
 

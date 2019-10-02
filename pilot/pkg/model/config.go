@@ -92,7 +92,7 @@ type ConfigMeta struct {
 type Config struct {
 	ConfigMeta
 
-	// Spec holds the configuration object as a protobuf message
+	// Spec holds the configuration object as a gogo protobuf message
 	Spec proto.Message
 }
 
@@ -192,7 +192,7 @@ type ConfigStoreCache interface {
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_istio_config_store.gen.go --fake-name IstioConfigStore . IstioConfigStore
+//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_istio_config_store.gen.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 

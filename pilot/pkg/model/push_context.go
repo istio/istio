@@ -152,6 +152,10 @@ type XDSUpdater interface {
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(req *PushRequest)
+
+	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
+	// The requests may be collapsed and throttled.
+	ProxyUpdate(clusterID, ip string)
 }
 
 // PushRequest defines a request to push to proxies
@@ -160,12 +164,12 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// TargetNamespaces contains a list of namespaces that were changed in the update.
+	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
-	// If this is empty, then proxies in all namespaces will get an update
+	// If this is empty, then all proxies will get an update.
 	// If this is present, then only proxies that import this namespace will get an update
-	TargetNamespaces map[string]struct{}
+	NamespacesUpdated map[string]struct{}
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
@@ -226,13 +230,13 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Merge the target namespaces
-	if len(first.TargetNamespaces) > 0 || len(other.TargetNamespaces) > 0 {
-		merged.TargetNamespaces = make(map[string]struct{})
-		for update := range first.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+	if len(first.NamespacesUpdated) > 0 || len(other.NamespacesUpdated) > 0 {
+		merged.NamespacesUpdated = make(map[string]struct{})
+		for update := range first.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
-		for update := range other.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+		for update := range other.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
 	}
 
@@ -319,6 +323,13 @@ var (
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
+	// HTTP listeners that conflicted with well known HTTPS ports
+	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_http_over_https",
+		"Number of conflicting HTTP listeners with well known HTTPS ports",
+	)
+
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
@@ -383,6 +394,7 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,

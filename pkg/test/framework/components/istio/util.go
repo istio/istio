@@ -29,6 +29,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: validation-readiness-dummy-rule
+  namespace: istio-system
 spec:
   match: request.headers["foo"] == "bar"
   actions:

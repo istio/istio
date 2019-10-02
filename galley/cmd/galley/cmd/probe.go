@@ -27,7 +27,7 @@ func probeCmd() *cobra.Command {
 		probeOptions probe.Options
 	)
 
-	probeCmd := &cobra.Command{
+	prb := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, _ []string) {
@@ -41,10 +41,10 @@ func probeCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OK")
 		},
 	}
-	probeCmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",
+	prb.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",
 		"Path of the file for checking the availability.")
-	probeCmd.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0,
+	prb.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0,
 		"Duration used for checking the target file's last modified time.")
 
-	return probeCmd
+	return prb
 }

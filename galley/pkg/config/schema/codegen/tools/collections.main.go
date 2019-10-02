@@ -43,7 +43,7 @@ func main() {
 	}
 
 	var names []string
-	for _, r := range c.Collections().All() {
+	for _, r := range c.AllCollections().All() {
 		names = append(names, r.Name.String())
 	}
 	contents, err := codegen.StaticCollections(pkg, names)

@@ -30,6 +30,8 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+
+	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -152,7 +154,7 @@ func TestCreateCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
 		authorizer     *mockAuthorizer
-		ca             ca.CertificateAuthority
+		ca             CertificateAuthority
 		certChain      []string
 		code           codes.Code
 	}{
@@ -173,25 +175,25 @@ func TestCreateCertificate(t *testing.T) {
 		"CA not ready": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Invalid CSR": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CSRError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Invalid TTL": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.TTLError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.TTLError, fmt.Errorf("cannot sign"))},
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CertGenError, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CertGenError, fmt.Errorf("cannot sign"))},
 			code:           codes.Internal,
 		},
 		"Successful signing": {
@@ -255,7 +257,7 @@ func TestHandleCSR(t *testing.T) {
 		"No authenticator": {
 			authenticators: nil,
 			authorizer:     &mockAuthorizer{},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:           codes.Unauthenticated,
 		},
 		"Unauthenticated request": {
@@ -263,7 +265,7 @@ func TestHandleCSR(t *testing.T) {
 				errMsg: "Not authorized",
 			}},
 			authorizer: &mockAuthorizer{},
-			ca:         &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:         &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			code:       codes.Unauthenticated,
 		},
 		"No caller authenticated": {
@@ -286,7 +288,7 @@ func TestHandleCSR(t *testing.T) {
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:             &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
 			code:           codes.Internal,
 		},
@@ -418,7 +420,7 @@ func TestRun(t *testing.T) {
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
-			ca:                        &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			ca:                        &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
@@ -525,7 +527,8 @@ func TestGetServerCertificate(t *testing.T) {
 		t.Fatalf("Failed to create a plugged-cert CA.")
 	}
 
-	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0, "testdomain.com", true)
+	server, err := New(ca, time.Hour, false, []string{"localhost"}, 0,
+		"testdomain.com", true)
 	if err != nil {
 		t.Errorf("Cannot crete server: %v", err)
 	}

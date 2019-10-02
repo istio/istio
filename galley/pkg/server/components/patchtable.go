@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	check2 "istio.io/istio/galley/pkg/config/source/kube/check"
 	fs2 "istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/meshconfig"
@@ -38,6 +39,7 @@ var (
 	netListen                   = net.Listen
 	fsNew                       = fs.New
 	newKubeFromConfigFile       = client.NewKubeFromConfigFile
+	newInterfaces               = kube.NewInterfacesFromConfigFile
 	verifyResourceTypesPresence = check.ResourceTypesPresence
 	findSupportedResources      = check.FindSupportedResourceSchemas
 	newSource                   = kubeSource.New
@@ -56,6 +58,7 @@ func resetPatchTable() {
 	netListen = net.Listen
 	fsNew = fs.New
 	newKubeFromConfigFile = client.NewKubeFromConfigFile
+	newInterfaces = kube.NewInterfacesFromConfigFile
 	verifyResourceTypesPresence = check.ResourceTypesPresence
 	findSupportedResources = check.FindSupportedResourceSchemas
 	newSource = kubeSource.New
