@@ -47,9 +47,9 @@ var (
 	newFileWatcher              = filewatcher.NewWatcher
 	readFile                    = ioutil.ReadFile
 
-	meshcfgNewFS               = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
-	processorInitialize        = processor.Initialize
-	fsNew2                     = fs2.New
+	meshcfgNewFS        = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
+	processorInitialize = processor.Initialize
+	fsNew2              = fs2.New
 )
 
 func resetPatchTable() {
