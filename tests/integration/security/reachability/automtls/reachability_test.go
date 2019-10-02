@@ -51,8 +51,7 @@ func TestReachabilityAuto(t *testing.T) {
 							return false
 						}
 
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if src == rctx.Naked && opts.Target == rctx.Naked {
@@ -74,8 +73,7 @@ func TestReachabilityAuto(t *testing.T) {
 							return false
 						}
 
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if src == rctx.Naked && opts.Target == rctx.Naked {
@@ -97,10 +95,6 @@ func TestReachabilityAuto(t *testing.T) {
 							return false
 						}
 
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -111,10 +105,6 @@ func TestReachabilityAuto(t *testing.T) {
 					ConfigFile: "global-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
