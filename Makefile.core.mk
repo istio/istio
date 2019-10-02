@@ -370,7 +370,7 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml gen check-clean
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -393,14 +393,7 @@ gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
 
-CHANGES=$(shell git status --porcelain)
-
-check-clean:
-ifneq ($(CHANGES),)
-	@git diff
-	@echo "Please run 'make gen' and include any changed files in your PR"
-	@exit 1
-endif
+gen-check: gen check-clean-repo
 
 #-----------------------------------------------------------------------------
 # Target: go build
