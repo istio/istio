@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
 
@@ -67,7 +66,7 @@ func TestProcessor(t *testing.T) {
 		Source:             event.CombineSources(srcs...),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{schema.Default},
+		EnabledSnapshots:   []string{metadata.Default},
 	}
 
 	rt, err := Initialize(processorSettings)

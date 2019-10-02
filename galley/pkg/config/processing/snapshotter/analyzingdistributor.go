@@ -57,7 +57,8 @@ type AnalyzingDistributorSettings struct {
 	AnalysisSnapshots []string
 
 	// The snapshot that will trigger the analysis.
-	// TODO: This should be eventually replaced by the AnalysisSnapshots and a matching debounce mechanism.
+	// TODO(https://github.com/istio/istio/issues/17543): This should be eventually replaced by the AnalysisSnapshots
+	//  and a matching debounce mechanism.
 	TriggerSnapshot string
 
 	// An optional hook that will be called whenever a collection is accessed. Useful for testing.
@@ -88,7 +89,7 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	}
 
 	// If the trigger snapshot is not set, simply bypass.
-	// TODO: This should be replaced by a debounce logic
+	// TODO(https://github.com/istio/istio/issues/17543): This should be replaced by a debounce logic
 	if name != d.s.TriggerSnapshot {
 		d.s.Distributor.Distribute(name, s)
 		return
@@ -129,13 +130,13 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 
 	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
 	d.s.Analyzer.Analyze(ctx)
-	scope.Analysis.Debugf("Finished analzing the current snapshot, found messages: %v", ctx.messages)
+	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
 	if !ctx.Canceled() {
 		d.s.StatusUpdater.Update(ctx.messages)
 	}
 
-	// Execution only reaches this point for default snapshot group
+	// Execution only reaches this point for trigger snapshot group
 	d.s.Distributor.Distribute(name, s)
 }
 

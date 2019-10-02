@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -74,8 +74,8 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 		StatusUpdater:      u,
 		Analyzer:           a,
 		Distributor:        d,
-		AnalysisSnapshots:  []string{schema.Default, schema.SyntheticServiceEntry},
-		TriggerSnapshot:    schema.Default,
+		AnalysisSnapshots:  []string{metadata.Default, metadata.SyntheticServiceEntry},
+		TriggerSnapshot:    metadata.Default,
 		CollectionReporter: cr,
 	}
 	ad := NewAnalyzingDistributor(settings)
@@ -84,13 +84,13 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	sSynthetic := getTestSnapshot("c")
 	sOther := getTestSnapshot("a", "d")
 
-	ad.Distribute(schema.SyntheticServiceEntry, sSynthetic)
-	ad.Distribute(schema.Default, sDefault)
+	ad.Distribute(metadata.SyntheticServiceEntry, sSynthetic)
+	ad.Distribute(metadata.Default, sDefault)
 	ad.Distribute("other", sOther)
 
 	// Assert we sent every received snapshot to the distributor
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(schema.SyntheticServiceEntry) }).Should(Equal(sSynthetic))
-	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(schema.Default) }).Should(Equal(sDefault))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(metadata.SyntheticServiceEntry) }).Should(Equal(sSynthetic))
+	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(metadata.Default) }).Should(Equal(sDefault))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
 	// Assert we triggered only once analysis, with the expected combination of snapshots

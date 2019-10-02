@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/schema/collection"
@@ -91,8 +92,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		StatusUpdater:      updater,
 		Analyzer:           sa.analyzer,
 		Distributor:        snapshotter.NewInMemoryDistributor(),
-		AnalysisSnapshots:  []string{schema.LocalAnalysis, schema.SyntheticServiceEntry},
-		TriggerSnapshot:    schema.LocalAnalysis,
+		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
+		TriggerSnapshot:    metadata.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
@@ -103,7 +104,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		Source:             event.CombineSources(src, meshsrc),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{schema.LocalAnalysis, schema.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
 	}
 	rt, err := processor.Initialize(processorSettings)
 	if err != nil {

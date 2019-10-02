@@ -123,7 +123,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		Source:             src,
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{schema.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
 	}
 	processor, err := processor.Initialize(processorSettings)
 	if err != nil {

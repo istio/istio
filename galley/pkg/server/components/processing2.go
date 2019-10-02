@@ -115,8 +115,8 @@ func (p *Processing2) Start() (err error) {
 			StatusUpdater:     updater,
 			Analyzer:          analyzers.AllCombined(),
 			Distributor:       distributor,
-			AnalysisSnapshots: []string{schema.Default, schema.SyntheticServiceEntry},
-			TriggerSnapshot:   schema.Default,
+			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
+			TriggerSnapshot:   metadata.Default,
 		}
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
@@ -128,7 +128,7 @@ func (p *Processing2) Start() (err error) {
 		Source:             event.CombineSources(mesh, src),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{schema.Default, schema.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
 	}
 	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
