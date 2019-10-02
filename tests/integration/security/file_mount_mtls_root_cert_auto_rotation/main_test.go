@@ -57,8 +57,8 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["security.env.SELF_SIGNED_CA_CERT_TTL"] = "4m"
-	cfg.Values["security.workloadCertTtl"] = "4m"
+	cfg.Values["security.env.SELF_SIGNED_CA_CERT_TTL"] = "5m"
+	cfg.Values["security.workloadCertTtl"] = "5m"
 	cfg.Values["security.env.WORKLOAD_CERT_MIN_GRACE_PERIOD"] = "2m"
 	cfg.Values["SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_RATIO"] = "1.0"
 	cfg.Values["security.env.SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"] = "50s"
