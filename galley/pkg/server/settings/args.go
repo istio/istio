@@ -75,6 +75,7 @@ type Args struct { // nolint:maligned
 	ConfigPath string
 
 	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
+	// DEPRECATED
 	ExcludedResourceKinds []string
 
 	// MeshConfigFile is the path for mesh config
