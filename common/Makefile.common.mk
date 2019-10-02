@@ -95,6 +95,6 @@ update-common-protos:
 	@rm -fr common-files
 
 check-clean-repo:
-	@scripts/check_clean_repo.sh
+	@common/scripts/check_clean_repo.sh
 
 .PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo
