@@ -49,15 +49,13 @@ func TestCitadelRootCertUpgrade(t *testing.T) {
 				t.Fatalf("unable to load root secret: %s", err.Error())
 			}
 
-			for i := 0; i < 2; i++ {
-				// Wait for the next round of root cert upgrade
-				time.Sleep(1 * time.Second)
-				newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
-				if err != nil {
-					t.Fatalf("unable to load root secret: %s", err.Error())
-				}
-				verifyRootUpgrade(t, caScrt, newCaScrt)
+			// Wait for the next round of root cert upgrade
+			time.Sleep(1 * time.Minute)
+			newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("unable to load root secret: %s", err.Error())
 			}
+			verifyRootUpgrade(t, caScrt, newCaScrt)
 		})
 }
 

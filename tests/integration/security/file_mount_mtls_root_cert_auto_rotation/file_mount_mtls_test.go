@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package citadelrootcertautorotation
+package filemountmtlsrootcertautorotation
 
 import (
 	"testing"
@@ -39,7 +39,7 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "sds-citadel-flow",
+				Prefix: "filemount-citadel-flow",
 				Inject: true,
 			})
 
@@ -79,13 +79,11 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 					ExpectSuccess: true,
 				},
 			}
-			for i := 0; i < 3; i++ {
-				for _, checker := range checkers {
-					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-				}
-				// Wait for at least one root upgrade to let workloads use new CA cert
-				// to set up mTLS connections.
-				time.Sleep(1 * time.Second)
+			// Wait for at least one root upgrade to let workloads use new CA cert
+			// to set up mTLS connections.
+			time.Sleep(1 * time.Minute)
+			for _, checker := range checkers {
+				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			}
 		})
 }
