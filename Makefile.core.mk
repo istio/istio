@@ -34,6 +34,7 @@ mandiff: update-charts
 	@PATH=${PATH}:${GOPATH}/bin scripts/run_mandiff.sh
 
 fmt: format-go
+	go mod tidy
 
 update-charts: installer.sha
 	@scripts/run_update_charts.sh `cat installer.sha`
