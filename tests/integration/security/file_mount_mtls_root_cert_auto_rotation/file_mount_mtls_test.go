@@ -43,11 +43,10 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 				Inject: true,
 			})
 
-			var a, b, c echo.Instance
+			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			checkers := []connection.Checker{
@@ -60,25 +59,11 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 					},
 					ExpectSuccess: true,
 				},
-				{
-					From: a,
-					Options: echo.CallOptions{
-						Target:   c,
-						PortName: "http",
-						Scheme:   scheme.HTTP,
-					},
-					ExpectSuccess: true,
-				},
-				{
-					From: b,
-					Options: echo.CallOptions{
-						Target:   c,
-						PortName: "http",
-						Scheme:   scheme.HTTP,
-					},
-					ExpectSuccess: true,
-				},
 			}
+			for _, checker := range checkers {
+				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+			}
+
 			// Wait for at least one root upgrade to let workloads use new CA cert
 			// to set up mTLS connections.
 			time.Sleep(1 * time.Minute)
