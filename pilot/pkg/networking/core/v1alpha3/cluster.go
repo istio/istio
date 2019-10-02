@@ -73,6 +73,8 @@ var (
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
 		MaxRetries: &wrappers.UInt32Value{Value: 1024},
 	}
+
+	defaultDestinationRule = networking.DestinationRule{}
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -158,7 +160,7 @@ func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationR
 		return config.Spec.(*networking.DestinationRule)
 	}
 
-	return &networking.DestinationRule{}
+	return &defaultDestinationRule
 }
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
