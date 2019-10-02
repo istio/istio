@@ -157,9 +157,7 @@ func vs1() *resource.Entry {
 							Destination: &v1alpha3.Destination{
 								Host: "service1.ns.svc.cluster.local",
 								Port: &v1alpha3.PortSelector{
-									Port: &v1alpha3.PortSelector_Number{
-										Number: 4200,
-									},
+									Number: 4200,
 								},
 							},
 							Weight: 100,
@@ -200,9 +198,7 @@ func vs1v2() *resource.Entry {
 							Destination: &v1alpha3.Destination{
 								Host: "service2.ns.svc.cluster.local",
 								Port: &v1alpha3.PortSelector{
-									Port: &v1alpha3.PortSelector_Number{
-										Number: 2400,
-									},
+									Number: 2400,
 								},
 							},
 							Weight: 100,
