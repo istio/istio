@@ -38,10 +38,7 @@ func TestBasicStartStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
+	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	defer c.Stop()
@@ -54,10 +51,7 @@ func TestDoubleStart(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
+	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
@@ -71,10 +65,7 @@ func TestDoubleStop(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
+	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Report(diag.Messages{})
@@ -87,10 +78,7 @@ func TestNoReconcilation(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
+	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
@@ -103,10 +91,6 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
 
 	s := map[string]interface{}{
 		subfield: "s1",
@@ -118,17 +102,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 		},
 	}
 
-	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		ret = r
-		return
-	})
-
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		return
-	})
+	k, cl := setupClientWithReactors(r, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
@@ -145,10 +119,6 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
 
 	s := map[string]interface{}{
 		subfield: "s1",
@@ -160,19 +130,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 		},
 	}
 
-	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		ret = r
-		return
-	})
-
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		return
-	})
+	k, cl := setupClientWithReactors(r, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Report(diag.Messages{})
@@ -190,10 +148,6 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
 
 	r := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -205,19 +159,7 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 		},
 	}
 
-	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		ret = r
-		return
-	})
-
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		return
-	})
+	k, cl := setupClientWithReactors(r, nil)
 
 	e := resource.Entry{
 		Origin: &rt.Origin{
@@ -244,10 +186,6 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
 
 	r := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -257,18 +195,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 		},
 	}
 
-	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		ret = r
-		return
-	})
-
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		err = fmt.Errorf("cheese not found")
-		return
-	})
+	k, cl := setupClientWithReactors(r, fmt.Errorf("cheese not found"))
 
 	e := resource.Entry{
 		Origin: &rt.Origin{
@@ -295,10 +222,8 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
 
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
+	k, cl := setupClientWithReactors(nil, nil)
 
 	cl.ReactionChain = nil
 	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
@@ -328,10 +253,6 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	c := NewController(subfield)
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-	k.AddResponse(cl, nil)
 
 	r := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -341,19 +262,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 		},
 	}
 
-	cl.ReactionChain = nil
-	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		ret = r
-		return
-	})
-
-	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
-		handled bool, ret k8sRuntime.Object, err error) {
-		handled = true
-		return
-	})
+	k, cl := setupClientWithReactors(r, nil)
 
 	e := resource.Entry{
 		Origin: &rt.Origin{
@@ -370,4 +279,34 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	g.Eventually(cl.Actions).Should(HaveLen(1))
 	g.Consistently(cl.Actions).Should(HaveLen(1))
+}
+
+func setupClient() (*mock.Kube, *fake.FakeDynamicClient) {
+	k := mock.NewKube()
+
+	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	k.AddResponse(cl, nil)
+
+	return k, cl
+}
+
+func setupClientWithReactors(retVal *unstructured.Unstructured, updateErrVal error) (*mock.Kube, *fake.FakeDynamicClient) {
+	k, cl := setupClient()
+
+	cl.ReactionChain = nil
+	cl.AddReactor("get", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
+		handled = true
+		ret = retVal
+		return
+	})
+
+	cl.AddReactor("update", "Kind1s", func(action k8stesting.Action) (
+		handled bool, ret k8sRuntime.Object, err error) {
+		handled = true
+		err = updateErrVal
+		return
+	})
+
+	return k, cl
 }
