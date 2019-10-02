@@ -40,12 +40,12 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
+func NewBuilder(trustDomainAliases []string, serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	var generator policy.Generator
 
 	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
-		generator = v1beta1.NewGenerator(p)
+		generator = v1beta1.NewGenerator(trustDomainAliases, p)
 		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
 	} else {
 		if serviceInstance.Service == nil {
@@ -62,7 +62,7 @@ func NewBuilder(serviceInstance *model.ServiceInstance, workloadLabels labels.Co
 
 		serviceHostname := string(serviceInstance.Service.Hostname)
 		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-			generator = v1alpha1.NewGenerator(serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			generator = v1alpha1.NewGenerator(trustDomainAliases, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
 			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
 		}
 	}

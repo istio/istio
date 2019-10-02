@@ -78,7 +78,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	service := newService("httpbin.foo.svc.cluster.local", httpbinLabels, t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
+			b := NewBuilder(nil, service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}

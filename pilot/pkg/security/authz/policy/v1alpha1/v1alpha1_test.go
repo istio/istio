@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -173,7 +174,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			g := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			g := NewGenerator(nil, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
@@ -194,6 +195,72 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			}
 			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
+			}
+		})
+	}
+}
+
+func TestV1alpha1_TrustDomainAliases(t *testing.T) {
+	serviceFoo := "foo"
+	namespaceA := "a"
+	role := "role"
+	serviceFooInNamespaceA := policy.NewServiceMetadata("foo.a.svc.cluster.local", nil, t)
+	testCases := []struct {
+		name               string
+		policies           []*model.Config
+		trustDomainAliases []string
+		expectPrincipals   []string
+	}{
+		{
+			name: "no trust domain aliases",
+			policies: []*model.Config{
+				policy.SimpleRole(role, namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, role),
+			},
+			trustDomainAliases: nil,
+			expectPrincipals:   []string{policy.BindingPrincipal("cluster.local", "binding", "binding")},
+		},
+		{
+			name: "trust domain aliases",
+			policies: []*model.Config{
+				policy.SimpleRole(role, namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, role),
+			},
+			trustDomainAliases: []string{"td1", "td2"},
+			expectPrincipals: []string{
+				policy.BindingPrincipal("cluster.local", "binding", "binding"),
+				policy.BindingPrincipal("td1", "binding", "binding"),
+				policy.BindingPrincipal("td2", "binding", "binding")},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := policy.NewAuthzPolicies(tc.policies, t)
+			if authzPolicies == nil {
+				t.Fatal("failed to create authz policies")
+			}
+			g := NewGenerator(tc.trustDomainAliases, serviceFooInNamespaceA, authzPolicies, false)
+			if g == nil {
+				t.Fatal("failed to create generator")
+			}
+
+			got := g.Generate(false)
+			if got == nil || got.Rules == nil {
+				t.Fatal("failed to generate config")
+			}
+			policy, found := got.Rules.Policies[role]
+			if !found {
+				t.Fatalf("key %s not found", role)
+			}
+			if len(policy.Principals) != len(tc.expectPrincipals) {
+				t.Fatalf("unexpected number of principals. Want %d, got %d", len(tc.expectPrincipals), len(policy.Principals))
+			}
+			principalsStr := spew.Sdump(policy.Principals)
+			for _, expectedPrincipal := range tc.expectPrincipals {
+				if !strings.Contains(principalsStr, expectedPrincipal) {
+					t.Fatalf("principal not found in %s. Expect %s", principalsStr, expectedPrincipal)
+				}
 			}
 		})
 	}
