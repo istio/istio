@@ -125,7 +125,11 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 }
 
 func BindingTag(name string) string {
-	return fmt.Sprintf("UserFromBinding[%s]", name)
+	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", name, name)
+}
+
+func BindingPrincipal(trustDomain, namespace, saName string) string {
+	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
 }
 
 func SimpleBinding(name string, namespace string, role string) *model.Config {

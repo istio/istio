@@ -19,10 +19,11 @@ import (
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -30,16 +31,19 @@ var (
 )
 
 type v1alpha1Generator struct {
+	trustDomainAliases        []string
 	serviceMetadata           *authz_model.ServiceMetadata
 	authzPolicies             *model.AuthorizationPolicies
 	isGlobalPermissiveEnabled bool
 }
 
 func NewGenerator(
+	trustDomainAliases []string,
 	serviceMetadata *authz_model.ServiceMetadata,
 	authzPolicies *model.AuthorizationPolicies,
 	isGlobalPermissiveEnabled bool) policy.Generator {
 	return &v1alpha1Generator{
+		trustDomainAliases:        trustDomainAliases,
 		serviceMetadata:           serviceMetadata,
 		authzPolicies:             authzPolicies,
 		isGlobalPermissiveEnabled: isGlobalPermissiveEnabled,
@@ -80,11 +84,11 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 		}
 
 		role := roleConfig.Spec.(*istio_rbac.ServiceRole)
-		if p := g.generatePolicy(role, enforcedBindings, forTCPFilter); p != nil {
+		if p := g.generatePolicy(g.trustDomainAliases, role, enforcedBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated policy for role: %s", roleName)
 			enforcedConfig.Policies[roleName] = p
 		}
-		if p := g.generatePolicy(role, permissiveBindings, forTCPFilter); p != nil {
+		if p := g.generatePolicy(g.trustDomainAliases, role, permissiveBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated permissive policy for role: %s", roleName)
 			permissiveConfig.Policies[roleName] = p
 		}
@@ -105,11 +109,12 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	return ret
 }
 
-func (g *v1alpha1Generator) generatePolicy(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
+func (g *v1alpha1Generator) generatePolicy(trustDomainAliases []string, role *istio_rbac.ServiceRole,
+	bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
 	if role == nil || len(bindings) == 0 {
 		return nil
 	}
 
-	m := authz_model.NewModel(role, bindings)
+	m := authz_model.NewModelV1Alpha1(trustDomainAliases, role, bindings)
 	return m.Generate(g.serviceMetadata, forTCPFilter)
 }

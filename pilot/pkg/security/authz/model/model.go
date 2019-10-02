@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
@@ -109,9 +110,9 @@ type Model struct {
 
 type KeyValues map[string][]string
 
-// NewModel constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
+// NewModelV1Alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1Alpha1(trustDomainAliases []string, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -136,33 +137,36 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 
 	for _, binding := range bindings {
 		for _, subject := range binding.Subjects {
-			var principal Principal
-			principal.User = subject.User
-			principal.Names = subject.Names
-			principal.NotNames = subject.NotNames
-			principal.Groups = subject.Groups
-			principal.Group = subject.Group
-			principal.NotGroups = subject.NotGroups
-			principal.Namespaces = subject.Namespaces
-			principal.NotNamespaces = subject.NotNamespaces
-			principal.IPs = subject.Ips
-			principal.NotIPs = subject.NotIps
+			users := getPrincipalsIncludingAliases(trustDomainAliases, []string{subject.User})
+			for _, user := range users {
+				var principal Principal
+				principal.User = user
+				principal.Names = subject.Names
+				principal.NotNames = subject.NotNames
+				principal.Groups = subject.Groups
+				principal.Group = subject.Group
+				principal.NotGroups = subject.NotGroups
+				principal.Namespaces = subject.Namespaces
+				principal.NotNamespaces = subject.NotNamespaces
+				principal.IPs = subject.Ips
+				principal.NotIPs = subject.NotIps
 
-			property := KeyValues{}
-			for k, v := range subject.Properties {
-				property[k] = []string{v}
+				property := KeyValues{}
+				for k, v := range subject.Properties {
+					property[k] = []string{v}
+				}
+				principal.Properties = []KeyValues{property}
+
+				m.Principals = append(m.Principals, principal)
 			}
-			principal.Properties = []KeyValues{property}
-
-			m.Principals = append(m.Principals, principal)
 		}
 	}
 
 	return m
 }
 
-// NewModel constructs a Model from v1beta1 Rule.
-func NewModelFromV1beta1(rule *security.Rule) *Model {
+// NewModelV1Alpha1 constructs a Model from v1beta1 Rule.
+func NewModelFromV1beta1(trustDomainAliases []string, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)
@@ -179,9 +183,10 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 
 	for _, from := range rule.From {
 		if source := from.Source; source != nil {
+			names := getPrincipalsIncludingAliases(trustDomainAliases, source.Principals)
 			principal := Principal{
 				IPs:               source.IpBlocks,
-				Names:             source.Principals,
+				Names:             names,
 				Namespaces:        source.Namespaces,
 				RequestPrincipals: source.RequestPrincipals,
 				Properties:        conditionsForPrincipal,
@@ -264,4 +269,24 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 		return nil
 	}
 	return policy
+}
+
+// getPrincipalsIncludingAliases returns list of users encoded in spiffe format from the local trust domain
+// and its aliases.
+// For example, if the local trust domain is "cluster.local", and its aliases are "td1", "td2".
+// For a user "bar" in namespace "foo", getPrincipalsIncludingAliases returns
+// cluster.local/ns/foo/sa/bar, td1/ns/foo/sa/bar, td2/ns/foo/sa/bar
+func getPrincipalsIncludingAliases(trustDomainAliases []string, principals []string) []string {
+	usersWithAliases := principals
+	for _, tdAlias := range trustDomainAliases {
+		for _, principal := range principals {
+			identityParts := strings.Split(principal, "/")
+			if len(identityParts) != 5 {
+				rbacLog.Errorf("Wrong SPIFFE format found: %s", principal)
+				return usersWithAliases
+			}
+			usersWithAliases = append(usersWithAliases, fmt.Sprintf("%s/%s", tdAlias, strings.Join(identityParts[1:], "/")))
+		}
+	}
+	return usersWithAliases
 }
