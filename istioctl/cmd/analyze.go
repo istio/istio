@@ -50,6 +50,12 @@ istioctl experimental analyze -k
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
 istioctl experimental analyze -k a.yaml b.yaml
+
+# Analyze yaml files, overriding service discovery to enabled
+istioctl experimental analyze -d true a.yaml b.yaml services.yaml
+
+# Analyze the current live cluster, overriding service discovery to disabled
+istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// These scopes are pretty verbose at the default log level and significantly clutter terminal output,
@@ -129,9 +135,11 @@ istioctl experimental analyze -k a.yaml b.yaml
 	}
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
-		"Use live kubernetes cluster for analysis")
+		"Use live Kubernetes cluster for analysis")
 	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
-		"'true' or 'false' explicitly enables/disables service discovery. Otherwise, default to enabled if use-kube is set")
+		"'true' to enable service discovery, 'false' to disable it. "+
+			"Defaults to true if --use-kube is set, false otherwise. "+
+			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 
 	return analysisCmd
 }
