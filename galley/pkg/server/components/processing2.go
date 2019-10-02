@@ -318,12 +318,6 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 			return
 		}
 
-		if !p.args.DisableResourceReadyCheck {
-			if err = checkResourceTypesPresence(k, resources); err != nil {
-				return
-			}
-		}
-
 		var statusCtl status.Controller
 		if p.args.EnableConfigAnalysis {
 			statusCtl = status.NewController()

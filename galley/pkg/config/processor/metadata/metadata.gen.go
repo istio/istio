@@ -814,217 +814,186 @@ sources:
       plural: "apikeys"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/authorizations"
       kind: "authorization"
       plural: "authorizations"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/bypasses"
       kind: "bypass"
       plural: "bypasses"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/checknothings"
       kind: "checknothing"
       plural: "checknothings"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/circonuses"
       kind: "circonus"
       plural: "circonuses"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/cloudwatches"
       kind: "cloudwatch"
       plural: "cloudwatches"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/deniers"
       kind: "denier"
       plural: "deniers"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/dogstatsds"
       kind: "dogstatsd"
       plural: "dogstatsds"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/edges"
       kind: "edge"
       plural: "edges"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/fluentds"
       kind: "fluentd"
       plural: "fluentds"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/kuberneteses"
       kind: "kubernetes"
       plural: "kuberneteses"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/kubernetesenvs"
       kind: "kubernetesenv"
       plural: "kubernetesenvs"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/listcheckers"
       kind: "listchecker"
       plural: "listcheckers"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/listentries"
       kind: "listentry"
       plural: "listentries"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/logentries"
       kind: "logentry"
       plural: "logentries"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/memquotas"
       kind: "memquota"
       plural: "memquotas"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/metrics"
       kind: "metric"
       plural: "metrics"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/noops"
       kind: "noop"
       plural: "noops"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/opas"
       kind: "opa"
       plural: "opas"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/prometheuses"
       kind: "prometheus"
       plural: "prometheuses"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/quotas"
       kind: "quota"
       plural: "quotas"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/rbacs"
       kind: "rbac"
       plural: "rbacs"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/redisquotas"
       kind: "redisquota"
       plural: "redisquotas"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/reportnothings"
       kind: "reportnothing"
       plural: "reportnothings"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/signalfxs"
       kind: "signalfx"
       plural: "signalfxs"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/solarwindses"
       kind: "solarwinds"
       plural: "solarwindses"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/stackdrivers"
       kind: "stackdriver"
       plural: "stackdrivers"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/statsds"
       kind: "statsd"
       plural: "statsds"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/stdios"
       kind: "stdio"
       plural: "stdios"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/tracespans"
       kind: "tracespan"
       plural: "tracespans"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
     - collection: "k8s/config.istio.io/v1alpha2/zipkins"
       kind: "zipkin"
       plural: "zipkins"
       group: "config.istio.io"
       version: "v1alpha2"
-      optional: true
 
 # Transform specific configurations
 transforms:
