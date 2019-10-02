@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -325,7 +326,7 @@ func setupClient() (*mock.Kube, *fake.FakeDynamicClient) {
 	return k, cl
 }
 
-func setupClientWithReactors(retVal *unstructured.Unstructured, updateErrVal error) (*mock.Kube, *fake.FakeDynamicClient) {
+func setupClientWithReactors(retVal runtime.Object, updateErrVal error) (*mock.Kube, *fake.FakeDynamicClient) {
 	k, cl := setupClient()
 
 	cl.ReactionChain = nil
