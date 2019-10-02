@@ -39,7 +39,7 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "filemount-citadel-flow",
+				Prefix: "citadel-root-cert-rotation",
 				Inject: true,
 			})
 
