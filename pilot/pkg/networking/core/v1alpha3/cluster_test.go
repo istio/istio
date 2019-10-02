@@ -1565,7 +1565,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 				{
 					Port: &networking.PortSelector{
-						Port: &networking.PortSelector_Number{Number: 9090},
+						Number: 9090,
 					},
 					Tls: &networking.TLSSettings{
 						Mode: networking.TLSSettings_DISABLE,
@@ -1602,7 +1602,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 				{
 					Port: &networking.PortSelector{
-						Port: &networking.PortSelector_Number{Number: 9090},
+						Number: 9090,
 					},
 					Tls: &networking.TLSSettings{
 						Mode: networking.TLSSettings_DISABLE,
@@ -1654,7 +1654,7 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 				{
 					Port: &networking.PortSelector{
-						Port: &networking.PortSelector_Number{Number: 9090},
+						Number: 9090,
 					},
 					Tls: &networking.TLSSettings{
 						Mode: networking.TLSSettings_DISABLE,
