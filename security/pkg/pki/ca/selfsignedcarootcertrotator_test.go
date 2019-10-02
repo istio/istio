@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/security/pkg/cmd"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -240,9 +241,8 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	rootCertCheckInverval := time.Hour
 
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, -1, client,
-		rootCertFile)
+		cmd.DefaultRootCertGracePeriodRatio, caCertTTL, rootCertCheckInverval,
+		defaultCertTTL, maxCertTTL, org, false, caNamespace, -1, client, rootCertFile)
 	return caopts
 }
 

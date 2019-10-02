@@ -51,6 +51,7 @@ const (
 	selfSignedCaCertTTL                = "SELF_SIGNED_CA_CERT_TTL"
 	selfSignedRootCertCheckInterval    = "SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
 	selfSignedRootCertMinCheckInterval = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
+	selfSignedRootCertGracePeriodRatio = "SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_RATIO"
 	workloadCertMinGracePeriod         = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
 )
 
@@ -71,6 +72,7 @@ type cliOptions struct { // nolint: maligned
 	selfSignedCACertTTL                time.Duration
 	selfSignedRootCertCheckInterval    time.Duration
 	selfSignedRootCertMinCheckInterval time.Duration
+	selfSignedRootCertGracePeriodRatio float64
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -141,6 +143,9 @@ var (
 			cmd.SelfSignedRootCertMinCheckInterval,
 			"The minimum interval that self-signed CA checks its root certificate "+
 				"expiration time and rotates root certificate.").Get(),
+		selfSignedRootCertGracePeriodRatio: env.RegisterFloatVar(selfSignedRootCertGracePeriodRatio,
+			cmd.DefaultRootCertGracePeriodRatio,
+			"Grace period ratio for self-signed root cert.").Get(),
 		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
 			cmd.DefaultWorkloadMinCertGracePeriod,
 			"The minimum workload certificate rotation grace period.").Get(),
@@ -467,7 +472,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			opts.selfSignedRootCertCheckInterval = opts.selfSignedRootCertMinCheckInterval
 		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
-			opts.selfSignedCACertTTL,
+			opts.selfSignedRootCertGracePeriodRatio, opts.selfSignedCACertTTL,
 			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
 			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)

@@ -116,6 +116,7 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+	rootCertGracePeriodRatio float64,
 	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
 	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
 	client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
@@ -139,7 +140,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		}
 	}
 
-	rootCertGracePeriodPercentile := cmd.DefaultRootCertGracePeriodRatio * 100
+	rootCertGracePeriodPercentile := int(rootCertGracePeriodRatio * 100)
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
