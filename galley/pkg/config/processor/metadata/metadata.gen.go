@@ -566,7 +566,7 @@ snapshots:
       - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
-      - "k8s/core/v1/pods"
+
       # Legacy Mixer CRDs
       - "istio/config/v1alpha2/legacy/apikeys"
       - "istio/config/v1alpha2/legacy/authorizations"
