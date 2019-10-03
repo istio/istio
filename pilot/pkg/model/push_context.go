@@ -230,7 +230,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Merge the target namespaces
-	if len(first.NamespacesUpdated) > 0 || len(other.NamespacesUpdated) > 0 {
+	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
 		merged.NamespacesUpdated = make(map[string]struct{})
 		for update := range first.NamespacesUpdated {
 			merged.NamespacesUpdated[update] = struct{}{}
@@ -241,7 +241,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Merge the config updates
-	if len(first.ConfigTypesUpdated) > 0 || len(other.ConfigTypesUpdated) > 0 {
+	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
 		merged.ConfigTypesUpdated = make(map[string]struct{})
 		for update := range first.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
