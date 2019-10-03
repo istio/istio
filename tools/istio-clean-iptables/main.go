@@ -18,12 +18,37 @@ import (
 	"flag"
 	"os"
 
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
+func removeOldChains(ext dep.Dependencies, cmd dep.Cmd) {
+	// Remove the old chains
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	// Flush and delete the istio chains.
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-F", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-X", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-F", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-X", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-F", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-X", constants.ISTIOINBOUND)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-F", constants.ISTIODIVERT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-X", constants.ISTIODIVERT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-F", constants.ISTIOTPROXY)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-X", constants.ISTIOTPROXY)
+	// Must be last, the others refer to it
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-F", constants.ISTIOREDIRECT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-X", constants.ISTIOREDIRECT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-F", constants.ISTIOINREDIRECT)
+	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-X", constants.ISTIOINREDIRECT)
+}
+
 func run(args []string, flagSet *flag.FlagSet) {
 	var dryRun bool
-	flagSet.BoolVar(&dryRun, "dryRun", false, "Do not call any external dependencies like iptables")
+	flagSet.BoolVar(&dryRun, "dryRun", false, "Do not call any external dependencies like ipcmd")
 	err := flagSet.Parse(args)
 	if err != nil {
 		return
@@ -37,30 +62,14 @@ func run(args []string, flagSet *flag.FlagSet) {
 	}
 
 	defer func() {
-		ext.RunOrFail(dep.IPTABLESSAVE)
-		ext.RunOrFail(dep.IP6TABLESSAVE)
+		for _, cmd := range []dep.Cmd{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
+			ext.RunOrFail(cmd)
+		}
 	}()
 
-	// Remove the old chains, to generate new configs.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-D", "PREROUTING", "-p", "tcp", "-j", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "-j", "ISTIO_OUTPUT")
-	// Flush and delete the istio chains.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_OUTPUT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_OUTPUT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_INBOUND")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_DIVERT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_DIVERT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-F", "ISTIO_TPROXY")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "mangle", "-X", "ISTIO_TPROXY")
-	// Must be last, the others refer to it
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-F", "ISTIO_IN_REDIRECT")
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", "nat", "-X", "ISTIO_IN_REDIRECT")
+	for _, cmd := range []dep.Cmd{dep.IPTABLES, dep.IP6TABLES} {
+		removeOldChains(ext, cmd)
+	}
 }
 
 func main() {
