@@ -63,7 +63,7 @@ type Config struct {
 	MeshConfig *meshConfig.MeshConfig
 }
 
-// New returns a new instance of echo.
+// New returns a new instance of Pilot.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {

@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,10 +28,10 @@ import (
 type Instance interface {
 	resource.Resource
 
-	WaitForSecretToExist() (*corev1.Secret, error)
-	WaitForSecretToExistOrFail(t test.Failer) *corev1.Secret
-	DeleteSecret(name string) error
-	DeleteSecretOrFail(t test.Failer, name string)
+	WaitForSecretToExist(ns namespace.Instance, name string) (*corev1.Secret, error)
+	WaitForSecretToExistOrFail(t test.Failer, ns namespace.Instance, name string) *corev1.Secret
+	DeleteSecret(ns namespace.Instance, name string) error
+	DeleteSecretOrFail(t test.Failer, ns namespace.Instance, name string)
 }
 
 type Config struct {

@@ -38,7 +38,7 @@ func (c *Checker) Check() error {
 		}
 		if err != nil {
 			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
-				c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme, err)
+				c.From.Config().FQDN(), c.Options.Target.Config().FQDN(), c.Options.PortName, c.Options.Scheme, err)
 		}
 		return nil
 	}
@@ -46,7 +46,7 @@ func (c *Checker) Check() error {
 	// Expect failure...
 	if err == nil && results.CheckOK() == nil {
 		return fmt.Errorf("%s to %s:%s using %s: expected failed, actually success",
-			c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme)
+			c.From.Config().FQDN(), c.Options.Target.Config().FQDN(), c.Options.PortName, c.Options.Scheme)
 	}
 	return nil
 }

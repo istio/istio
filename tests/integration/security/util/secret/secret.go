@@ -63,6 +63,8 @@ func Examine(secret *v1.Secret) error {
 
 // ExamineOrFail calls Examine and fails t if an error occurs.
 func ExamineOrFail(t testing.TB, secret *v1.Secret) {
+	t.Helper()
+
 	if err := Examine(secret); err != nil {
 		t.Fatal(err)
 	}

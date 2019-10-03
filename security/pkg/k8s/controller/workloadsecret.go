@@ -65,7 +65,7 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 	// ConfigMap label key that indicates that the ConfigMap contains additional trusted CA roots.
-	ExtraTrustAnchorsLabel = "istio.io/extra-trust-anchors"
+	ExtraTrustAnchorsLabel = "security.istio.io/extra-trust-anchors"
 
 	secretNamePrefix      = "istio."
 	secretResyncPeriod    = time.Minute
@@ -158,7 +158,8 @@ type SecretController struct {
 
 	// Extra trust anchors related state
 	extraTrustAnchorsController cache.Controller
-	extraTrustAnchorMu          sync.Mutex
+
+	extraTrustAnchorMu sync.Mutex
 	// extra trust anchors organized by source configmap name and key within that configmap.
 	// The value is a PEM encoded root certificate. Extra anchors are combined with the
 	// primary root to form the list of trusted roots distributed to proxies.
@@ -622,7 +623,7 @@ func (sc *SecretController) getTrustAnchorsBundle() []byte {
 	sc.extraTrustAnchorMu.Lock()
 	defer sc.extraTrustAnchorMu.Unlock()
 
-	// TODO trigger refresh on CA secret change instead of performing this check on every get
+	// TODO(ayj) trigger refresh on CA secret change instead of performing this check on every get
 	if !reflect.DeepEqual(sc.primaryTrustAnchor, sc.ca.GetCAKeyCertBundle().GetRootCertPem()) {
 		sc.refreshTrustAnchorsBundle()
 	}

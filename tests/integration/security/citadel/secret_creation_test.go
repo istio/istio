@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/citadel"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/util/secret"
 )
 
@@ -27,20 +28,21 @@ import (
 func TestSecretCreationKubernetes(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
+		ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 
 		// Test the existence of istio.default secret.
-		s := c.WaitForSecretToExistOrFail(t)
+		s := c.WaitForSecretToExistOrFail(t, ns, citadel.SecretName)
 
 		t.Log(`checking secret "istio.default" is correctly created`)
 		secret.ExamineOrFail(t, s)
 
 		// Delete the istio.default secret immediately
-		c.DeleteSecretOrFail(t, s.Name)
+		c.DeleteSecretOrFail(t, ns, s.Name)
 
 		t.Log(`secret "istio.default" has been deleted`)
 
 		// Test that the deleted secret is re-created properly.
-		s = c.WaitForSecretToExistOrFail(t)
+		s = c.WaitForSecretToExistOrFail(t, ns, citadel.SecretName)
 		t.Log(`checking secret "istio.default" is correctly re-created`)
 		secret.ExamineOrFail(t, s)
 	})

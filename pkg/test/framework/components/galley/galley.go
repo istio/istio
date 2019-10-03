@@ -69,7 +69,7 @@ type Config struct {
 	MeshConfig string
 }
 
-// New returns a new instance of echo.
+// New returns a new instance of Galley.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Native, func() {

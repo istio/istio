@@ -21,11 +21,11 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 
 	v1 "k8s.io/api/core/v1"
 	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
@@ -38,19 +38,17 @@ const (
 var _ Instance = &kubeComponent{}
 
 type kubeComponent struct {
-	id     resource.ID
-	istio  istio.Instance
-	secret cv1.SecretInterface
+	id    resource.ID
+	istio istio.Instance
+	env   *kube.Environment
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{
 		istio: cfg.Istio,
+		env:   ctx.Environment().(*kube.Environment),
 	}
 	c.id = ctx.TrackResource(c)
-
-	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }
@@ -59,8 +57,8 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
-	watch, err := c.secret.Watch(mv1.ListOptions{})
+func (c *kubeComponent) WaitForSecretToExist(ns namespace.Instance, name string) (*v1.Secret, error) {
+	watch, err := c.env.GetSecret(ns.Name()).Watch(mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}
@@ -71,33 +69,33 @@ func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
 		select {
 		case event := <-events:
 			secret := event.Object.(*v1.Secret)
-			if secret.GetName() == SecretName {
+			if secret.GetName() == name {
 				return secret, nil
 			}
 		case <-time.After(secretWaitTime - time.Since(startTime)):
 			return nil, fmt.Errorf("secret %v did not become existent within %v",
-				SecretName, secretWaitTime)
+				name, secretWaitTime)
 		}
 	}
 }
 
-func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer) *v1.Secret {
+func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer, ns namespace.Instance, name string) *v1.Secret {
 	t.Helper()
-	s, err := c.WaitForSecretToExist()
+	s, err := c.WaitForSecretToExist(ns, name)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func (c *kubeComponent) DeleteSecret(name string) error {
+func (c *kubeComponent) DeleteSecret(ns namespace.Instance, name string) error {
 	var immediate int64
-	return c.secret.Delete(name, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
+	return c.env.GetSecret(ns.Name()).Delete(name, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func (c *kubeComponent) DeleteSecretOrFail(t test.Failer, name string) {
+func (c *kubeComponent) DeleteSecretOrFail(t test.Failer, ns namespace.Instance, name string) {
 	t.Helper()
-	if err := c.DeleteSecret(name); err != nil {
+	if err := c.DeleteSecret(ns, name); err != nil {
 		t.Fatal(err)
 	}
 }
