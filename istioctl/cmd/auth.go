@@ -107,11 +107,11 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		Long: `Upgrade converts Istio authorization policy from version v1alpha1 to v1beta1. It requires access to Kubernetes
 service definition in order to translate the service name specified in the ServiceRole to the corresponding
 workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
-Kubernetes cluster or from a yaml file specified from command line.
+Kubernetes cluster or from a YAML file specified from command line.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Upgrade the Istio authorization policy with service definition from the current k8s cluster:
+		Example: `  # Upgrade the Istio authorization policy with service definition from the current Kubernetes cluster:
   istioctl experimental auth upgrade -f rbac-v1-policy.yaml,rbac-v1-policy-2.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			upgrader, err := newUpgrader(policyFiles, serviceFiles)
@@ -128,7 +128,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
 			if err != nil {
 				cleanupForTest()
-				return fmt.Errorf("failed writing config with error %v", err)
+				return fmt.Errorf("failed writing config: %v", err)
 			}
 			cleanupForTest()
 			return nil
@@ -156,7 +156,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			writer := cmd.OutOrStdout()
 			_, err = writer.Write([]byte(validator.Report.String()))
 			if err != nil {
-				return fmt.Errorf("failed to write report with error %v", err)
+				return fmt.Errorf("failed to write report: %v", err)
 			}
 			return nil
 		},
@@ -220,7 +220,7 @@ func newUpgrader(v1PolicyFiles, serviceFiles []string) (*auth.Upgrader, error) {
 	var k8sClient *kubernetes2.Clientset
 	k8sClient, err := kube.CreateClientset("", "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
+		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
 	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles)
 	return upgrader, nil

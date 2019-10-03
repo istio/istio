@@ -84,20 +84,20 @@ func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []
 func (ug *Upgrader) ConvertV1alpha1ToV1beta1() error {
 	configsFromFile, err := getRbacConfigsFromFiles(ug.V1PolicyFiles)
 	if err != nil {
-		return fmt.Errorf("failed to get RBAC config from files with error %v", err)
+		return fmt.Errorf("failed to get RBAC config from files: %v", err)
 	}
 	authzPolicies, err := getAuthorizationPolicies(configsFromFile)
 	if err != nil {
-		return fmt.Errorf("failed to get AuthorizationPolices store with error %v", err)
+		return fmt.Errorf("failed to get AuthorizationPolices store: %v", err)
 	}
 	err = ug.convert(authzPolicies)
 	if err != nil {
-		return fmt.Errorf("failed to convert policies with error %v", err)
+		return fmt.Errorf("failed to convert policies: %v", err)
 	}
 	for _, authzPolicy := range ug.AuthorizationPolicies {
 		err := ug.parseConfigToString(authzPolicy)
 		if err != nil {
-			return fmt.Errorf("failed to parse config to string with error %v", err)
+			return fmt.Errorf("failed to parse config to string: %v", err)
 		}
 	}
 	return nil
@@ -142,7 +142,7 @@ func getAuthorizationPolicies(policies []model.Config) (*model.AuthorizationPoli
 func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
 	if len(namespaces) == 0 {
-		return fmt.Errorf("no namespace found")
+		return fmt.Errorf("no namespace found from the provided authorization policy")
 	}
 	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
 	for _, ns := range namespaces {
@@ -166,10 +166,10 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 // ServiceRoleBinding to the equivalent AuthorizationPolicy.
 func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
 	if v1alpha1Model == nil {
-		return fmt.Errorf("v1alpha1 model is nil")
+		return fmt.Errorf("internal error: No v1alpha1 model")
 	}
 	if v1alpha1Model.Permissions == nil || len(v1alpha1Model.Permissions) == 0 {
-		return fmt.Errorf("permissions are empty")
+		return fmt.Errorf("invalid input: ServiceRole has no permissions")
 	}
 	if v1alpha1Model.Principals == nil || len(v1alpha1Model.Principals) == 0 {
 		return fmt.Errorf("principals are empty")
@@ -179,11 +179,14 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		return fmt.Errorf("more than one access rule is not supported")
 	}
 	accessRule := v1alpha1Model.Permissions[0]
-	operations := convertAccessRuleToOperation(&accessRule)
-	if operations == nil {
-		return fmt.Errorf("cannot convert access rule to operation")
+	operations, err := convertAccessRuleToOperation(&accessRule)
+	if err != nil {
+		return fmt.Errorf("cannot convert access rule to operation: %v", err)
 	}
-	sources := convertBindingToSources(v1alpha1Model.Principals)
+	sources, err := convertBindingToSources(v1alpha1Model.Principals)
+	if err != nil {
+		return fmt.Errorf("cannot convert binding to sources: %v", err)
+	}
 	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
 	// with no workload selector
 	authzPolicyConfig := model.Config{
@@ -206,14 +209,14 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		},
 	}
 	if len(accessRule.Services) == 0 || accessRule.Services[0] == "*" {
-		authzPolicyConfig.Name = fmt.Sprintf("%s-services", namespace)
+		authzPolicyConfig.Name = fmt.Sprintf("%s-all", namespace)
 		authzPolicyConfig.Spec.(*rbac_v1beta1.AuthorizationPolicy).Selector = nil
 		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
 		return nil
 	}
 	for _, service := range accessRule.Services {
 		serviceName := strings.Split(service, ".")[0]
-		authzPolicyConfig.Name = fmt.Sprintf("%s-%s", serviceName, namespace)
+		authzPolicyConfig.Name = fmt.Sprintf("%s-%s", namespace, serviceName)
 		workloadSelector, err := ug.getAndAddServiceToWorkloadLabelMapping(service, namespace)
 		if err != nil {
 			return err
@@ -231,22 +234,26 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 
 // TODO(pitlv2109): Handle cases with workload selector from destination.labels and other constraints
 // convertAccessRuleToOperation converts one Access Rule to the equivalent Operation.
-func convertAccessRuleToOperation(rule *authz_model.Permission) *rbac_v1beta1.Operation {
+func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.Operation, error) {
 	if rule == nil {
-		return nil
+		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
 	}
 	operation := rbac_v1beta1.Operation{}
 	operation.Methods = rule.Methods
 	operation.Paths = rule.Paths
 	// TODO(pitlv2109): Handle destination.port
-	return &operation
+	return &operation, nil
 }
 
 // TODO(pitlv2109): Handle properties that are not promoted to first class fields.
 // convertBindingToSources converts Subjects to the equivalent Sources.
-func convertBindingToSources(principals []authz_model.Principal) []*rbac_v1beta1.Rule_From {
+func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta1.Rule_From, error) {
 	ruleFrom := []*rbac_v1beta1.Rule_From{}
 	for _, subject := range principals {
+		// TODO(pitlv2109): Handle group
+		if subject.Group != "" {
+			return nil, fmt.Errorf("serviceRoleBinding with group is not supported")
+		}
 		from := rbac_v1beta1.Rule_From{
 			Source: &rbac_v1beta1.Source{},
 		}
@@ -266,12 +273,13 @@ func convertBindingToSources(principals []authz_model.Principal) []*rbac_v1beta1
 				from.Source.IpBlocks = v
 			case requestAuthPrincipal:
 				from.Source.RequestPrincipals = v
+			default:
+				return nil, fmt.Errorf("property %s is not supported", k)
 			}
 		}
-		// TODO(pitlv2109): Handle group
 		ruleFrom = append(ruleFrom, &from)
 	}
-	return ruleFrom
+	return ruleFrom, nil
 }
 
 // getAndAddServiceToWorkloadLabelMapping get the workload labels given the fullServiceName and namespace. It may
@@ -283,7 +291,7 @@ func (ug *Upgrader) getAndAddServiceToWorkloadLabelMapping(fullServiceName, name
 	}
 	// TODO(pitlv2109): Handle suffix and prefix for services.
 	if strings.Contains(fullServiceName, "*") {
-		return nil, fmt.Errorf("wildcard * as prefix or suffix is not supported yet")
+		return nil, fmt.Errorf("wildcard * as prefix or suffix yet supported in full service name")
 	}
 	serviceName := strings.Split(fullServiceName, ".")[0]
 
@@ -362,7 +370,7 @@ func (ug *Upgrader) parseConfigToString(config model.Config) error {
 	}
 	configInBytes, err := yaml.Marshal(obj)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal %v: %v", config.Name, err)
+		return fmt.Errorf("could not marshal %v: %v", config.Name, err)
 	}
 	configLines := strings.Split(string(configInBytes), "\n")
 	for i, configLine := range configLines {

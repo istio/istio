@@ -25,18 +25,38 @@ import (
 )
 
 func runCommandAndCheckGoldenFile(name, command, golden string, t *testing.T) {
-	out := runCommand(name, command, t)
+	out, err := runCommand(name, command, t)
+	if err != nil {
+		t.Errorf("%s: unexpected error: %s", name, err)
+	}
 	util.CompareContent(out.Bytes(), golden, t)
 }
 
 func runCommandAndCheckExpectedString(name, command, expected string, t *testing.T) {
-	out := runCommand(name, command, t)
+	out, err := runCommand(name, command, t)
+	if err != nil {
+		t.Fatalf("test %q failed: %v", name, expected)
+	}
 	if out.String() != expected {
 		t.Errorf("test %q failed. \nExpected\n%s\nGot%s\n", name, expected, out.String())
 	}
 }
 
-func runCommand(name, command string, t *testing.T) bytes.Buffer {
+func runCommandAndCheckExpectedCmdError(name, command, expected string, t *testing.T) {
+	out, err := runCommand(name, command, t)
+	if err == nil {
+		t.Fatalf("test %q failed. Expected error: %v", name, expected)
+	}
+	if err != nil && out.Len() != 0 {
+		if out.String() != expected {
+			t.Fatalf("test %q failed. \nExpected\n%s\nGot\n%s\n", name, expected, out.String())
+		}
+	} else {
+		t.Fatalf("test %q failed. Expected error: %v", name, expected)
+	}
+}
+
+func runCommand(name, command string, t *testing.T) (bytes.Buffer, error) {
 	t.Helper()
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(strings.Split(command, " "))
@@ -44,9 +64,9 @@ func runCommand(name, command string, t *testing.T) bytes.Buffer {
 
 	err := rootCmd.Execute()
 	if err != nil {
-		t.Errorf("%s: unexpected error: %s", name, err)
+		return out, fmt.Errorf("%s: unexpected error: %s", name, err)
 	}
-	return out
+	return out, nil
 }
 
 func TestAuthCheck(t *testing.T) {
@@ -98,8 +118,14 @@ func TestAuthUpgrade(t *testing.T) {
 		name              string
 		rbacV1alpha1Files []string
 		servicesFiles     []string
+		expectedError     string
 		golden            string
 	}{
+		{
+			name:              "RBAC policy with (unsupported) group field",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml", "testdata/auth/upgrade/group-in-subject.yaml"},
+			expectedError:     "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
+		},
 		{
 			name:              "One access rule with one service",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml", "testdata/auth/upgrade/one-subject.yaml"},
@@ -122,6 +148,10 @@ func TestAuthUpgrade(t *testing.T) {
 	for _, c := range testCases {
 		command := fmt.Sprintf("experimental auth upgrade -f %s -s %s",
 			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","))
-		runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
+		if c.expectedError != "" {
+			runCommandAndCheckExpectedCmdError(c.name, command, c.expectedError, t)
+		} else {
+			runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
+		}
 	}
 }
