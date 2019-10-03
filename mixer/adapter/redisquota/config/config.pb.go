@@ -34,7 +34,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Algorithms for rate-limiting:
 type Params_QuotaAlgorithm int32
@@ -86,7 +86,7 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
 	Quotas []Params_Quota `protobuf:"bytes,1,rep,name=quotas,proto3" json:"quotas"`
-	// Redis connection string <hostname>:<port number>
+	// Redis connection string `<hostname>:<port number>`
 	// ex) localhost:6379
 	RedisServerUrl string `protobuf:"bytes,2,opt,name=redis_server_url,json=redisServerUrl,proto3" json:"redis_server_url,omitempty"`
 	// Maximum number of idle connections to redis

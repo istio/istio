@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
@@ -112,12 +113,25 @@ func (p *Processing2) Start() (err error) {
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
 	if p.args.EnableConfigAnalysis {
-
-		a := analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders)
-		distributor = snapshotter.NewAnalyzingDistributor(updater, a, distributor, nil)
+		settings := snapshotter.AnalyzingDistributorSettings{
+			StatusUpdater:     updater,
+			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Distributor:       distributor,
+			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
+			TriggerSnapshot:   metadata.Default,
+		}
+		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       p.args.DomainSuffix,
+		Source:             event.CombineSources(mesh, src),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
+	}
+	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
 	}
 

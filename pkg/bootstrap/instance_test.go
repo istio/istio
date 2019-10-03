@@ -36,6 +36,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 )
@@ -79,7 +80,8 @@ func TestGolden(t *testing.T) {
 		base                       string
 		envVars                    map[string]string
 		annotations                map[string]string
-		opts                       map[string]interface{}
+		sdsUDSPath                 string
+		sdsTokenPath               string
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
@@ -91,11 +93,9 @@ func TestGolden(t *testing.T) {
 			base: "auth",
 		},
 		{
-			base: "authsds",
-			opts: map[string]interface{}{
-				"sds_uds_path":   "udspath",
-				"sds_token_path": "/var/run/secrets/tokens/istio-token",
-			},
+			base:         "authsds",
+			sdsUDSPath:   "udspath",
+			sdsTokenPath: "/var/run/secrets/tokens/istio-token",
 		},
 		{
 			base: "default",
@@ -132,10 +132,8 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
-			opts: map[string]interface{}{
-				"sds_uds_path":   "udspath",
-				"sds_token_path": "/var/run/secrets/tokens/istio-token",
-			},
+			sdsUDSPath:    "udspath",
+			sdsTokenPath:  "/var/run/secrets/tokens/istio-token",
 			checkLocality: true,
 		},
 		{
@@ -247,7 +245,7 @@ func TestGolden(t *testing.T) {
 				defer c.teardown()
 			}
 
-			cfg, err := loadProxyConfig(c.base, out, t)
+			proxyConfig, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
@@ -257,9 +255,18 @@ func TestGolden(t *testing.T) {
 				localEnv = append(localEnv, k+"="+v)
 			}
 
-			fn, err := writeBootstrapForPlatform(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, c.opts, localEnv,
-				[]string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"}, "60s", &fakePlatform{})
+			fn, err := New(Config{
+				Node:           "sidecar~1.2.3.4~foo~bar",
+				DNSRefreshRate: "60s",
+				Proxy:          proxyConfig,
+				PlatEnv:        &fakePlatform{},
+				PilotSubjectAltName: []string{
+					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
+				LocalEnv:     localEnv,
+				NodeIPs:      []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
+				SDSUDSPath:   c.sdsUDSPath,
+				SDSTokenPath: c.sdsTokenPath,
+			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -447,7 +454,7 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 		},
 	}
 	if excludeLocality {
-		// Zone and region can vary based on the environment, so it shouldn't be considered in the diff.
+		// zone and region can vary based on the environment, so it shouldn't be considered in the diff.
 		replacements = append(replacements,
 			regexReplacement{
 				pattern:     regexp.MustCompile(`"zone": ".+"`),
@@ -485,95 +492,6 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	}
 	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
 	return cfg, nil
-}
-
-func TestGetHostPort(t *testing.T) {
-	var testCases = []struct {
-		name         string
-		addr         string
-		expectedHost string
-		expectedPort string
-		errStr       string
-	}{
-		{
-			name:         "Valid IPv4 host/port",
-			addr:         "127.0.0.1:5000",
-			expectedHost: "127.0.0.1",
-			expectedPort: "5000",
-			errStr:       "",
-		},
-		{
-			name:         "Valid IPv6 host/port",
-			addr:         "[2001:db8::100]:5000",
-			expectedHost: "2001:db8::100",
-			expectedPort: "5000",
-			errStr:       "",
-		},
-		{
-			name:         "Valid host/port",
-			addr:         "istio-pilot:15005",
-			expectedHost: "istio-pilot",
-			expectedPort: "15005",
-			errStr:       "",
-		},
-		{
-			name:         "No port specified",
-			addr:         "127.0.0.1:",
-			expectedHost: "127.0.0.1",
-			expectedPort: "",
-			errStr:       "",
-		},
-		{
-			name:         "Missing port",
-			addr:         "127.0.0.1",
-			expectedHost: "",
-			expectedPort: "",
-			errStr:       "unable to parse test address \"127.0.0.1\": address 127.0.0.1: missing port in address",
-		},
-		{
-			name:         "Missing brackets for IPv6",
-			addr:         "2001:db8::100:5000",
-			expectedHost: "",
-			expectedPort: "",
-			errStr:       "unable to parse test address \"2001:db8::100:5000\": address 2001:db8::100:5000: too many colons in address",
-		},
-		{
-			name:         "No address provided",
-			addr:         "",
-			expectedHost: "",
-			expectedPort: "",
-			errStr:       "unable to parse test address \"\": missing port in address",
-		},
-	}
-	for _, tc := range testCases {
-		h, p, err := GetHostPort("test", tc.addr)
-		if err == nil {
-			if tc.errStr != "" {
-				t.Errorf("[%s] expected error %q, but no error seen", tc.name, tc.errStr)
-			} else if h != tc.expectedHost || p != tc.expectedPort {
-				t.Errorf("[%s] expected %s:%s, got %s:%s", tc.name, tc.expectedHost, tc.expectedPort, h, p)
-			}
-		} else {
-			if tc.errStr == "" {
-				t.Errorf("[%s] expected no error but got %q", tc.name, err.Error())
-			} else if err.Error() != tc.errStr {
-				t.Errorf("[%s] expected error message %q, got %v", tc.name, tc.errStr, err)
-			}
-		}
-	}
-}
-
-func TestStoreHostPort(t *testing.T) {
-	opts := map[string]interface{}{}
-	StoreHostPort("istio-pilot", "15005", "foo", opts)
-	actual, ok := opts["foo"]
-	if !ok {
-		t.Fatalf("expected to have map entry foo populated")
-	}
-	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15005}"
-	if actual != expected {
-		t.Errorf("expected value %q, got %q", expected, actual)
-	}
 }
 
 func TestIsIPv6Proxy(t *testing.T) {
@@ -640,7 +558,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm, _, err := getNodeMetaData(envs, nil)
+	nm, _, err := getNodeMetaData(envs, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +581,7 @@ func TestNodeMetadata(t *testing.T) {
 		"ISTIO_META_ISTIO_VERSION=1.0.0",
 		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
 	}
-	nm, _, err := getNodeMetaData(envs, nil)
+	nm, _, err := getNodeMetaData(envs, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

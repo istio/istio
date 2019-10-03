@@ -77,27 +77,3 @@ func CollectionNames() []collection.Name {
 		})
 	}
 }
-
-func TestCamelCase(t *testing.T) {
-	cases := map[string]string{
-		"":        "",
-		"foo":     "Foo",
-		"foobar":  "Foobar",
-		"fooBar":  "FooBar",
-		"foo_bar": "FooBar",
-		"foo_Bar": "Foo_Bar", // TODO: This seems like a bug.
-		"foo9bar": "Foo9Bar",
-		"_foo":    "XFoo",
-		"_Foo":    "XFoo",
-	}
-
-	for k, v := range cases {
-		t.Run(k, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-
-			a := CamelCase(k)
-			g.Expect(a).To(Equal(v))
-		})
-	}
-
-}
