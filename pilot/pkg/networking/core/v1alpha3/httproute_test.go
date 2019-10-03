@@ -268,9 +268,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 							//Subset: "some-subset",
 							Host: "example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 61,
-								},
+								Number: 61,
 							},
 						},
 						Weight: 100,
@@ -289,9 +287,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 62,
-								},
+								Number: 62,
 							},
 						},
 						Weight: 100,
@@ -310,9 +306,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 63,
-								},
+								Number: 63,
 							},
 						},
 						Weight: 100,
@@ -331,9 +325,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 64,
-								},
+								Number: 64,
 							},
 						},
 						Weight: 100,

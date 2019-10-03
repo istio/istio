@@ -48,12 +48,12 @@ import (
 )
 
 const (
-	selfSignedCaCertTTL                     = "SELF_SIGNED_CA_CERT_TTL"
-	selfSignedRootCertCheckInterval         = "SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
-	selfSignedRootCertMinCheckInterval      = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
-	selfSignedRootCertGracePeriodPercentile = "SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
-	workloadCertMinGracePeriod              = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
-	enableJitterForRootCertRotator          = "ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	selfSignedCaCertTTL                     = "CITADEL_SELF_SIGNED_CA_CERT_TTL"
+	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
+	selfSignedRootCertMinCheckInterval      = "CITADEL_SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
+	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
+	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
+	enableJitterForRootCertRotator 					= "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned

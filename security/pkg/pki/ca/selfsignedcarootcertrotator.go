@@ -34,17 +34,17 @@ import (
 var rootCertRotatorLog = log.RegisterScope("rootCertRotator", "Self-signed CA root cert rotator log", 0)
 
 type SelfSignedCARootCertRotatorConfig struct {
+	certInspector       certutil.CertUtil
+	caStorageNamespace  string
+	org                 string
+	rootCertFile        string
+	client              corev1.CoreV1Interface
 	CheckInterval       time.Duration
 	caCertTTL           time.Duration
 	retryInterval       time.Duration
-	certInspector       certutil.CertUtil
-	caStorageNamespace  string
 	dualUse             bool
 	readSigningCertOnly bool
-	org                 string
-	rootCertFile        string
 	enableJitter        bool
-	client              corev1.CoreV1Interface
 }
 
 // SelfSignedCARootCertRotator automatically checks self-signed signing root
@@ -69,7 +69,9 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	}
 	if config.enableJitter {
 		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
-		rotator.backOffTime = time.Duration(rand.Int63n(int64(rotator.config.CheckInterval.Seconds())))
+		backOffSeconds := int(time.Duration(rand.Int63n(int64(rotator.config.CheckInterval))).Seconds())
+		rotator.backOffTime = time.Duration(backOffSeconds) * time.Second
+		rootCertRotatorLog.Infof("Set up back off time %s to start rotator.", rotator.backOffTime.String())
 	} else {
 		rotator.backOffTime = time.Duration(0)
 	}
@@ -78,8 +80,8 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 
 // Run refreshes root certs and updates config map accordingly.
 func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
-	if rotator.config.enableJitter && rotator.backOffTime > time.Duration(0) {
-		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before " +
+	if rotator.config.enableJitter {
+		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
 			"starting root cert rotator.", rotator.backOffTime.String())
 		time.Sleep(rotator.backOffTime)
 	}

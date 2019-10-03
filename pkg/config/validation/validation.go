@@ -2257,11 +2257,7 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	}
 
 	// port must be a number
-	name := selector.GetName()
 	number := int(selector.GetNumber())
-	if name != "" {
-		errs = appendErrors(errs, fmt.Errorf("port.name %s is no longer supported for destination", name))
-	}
 	if number != 0 {
 		errs = appendErrors(errs, ValidatePort(number))
 	}

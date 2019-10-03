@@ -34,7 +34,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Describes what kind of metric this is.
 type Params_MetricInfo_Kind int32
@@ -272,97 +272,13 @@ func (m *Params_MetricInfo_BucketsDefinition) GetExplicitBuckets() *Params_Metri
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Params_MetricInfo_BucketsDefinition) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Params_MetricInfo_BucketsDefinition_OneofMarshaler, _Params_MetricInfo_BucketsDefinition_OneofUnmarshaler, _Params_MetricInfo_BucketsDefinition_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Params_MetricInfo_BucketsDefinition) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Params_MetricInfo_BucketsDefinition_LinearBuckets)(nil),
 		(*Params_MetricInfo_BucketsDefinition_ExponentialBuckets)(nil),
 		(*Params_MetricInfo_BucketsDefinition_ExplicitBuckets)(nil),
 	}
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	// definition
-	switch x := m.Definition.(type) {
-	case *Params_MetricInfo_BucketsDefinition_LinearBuckets:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.LinearBuckets); err != nil {
-			return err
-		}
-	case *Params_MetricInfo_BucketsDefinition_ExponentialBuckets:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExponentialBuckets); err != nil {
-			return err
-		}
-	case *Params_MetricInfo_BucketsDefinition_ExplicitBuckets:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExplicitBuckets); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Params_MetricInfo_BucketsDefinition.Definition has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	switch tag {
-	case 1: // definition.linear_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Linear)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_LinearBuckets{msg}
-		return true, err
-	case 2: // definition.exponential_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Exponential)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_ExponentialBuckets{msg}
-		return true, err
-	case 3: // definition.explicit_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Explicit)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_ExplicitBuckets{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	// definition
-	switch x := m.Definition.(type) {
-	case *Params_MetricInfo_BucketsDefinition_LinearBuckets:
-		s := proto.Size(x.LinearBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Params_MetricInfo_BucketsDefinition_ExponentialBuckets:
-		s := proto.Size(x.ExponentialBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Params_MetricInfo_BucketsDefinition_ExplicitBuckets:
-		s := proto.Size(x.ExplicitBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Specifies a linear sequence of buckets that all have the same width

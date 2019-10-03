@@ -251,7 +251,7 @@ type Object struct {
 	Body     proto.Message
 }
 
-// changes is a collection of configuration objects of the same protobuf type.
+// Change is a collection of configuration objects of the same protobuf type.
 type Change struct {
 	Collection string
 

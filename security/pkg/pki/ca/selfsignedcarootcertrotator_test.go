@@ -49,7 +49,7 @@ func TestJitterConfiguration(t *testing.T) {
 
 	disableJitterOpts := getDefaultSelfSignedIstioCAOptions(nil)
 	disableJitterOpts.RotatorConfig.enableJitter = false
-	rotator1 := getRootCertRotator(enableJitterOpts)
+	rotator1 := getRootCertRotator(disableJitterOpts)
 	if rotator1.backOffTime > time.Duration(0) {
 		t.Errorf("back off time should be negative but got %v", rotator1.backOffTime)
 	}
@@ -260,7 +260,7 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	rootCertFile := ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
-
+	
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
 		readSigningCertOnly, cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
 		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,

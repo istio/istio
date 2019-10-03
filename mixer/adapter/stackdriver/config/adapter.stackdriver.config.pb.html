@@ -265,10 +265,12 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.
 Ex: If you want to export it to a GCS bucket, id would be a unique idetifier you want for the sink,
 destination would be the storage be name of GCS Storage bucket and filter would be user defined condition for
-filtering logs. See below for a sample config:
-     id: &lsquo;info-errors-to-gcs&rsquo;
-     destination: &lsquo;storage.googleapis.com/&lt;bucket_name&gt;&rsquo;
-     filter: &lsquo;severity &gt;= Default&rsquo;</p>
+filtering logs. See below for a sample config:</p>
+
+<pre><code class="language-yaml">id: 'info-errors-to-gcs'
+destination: 'storage.googleapis.com/&lt;bucket_name&gt;'
+filter: 'severity &gt;= Default'
+</code></pre>
 
 <table class="message-fields">
 <thead>
