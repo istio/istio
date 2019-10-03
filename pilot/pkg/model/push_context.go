@@ -818,6 +818,9 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 	for _, spec := range authNPolicies {
 		policy := spec.Spec.(*authn.Policy)
+		// Fill JwksURI if missing.
+		JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy)
+
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
 				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)

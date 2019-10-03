@@ -141,7 +141,7 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 		jwtPubKey := policyJwt.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
 			}
@@ -200,7 +200,7 @@ func convertToIstioJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *istio_jwt.JwtAut
 		jwtPubKey := policyJwt.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = authn_model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
 			}

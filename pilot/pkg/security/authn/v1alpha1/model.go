@@ -17,7 +17,6 @@ package v1alpha1
 import (
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // GetConsolidateAuthenticationPolicy returns the v1alpha1 authentication policy for workload specified by
@@ -31,7 +30,7 @@ func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceIns
 	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
-		if err := authn_model.JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+		if err := model.JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
 			return policy
 		}
 	}
