@@ -19,38 +19,34 @@ import (
 	"strings"
 )
 
-const staticCollectionsTemplate = `
+const staticSnapshotsTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
 
 package {{.PackageName}}
 
-import (
-	"istio.io/istio/galley/pkg/config/schema/collection"
-)
-
 var (
 {{range .Entries}}
-	// {{.VarName}} is the name of collection {{.Name}}
-	{{.VarName}} = collection.NewName("{{.Name}}")
+	// {{.VarName}} is the name of snapshot {{.Name}}
+	{{.VarName}} = "{{.Name}}"
 {{end}}
 )
 
-// CollectionNames returns the collection names declared in this package.
-func CollectionNames() []collection.Name {
-	return []collection.Name {
+// SnapshotNames returns the snapshot names declared in this package.
+func SnapshotNames() []string {
+	return []string {
 		{{range .Entries}}{{.VarName}},
 		{{end}}
 	}
 }
 `
 
-// StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticCollections(packageName string, collections []string) (string, error) {
+// StaticSnapshots generates a Go file for static-declaring Snapshot names.
+func StaticSnapshots(packageName string, snapshots []string) (string, error) {
 	var entries []entry
 
-	for _, col := range collections {
-		entries = append(entries, entry{Name: col, VarName: asColVarName(col)})
+	for _, s := range snapshots {
+		entries = append(entries, entry{Name: s, VarName: asSnapshotVarName(s)})
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		return strings.Compare(entries[i].Name, entries[j].Name) < 0
@@ -62,11 +58,9 @@ func StaticCollections(packageName string, collections []string) (string, error)
 	}{Entries: entries, PackageName: packageName}
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticCollectionsTemplate, context)
+	return applyTemplate(staticSnapshotsTemplate, context)
 }
 
-func asColVarName(n string) string {
-	n = camelCase(n, "/")
-	n = camelCase(n, ".")
-	return n
+func asSnapshotVarName(n string) string {
+	return CamelCase(n)
 }

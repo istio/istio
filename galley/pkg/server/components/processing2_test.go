@@ -29,8 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/processing/transformer"
+	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -73,7 +72,7 @@ loop:
 		case 1:
 			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ transformer.Providers, _ snapshotter.Distributor) (*processing.Runtime, error) {
+			processorInitialize = func(processor.Settings) (*processing.Runtime, error) {
 				return nil, e
 			}
 		case 3:

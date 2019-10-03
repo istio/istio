@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package util
 
 import (
@@ -24,12 +25,12 @@ import (
 func TestGetResourceNameFromHost(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	//FQDN, same namespace
+	// FQDN, same namespace
 	g.Expect(GetResourceNameFromHost("default", "foo.default.svc.cluster.local")).To(Equal(resource.NewName("default", "foo")))
-	//FQDN, cross namespace
+	// FQDN, cross namespace
 	g.Expect(GetResourceNameFromHost("default", "foo.other.svc.cluster.local")).To(Equal(resource.NewName("other", "foo")))
-	//short name
+	// short name
 	g.Expect(GetResourceNameFromHost("default", "foo")).To(Equal(resource.NewName("default", "foo")))
-	//bogus FQDN (gets treated like a short name)
+	// bogus FQDN (gets treated like a short name)
 	g.Expect(GetResourceNameFromHost("default", "foo.svc.cluster.local")).To(Equal(resource.NewName("default", "foo.svc.cluster.local")))
 }
