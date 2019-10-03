@@ -16,14 +16,14 @@ package model
 
 import (
 	"fmt"
-	"strings"
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -271,21 +271,25 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 	return policy
 }
 
-// getPrincipalsIncludingAliases returns list of users encoded in spiffe format from the local trust domain
-// and its aliases.
+// getPrincipalsIncludingAliases returns a list of users encoded in SPIFFE format with the local
+// trust domain and its aliases.
 // For example, if the local trust domain is "cluster.local", and its aliases are "td1", "td2".
 // For a user "bar" in namespace "foo", getPrincipalsIncludingAliases returns
 // cluster.local/ns/foo/sa/bar, td1/ns/foo/sa/bar, td2/ns/foo/sa/bar
+// The trust domain corresponds to the trust root of a system.
+// Refer to
+// [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
+// In Istio, an identity is presented in the SPIFFE format, which is:
+// spiffe://<trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 func getPrincipalsIncludingAliases(trustDomainAliases []string, principals []string) []string {
 	usersWithAliases := principals
 	for _, tdAlias := range trustDomainAliases {
 		for _, principal := range principals {
-			identityParts := strings.Split(principal, "/")
-			if len(identityParts) != 5 {
-				rbacLog.Errorf("Wrong SPIFFE format found: %s", principal)
-				return usersWithAliases
+			newTrustDomainIdentity, err := getIdentityWithNewTrustDomain(tdAlias, principal)
+			if err != nil {
+				return []string{}
 			}
-			usersWithAliases = append(usersWithAliases, fmt.Sprintf("%s/%s", tdAlias, strings.Join(identityParts[1:], "/")))
+			usersWithAliases = append(usersWithAliases, newTrustDomainIdentity)
 		}
 	}
 	return usersWithAliases

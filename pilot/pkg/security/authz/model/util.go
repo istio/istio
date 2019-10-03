@@ -109,3 +109,20 @@ func found(key string, list []string) bool {
 	}
 	return false
 }
+
+// getIdentityWithNewTrustDomain returns a new SPIFFE identity with the new trust domain.
+// The trust domain corresponds to the trust root of a system.
+// Refer to
+// [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
+// In Istio, an identity is presented in the SPIFFE format, which is:
+// spiffe://<trust-domain>/ns/<some-namespace>/sa/<some-service-account>
+func getIdentityWithNewTrustDomain(trustDomain, spiffeIdentity string) (string, error) {
+	identityParts := strings.Split(spiffeIdentity, "/")
+	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
+	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
+	if len(identityParts) != 5 {
+		rbacLog.Errorf("Wrong SPIFFE format found: %s", spiffeIdentity)
+		return "", fmt.Errorf("wrong SPIFFE format found: %s", spiffeIdentity)
+	}
+	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/")), nil
+}
