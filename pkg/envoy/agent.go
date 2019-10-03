@@ -20,8 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"istio.io/pkg/log"
 )
 
@@ -71,13 +69,7 @@ type Agent interface {
 
 var (
 	errAbort       = errors.New("epoch aborted")
-	errOutOfMemory = errors.New("signal: killed")
-
-	// DefaultRetry configuration for proxies
-	DefaultRetry = Retry{
-		MaxRetries:      10,
-		InitialInterval: 200 * time.Millisecond,
-	}
+	errOutOfMemory = "signal: killed"
 )
 
 const (
@@ -87,32 +79,15 @@ const (
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, retry Retry, terminationDrainDuration time.Duration) Agent {
+func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
 	return &agent{
 		proxy:                    proxy,
-		retry:                    retry,
-		epochs:                   make(map[int]interface{}),
 		configCh:                 make(chan interface{}),
 		statusCh:                 make(chan exitStatus),
 		abortCh:                  make(map[int]chan error),
 		terminationDrainDuration: terminationDrainDuration,
+		currentEpoch:             -1,
 	}
-}
-
-// Retry configuration for the proxy
-type Retry struct {
-	// restart is the timestamp of the next scheduled restart attempt
-	restart *time.Time
-
-	// number of times to attempts left to retry applying the latest desired configuration
-	budget int
-
-	// MaxRetries is the maximum number of retries
-	MaxRetries int
-
-	// InitialInterval is the delay between the first restart, from then on it is
-	// multiplied by a factor of 2 for each subsequent retry
-	InitialInterval time.Duration
 }
 
 // Proxy defines command interface for a proxy
@@ -122,10 +97,6 @@ type Proxy interface {
 
 	// Cleanup command for an epoch
 	Cleanup(int)
-
-	// Panic command is invoked with the desired config when all retries to
-	// start the proxy fail just before the agent terminating
-	Panic(interface{})
 }
 
 // DrainConfig is used to signal to the Proxy that it should start draining connections
@@ -135,14 +106,11 @@ type agent struct {
 	// proxy commands
 	proxy Proxy
 
-	// retry configuration
-	retry Retry
-
 	// desired configuration state
 	desiredConfig interface{}
 
-	// active epochs and their configurations
-	epochs map[int]interface{}
+	// currentEpoch represents the epoch of the most recent proxy. When a new proxy is created this should be incremented
+	currentEpoch int
 
 	// current configuration is the highest epoch configuration
 	currentConfig interface{}
@@ -171,90 +139,40 @@ func (a *agent) ConfigCh() chan<- interface{} {
 
 func (a *agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
-
-	// Throttle processing up to smoothed 1 qps with bursts up to 10 qps.
-	// High QPS is needed to process messages on all channels.
-	rateLimiter := rate.NewLimiter(1, 10)
-
-	var reconcileTimer *time.Timer
 	for {
-		err := rateLimiter.Wait(ctx)
-		if err != nil {
-			a.terminate()
-			return
-		}
-
-		// maximum duration or duration till next restart
-		var delay time.Duration = 1<<63 - 1
-		if a.retry.restart != nil {
-			delay = time.Until(*a.retry.restart)
-		}
-		if reconcileTimer != nil {
-			reconcileTimer.Stop()
-		}
-		reconcileTimer = time.NewTimer(delay)
-
 		select {
 		case config := <-a.configCh:
 			if !reflect.DeepEqual(a.desiredConfig, config) {
-				log.Infof("Received new config, resetting budget")
+				log.Infof("Received new config")
 				a.desiredConfig = config
 
-				// reset retry budget if and only if the desired config changes
-				a.retry.budget = a.retry.MaxRetries
 				a.reconcile()
 			}
 
 		case status := <-a.statusCh:
-			// delete epoch record and update current config
-			// avoid self-aborting on non-abort error
-			delete(a.epochs, status.epoch)
 			delete(a.abortCh, status.epoch)
-			a.currentConfig = a.epochs[a.latestEpoch()]
-
-			if status.err == errAbort {
-				log.Infof("Epoch %d aborted", status.epoch)
-			} else if status.err != nil {
-				log.Warnf("Epoch %d terminated with an error: %v", status.epoch, status.err)
-				if status.err == errOutOfMemory {
+			if status.err != nil {
+				if status.err.Error() == errOutOfMemory {
 					log.Warnf("Envoy may have been out of memory killed. Check memory usage and limits.")
 				}
-				// NOTE: due to Envoy hot restart race conditions, an error from the
-				// process requires aggressive non-graceful restarts by killing all
-				// existing proxy instances
-				a.abortAll()
+				log.Errorf("Epoch %d exited with error: %v", status.epoch, status.err)
 			} else {
 				log.Infof("Epoch %d exited normally", status.epoch)
 			}
 
-			// cleanup for the epoch
 			a.proxy.Cleanup(status.epoch)
 
-			// schedule a retry for an error.
-			// the current config might be out of date from here since its proxy might have been aborted.
-			// the current config will change on abort, hence retrying prior to abort will not progress.
-			// that means that aborted envoy might need to re-schedule a retry if it was not already scheduled.
-			if status.err != nil {
-				// skip retrying twice by checking retry restart delay
-				if a.retry.restart == nil {
-					if a.retry.budget > 0 {
-						delayDuration := a.retry.InitialInterval * (1 << uint(a.retry.MaxRetries-a.retry.budget))
-						restart := time.Now().Add(delayDuration)
-						a.retry.restart = &restart
-						a.retry.budget--
-						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
-					} else {
-						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
-						a.proxy.Panic(status.epoch)
-						return
-					}
-				} else {
-					log.Debugf("Epoch %d: restart already scheduled", status.epoch)
-				}
+			if status.epoch == a.currentEpoch {
+				log.Infof("Latest epoch has exited. Aborting all epochs.")
+				a.abortAll()
 			}
 
-		case <-reconcileTimer.C:
-			a.reconcile()
+			if len(a.abortCh) == 0 {
+				log.Infof("All epoch aborted, exiting")
+				return
+			} else {
+				log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
+			}
 
 		case <-ctx.Done():
 			a.terminate()
@@ -275,25 +193,22 @@ func (a *agent) terminate() {
 }
 
 func (a *agent) reconcile() {
-	// cancel any scheduled restart
-	a.retry.restart = nil
-
-	log.Infof("Reconciling retry (budget %d)", a.retry.budget)
-
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
 		log.Infof("Desired configuration is already applied")
 		return
 	}
 
-	// discover and increment the latest running epoch
-	epoch := a.latestEpoch() + 1
+	// Increment the latest running epoch
+	a.currentEpoch++
+
 	// buffer aborts to prevent blocking on failing proxy
-	abortCh := make(chan error, maxAborts)
-	a.epochs[epoch] = a.desiredConfig
-	a.abortCh[epoch] = abortCh
+	abortCh := make(chan error)
+
+	a.abortCh[a.currentEpoch] = abortCh
 	a.currentConfig = a.desiredConfig
-	go a.runWait(a.desiredConfig, epoch, abortCh)
+
+	go a.runWait(a.desiredConfig, a.currentEpoch, abortCh)
 }
 
 // runWait runs the start-up command as a go routine and waits for it to finish
@@ -301,17 +216,6 @@ func (a *agent) runWait(config interface{}, epoch int, abortCh <-chan error) {
 	log.Infof("Epoch %d starting", epoch)
 	err := a.proxy.Run(config, epoch, abortCh)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}
-}
-
-// latestEpoch returns the latest epoch, or -1 if no epoch is running
-func (a *agent) latestEpoch() int {
-	epoch := -1
-	for active := range a.epochs {
-		if active > epoch {
-			epoch = active
-		}
-	}
-	return epoch
 }
 
 // abortAll sends abort error to all proxies

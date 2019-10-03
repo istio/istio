@@ -383,13 +383,7 @@ var (
 			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
-
 			ctx, cancel := context.WithCancel(context.Background())
-			defer func() {
-				log.Info("pilot-agent is terminating")
-				cancel()
-				wg.Wait()
-			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
@@ -434,13 +428,17 @@ var (
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 			})
-			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
+
+			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
+
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
-			go waitForCompletion(ctx, agent.Run)
-			go waitForCompletion(ctx, watcher.Run)
+			go watcher.Run(ctx)
 
-			cmd.WaitSignal(make(chan struct{}))
+			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
+			go cmd.WaitSignalFunc(cancel)
+
+			agent.Run(ctx)
 			return nil
 		},
 	}

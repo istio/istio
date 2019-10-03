@@ -116,16 +116,16 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
-
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if len(e.Config.CustomConfigFile) > 0 {
+	if _, ok := config.(DrainConfig); ok {
+		// We are doing a graceful termination, apply an empty config to drain all connections
+		fname = drainFile
+	} else if len(e.Config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.Config.CustomConfigFile
-	} else if _, ok := config.(DrainConfig); ok {
-		fname = drainFile
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
@@ -184,17 +184,6 @@ func (e *envoy) Cleanup(epoch int) {
 	if err := os.Remove(filePath); err != nil {
 		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}
-}
-
-func (e *envoy) Panic(epoch interface{}) {
-	log.Error("cannot start the proxy with the desired configuration")
-	if epochInt, ok := epoch.(int); ok {
-		// print the failed config file
-		filePath := configFile(e.Config.ConfigPath, epochInt)
-		b, _ := ioutil.ReadFile(filePath)
-		log.Errorf(string(b))
-	}
-	os.Exit(-1)
 }
 
 // convertDuration converts to golang duration and logs errors
