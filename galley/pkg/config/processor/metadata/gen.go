@@ -23,5 +23,9 @@ package metadata
 // Create collection constants
 //go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/collections.main.go metadata metadata.yaml collections.gen.go
 
+// Create snapshot constants
+//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/snapshots.main.go metadata metadata.yaml snapshots.gen.go
+
 //go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/collections.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/snapshots.gen.go"
 //go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/staticinit.gen.go"
