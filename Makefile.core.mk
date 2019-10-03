@@ -43,12 +43,15 @@ update-charts: installer.sha
 vfsgen: data/ update-charts
 	go generate ./...
 
+clean-vfs:
+	@rm -fr pkg/vfs/assets.gen.go
+
 gen: generate-values generate-types vfsgen
 generate: gen
 
 gen-check: clean gen check-clean-repo
 
-clean: clean-values clean-types
+clean: clean-values clean-types clean-vfs
 
 default: mesh
 
@@ -87,8 +90,10 @@ types_v1alpha2_openapi := $(types_v1alpha2_protos:.proto=.json)
 $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons): $(types_v1alpha2_protos)
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
-	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@sed -i 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
 	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
+	@sed -i 's|<key,value,effect>|\&lt\;key,value,effect\&gt\;|g' $(types_v1alpha2_path)/v1alpha2.pb.html
+	@sed -i 's|<operator>|\&lt\;operator\&gt\;|g' $(types_v1alpha2_path)/v1alpha2.pb.html
 
 generate-types: $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons)
 
@@ -105,7 +110,7 @@ values_v1alpha1_openapi := $(values_v1alpha1_protos:.proto=.json)
 $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons): $(values_v1alpha1_protos)
 	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
-	@sed -i -e 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha1_path)/values_types.pb.go
+	@sed -i 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha1_path)/values_types.pb.go
 	@GOARCH=amd64 GOOS=linux go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
 
 generate-values: $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
