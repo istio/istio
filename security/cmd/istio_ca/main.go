@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	enableJitterForRootCertRotator          = "ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	enableJitterForRootCertRotator = "ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -67,7 +67,7 @@ type cliOptions struct { // nolint: maligned
 	selfSignedCA                    bool
 	selfSignedCACertTTL             time.Duration
 	selfSignedRootCertCheckInterval time.Duration
-	enableJitterForRootCertRotator          bool
+	enableJitterForRootCertRotator  bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -127,9 +127,9 @@ var (
 		LivenessProbeOptions: &probe.Options{},
 		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
 			true,
-			"If true, set up a jitter to start root cert rotator. " +
-					"Jitter selects a backoff time in seconds to start root cert rotator, " +
-					"and the back off time is below root cert check interval.").Get(),
+			"If true, set up a jitter to start root cert rotator. "+
+				"Jitter selects a backoff time in seconds to start root cert rotator, "+
+				"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
