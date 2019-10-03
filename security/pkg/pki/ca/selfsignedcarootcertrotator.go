@@ -80,7 +80,7 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 
 // Run refreshes root certs and updates config map accordingly.
 func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
-	if rotator.config.enableJitter && rotator.backOffTime > time.Duration(0) {
+	if rotator.config.enableJitter {
 		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
 			"starting root cert rotator.", rotator.backOffTime.String())
 		time.Sleep(rotator.backOffTime)
