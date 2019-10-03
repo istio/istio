@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -298,11 +298,11 @@ func (c *deployableConfig) Teardown() error {
 func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
-		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+		err = multierror.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
 	}
 	// Restore configs that was removed
 	for _, yaml := range c.removed {
-		err = multierr.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
+		err = multierror.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err
@@ -379,7 +379,7 @@ func (t *testConfig) Teardown() (err error) {
 	for _, ec := range t.extraConfig {
 		e := ec.Teardown()
 		if e != nil {
-			err = multierr.Append(err, e)
+			err = multierror.Append(err, e)
 		}
 	}
 	return
