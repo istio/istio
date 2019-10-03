@@ -37,6 +37,6 @@ func All() []analysis.Analyzer {
 }
 
 // AllCombined returns all analyzers combined as one
-func AllCombined() analysis.Analyzer {
+func AllCombined() *analysis.CombinedAnalyzer {
 	return analysis.Combine("all", All()...)
 }

@@ -47,8 +47,8 @@ type AnalyzingDistributorSettings struct {
 	// The status updater to route diagnostic messages to
 	StatusUpdater StatusUpdater
 
-	// The analyzer that will perform the analysis
-	Analyzer analysis.Analyzer
+	// The top-level combined analyzer that will perform the analysis
+	Analyzer *analysis.CombinedAnalyzer
 
 	// The downstream distributor to call, after the analysis is done.
 	Distributor Distributor

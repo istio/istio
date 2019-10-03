@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
-	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/pkg/ctrlz"
@@ -151,7 +151,7 @@ func DefaultArgs() *Args {
 		ConfigPath:                  "",
 		DomainSuffix:                defaultDomainSuffix,
 		DisableResourceReadyCheck:   false,
-		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
+		ExcludedResourceKinds:       kuberesource.DefaultExcludedResourceKinds(),
 		SinkMeta:                    make([]string, 0),
 		KeepAlive:                   keepalive.DefaultOption(),
 		ValidationArgs:              validation.DefaultArgs(),
@@ -169,14 +169,6 @@ func DefaultArgs() *Args {
 			UpdateInterval: defaultProbeCheckInterval,
 		},
 	}
-}
-
-func defaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
-	}
-	return resources
 }
 
 // String produces a stringified version of the arguments for debugging.
