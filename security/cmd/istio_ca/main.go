@@ -53,7 +53,7 @@ const (
 	selfSignedRootCertMinCheckInterval      = "CITADEL_SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
 	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
 	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
-	enableJitterForRootCertRotator 					= "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -69,10 +69,10 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA                       			bool
-	selfSignedCACertTTL                			time.Duration
-	selfSignedRootCertCheckInterval    			time.Duration
-	selfSignedRootCertMinCheckInterval 			time.Duration
+	selfSignedCA                            bool
+	selfSignedCACertTTL                     time.Duration
+	selfSignedRootCertCheckInterval         time.Duration
+	selfSignedRootCertMinCheckInterval      time.Duration
 	selfSignedRootCertGracePeriodPercentile int
 	enableJitterForRootCertRotator          bool
 
@@ -153,9 +153,9 @@ var (
 			"The minimum workload certificate rotation grace period.").Get(),
 		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
 			true,
-			"If true, set up a jitter to start root cert rotator. " +
-			"Jitter selects a backoff time in seconds to start root cert rotator, " +
-			"and the back off time is below root cert check interval.").Get(),
+			"If true, set up a jitter to start root cert rotator. "+
+				"Jitter selects a backoff time in seconds to start root cert rotator, "+
+				"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{

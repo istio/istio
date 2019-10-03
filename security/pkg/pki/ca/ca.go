@@ -154,7 +154,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			readSigningCertOnly: readSigningCertOnly,
 			org:                 org,
 			rootCertFile:        rootCertFile,
-			enableJitter:				 enableJitter,
+			enableJitter:        enableJitter,
 			client:              client,
 		},
 	}
