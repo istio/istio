@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -173,7 +172,7 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
-	authn_model.JwtKeyResolver.PushFunc = out.ClearCache
+	model.JwtKeyResolver.PushFunc = out.ClearCache
 
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
