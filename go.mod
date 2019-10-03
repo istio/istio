@@ -19,7 +19,6 @@ require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.12 // indirect
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
@@ -74,7 +73,6 @@ require (
 	github.com/google/cel-go v0.2.0
 	github.com/google/go-cmp v0.3.0
 	github.com/google/go-github v17.0.0+incompatible
-	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.0+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.5
