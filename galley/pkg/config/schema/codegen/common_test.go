@@ -12,24 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package codegen
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
-// toStatusValue converts a set of diag.Messages to a status value.
-func toStatusValue(msgs diag.Messages) interface{} {
-	if len(msgs) == 0 {
-		return nil
+func TestCamelCase(t *testing.T) {
+	cases := map[string]string{
+		"":        "",
+		"foo":     "Foo",
+		"foobar":  "Foobar",
+		"fooBar":  "FooBar",
+		"foo_bar": "FooBar",
+		"foo_Bar": "Foo_Bar", // TODO: This seems like a bug.
+		"foo9bar": "Foo9Bar",
+		"_foo":    "XFoo",
+		"_Foo":    "XFoo",
 	}
 
-	result := make([]interface{}, 0)
-	for _, m := range msgs {
-		// For the purposes of status update, the origin field is redundant
-		// since we're attaching the message to the origin resource.
-		result = append(result, m.Unstructured(false))
+	for k, v := range cases {
+		t.Run(k, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			a := CamelCase(k)
+			g.Expect(a).To(Equal(v))
+		})
 	}
 
-	return result
 }

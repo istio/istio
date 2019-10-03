@@ -47,13 +47,18 @@ type ControllerImpl struct {
 
 	// Wait group for synchronizing the exit of the background go routine.
 	wg sync.WaitGroup
+
+	// Subfield of status that this controller manages
+	subfield string
 }
 
 var _ Controller = &ControllerImpl{}
 
 // NewController returns a new instance of controller.
-func NewController() *ControllerImpl {
-	return &ControllerImpl{}
+func NewController(subfield string) *ControllerImpl {
+	return &ControllerImpl{
+		subfield: subfield,
+	}
 }
 
 // Start the controller. This will reset the internal state.
@@ -80,7 +85,7 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) 
 	}
 
 	c.wg.Add(1)
-	go run(c.state, ifaces, &c.wg)
+	go run(c.state, c.subfield, ifaces, &c.wg)
 }
 
 // Stop the controller
@@ -97,7 +102,13 @@ func (c *ControllerImpl) Stop() {
 // UpdateResourceStatus is called by the source to relay the currently observed status of a resource.
 func (c *ControllerImpl) UpdateResourceStatus(
 	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
-	c.state.setObserved(col, name, version, status)
+
+	// Extract the subfield this controller manages
+	// If the status field was something other than a map, treat it like it was an empty map
+	// for the purpose of "observed"
+	statusMap, _ := status.(map[string]interface{})
+
+	c.state.setObserved(col, name, version, statusMap[c.subfield])
 }
 
 // Report the given set of messages towards particular resources.
@@ -127,7 +138,7 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 	c.state.applyMessages(msgs)
 }
 
-func run(state *state, ifaces map[collection.Name]dynamic.NamespaceableResourceInterface, wg *sync.WaitGroup) {
+func run(state *state, subfield string, ifaces map[collection.Name]dynamic.NamespaceableResourceInterface, wg *sync.WaitGroup) {
 mainloop:
 	for {
 		st, ok := state.dequeueWork()
@@ -157,10 +168,26 @@ mainloop:
 			continue mainloop
 		}
 
+		// Get the map of status objects. If it doesn't already exist, create it.
+		statusObj, ok := u.Object["status"]
+		if !ok {
+			statusObj = make(map[string]interface{})
+		}
+		statusMap, ok := statusObj.(map[string]interface{})
+		if !ok {
+			scope.Source.Warnf("Failed to parse the status field as a map. Previous status value will be discarded! Status value was: %v", statusObj)
+		}
+
+		// Update the status field (for the subfield this controller manages) to match desired status
+		// If there are no other subfields left, also delete the status field
 		if st.desiredStatus != nil {
-			u.Object["status"] = st.desiredStatus
+			statusMap[subfield] = st.desiredStatus
+			u.Object["status"] = statusMap
 		} else {
-			delete(u.Object, "status")
+			delete(statusMap, subfield)
+			if len(statusMap) == 0 {
+				delete(u.Object, "status")
+			}
 		}
 
 		_, err = iface.Namespace(ns).UpdateStatus(u, metav1.UpdateOptions{})

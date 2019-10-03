@@ -60,7 +60,16 @@ func TestProcessor(t *testing.T) {
 	distributor := snapshotter.NewInMemoryDistributor()
 	transformProviders := transforms.Providers(metadata.MustGet())
 
-	rt, err := Initialize(metadata.MustGet(), "svc.local", event.CombineSources(srcs...), transformProviders, distributor)
+	processorSettings := Settings{
+		Metadata:           metadata.MustGet(),
+		DomainSuffix:       "svc.local",
+		Source:             event.CombineSources(srcs...),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.Default},
+	}
+
+	rt, err := Initialize(processorSettings)
 	g.Expect(err).To(BeNil())
 
 	rt.Start()
