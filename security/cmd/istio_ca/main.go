@@ -53,6 +53,7 @@ const (
 	selfSignedRootCertMinCheckInterval      = "SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
 	selfSignedRootCertGracePeriodPercentile = "SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
 	workloadCertMinGracePeriod              = "WORKLOAD_CERT_MIN_GRACE_PERIOD"
+	enableJitterForRootCertRotator          = "ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -73,6 +74,7 @@ type cliOptions struct { // nolint: maligned
 	selfSignedRootCertCheckInterval    			time.Duration
 	selfSignedRootCertMinCheckInterval 			time.Duration
 	selfSignedRootCertGracePeriodPercentile int
+	enableJitterForRootCertRotator          bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -149,6 +151,11 @@ var (
 		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
 			cmd.DefaultWorkloadMinCertGracePeriod,
 			"The minimum workload certificate rotation grace period.").Get(),
+		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
+			true,
+			"If true, set up a jitter to start root cert rotator. " +
+			"Jitter selects a backoff time in seconds to start root cert rotator, " +
+			"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -475,7 +482,8 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,
 			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
+			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile,
+			opts.enableJitterForRootCertRotator)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}

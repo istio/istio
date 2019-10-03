@@ -34,6 +34,27 @@ import (
 
 const caNamespace = "default"
 
+// TestJitterConfiguration tests the setup of jitter
+func TestJitterConfiguration(t *testing.T) {
+	enableJitterOpts := getDefaultSelfSignedIstioCAOptions(nil)
+	enableJitterOpts.RotatorConfig.enableJitter = true
+	rotator0 := getRootCertRotator(enableJitterOpts)
+	if rotator0.backOffTime < time.Duration(0) {
+		t.Errorf("back off time should be zero or positive but got %v", rotator0.backOffTime)
+	}
+	if rotator0.backOffTime >= rotator0.config.CheckInterval {
+		t.Errorf("back off time should be shorter than rotation interval but got %v",
+			rotator0.backOffTime)
+	}
+
+	disableJitterOpts := getDefaultSelfSignedIstioCAOptions(nil)
+	disableJitterOpts.RotatorConfig.enableJitter = false
+	rotator1 := getRootCertRotator(enableJitterOpts)
+	if rotator1.backOffTime > time.Duration(0) {
+		t.Errorf("back off time should be negative but got %v", rotator1.backOffTime)
+	}
+}
+
 // TestRootCertRotatorWithoutRootCertSecret verifies that if root cert secret
 // does not exist, the rotator does not add new root cert.
 func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
@@ -240,9 +261,10 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		cmd.DefaultRootCertGracePeriodPercentile, caCertTTL, rootCertCheckInverval,
-		defaultCertTTL, maxCertTTL, org, false, caNamespace, -1, client, rootCertFile)
+	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
+		readSigningCertOnly, cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
+		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+		caNamespace, -1, client, rootCertFile, false)
 	return caopts
 }
 

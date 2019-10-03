@@ -63,5 +63,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["security.env.SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"] = "100"
 	cfg.Values["security.env.SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"] = "50s"
 	cfg.Values["security.env.SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"] = "50s"
-	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
 }
