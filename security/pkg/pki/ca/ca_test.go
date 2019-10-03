@@ -99,9 +99,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile)
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+		caNamespace, -1, client.CoreV1(), rootCertFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -174,7 +173,8 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := k8ssecret.BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	initSecret := k8ssecret.BuildSecret("", CASecret, "default",
+		nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(initSecret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -191,9 +191,8 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile)
+		caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL, org, false,
+		caNamespace, -1, client.CoreV1(), rootCertFile, false)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -263,10 +262,9 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 
-	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, caCertTTL,
-		certTTL, rootCertCheckInverval, maxCertTTL,
-		org, false, caNamespace, time.Millisecond*10, client.CoreV1(),
-		rootCertFile)
+	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, caCertTTL, certTTL,
+		rootCertCheckInverval, maxCertTTL, org, false, caNamespace,
+		time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
@@ -287,8 +285,8 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel1()
 
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, caCertTTL,
-		certTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
+		certTTL, rootCertCheckInverval, maxCertTTL, org, false, caNamespace,
+		time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
