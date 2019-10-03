@@ -29,25 +29,28 @@ function dump {
 
 trap dump EXIT
 
-# Remove the old chains, to generate new configs.
-iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
+for cmd in iptables ip6tables
+do
+  # Remove the old chains, to generate new configs.
+  ${cmd} -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
 
-# Flush and delete the istio chains.
-iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_INBOUND 2>/dev/null
-iptables -t nat -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -X ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -F ISTIO_TPROXY 2>/dev/null
-iptables -t mangle -X ISTIO_TPROXY 2>/dev/null
+  # Flush and delete the istio chains.
+  ${cmd} -t nat -F ISTIO_OUTPUT 2>/dev/null
+  ${cmd} -t nat -X ISTIO_OUTPUT 2>/dev/null
+  ${cmd} -t nat -F ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t nat -X ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t mangle -F ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t mangle -X ISTIO_INBOUND 2>/dev/null
+  ${cmd} -t mangle -F ISTIO_DIVERT 2>/dev/null
+  ${cmd} -t mangle -X ISTIO_DIVERT 2>/dev/null
+  ${cmd} -t mangle -F ISTIO_TPROXY 2>/dev/null
+  ${cmd} -t mangle -X ISTIO_TPROXY 2>/dev/null
 
-# Must be last, the others refer to it
-iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
+  # Must be last, the others refer to it
+  ${cmd} -t nat -F ISTIO_REDIRECT 2>/dev/null
+  ${cmd} -t nat -X ISTIO_REDIRECT 2>/dev/null
+  ${cmd} -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
+  ${cmd} -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
+done
