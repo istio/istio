@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	enableJitterForRootCertRotator = "ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	enableJitterForRootCertRotator = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
