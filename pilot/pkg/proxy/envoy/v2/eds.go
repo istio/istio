@@ -690,7 +690,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
-		endpoints += len(l.Endpoints)
+		for _, e := range l.Endpoints {
+			endpoints += len(e.LbEndpoints)
+		}
+
 		if len(l.Endpoints) == 0 {
 			empty = append(empty, clusterName)
 		}
