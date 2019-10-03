@@ -46,7 +46,6 @@ loop:
 		resetPatchTable()
 		mk := mock.NewKube()
 		newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
-		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 
 		e := fmt.Errorf("err%d", i)
 
@@ -87,9 +86,6 @@ loop:
 		case 6:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		case 7:
-			args.DisableResourceReadyCheck = false
-			checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return e }
-		case 8:
 			args.ConfigPath = "aaa"
 			fsNew2 = func(_ string, _ schema.KubeResources) (event.Source, error) { return nil, e }
 		default:
@@ -118,7 +114,6 @@ func TestProcessing2_Basic(t *testing.T) {
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
-	checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewInmemory(), nil }
 
 	args := settings.DefaultArgs()

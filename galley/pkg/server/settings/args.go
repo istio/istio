@@ -75,6 +75,7 @@ type Args struct { // nolint:maligned
 	ConfigPath string
 
 	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
+	// DEPRECATED
 	ExcludedResourceKinds []string
 
 	// MeshConfigFile is the path for mesh config
@@ -114,6 +115,7 @@ type Args struct { // nolint:maligned
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
+	// DEPRECATED
 	DisableResourceReadyCheck bool
 
 	// keep-alive options for the MCP gRPC Server.

@@ -143,7 +143,6 @@ type KubeResource struct {
 	Kind          string
 	Plural        string
 	Disabled      bool
-	Optional      bool
 	ClusterScoped bool
 }
 
@@ -271,7 +270,6 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 					Plural:        r.Plural,
 					Version:       r.Version,
 					Group:         r.Group,
-					Optional:      r.Optional,
 					Disabled:      r.Disabled,
 					ClusterScoped: r.ClusterScoped,
 				}
