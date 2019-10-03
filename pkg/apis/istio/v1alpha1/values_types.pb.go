@@ -1593,7 +1593,7 @@ func (m *GlobalConfig) GetLogAsJson() *protobuf.BoolValue {
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
 type GlobalLoggingConfig struct {
-	// Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+	// Comma-separated minimum per-scope logging level of messages to output, in the form of `<scope>:<level>,<scope>:<level>`
 	// The control plane has different scopes depending on component, but can configure default log level across all components
 	// If empty, default scope and level will be used as configured in code
 	Level                string   `protobuf:"bytes,1,opt,name=level,proto3" json:"level,omitempty"`
