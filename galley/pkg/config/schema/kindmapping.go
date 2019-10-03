@@ -43,7 +43,7 @@ func ConstructKindMapping(allKinds []string, metadata *Metadata) (*Mapping, erro
 	for _, r := range metadata.KubeSource().Resources() {
 		if _, ok := mixerKindMap[r.Kind]; ok {
 			source := r.Collection.Name
-			target := metadata.DirectTransform().Mapping()[source]
+			target := metadata.DirectTransformSettings().Mapping()[source]
 			kindToCollection[r.Kind] = target.String()
 			collectionToKind[target.String()] = r.Kind
 		}
