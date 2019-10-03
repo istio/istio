@@ -72,7 +72,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	settings := AnalyzingDistributorSettings{
 		StatusUpdater:      u,
-		Analyzer:           a,
+		Analyzer:           analysis.Combine("testCombined", a),
 		Distributor:        d,
 		AnalysisSnapshots:  []string{metadata.Default, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.Default,
@@ -93,7 +93,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot(metadata.Default) }).Should(Equal(sDefault))
 	g.Eventually(func() snapshot.Snapshot { return d.GetSnapshot("other") }).Should(Equal(sOther))
 
-	// Assert we triggered only once analysis, with the expected combination of snapshots
+	// Assert we triggered analysis only once, with the expected combination of snapshots
 	sCombined := getTestSnapshot("a", "b", "c")
 	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sCombined))
 
