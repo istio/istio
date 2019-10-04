@@ -64,6 +64,9 @@ spec:
           - --enable-validation=false
   {{- end }}
           - --enable-server=true
+  {{- if .Values.galley.enableAnalysis }}
+          - --enableAnalysis=true
+  {{- end }}
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml

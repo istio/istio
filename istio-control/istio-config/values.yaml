@@ -39,3 +39,6 @@ galley:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  # Enable analysis and status update in Galley
+  enableAnalysis: false
