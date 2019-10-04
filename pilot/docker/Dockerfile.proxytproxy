@@ -26,10 +26,11 @@ ENV ISTIO_META_INTERCEPTION_MODE TPROXY
 # TODO: evaluate if we should add NET_ADMIN in all cases, to support future firewall
 # and dynamic iptable config
 
+COPY istio-iptables.sh /usr/local/bin/istio-iptables
+
 COPY envoy /usr/local/bin/envoy
 
 COPY pilot-agent /usr/local/bin/pilot-agent
-
 
 COPY envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl

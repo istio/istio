@@ -18,7 +18,7 @@ COPY istio-iptables.sh /usr/local/bin/istio-iptables
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
-FROM gcr.io/distroless/cc:debug as distroless
+FROM gcr.io/distroless/cc:latest as distroless
 
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
 COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
