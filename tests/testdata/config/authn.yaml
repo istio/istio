@@ -1,0 +1,9 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: default
+  domain: "cluster.local"
+spec:
+  peers:
+  - mtls: {}
