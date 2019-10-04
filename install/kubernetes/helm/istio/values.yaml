@@ -301,8 +301,8 @@ global:
     tracer: "zipkin"
 
   proxy_init:
-    # Base name for the proxy_init container, used to configure iptables.
-    image: proxy_init
+    # Base name for the istio-init container, used to configure iptables.
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
