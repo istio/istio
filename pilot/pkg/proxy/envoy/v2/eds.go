@@ -496,7 +496,8 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
 	s.edsUpdate(shard, serviceName, namespace, istioEndpoints, false)
 	return nil
@@ -525,6 +526,11 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
+			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
+			s.ConfigUpdate(&model.PushRequest{
+				Full:              true,
+				NamespacesUpdated: map[string]struct{}{namespace: {}},
+			})
 		}
 		return
 	}
