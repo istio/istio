@@ -53,6 +53,7 @@ type mRunFn func() int
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
 	testID string
+	skip   string
 	mRun   mRunFn
 	osExit func(int)
 	labels label.Set
@@ -82,6 +83,10 @@ func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn func(str
 // Label all the tests in suite with the given labels
 func (s *Suite) Label(labels ...label.Instance) *Suite {
 	s.labels = s.labels.Add(labels...)
+	return s
+}
+func (s *Suite) Skip(reason string) *Suite {
+	s.skip = reason
 	return s
 }
 
@@ -176,6 +181,11 @@ func (s *Suite) run() (errLevel int) {
 	}
 
 	ctx := rt.suiteContext()
+
+	// Skip the test if its explicitly skipped
+	if s.skip != "" {
+		scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skip)
+	}
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
