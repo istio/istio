@@ -29,6 +29,13 @@ galley:
   enabled: true
 
 #
+# chiron configuration, refer to charts/chiron/values.yaml
+# for detailed configuration
+#
+chiron:
+  enabled: false
+
+#
 # mixer configuration
 #
 # @see charts/mixer/values.yaml for all values

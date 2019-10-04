@@ -343,6 +343,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./security/cmd/node_agent \
   ./security/cmd/node_agent_k8s \
   ./security/cmd/istio_ca \
+  ./security/cmd/chiron \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
@@ -351,7 +352,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient chiron
 
 .PHONY: build
 build: depend
