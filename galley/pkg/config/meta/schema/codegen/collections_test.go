@@ -38,7 +38,7 @@ func TestStaticCollections(t *testing.T) {
 package pkg
 
 import (
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 var (

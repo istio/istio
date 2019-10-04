@@ -14,7 +14,7 @@
 
 // +build ignore
 
-package tools
+package main
 
 import (
 	"fmt"
