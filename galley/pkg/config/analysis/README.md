@@ -94,12 +94,7 @@ If your analyzer requires any new message types (meaning a unique template and e
             type: string
     ```
 
-1. Run `go generate`:
-
-    ```sh
-    cd galley/pkg/config/analysis/msg
-    REPO_ROOT=$(git rev-parse --show-toplevel) go generate
-    ```
+1. Run `BUILD_WITH_CONTAINER make gen`:
 
 1. Use the new type in your analyzer
 
