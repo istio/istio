@@ -17,8 +17,7 @@ Istio.</p>
 <p>Deeper customization is possible at three levels:</p>
 
 <ol>
-<li>New APIs defined in this file</li>
-</ol>
+<li><p>New APIs defined in this file</p>
 
 <p>Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
 control plane profiles, as well as some additional high level settings that are feature specific. Each feature contains
@@ -26,130 +25,118 @@ one or more components, which correspond to Istio components (Pods) in the clust
 
 <p>k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
 resources like Affinity, Resource requests/limits, PodDisruptionBudgetSpec, Selectors etc. in a more consistent and
-k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this file for details.</p>
+k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this file for details.</p></li>
 
-<ol>
-<li>values.yaml</li>
-</ol>
+<li><p>values.yaml</p>
 
 <p>The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/Values).
 This API will gradually be deprecated and values there will be moved either into CRDs that are used to directly
-configure components or, in the case of k8s settings, will be replaced by the new API above.</p>
+configure components or, in the case of k8s settings, will be replaced by the new API above.</p></li>
 
-<ol>
-<li>k8s resource overlays</li>
-</ol>
+<li><p>k8s resource overlays</p>
 
 <p>Once a manifest is rendered from InstallSpec, a further customization can be applied by specifying k8s resource
 overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
-customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.</p>
+customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.</p></li>
+</ol>
 
-<p>EXAMPLES</p>
+<h4 id="examples">EXAMPLES</h4>
 
 <ol>
-<li>Default Istio install</li>
-</ol>
+<li><p>Default Istio install</p>
 
 <pre><code class="language-yaml">spec:
 </code></pre>
-
 <ol>
-<li>Default minimal profile install</li>
-</ol>
-
-<pre><code class="language-yaml">spec:
+<li>Default minimal profile install
+<code>yaml
+spec:
 profile: minimal
-</code></pre>
+</code></li>
+</ol></li>
 
-<ol>
-<li>Default install with telemetry disabled</li>
-</ol>
-
-<pre><code class="language-yaml">spec:
-telemetry:
-enabled: false
-</code></pre>
-
-<ol>
-<li>Default install with each feature installed to different namespace and security components in separate namespaces</li>
-</ol>
+<li><p>Default install with telemetry disabled</p>
 
 <pre><code class="language-yaml">spec:
+  telemetry:
+    enabled: false
+</code></pre>
+<ol>
+<li>Default install with each feature installed to different namespace and security components in separate namespaces
+<code>yaml
+spec:
 traffic_management:
 components:
-namespace: istio-traffic-management
+  namespace: istio-traffic-management
 policy:
 components:
-namespace: istio-policy
+  namespace: istio-policy
 telemetry:
 components:
-namespace: istio-telemetry
+  namespace: istio-telemetry
 config_management:
 components:
-namespace: istio-config-management
+  namespace: istio-config-management
 security:
 components:
-citadel:
-namespace: istio-citadel
-cert_manager:
-namespace: istio-cert-manager
-node_agent:
-namespace: istio-node-agent
-</code></pre>
+  citadel:
+    namespace: istio-citadel
+  cert_manager:
+    namespace: istio-cert-manager
+  node_agent:
+    namespace: istio-node-agent
+</code></li>
+</ol></li>
 
-<ol>
-<li>Default install with specialized k8s settings for pilot</li>
-</ol>
+<li><p>Default install with specialized k8s settings for pilot</p>
 
 <pre><code class="language-yaml">spec:
+  traffic_management:
+    components:
+      pilot:
+        k8s:
+          resources:
+            limits:
+              cpu: 444m
+              memory: 333Mi
+            requests:
+              cpu: 222m
+              memory: 111Mi
+          readinessProbe:
+            failureThreshold: 44
+            initialDelaySeconds: 11
+            periodSeconds: 22
+            successThreshold: 33
+</code></pre>
+<ol>
+<li>Default install with values.yaml customizations for proxy
+<code>yaml
+spec:
 traffic_management:
 components:
-pilot:
-k8s:
-resources:
-limits:
-cpu: 444m
-memory: 333Mi
-requests:
-cpu: 222m
-memory: 111Mi
-readinessProbe:
-failureThreshold: 44
-initialDelaySeconds: 11
-periodSeconds: 22
-successThreshold: 33
-</code></pre>
+  proxy:
+    values:
+    - global.proxy.enableCoreDump: true
+    - global.proxy.dnsRefreshRate: 10s
+</code></li>
+</ol></li>
 
-<ol>
-<li>Default install with values.yaml customizations for proxy</li>
-</ol>
+<li><p>Default install with modification to container flag in galley</p>
 
 <pre><code class="language-yaml">spec:
-traffic_management:
-components:
-proxy:
-values:
-- global.proxy.enableCoreDump: true
-- global.proxy.dnsRefreshRate: 10s
-</code></pre>
-
-<ol>
-<li>Default install with modification to container flag in galley</li>
+  configuration_management:
+    components:
+      galley:
+        k8s:
+          overlays:
+          - apiVersion: extensions/v1beta1
+            kind: Deployment
+            name: istio-galley
+            patches:
+            - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+              value: --livenessProbeInterval=123s
+</code></pre></li>
 </ol>
-
-<pre><code class="language-yaml">spec:
-configuration_management:
-components:
-galley:
-k8s:
-overlays:
-- apiVersion: extensions/v1beta1
-kind: Deployment
-name: istio-galley
-patches:
-- path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
-value: --livenessProbeInterval=123s
-</code></pre>
 
 <h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>
 <section>

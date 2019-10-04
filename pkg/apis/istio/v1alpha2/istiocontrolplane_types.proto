@@ -28,139 +28,137 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 // package istio.operator.v1alpha2;
 // option go_package="istio.io/operator/pkg/apis/istio/v1alpha2";
 
-/*
-IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
-Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
-default charts.
-
-The simplest install specialization is to point the user InstallSpec profile to a different values file, for
-example an Istio minimal control plane, which will use the values associated with the minimal control plane profile for
-Istio.
-
-Deeper customization is possible at three levels:
-
-1. New APIs defined in this file
-
-Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
-control plane profiles, as well as some additional high level settings that are feature specific. Each feature contains
-one or more components, which correspond to Istio components (Pods) in the cluster.
-
-k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
-resources like Affinity, Resource requests/limits, PodDisruptionBudgetSpec, Selectors etc. in a more consistent and
-k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this file for details.
-
-2. values.yaml
-
-The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/Values).
-This API will gradually be deprecated and values there will be moved either into CRDs that are used to directly
-configure components or, in the case of k8s settings, will be replaced by the new API above.
-
-3. k8s resource overlays
-
-Once a manifest is rendered from InstallSpec, a further customization can be applied by specifying k8s resource
-overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
-customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.
-
-EXAMPLES
-
-1. Default Istio install
-
-    ```yaml
-    spec:
-    ```
-
-1. Default minimal profile install
-
-    ```yaml
-    spec:
-      profile: minimal
-    ```
-
-1. Default install with telemetry disabled
-
-    ```yaml
-    spec:
-      telemetry:
-        enabled: false
-    ```
-
-1. Default install with each feature installed to different namespace and security components in separate namespaces
-
-    ```yaml
-    spec:
-      traffic_management:
-        components:
-          namespace: istio-traffic-management
-      policy:
-        components:
-          namespace: istio-policy
-      telemetry:
-        components:
-          namespace: istio-telemetry
-      config_management:
-        components:
-          namespace: istio-config-management
-      security:
-        components:
-          citadel:
-            namespace: istio-citadel
-          cert_manager:
-            namespace: istio-cert-manager
-          node_agent:
-            namespace: istio-node-agent
-    ```
-
-1. Default install with specialized k8s settings for pilot
-
-    ```yaml
-    spec:
-      traffic_management:
-        components:
-          pilot:
-            k8s:
-              resources:
-                limits:
-                  cpu: 444m
-                  memory: 333Mi
-                requests:
-                  cpu: 222m
-                  memory: 111Mi
-              readinessProbe:
-                failureThreshold: 44
-                initialDelaySeconds: 11
-                periodSeconds: 22
-                successThreshold: 33
-    ```
-
-1. Default install with values.yaml customizations for proxy
-
-    ```yaml
-    spec:
-      traffic_management:
-        components:
-          proxy:
-            values:
-            - global.proxy.enableCoreDump: true
-            - global.proxy.dnsRefreshRate: 10s
-    ```
-
-1. Default install with modification to container flag in galley
-
-    ```yaml
-    spec:
-      configuration_management:
-        components:
-          galley:
-            k8s:
-              overlays:
-              - apiVersion: extensions/v1beta1
-                kind: Deployment
-                name: istio-galley
-                patches:
-                - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
-                  value: --livenessProbeInterval=123s
-    ```
-*/
+// IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
+// Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
+// default charts.
+//
+// The simplest install specialization is to point the user InstallSpec profile to a different values file, for
+// example an Istio minimal control plane, which will use the values associated with the minimal control plane profile for
+// Istio.
+//
+// Deeper customization is possible at three levels:
+//
+// 1. New APIs defined in this file
+//
+//     Feature API: this API groups an Istio install by features and allows enabling/disabling the features, selecting base
+//     control plane profiles, as well as some additional high level settings that are feature specific. Each feature contains
+//     one or more components, which correspond to Istio components (Pods) in the cluster.
+//
+//     k8s API: this API is a pass through to k8s resource settings for Istio k8s resources. It allows customizing Istio k8s
+//     resources like Affinity, Resource requests/limits, PodDisruptionBudgetSpec, Selectors etc. in a more consistent and
+//     k8s specific way compared to values.yaml. See KubernetesResourcesSpec in this file for details.
+//
+// 1. values.yaml
+//
+//     The entirety of values.yaml settings is accessible through InstallSpec (see CommonComponentSpec/Values).
+//     This API will gradually be deprecated and values there will be moved either into CRDs that are used to directly
+//     configure components or, in the case of k8s settings, will be replaced by the new API above.
+//
+// 1. k8s resource overlays
+//
+//     Once a manifest is rendered from InstallSpec, a further customization can be applied by specifying k8s resource
+//     overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
+//     customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.
+//
+// ## EXAMPLES
+//
+// 1. Default Istio install
+//
+//     ```yaml
+//     spec:
+//     ```
+//
+// 1. Default minimal profile install
+//
+//     ```yaml
+//     spec:
+//       profile: minimal
+//     ```
+//
+// 1. Default install with telemetry disabled
+//
+//     ```yaml
+//     spec:
+//       telemetry:
+//         enabled: false
+//     ```
+//
+// 1. Default install with each feature installed to different namespace and security components in separate namespaces
+//
+//     ```yaml
+//     spec:
+//       traffic_management:
+//         components:
+//           namespace: istio-traffic-management
+//       policy:
+//         components:
+//           namespace: istio-policy
+//       telemetry:
+//         components:
+//           namespace: istio-telemetry
+//       config_management:
+//         components:
+//           namespace: istio-config-management
+//       security:
+//         components:
+//           citadel:
+//             namespace: istio-citadel
+//           cert_manager:
+//             namespace: istio-cert-manager
+//           node_agent:
+//             namespace: istio-node-agent
+//     ```
+//
+// 1. Default install with specialized k8s settings for pilot
+//
+//     ```yaml
+//     spec:
+//       traffic_management:
+//         components:
+//           pilot:
+//             k8s:
+//               resources:
+//                 limits:
+//                   cpu: 444m
+//                   memory: 333Mi
+//                 requests:
+//                   cpu: 222m
+//                   memory: 111Mi
+//               readinessProbe:
+//                 failureThreshold: 44
+//                 initialDelaySeconds: 11
+//                 periodSeconds: 22
+//                 successThreshold: 33
+//     ```
+//
+// 1. Default install with values.yaml customizations for proxy
+//
+//     ```yaml
+//     spec:
+//       traffic_management:
+//         components:
+//           proxy:
+//             values:
+//             - global.proxy.enableCoreDump: true
+//             - global.proxy.dnsRefreshRate: 10s
+//     ```
+//
+// 1. Default install with modification to container flag in galley
+//
+//     ```yaml
+//     spec:
+//       configuration_management:
+//         components:
+//           galley:
+//             k8s:
+//               overlays:
+//               - apiVersion: extensions/v1beta1
+//                 kind: Deployment
+//                 name: istio-galley
+//                 patches:
+//                 - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+//                   value: --livenessProbeInterval=123s
+//     ```
 package v1alpha2;
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
