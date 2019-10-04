@@ -550,7 +550,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				ManagementClusterHostname, port.Port)
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
-				model.TrafficDirectionInbound, proxy, nil, true) // TODO GregHanson managment ports always mTLSReady?
+				model.TrafficDirectionInbound, proxy, nil, true) // TODO GregHanson management ports always mTLSReady?
 			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
 			clusters = append(clusters, mgmtCluster)
 		}

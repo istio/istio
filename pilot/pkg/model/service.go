@@ -76,13 +76,6 @@ type Service struct {
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
-
-	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ServiceEntry spec.
-	MeshExternal bool
-
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
 	// the proxy will decide the service instance that will receive the traffic. Service entries
@@ -90,6 +83,13 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
+
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ServiceEntry spec.
+	MeshExternal bool
 
 	// MTLSReady service is injected with istio sidecar and ready to configure Istio mTLS
 	// true only if all instances of service are mTLS ready, otherwise false
