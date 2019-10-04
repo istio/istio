@@ -238,7 +238,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				}
 				subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 				if len(env.Mesh.OutboundClusterStatName) != 0 {
-					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port, service.Attributes)
+					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 				}
 				setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
