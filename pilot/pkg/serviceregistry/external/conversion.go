@@ -65,6 +65,11 @@ func convertServices(cfg model.Config) []*model.Service {
 		}
 	}
 
+	mTLSReady := false
+	if cfg.Labels != nil && cfg.Labels[model.MTLSReadyLabelName] == "true" {
+		mTLSReady = true
+	}
+
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
@@ -88,6 +93,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
+						MTLSReady: mTLSReady,
 					})
 				} else if net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
@@ -103,6 +109,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
+						MTLSReady: mTLSReady,
 					})
 				}
 			}
@@ -120,6 +127,7 @@ func convertServices(cfg model.Config) []*model.Service {
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
 				},
+				MTLSReady: mTLSReady,
 			})
 		}
 	}

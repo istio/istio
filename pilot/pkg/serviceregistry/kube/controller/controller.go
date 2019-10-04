@@ -987,11 +987,23 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 // called when the overall mTLS ready status of endpoints have changed for a service and the cached Service object must be updated
 func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
-	// TODO GregHanson does the mTLS ready state impact external name services?
+	// TODO GregHanson is this being handled properly?
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if instances != nil {
+		svcMTLSReady := true
+		for _, inst := range instances {
+			if !inst.Service.MTLSReady {
+				svcMTLSReady = false
+				break
+			}
+		}
+		c.Lock()
+		serviceToModify := c.servicesMap[svc.Hostname]
+		serviceToModify.MTLSReady = svcMTLSReady
+		c.servicesMap[svc.Hostname] = serviceToModify
+		c.Unlock()
 		return
 	}
 
@@ -1012,13 +1024,15 @@ func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
 			pod := c.pods.getPodByIP(ea.IP)
 			if !kube.PodMTLSReady(pod) {
 				svcMTLSReady = false
+				break
 			}
 		}
 	}
 
-	svc.MTLSReady = svcMTLSReady
 	c.Lock()
-	c.servicesMap[svc.Hostname] = svc
+	serviceToModify := c.servicesMap[svc.Hostname]
+	serviceToModify.MTLSReady = svcMTLSReady
+	c.servicesMap[svc.Hostname] = serviceToModify
 	c.Unlock()
 
 }
