@@ -64,18 +64,12 @@ type Agent interface {
 
 	// Run starts the agent control loop and awaits for a signal on the input
 	// channel to exit the loop.
-	Run(ctx context.Context)
+	Run(ctx context.Context) error
 }
 
 var (
 	errAbort       = errors.New("epoch aborted")
 	errOutOfMemory = "signal: killed"
-)
-
-const (
-	// maxAborts is the maximum number of cascading abort messages to buffer.
-	// This should be the upper bound on the number of proxies available at any point in time.
-	maxAborts = 10
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
@@ -137,7 +131,7 @@ func (a *agent) ConfigCh() chan<- interface{} {
 	return a.configCh
 }
 
-func (a *agent) Run(ctx context.Context) {
+func (a *agent) Run(ctx context.Context) error {
 	log.Info("Starting proxy agent")
 	for {
 		select {
@@ -169,7 +163,7 @@ func (a *agent) Run(ctx context.Context) {
 
 			if len(a.abortCh) == 0 {
 				log.Infof("All epoch aborted, exiting")
-				return
+				return status.err
 			} else {
 				log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
 			}
@@ -177,7 +171,7 @@ func (a *agent) Run(ctx context.Context) {
 		case <-ctx.Done():
 			a.terminate()
 			log.Info("Agent has successfully terminated")
-			return
+			return nil
 		}
 	}
 }

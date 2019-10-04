@@ -438,8 +438,7 @@ var (
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
 
-			agent.Run(ctx)
-			return nil
+			return agent.Run(ctx)
 		},
 	}
 )
