@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"istio.io/istio/galley/pkg/config/meta/schema"
-	codegen2 "istio.io/istio/galley/pkg/config/meta/schema/codegen"
+	"istio.io/istio/galley/pkg/config/meta/schema/codegen"
 )
 
 // Utility for generating staticinit.gen.go. Called from gen.go
@@ -46,7 +46,7 @@ func main() {
 	for _, r := range c.AllCollections().All() {
 		packages = append(packages, r.ProtoPackage)
 	}
-	contents, err := codegen2.StaticInit(pkg, packages)
+	contents, err := codegen.StaticInit(pkg, packages)
 	if err != nil {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)
