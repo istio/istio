@@ -36,12 +36,13 @@ spec:
       securityContext:
         runAsUser: 1
         runAsNonRoot: true
-        readOnlyRootFilesystem: true
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: galley
+          securityContext:
+            readOnlyRootFilesystem: true
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
 {{- else }}
