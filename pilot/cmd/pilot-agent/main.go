@@ -388,6 +388,7 @@ var (
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
 				if err != nil {
+					cancel()
 					return err
 				}
 				localHostAddr := "127.0.0.1"
@@ -404,6 +405,7 @@ var (
 					NodeType:           role.Type,
 				})
 				if err != nil {
+					cancel()
 					return err
 				}
 				go waitForCompletion(ctx, statusServer.Run)

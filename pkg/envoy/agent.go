@@ -164,9 +164,8 @@ func (a *agent) Run(ctx context.Context) error {
 			if len(a.abortCh) == 0 {
 				log.Infof("All epoch aborted, exiting")
 				return status.err
-			} else {
-				log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
 			}
+			log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
 
 		case <-ctx.Done():
 			a.terminate()
