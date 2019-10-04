@@ -21,8 +21,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
