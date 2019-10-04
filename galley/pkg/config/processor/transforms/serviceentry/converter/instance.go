@@ -48,6 +48,10 @@ func New(domain string, pods pod.Cache) *Instance {
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
 func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
+	// we want to build the endpoints and then services
+	// as availability of endpoints can impact determining
+	// service resolution e.g STATIC service resolution
+	// must have endpoints
 	i.convertEndpoints(endpoints, outMeta, out)
 	i.convertService(service, outMeta, out)
 	return nil
