@@ -39,7 +39,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-
 	cfg.Values["global.mtls.enabled"] = "true"
 
 	// disable control auth so services with credentials signed by different roots can

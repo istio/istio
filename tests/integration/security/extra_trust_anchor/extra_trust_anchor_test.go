@@ -359,7 +359,7 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 			ExpectSuccess: false,
 		}}
 		for _, checker := range checkers {
-			retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Minute))
+			retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		}
 
 		envoyEpochA := currentEnvoyEpoch(t, localA)
@@ -405,10 +405,10 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 			c.WaitForSecretToExistOrFail(t, localNamespace, secret)
 		}
 		retry.UntilSuccessOrFail(t, func() error {
-			if epoch := currentEnvoyEpoch(t, localA); epoch != envoyEpochA {
+			if epoch := currentEnvoyEpoch(t, localA); epoch == envoyEpochA {
 				return fmt.Errorf("echo %v's sidecar restart epoch hasn't changed from %v", localA.ID(), envoyEpochA)
 			}
-			if epoch := currentEnvoyEpoch(t, localB); epoch != envoyEpochB {
+			if epoch := currentEnvoyEpoch(t, localB); epoch == envoyEpochB {
 				return fmt.Errorf("echo %v's sidecar restart epoch hasn't changed from %v", localB.ID(), envoyEpochB)
 			}
 			return nil
@@ -430,7 +430,7 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 				PortName: "http",
 				Scheme:   scheme.HTTP,
 			},
-			ExpectSuccess: false,
+			ExpectSuccess: true,
 		}, {
 			From: localA,
 			Options: echo.CallOptions{
@@ -438,10 +438,11 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 				PortName: "http",
 				Scheme:   scheme.HTTP,
 			},
-			ExpectSuccess: false,
+			ExpectSuccess: true,
 		}}
 		for _, checker := range checkers {
-			retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Minute))
+			// extra time in case secret/cert propagation takes more time.
+			retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(5*time.Minute))
 		}
 	})
 }
