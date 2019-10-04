@@ -482,6 +482,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
+	// TODO(JimmyCYJ): Compare the root cert expiration time instead of raw bytes.
+	// When multiple Citadels are deployed, it is possible that root cert in local
+	// key cert bundle is older than the root cert in workload secret.
 	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		// if the namespace is not managed, don't refresh the expired secret, delete it
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})

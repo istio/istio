@@ -174,6 +174,8 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
 		return
 	}
+	// TODO(JimmyCYJ): If root cert in the secret is newer than the root cert in
+	// key cert bundle, we need to update key cert bundle.
 
 	rootCertRotatorLog.Info("Refresh root certificate")
 	options := util.CertOptions{
