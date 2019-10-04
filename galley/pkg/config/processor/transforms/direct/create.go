@@ -16,8 +16,8 @@ package direct
 
 import (
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/schema"
 )
 
 // GetProviders creates a transformer provider for each direct transform in the metadata

@@ -14,18 +14,18 @@
 
 // +build ignore
 
-package main
+package tools
 
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/codegen"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	codegen2 "istio.io/istio/galley/pkg/config/meta/schema/codegen"
 )
 
-// Utility for generating collections.gen.go. Called from gen.go
+// Utility for generating snapshots.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Printf("Invalid args: %v", os.Args)
@@ -43,10 +43,10 @@ func main() {
 	}
 
 	var names []string
-	for _, r := range c.AllCollections().All() {
-		names = append(names, r.Name.String())
+	for _, r := range c.AllSnapshots() {
+		names = append(names, r.Name)
 	}
-	contents, err := codegen.StaticCollections(pkg, names)
+	contents, err := codegen2.StaticSnapshots(pkg, names)
 	if err != nil {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)

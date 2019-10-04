@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 

@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 )
 

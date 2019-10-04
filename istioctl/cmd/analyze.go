@@ -21,12 +21,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 var (

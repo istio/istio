@@ -19,20 +19,20 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/schema/ast"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	ast2 "istio.io/istio/galley/pkg/config/meta/schema/ast"
+	collection2 "istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 // Metadata is the top-level container.
 type Metadata struct {
-	collections       collection.Specs
+	collections       collection2.Specs
 	snapshots         map[string]*Snapshot
 	sources           []Source
 	transformSettings []TransformSettings
 }
 
 // AllCollections is all known collections
-func (m *Metadata) AllCollections() collection.Specs { return m.collections }
+func (m *Metadata) AllCollections() collection2.Specs { return m.collections }
 
 // AllSnapshots returns all known snapshots
 func (m *Metadata) AllSnapshots() []*Snapshot {
@@ -83,7 +83,7 @@ func (m *Metadata) DirectTransformSettings() *DirectTransformSettings {
 
 // AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in snapshots.
 func (m *Metadata) AllCollectionsInSnapshots() []string {
-	names := make(map[collection.Name]struct{})
+	names := make(map[collection2.Name]struct{})
 
 	for _, s := range m.snapshots {
 		for _, c := range s.Collections {
@@ -106,7 +106,7 @@ func (m *Metadata) AllCollectionsInSnapshots() []string {
 // Snapshot metadata. Describes the snapshots that should be produced.
 type Snapshot struct {
 	Name        string
-	Collections []collection.Name
+	Collections []collection2.Name
 	Strategy    string
 }
 
@@ -137,7 +137,7 @@ var _ Source = &KubeSource{}
 
 // KubeResource metadata for a Kubernetes KubeResource.
 type KubeResource struct {
-	Collection    collection.Spec
+	Collection    collection2.Spec
 	Group         string
 	Version       string
 	Kind          string
@@ -158,8 +158,8 @@ func (i KubeResource) CanonicalResourceName() string {
 }
 
 // Collections returns the name of collections for this set of resources
-func (k KubeResources) Collections() []collection.Name {
-	result := make([]collection.Name, 0, len(k))
+func (k KubeResources) Collections() []collection2.Name {
+	result := make([]collection2.Name, 0, len(k))
 	for _, res := range k {
 		result = append(result, res.Collection.Name)
 	}
@@ -188,8 +188,8 @@ func (k KubeResources) MustFind(group, kind string) KubeResource {
 }
 
 // DisabledCollections returns the names of disabled collections
-func (k KubeResources) DisabledCollections() collection.Names {
-	disabledCollections := make([]collection.Name, 0)
+func (k KubeResources) DisabledCollections() collection2.Names {
+	disabledCollections := make([]collection2.Name, 0)
 	for _, r := range k {
 		if r.Disabled {
 			disabledCollections = append(disabledCollections, r.Collection.Name)
@@ -200,19 +200,19 @@ func (k KubeResources) DisabledCollections() collection.Names {
 
 // DirectTransformSettings configuration
 type DirectTransformSettings struct {
-	mapping map[collection.Name]collection.Name
+	mapping map[collection2.Name]collection2.Name
 }
 
 var _ TransformSettings = &DirectTransformSettings{}
 
 // Type implements TransformSettings
 func (d *DirectTransformSettings) Type() string {
-	return ast.Direct
+	return ast2.Direct
 }
 
 // Mapping from source to destination
-func (d *DirectTransformSettings) Mapping() map[collection.Name]collection.Name {
-	m := make(map[collection.Name]collection.Name)
+func (d *DirectTransformSettings) Mapping() map[collection2.Name]collection2.Name {
+	m := make(map[collection2.Name]collection2.Name)
 	for k, v := range d.mapping {
 		m[k] = v
 	}
@@ -222,7 +222,7 @@ func (d *DirectTransformSettings) Mapping() map[collection.Name]collection.Name 
 
 // ParseAndBuild parses the given metadata file and returns the strongly typed schema.
 func ParseAndBuild(yamlText string) (*Metadata, error) {
-	mast, err := ast.Parse(yamlText)
+	mast, err := ast2.Parse(yamlText)
 	if err != nil {
 		return nil, err
 	}
@@ -231,10 +231,10 @@ func ParseAndBuild(yamlText string) (*Metadata, error) {
 }
 
 // Build strongly-typed Metadata from parsed AST.
-func Build(astm *ast.Metadata) (*Metadata, error) {
-	b := collection.NewSpecsBuilder()
+func Build(astm *ast2.Metadata) (*Metadata, error) {
+	b := collection2.NewSpecsBuilder()
 	for _, c := range astm.Collections {
-		s, err := collection.NewSpec(c.Name, c.ProtoPackage, c.Proto)
+		s, err := collection2.NewSpec(c.Name, c.ProtoPackage, c.Proto)
 		if err != nil {
 			return nil, err
 		}
@@ -265,7 +265,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 	var sources []Source
 	for _, s := range astm.Sources {
 		switch v := s.(type) {
-		case *ast.KubeSource:
+		case *ast2.KubeSource:
 			var resources []*KubeResource
 			for i, r := range v.Resources {
 				if r == nil {
@@ -300,8 +300,8 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 	var transforms []TransformSettings
 	for _, t := range astm.TransformSettings {
 		switch v := t.(type) {
-		case *ast.DirectTransformSettings:
-			mapping := make(map[collection.Name]collection.Name)
+		case *ast2.DirectTransformSettings:
+			mapping := make(map[collection2.Name]collection2.Name)
 			for k, val := range v.Mapping {
 				from, ok := collections.Lookup(k)
 				if !ok {

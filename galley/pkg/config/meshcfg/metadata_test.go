@@ -17,7 +17,7 @@ package meshcfg
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 )
 
 func TestMeshConfigNameValidity(t *testing.T) {

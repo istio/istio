@@ -16,7 +16,7 @@ package fixtures
 
 import (
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 // Transformer implements event.Transformer for testing purposes.

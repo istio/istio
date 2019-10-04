@@ -15,7 +15,7 @@
 package kuberesource
 
 import (
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 )
