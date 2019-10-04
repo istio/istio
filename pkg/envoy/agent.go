@@ -196,7 +196,7 @@ func (a *agent) reconcile() {
 	a.currentEpoch++
 
 	// buffer aborts to prevent blocking on failing proxy
-	abortCh := make(chan error)
+	abortCh := make(chan error, 1)
 
 	a.abortCh[a.currentEpoch] = abortCh
 	a.currentConfig = a.desiredConfig
