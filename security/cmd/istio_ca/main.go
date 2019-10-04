@@ -50,7 +50,6 @@ import (
 const (
 	selfSignedCaCertTTL                     = "CITADEL_SELF_SIGNED_CA_CERT_TTL"
 	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
-	selfSignedRootCertMinCheckInterval      = "CITADEL_SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"
 	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
 	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
 	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
@@ -72,7 +71,6 @@ type cliOptions struct { // nolint: maligned
 	selfSignedCA                            bool
 	selfSignedCACertTTL                     time.Duration
 	selfSignedRootCertCheckInterval         time.Duration
-	selfSignedRootCertMinCheckInterval      time.Duration
 	selfSignedRootCertGracePeriodPercentile int
 	enableJitterForRootCertRotator          bool
 
@@ -139,12 +137,8 @@ var (
 			cmd.DefaultSelfSignedRootCertCheckInterval,
 			"The interval that self-signed CA checks its root certificate "+
 				"expiration time and rotates root certificate. Setting this interval "+
-				"to zero or a negative value disables "+
-				"automated root cert check and rotation.").Get(),
-		selfSignedRootCertMinCheckInterval: env.RegisterDurationVar(selfSignedRootCertMinCheckInterval,
-			cmd.SelfSignedRootCertMinCheckInterval,
-			"The minimum interval that self-signed CA checks its root certificate "+
-				"expiration time and rotates root certificate.").Get(),
+				"to zero or a negative value disables automated root cert check and "+
+				"rotation. This interval is suggested to be larger than 10 minutes.").Get(),
 		selfSignedRootCertGracePeriodPercentile: env.RegisterIntVar(selfSignedRootCertGracePeriodPercentile,
 			cmd.DefaultRootCertGracePeriodPercentile,
 			"Grace period percentile for self-signed root cert.").Get(),
@@ -470,13 +464,6 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			checkInterval = cmd.ReadSigningCertCheckInterval
 		} else {
 			checkInterval = -1
-		}
-		if opts.selfSignedRootCertMinCheckInterval < time.Duration(0) {
-			opts.selfSignedRootCertMinCheckInterval = cmd.SelfSignedRootCertMinCheckInterval
-		}
-		if opts.selfSignedRootCertCheckInterval > time.Duration(0) &&
-			opts.selfSignedRootCertCheckInterval < opts.selfSignedRootCertMinCheckInterval {
-			opts.selfSignedRootCertCheckInterval = opts.selfSignedRootCertMinCheckInterval
 		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
 			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,

@@ -62,5 +62,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["security.env.CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"] = "2m"
 	cfg.Values["security.env.CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"] = "100"
 	cfg.Values["security.env.CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"] = "50s"
-	cfg.Values["security.env.CITADEL_SELF_SIGNED_ROOT_CERT_MIN_CHECK_INTERVAL"] = "50s"
 }
