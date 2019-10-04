@@ -62,7 +62,6 @@ const (
 	servicePortStatPattern     = "%SERVICE_PORT%"
 	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
 	subsetNameStatPattern      = "%SUBSET_NAME%"
-	k8sDomain                  = ".svc.cluster.local"
 )
 
 var (
