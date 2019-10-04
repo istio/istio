@@ -187,7 +187,7 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh"); err != nil {
 			return nil, err
 		}
 	}
