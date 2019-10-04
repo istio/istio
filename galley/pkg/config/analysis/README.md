@@ -98,7 +98,7 @@ If your analyzer requires any new message types (meaning a unique template and e
 
     ```sh
     cd galley/pkg/config/analysis/msg
-    go generate
+    REPO_ROOT=$(git rev-parse --show-toplevel) go generate
     ```
 
 1. Use the new type in your analyzer
