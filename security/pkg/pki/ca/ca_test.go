@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"regexp"
@@ -89,13 +90,15 @@ iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
 
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
 
-var orgRe = regexp.MustCompile(`test.ca.org \([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\)`)
+const testOrg = "test.ca.Org"
+
+var orgRe = regexp.MustCompile(fmt.Sprintf(`%v \([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\)`, testOrg))
 
 func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
-	org := "test.ca.Org"
+	org := testOrg
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
