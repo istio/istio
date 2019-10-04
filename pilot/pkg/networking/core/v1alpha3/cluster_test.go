@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"fmt"
 	"os"
 	"reflect"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"

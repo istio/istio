@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"fmt"
 	"strconv"
 	"strings"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
