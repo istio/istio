@@ -54,8 +54,18 @@ var (
 	// Create a kubernetes.ExecClientSDS
 	clientExecSdsFactory = newSDSExecClient
 
-	loggingOptions = log.DefaultOptions()
+	loggingOptions = defaultLogOptions()
 )
+
+func defaultLogOptions() *log.Options {
+	o := log.DefaultOptions()
+
+	// These scopes are, by default, too chatty for command line use
+	o.SetOutputLevel("processing", log.ErrorLevel)
+	o.SetOutputLevel("source", log.ErrorLevel)
+
+	return o
+}
 
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
