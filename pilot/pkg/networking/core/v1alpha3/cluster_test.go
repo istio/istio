@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -1395,8 +1396,8 @@ func TestAltStatName(t *testing.T) {
 		statPattern string
 		host        string
 		subsetName  string
-		dnsDomain   string
 		port        *model.Port
+		attributes  model.ServiceAttributes
 		want        string
 	}{
 		{
@@ -1404,17 +1405,64 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default",
+		},
+		{
+			"Service only pattern from different namespace",
+			"%SERVICE%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1",
+		},
+		{
+			"Service with port pattern from different namespace",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1.7443",
+		},
+		{
+			"Service from non k8s registry",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.hostname.consul",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				Name:            "foo",
+				Namespace:       "bar",
+			},
+			"reviews.hostname.consul.7443",
 		},
 		{
 			"Service FQDN only pattern",
 			"%SERVICE_FQDN%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local",
 		},
 		{
@@ -1422,8 +1470,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_7443",
 		},
 		{
@@ -1431,8 +1483,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc",
 		},
 		{
@@ -1440,8 +1496,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc_7443",
 		},
 		{
@@ -1449,8 +1509,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_7443",
 		},
 		{
@@ -1458,8 +1522,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc",
 		},
 		{
@@ -1467,8 +1535,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1476,8 +1548,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1485,8 +1561,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"v1",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
 		},
 		{
@@ -1494,15 +1574,19 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%.%DUMMY%",
 			"reviews.default.svc.cluster.local",
 			"v1",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.%DUMMY%",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.dnsDomain, tt.port)
+			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
 			if got != tt.want {
 				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
 			}
