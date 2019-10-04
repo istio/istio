@@ -320,6 +320,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
+						MTLSReady:       ep.MTLSReady,
 					})
 				}
 			}
@@ -480,6 +481,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		ep = &EndpointShards{
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
+			MTLSReady:       false,
 		}
 		s.EndpointShardsByService[serviceName][namespace] = ep
 		if !internal {
@@ -490,7 +492,11 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
+	mtlsReady := true //TODO GregHanson handle 0 endpoint case
 	for _, e := range istioEndpoints {
+		if !e.MTLSReady {
+			mtlsReady = false
+		}
 		if e.ServiceAccount != "" {
 			ep.mutex.Lock()
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
@@ -508,6 +514,17 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			}
 		}
 	}
+
+	if s.Env.Mesh.GetEnableAutoMtls().GetValue() && ep.MTLSReady != mtlsReady {
+		// send CDS update to enable/disable default mtls communication
+		adsLog.Infof("mtlsReady label change for service=%v, full push", serviceName)
+		ep.mutex.Lock()
+		ep.MTLSReady = mtlsReady
+		ep.mutex.Unlock()
+		s.EndpointShardsByService[serviceName][namespace] = ep
+		requireFull = true
+	}
+
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()

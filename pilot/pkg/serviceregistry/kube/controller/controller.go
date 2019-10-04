@@ -470,6 +470,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 			}
+			mtlsReady := kube.PodMTLSReady(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
@@ -487,6 +488,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
+						MTLSReady:      mtlsReady,
 					})
 				}
 			}
@@ -763,6 +765,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
+		MTLSReady:      kube.PodMTLSReady(pod),
 	}
 }
 
@@ -893,6 +896,13 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
+
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	updateMTLSReadyStatus := false
+
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
@@ -921,6 +931,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
+				mtlsReady := kube.PodMTLSReady(pod)
+				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints
+				if svc != nil && svc.MTLSReady != mtlsReady {
+					updateMTLSReadyStatus = true
+				}
+
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
@@ -934,10 +950,15 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						MTLSReady:       mtlsReady,
 					})
 				}
 			}
 		}
+	}
+
+	if c.Env.Mesh.GetEnableAutoMtls().GetValue() && updateMTLSReadyStatus {
+		c.updateSvcMtlsReady(svc)
 	}
 
 	if log.InfoEnabled() {
@@ -962,6 +983,44 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
+}
+
+// called when the overall mTLS ready status of endpoints have changed for a service and the cached Service object must be updated
+func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
+	// TODO GregHanson does the mTLS ready state impact external name services?
+	c.RLock()
+	instances := c.externalNameSvcInstanceMap[svc.Hostname]
+	c.RUnlock()
+	if instances != nil {
+		return
+	}
+
+	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+
+	if err != nil {
+		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return
+	}
+	if !exists {
+		return
+	}
+
+	svcMTLSReady := true
+	ep := item.(*v1.Endpoints)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			pod := c.pods.getPodByIP(ea.IP)
+			if !kube.PodMTLSReady(pod) {
+				svcMTLSReady = false
+			}
+		}
+	}
+
+	svc.MTLSReady = svcMTLSReady
+	c.Lock()
+	c.servicesMap[svc.Hostname] = svc
+	c.Unlock()
+
 }
 
 // namedRangerEntry for holding network's CIDR and name
