@@ -19,15 +19,16 @@ import (
 	"regexp"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/pkg/log"
 )
 
 const (
-	GCPProject  = "gcp_project"
-	GCPCluster  = "gcp_cluster_name"
-	GCPLocation = "gcp_cluster_location"
+	GCPProject    = "gcp_project"
+	GCPCluster    = "gcp_gke_cluster_name"
+	GCPLocation   = "gcp_location"
+	GCEInstanceID = "gcp_gce_instance_id"
 )
 
 var (
@@ -55,6 +56,7 @@ type gcpEnv struct {
 	projectIDFn        metadataFn
 	locationFn         metadataFn
 	clusterNameFn      metadataFn
+	instanceIDFn       metadataFn
 }
 
 // NewGCP returns a platform environment customized for Google Cloud Platform.
@@ -66,6 +68,7 @@ func NewGCP() Environment {
 		projectIDFn:        metadata.ProjectID,
 		locationFn:         clusterLocationFn,
 		clusterNameFn:      clusterNameFn,
+		instanceIDFn:       metadata.InstanceID,
 	}
 }
 
@@ -87,6 +90,9 @@ func (e *gcpEnv) Metadata() map[string]string {
 	}
 	if cn, err := e.clusterNameFn(); err == nil {
 		md[GCPCluster] = cn
+	}
+	if id, err := e.instanceIDFn(); err == nil {
+		md[GCEInstanceID] = id
 	}
 	return md
 }

@@ -20,6 +20,17 @@ const (
 	// DefaultSelfSignedCACertTTL is the default TTL of self-signed CA root certificate.
 	DefaultSelfSignedCACertTTL = 3650 * 24 * time.Hour
 
+	// DefaultSelfSignedRootCertCheckInterval is the default interval a self-signed
+	// CA checks and rotates its root certificate.
+	DefaultSelfSignedRootCertCheckInterval = 1 * time.Hour
+
+	// DefaultRootCertGracePeriodRatio is the default length of root certificate
+	// rotation grace period, configured as the ratio of the certificate TTL.
+	DefaultRootCertGracePeriodRatio = 0.2
+
+	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
+	ReadSigningCertCheckInterval = time.Second * 5
+
 	// DefaultRequestedCACertTTL is the default requested TTL for the workload.
 	DefaultRequestedCACertTTL = 365 * 24 * time.Hour
 

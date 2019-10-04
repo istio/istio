@@ -32,7 +32,7 @@
 //       source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/observability/distributed-tracing/)
 // for information on tracing within Istio.
 //
 // TraceSpan represents an individual span within a distributed trace.
@@ -71,7 +71,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Request message for HandleTraceSpan method.
 type HandleTraceSpanRequest struct {

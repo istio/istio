@@ -94,7 +94,7 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
         <table>
             <thead>
             <tr>
-                <th>Suported Collections</th>
+                <th>Supported Collections</th>
             </tr>
             </thead>
             <tbody>

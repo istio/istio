@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/types"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -29,7 +29,7 @@ import (
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {
 	policy := route.RetryPolicy{
-		NumRetries:           &types.UInt32Value{Value: 2},
+		NumRetries:           &wrappers.UInt32Value{Value: 2},
 		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
 		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
@@ -72,7 +72,7 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 
 	// A policy was specified. Start with the default and override with user-provided fields where appropriate.
 	out := DefaultPolicy()
-	out.NumRetries = &types.UInt32Value{Value: uint32(in.GetAttempts())}
+	out.NumRetries = &wrappers.UInt32Value{Value: uint32(in.GetAttempts())}
 
 	if in.RetryOn != "" {
 		// Allow the incoming configuration to specify both Envoy RetryOn and RetriableStatusCodes. Any integers are
@@ -81,8 +81,7 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	}
 
 	if in.PerTryTimeout != nil {
-		d := util.GogoDurationToDuration(in.PerTryTimeout)
-		out.PerTryTimeout = d
+		out.PerTryTimeout = util.GogoDurationToDuration(in.PerTryTimeout)
 	}
 	return out
 }

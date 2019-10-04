@@ -1,0 +1,60 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["rule[0]-from[0]-principal[1]", "rule[0]-from[0]-principal[2]"]
+            requestPrincipals: ["rule[0]-from[0]-requestPrincipal[1]", "rule[0]-from[0]-requestPrincipal[2]"]
+            namespaces: ["rule[0]-from[0]-ns[1]", "rule[0]-from[0]-ns[2]"]
+            ipBlocks: ["10.0.0.1", "10.0.0.2"]
+        - source:
+            principals: ["rule[0]-from[1]-principal[1]", "rule[0]-from[1]-principal[2]"]
+            requestPrincipals: ["rule[0]-from[1]-requestPrincipal[1]", "rule[0]-from[1]-requestPrincipal[2]"]
+            namespaces: ["rule[0]-from[1]-ns[1]", "rule[0]-from[1]-ns[2]"]
+            ipBlocks: ["10.0.1.1", "192.0.1.2"]
+      to:
+        - operation:
+            methods: ["rule[0]-to[0]-method[1]", "rule[0]-to[0]-method[2]"]
+            hosts: ["rule[0]-to[0]-host[1]", "rule[0]-to[0]-host[2]"]
+            ports: ["9001", "9002"]
+            paths: ["rule[0]-to[0]-path[1]", "rule[0]-to[0]-path[2]"]
+        - operation:
+            methods: ["rule[0]-to[1]-method[1]", "rule[0]-to[1]-method[2]"]
+            hosts: ["rule[0]-to[1]-host[1]", "rule[0]-to[1]-host[2]"]
+            ports: ["9011", "9012"]
+            paths: ["rule[0]-to[1]-path[1]", "rule[0]-to[1]-path[2]"]
+      when:
+        - key: "request.headers[X-header]"
+          values: ["header", "header-prefix-*", "*-suffix-header", "*"]
+        - key: "destination.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+    - from:
+        - source:
+            principals: ["rule[1]-from[0]-principal[1]", "rule[1]-from[0]-principal[2]"]
+            requestPrincipals: ["rule[1]-from[0]-requestPrincipal[1]", "rule[1]-from[0]-requestPrincipal[2]"]
+            namespaces: ["rule[1]-from[0]-ns[1]", "rule[1]-from[0]-ns[2]"]
+            ipBlocks: ["10.1.0.1", "10.1.0.2"]
+        - source:
+            principals: ["rule[1]-from[1]-principal[1]", "rule[1]-from[1]-principal[2]"]
+            requestPrincipals: ["rule[1]-from[1]-requestPrincipal[1]", "rule[1]-from[1]-requestPrincipal[2]"]
+            namespaces: ["rule[1]-from[1]-ns[1]", "rule[1]-from[1]-ns[2]"]
+            ipBlocks: ["10.1.1.1", "192.1.1.2"]
+      to:
+        - operation:
+            methods: ["rule[1]-to[0]-method[1]", "rule[1]-to[0]-method[2]"]
+            hosts: ["rule[1]-to[0]-host[1]", "rule[1]-to[0]-host[2]"]
+            ports: ["9101", "9102"]
+            paths: ["rule[1]-to[0]-path[1]", "rule[1]-to[0]-path[2]"]
+        - operation:
+            methods: ["rule[1]-to[1]-method[1]", "rule[1]-to[1]-method[2]"]
+            hosts: ["rule[1]-to[1]-host[1]", "rule[1]-to[1]-host[2]"]
+            ports: ["9111", "9112"]
+            paths: ["rule[1]-to[1]-path[1]", "rule[1]-to[1]-path[2]"]

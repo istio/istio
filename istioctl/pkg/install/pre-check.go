@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -49,7 +49,7 @@ type preCheckExecClient interface {
 	checkMutatingWebhook() error
 }
 
-func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTClientGetter, writer io.Writer) error {
+func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
 	fmt.Fprintf(writer, "\n")
@@ -267,7 +267,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 	return nil
 }
 
-func createKubeClient(restClientGetter resource.RESTClientGetter) (preCheckExecClient, error) {
+func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 
 	if err != nil {

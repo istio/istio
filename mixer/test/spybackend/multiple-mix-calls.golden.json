@@ -1,384 +1,322 @@
 {
- "AdapterState": [
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
+   "AdapterState": [
     {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "400"
+        }
+       },
+       "name": "i2metric.instance.istio-system",
+       "value": {
+        "int64Value": "888"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "200"
+        }
+       },
+       "name": "i1metric.instance.istio-system",
+       "value": {
+        "int64Value": "888"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "400"
+        }
+       },
+       "name": "i2metric.instance.istio-system",
+       "value": {
+        "int64Value": "666"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "200"
+        }
+       },
+       "name": "i1metric.instance.istio-system",
+       "value": {
+        "int64Value": "666"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "400"
+        }
+       },
+       "name": "i2metric.instance.istio-system",
+       "value": {
+        "int64Value": "456"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "400"
+        }
+       },
+       "name": "i2metric.instance.istio-system",
+       "value": {
+        "int64Value": "456"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "200"
+        }
+       },
+       "name": "i1metric.instance.istio-system",
+       "value": {
+        "int64Value": "123"
+       }
+      }
+     ]
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instances": [
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "200"
+        }
+       },
+       "name": "i1metric.instance.istio-system",
+       "value": {
+        "int64Value": "123"
        }
       },
-      "response_code": {
-       "Value": {
-        "Int64Value": 400
+      {
+       "dimensions": {
+        "destination_service": {
+         "stringValue": "unknown"
+        },
+        "response_code": {
+         "int64Value": "200"
+        }
+       },
+       "name": "i1metric.instance.istio-system",
+       "value": {
+        "int64Value": "123"
        }
       }
-     },
-     "name": "i2metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 888
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
+     ]
+    },
     {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 200
-       }
-      }
-     },
-     "name": "i1metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 888
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 400
-       }
-      }
-     },
-     "name": "i2metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 666
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 200
-       }
-      }
-     },
-     "name": "i1metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 666
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 400
-       }
-      }
-     },
-     "name": "i2metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 456
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 400
-       }
-      }
-     },
-     "name": "i2metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 456
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 200
-       }
-      }
-     },
-     "name": "i1metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 123
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instances": [
-    {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 200
-       }
-      }
-     },
-     "name": "i1metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 123
+     "dedup_id": "stripped_for_test",
+     "instance": {
+      "name": "i3list.instance.istio-system",
+      "value": {
+       "stringValue": "foobar"
       }
      }
     },
     {
-     "dimensions": {
-      "destination_service": {
-       "Value": {
-        "StringValue": "unknown"
-       }
-      },
-      "response_code": {
-       "Value": {
-        "Int64Value": 200
-       }
-      }
-     },
-     "name": "i1metric.instance.istio-system",
-     "value": {
-      "Value": {
-       "Int64Value": 123
-      }
-     }
-    }
-   ]
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "name": "i3list.instance.istio-system",
-    "value": {
-     "Value": {
-      "StringValue": "foobar"
-      }
-     }
-  }
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "name": "i3list.instance.istio-system",
-    "value": {
-     "Value": {
-      "StringValue": "defaultstr"
-     }
-    }
-   }
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "name": "i3list.instance.istio-system",
-    "value": {
-     "Value": {
-      "StringValue": "defaultstr"
-     }
-    }
-   }
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "name": "i3list.instance.istio-system",
-    "value": {
-     "Value": {
-      "StringValue": "bazbaz"
-     }
-    }
-   }
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "dimensions": {
-     "destination": {
-      "Value": {
-       "StringValue": "unknown"
-      }
-     },
-     "destinationVersion": {
-      "Value": {
-       "StringValue": "unknown"
-      }
-     },
-     "source": {
-      "Value": {
-       "StringValue": "unknown"
-      }
-     },
-     "sourceVersion": {
-      "Value": {
-       "StringValue": "unknown"
+     "dedup_id": "stripped_for_test",
+     "instance": {
+      "name": "i3list.instance.istio-system",
+      "value": {
+       "stringValue": "defaultstr"
       }
      }
     },
-    "name": "requestQuota.instance.istio-system"
-   },
-   "quota_request": {
-    "quotas": {
-     "requestQuota.instance.istio-system": {
-      "amount": 35,
-      "best_effort": true
+    {
+     "dedup_id": "stripped_for_test",
+     "instance": {
+      "name": "i3list.instance.istio-system",
+      "value": {
+       "stringValue": "defaultstr"
+      }
+     }
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instance": {
+      "name": "i3list.instance.istio-system",
+      "value": {
+       "stringValue": "bazbaz"
+      }
+     }
+    },
+    {
+     "dedup_id": "stripped_for_test",
+     "instance": {
+      "dimensions": {
+       "destination": {
+        "stringValue": "unknown"
+       },
+       "destinationVersion": {
+        "stringValue": "unknown"
+       },
+       "source": {
+        "stringValue": "unknown"
+       },
+       "sourceVersion": {
+        "stringValue": "unknown"
+       }
+      },
+      "name": "requestQuota.instance.istio-system"
+     },
+     "quota_request": {
+      "quotas": {
+       "requestQuota.instance.istio-system": {
+        "amount": 35,
+        "best_effort": true
+       }
+      }
      }
     }
-   }
-  }
- ],
- "Returns": [
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 31
-   },
-   "Quota": null,
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
-   },
-   "Quota": {
-    "requestQuota": {
-     "Status": {},
-     "ValidDuration": 0,
-     "Amount": 32
+   ],
+   "Returns": [
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 0,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 0,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 0,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 31,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 31,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 31,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 0,
+      "RouteDirective": null
+     },
+     "Quota": {
+      "requestQuota": {
+       "Status": {},
+       "ValidDuration": 0,
+       "Amount": 32
+      }
+     },
+     "Error": {}
+    },
+    {
+     "Check": {
+      "Status": {},
+      "ValidDuration": 0,
+      "ValidUseCount": 0,
+      "RouteDirective": null
+     },
+     "Quota": null,
+     "Error": {}
     }
-   },
-   "Error": null
-  },
-  {
-   "Check": {
-    "Status": {},
-    "ValidDuration": 0,
-    "ValidUseCount": 0
-   },
-   "Quota": null,
-   "Error": null
+   ]
   }
- ]
-}

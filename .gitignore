@@ -37,7 +37,6 @@ bin/istioctl
 # Install generated files
 install/consul/istio.yaml
 install/kubernetes/istio-demo.yaml
-install/kubernetes/istio-demo-auth.yaml
 install/kubernetes/istio-auth.yaml
 install/kubernetes/istio-auth-multicluster.yaml
 install/kubernetes/istio-mixer-with-health-check.yaml

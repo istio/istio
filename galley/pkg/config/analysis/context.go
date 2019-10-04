@@ -16,8 +16,8 @@ package analysis
 
 import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // IteratorFn is used to iterate over a set of collection entries. It must return true to keep iterating.
@@ -30,6 +30,9 @@ type Context interface {
 
 	// Find a resource in the collection. If not found, nil is returned
 	Find(c collection.Name, name resource.Name) *resource.Entry
+
+	// Exists returns true if the specified resource exists in the context, false otherwise
+	Exists(c collection.Name, name resource.Name) bool
 
 	// ForEach iterates over all the entries of a given collection.
 	ForEach(c collection.Name, fn IteratorFn)

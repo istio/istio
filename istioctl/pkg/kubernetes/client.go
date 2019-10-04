@@ -263,6 +263,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},
 		"ingressgateway":   {"/usr/local/bin/pilot-agent", "istio-proxy"},
+		"ilbgateway":       {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
 		"policy":           {"/usr/local/bin/mixs", "mixer"},
 		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},

@@ -22,14 +22,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -37,6 +40,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -52,6 +57,9 @@ const (
 	DestinationRuleForOsDefault
 	MeshWideTCPKeepaliveSeconds        = 11
 	DestinationRuleTCPKeepaliveSeconds = 21
+	TestServiceNamespace               = "bar"
+	// FQDN service name in namespace TestServiceNamespace. Note the mesh config domain is empty.
+	TestServiceNHostname = "foo.bar"
 )
 
 var (
@@ -206,7 +214,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 
 			// Verify that the values were set correctly.
 			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(*commonHTTPProtocolOptions.IdleTimeout).To(Equal(time.Duration(15000000000)))
+			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
 		})
 	}
 }
@@ -214,36 +222,54 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(
+	return buildTestClustersWithAuthnPolicy(
 		serviceHostname,
 		serviceResolution,
+		false, // exteranalService
 		nodeType,
 		locality,
 		mesh,
 		destRule,
-		make(map[string]string),
+		nil, // authnPolicy
+	)
+}
+
+func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
+	destRule proto.Message, authnPolicy *authn.Policy) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata(
+		serviceHostname,
+		serviceResolution,
+		exteranalService,
+		nodeType,
+		locality,
+		mesh,
+		destRule,
+		authnPolicy,
+		&model.NodeMetadata{},
 		model.MaxIstioVersion)
 }
 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string), istioVersion)
+	destRule proto.Message, authnPolicy *authn.Policy, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* exteranalService */, nodeType, locality, mesh, destRule,
+		authnPolicy, &model.NodeMetadata{}, istioVersion)
 }
 
-func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
+func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution,
+	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, exteranalService,
 		nodeType, locality, mesh,
-		destRule, meta, istioVersion,
+		destRule, authnPolicy, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
-func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution,
+func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
+	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -260,12 +286,18 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			Protocol: protocol.Unsupported,
 		},
 	}
+
+	serviceAttribute := model.ServiceAttributes{
+		Namespace: TestServiceNamespace,
+	}
 	service := &model.Service{
-		Hostname:    host.Name(serviceHostname),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
-		Ports:       servicePort,
-		Resolution:  serviceResolution,
+		Hostname:     host.Name(serviceHostname),
+		Address:      "1.1.1.1",
+		ClusterVIPs:  make(map[string]string),
+		Ports:        servicePort,
+		Resolution:   serviceResolution,
+		MeshExternal: exteranalService,
+		Attributes:   serviceAttribute,
 	}
 
 	instances := []*model.ServiceInstance{
@@ -325,6 +357,24 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Name:    "acme",
 					},
 						Spec: destRule,
+					}}, nil
+			}
+			if typ == schemas.AuthenticationPolicy.Type && authnPolicy != nil {
+				// Set the policy name conforming to the authentication rule:
+				// - namespace wide policy (i.e has not target selector) must be name "default"
+				// - service-specific policy can be named anything but 'default'
+				policyName := "default"
+				if authnPolicy.Targets != nil {
+					policyName = "acme"
+				}
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:      schemas.AuthenticationPolicy.Type,
+						Version:   schemas.AuthenticationPolicy.Version,
+						Name:      policyName,
+						Namespace: TestServiceNamespace,
+					},
+						Spec: authnPolicy,
 					}}, nil
 			}
 			return nil, nil
@@ -395,7 +445,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout.Nanoseconds()).To(Equal(int64(10000000001)))
+	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
@@ -428,7 +478,7 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.ConnectTimeout.Nanoseconds()).To(Equal(int64(10000000001)))
+	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
@@ -473,10 +523,10 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 
 	g := NewGomegaWithT(t)
 
-	envoyMetadata := map[string]string{
-		model.NodeMetadataTLSClientCertChain: expectedClientCertPath,
-		model.NodeMetadataTLSClientKey:       expectedClientKeyPath,
-		model.NodeMetadataTLSClientRootCert:  expectedRootCertPath,
+	envoyMetadata := &model.NodeMetadata{
+		TLSClientCertChain: expectedClientCertPath,
+		TLSClientKey:       expectedClientKeyPath,
+		TLSClientRootCert:  expectedRootCertPath,
 	}
 
 	destRule := &networking.DestinationRule{
@@ -497,7 +547,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 						{
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{Number: 8080},
+								Number: 8080,
 							},
 						},
 					},
@@ -506,8 +556,8 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		},
 	}
 
-	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, model.SidecarProxy,
-		nil, testMesh, destRule, envoyMetadata, model.MaxIstioVersion)
+	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
+		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	g.Expect(clusters).To(HaveLen(10))
@@ -533,15 +583,15 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 }
 
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
+	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{})
 }
 
 func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, map[string]string{"ROUTER_MODE": string(model.SniDnatRouter)})
+	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
 }
 
-func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", 0, model.Router, nil, testMesh,
+func buildSniTestClustersWithMetadata(sniValue string, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -552,7 +602,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) (
 						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 							{
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{Number: 8080},
+									Number: 8080,
 								},
 								Tls: &networking.TLSSettings{
 									Mode: networking.TLSSettings_ISTIO_MUTUAL,
@@ -564,6 +614,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) (
 				},
 			},
 		},
+		nil, // authnPolicy
 		meta,
 		model.MaxIstioVersion,
 	)
@@ -655,7 +706,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 							{
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{Number: 8080},
+									Number: 8080,
 								},
 								ConnectionPool: &networking.ConnectionPoolSettings{
 									Tcp: &networking.ConnectionPoolSettings_TCPSettings{
@@ -738,19 +789,21 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name  string
-		tls   *networking.TLSSettings
-		sans  []string
-		sni   string
-		proxy *model.Proxy
-		want  *networking.TLSSettings
+		name            string
+		tls             *networking.TLSSettings
+		sans            []string
+		sni             string
+		proxy           *model.Proxy
+		serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
+		want            *networking.TLSSettings
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
-			&model.Proxy{Metadata: map[string]string{}},
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
 			tlsSettings,
 		},
 		{
@@ -765,7 +818,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			},
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
-			&model.Proxy{Metadata: map[string]string{}},
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -780,11 +834,12 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			tlsSettings,
 			[]string{},
 			"",
-			&model.Proxy{Metadata: map[string]string{
-				model.NodeMetadataTLSClientCertChain: "/custom/chain.pem",
-				model.NodeMetadataTLSClientKey:       "/custom/key.pem",
-				model.NodeMetadataTLSClientRootCert:  "/custom/root.pem",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
 			}},
+			authn_v1alpha1_applier.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -794,11 +849,54 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				Sni:               "custom.foo.com",
 			},
 		},
+		{
+			"Ignore nil settings when mTLS Unknown",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			nil,
+		},
+		{
+			"Ignore nil settings when mTLS Disable",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSDisable,
+			nil,
+		},
+		{
+			"Ignore nil settings when mTLS Permissive",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSPermissive,
+			nil,
+		},
+		{
+			"Auto fill nil settings when mTLS Strict",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSStrict,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy)
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}
@@ -855,7 +953,7 @@ func TestStatNamePattern(t *testing.T) {
 	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
-func TestLocalityLB(t *testing.T) {
+func TestSidecarLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
@@ -906,7 +1004,147 @@ func TestLocalityLB(t *testing.T) {
 			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
 			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
+	}
 
+	// Test failover
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+
+	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+	if clusters[0].CommonLbConfig == nil {
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+		} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+		}
+	}
+}
+
+func TestGatewayLocalityLB(t *testing.T) {
+	g := NewGomegaWithT(t)
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
+		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			{
+				From: "region1/zone1/subzone1",
+				To: map[string]uint32{
+					"region1/zone1/*":        50,
+					"region2/zone1/subzone1": 50,
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+			},
+		},
+		nil, // authnPolicy
+		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+		model.MaxIstioVersion)
+
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, i := range []int{0, 1, 4, 5} {
+		cluster := clusters[i]
+		if cluster.CommonLbConfig == nil {
+			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
+		}
+		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
+		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
+			locality := localityLbEndpoint.Locality
+			if locality.Region == "region1" && locality.SubZone == "subzone1" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			} else if locality.Region == "region2" {
+				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
+				g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			}
+		}
+	}
+
+	// Test failover
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+
+	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+			},
+		},
+		nil, // authnPolicy
+		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+		model.MaxIstioVersion)
+
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, i := range []int{0, 1, 4, 5} {
+		if clusters[i].CommonLbConfig == nil {
+			t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[i])
+		}
+		g.Expect(clusters[i].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+		g.Expect(len(clusters[i].LoadAssignment.Endpoints)).To(Equal(3))
+		for _, localityLbEndpoint := range clusters[i].LoadAssignment.Endpoints {
+			locality := localityLbEndpoint.Locality
+			if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+			} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+			} else if locality.Region == "region2" {
+				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+			}
+		}
 	}
 }
 
@@ -1039,7 +1277,9 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 					ConsecutiveErrors: 5,
 				},
 			},
-		}, &model.IstioVersion{Major: 1, Minor: 2})
+		},
+		nil, // authnPolicy
+		&model.IstioVersion{Major: 1, Minor: 2})
 
 	fmt.Printf("%+v\n", clusters[0])
 	g.Expect(err).NotTo(HaveOccurred())
@@ -1055,7 +1295,7 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
@@ -1076,7 +1316,7 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1114,7 +1354,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1156,8 +1396,8 @@ func TestAltStatName(t *testing.T) {
 		statPattern string
 		host        string
 		subsetName  string
-		dnsDomain   string
 		port        *model.Port
+		attributes  model.ServiceAttributes
 		want        string
 	}{
 		{
@@ -1165,17 +1405,64 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default",
+		},
+		{
+			"Service only pattern from different namespace",
+			"%SERVICE%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1",
+		},
+		{
+			"Service with port pattern from different namespace",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.namespace1.7443",
+		},
+		{
+			"Service from non k8s registry",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.hostname.consul",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				Name:            "foo",
+				Namespace:       "bar",
+			},
+			"reviews.hostname.consul.7443",
 		},
 		{
 			"Service FQDN only pattern",
 			"%SERVICE_FQDN%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local",
 		},
 		{
@@ -1183,8 +1470,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_7443",
 		},
 		{
@@ -1192,8 +1483,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc",
 		},
 		{
@@ -1201,8 +1496,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc_7443",
 		},
 		{
@@ -1210,8 +1509,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_7443",
 		},
 		{
@@ -1219,8 +1522,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc",
 		},
 		{
@@ -1228,8 +1535,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1237,8 +1548,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1246,8 +1561,12 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"v1",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
 		},
 		{
@@ -1255,15 +1574,19 @@ func TestAltStatName(t *testing.T) {
 			"%SERVICE_FQDN%.%DUMMY%",
 			"reviews.default.svc.cluster.local",
 			"v1",
-			"default.svc.cluster.local",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.%DUMMY%",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.dnsDomain, tt.port)
+			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
 			if got != tt.want {
 				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
 			}
@@ -1289,7 +1612,7 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 		{[]string{"6.6.6.6"}, []bool{true, false}},
 		{[]string{"::1"}, []bool{false, true}},
 	} {
-		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
 			&networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -1301,12 +1624,201 @@ func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
 					},
 				},
 			},
-			make(map[string]string),
+			nil, // authnPolicy
+			&model.NodeMetadata{},
 			model.MaxIstioVersion,
 			inAndOut.ips,
 		)
 		g := NewGomegaWithT(t)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
+	}
+}
+
+func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{},
+	}
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
+	for _, cluster := range clusters {
+		g.Expect(cluster.TlsContext).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterStrictMode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_STRICT,
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+
+	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
+	g.Expect(clusters[1].TlsContext).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(cluster.TlsContext).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 9090,
+					},
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_DISABLE,
+					},
+				},
+			},
+		},
+	}
+
+	authnPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_STRICT,
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, true, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Service is external, use the TLS settings specified in DR.
+	for _, cluster := range clusters {
+		g.Expect(cluster.TlsContext).To(BeNil())
+	}
+}
+
+func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+		},
+	}
+
+	authnPolicy := &authn.Policy{
+		Targets: []*authn.TargetSelector{
+			{
+				Name: "foo",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 8080,
+						},
+					},
+				},
+			},
+		},
+		Peers: []*authn.PeerAuthenticationMethod{
+			{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn.MutualTls{
+						Mode: authn.MutualTls_STRICT,
+					},
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
+	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+
+	// For 9090, authn policy disable mTLS, so it should not have TLS context.
+	g.Expect(clusters[1].TlsContext).To(BeNil())
+
+	// Sanity check: make sure TLS is not accidentally added to other clusters.
+	for i := 2; i < len(clusters); i++ {
+		cluster := clusters[i]
+		g.Expect(cluster.TlsContext).To(BeNil())
 	}
 }

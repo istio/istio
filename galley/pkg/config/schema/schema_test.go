@@ -19,8 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 func TestSchema_ParseAndBuild(t *testing.T) {
@@ -107,8 +107,8 @@ transforms:
 						},
 					},
 				},
-				transforms: []Transform{
-					&DirectTransform{
+				transformSettings: []TransformSettings{
+					&DirectTransformSettings{
 						mapping: map[collection.Name]collection.Name{
 							collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
 						},
@@ -248,29 +248,29 @@ func TestSchemaBasic(t *testing.T) {
 	b.MustAdd(collection.MustNewSpec("istio/networking.istio.io/v1alpha3/virtualservices",
 		"istio.io/api/networking/v1alpha3",
 		"istio.networking.v1alpha3.VirtualService"))
-	g.Expect(s.Collections()).To(Equal(b.Build()))
+	g.Expect(s.AllCollections()).To(Equal(b.Build()))
 
-	g.Expect(s.Transforms()).To(HaveLen(1))
-	g.Expect(s.Transforms()[0]).To(Equal(
-		&DirectTransform{
+	g.Expect(s.TransformSettings()).To(HaveLen(1))
+	g.Expect(s.TransformSettings()[0]).To(Equal(
+		&DirectTransformSettings{
 			mapping: map[collection.Name]collection.Name{
 				collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
 			},
 		}))
-	g.Expect(s.DirectTransform()).To(Equal(
-		&DirectTransform{
+	g.Expect(s.DirectTransformSettings()).To(Equal(
+		&DirectTransformSettings{
 			mapping: map[collection.Name]collection.Name{
 				collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
 			},
 		}))
 
-	g.Expect(s.DirectTransform().Mapping()).To(Equal(
+	g.Expect(s.DirectTransformSettings().Mapping()).To(Equal(
 		map[collection.Name]collection.Name{
 			collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
 		}))
 
-	g.Expect(s.Sources()).To(HaveLen(1))
-	g.Expect(s.Sources()[0]).To(Equal(
+	g.Expect(s.AllSources()).To(HaveLen(1))
+	g.Expect(s.AllSources()[0]).To(Equal(
 		&KubeSource{
 			resources: []*KubeResource{
 				{
@@ -284,8 +284,8 @@ func TestSchemaBasic(t *testing.T) {
 			},
 		}))
 
-	g.Expect(s.Snapshots()).To(HaveLen(1))
-	g.Expect(s.Snapshots()[0]).To(Equal(
+	g.Expect(s.AllSnapshots()).To(HaveLen(1))
+	g.Expect(s.AllSnapshots()[0]).To(Equal(
 		&Snapshot{
 			Name:        "default",
 			Strategy:    "debounce",
@@ -405,7 +405,7 @@ func TestSchema_DirectTransform_Panic(t *testing.T) {
 	s, err := ParseAndBuild(``)
 	g.Expect(err).To(BeNil())
 
-	_ = s.DirectTransform()
+	_ = s.DirectTransformSettings()
 }
 
 func TestBuild_UnknownSource(t *testing.T) {
@@ -425,11 +425,18 @@ func TestBuild_UnknownTransform(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	a := &ast.Metadata{
-		Transforms: []ast.Transform{
-			&struct{}{},
+		TransformSettings: []ast.TransformSettings{
+			&unknownXformSettings{},
 		},
 	}
 
 	_, err := Build(a)
 	g.Expect(err).NotTo(BeNil())
 }
+
+type unknownXformSettings struct {
+}
+
+var _ ast.TransformSettings = &unknownXformSettings{}
+
+func (u *unknownXformSettings) Type() string { return "unknown" }

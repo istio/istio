@@ -54,7 +54,7 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(restConfig)
 }
 
-func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
+func getMeshConfigFromConfigMap(kubeconfig, command string) (*meshconfig.MeshConfig, error) {
 	client, err := createInterface(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -62,8 +62,8 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-			"Use --meshConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
+			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
 			meshConfigMapName, istioNamespace, err)
 	}
 	// values in the data are strings, while proto might use a
@@ -75,7 +75,7 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	}
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
 	if err != nil {
-		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config. Install istioctl from the latest Istio release",
 			version.Info.Version), err)
 	}
 	return cfg, err
@@ -261,7 +261,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 					return err
 				}
 			} else {
-				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig); err != nil {
+				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject"); err != nil {
 					return err
 				}
 			}

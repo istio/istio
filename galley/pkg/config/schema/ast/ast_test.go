@@ -84,8 +84,8 @@ transforms:
 						},
 					},
 				},
-				Transforms: []Transform{
-					&DirectTransform{
+				TransformSettings: []TransformSettings{
+					&DirectTransformSettings{
 						Mapping: map[string]string{
 							"k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules",
 						},
@@ -99,7 +99,7 @@ transforms:
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 			actual, err := Parse(c.input)
-			g.Expect(err).To((BeNil()))
+			g.Expect(err).To(BeNil())
 			g.Expect(actual).To(Equal(c.expected))
 		})
 	}
@@ -161,7 +161,7 @@ transforms:
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 			_, err := Parse(c)
-			g.Expect(err).NotTo((BeNil()))
+			g.Expect(err).NotTo(BeNil())
 		})
 	}
 }
@@ -210,7 +210,7 @@ transforms:
 			}()
 
 			_, err := Parse(input)
-			g.Expect(err).NotTo((BeNil()))
+			g.Expect(err).NotTo(BeNil())
 		})
 	}
 }

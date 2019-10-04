@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
+	security "istio.io/api/security/v1beta1"
 )
 
 func permissionTag(tag string) string {
@@ -50,8 +51,8 @@ func fullPermission(tag string) Permission {
 		NotPaths:   []string{"not-paths-" + tag},
 		Methods:    []string{"methods-" + tag},
 		NotMethods: []string{"not-methods-" + tag},
-		Ports:      []int32{1},
-		NotPorts:   []int32{2},
+		Ports:      []string{"1"},
+		NotPorts:   []string{"2"},
 		Constraints: []KeyValues{
 			{
 				"constraint-" + tag: []string{"value1-" + tag, "value2-" + tag},
@@ -114,6 +115,16 @@ func fullSubject(tag string) *istio_rbac.Subject {
 		NotIps:        []string{"not-ips-" + tag},
 		Properties: map[string]string{
 			"property-" + tag: "value-" + tag,
+		},
+	}
+}
+
+func newCondition(key string) *security.Condition {
+	return &security.Condition{
+		Key: key,
+		Values: []string{
+			fmt.Sprintf("value-%s-1", key),
+			fmt.Sprintf("value-%s-2", key),
 		},
 	}
 }

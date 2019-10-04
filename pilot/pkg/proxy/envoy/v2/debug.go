@@ -20,7 +20,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -89,10 +89,9 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
-			istioVersion, _ := con.modelNode.GetIstioVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
-				IstioVersion:    istioVersion,
+				IstioVersion:    con.modelNode.Metadata.IstioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,

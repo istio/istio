@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 type mockClientExecPreCheckConfig struct {
@@ -167,8 +167,8 @@ func verifyOutput(t *testing.T, c testcase) {
 	}
 }
 
-func mockPreCheckClient(m *mockClientExecPreCheckConfig) func(restClientGetter resource.RESTClientGetter) (preCheckExecClient, error) {
-	outfunction := func(restClientGetter resource.RESTClientGetter) (preCheckExecClient, error) {
+func mockPreCheckClient(m *mockClientExecPreCheckConfig) func(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
+	outfunction := func(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
 		return m, nil
 	}
 	return outfunction

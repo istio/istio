@@ -39,6 +39,14 @@ type fakeSnapshot struct {
 
 func (fs *fakeSnapshot) Resources(collection string) []*mcp.Resource { return fs.resources[collection] }
 func (fs *fakeSnapshot) Version(collection string) string            { return fs.versions[collection] }
+func (fs *fakeSnapshot) Collections() []string {
+	result := make([]string, 0, len(fs.resources))
+	for collection := range fs.resources {
+		result = append(result, collection)
+	}
+
+	return result
+}
 
 func (fs *fakeSnapshot) copy() *fakeSnapshot {
 	fsCopy := &fakeSnapshot{

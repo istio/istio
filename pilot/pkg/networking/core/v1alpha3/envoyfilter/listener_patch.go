@@ -18,9 +18,13 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+
+	"istio.io/pkg/log"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -28,8 +32,17 @@ import (
 )
 
 // ApplyListenerPatches applies patches to LDS output
-func ApplyListenerPatches(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy, push *model.PushContext, listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
+func ApplyListenerPatches(
+	patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	listeners []*xdsapi.Listener,
+	skipAdds bool) (out []*xdsapi.Listener) {
+	defer util.HandleCrash(func() {
+		log.Errorf("listeners patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the listeners generated before to reduce the influence.
+	out = listeners
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	return doListenerListOperation(proxy, patchContext, envoyFilterWrappers, listeners, skipAdds)
@@ -265,7 +278,7 @@ func doNetworkFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 			if userFilter.Name != "" {
 				filterName = userFilter.Name
 			}
-			var retVal *types.Any
+			var retVal *any.Any
 			if userFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
@@ -292,13 +305,13 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 	listener *xdsapi.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter) {
 	hcm := &http_conn.HttpConnectionManager{}
 	if filter.GetTypedConfig() != nil {
-		if err := types.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+		if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
 			return
 			// todo: figure out a non noisy logging option here
 			//  as this loop will be called very frequently
 		}
 	} else {
-		if err := xdsutil.StructToMessage(filter.GetConfig(), hcm); err != nil {
+		if err := conversion.StructToMessage(filter.GetConfig(), hcm); err != nil {
 			return
 		}
 	}
@@ -421,7 +434,7 @@ func doHTTPFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyFilt
 			if userHTTPFilter.Name != "" {
 				httpFilterName = userHTTPFilter.Name
 			}
-			var retVal *types.Any
+			var retVal *any.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
@@ -551,8 +564,8 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 	}
 
 	if cp.ProxyVersionRegex != nil {
-		ver, exists := proxy.GetIstioVersion()
-		if !exists {
+		ver := proxy.Metadata.IstioVersion
+		if ver == "" {
 			// we dont have a proxy version but the user has a regex. so this is a mismatch
 			return false
 		}
@@ -562,7 +575,7 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 	}
 
 	for k, v := range cp.Match.Proxy.Metadata {
-		if proxy.Metadata[k] != v {
+		if proxy.Metadata.Raw[k] != v {
 			return false
 		}
 	}
