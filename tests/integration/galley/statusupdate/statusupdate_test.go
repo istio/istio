@@ -12,6 +12,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
@@ -36,7 +37,6 @@ apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRoleBinding
 metadata:
   name: service-role-binding
-  namespace: default
 spec:
   mode: PERMISSIVE
   roleRef:
@@ -50,12 +50,10 @@ apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
   name: service-role
-  namespace: default
 spec:
   rules:
   - services: ["*"]
 `
-	namespace       = "default"
 	timeout         = "10s"
 	pollingInterval = "1s"
 )
@@ -69,6 +67,11 @@ func TestStatusUpdate(t *testing.T) {
 
 			env := ctx.Environment().(*kube.Environment)
 
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "statusupdate",
+				Inject: true,
+			})
+
 			gvr := schema.GroupVersionResource{
 				Group:    "rbac.istio.io",
 				Version:  "v1alpha1",
@@ -76,35 +79,33 @@ func TestStatusUpdate(t *testing.T) {
 			}
 			name := "service-role-binding"
 
-			// Apply config that should generate a validation message
-			err := env.ApplyContents(namespace, serviceRoleBindingYaml)
-			defer func() { _ = env.DeleteContents(namespace, serviceRoleBindingYaml) }()
+			// We define the function here so that it can take no args (as required by Gomega) and access the needed variables via closure
+			getStatusFn := func() string {
+				u, err := env.GetUnstructured(gvr, ns.Name(), name)
+				if err != nil {
+					t.Errorf("Couldn't get status for resource %v", name)
+				}
+				return fmt.Sprintf("%v", u.Object["status"])
+			}
 
+			// Apply config that should generate a validation message
+			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
 			if err != nil {
 				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
 			}
 
 			// Verify we have the expected validation message
-			g.Eventually(func() string { return getStatus(t, env, gvr, namespace, name) }, timeout, pollingInterval).
+			g.Eventually(getStatusFn, timeout, pollingInterval).
 				Should(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
 			// Apply config that should fix the problem and remove the validation message
-			err = env.ApplyContents("default", serviceRoleYaml)
-			defer func() { _ = env.DeleteContents(namespace, serviceRoleYaml) }()
+			err = env.ApplyContents(ns.Name(), serviceRoleYaml)
 			if err != nil {
 				t.Fatalf("Error applying serviceRoleYaml for test scenario: %v", err)
 			}
 
-			//Verify the validation message disappears. (With "eventually" / timeout)
-			g.Eventually(func() string { return getStatus(t, env, gvr, namespace, name) }, timeout, pollingInterval).
+			// Verify the validation message disappears
+			g.Eventually(getStatusFn, timeout, pollingInterval).
 				Should(Not(ContainSubstring(msg.ReferencedResourceNotFound.Code())))
 		})
-}
-
-func getStatus(t *testing.T, env *kube.Environment, gvr schema.GroupVersionResource, namespace, name string) string {
-	u, err := env.GetUnstructured(gvr, namespace, name)
-	if err != nil {
-		t.Errorf("Couldn't get status for resource %v", name)
-	}
-	return fmt.Sprintf("%v", u.Object["status"])
 }
