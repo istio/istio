@@ -21,12 +21,15 @@ import (
 	"github.com/ghodss/yaml"
 )
 
+// Direct transform's name. Used for parsing.
+const Direct = "direct"
+
 // Metadata is the top-level container.
 type Metadata struct {
-	Collections []*Collection `json:"collections"`
-	Snapshots   []*Snapshot   `json:"snapshots"`
-	Sources     []Source      `json:"sources"`
-	Transforms  []Transform   `json:"transforms"`
+	Collections       []*Collection       `json:"collections"`
+	Snapshots         []*Snapshot         `json:"snapshots"`
+	Sources           []Source            `json:"sources"`
+	TransformSettings []TransformSettings `json:"transforms"`
 }
 
 var _ json.Unmarshaler = &Metadata{}
@@ -49,8 +52,9 @@ type Snapshot struct {
 type Source interface {
 }
 
-// Transform configuration metadata.
-type Transform interface {
+// TransformSettings configuration metadata.
+type TransformSettings interface {
+	Type() string
 }
 
 // KubeSource is configuration for K8s based input sources.
@@ -67,14 +71,20 @@ type Resource struct {
 	Version       string `json:"version"`
 	Kind          string `json:"kind"`
 	Plural        string `json:"plural"`
-	Optional      bool   `json:"optional"`
 	Disabled      bool   `json:"disabled"`
 	ClusterScoped bool   `json:"clusterScoped"`
 }
 
-// DirectTransform configuration
-type DirectTransform struct {
+// DirectTransformSettings configuration
+type DirectTransformSettings struct {
 	Mapping map[string]string `json:"mapping"`
+}
+
+var _ TransformSettings = &DirectTransformSettings{}
+
+// Type implements TransformSettings
+func (d *DirectTransformSettings) Type() string {
+	return Direct
 }
 
 // for testing purposes
@@ -119,12 +129,12 @@ func (s *Metadata) UnmarshalJSON(data []byte) error {
 			return err
 		}
 
-		if m["type"] == "direct" {
-			dt := &DirectTransform{}
+		if m["type"] == Direct {
+			dt := &DirectTransformSettings{}
 			if err := jsonUnmarshal(xform, &dt); err != nil {
 				return err
 			}
-			s.Transforms = append(s.Transforms, dt)
+			s.TransformSettings = append(s.TransformSettings, dt)
 		} else {
 			return fmt.Errorf("unable to parse transform: %v", string([]byte(xform)))
 		}

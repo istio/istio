@@ -19,11 +19,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -48,12 +49,12 @@ type Snapshotter struct {
 var _ event.Processor = &Snapshotter{}
 
 // HandlerFn handles generated snapshots
-type HandlerFn func(*collection.Set)
+type HandlerFn func(*coll.Set)
 
 type accumulator struct {
 	reqSyncCount   int
 	syncCount      int
-	collection     *collection.Instance
+	collection     *coll.Instance
 	snapshotGroups []*snapshotGroup
 }
 
@@ -64,7 +65,7 @@ type snapshotGroup struct {
 	// How many collections in the current group still need to receive a FullSync before we start publishing.
 	remaining int
 	// Set of collections that have already received a FullSync. If we get a duplicate, it will be ignored.
-	synced map[*collection.Instance]bool
+	synced map[*coll.Instance]bool
 	// Strategy to execute on handled events only after all collections in the group have been synced.
 	strategy strategy.Instance
 }
@@ -132,7 +133,7 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 			a, found := s.accumulators[o]
 			if !found {
 				a = &accumulator{
-					collection: collection.New(o),
+					collection: coll.New(o),
 				}
 				s.accumulators[o] = a
 			}
@@ -165,7 +166,7 @@ func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
 	return sg
 }
 
-func (sg *snapshotGroup) onSync(c *collection.Instance) {
+func (sg *snapshotGroup) onSync(c *coll.Instance) {
 	if !sg.synced[c] {
 		sg.remaining--
 		sg.synced[c] = true
@@ -179,7 +180,7 @@ func (sg *snapshotGroup) onSync(c *collection.Instance) {
 
 func (sg *snapshotGroup) reset(size int) {
 	sg.remaining = size
-	sg.synced = make(map[*collection.Instance]bool)
+	sg.synced = make(map[*coll.Instance]bool)
 }
 
 // Start implements Processor
@@ -198,14 +199,14 @@ func (s *Snapshotter) Start() {
 }
 
 func (s *Snapshotter) publish(o SnapshotOptions) {
-	var collections []*collection.Instance
+	var collections []*coll.Instance
 
 	for _, n := range o.Collections {
 		col := s.accumulators[n].collection.Clone()
 		collections = append(collections, col)
 	}
 
-	set := collection.NewSetFromCollections(collections)
+	set := coll.NewSetFromCollections(collections)
 	sn := &Snapshot{set: set}
 
 	s.markSnapshotTime()

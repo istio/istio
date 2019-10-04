@@ -12,22 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collection_test
+package meshcfg
 
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
-
-	"istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/galley/pkg/config/processor/metadata"
 )
 
-func TestNames_Clone(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	n := collection.Names{data.Collection1, data.Collection2}
-
-	n2 := n.Clone()
-	g.Expect(n2).To(Equal(n))
+func TestMeshConfigNameValidity(t *testing.T) {
+	m := metadata.MustGet()
+	_, found := m.AllCollections().Lookup(IstioMeshconfig.String())
+	if !found {
+		t.Fatalf("Mesh config collection not found in metadata.")
+	}
 }

@@ -1,9 +1,3 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: reviews
-  namespace: default
----
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -17,15 +11,6 @@ spec:
     name: v1
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-reviews
-  namespace: default
-spec:
-  hosts:
-  - external-reviews.org
----
-apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
@@ -35,18 +20,6 @@ spec:
   - route:
     - destination:  # This virtualservice has no validation errors (base case)
         host: reviews
-        subset: v1
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews-bogushost
-  namespace: default
-spec:
-  http:
-  - route:
-    - destination:
-        host: reviews-bogus # This host does not exist, should result in a validation error
         subset: v1
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -72,15 +45,3 @@ spec:
     - destination:
         host: reviews.default.svc.cluster.local # FQDN representation is valid and should not generate an error
         subset: v1
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews-external
-  namespace: default
-spec:
-  http:
-  - route:
-    - destination:
-        host: external-reviews.org  # Referring to a ServiceEntry host is valid and should not generate an error
-                                    # Since this is an "external" service, subset is omitted
