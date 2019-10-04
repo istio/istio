@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"fmt"
 	"os"
 	"reflect"
@@ -1295,6 +1296,7 @@ func TestAltStatName(t *testing.T) {
 		host        string
 		subsetName  string
 		port        *model.Port
+		attributes  model.ServiceAttributes
 		want        string
 	}{
 		{
@@ -1303,6 +1305,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default",
 		},
 		{
@@ -1311,6 +1318,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.namespace1.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
 			"reviews.namespace1",
 		},
 		{
@@ -1319,7 +1331,25 @@ func TestAltStatName(t *testing.T) {
 			"reviews.namespace1.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
 			"reviews.namespace1.7443",
+		},
+		{
+			"Service from non k8s registry",
+			"%SERVICE%.%SERVICE_PORT%",
+			"reviews.hostname.consul",
+			"",
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				Name:            "foo",
+				Namespace:       "bar",
+			},
+			"reviews.hostname.consul.7443",
 		},
 		{
 			"Service FQDN only pattern",
@@ -1327,6 +1357,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local",
 		},
 		{
@@ -1335,6 +1370,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_7443",
 		},
 		{
@@ -1343,6 +1383,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc",
 		},
 		{
@@ -1351,6 +1396,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default_grpc-svc_7443",
 		},
 		{
@@ -1359,6 +1409,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_7443",
 		},
 		{
@@ -1367,6 +1422,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc",
 		},
 		{
@@ -1375,6 +1435,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1383,6 +1448,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local_grpc-svc_7443",
 		},
 		{
@@ -1391,6 +1461,11 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.v1.grpc-svc_7443",
 		},
 		{
@@ -1399,13 +1474,18 @@ func TestAltStatName(t *testing.T) {
 			"reviews.default.svc.cluster.local",
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			model.ServiceAttributes{
+				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				Name:            "reviews",
+				Namespace:       "default",
+			},
 			"reviews.default.svc.cluster.local.%DUMMY%",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.port)
+			got := altStatName(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
 			if got != tt.want {
 				t.Errorf("Expected alt statname %s, but got %s", tt.want, got)
 			}

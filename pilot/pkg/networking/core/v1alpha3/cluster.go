@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"fmt"
 	"strconv"
 	"strings"
@@ -179,7 +180,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", port)
+				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
@@ -213,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 					if len(env.Mesh.OutboundClusterStatName) != 0 {
-						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port)
+						subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 					}
 					setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
@@ -626,7 +627,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.Endpoint.ServicePort)
+			string(instance.Service.Hostname), "", instance.Endpoint.ServicePort, instance.Service.Attributes)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
@@ -1217,8 +1218,8 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 	}
 }
 
-func altStatName(statPattern string, host string, subset string, port *model.Port) string {
-	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host))
+func altStatName(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
+	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
 	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
 	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
 	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
@@ -1227,9 +1228,9 @@ func altStatName(statPattern string, host string, subset string, port *model.Por
 }
 
 // shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
-func shortHostName(host string) string {
-	if strings.HasSuffix(host, k8sDomain) {
-		return strings.TrimSuffix(host, k8sDomain)
+func shortHostName(host string, attributes model.ServiceAttributes) string {
+	if attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
 	return host
 }
