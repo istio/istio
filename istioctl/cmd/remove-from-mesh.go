@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/pkg/config/schemas"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -152,13 +152,13 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		removeDNSConfig(podSpec.DNSConfig)
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 		}
 		res.Spec.Template.Spec = *podSpec
 		if _, err :=
 			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 
 		}
@@ -170,7 +170,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)
