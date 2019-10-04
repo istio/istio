@@ -412,6 +412,73 @@ func TestBuiltinResource(t *testing.T) {
 		g.Expect(actual).To(Equal(expected))
 	})
 }
+func TestBuiltinResourceWithWatcherEnabled(t *testing.T) {
+	dir := createTempDir(t)
+	defer deleteTempDir(t, dir)
+
+	// Start the source.
+	s := newOrFailWithWatcherEnbaled(t, dir)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	// Expect the full sync event.
+	expectFullSync(t, ch)
+
+	fileName := "services.yaml"
+	spec := *kubeMeta.Types.Get("Service")
+	svc := coreV1.Service{}
+	parseYaml(t, builtinYAML, &svc)
+
+	t.Run("Add", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		// Copy a file to the dir
+		copyFile(t, dir, fileName, builtinYAML)
+
+		// Expect the Add event.
+		svc.SetResourceVersion("v1")
+		expected := resource.Event{
+			Kind:  resource.Added,
+			Entry: serviceToEntry(t, svc, spec),
+		}
+		g.Eventually([]resource.Event{events.Expect(t, ch)}).Should(ConsistOf(expected))
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		// Change the ClustIP and overwrite the original file
+		oldClusterIP := "10.43.240.10"
+		newClusterIP := "10.43.240.11"
+		newYAML := strings.Replace(builtinYAML, oldClusterIP, newClusterIP, -1)
+		copyFile(t, dir, fileName, newYAML)
+
+		// Expect the update event.
+		svc.Spec.ClusterIP = newClusterIP
+		svc.SetResourceVersion("v2")
+		expected := resource.Event{
+			Kind:  resource.Updated,
+			Entry: serviceToEntry(t, svc, spec),
+		}
+		g.Eventually([]resource.Event{events.Expect(t, ch)}).Should(ConsistOf(expected))
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		// Delete the file.
+		deleteFiles(t, dir, fileName)
+
+		// Expect the update event.
+		expected := resource.Event{
+			Kind: resource.Deleted,
+			Entry: resource.Entry{
+				ID: getID(&svc, spec),
+			},
+		}
+		g.Eventually([]resource.Event{events.Expect(t, ch)}).Should(ConsistOf(expected))
+	})
+}
 
 func TestMultipartEvents(t *testing.T) {
 	dir := createTempDir(t)
@@ -579,7 +646,20 @@ func deleteFiles(t *testing.T, dir string, files ...string) {
 
 func newOrFail(t *testing.T, dir string) runtime.Source {
 	t.Helper()
-	s, err := fs.New(dir, kubeMeta.Types, cfg)
+	s, err := fs.New(dir, kubeMeta.Types, cfg, false)
+	if err != nil {
+		t.Fatalf("Unexpected error found: %v", err)
+	}
+
+	if s == nil {
+		t.Fatal("expected non-nil source")
+	}
+	return s
+}
+
+func newOrFailWithWatcherEnbaled(t *testing.T, dir string) runtime.Source {
+	t.Helper()
+	s, err := fs.New(dir, kubeMeta.Types, cfg, true)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}

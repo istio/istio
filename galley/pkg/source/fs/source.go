@@ -76,6 +76,8 @@ type source struct {
 	version int64
 
 	worker *util.Worker
+
+	watchConfigFiles bool
 }
 
 func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
@@ -215,14 +217,18 @@ func (s *source) Start(handler resource.EventHandler) error {
 		c := make(chan appsignals.Signal, 1)
 		appsignals.Watch(c)
 		shut := make(chan os.Signal, 1)
-		if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
-			log.Scope.Errorf("Unable to setup FileTrigger %s: %v", s.root, err)
+		if s.watchConfigFiles {
+			if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
+				log.Scope.Errorf("Unable to setup FileTrigger %s: %v", s.root, err)
+			}
 		}
 
 		for {
 			select {
 			case <-ctx.Done():
-				shut <- syscall.SIGTERM
+				if s.watchConfigFiles {
+					shut <- syscall.SIGTERM
+				}
 				return
 			case trigger := <-c:
 				if trigger.Signal == syscall.SIGUSR1 {
@@ -235,14 +241,15 @@ func (s *source) Start(handler resource.EventHandler) error {
 }
 
 // New returns a File System implementation of runtime.Source.
-func New(root string, schema *schema.Instance, config *converter.Config) (runtime.Source, error) {
+func New(root string, schema *schema.Instance, config *converter.Config, watchConfigFiles bool) (runtime.Source, error) {
 	fs := &source{
-		config:  config,
-		root:    root,
-		kinds:   map[string]bool{},
-		shas:    map[fileResourceKey][sha1.Size]byte{},
-		worker:  util.NewWorker("fs source", log.Scope),
-		version: 0,
+		config:           config,
+		root:             root,
+		kinds:            map[string]bool{},
+		shas:             map[fileResourceKey][sha1.Size]byte{},
+		worker:           util.NewWorker("fs source", log.Scope),
+		version:          0,
+		watchConfigFiles: watchConfigFiles,
 	}
 	for _, spec := range schema.All() {
 		fs.kinds[spec.Kind] = true
