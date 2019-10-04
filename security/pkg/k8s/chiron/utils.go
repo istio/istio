@@ -77,7 +77,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 	})
 	reqApproval, err := certClient.UpdateApproval(r)
 	if err != nil {
-		log.Debugf("failed to approve CSR (%v): %v", csrName, err)
+		log.Errorf("failed to approve CSR (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
@@ -90,7 +90,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 	certChain, caCert, err := readSignedCertificate(certClient,
 		csrName, certReadInterval, maxNumCertRead, caFilePath)
 	if err != nil {
-		log.Debugf("failed to read signed cert. (%v): %v", csrName, err)
+		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
