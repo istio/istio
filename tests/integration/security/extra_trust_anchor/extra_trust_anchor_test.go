@@ -233,6 +233,20 @@ func createFakeCitadelSecretOrFail(t test.Failer, saName string, ns namespace.In
 	return rootCert
 }
 
+func currentEnvoyEpoch(t test.Failer, e echo.Instance) uint32 {
+	t.Helper()
+
+	w, err := e.Workloads()
+	if err != nil {
+		t.Fatalf("failed to get echo instance %v's sidecar epoch: %v", e.ID(), err)
+	}
+	serverInfo, err := w[0].Sidecar().Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return serverInfo.CommandLineOptions.RestartEpoch
+}
+
 const meshPolicyStrictMTLS = `
 apiVersion: authentication.istio.io/v1alpha1
 kind: MeshPolicy
@@ -348,21 +362,8 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 			retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Minute))
 		}
 
-		currentEnvoyEpoch := func(e echo.Instance) uint32 {
-			t.Helper()
-
-			w, err := e.Workloads()
-			if err != nil {
-				t.Fatalf("failed to get echo instance %v's sidecar epoch: %v", e.ID(), err)
-			}
-			serverInfo, err := w[0].Sidecar().Info()
-			if err != nil {
-				t.Fatal(err)
-			}
-			return serverInfo.CommandLineOptions.RestartEpoch
-		}
-		envoyEpochA := currentEnvoyEpoch(localA)
-		envoyEpochB := currentEnvoyEpoch(localB)
+		envoyEpochA := currentEnvoyEpoch(t, localA)
+		envoyEpochB := currentEnvoyEpoch(t, localB)
 
 		// establish trust between the local cluster and the simulated remote clusters.
 		trustAnchorRemoteA := &kubeApiCore.ConfigMap{
@@ -404,10 +405,10 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 			c.WaitForSecretToExistOrFail(t, localNamespace, secret)
 		}
 		retry.UntilSuccessOrFail(t, func() error {
-			if version := currentEnvoyEpoch(localA); version != envoyEpochA {
+			if epoch := currentEnvoyEpoch(t, localA); epoch != envoyEpochA {
 				return fmt.Errorf("echo %v's sidecar restart epoch hasn't changed from %v", localA.ID(), envoyEpochA)
 			}
-			if version := currentEnvoyEpoch(localB); version != envoyEpochB {
+			if epoch := currentEnvoyEpoch(t, localB); epoch != envoyEpochB {
 				return fmt.Errorf("echo %v's sidecar restart epoch hasn't changed from %v", localB.ID(), envoyEpochB)
 			}
 			return nil
