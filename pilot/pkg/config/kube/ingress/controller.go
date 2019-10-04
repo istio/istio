@@ -158,6 +158,10 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	})
 }
 
+func (c *controller) Version() string {
+	panic("implement me")
+}
+
 func (c *controller) HasSynced() bool {
 	return c.informer.HasSynced()
 }

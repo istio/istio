@@ -17,6 +17,8 @@ package memory
 
 import (
 	"errors"
+	"fmt"
+	"istio.io/pkg/ledger"
 	"sync"
 	"time"
 
@@ -34,6 +36,8 @@ func Make(descriptor schema.Set) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
+		ledger:     ledger.Make(time.Minute),
+		//ledger:     ledger.SMTLedger{*ledger.NewSMT(nil, ledger.Hasher, nil)},
 	}
 	for _, typ := range descriptor.Types() {
 		out.data[typ] = make(map[string]*sync.Map)
@@ -44,10 +48,15 @@ func Make(descriptor schema.Set) model.ConfigStore {
 type store struct {
 	descriptor schema.Set
 	data       map[string]map[string]*sync.Map
+	ledger     ledger.Ledger
 }
 
 func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
+}
+
+func (cr *store) Version() string {
+	return cr.ledger.RootHash()
 }
 
 func (cr *store) Get(typ, name, namespace string) *model.Config {
@@ -96,6 +105,10 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	return out, nil
 }
 
+func buildKey(typ, name, namespace string) string {
+	return fmt.Sprintf("%s/%s/%s", typ, name, namespace)
+}
+
 func (cr *store) Delete(typ, name, namespace string) error {
 	data, ok := cr.data[typ]
 	if !ok {
@@ -111,6 +124,7 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
+	cr.ledger.Delete(buildKey(typ, name, namespace))
 	ns.Delete(name)
 	return nil
 }
@@ -141,6 +155,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
+		cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
@@ -173,6 +188,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
+	cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
 	ns.Store(config.Name, config)
 	return rev, nil
 }

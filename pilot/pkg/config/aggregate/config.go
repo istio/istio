@@ -78,6 +78,10 @@ func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
 }
 
+func (cr *store) Version() string {
+	panic("implement me")
+}
+
 // Get the first config found in the stores.
 func (cr *store) Get(typ, name, namespace string) *model.Config {
 	for _, store := range cr.stores[typ] {

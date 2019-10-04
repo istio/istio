@@ -242,6 +242,10 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	})
 }
 
+func (c *controller) Version() string {
+	return c.client.Version()
+}
+
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {

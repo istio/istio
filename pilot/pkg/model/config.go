@@ -149,6 +149,9 @@ type ConfigStore interface {
 
 	// Delete removes an object from the store by key
 	Delete(typ, name, namespace string) error
+
+	Version() string
+
 }
 
 // Key function for the configuration objects

@@ -17,6 +17,8 @@ package coredatamodel
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/pkg/ledger"
 	"strings"
 	"sync"
 	"time"
@@ -55,6 +57,7 @@ type Controller struct {
 	descriptorsByCollection map[string]schema.Instance
 	options                 Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
+	ledger                  ledger.Ledger
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
@@ -78,6 +81,7 @@ func NewController(options Options) CoreDataModel {
 		descriptorsByCollection: descriptorsByMessageName,
 		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
 		synced:                  synced,
+		ledger:                  ledger.Make(time.Minute),
 	}
 }
 
@@ -180,6 +184,10 @@ func (c *Controller) Apply(change *sink.Change) error {
 				conf.Name: conf,
 			}
 		}
+		c.ledger.Put(conf.Key(), obj.Metadata.Version)
+	}
+	for _, removed := range change.Removed {
+		c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
 	}
 
 	var prevStore map[string]map[string]*model.Config
@@ -220,6 +228,10 @@ func (c *Controller) HasSynced() bool {
 // RegisterEventHandler registers a handler using the type as a key
 func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
 	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
+}
+
+func (c *Controller) Version() string {
+	return c.ledger.RootHash()
 }
 
 // Run is not implemented

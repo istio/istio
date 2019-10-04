@@ -46,6 +46,10 @@ func (c *controller) HasSynced() bool {
 	return true
 }
 
+func (c *controller) Version() string {
+	return c.configStore.Version()
+}
+
 func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }

@@ -289,11 +289,12 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	versionMutex.Unlock()
 
 	req.Push = push
+	req.Push.Version = s.Env.Version()
 	go s.AdsPushAll(versionLocal, req)
 }
 
-func nonce() string {
-	return uuid.New().String()
+func nonce(noncePrefix string) string {
+	return noncePrefix + uuid.New().String()
 }
 
 func versionInfo() string {
@@ -438,6 +439,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					start:              info.Start,
 					namespacesUpdated:  info.NamespacesUpdated,
 					configTypesUpdated: info.ConfigTypesUpdated,
+					noncePrefix: info.Push.Version,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed
