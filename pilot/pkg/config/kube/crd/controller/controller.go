@@ -246,6 +246,10 @@ func (c *controller) Version() string {
 	return c.client.Version()
 }
 
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return c.client.GetResourceAtVersion(version, key)
+}
+
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {

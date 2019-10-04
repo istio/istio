@@ -162,6 +162,10 @@ func (c *controller) Version() string {
 	panic("implement me")
 }
 
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	panic("implement me")
+}
+
 func (c *controller) HasSynced() bool {
 	return c.informer.HasSynced()
 }

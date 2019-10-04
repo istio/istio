@@ -439,7 +439,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					start:              info.Start,
 					namespacesUpdated:  info.NamespacesUpdated,
 					configTypesUpdated: info.ConfigTypesUpdated,
-					noncePrefix: info.Push.Version,
+					noncePrefix:        info.Push.Version,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed

@@ -74,6 +74,10 @@ type store struct {
 	stores map[string][]model.ConfigStore
 }
 
+func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	panic("implement me")
+}
+
 func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
 }

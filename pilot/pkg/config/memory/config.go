@@ -18,9 +18,10 @@ package memory
 import (
 	"errors"
 	"fmt"
-	"istio.io/pkg/ledger"
 	"sync"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema"
@@ -36,8 +37,7 @@ func Make(descriptor schema.Set) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
-		ledger:     ledger.Make(time.Minute),
-		//ledger:     ledger.SMTLedger{*ledger.NewSMT(nil, ledger.Hasher, nil)},
+		ledger:     ledger.Make(time.Minute), // TODO: grab timeout from cmd line
 	}
 	for _, typ := range descriptor.Types() {
 		out.data[typ] = make(map[string]*sync.Map)
@@ -49,6 +49,10 @@ type store struct {
 	descriptor schema.Set
 	data       map[string]map[string]*sync.Map
 	ledger     ledger.Ledger
+}
+
+func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cr.ledger.GetPreviousValue(version, key)
 }
 
 func (cr *store) ConfigDescriptor() schema.Set {

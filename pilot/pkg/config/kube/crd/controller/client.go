@@ -72,6 +72,10 @@ func (cl *Client) Version() string {
 	panic("implement me")
 }
 
+func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	panic("implement me")
+}
+
 func newClientSet(descriptor schema.Set) (map[string]*restClient, error) {
 	cs := make(map[string]*restClient)
 	for _, typ := range descriptor {

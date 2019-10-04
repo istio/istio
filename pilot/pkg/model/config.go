@@ -152,6 +152,7 @@ type ConfigStore interface {
 
 	Version() string
 
+	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
 }
 
 // Key function for the configuration objects

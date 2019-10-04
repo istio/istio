@@ -65,6 +65,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
+	mux.HandleFunc("/debug/distribution", s.distributedVersions)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -204,6 +205,60 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprint(w, "\n{}]\n")
+}
+
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
+func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
+	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
+		knownVersions := make(map[string]string)
+		results := []SyncedVersions{}
+		adsClientsMutex.RLock()
+		for _, con := range adsClients {
+			con.mu.RLock()
+			if con.modelNode != nil {
+				// TODO: handle skipped nodes
+				results = append(results, SyncedVersions{
+					ProxyID:         con.modelNode.ID,
+					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+				})
+			}
+			con.mu.RUnlock()
+		}
+		adsClientsMutex.RUnlock()
+
+		out, err := json.MarshalIndent(&results, "", "    ")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(out)
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required")
+	}
+}
+
+func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
+	result, ok := cache[key]
+	if !ok {
+		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
+		if err != nil {
+			// maybe log something?
+		}
+		cache[key] = result
+	}
+	return result
 }
 
 // Config debugging.

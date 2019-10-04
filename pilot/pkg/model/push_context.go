@@ -80,7 +80,7 @@ type PushContext struct {
 	namespaceExportedDestRules map[string]*processedDestRules
 	allExportedDestRules       *processedDestRules
 
-	configVersion              string
+	configVersion string
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
