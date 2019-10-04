@@ -67,6 +67,9 @@ var (
 			Seconds: 10,
 			Nanos:   1,
 		},
+		EnableAutoMtls: &types.BoolValue{
+			Value: false,
+		},
 	}
 )
 
@@ -794,6 +797,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		sni             string
 		proxy           *model.Proxy
 		serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
+		mtlsReady       bool
 		want            *networking.TLSSettings
 	}{
 		{
@@ -803,6 +807,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSUnknown,
+			false,
 			tlsSettings,
 		},
 		{
@@ -819,6 +824,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSUnknown,
+			false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -839,6 +845,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
 			authn_v1alpha1_applier.MTLSUnknown,
+			false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -855,6 +862,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSUnknown,
+			false,
 			nil,
 		},
 		{
@@ -864,6 +872,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSDisable,
+			false,
 			nil,
 		},
 		{
@@ -873,6 +882,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSPermissive,
+			false,
 			nil,
 		},
 		{
@@ -882,6 +892,116 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSStrict,
+			false,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+		},
+		{
+			"Destination rule TLS sni and SAN override and mTLSReady",
+			tlsSettings,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			true,
+			tlsSettings,
+		},
+		{
+			"Destination rule TLS sni and SAN override absent and mTLSReady",
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{},
+				Sni:               "",
+			},
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			true,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+		},
+		{
+			"Cert path override and mTLSReady",
+			tlsSettings,
+			[]string{},
+			"",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			true,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    "/custom/root.pem",
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				SubjectAltNames:   []string{"custom.foo.com"},
+				Sni:               "custom.foo.com",
+			},
+		},
+		{
+			"Ignore nil settings when mTLS Unknown and mTLSReady",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSUnknown,
+			true,
+			nil,
+		},
+		{
+			"Ignore nil settings when mTLS Disable and mTLSReady",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSDisable,
+			true,
+			nil,
+		},
+		{
+			"Auto fill nil settings when mTLS Permissive and mTLSReady",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSPermissive,
+			true,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+		},
+		{
+			"Auto fill nil settings when mTLS Strict and mTLSReady",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			authn_v1alpha1_applier.MTLSStrict,
+			true,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -895,7 +1015,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode)
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, tt.mtlsReady)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}
@@ -937,6 +1057,9 @@ func TestStatNamePattern(t *testing.T) {
 		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
+		},
+		EnableAutoMtls: &types.BoolValue{
+			Value: false,
 		},
 		InboundClusterStatName:  "LocalService_%SERVICE%",
 		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
