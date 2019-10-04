@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -58,14 +57,6 @@ istioctl experimental analyze -d true a.yaml b.yaml services.yaml
 istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// These scopes are pretty verbose at the default log level and significantly clutter terminal output,
-			// so we adjust them here to avoid that.
-			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
-			loggingOptions.SetOutputLevel("source", log.ErrorLevel)
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
-
 			files, err := gatherFiles(args)
 			if err != nil {
 				return err
