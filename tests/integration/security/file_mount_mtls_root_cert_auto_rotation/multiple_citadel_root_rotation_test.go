@@ -86,7 +86,7 @@ func TestMtlsWithMultipleCitadel(t *testing.T) {
 				time.Sleep(time.Duration(requestIntervalSeconds) * time.Second)
 			}
 			// Restore to one Citadel for other tests.
-			//scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, 1, t, env)
+			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, 1, t, env)
 		})
 }
 
