@@ -81,7 +81,7 @@ func waitUntilRootCertRotate(t *testing.T, oldSecret *v1.Secret, kubeAccessor *t
 	start := time.Now()
 	for {
 		if time.Since(start) > timeout {
-			return fmt.Errorf("Root cert does not change after %s", timeout.String())
+			return fmt.Errorf("root cert does not change after %s", timeout.String())
 		}
 		curScrt, err := kubeAccessor.GetSecret(namespace).Get(CASecret, metav1.GetOptions{})
 		if err != nil {

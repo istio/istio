@@ -36,7 +36,6 @@ import (
 var (
 	citadelDeployName      = "istio-citadel"
 	citadelReplica         = 5
-	requestIntervalSeconds = 10
 )
 
 // Deploy multiple Citadels, each has jitter enabled by default and permission to
