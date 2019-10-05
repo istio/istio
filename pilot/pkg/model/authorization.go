@@ -78,9 +78,8 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	if err != nil {
 		return nil, err
 	}
-  sortConfigByCreationTime(bindings)
-  policy.addServiceRoleBindings(bindings)
-
+	sortConfigByCreationTime(bindings)
+	policy.addServiceRoleBindings(bindings)
 
 	policies, err := env.List(schemas.AuthorizationPolicy.Type, NamespaceAll)
 	if err != nil {

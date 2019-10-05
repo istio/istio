@@ -97,6 +97,7 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
