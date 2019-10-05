@@ -170,7 +170,8 @@ func createFakeCitadelSecret(saName string, ns namespace.Instance, env *kube.Env
 	if err != nil {
 		return nil, err
 	}
-	rootList := rootCert[:] // copy
+	rootList := make([]byte, len(rootCert))
+	copy(rootList, rootCert)
 	rootList = append(rootList, extraRoot...)
 	keyCertBundle, err := pkiutil.NewVerifiedKeyCertBundleFromPem(rootCert, rootKey, nil, rootList)
 	if err != nil {
@@ -178,12 +179,9 @@ func createFakeCitadelSecret(saName string, ns namespace.Instance, env *kube.Env
 	}
 	signingCert, signingKey, _, _ := keyCertBundle.GetAll()
 
-	id := spiffe.MustGenSpiffeURI(ns.Name(), saName)
-	if err != nil {
-		return nil, err
-	}
+	uri := spiffe.MustGenSpiffeURI(ns.Name(), saName)
 	serviceCertOptions := pkiutil.CertOptions{
-		Host:       id,
+		Host:       uri,
 		RSAKeySize: keySize,
 	}
 	csrPEM, keyPEM, err := pkiutil.GenCSR(serviceCertOptions)
@@ -195,7 +193,7 @@ func createFakeCitadelSecret(saName string, ns namespace.Instance, env *kube.Env
 		return nil, err
 	}
 
-	subjectIDs := strings.Split(id, ",")
+	subjectIDs := strings.Split(uri, ",")
 	certBytes, err := pkiutil.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, ttl, false)
 	if err != nil {
 		return nil, err
