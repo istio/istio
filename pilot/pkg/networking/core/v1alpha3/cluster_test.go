@@ -411,7 +411,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
-	return configgen.BuildClusters(env, proxy, env.PushContext), nil
+	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	var err error
+	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
+		err = fmt.Errorf("Duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+	}
+	return clusters, err
 }
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
@@ -951,6 +956,18 @@ func TestStatNamePattern(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
 	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
+}
+
+func TestDuplicateClusters(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+		})
+	g.Expect(len(clusters)).To(Equal(8))
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestSidecarLocalityLB(t *testing.T) {
