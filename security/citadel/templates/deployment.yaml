@@ -61,8 +61,8 @@ spec:
           {{- if .Values.security.trustDomain }}
             - --trust-domain={{ .Values.security.trustDomain }}
           {{- end }}
-          {{- if .Values.workloadCertTtl }}
-            - --workload-cert-ttl={{ .Values.workloadCertTtl }}
+          {{- if .Values.security.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.security.workloadCertTtl }}
           {{- end }}
           {{- if .Values.global.logAsJson }}
             - --log_as_json
@@ -70,8 +70,8 @@ spec:
           env:
           - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
             value: "{{ .Values.security.enableNamespacesByDefault }}"
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
+          {{- if .Values.security.env }}
+          {{- range $key, $val := .Values.security.env }}
           - name: {{ $key }}
             value: {{ $val | quote }}
           {{- end }}
