@@ -16,18 +16,20 @@ package filemountmtlsrootcertautorotation
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/security/pkg/pki/util"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -49,25 +51,48 @@ func TestCitadelRootCertUpgrade(t *testing.T) {
 				t.Fatalf("unable to load root secret: %s", err.Error())
 			}
 
-			// Wait for the next round of root cert upgrade
-			time.Sleep(1 * time.Minute)
-			newCaScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			// Root cert rotates every 20~40 seconds. Wait until the next round of root
+			// cert rotation is completed and verify the root cert.
+			err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
 			if err != nil {
-				t.Fatalf("unable to load root secret: %s", err.Error())
+				t.Errorf("Root cert is not rotated: %s", err.Error())
 			}
-			verifyRootUpgrade(t, caScrt, newCaScrt)
 		})
 }
 
-func verifyRootUpgrade(t *testing.T, lastScrt, newScrt *v1.Secret) {
+func verifyRootRotation(t *testing.T, lastScrt, newScrt *v1.Secret) error {
 	if lastScrt == nil || newScrt == nil {
-		t.Errorf("root secret is nil")
+		return fmt.Errorf("root secret is nil")
 	}
 	if bytes.Equal(lastScrt.Data[caCertID], newScrt.Data[caCertID]) {
-		t.Errorf("new root cert and old root cert should be different")
+		return fmt.Errorf("new root cert and old root cert are the same")
 	}
 	cert, _ := util.ParsePemEncodedCertificate(newScrt.Data[caCertID])
 	timeToExpire := cert.NotAfter
 	t.Logf("verified that root cert is upgraded successfully, "+
 		"ca cert expiration time %v", timeToExpire.String())
+	return nil
+}
+
+// waitUntilRootCertRotate checks root cert in kubernetes secret istio-ca-secret
+// and return when the secret is rotated or timeout.
+func waitUntilRootCertRotate(t *testing.T, oldSecret *v1.Secret, kubeAccessor *testKube.Accessor,
+	namespace string, timeout time.Duration) error {
+	start := time.Now()
+	for {
+		if time.Since(start) > timeout {
+			return fmt.Errorf("Root cert does not change after %s", timeout.String())
+		}
+		curScrt, err := kubeAccessor.GetSecret(namespace).Get(CASecret, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get timestamp from secret istio-ca-secret: %s", err.Error())
+		}
+		if err := verifyRootRotation(t, oldSecret, curScrt); err != nil {
+			t.Logf("istio-ca-secret is not changed: %s", err.Error())
+		} else {
+			t.Logf("istio-ca-secret is changed")
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
 }

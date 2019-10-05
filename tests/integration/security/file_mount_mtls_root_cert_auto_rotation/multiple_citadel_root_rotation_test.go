@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -72,18 +74,23 @@ func TestMtlsWithMultipleCitadel(t *testing.T) {
 					ExpectSuccess: true,
 				},
 			}
-			for _, checker := range checkers {
-				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			}
-
-			// Wait for at least one root upgrade to let workloads use new CA cert
+			// Get initial root cert.
+			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			// Wait for at least one root rotation to let workloads use new CA cert
 			// to set up mTLS connections.
-			time.Sleep(1 * time.Minute)
 			for i := 0; i < 5; i++ {
+				caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("unable to load root secret: %s", err.Error())
+				}
 				for _, checker := range checkers {
 					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				}
-				time.Sleep(time.Duration(requestIntervalSeconds) * time.Second)
+				err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
+				if err != nil {
+					t.Errorf("Root cert is not rotated: %s", err.Error())
+				}
 			}
 			// Restore to one Citadel for other tests.
 			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, 1, t, env)

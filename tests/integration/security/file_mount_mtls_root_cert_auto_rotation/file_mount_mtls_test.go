@@ -18,11 +18,14 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -60,13 +63,24 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 					ExpectSuccess: true,
 				},
 			}
+
+			// Get initial root cert.
+			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("unable to load root secret: %s", err.Error())
+			}
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			}
 
-			// Wait for at least one root upgrade to let workloads use new CA cert
-			// to set up mTLS connections.
-			time.Sleep(1 * time.Minute)
+			// Root cert rotates every 20~40 seconds. Wait for at least one root cert rotation
+			// to let workloads use new root cert to set up mTLS connections.
+			err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
+			if err != nil {
+				t.Errorf("Root cert is not rotated: %s", err.Error())
+			}
 			for _, checker := range checkers {
 				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			}
