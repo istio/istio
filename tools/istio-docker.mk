@@ -99,6 +99,7 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxy_debug: tools/packaging/common/istio-iptables.sh
 	$(DOCKER_RULE)
 
 # The file must be named 'envoy', depends on the release.
