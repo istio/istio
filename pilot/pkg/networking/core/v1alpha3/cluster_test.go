@@ -414,7 +414,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
 	var err error
 	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
-		err = fmt.Errorf("Duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+		err = fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
 	}
 	return clusters, err
 }
