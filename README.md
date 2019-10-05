@@ -63,7 +63,7 @@ Cloud Foundry, and Mesos in the near future.
 
 ## Repositories
 
-The Istio project is divided across a few GitHub repositories.
+The Istio project is divided across several GitHub repositories. Among them:
 
 - [istio/istio](README.md). This is the main repository that you are
 currently looking at. It hosts Istio's core components and also
