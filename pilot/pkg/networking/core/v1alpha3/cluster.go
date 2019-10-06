@@ -1080,7 +1080,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				Name: "enableMtls",
 				Match: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+						util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 					},
 				},
 				TransportSocket: &core.TransportSocket{

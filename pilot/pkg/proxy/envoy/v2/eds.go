@@ -96,7 +96,9 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32, mTLSReady bool) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
+	network string, weight uint32, mTLSReady bool) *endpoint.LbEndpoint {
+
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -137,7 +139,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}
@@ -176,7 +178,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}
