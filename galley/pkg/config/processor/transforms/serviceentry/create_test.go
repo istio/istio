@@ -241,6 +241,7 @@ func TestLifecycle(t *testing.T) {
 					IPs(pod1IP).
 					ServiceAccounts("sa1").
 					PodLabels(podLabels).
+					Resolution(networking.ServiceEntry_STATIC).
 					Build()
 				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
@@ -280,6 +281,7 @@ func TestLifecycle(t *testing.T) {
 					IPs(pod1IP, pod2IP).
 					ServiceAccounts("sa1", "sa2").
 					PodLabels(podLabels).
+					Resolution(networking.ServiceEntry_STATIC).
 					Build()
 				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
@@ -322,6 +324,7 @@ func TestLifecycle(t *testing.T) {
 					IPs(pod2IP).
 					ServiceAccounts("sa2").
 					PodLabels(podLabels).
+					Resolution(networking.ServiceEntry_STATIC).
 					Build()
 				expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 			},
@@ -440,6 +443,7 @@ func TestAddOrder(t *testing.T) {
 		p := newPipeline(append(initialStages, stageOrder...))
 		defer p.rt.Stop()
 
+		var resolution networking.ServiceEntry_Resolution
 		t.Run(p.name(), func(t *testing.T) {
 			var service *resource.Entry
 			var endpoints *resource.Entry
@@ -458,6 +462,7 @@ func TestAddOrder(t *testing.T) {
 				case "Endpoints":
 					endpoints = entry
 					updateExpected = service != nil
+					resolution = networking.ServiceEntry_STATIC
 				case "Pod":
 					hasPod = true
 					updateExpected = service != nil && endpoints != nil
@@ -492,7 +497,7 @@ func TestAddOrder(t *testing.T) {
 							}
 						}
 					}
-
+					seBuilder.Resolution(resolution)
 					expectedBody := seBuilder.Build()
 					expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 				}
@@ -577,6 +582,7 @@ func TestDeleteOrder(t *testing.T) {
 		p := newPipeline(orderedStages)
 		defer p.rt.Stop()
 
+		var resolution networking.ServiceEntry_Resolution
 		t.Run(p.name(), func(t *testing.T) {
 			// Add all of the resources to the handler.
 			initPipeline := &pipeline{
@@ -618,12 +624,15 @@ func TestDeleteOrder(t *testing.T) {
 					case "Endpoints":
 						endpoints = nil
 						updateExpected = service != nil
+						resolution = networking.ServiceEntry_NONE
 					case "Pod":
 						hasPod = false
 						updateExpected = service != nil && endpoints != nil
+						resolution = networking.ServiceEntry_STATIC
 					case "Node":
 						hasNode = false
 						updateExpected = service != nil && endpoints != nil && hasPod
+						resolution = networking.ServiceEntry_STATIC
 					}
 
 					if !updateExpected {
@@ -653,7 +662,7 @@ func TestDeleteOrder(t *testing.T) {
 									}
 								}
 							}
-
+							seBuilder.Resolution(resolution)
 							expectedBody := seBuilder.Build()
 							expectResource(ctx.t, ctx.dst, expectedVersion, expectedMetadata, expectedBody)
 						}
@@ -737,6 +746,7 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 			IPs(pod1IP).
 			ServiceAccounts("sa1").
 			PodLabels(podLabels).
+			Resolution(networking.ServiceEntry_STATIC).
 			Build()
 		expectResource(t, dst, expectedVersion, expectedMetadata, expectedBody)
 	})
@@ -1013,6 +1023,7 @@ type serviceEntryBuilder struct {
 	ips             []string
 	serviceAccounts []string
 	podLabels       map[string]string
+	resolution      networking.ServiceEntry_Resolution
 }
 
 func newServiceEntryBuilder() *serviceEntryBuilder {
@@ -1049,12 +1060,17 @@ func (b *serviceEntryBuilder) PodLabels(podLabels map[string]string) *serviceEnt
 	return b
 }
 
+func (b *serviceEntryBuilder) Resolution(res networking.ServiceEntry_Resolution) *serviceEntryBuilder {
+	b.resolution = res
+	return b
+}
+
 func (b *serviceEntryBuilder) Build() *networking.ServiceEntry {
 	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 	entry := &networking.ServiceEntry{
 		Hosts:      []string{host(ns, n)},
 		Addresses:  []string{clusterIP},
-		Resolution: networking.ServiceEntry_STATIC,
+		Resolution: b.resolution,
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Ports: []*networking.Port{
 			{
