@@ -16,6 +16,8 @@ package ready
 
 import (
 	"fmt"
+	"net"
+	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
@@ -31,6 +33,7 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	listenersBound      bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -48,7 +51,7 @@ func (p *Probe) Check() error {
 		}
 	}
 
-	return p.checkServerInfo()
+	return p.isEnvoyReady()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -104,6 +107,42 @@ func (p *Probe) checkServerInfo() error {
 
 	if info.GetState() != admin.ServerInfo_LIVE {
 		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
+	}
+
+	return nil
+}
+
+func (p *Probe) isEnvoyReady() error {
+	if se := p.checkServerInfo(); se != nil {
+		return se
+	}
+	if pe := p.pingVirtualListeners(); pe != nil {
+		return pe
+	}
+	return nil
+}
+
+// pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
+func (p *Probe) pingVirtualListeners() error {
+
+	if p.listenersBound {
+		return nil
+	}
+
+	// Check if traffic capture ports are actually listening.
+	vaddrs, err := util.GetVirtualListenerAddrs(p.LocalHostAddr, p.AdminPort)
+	if err != nil {
+		return err
+	}
+	for _, vaddr := range vaddrs {
+		con, err := net.DialTimeout("tcp", vaddr, time.Millisecond*5)
+		if con != nil {
+			con.Close()
+		}
+		if err != nil {
+			return fmt.Errorf("listener on address %s is still not listening: %v", vaddr, err)
+		}
+		p.listenersBound = true
 	}
 
 	return nil

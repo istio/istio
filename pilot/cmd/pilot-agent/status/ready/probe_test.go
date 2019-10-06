@@ -34,6 +34,7 @@ var (
 	goodStats      = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
 	liveServerInfo = &admin.ServerInfo{State: admin.ServerInfo_LIVE}
 	initServerInfo = &admin.ServerInfo{State: admin.ServerInfo_INITIALIZING}
+	emptyListeners = &admin.Listeners{}
 	listeners      = admin.Listeners{
 		ListenerStatuses: []*admin.ListenerStatus{
 			{
@@ -203,6 +204,17 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 
 	err := probe.Check()
 
+	// Check should fail because listener is not listening yet.
+	g.Expect(err).To(HaveOccurred())
+
+	// Listen on Virtual Listener port.
+	l, _ := net.Listen("tcp", ":15006")
+	defer l.Close()
+
+	err = probe.Check()
+
+	// Check should succeed now.
+
 	g.Expect(err).ToNot(HaveOccurred())
 }
 
@@ -219,6 +231,13 @@ func createDefaultFuncMap(statsToReturn string, serverInfo proto.Message) map[st
 
 			// Send response to be tested
 			rw.Write([]byte(infoJSON))
+		},
+		"/listeners": func(rw http.ResponseWriter, _ *http.Request) {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			listenerJSON, _ := jsonm.MarshalToString(emptyListeners)
+
+			// Send response to be tested
+			rw.Write([]byte(listenerJSON))
 		},
 	}
 }

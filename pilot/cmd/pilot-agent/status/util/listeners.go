@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 var (
@@ -105,4 +106,25 @@ func getLocalIPPrefixes() []string {
 		}
 	}
 	return prefixes
+}
+
+// GetVirtualListenerAddrs returns addresses of Istio's traffic capture listeners.
+func GetVirtualListenerAddrs(localHostAddr string, adminPort uint16) ([]string, error) {
+	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners?format=json", localHostAddr, adminPort))
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed retrieving Envoy listeners:")
+	}
+
+	listeners := &admin.Listeners{}
+	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
+		return nil, fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
+	}
+	addrs := make([]string, 0)
+	for _, l := range listeners.ListenerStatuses {
+		if l.Name == networking.VirtualOutboundListenerName || l.Name == networking.VirtualInboundListenerName {
+			addrs = append(addrs, fmt.Sprintf("%s:%d", l.LocalAddress.GetSocketAddress().GetAddress(), l.LocalAddress.GetSocketAddress().GetPortValue()))
+		}
+
+	}
+	return addrs, nil
 }
