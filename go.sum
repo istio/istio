@@ -1184,7 +1184,6 @@ istio.io/operator v0.0.0-20190923170413-6e6db1228c1f/go.mod h1:zXW7+gecpItHqIChr
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
 istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229 h1:BOAXiysHton3DsQZu/+lMSZ3gD3VBv9RZ9psETyB+7o=
 istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
-istio.io/pkg v0.0.0-20190930134523-4e6e584aaaae h1:K1PEVkoopgAykTFEQ5IB13M5V1umz76N65qNy8VLJTA=
 k8s.io/api v0.0.0-20190620084959-7cf5895f2711 h1:BblVYz/wE5WtBsD/Gvu54KyBUTJMflolzc5I2DTvh50=
 k8s.io/api v0.0.0-20190620084959-7cf5895f2711/go.mod h1:TBhBqb1AWbBQbW3XRusr7n7E4v2+5ZY8r8sAMnyFC5A=
 k8s.io/apiextensions-apiserver v0.0.0-20190620085554-14e95df34f1f h1:+pHBUvIpLzm6H8VwRO+jMLcq5MIfaGq5xu/cBV676Ps=
