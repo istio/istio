@@ -297,7 +297,8 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 	return protocol.Parse(prefix)
 }
 
-func makeService(hostname host.Name, configNamespace, address string, ports map[string]int, external bool, resolution model.Resolution, mtlsReady bool) *model.Service {
+func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
+	external bool, resolution model.Resolution, mtlsReady bool) *model.Service {
 
 	svc := &model.Service{
 		CreationTime: GlobalTime,
