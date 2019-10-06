@@ -902,6 +902,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	c.RUnlock()
 
 	updateMTLSReadyStatus := false
+	serviceMTLSStatus := true
 
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
@@ -935,6 +936,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints
 				if svc != nil && svc.MTLSReady != mtlsReady {
 					updateMTLSReadyStatus = true
+					serviceMTLSStatus = mtlsReady
 				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
@@ -955,10 +957,16 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 			}
 		}
+	} else {
+		// handles scenario where all instances are mTLSReady except one, and that one is eventually deleted
+		if !svc.MTLSReady {
+			updateMTLSReadyStatus = c.checkMTLSStatusChange(svc)
+			serviceMTLSStatus = true
+		}
 	}
 
 	if c.Env.Mesh.GetEnableAutoMtls().GetValue() && updateMTLSReadyStatus {
-		c.updateSvcMtlsReady(svc)
+		c.updateSvcMtlsReady(svc, serviceMTLSStatus)
 	}
 
 	if log.InfoEnabled() {
@@ -986,8 +994,18 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 }
 
 // called when the overall mTLS ready status of endpoints have changed for a service and the cached Service object must be updated
-func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
-	// TODO GregHanson is this being handled properly?
+func (c *Controller) updateSvcMtlsReady(svc *model.Service, mTLSStatus bool) {
+	c.Lock()
+	serviceToModify := c.servicesMap[svc.Hostname]
+	serviceToModify.MTLSReady = mTLSStatus
+	c.servicesMap[svc.Hostname] = serviceToModify
+	c.Unlock()
+}
+
+// called only on delete events to handle scenario where Service.MTLSReady can tranistion from false -> true
+// return true if all service instances are mTLSReady
+func (c *Controller) checkMTLSStatusChange(svc *model.Service) bool {
+	// TODO GregHanson are external services being handled properly?
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
@@ -999,22 +1017,17 @@ func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
 				break
 			}
 		}
-		c.Lock()
-		serviceToModify := c.servicesMap[svc.Hostname]
-		serviceToModify.MTLSReady = svcMTLSReady
-		c.servicesMap[svc.Hostname] = serviceToModify
-		c.Unlock()
-		return
+		return svcMTLSReady
 	}
 
 	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 
 	if err != nil {
 		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return
+		return false
 	}
 	if !exists {
-		return
+		return false
 	}
 
 	svcMTLSReady := true
@@ -1028,13 +1041,7 @@ func (c *Controller) updateSvcMtlsReady(svc *model.Service) {
 			}
 		}
 	}
-
-	c.Lock()
-	serviceToModify := c.servicesMap[svc.Hostname]
-	serviceToModify.MTLSReady = svcMTLSReady
-	c.servicesMap[svc.Hostname] = serviceToModify
-	c.Unlock()
-
+	return svcMTLSReady
 }
 
 // namedRangerEntry for holding network's CIDR and name
