@@ -211,5 +211,13 @@ data:
       envoyAccessLogService:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- end}}
+
+    {{- if .Values.pilot.enableCertificateController }}
+      certificates:
+        - secretName: istio-webhook-galley
+          dnsNames: [istio-galley.{{ .Release.Namespace }}.svc, istio-galley.{{ .Release.Namespace }}]
+        - secretName: istio-webhook-sidecar-injector
+          dnsNames: [istio-sidecar-injector.{{ .Release.Namespace }}.svc, istio-sidecar-injector.{{ .Release.Namespace }}]
+    {{- end }}
 ---
 {{- end }}
