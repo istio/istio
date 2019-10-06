@@ -345,7 +345,7 @@ func TestStaticBag(t *testing.T) {
 	})
 
 	t.Run(b.String()+".Names", func(t *testing.T) {
-		if v := b.Names(); reflect.DeepEqual(v, []string{"value"}) {
+		if v := b.Names(); !reflect.DeepEqual(v, []string{"attr1"}) {
 			t.Errorf("Get error got:value want:%v", v)
 		}
 	})
