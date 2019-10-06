@@ -35,7 +35,7 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=14055a08b4438fbb3a2439a057a1a303a0fd5116
+BUILDER_SHA=9a5ee7a403a4575e6c78da15ae7ff9965fab7d3f
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -50,7 +50,7 @@ mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
 version: ${VERSION}
-docker: docker.io/istio
+docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
   istio:
