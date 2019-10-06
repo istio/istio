@@ -26,6 +26,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pkg/util/gogo"
@@ -1065,6 +1066,39 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		certValidationContext = &auth.CertificateValidationContext{
 			TrustedCa:            trustedCa,
 			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+
+	// TODO where to store harcoded strings
+	if env.Mesh.GetEnableAutoMtls().Value {
+		// Per envoy docs
+		// If an endpoint metadata's value under *envoy.transport_socket* does not match any
+		// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
+		// *transport_socket* specified in this cluster
+		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
+			{
+				Name: "enableMtls",
+				Match: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+					},
+				},
+				TransportSocket: &core.TransportSocket{
+					Name: "tls",
+					ConfigType: &core.TransportSocket_Config{
+						Config: &structpb.Struct{
+							Fields: map[string]*structpb.Value{},
+						},
+					},
+				},
+			},
+			{
+				Name:  "defaultToPlaintext",
+				Match: &structpb.Struct{},
+				TransportSocket: &core.TransportSocket{
+					Name: "rawbuffer",
+				},
+			},
 		}
 	}
 

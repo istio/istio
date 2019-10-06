@@ -96,7 +96,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32, mTLSReady bool) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -133,10 +133,19 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(uid, network)
 
+	// TODO GregHanson are map keys configured properly
+	if mTLSReady {
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+			},
+		}
+	}
+
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -162,6 +171,15 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(e.UID, e.Network)
+
+	// TODO GregHanson are map keys configured properly
+	if mTLSReady {
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				util.AcceptMTLSMetadataLabel: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "true"}},
+			},
+		}
+	}
 
 	return ep, nil
 }
@@ -552,7 +570,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -881,7 +899,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 

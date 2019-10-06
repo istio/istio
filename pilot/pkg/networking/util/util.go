@@ -71,6 +71,14 @@ const (
 	IstioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
+
+	// AcceptMTLSMetadataLabel having "acceptMTLS":"true" key/value pair set on EDS endpoints
+	// configures Envoy to use the "enableMTLS" socket configuration configured at cluster level
+	AcceptMTLSMetadataLabel = "acceptMTLS"
+
+	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to a endpoint
+	// for socket-level info
+	EnvoyTransportSocketMetadataKey = "envoy.transport_socket"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
