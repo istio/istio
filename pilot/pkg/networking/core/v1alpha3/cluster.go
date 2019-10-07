@@ -698,9 +698,8 @@ func convertResolution(proxy *model.Proxy, resolution model.Resolution) apiv2.Cl
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxy.Type == model.SidecarProxy {
 			return apiv2.Cluster_ORIGINAL_DST
-		} else {
-			return apiv2.Cluster_EDS
 		}
+		return apiv2.Cluster_EDS
 	default:
 		return apiv2.Cluster_EDS
 	}

@@ -225,7 +225,7 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 	return buildTestClustersWithAuthnPolicy(
 		serviceHostname,
 		serviceResolution,
-		false, // exteranalService
+		false, // externalService
 		nodeType,
 		locality,
 		mesh,
@@ -234,13 +234,13 @@ func buildTestClusters(serviceHostname string, serviceResolution model.Resolutio
 	)
 }
 
-func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
+func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy) ([]*apiv2.Cluster, error) {
 	return buildTestClustersWithProxyMetadata(
 		serviceHostname,
 		serviceResolution,
-		exteranalService,
+		externalService,
 		nodeType,
 		locality,
 		mesh,
@@ -253,21 +253,21 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* exteranalService */, nodeType, locality, mesh, destRule,
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
 		authnPolicy, &model.NodeMetadata{}, istioVersion)
 }
 
-func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
+func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, exteranalService,
+	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
 		nodeType, locality, mesh,
 		destRule, authnPolicy, meta, istioVersion,
 		// Add default sidecar proxy meta
 		[]string{"6.6.6.6", "::1"})
 }
 
-func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, exteranalService bool,
+func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
@@ -296,7 +296,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		ClusterVIPs:  make(map[string]string),
 		Ports:        servicePort,
 		Resolution:   serviceResolution,
-		MeshExternal: exteranalService,
+		MeshExternal: externalService,
 		Attributes:   serviceAttribute,
 	}
 
@@ -444,7 +444,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(3))
 
 	cluster := clusters[0]
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
@@ -477,7 +477,7 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 		})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(3))
 
 	cluster := clusters[0]
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
@@ -502,19 +502,19 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	clusters, err := buildSniTestClusters("foo.com")
+	clusters, err := buildSniTestClustersForSidecar("foo.com")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(6))
+	g.Expect(len(clusters)).To(Equal(10))
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	g.Expect(cluster.TlsContext.GetSni()).To(Equal("foo.com"))
 
-	clusters, err = buildSniTestClusters("")
+	clusters, err = buildSniTestClustersForSidecar("")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(6))
+	g.Expect(len(clusters)).To(Equal(10))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -587,16 +587,16 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
 }
 
-func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{})
+func buildSniTestClustersForSidecar(sniValue string) ([]*apiv2.Cluster, error) {
+	return buildSniTestClustersWithMetadata(sniValue, model.SidecarProxy, &model.NodeMetadata{})
 }
 
-func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
+func buildSniDnatTestClustersForGateway(sniValue string) ([]*apiv2.Cluster, error) {
+	return buildSniTestClustersWithMetadata(sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
 }
 
-func buildSniTestClustersWithMetadata(sniValue string, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, model.Router, nil, testMesh,
+func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta *model.NodeMetadata) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, typ, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -766,7 +766,7 @@ func TestClusterMetadata(t *testing.T) {
 
 	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
 
-	sniClusters, err := buildSniDnatTestClusters("test-sni")
+	sniClusters, err := buildSniDnatTestClustersForGateway("test-sni")
 	g.Expect(err).NotTo(HaveOccurred())
 
 	for _, cluster := range sniClusters {
@@ -1097,8 +1097,10 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for _, i := range []int{0, 1, 4, 5} {
-		cluster := clusters[i]
+	for _, cluster := range clusters {
+		if cluster.Name == util.BlackHoleCluster {
+			continue
+		}
 		if cluster.CommonLbConfig == nil {
 			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
 		}
@@ -1145,14 +1147,17 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	g.Expect(err).NotTo(HaveOccurred())
 
-	for _, i := range []int{0, 1, 4, 5} {
-		if clusters[i].CommonLbConfig == nil {
-			t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[i])
+	for _, cluster := range clusters {
+		if cluster.Name == util.BlackHoleCluster {
+			continue
 		}
-		g.Expect(clusters[i].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+		if cluster.CommonLbConfig == nil {
+			t.Fatalf("CommonLbConfig should be set for cluster %+v", cluster)
+		}
+		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
-		g.Expect(len(clusters[i].LoadAssignment.Endpoints)).To(Equal(3))
-		for _, localityLbEndpoint := range clusters[i].LoadAssignment.Endpoints {
+		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
+		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
 			locality := localityLbEndpoint.Locality
 			if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
 				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
