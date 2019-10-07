@@ -34,8 +34,8 @@ import (
 )
 
 var (
-	citadelDeployName      = "istio-citadel"
-	citadelReplica         = 5
+	citadelDeployName = "istio-citadel"
+	citadelReplica    = 5
 )
 
 // Deploy multiple Citadels, each has jitter enabled by default and permission to
