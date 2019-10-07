@@ -85,6 +85,8 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 	s.labels = s.labels.Add(labels...)
 	return s
 }
+
+// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
 	s.skip = reason
 	return s
@@ -185,6 +187,7 @@ func (s *Suite) run() (errLevel int) {
 	// Skip the test if its explicitly skipped
 	if s.skip != "" {
 		scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skip)
+		return 0
 	}
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
