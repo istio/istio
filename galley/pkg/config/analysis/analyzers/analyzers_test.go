@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/pkg/log"
 )
 
 type message struct {
@@ -187,8 +189,20 @@ var testGrid = []testCase{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17617")
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
+
+	// Temporarily make logging more verbose to debug https://github.com/istio/istio/issues/17617
+	oldSourceLevel := scope.Source.GetOutputLevel()
+	oldProcessingLevel := scope.Processing.GetOutputLevel()
+	oldAnalysisLevel := scope.Analysis.GetOutputLevel()
+	defer func() {
+		scope.Source.SetOutputLevel(oldSourceLevel)
+		scope.Processing.SetOutputLevel(oldProcessingLevel)
+		scope.Analysis.SetOutputLevel(oldAnalysisLevel)
+	}()
+	scope.Source.SetOutputLevel(log.DebugLevel)
+	scope.Processing.SetOutputLevel(log.DebugLevel)
+	scope.Analysis.SetOutputLevel(log.DebugLevel)
 
 	// For each test case, verify we get the expected messages as output
 	for _, testCase := range testGrid {
