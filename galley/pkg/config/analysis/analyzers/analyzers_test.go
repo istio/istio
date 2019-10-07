@@ -106,7 +106,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.VersionAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod/default/details-v1-pod"},
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
 		},
 	},
 	{
