@@ -15,8 +15,6 @@
 package istiocontrolplane
 
 import (
-	"path/filepath"
-
 	"github.com/spf13/cobra"
 )
 
@@ -47,13 +45,4 @@ func AttachCobraFlags(cmd *cobra.Command) {
 			"This will be used as the base path for any IstioControlPlane instances specifying a relative ChartPath.")
 	cmd.PersistentFlags().StringVar(&controllerOptions.BaseChartPath, "default-chart-path", "",
 		"A path relative to base-chart-path containing charts to be used when no ChartPath is specified by an IstioControlPlane resource, e.g. 1.1.0/istio")
-}
-
-func calculateChartPath(inputPath string) string {
-	if len(inputPath) == 0 {
-		return filepath.Join(controllerOptions.BaseChartPath, controllerOptions.DefaultChartPath)
-	} else if filepath.IsAbs(inputPath) {
-		return inputPath
-	}
-	return filepath.Join(controllerOptions.BaseChartPath, inputPath)
 }

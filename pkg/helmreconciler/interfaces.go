@@ -21,6 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+
+	"istio.io/operator/pkg/name"
 )
 
 // RenderingCustomizer encompasses all the customization details for a specific rendering invocation.
@@ -72,16 +76,15 @@ type ChartManifestsMap map[string][]manifest.Manifest
 type RenderingInput interface {
 	// GetChartPath returns the absolute path locating the chart to be rendered.
 	GetChartPath() string
-	// GetValues returns the values object used during rendering.
-	GetValues() map[string]interface{}
+	// GetInputConfig returns the values object used during rendering.
+	GetInputConfig() interface{}
 	// GetTargetNamespace returns the target namespace which should be applied to namespaced resources
 	// (i.e. used to set Release.Namespace)
 	GetTargetNamespace() string
-	// GetProcessingOrder is a hook which allows a user to specify the order in which the generated charts
-	// should be applied.  manifests maps chart name to a list of manifests.  Examples of chart names:
-	// istio, istio/charts/security, istio/charts/galley, etc.  Subcharts will have the form:
-	// <main-chart-name>/charts/<subchart-name>
-	GetProcessingOrder(manifests ChartManifestsMap) ([]string, error)
+	// GetProcessingOrder returns a dependency tree for the given manifests. ComponentNameToListMap is a map of
+	// each component to its dependencies. DependencyWaitCh is a map of channels, indexed by name. The component with
+	// the given name must wait on the channel before starting its processing.
+	GetProcessingOrder(manifests ChartManifestsMap) (ComponentNameToListMap, DependencyWaitCh)
 }
 
 // RenderingListener is the main hook into the rendering process.  The methods represent each stage in the
@@ -141,8 +144,8 @@ type RenderingListener interface {
 	EndDelete(instance runtime.Object, err error) error
 	// EndReconcile occurs after reconciliation has completed.  It is similar to EndDelete, but applies to reconciliation.
 	// instance is the custom resource being reconciled
-	// err is any error that might have occurred during the reconciliation process.
-	EndReconcile(instance runtime.Object, err error) error
+	// status is the status and errors of components at the end of reconciliation.
+	EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error
 }
 
 // ChartCustomizer defines callbacks used by a listener that manages customizations for a specific chart.
@@ -197,3 +200,13 @@ type ClientProvider interface {
 	// GetClient returns a kubernetes client.
 	GetClient() client.Client
 }
+
+// ComponentNameToListMap is a map of ComponentName to a list of ComponentNames.
+type ComponentNameToListMap map[name.ComponentName][]name.ComponentName
+
+// ComponentTree defines a dependency tree.
+type ComponentTree map[name.ComponentName]interface{}
+
+// DependencyWaitCh defines a map of component name to a channel which signals when its parent dependency has
+// completed.
+type DependencyWaitCh map[name.ComponentName]chan struct{}

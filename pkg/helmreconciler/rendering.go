@@ -17,117 +17,169 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
-	"strings"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/helm"
+	istiomanifest "istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/util"
+	"istio.io/operator/pkg/validate"
+	"istio.io/pkg/log"
+
+	"istio.io/operator/pkg/component/controlplane"
+	"istio.io/operator/pkg/name"
+	"istio.io/operator/pkg/translate"
+	binversion "istio.io/operator/version"
+
+	"k8s.io/helm/pkg/releaseutil"
+	"k8s.io/kubernetes/pkg/kubectl"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ghodss/yaml"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/manifest"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/releaseutil"
-	"k8s.io/helm/pkg/renderutil"
-	"k8s.io/helm/pkg/tiller"
-	"k8s.io/helm/pkg/timeconv"
-	"k8s.io/kubernetes/pkg/kubectl"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (h *HelmReconciler) renderCharts(input RenderingInput) (ChartManifestsMap, error) {
-	rawVals, err := yaml.Marshal(input.GetValues())
-	if err != nil {
-		return ChartManifestsMap{}, err
+func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
+	icp, ok := in.GetInputConfig().(*v1alpha2.IstioControlPlaneSpec)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type %T in renderCharts", in.GetInputConfig())
 	}
-	config := &chart.Config{Raw: string(rawVals), Values: map[string]*chart.Value{}}
-
-	c, err := chartutil.Load(input.GetChartPath())
-	if err != nil {
-		return ChartManifestsMap{}, err
+	if err := validate.CheckIstioControlPlaneSpec(icp, false); err != nil {
+		return nil, err
 	}
 
-	renderOpts := renderutil.Options{
-		ReleaseOptions: chartutil.ReleaseOptions{
-			// XXX: hard code or use icp.GetName()
-			Name:      "istio",
-			IsInstall: true,
-			IsUpgrade: false,
-			Time:      timeconv.Now(),
-			Namespace: input.GetTargetNamespace(),
-		},
-		// XXX: hard-code or look this up somehow?
-		KubeVersion: fmt.Sprintf("%s.%s", chartutil.DefaultKubeVersion.Major, chartutil.DefaultKubeVersion.Minor),
-	}
-	renderedTemplates, err := renderutil.Render(c, config, renderOpts)
+	mergedICPS, err := mergeICPSWithProfile(icp)
 	if err != nil {
-		return ChartManifestsMap{}, err
+		return nil, err
 	}
 
-	return collectManifestsByChart(manifest.SplitManifests(renderedTemplates)), err
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	cp := controlplane.NewIstioControlPlane(mergedICPS, t)
+	if err := cp.Run(); err != nil {
+		return nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedICPS, err)
+	}
+
+	manifests, errs := cp.RenderManifest()
+	if errs != nil {
+		err = errs.ToError()
+	}
+
+	return toChartManifestsMap(manifests), err
 }
 
-// collectManifestsByChart returns a map of chart->[]manifest.  names for subcharts
-// will be of the form <root-name>/charts/<subchart-name>, e.g. istio/charts/galley
-func collectManifestsByChart(manifests []manifest.Manifest) ChartManifestsMap {
-	manifestsByChart := make(ChartManifestsMap)
-	for _, chartManifest := range manifests {
-		pathSegments := strings.Split(chartManifest.Name, "/")
-		chartName := pathSegments[0]
-		// paths always start with the root chart name and always have a template
-		// name, so we should be safe not to check length
-		if pathSegments[1] == "charts" {
-			// subcharts will have names like <root-name>/charts/<subchart-name>/...
-			chartName = strings.Join(pathSegments[:3], "/")
-		}
-		if _, ok := manifestsByChart[chartName]; !ok {
-			manifestsByChart[chartName] = make([]manifest.Manifest, 0, 10)
-		}
-		manifestsByChart[chartName] = append(manifestsByChart[chartName], chartManifest)
+// mergeICPSWithProfile overlays the values in icp on top of the defaults for the profile given by icp.profile and
+// returns the merged result.
+func mergeICPSWithProfile(icp *v1alpha2.IstioControlPlaneSpec) (*v1alpha2.IstioControlPlaneSpec, error) {
+	profile := icp.Profile
+
+	// This contains the IstioControlPlane CR.
+	baseCRYAML, err := helm.ReadProfileYAML(profile)
+	if err != nil {
+		return nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
-	for key, value := range manifestsByChart {
-		manifestsByChart[key] = tiller.SortByKind(value)
+
+	if !helm.IsDefaultProfile(profile) {
+		// Profile definitions are relative to the default profile, so read that first.
+		dfn, err := helm.DefaultFilenameForProfile(profile)
+		if err != nil {
+			return nil, err
+		}
+		defaultYAML, err := helm.ReadProfileYAML(dfn)
+		if err != nil {
+			return nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
+		}
+		baseCRYAML, err = helm.OverlayYAML(defaultYAML, baseCRYAML)
+		if err != nil {
+			return nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
+		}
 	}
-	return manifestsByChart
+
+	_, baseYAML, err := unmarshalAndValidateICP(baseCRYAML)
+	if err != nil {
+		return nil, err
+	}
+
+	overlayYAML, err := util.MarshalWithJSONPB(icp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge base and overlay.
+	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
+	if err != nil {
+		return nil, fmt.Errorf("could not overlay user config over base: %s", err)
+	}
+	return unmarshalAndValidateICPSpec(mergedYAML)
 }
 
-func (h *HelmReconciler) processManifests(manifests []manifest.Manifest) error {
-	allErrors := []error{}
-	origLogger := h.logger
-	defer func() { h.logger = origLogger }()
-	for _, manifest := range manifests {
-		h.logger = origLogger.WithValues("manifest", manifest.Name)
-		if !strings.HasSuffix(manifest.Name, ".yaml") {
-			h.logger.V(2).Info("Skipping rendering of manifest")
+// unmarshalAndValidateICP unmarshals the IstioControlPlane in the crYAML string and validates it.
+// If successful, it returns both a struct and string YAML representations of the IstioControlPlaneSpec embedded in icp.
+func unmarshalAndValidateICP(crYAML string) (*v1alpha2.IstioControlPlaneSpec, string, error) {
+	// TODO: add GroupVersionKind handling as appropriate.
+	if crYAML == "" {
+		return &v1alpha2.IstioControlPlaneSpec{}, "", nil
+	}
+	icps, _, err := istiomanifest.ParseK8SYAMLToIstioControlPlaneSpec(crYAML)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not parse the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
+	}
+	if errs := validate.CheckIstioControlPlaneSpec(icps, false); len(errs) != 0 {
+		return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
+	}
+	icpsYAML, err := util.MarshalWithJSONPB(icps)
+	if err != nil {
+		return nil, "", fmt.Errorf("could not marshal: %s", err)
+	}
+	return icps, icpsYAML, nil
+}
+
+// unmarshalAndValidateICPSpec unmarshals the IstioControlPlaneSpec in the icpsYAML string and validates it.
+// If successful, it returns a struct representation of icpsYAML.
+func unmarshalAndValidateICPSpec(icpsYAML string) (*v1alpha2.IstioControlPlaneSpec, error) {
+	icps := &v1alpha2.IstioControlPlaneSpec{}
+	if err := util.UnmarshalWithJSONPB(icpsYAML, icps); err != nil {
+		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, icpsYAML)
+	}
+	if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
+		return nil, fmt.Errorf(errs.Error())
+	}
+	return icps, nil
+}
+
+func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) error {
+	var errs []error
+	log.Info("Processing resources from manifest")
+	// split the manifest into individual objects
+	objects := releaseutil.SplitManifests(manifest.Content)
+	for _, raw := range objects {
+		rawJSON, err := yaml.YAMLToJSON([]byte(raw))
+		if err != nil {
+			h.logger.Error(err, "unable to convert raw data to JSON")
+			errs = append(errs, err)
 			continue
 		}
-		h.logger.V(2).Info("Processing resources from manifest")
-		// split the manifest into individual objects
-		objects := releaseutil.SplitManifests(manifest.Content)
-		for _, raw := range objects {
-			rawJSON, err := yaml.YAMLToJSON([]byte(raw))
-			if err != nil {
-				h.logger.Error(err, "unable to convert raw data to JSON")
-				allErrors = append(allErrors, err)
-				continue
-			}
-			obj := &unstructured.Unstructured{}
-			_, _, err = unstructured.UnstructuredJSONScheme.Decode(rawJSON, nil, obj)
-			if err != nil {
-				h.logger.Error(err, "unable to decode object into Unstructured")
-				allErrors = append(allErrors, err)
-				continue
-			}
-			err = h.processObject(obj)
-			if err != nil {
-				allErrors = append(allErrors, err)
-			}
+		obj := &unstructured.Unstructured{}
+		_, _, err = unstructured.UnstructuredJSONScheme.Decode(rawJSON, nil, obj)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		err = h.ProcessObject(obj)
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
 
-	return utilerrors.NewAggregate(allErrors)
+	return utilerrors.NewAggregate(errs)
 }
 
-func (h *HelmReconciler) processObject(obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
 		list, err := obj.ToList()
@@ -136,7 +188,7 @@ func (h *HelmReconciler) processObject(obj *unstructured.Unstructured) error {
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.processObject(&item)
+			err = h.ProcessObject(&item)
 			if err != nil {
 				allErrors = append(allErrors, err)
 			}
@@ -197,4 +249,14 @@ func (h *HelmReconciler) processObject(obj *unstructured.Unstructured) error {
 		h.logger.Error(err, "error occurred reconciling resource")
 	}
 	return err
+}
+
+func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
+	out := make(ChartManifestsMap)
+	for k, v := range m {
+		out[string(k)] = []manifest.Manifest{{
+			Content: v,
+		}}
+	}
+	return out
 }

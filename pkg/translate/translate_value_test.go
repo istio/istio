@@ -27,7 +27,7 @@ import (
 )
 
 func TestValueToProto(t *testing.T) {
-
+	t.Skip("Skipping due to https://github.com/istio/istio/issues/17217")
 	tests := []struct {
 		desc      string
 		valueYAML string

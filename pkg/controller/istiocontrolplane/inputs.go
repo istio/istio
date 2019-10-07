@@ -15,71 +15,72 @@
 package istiocontrolplane
 
 import (
-	"istio.io/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/operator/pkg/name"
 )
 
-// defaultProcessingOrder for the rendered charts
-var defaultProcessingOrder = []string{
-	"istio",
-	"istio/charts/security",
-	"istio/charts/galley",
-	"istio/charts/prometheus",
-	"istio/charts/mixer",
-	"istio/charts/pilot",
-	"istio/charts/gateways",
-	"istio/charts/sidecarInjectorWebhook",
-	"istio/charts/grafana",
-	"istio/charts/tracing",
-	"istio/charts/kiali",
+var (
+	componentDependencies = helmreconciler.ComponentNameToListMap{
+		name.IstioBaseComponentName: {
+			name.PilotComponentName,
+			name.PolicyComponentName,
+			name.TelemetryComponentName,
+			name.GalleyComponentName,
+			name.CitadelComponentName,
+			name.NodeAgentComponentName,
+			name.CertManagerComponentName,
+			name.SidecarInjectorComponentName,
+			name.IngressComponentName,
+			name.EgressComponentName,
+		},
+	}
+
+	installTree      = make(helmreconciler.ComponentTree)
+	dependencyWaitCh = make(helmreconciler.DependencyWaitCh)
+)
+
+func init() {
+	buildInstallTree()
+	for _, parent := range componentDependencies {
+		for _, child := range parent {
+			dependencyWaitCh[child] = make(chan struct{}, 1)
+		}
+	}
+
 }
 
-// IstioRenderingInput is a RenderingInput specific to an IstioControlPlane instance.
+// IstioRenderingInput is a RenderingInput specific to an v1alpha2 IstioControlPlane instance.
 type IstioRenderingInput struct {
-	instance  *v1alpha1.IstioControlPlane
-	chartPath string
+	instance *v1alpha2.IstioControlPlane
+	crPath   string
 }
 
-var _ helmreconciler.RenderingInput = &IstioRenderingInput{}
-
-// NewIstioRenderingInput creates a new IstioRenderiongInput for the specified instance.
-func NewIstioRenderingInput(instance *v1alpha1.IstioControlPlane) *IstioRenderingInput {
-	return &IstioRenderingInput{instance: instance, chartPath: calculateChartPath(instance.Spec.ChartPath)}
+// NewIstioRenderingInput creates a new IstioRenderingInput for the specified instance.
+func NewIstioRenderingInput(instance *v1alpha2.IstioControlPlane) *IstioRenderingInput {
+	return &IstioRenderingInput{instance: instance}
 }
 
-// GetChartPath returns the absolute path locating the charts to be rendered.
+// GetCRPath returns the path of IstioControlPlane CR.
 func (i *IstioRenderingInput) GetChartPath() string {
-	return i.chartPath
+	return i.crPath
 }
 
-// GetValues returns the values that should be used when rendering the charts.
-func (i *IstioRenderingInput) GetValues() map[string]interface{} {
-	return i.instance.Spec.RawValues
+func (i *IstioRenderingInput) GetInputConfig() interface{} {
+	// Not used in this renderer,
+	return nil
 }
 
-// GetTargetNamespace returns the namespace within which rendered namespaced resources should be generated
-// (i.e. Release.Namespace)
 func (i *IstioRenderingInput) GetTargetNamespace() string {
-	return i.instance.Namespace
+	return i.instance.Spec.DefaultNamespace
 }
 
 // GetProcessingOrder returns the order in which the rendered charts should be processed.
-func (i *IstioRenderingInput) GetProcessingOrder(manifests helmreconciler.ChartManifestsMap) ([]string, error) {
-	seen := map[string]struct{}{}
-	ordering := make([]string, 0, len(manifests))
-	// known ordering
-	for _, chart := range defaultProcessingOrder {
-		if _, ok := manifests[chart]; ok {
-			ordering = append(ordering, chart)
-			seen[chart] = struct{}{}
-		}
-	}
-	// everything else to the end
-	for chart := range manifests {
-		if _, ok := seen[chart]; !ok {
-			ordering = append(ordering, chart)
-			seen[chart] = struct{}{}
-		}
-	}
-	return ordering, nil
+func (i *IstioRenderingInput) GetProcessingOrder(_ helmreconciler.ChartManifestsMap) (helmreconciler.ComponentNameToListMap, helmreconciler.DependencyWaitCh) {
+	return componentDependencies, dependencyWaitCh
+}
+
+func buildInstallTree() {
+	// Starting with root, recursively insert each first level child into each node.
+	helmreconciler.InsertChildrenRecursive(name.IstioBaseComponentName, installTree, componentDependencies)
 }

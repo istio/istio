@@ -102,7 +102,7 @@ func UnmarshalValuesWithJSONPB(y string, out proto.Message) error {
 	if err != nil {
 		return err
 	}
-	u := jsonpb2.Unmarshaler{AllowUnknownFields: false}
+	u := jsonpb2.Unmarshaler{AllowUnknownFields: true}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
 	if err != nil {
 		return err

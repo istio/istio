@@ -28,6 +28,7 @@ require (
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/pkg/errors v0.8.1
+	github.com/prometheus/common v0.2.0
 	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
