@@ -181,14 +181,12 @@ global:
       host: # example: accesslog-service.istio-system
       port: # example: 15000
       tlsSettings:
-        # Keep these keys in snake case because pilot agent CLI arg expects
-        # json style field names.
         mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-        client_certificate: # example: /etc/istio/als/cert-chain.pem
-        private_key:        # example: /etc/istio/als/key.pem
-        ca_certificates:    # example: /etc/istio/als/root-cert.pem
+        clientCertificate: # example: /etc/istio/als/cert-chain.pem
+        privateKey:        # example: /etc/istio/als/key.pem
+        caCertificates:    # example: /etc/istio/als/root-cert.pem
         sni:               # example: als.somedomain
-        subject_alt_names: []
+        subjectAltNames: []
         # - als.somedomain
       tcpKeepalive:
         probes: 3
@@ -287,11 +285,11 @@ global:
       port: # example: 15000
       tlsSettings:
         mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-        client_certificate: # example: /etc/istio/ms/cert-chain.pem
-        private_key:        # example: /etc/istio/ms/key.pem
-        ca_certificates:    # example: /etc/istio/ms/root-cert.pem
+        clientCertificate: # example: /etc/istio/ms/cert-chain.pem
+        privateKey:        # example: /etc/istio/ms/key.pem
+        caCertificates:    # example: /etc/istio/ms/root-cert.pem
         sni:               # example: ms.somedomain
-        subject_alt_names: []
+        subjectAltNames: []
         # - ms.somedomain 
       tcpKeepalive:
         probes: 3
