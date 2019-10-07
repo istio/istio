@@ -176,6 +176,7 @@ mainloop:
 		statusMap, ok := statusObj.(map[string]interface{})
 		if !ok {
 			scope.Source.Warnf("Failed to parse the status field as a map. Previous status value will be discarded! Status value was: %v", statusObj)
+			statusMap = make(map[string]interface{})
 		}
 
 		// Update the status field (for the subfield this controller manages) to match desired status
