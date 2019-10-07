@@ -6,4 +6,5 @@ metadata:
   domain: "cluster.local"
 spec:
   peers:
-  - mtls: {}
+  - mtls:
+      mode: PERMISSIVE
