@@ -166,8 +166,8 @@ type SecretCache struct {
 	rootCertExpireTime time.Time
 
 	// Source of random numbers. It is not concurrency safe, requires lock protected.
-	rand 			*rand.Rand
-	randMutex	*sync.Mutex
+	rand      *rand.Rand
+	randMutex *sync.Mutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -178,7 +178,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey,
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
 		configOptions:  options,
-		randMutex:			&sync.Mutex{},
+		randMutex:      &sync.Mutex{},
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
