@@ -218,6 +218,45 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
 }
 
+func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	c := NewController(subfield)
+
+	r := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":            "foo",
+				"namespace":       "bar",
+				"resourceVersion": "v1",
+			},
+			"status": "s1", // Should be overwritten without breaking
+		},
+	}
+
+	k, cl := setupClientWithReactors(r, nil)
+
+	e := resource.Entry{
+		Origin: &rt.Origin{
+			Collection: basicmeta.Collection1,
+			Name:       resource.NewName("foo", "bar"),
+			Version:    resource.Version("v1"),
+		},
+	}
+
+	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
+	m := msg.NewInternalError(&e, "foo")
+	c.Report(diag.Messages{m})
+	defer c.Stop()
+
+	g.Eventually(cl.Actions).Should(HaveLen(2))
+	g.Expect(cl.Actions()[1]).To(BeAssignableToTypeOf(k8stesting.UpdateActionImpl{}))
+	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
+
+	actualStatusMap := u.Object["status"].(map[string]interface{})
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
+}
+
 func TestBasicReconcilation_UpdateError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
