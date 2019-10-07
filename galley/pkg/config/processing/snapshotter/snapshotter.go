@@ -180,7 +180,7 @@ func (sg *snapshotGroup) onSync(c *coll.Instance) {
 	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
 	if sg.remaining == 0 {
 		// TODO: Remove before checkin
-		scope.Analysis.Warnf("### sg.onSync: strategy.OnChange: ", sg.strategy.OnChange)
+		scope.Analysis.Warnf("### sg.onSync: strategy.OnChange: %v", c.Name())
 		sg.strategy.OnChange()
 	}
 }
