@@ -34,6 +34,17 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+const (
+	// configNameNotApplicable is used to represent the name of the authentication policy or
+	// destination rule when they are not specified.
+	configNameNotApplicable = "-"
+
+	// configNameUnknown is used to represent the name of the authentication policy when it is specified,
+	// but the information is not available to show. This is temporary, until we fix the push context to carry
+	// authN policy name.
+	configNameUnknown = "???"
+)
+
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
@@ -260,7 +271,7 @@ func configName(config *model.Config) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
 	}
-	return "-"
+	return configNameNotApplicable
 }
 
 // Authenticationz dumps the authn tls-check info.
@@ -313,9 +324,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy,
 	destConfig *model.Config) []*AuthenticationDebug {
 	// TODO(diemvu): add policy config name to the cache push config for this.
-	authnPolicyName := "-"
+	authnPolicyName := configNameNotApplicable
 	if authnPolicy != nil {
-		authnPolicyName = "???"
+		authnPolicyName = configNameUnknown
 	}
 
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
@@ -325,7 +336,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 		AuthenticationPolicyName: authnPolicyName,
 		DestinationRuleName:      configName(destConfig),
 		ServerProtocol:           serverMTLSMode.String(),
-		ClientProtocol:           "-",
+		ClientProtocol:           configNameNotApplicable,
 	}
 
 	var rule *networking.DestinationRule
