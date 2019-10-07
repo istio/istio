@@ -30,7 +30,11 @@ istio.io/istio/pilot/cmd/pilot-agent/status/server.go=61
 istio.io/istio/pkg/mcp/creds/watcher.go=100
 istio.io/istio/pkg/mcp/source/client_source.go=90
 istio.io/istio/pkg/mcp/source/source.go=90
-istio.io/istio/security/pkg/nodeagent=15
+istio.io/istio/security/pkg/nodeagent=76
+istio.io/istio/security/pkg/k8s=73
+istio.io/istio/security/pkg/pki=86
+istio.io/istio/security/pkg/caclient=85
+istio.io/istio/security/pkg/server=75
 istio.io/istio/istioctl/cmd/istioctl/kubeinject.go=41
 istio.io/istio/istioctl/cmd/istioctl/main.go=66
 
