@@ -33,7 +33,8 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )

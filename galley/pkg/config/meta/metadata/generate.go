@@ -18,14 +18,14 @@ package metadata
 //go:generate go-bindata --nocompress --nometadata --pkg metadata -o metadata.gen.go metadata.yaml
 
 // Create static initializers file
-//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/staticinit.main.go metadata metadata.yaml staticinit.gen.go
+//go:generate go run $REPO_ROOT/galley/pkg/config/meta/schema/codegen/tools/staticinit.main.go metadata metadata.yaml staticinit.gen.go
 
 // Create collection constants
-//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/collections.main.go metadata metadata.yaml collections.gen.go
+//go:generate go run $REPO_ROOT/galley/pkg/config/meta/schema/codegen/tools/collections.main.go metadata metadata.yaml collections.gen.go
 
 // Create snapshot constants
-//go:generate go run $REPO_ROOT/galley/pkg/config/schema/codegen/tools/snapshots.main.go metadata metadata.yaml snapshots.gen.go
+//go:generate go run $REPO_ROOT/galley/pkg/config/meta/schema/codegen/tools/snapshots.main.go metadata metadata.yaml snapshots.gen.go
 
-//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/collections.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/snapshots.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/processor/metadata/staticinit.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/meta/metadata/collections.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/meta/metadata/snapshots.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/meta/metadata/staticinit.gen.go"
