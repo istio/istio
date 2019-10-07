@@ -38,7 +38,6 @@ const injectionLabelName = "istio-injection"
 const injectionLabelEnableValue = "enabled"
 
 const istioProxyName = "istio-proxy"
-const injectorName = "sidecar-injector-webhook"
 
 // Metadata implements Analyzer
 func (a *Analyzer) Metadata() analysis.Metadata {
@@ -68,6 +67,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		if injectionLabel == "" {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
+
 			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.Name.String(), r.Metadata.Name.String()))
 			return true
 		}
@@ -82,15 +82,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	injectorVersions := make(map[string]bool)
-	var podVersions []podVersion
 	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
 		pod := r.Item.(*v1.Pod)
-
-		// Check if this is the sidecar injector pod - if it is, note its version
-		if v := tryReturnSidecarInjectorVersion(pod); v != "" {
-			injectorVersions[v] = true
-		}
 
 		if !injectedNamespaces[pod.GetNamespace()] {
 			return true
@@ -106,49 +99,13 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		if proxyImage == "" {
 			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r, pod.Name, pod.GetNamespace()))
-		} else if parts := strings.Split(proxyImage, ":"); len(parts) == 2 {
-			// Note the pod/version to check later after we've collected all injector versions
-			podVersions = append(podVersions, podVersion{
-				Entry:        r,
-				ProxyVersion: parts[1]})
 		}
+
+		// TODO: if the pod is injected, check that it's using the right image. This would
+		// cover scenarios where Istio is upgraded but pods are not restarted.
+		// This is challenging because getting the expected image for the current version
+		// of Istio is non-trivial and non-standard across versions
 
 		return true
 	})
-
-	for iv := range injectorVersions {
-		for _, pv := range podVersions {
-			if pv.ProxyVersion != iv {
-				c.Report(metadata.K8SCoreV1Pods, msg.NewIstioProxyVersionMismatch(pv.Entry, pv.ProxyVersion, iv))
-			}
-		}
-	}
-}
-
-type podVersion struct {
-	Entry        *resource.Entry
-	ProxyVersion string
-}
-
-// tryReturnSidecarInjectorVersion returns an empty string if the pod is not
-// the sidecar injector; otherwise the version of the injector image is
-// returned.
-func tryReturnSidecarInjectorVersion(p *v1.Pod) string {
-	if p.Labels["app"] != "sidecarInjectorWebhook" {
-		return ""
-	}
-
-	for _, c := range p.Spec.Containers {
-		if c.Name != injectorName {
-			continue
-		}
-
-		parts := strings.Split(c.Image, ":")
-		if len(parts) != 2 {
-			continue
-		}
-		return parts[1]
-	}
-
-	return ""
 }

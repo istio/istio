@@ -32,6 +32,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.DestinationRuleAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&injection.Analyzer{},
+		&injection.VersionAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 	}
 }

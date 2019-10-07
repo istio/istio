@@ -104,9 +104,9 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",
 		},
-		analyzer: &injection.Analyzer{},
+		analyzer: &injection.VersionAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod/default/details-v1-68fbb76fc-cfqjd"},
+			{msg.IstioProxyVersionMismatch, "Pod/default/details-v1-pod"},
 		},
 	},
 	{

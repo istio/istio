@@ -4,7 +4,7 @@ kind: Pod
 metadata:
   labels:
     app: sidecarInjectorWebhook
-  name: istio-sidecar-injector-6dcc9f86b-rln9t
+  name: istio-sidecar-injector-pod
   namespace: istio-system
 spec:
   containers:
@@ -23,7 +23,7 @@ kind: Pod
 metadata:
   labels:
     app: details
-  name: details-v1-68fbb76fc-cfqjd
+  name: details-v1-pod
   namespace: default
 spec:
   containers:
