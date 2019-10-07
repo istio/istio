@@ -28,7 +28,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn "istio.io/api/authentication/v1alpha1"
 
@@ -858,7 +857,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+							ConfigType: &listener.ListenerFilter_TypedConfig{},
 						},
 					},
 				},

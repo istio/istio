@@ -52,8 +52,7 @@ var (
 )
 
 func init() {
-	blackholeAnyMarshalling = newBlackholeFilter(true)
-	blackholeStructMarshalling = newBlackholeFilter(false)
+	blackholeAnyMarshalling = newBlackholeFilter()
 }
 
 // A stateful listener builder
@@ -385,7 +384,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 }
 
 // Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter(enableAny bool) *listener.Filter {
+func newBlackholeFilter() *listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -395,11 +394,7 @@ func newBlackholeFilter(enableAny bool) *listener.Filter {
 		Name: xdsutil.TCPProxy,
 	}
 
-	if enableAny {
-		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-	} else {
-		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-	}
+	filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 	return filter
 }
 

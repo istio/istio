@@ -29,15 +29,15 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/mixer/test/client/env"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
+	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 )
 
 const envoyConf = `
@@ -121,7 +121,7 @@ func (hasher) ID(*core.Node) string {
 }
 
 func makeListener(s *env.TestSetup, key string) *v2.Listener {
-	mxServiceConfig, err := conversion.MessageToStruct(&mccpb.ServiceConfig{
+	mxServiceConfig, err := ptypes.MarshalAny(&mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"key": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: key}},
@@ -130,7 +130,7 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 	if err != nil {
 		panic(err)
 	}
-	mxConf, err := conversion.MessageToStruct(env.GetDefaultHTTPServerConf())
+	mxConf, err := ptypes.MarshalAny(env.GetDefaultHTTPServerConf())
 	if err != nil {
 		panic(err)
 	}
@@ -149,18 +149,18 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
-						PerFilterConfig: map[string]*structpb.Struct{
+						TypedPerFilterConfig: map[string]*any.Any{
 							"mixer": mxServiceConfig,
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name:       "mixer",
-			ConfigType: &hcm.HttpFilter_Config{mxConf},
+			ConfigType: &hcm.HttpFilter_TypedConfig{mxConf},
 		}, {
 			Name: wellknown.Router,
 		}},
 	}
 
-	pbst, err := conversion.MessageToStruct(manager)
+	pbst, err := ptypes.MarshalAny(manager)
 	if err != nil {
 		panic(err)
 	}
@@ -173,7 +173,7 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{pbst},
+				ConfigType: &listener.Filter_TypedConfig{pbst},
 			}},
 		}},
 	}

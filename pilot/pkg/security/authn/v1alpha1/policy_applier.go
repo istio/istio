@@ -27,7 +27,6 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
 	"istio.io/pkg/log"
@@ -400,7 +399,7 @@ func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model
 				ListenerFilters: []*ldsv2.ListenerFilter{
 					{
 						Name:       xdsutil.TlsInspector,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &structpb.Struct{}},
+						ConfigType: &ldsv2.ListenerFilter_TypedConfig{},
 					},
 				},
 			},
