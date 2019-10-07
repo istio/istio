@@ -33,6 +33,8 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+TD=$(mktemp -d)
+
 function build_kind_images() {
   # Build just the images needed for the tests
   for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
@@ -41,7 +43,8 @@ function build_kind_images() {
 
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	kind --loglevel debug --name istio-testing load image-archive <(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs docker save)
+  docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs docker save -o "${TD}/docker.tar"
+	kind --loglevel debug --name istio-testing load image-archive "${TD}/docker.tar"
 }
 
 while (( "$#" )); do
