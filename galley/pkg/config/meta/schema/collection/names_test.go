@@ -12,34 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metadata
+package collection_test
 
 import (
-	"fmt"
+	"testing"
 
-	"istio.io/istio/galley/pkg/config/schema"
+	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
-// Get returns the contained resources.yaml file, in parsed form.
-func Get() (*schema.Metadata, error) {
-	b, err := Asset("metadata.yaml")
-	if err != nil {
-		return nil, err
-	}
+func TestNames_Clone(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-	m, err := schema.ParseAndBuild(string(b))
-	if err != nil {
-		return nil, err
-	}
+	n := collection.Names{data.Collection1, data.Collection2}
 
-	return m, nil
-}
-
-// MustGet calls Get and panics if it returns and error.
-func MustGet() *schema.Metadata {
-	s, err := Get()
-	if err != nil {
-		panic(fmt.Sprintf("metadata.MustGet: %v", err))
-	}
-	return s
+	n2 := n.Clone()
+	g.Expect(n2).To(Equal(n))
 }
