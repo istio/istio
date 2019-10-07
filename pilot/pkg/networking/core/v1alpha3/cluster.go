@@ -526,17 +526,23 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			return nil
 		}
 
+		have := make(map[*model.Port]bool)
 		for _, instance := range instances {
-			pluginParams := &plugin.InputParams{
-				Env:             env,
-				Node:            proxy,
-				ServiceInstance: instance,
-				Port:            instance.Endpoint.ServicePort,
-				Push:            push,
-				Bind:            actualLocalHost,
+			// Filter out service instances with the same port as we are going to mark them as duplicates any way
+			// in normalizeClusters method.
+			if !have[instance.Endpoint.ServicePort] {
+				pluginParams := &plugin.InputParams{
+					Env:             env,
+					Node:            proxy,
+					ServiceInstance: instance,
+					Port:            instance.Endpoint.ServicePort,
+					Push:            push,
+					Bind:            actualLocalHost,
+				}
+				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+				clusters = append(clusters, localCluster)
+				have[instance.Endpoint.ServicePort] = true
 			}
-			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
-			clusters = append(clusters, localCluster)
 		}
 
 		// Add a passthrough cluster for traffic to management ports (health check ports)
