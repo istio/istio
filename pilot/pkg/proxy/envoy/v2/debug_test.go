@@ -292,7 +292,7 @@ func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode
 }
 
 // TestAuthenticationZ tests the /debug/authenticationz handle. Due to the limitation of the test setup,
-// this test convers only one simple scenario. See TestAnalyzeMTLSSettings for more
+// this test converts only one simple scenario. See TestAnalyzeMTLSSettings for more
 func TestAuthenticationZ(t *testing.T) {
 	t.Run("TestAuthenticationZ", func(t *testing.T) {
 		s, tearDown := initLocalPilotTestEnv(t)
