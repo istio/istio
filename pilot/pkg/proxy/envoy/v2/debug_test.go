@@ -324,7 +324,7 @@ func TestAuthenticationZ(t *testing.T) {
 			t.Errorf("AuthenticationZ should have %d entries, got got %d", expectedLen, len(got))
 		}
 		for _, info := range got {
-			expectedStatus := "AUTO"
+			expectedStatus := "OK"
 			if info.Host == "mymongodb.somedomain" {
 				expectedStatus = "CONFLICT"
 			}
@@ -369,19 +369,19 @@ func TestEvaluateTLSState(t *testing.T) {
 			name:     "Auto with mTLS disable",
 			client:   nil,
 			server:   authn_alpha1.MTLSDisable,
-			expected: "AUTO",
+			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS permissive",
 			client:   nil,
 			server:   authn_alpha1.MTLSPermissive,
-			expected: "AUTO",
+			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS STRICT",
 			client:   nil,
 			server:   authn_alpha1.MTLSStrict,
-			expected: "AUTO",
+			expected: "OK",
 		},
 		{
 			name: "OK with mTLS STRICT",
@@ -485,7 +485,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					DestinationRuleName:      "-",
 					ServerProtocol:           "DISABLE",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "AUTO",
+					TLSConflictStatus:        "OK",
 				},
 			},
 		},
@@ -511,7 +511,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "AUTO",
+					TLSConflictStatus:        "OK",
 				},
 			},
 		},
@@ -545,7 +545,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "AUTO",
+					TLSConflictStatus:        "OK",
 				},
 			},
 		},

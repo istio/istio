@@ -374,16 +374,16 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 
 // EvaluateTLSState returns the conflict state (string) for the input client+server settings.
 // The output string could be:
-// - "AUTO": client TLS settings is not set, and will be automatically determined based on server mode.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
 func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha1.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
-	const autoState string = "AUTO"
 
 	if clientMode == nil {
-		return autoState
+		// TLS settings was not set explicitely, pilot will try a setting that work well with the
+		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
+		return okState
 	}
 
 	if (serverMode == authn_alpha1.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
