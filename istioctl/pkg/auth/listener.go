@@ -123,7 +123,13 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 	}
 
 	for _, fc := range listener.FilterChains {
-		parsedFC := &filterChain{tlsContext: fc.TlsContext}
+		tlsContext := &auth.DownstreamTlsContext{}
+		if fc.TransportSocket != nil && fc.TransportSocket.Name == "tls" {
+			ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext)
+		} else {
+			tlsContext = fc.TlsContext
+		}
+		parsedFC := &filterChain{tlsContext: tlsContext}
 		for _, filter := range fc.Filters {
 			switch filter.Name {
 			case "envoy.http_connection_manager":

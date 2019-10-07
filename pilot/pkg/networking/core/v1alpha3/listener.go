@@ -1623,11 +1623,12 @@ type filterChainOpts struct {
 	sniHosts         []string
 	destinationCIDRs []string
 	metadata         *core.Metadata
-	tlsContext       *auth.DownstreamTlsContext
-	httpOpts         *httpListenerOpts
-	match            *listener.FilterChainMatch
-	listenerFilters  []*listener.ListenerFilter
-	networkFilters   []*listener.Filter
+	// transportSocket  *core.TransportSocket
+	tlsContext      *auth.DownstreamTlsContext
+	httpOpts        *httpListenerOpts
+	match           *listener.FilterChainMatch
+	listenerFilters []*listener.ListenerFilter
+	networkFilters  []*listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -1846,7 +1847,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
-			TlsContext:       chain.tlsContext,
+			TransportSocket:  buildDownstreamTlsTransportSocket(chain.tlsContext),
 		})
 	}
 
@@ -2210,4 +2211,13 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	}
 
 	return filters
+}
+
+func buildDownstreamTlsTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
+	typedConfig, err := ptypes.MarshalAny(tlsContext)
+	if err == nil {
+		log.Errorf(err.Error())
+	}
+	transportSocket := &core.TransportSocket{Name: "tls", ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: typedConfig}}
+	return transportSocket
 }

@@ -26,6 +26,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pkg/util/gogo"
@@ -1050,13 +1051,14 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 	}
 
+	tlsContext := &auth.UpstreamTlsContext{}
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
 		// TODO: Need to make sure that authN does not override this setting
 		// We remove the TlsContext because it can be written because of configmap.MTLS settings.
-		cluster.TlsContext = nil
+		tlsContext = nil
 	case networking.TLSSettings_SIMPLE:
-		cluster.TlsContext = &auth.UpstreamTlsContext{
+		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 					ValidationContext: certValidationContext,
@@ -1066,7 +1068,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -1075,17 +1077,17 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			return
 		}
 
-		cluster.TlsContext = &auth.UpstreamTlsContext{
+		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
 		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
-			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
-			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
@@ -1100,11 +1102,11 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				},
 			}
 		} else {
-			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
 					env.Mesh.SdsUdsPath, metadata))
 
-			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, metadata),
@@ -1114,19 +1116,26 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
 		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			cluster.TlsContext.Sni = cluster.Name
+			tlsContext.Sni = cluster.Name
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 		}
+	}
+	if tlsContext != nil {
+		typedConfig, err := ptypes.MarshalAny(tlsContext)
+		if err != nil {
+			fmt.Errorf(err.Error())
+		}
+		cluster.TransportSocket = &core.TransportSocket{Name: "tls", ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: typedConfig}}
 	}
 }
 
