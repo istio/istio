@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/golang/protobuf/jsonpb"
 
@@ -251,7 +252,7 @@ type AuthenticationDebug struct {
 
 // Pretty to-string function for unit test log.
 func (p *AuthenticationDebug) String() string {
-	return fmt.Sprintf("%s:%d, authn=%q, dr=%q, server=%q, client=%q, status=%q", p.Host, p.Port, p.AuthenticationPolicyName,
+	return fmt.Sprintf("{%s:%d, authn=%q, dr=%q, server=%q, client=%q, status=%q}", p.Host, p.Port, p.AuthenticationPolicyName,
 		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
 }
 
@@ -336,7 +337,14 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 	output := []*AuthenticationDebug{}
 
 	clientTLSModes := collectTLSSettingsForPort(rule, port)
-	for ss, c := range clientTLSModes {
+	var subsets []string
+	for k := range clientTLSModes {
+		subsets = append(subsets, k)
+	}
+	sort.Strings(subsets)
+
+	for _, ss := range subsets {
+		c := clientTLSModes[ss]
 		info := baseDebugInfo
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
