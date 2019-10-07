@@ -61,6 +61,7 @@ type ExecClient interface {
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
 	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
+	ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error)
 	BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error)
 }
 
@@ -401,6 +402,16 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 	}
 	return obj.(*v1.PodList), nil
 }
+
+func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error) {
+	cmGet := client.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
+	obj, err := cmGet.Do().Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
+	}
+	return obj.(*v1.ConfigMapList), nil
+}
+
 
 func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
 
