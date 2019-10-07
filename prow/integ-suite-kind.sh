@@ -38,9 +38,10 @@ function build_kind_images() {
   for image in pilot proxyv2 proxy_init app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
      make docker.${image}
   done
+
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+	kind --loglevel debug --name istio-testing load image-archive <(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs docker save)
 }
 
 while (( "$#" )); do
