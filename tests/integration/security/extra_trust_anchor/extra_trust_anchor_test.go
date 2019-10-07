@@ -63,7 +63,7 @@ func serialNumbersFromCert(cert []byte) []string {
 		if err != nil {
 			continue
 		}
-		sn = append(sn, cert.SerialNumber.String())
+		sn = append(sn, cert.SerialNumber.Text(16))
 	}
 	return sn
 }
@@ -312,9 +312,6 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 		})
 		for _, namespace := range []namespace.Instance{localNamespace, remoteNamespaceA, remoteNamespaceB} {
 			g.ApplyConfigOrFail(t, namespace, destinationRuleServiceToServiceMTLS(namespace))
-			ctx.WhenDone(func() error {
-				return g.DeleteConfig(namespace, destinationRuleServiceToServiceMTLS(namespace))
-			})
 		}
 
 		// create the per-namespace root cert and service key/cert.
@@ -388,6 +385,16 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 			if err := env.DeleteConfigMap(systemNamespace.Name(), remoteServiceB); err != nil {
 				errs = multierror.Append(errs, err)
 			}
+
+			// ConfigMap updates are fast. Give Citadel a second to refresh its internal state.
+			time.Sleep(waitDelay)
+
+			// Secret updates are slow sometimes (1-2 minutes). Force citadel to regenerate the
+			// secret with the new roots after a configmap change.
+			if err := env.DeleteSecret(systemNamespace.Name(), citadel.SecretName); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+
 			return errs
 		})
 
@@ -523,6 +530,5 @@ func TestExtraTrustAnchorSecretDistribution(t *testing.T) {
 				updateAndCheck(tt, env, c, step.configmap, systemNamespace, step.op, step.roots)
 			})
 		}
-
 	})
 }
