@@ -1331,14 +1331,14 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	}
 }
 
-func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
+func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1363,20 +1363,19 @@ func TestRedisProtocolWithPassThroughResolution(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_CLUSTER_PROVIDED))
-			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
+			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_ROUND_ROBIN))
 		}
 	}
 }
 
-func TestRedisProtocolCluster(t *testing.T) {
+func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	configStore := &fakes.IstioConfigStore{}
 
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -1406,7 +1405,7 @@ func TestRedisProtocolCluster(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
-			g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
+			g.Expect(cluster.GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
 	}
