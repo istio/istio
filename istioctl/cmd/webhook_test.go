@@ -137,7 +137,6 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		"valid option 1": {
 			opt: enableCliOptions{
 				enableValidationWebhook:      true,
-				validatingWebhookConfigName:  "foo",
 				validationWebhookConfigPath:  "config",
 				validatingWebhookServiceName: "service",
 				webhookSecretName:            "secret",
@@ -147,7 +146,6 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		"valid option 2": {
 			opt: enableCliOptions{
 				enableMutationWebhook:      true,
-				mutatingWebhookConfigName:  "bar",
 				mutatingWebhookConfigPath:  "config",
 				mutatingWebhookServiceName: "service",
 				webhookSecretName:          "secret",
@@ -157,11 +155,9 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		"valid option 3": {
 			opt: enableCliOptions{
 				enableValidationWebhook:      true,
-				validatingWebhookConfigName:  "foo",
 				validationWebhookConfigPath:  "config",
 				validatingWebhookServiceName: "service",
 				enableMutationWebhook:        true,
-				mutatingWebhookConfigName:    "bar",
 				mutatingWebhookConfigPath:    "config",
 				mutatingWebhookServiceName:   "service",
 				webhookSecretName:            "secret",
@@ -171,7 +167,6 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		"invalid option 1": {
 			opt: enableCliOptions{
 				enableValidationWebhook:      true,
-				validatingWebhookConfigName:  "foo",
 				validatingWebhookServiceName: "service",
 				webhookSecretName:            "secret",
 			},
@@ -179,50 +174,29 @@ func TestEnableCliOptionsValidation(t *testing.T) {
 		},
 		"invalid option 2": {
 			opt: enableCliOptions{
-				enableValidationWebhook:      true,
-				validationWebhookConfigPath:  "config",
-				validatingWebhookServiceName: "service",
-				webhookSecretName:            "secret",
-			},
-			shouldFail: true,
-		},
-		"invalid option 3": {
-			opt: enableCliOptions{
 				enableValidationWebhook:     true,
-				validatingWebhookConfigName: "foo",
 				validationWebhookConfigPath: "config",
 				webhookSecretName:           "secret",
 			},
 			shouldFail: true,
 		},
+		"invalid option 3": {
+			opt: enableCliOptions{
+				enableMutationWebhook:      true,
+				mutatingWebhookServiceName: "service",
+				webhookSecretName:          "secret",
+			},
+			shouldFail: true,
+		},
 		"invalid option 4": {
 			opt: enableCliOptions{
-				enableMutationWebhook:      true,
-				mutatingWebhookConfigName:  "foo",
-				mutatingWebhookServiceName: "service",
-				webhookSecretName:          "secret",
-			},
-			shouldFail: true,
-		},
-		"invalid option 5": {
-			opt: enableCliOptions{
-				enableMutationWebhook:      true,
-				mutatingWebhookConfigPath:  "config",
-				mutatingWebhookServiceName: "service",
-				webhookSecretName:          "secret",
-			},
-			shouldFail: true,
-		},
-		"invalid option 6": {
-			opt: enableCliOptions{
 				enableMutationWebhook:     true,
-				mutatingWebhookConfigName: "foo",
 				mutatingWebhookConfigPath: "config",
 				webhookSecretName:         "secret",
 			},
 			shouldFail: true,
 		},
-		"invalid option 7": {
+		"invalid option 5": {
 			opt: enableCliOptions{
 				enableValidationWebhook: false,
 				enableMutationWebhook:   false,
@@ -379,7 +353,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		"disable validating webhook config": {
 			opt: disableCliOptions{
 				disableValidationWebhook:    true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -388,7 +362,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		"disable mutating webhook config": {
 			opt: disableCliOptions{
 				disableInjectionWebhook:   true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -397,9 +371,9 @@ func TestDisableWebhookConfig(t *testing.T) {
 		"disable validating and mutating webhook configs": {
 			opt: disableCliOptions{
 				disableValidationWebhook:    true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 				disableInjectionWebhook:     true,
-				mutatingWebhookConfigName:   "bar",
+				mutatingWebhookConfigName:   "protomutate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -408,7 +382,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		"disable non-existing validating webhook config": {
 			opt: disableCliOptions{
 				disableValidationWebhook:    true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: false,
 			createMutatingWebhookConfig:   false,
@@ -417,7 +391,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		"disable non-existing mutating webhook config": {
 			opt: disableCliOptions{
 				disableInjectionWebhook:   true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createValidatingWebhookConfig: false,
 			createMutatingWebhookConfig:   false,
@@ -430,9 +404,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-validating-webhook-config.yaml",
-				tc.opt.validatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-validating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
@@ -444,9 +416,7 @@ func TestDisableWebhookConfig(t *testing.T) {
 		if tc.createMutatingWebhookConfig {
 			webhookConfig, err := buildMutatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-mutating-webhook-config.yaml",
-				tc.opt.mutatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-mutating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}
@@ -474,8 +444,8 @@ func TestDisableWebhookConfig(t *testing.T) {
 
 func TestBuildValidatingWebhookConfig(t *testing.T) {
 	configFile := "./testdata/webhook/example-validating-webhook-config.yaml"
-	configName := "proto-validate"
-	webhookConfig, err := buildValidatingWebhookConfig(fakeCACert, configFile, configName)
+	configName := "protovalidate"
+	webhookConfig, err := buildValidatingWebhookConfig(fakeCACert, configFile)
 	if err != nil {
 		t.Fatalf("err building validating webhook config %v: %v", configName, err)
 	}
@@ -492,8 +462,8 @@ func TestBuildValidatingWebhookConfig(t *testing.T) {
 
 func TestBuildMutatingWebhookConfig(t *testing.T) {
 	configFile := "./testdata/webhook/example-mutating-webhook-config.yaml"
-	configName := "proto-mutate"
-	webhookConfig, err := buildMutatingWebhookConfig(fakeCACert, configFile, configName)
+	configName := "protomutate"
+	webhookConfig, err := buildMutatingWebhookConfig(fakeCACert, configFile)
 	if err != nil {
 		t.Fatalf("err building mutating webhook config %v: %v", configName, err)
 	}
@@ -510,25 +480,16 @@ func TestBuildMutatingWebhookConfig(t *testing.T) {
 
 func TestCreateValidatingWebhookConfig(t *testing.T) {
 	testCases := map[string]struct {
-		opt                 statusCliOptions
 		createWebhookConfig bool
 		updateWebhookConfig bool
 		shouldFail          bool
 	}{
 		"create a valid webhook config": {
-			opt: statusCliOptions{
-				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
-			},
 			createWebhookConfig: true,
 			updateWebhookConfig: false,
 			shouldFail:          false,
 		},
 		"update a valid webhook config": {
-			opt: statusCliOptions{
-				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
-			},
 			createWebhookConfig: true,
 			updateWebhookConfig: true,
 			shouldFail:          false,
@@ -542,9 +503,7 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildValidatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-validating-webhook-config.yaml",
-				tc.opt.validatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-validating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build ValidatingWebhookConfiguration: %v", tcName, err)
 			}
@@ -574,25 +533,16 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 
 func TestCreateMutatingWebhookConfig(t *testing.T) {
 	testCases := map[string]struct {
-		opt                 statusCliOptions
 		createWebhookConfig bool
 		updateWebhookConfig bool
 		shouldFail          bool
 	}{
 		"create a valid webhook config": {
-			opt: statusCliOptions{
-				injectionWebhook:          true,
-				mutatingWebhookConfigName: "foo",
-			},
 			createWebhookConfig: true,
 			updateWebhookConfig: false,
 			shouldFail:          false,
 		},
 		"update a valid webhook config": {
-			opt: statusCliOptions{
-				injectionWebhook:          true,
-				mutatingWebhookConfigName: "foo",
-			},
 			createWebhookConfig: true,
 			updateWebhookConfig: true,
 			shouldFail:          false,
@@ -606,9 +556,7 @@ func TestCreateMutatingWebhookConfig(t *testing.T) {
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildMutatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-mutating-webhook-config.yaml",
-				tc.opt.mutatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-mutating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build MutatingWebhookConfiguration: %v", tcName, err)
 			}
@@ -645,7 +593,7 @@ func TestDisplayValidationWebhookConfig(t *testing.T) {
 		"display validating webhook config": {
 			opt: statusCliOptions{
 				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: true,
 			shouldFail:                    false,
@@ -653,7 +601,7 @@ func TestDisplayValidationWebhookConfig(t *testing.T) {
 		"display non-existing validating webhook config": {
 			opt: statusCliOptions{
 				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: false,
 			shouldFail:                    true,
@@ -665,9 +613,7 @@ func TestDisplayValidationWebhookConfig(t *testing.T) {
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-validating-webhook-config.yaml",
-				tc.opt.validatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-validating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
@@ -699,7 +645,7 @@ func TestDisplayMutationWebhookConfig(t *testing.T) {
 		"disable mutating webhook config": {
 			opt: statusCliOptions{
 				injectionWebhook:          true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createMutatingWebhookConfig: true,
 			shouldFail:                  false,
@@ -707,7 +653,7 @@ func TestDisplayMutationWebhookConfig(t *testing.T) {
 		"disable non-existing mutating webhook config": {
 			opt: statusCliOptions{
 				injectionWebhook:          true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createMutatingWebhookConfig: false,
 			shouldFail:                  true,
@@ -720,9 +666,7 @@ func TestDisplayMutationWebhookConfig(t *testing.T) {
 		if tc.createMutatingWebhookConfig {
 			webhookConfig, err := buildMutatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-mutating-webhook-config.yaml",
-				tc.opt.mutatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-mutating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}
@@ -755,7 +699,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		"display validating webhook config": {
 			opt: statusCliOptions{
 				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -764,7 +708,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		"display mutating webhook config": {
 			opt: statusCliOptions{
 				injectionWebhook:          true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -773,9 +717,9 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		"display validating and mutating webhook configs": {
 			opt: statusCliOptions{
 				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 				injectionWebhook:            true,
-				mutatingWebhookConfigName:   "bar",
+				mutatingWebhookConfigName:   "protomutate",
 			},
 			createValidatingWebhookConfig: true,
 			createMutatingWebhookConfig:   true,
@@ -784,7 +728,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		"display non-existing validating webhook config": {
 			opt: statusCliOptions{
 				validationWebhook:           true,
-				validatingWebhookConfigName: "foo",
+				validatingWebhookConfigName: "protovalidate",
 			},
 			createValidatingWebhookConfig: false,
 			createMutatingWebhookConfig:   false,
@@ -793,7 +737,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		"display non-existing mutating webhook config": {
 			opt: statusCliOptions{
 				injectionWebhook:          true,
-				mutatingWebhookConfigName: "bar",
+				mutatingWebhookConfigName: "protomutate",
 			},
 			createValidatingWebhookConfig: false,
 			createMutatingWebhookConfig:   false,
@@ -806,9 +750,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		if tc.createValidatingWebhookConfig {
 			webhookConfig, err := buildValidatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-validating-webhook-config.yaml",
-				tc.opt.validatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-validating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build validatingwebhookconfiguration: %v", tcName, err)
 			}
@@ -820,9 +762,7 @@ func TestDisplayWebhookConfig(t *testing.T) {
 		if tc.createMutatingWebhookConfig {
 			webhookConfig, err := buildMutatingWebhookConfig(
 				[]byte(exampleCACert),
-				"./testdata/webhook/example-mutating-webhook-config.yaml",
-				tc.opt.mutatingWebhookConfigName,
-			)
+				"./testdata/webhook/example-mutating-webhook-config.yaml")
 			if err != nil {
 				t.Fatalf("%v: err when build mutatingwebhookconfiguration: %v", tcName, err)
 			}

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"k8s.io/api/admissionregistration/v1beta1"
@@ -45,14 +46,10 @@ type enableCliOptions struct {
 	caCertPath string
 	// The file path of the validation webhook configuration.
 	validationWebhookConfigPath string
-	// The name of the ValidatingWebhookConfiguration to manage
-	validatingWebhookConfigName string
 	// The service name of the validating webhook to manage
 	validatingWebhookServiceName string
 	// The file path of the mutating webhook configuration.
 	mutatingWebhookConfigPath string
-	// The name of the MutatingWebhookConfiguration to manage
-	mutatingWebhookConfigName string
 	// The service name of the mutating webhook to manage
 	mutatingWebhookServiceName string
 	// Max time for checking the validating webhook.
@@ -75,9 +72,6 @@ func (opts *enableCliOptions) Validate() error {
 		return fmt.Errorf("no webhook to enable")
 	}
 	if opts.enableValidationWebhook {
-		if len(opts.validatingWebhookConfigName) == 0 {
-			return fmt.Errorf("must specify a valid --validation-config")
-		}
 		if len(opts.validationWebhookConfigPath) == 0 {
 			return fmt.Errorf("must specify a valid --validation-path")
 		}
@@ -89,9 +83,6 @@ func (opts *enableCliOptions) Validate() error {
 		}
 	}
 	if opts.enableMutationWebhook {
-		if len(opts.mutatingWebhookConfigName) == 0 {
-			return fmt.Errorf("must specify a valid --injection-config")
-		}
 		if len(opts.mutatingWebhookConfigPath) == 0 {
 			return fmt.Errorf("must specify a valid --injection-path")
 		}
@@ -193,10 +184,9 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 			if err != nil {
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
-			validationErr, injectionErr := enableWebhookConfig(client, opts)
-			if validationErr != nil || injectionErr != nil {
-				return fmt.Errorf("error when enabling webhook configurations. validation err: %v. injection err: %v",
-					validationErr, injectionErr)
+			err = enableWebhookConfig(client, opts)
+			if err != nil {
+				return fmt.Errorf("err when enabling webhook configurations: %v", err)
 			}
 			fmt.Println("webhook configurations have been enabled")
 			return nil
@@ -219,10 +209,6 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 		"The file path of the validation webhook configuration.")
 	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-path", "",
 		"The file path of the injection webhook configuration.")
-	flags.StringVar(&opts.validatingWebhookConfigName, "validation-config", "istio-galley",
-		"The name of the ValidatingWebhookConfiguration to manage.")
-	flags.StringVar(&opts.mutatingWebhookConfigName, "injection-config", "istio-sidecar-injector",
-		"The name of the MutatingWebhookConfiguration to manage.")
 	flags.StringVar(&opts.validatingWebhookServiceName, "validation-service", "istio-galley",
 		"The service name of the validation webhook to manage.")
 	flags.StringVar(&opts.mutatingWebhookServiceName, "injection-service", "istio-sidecar-injector",
@@ -327,12 +313,13 @@ istioctl experimental post-install webhook status --validation --validation-conf
 // Create the validatingwebhookconfiguration
 func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 	config *v1beta1.ValidatingWebhookConfiguration) (*v1beta1.ValidatingWebhookConfiguration, error) {
-	var whConfig *v1beta1.ValidatingWebhookConfiguration
+	var whConfig, curConfig *v1beta1.ValidatingWebhookConfiguration
 	var err error
 	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-	_, err = client.Get(config.Name, metav1.GetOptions{})
+	curConfig, err = client.Get(config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Printf("update webhook configuration %v\n", config.Name)
+		config.ObjectMeta.ResourceVersion = curConfig.ObjectMeta.ResourceVersion
 		whConfig, err = client.Update(config)
 	} else {
 		fmt.Printf("create webhook configuration %v\n", config.Name)
@@ -344,12 +331,13 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 // Create the mutatingwebhookconfiguration
 func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
 	config *v1beta1.MutatingWebhookConfiguration) (*v1beta1.MutatingWebhookConfiguration, error) {
-	var whConfig *v1beta1.MutatingWebhookConfiguration
+	var curConfig, whConfig *v1beta1.MutatingWebhookConfiguration
 	var err error
 	client := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	_, err = client.Get(config.Name, metav1.GetOptions{})
+	curConfig, err = client.Get(config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Printf("update webhook configuration %v\n", config.Name)
+		config.ObjectMeta.ResourceVersion = curConfig.ObjectMeta.ResourceVersion
 		whConfig, err = client.Update(config)
 	} else {
 		fmt.Printf("create webhook configuration %v\n", config.Name)
@@ -359,26 +347,31 @@ func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
 }
 
 // Enable webhook configurations
-func enableWebhookConfig(client kubernetes.Interface, opt *enableCliOptions) (error, error) {
-	var validationErr, injectionErr error
+func enableWebhookConfig(client kubernetes.Interface, opt *enableCliOptions) error {
+	var errRet error
 
 	// Read Kubernetes CA certificate that will be used as the CA bundle of the webhook configurations
 	caCert, err := readCACert(client, opt.caCertPath, opt.webhookSecretName, opt.webhookSecretNameSpace,
 		opt.maxTimeForReadingWebhookCert)
 	if err != nil {
-		validationErr = fmt.Errorf("err when reading CA certificate: %v", err)
-		injectionErr = validationErr
-		return validationErr, injectionErr
+		errRet = multierror.Append(errRet, fmt.Errorf("err when reading CA certificate: %v", err))
+		return errRet
 	}
 	fmt.Printf("Webhook CA certificate:\n%v\n", string(caCert))
 
 	if opt.enableValidationWebhook {
-		validationErr = enableValidationWebhookConfig(client, caCert, opt)
+		err := enableValidationWebhookConfig(client, caCert, opt)
+		if err != nil {
+			errRet = multierror.Append(errRet, err)
+		}
 	}
 	if opt.enableMutationWebhook {
-		injectionErr = enableMutationWebhookConfig(client, caCert, opt)
+		err := enableMutationWebhookConfig(client, caCert, opt)
+		if err != nil {
+			errRet = multierror.Append(errRet, err)
+		}
 	}
-	return validationErr, injectionErr
+	return errRet
 }
 
 // Enable validation webhook configuration
@@ -389,11 +382,7 @@ func enableValidationWebhookConfig(client kubernetes.Interface, caCert []byte, o
 	if err != nil {
 		return fmt.Errorf("err when checking validation webhook server: %v", err)
 	}
-	webhookConfig, err := buildValidatingWebhookConfig(
-		caCert,
-		opt.validationWebhookConfigPath,
-		opt.validatingWebhookConfigName,
-	)
+	webhookConfig, err := buildValidatingWebhookConfig(caCert, opt.validationWebhookConfigPath)
 	if err != nil {
 		return fmt.Errorf("err when build validatingwebhookconfiguration: %v", err)
 	}
@@ -412,11 +401,7 @@ func enableMutationWebhookConfig(client kubernetes.Interface, caCert []byte, opt
 	if err != nil {
 		return fmt.Errorf("err when checking injection webhook server: %v", err)
 	}
-	webhookConfig, err := buildMutatingWebhookConfig(
-		caCert,
-		opt.mutatingWebhookConfigPath,
-		opt.mutatingWebhookConfigName,
-	)
+	webhookConfig, err := buildMutatingWebhookConfig(caCert, opt.mutatingWebhookConfigPath)
 	if err != nil {
 		return fmt.Errorf("err when build mutatingwebhookconfiguration: %v", err)
 	}
@@ -563,8 +548,7 @@ func waitForServerRunning(client kubernetes.Interface, namespace, svc string, ma
 // Build the desired validatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildValidatingWebhookConfig(
-	caCert []byte, webhookConfigPath, webhookConfigName string,
-) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
@@ -575,9 +559,6 @@ func buildValidatingWebhookConfig(
 		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)
 	}
-
-	// the webhook name is fixed at startup time
-	webhookConfig.Name = webhookConfigName
 
 	// patch the ca-cert into the user provided configuration
 	for i := range webhookConfig.Webhooks {
@@ -590,8 +571,7 @@ func buildValidatingWebhookConfig(
 // Build the desired mutatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildMutatingWebhookConfig(
-	caCert []byte, webhookConfigPath, webhookConfigName string,
-) (*v1beta1.MutatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*v1beta1.MutatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
@@ -602,9 +582,6 @@ func buildMutatingWebhookConfig(
 		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)
 	}
-
-	// the webhook name is fixed at startup time
-	webhookConfig.Name = webhookConfigName
 
 	// patch the ca-cert into the user provided configuration
 	for i := range webhookConfig.Webhooks {
