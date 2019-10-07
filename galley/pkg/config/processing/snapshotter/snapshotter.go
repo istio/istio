@@ -62,6 +62,8 @@ type accumulator struct {
 // and also share a set of strategies.
 // Members of a snapshot group are defined via the per-collection accumulators that point to a group.
 type snapshotGroup struct {
+	name string
+
 	// How many collections in the current group still need to receive a FullSync before we start publishing.
 	remaining int
 	// Set of collections that have already received a FullSync. If we get a duplicate, it will be ignored.
@@ -143,7 +145,7 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	}
 
 	for _, o := range settings {
-		sg := newSnapshotGroup(len(o.Collections), o.Strategy)
+		sg := newSnapshotGroup(o.Group, len(o.Collections), o.Strategy)
 		s.snapshotGroups = append(s.snapshotGroups, sg)
 		for _, c := range o.Collections {
 			a := s.accumulators[c]
@@ -158,8 +160,9 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	return s, nil
 }
 
-func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
+func newSnapshotGroup(name string, size int, strategy strategy.Instance) *snapshotGroup {
 	sg := &snapshotGroup{
+		name:     name,
 		strategy: strategy,
 	}
 	sg.reset(size)
@@ -168,12 +171,16 @@ func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
 
 func (sg *snapshotGroup) onSync(c *coll.Instance) {
 	if !sg.synced[c] {
+		// TODO: Remove before checkin
 		sg.remaining--
 		sg.synced[c] = true
+		scope.Analysis.Warnf("### sg.onSync(%v) => remaining: %v", c.Name(), sg.remaining)
 	}
 
 	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
 	if sg.remaining == 0 {
+		// TODO: Remove before checkin
+		scope.Analysis.Warnf("### sg.onSync: strategy.OnChange: ", sg.strategy.OnChange)
 		sg.strategy.OnChange()
 	}
 }

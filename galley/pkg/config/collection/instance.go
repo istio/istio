@@ -33,6 +33,11 @@ type Instance struct {
 	copyOnWrite bool
 }
 
+// Name of the collection
+func (c *Instance) Name() collection.Name {
+	return c.collection
+}
+
 // New returns a new collection.Instance
 func New(collection collection.Name) *Instance {
 	return &Instance{

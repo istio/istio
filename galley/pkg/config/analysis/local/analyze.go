@@ -118,7 +118,10 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	rt.Start()
 	defer rt.Stop()
 
+	// TODO: Fix before checkin
+	scope.Analysis.Warnf("$$$ Waiting for report...")
 	if updater.WaitForReport(cancel) {
+		scope.Analysis.Warnf("$$$ Wait for report complete...")
 		return updater.Get(), nil
 	}
 

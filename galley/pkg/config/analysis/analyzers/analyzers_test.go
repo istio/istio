@@ -177,17 +177,17 @@ var testGrid = []testCase{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17617")
+	// t.Skip("https://github.com/istio/istio/issues/17617")
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
 
 	// For each test case, verify we get the expected messages as output
-	for _, testCase := range testGrid {
-		testCase := testCase // Capture range variable so subtests work correctly
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, entry := range testGrid {
+		tc := entry // Capture range variable so subtests work correctly
+		t.Run(tc.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
-			analyzerName := testCase.analyzer.Metadata().Name
+			analyzerName := tc.analyzer.Metadata().Name
 			cr := func(col collection.Name) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
 					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
@@ -195,18 +195,21 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), cr, true)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", tc.analyzer), cr, true)
 
-			sa.AddFileKubeSource(testCase.inputFiles, "")
+			err := sa.AddFileKubeSource(tc.inputFiles, "")
+			if err != nil {
+				t.Fatalf("error adding kube source file: %v", err)
+			}
 			cancel := make(chan struct{})
 
 			msgs, err := sa.Analyze(cancel)
 			if err != nil {
-				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
+				t.Fatalf("Error running analysis on testcase %s: %v", tc.name, err)
 			}
 
 			actualMsgs := extractFields(msgs)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
+			g.Expect(actualMsgs).To(ConsistOf(tc.expected))
 		})
 	}
 

@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // StatusUpdater updates resource statuses, based on the given diagnostic messages.
@@ -27,9 +28,10 @@ type StatusUpdater interface {
 
 // InMemoryStatusUpdater is an in-memory implementation of StatusUpdater
 type InMemoryStatusUpdater struct {
-	mu     sync.RWMutex
-	m      diag.Messages
-	waitCh chan struct{}
+	mu      sync.RWMutex
+	updated bool
+	m       diag.Messages
+	waitCh  chan struct{}
 }
 
 var _ StatusUpdater = &InMemoryStatusUpdater{}
@@ -38,6 +40,9 @@ var _ StatusUpdater = &InMemoryStatusUpdater{}
 func (u *InMemoryStatusUpdater) Update(m diag.Messages) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	// TODO: Fix before checkin
+	scope.Analysis.Warnf("$$$ Update received: %v", m)
+	u.updated = true
 	u.m = m
 	if u.waitCh != nil {
 		close(u.waitCh)
@@ -54,7 +59,7 @@ func (u *InMemoryStatusUpdater) Get() diag.Messages {
 // WaitForReport blocks until a report is available. Returns true if a report is available, false if cancelCh was closed.
 func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
 	u.mu.Lock()
-	if u.m != nil {
+	if u.updated {
 		u.mu.Unlock()
 		return true
 	}
