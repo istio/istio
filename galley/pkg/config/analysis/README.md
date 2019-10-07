@@ -177,6 +177,14 @@ You can use `istioctl experimental analyze` to run all analyzers, including your
 make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
 ```
 
+### 6. Write a user-facing documentation page
+
+Each analysis message needs to be documented for customers. This is done by introducing a markdown file for
+each message in the istio.io repo in the content/en/docs/reference/config/analysis directory. You create
+a subdirectory with the code of the error message, and add a `index.md` file that contains the
+full description of the problem with potential remediation steps, examples, etc. See the existing
+files in that directory for examples of how this is done.
+
 ## FAQ
 
 ### What if I need a resource not available as a collection?
