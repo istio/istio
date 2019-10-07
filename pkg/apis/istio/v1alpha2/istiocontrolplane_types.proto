@@ -17,6 +17,7 @@ syntax = "proto3";
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
+import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 // $title: Operator Installation
@@ -160,6 +161,8 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //                   value: --livenessProbeInterval=123s
 //     ```
 package v1alpha2;
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 message IstioControlPlane {
@@ -521,15 +524,10 @@ message InstallStatus {
     message VersionStatus {
         string version = 1;
         Status status = 2;
+        string error = 3;
     }
 
-    VersionStatus traffic_management = 1;
-    VersionStatus policy_telemetry = 2;
-    VersionStatus security = 3;
-    VersionStatus config_management = 4;
-
-    repeated VersionStatus ingress_gateway = 5;
-    repeated VersionStatus egress_gateway = 6;
+    map<string, VersionStatus> status = 1;
 }
 
 // Mirrors k8s.io.api.core.v1.ResourceRequirements for unmarshaling.

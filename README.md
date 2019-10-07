@@ -225,7 +225,7 @@ mesh manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/manifes
 
 ### New API customization
 
-The [new platform level installation API](https://github.com/istio/operator/blob/95e89c4fb838b0b374f70d7c5814329e25a64819/pkg/apis/istio/v1alpha1/istioinstaller_types.proto#L25)
+The [new platform level installation API](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
 defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
 The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
 
@@ -281,7 +281,7 @@ spec:
 ```
 
 The K8s settings are defined in detail in the
-[operator API](https://github.com/istio/operator/blob/95e89c4fb838b0b374f70d7c5814329e25a64819/pkg/apis/istio/v1alpha1/istioinstaller_types.proto#L394).
+[operator API](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
 way as galley settings. Supported K8s settings currently include:
 

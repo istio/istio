@@ -719,39 +719,9 @@ components:
 </tr>
 </thead>
 <tbody>
-<tr id="InstallStatus-traffic_management">
-<td><code>trafficManagement</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="InstallStatus-policy_telemetry">
-<td><code>policyTelemetry</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="InstallStatus-security">
-<td><code>security</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="InstallStatus-config_management">
-<td><code>configManagement</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="InstallStatus-ingress_gateway">
-<td><code>ingressGateway</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
-<td>
-</td>
-</tr>
-<tr id="InstallStatus-egress_gateway">
-<td><code>egressGateway</code></td>
-<td><code><a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus[]</a></code></td>
+<tr id="InstallStatus-status">
+<td><code>status</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a>&gt;</code></td>
 <td>
 </td>
 </tr>
@@ -811,6 +781,12 @@ components:
 <tr id="InstallStatus-VersionStatus-status">
 <td><code>status</code></td>
 <td><code><a href="#InstallStatus-Status">InstallStatus.Status</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstallStatus-VersionStatus-error">
+<td><code>error</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 </tr>

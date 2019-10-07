@@ -17,6 +17,8 @@ package istiocontrolplane
 import (
 	"context"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,13 +30,17 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	istiov1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/operator/pkg/helmreconciler"
 )
 
 var log = logf.Log.WithName("controller_istiocontrolplane")
 
-const finalizer = "istio-operator"
+const (
+	finalizer = "istio-operator"
+	v1        = "v1alpha2"
+	// finalizerMaxRetries defines the maximum number of attempts to add finalizers.
+	finalizerMaxRetries = 10
+)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -44,11 +50,11 @@ const finalizer = "istio-operator"
 // Add creates a new IstioControlPlane Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	return add(mgr, newReconciler(mgr, v1))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, _ string) reconcile.Reconciler {
 	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
 	return &ReconcileIstioControlPlane{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory}
 }
@@ -62,7 +68,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource IstioControlPlane
-	err = c.Watch(&source.Kind{Type: &istiov1alpha1.IstioControlPlane{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha2.IstioControlPlane{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -71,7 +77,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to secondary resource Pods and requeue the owner IstioControlPlane
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &istiov1alpha1.IstioControlPlane{},
+		OwnerType:    &v1alpha2.IstioControlPlane{},
 	})
 	if err != nil {
 		return err
@@ -103,7 +109,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Reconciling IstioControlPlane")
 
 	// Fetch the IstioControlPlane instance
-	instance := &istiov1alpha1.IstioControlPlane{}
+	instance := &v1alpha2.IstioControlPlane{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -133,13 +139,14 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		} else {
 			reqLogger.Error(err, "failed to create reconciler")
 		}
-		// XXX: for now, nuke the resources, regardless of errors
+		// TODO: for now, nuke the resources, regardless of errors
 		finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
 		instance.SetFinalizers(finalizers)
 		finalizerError := r.client.Update(context.TODO(), instance)
-		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < 5; retryCount++ {
+		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			// workaround for https://github.com/kubernetes/kubernetes/issues/73098 for k8s < 1.14
-			reqLogger.Info("confilict during finalizer removal, retrying")
+			// TODO: make this error message more meaningful.
+			reqLogger.Info("conflict during finalizer removal, retrying")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, instance)
 			finalizers = instance.GetFinalizers()
 			finalizerIndex = indexOf(finalizers, finalizer)
@@ -152,17 +159,12 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		}
 		return reconcile.Result{}, err
 	} else if finalizerIndex < 0 {
-		reqLogger.V(1).Info("Adding finalizer", "finalizer", finalizer)
+		// TODO: make this error message more meaningful.
+		reqLogger.V(2).Info("Adding finalizer", "finalizer", finalizer)
 		finalizers = append(finalizers, finalizer)
 		instance.SetFinalizers(finalizers)
 		err = r.client.Update(context.TODO(), instance)
 		return reconcile.Result{}, err
-	}
-
-	if instance.GetGeneration() == instance.Status.ObservedGeneration &&
-		instance.Status.GetCondition(istiov1alpha1.ConditionTypeReconciled).Status == istiov1alpha1.ConditionStatusTrue {
-		reqLogger.Info("nothing to reconcile, generations match")
-		return reconcile.Result{}, nil
 	}
 
 	reqLogger.Info("Updating IstioControlPlane")
