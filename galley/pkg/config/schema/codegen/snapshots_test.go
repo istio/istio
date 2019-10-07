@@ -21,39 +21,36 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestStaticCollections(t *testing.T) {
+func TestStaticSnapshots(t *testing.T) {
 	var cases = []struct {
 		packageName string
-		collections []string
+		snapshots   []string
 		err         string
 		output      string
 	}{
 		{
 			packageName: "pkg",
-			collections: []string{"foo", "bar"},
+			snapshots:   []string{"foo", "bar"},
 			output: `
+
 // GENERATED FILE -- DO NOT EDIT
 //
 
 package pkg
 
-import (
-	"istio.io/istio/galley/pkg/config/schema/collection"
-)
-
 var (
 
-	// Bar is the name of collection bar
-	Bar = collection.NewName("bar")
+	// Bar is the name of snapshot bar
+	Bar = "bar"
 
-	// Foo is the name of collection foo
-	Foo = collection.NewName("foo")
+	// Foo is the name of snapshot foo
+	Foo = "foo"
 
 )
 
-// CollectionNames returns the collection names declared in this package.
-func CollectionNames() []collection.Name {
-	return []collection.Name {
+// SnapshotNames returns the snapshot names declared in this package.
+func SnapshotNames() []string {
+	return []string {
 		Bar,
 		Foo,
 		
@@ -66,7 +63,7 @@ func CollectionNames() []collection.Name {
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			s, err := StaticCollections(c.packageName, c.collections)
+			s, err := StaticSnapshots(c.packageName, c.snapshots)
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))

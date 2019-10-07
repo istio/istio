@@ -144,7 +144,6 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
 	go.opencensus.io v0.21.0
 	go.uber.org/atomic v1.4.0
-	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
@@ -160,7 +159,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20190930180221-6b9215326786
+	istio.io/api v0.0.0-20191001004624-ca4d65802c86
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20190923170413-6e6db1228c1f
 	istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229

@@ -47,6 +47,10 @@ import (
 	"istio.io/pkg/version"
 )
 
+const (
+	enableJitterForRootCertRotator = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+)
+
 type cliOptions struct { // nolint: maligned
 	// Comma separated string containing all listened namespaces
 	listenedNamespaces        string
@@ -63,6 +67,7 @@ type cliOptions struct { // nolint: maligned
 	selfSignedCA                    bool
 	selfSignedCACertTTL             time.Duration
 	selfSignedRootCertCheckInterval time.Duration
+	enableJitterForRootCertRotator  bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -120,6 +125,11 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
+		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
+			true,
+			"If true, set up a jitter to start root cert rotator. "+
+				"Jitter selects a backoff time in seconds to start root cert rotator, "+
+				"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -447,10 +457,10 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			opts.selfSignedRootCertCheckInterval = 1 * time.Minute
 		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
-			opts.selfSignedCACertTTL,
-			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
+			opts.selfSignedCACertTTL, opts.selfSignedRootCertCheckInterval,
+			opts.workloadCertTTL, opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(),
+			opts.dualUse, opts.istioCaStorageNamespace, checkInterval, client,
+			opts.rootCertFile, opts.enableJitterForRootCertRotator)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}

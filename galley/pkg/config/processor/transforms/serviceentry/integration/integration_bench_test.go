@@ -116,7 +116,16 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
 	transformProviders := transforms.Providers(metadata.MustGet())
-	processor, err := processor.Initialize(m, domainSuffix, src, transformProviders, distributor)
+
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       domainSuffix,
+		Source:             src,
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
+	}
+	processor, err := processor.Initialize(processorSettings)
 	if err != nil {
 		b.Fatal(err)
 	}

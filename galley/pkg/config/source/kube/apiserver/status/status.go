@@ -15,6 +15,7 @@
 package status
 
 import (
+	"reflect"
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/resource"
@@ -87,5 +88,6 @@ func (r *status) isEnqueued() bool {
 }
 
 func (r *status) needsChange() bool {
-	return r.observedStatus != r.desiredStatus
+	// Status may be a slice, in which case equality isn't defined, so we use reflect.DeepEqual instead
+	return !reflect.DeepEqual(r.observedStatus, r.desiredStatus)
 }

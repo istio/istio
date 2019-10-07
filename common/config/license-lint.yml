@@ -96,6 +96,7 @@ whitelisted_modules:
   - github.com/juju/loggo
   - github.com/juju/testing
   - github.com/julienschmidt/httprouter
+  - github.com/koneu/natend
   - github.com/kr/logfmt
   - github.com/libopenstorage/openstorage
   - github.com/logrusorgru/aurora

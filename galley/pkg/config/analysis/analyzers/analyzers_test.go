@@ -196,7 +196,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer, cr)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), cr, true)
 
 			sa.AddFileKubeSource(testCase.inputFiles, "")
 			cancel := make(chan struct{})
