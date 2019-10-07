@@ -165,8 +165,9 @@ type SecretCache struct {
 	rootCert           []byte
 	rootCertExpireTime time.Time
 
-	// Source of random numbers.
-	rand *rand.Rand
+	// Source of random numbers. It is not concurrency safe, requires lock protected.
+	rand 			*rand.Rand
+	randMutex	*sync.Mutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -177,6 +178,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey,
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
 		configOptions:  options,
+		randMutex:			&sync.Mutex{},
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -687,7 +689,9 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
+	sc.randMutex.Lock()
 	backOffInMilliSec := sc.rand.Int63n(sc.configOptions.InitialBackoff)
+	sc.randMutex.Unlock()
 	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
