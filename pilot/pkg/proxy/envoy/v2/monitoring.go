@@ -104,7 +104,7 @@ var (
 
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
-		"Total time in second Pilot takes to push lds, rds, cds and eds.",
+		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 		monitoring.WithLabels(typeTag),
 	)
@@ -117,14 +117,14 @@ var (
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
-		"Time a proxy is in the push queue before being dequeued.",
+		"Time in seconds, a proxy is in the push queue before being dequeued.",
 		[]float64{.1, 1, 3, 5, 10, 20, 30},
 	)
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
-		"Delay between config change and a proxy receiving all required configuration.",
+		"Delay in seconds between config change and a proxy receiving all required configuration.",
 		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
