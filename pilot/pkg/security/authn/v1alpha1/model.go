@@ -66,3 +66,15 @@ func GetMutualTLSMode(policy *authn.Policy) MutualTLSMode {
 	}
 	return MTLSDisable
 }
+
+// String converts MutualTLSMode to human readable string for debugging.
+func (mode MutualTLSMode) String() string {
+	// declare an array of strings
+	names := [...]string{
+		"UNKNOWN",
+		"DISABLE",
+		"PERMISSIVE",
+		"STRICT"}
+
+	return names[mode]
+}
