@@ -23,7 +23,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,13 +34,9 @@ import (
 // or deletes all resources associated with a specific instance of a custom resource.
 type HelmReconciler struct {
 	client     client.Client
-	logger     logr.Logger
 	customizer RenderingCustomizer
 	instance   runtime.Object
 }
-
-var _ LoggerProvider = &HelmReconciler{}
-var _ ClientProvider = &HelmReconciler{}
 
 // Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
 type Factory struct {
@@ -53,7 +48,7 @@ type Factory struct {
 // instance is the custom resource to be reconciled/deleted.
 // client is the kubernetes client
 // logger is the logger
-func (f *Factory) New(instance runtime.Object, client client.Client, logger logr.Logger) (*HelmReconciler, error) {
+func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmReconciler, error) {
 	delegate, err := f.CustomizerFactory.NewCustomizer(instance)
 	if err != nil {
 		return nil, err
@@ -62,7 +57,7 @@ func (f *Factory) New(instance runtime.Object, client client.Client, logger logr
 	if err != nil {
 		return nil, err
 	}
-	reconciler := &HelmReconciler{client: client, logger: logger, customizer: wrappedcustomizer, instance: instance}
+	reconciler := &HelmReconciler{client: client, customizer: wrappedcustomizer, instance: instance}
 	wrappedcustomizer.RegisterReconciler(reconciler)
 	return reconciler, nil
 }
@@ -185,16 +180,11 @@ func (h *HelmReconciler) Delete() error {
 	// any post processing required after deleting
 	err = utilerrors.NewAggregate(allErrors)
 	if listenerErr := h.customizer.Listener().EndDelete(h.instance, err); listenerErr != nil {
-		h.logger.Error(listenerErr, "error calling listener")
+		log.Errorf("error calling listener: %s", listenerErr)
 	}
 
 	// return any errors
 	return err
-}
-
-// GetLogger returns the logger associated with this HelmReconciler
-func (h *HelmReconciler) GetLogger() logr.Logger {
-	return h.logger
 }
 
 // GetClient returns the kubernetes client associated with this HelmReconciler

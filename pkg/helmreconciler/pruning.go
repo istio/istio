@@ -17,6 +17,8 @@ package helmreconciler
 import (
 	"context"
 
+	"istio.io/pkg/log"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,7 +54,7 @@ func (h *HelmReconciler) PruneResources(gvks []schema.GroupVersionKind, all bool
 		objects.SetGroupVersionKind(gvk)
 		err := h.client.List(context.TODO(), objects, client.MatchingLabels(ownerLabels), client.InNamespace(namespace))
 		if err != nil {
-			h.logger.Error(err, "Error retrieving resources to prune", "type", gvk.String())
+			log.Errorf("error retrieving resources to prune type %s: %s", gvk.String(), err)
 			allErrors = append(allErrors, err)
 			continue
 		}
@@ -69,11 +71,11 @@ func (h *HelmReconciler) PruneResources(gvks []schema.GroupVersionKind, all bool
 			err = h.client.Delete(context.TODO(), &object, client.PropagationPolicy(metav1.DeletePropagationBackground))
 			if err == nil {
 				if listenerErr := h.customizer.Listener().ResourceDeleted(&object); listenerErr != nil {
-					h.logger.Error(err, "error calling listener")
+					log.Errorf("error calling listener: %s", err)
 				}
 			} else {
 				if listenerErr := h.customizer.Listener().ResourceError(&object, err); listenerErr != nil {
-					h.logger.Error(err, "error calling listener")
+					log.Errorf("error calling listener: %s", err)
 				}
 				allErrors = append(allErrors, err)
 			}

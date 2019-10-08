@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/pkg/log"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -170,29 +172,28 @@ func (c *IstioDefaultChartCustomizer) serviceReady(svc *corev1.Service) bool {
 	}
 	// Check if services except the headless services have the IP set
 	if svc.Spec.ClusterIP != corev1.ClusterIPNone && svc.Spec.ClusterIP == "" {
-		c.Reconciler.GetLogger().Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
+		log.Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
 		return false
 	}
 	// Check if the service has a LoadBalancer with an Ingress ready
 	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer && svc.Status.LoadBalancer.Ingress == nil {
-		c.Reconciler.GetLogger().Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
+		log.Info(fmt.Sprintf("Service is not ready: %s/%s", svc.GetNamespace(), svc.GetName()))
 		return false
 	}
 	return true
 }
 
 func (c *IstioDefaultChartCustomizer) waitForService(object runtime.Object) {
-	logger := c.Reconciler.GetLogger()
 	gvk := object.GetObjectKind().GroupVersionKind()
 	objectAccessor, err := meta.Accessor(object)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("could not get object accessor for %s", gvk.Kind))
+		log.Error(fmt.Sprintf("could not get object accessor for %s", gvk.Kind))
 		return
 	}
 	name := objectAccessor.GetName()
 	service, ok := object.(*corev1.Service)
 	if ok {
-		logger.Info("waiting for service to become ready", name)
+		log.Infof("waiting for service to become ready; %s", name)
 		err = wait.ExponentialBackoff(wait.Backoff{
 			Duration: finalizerRemovalBackoffDuration,
 			Steps:    finalizerRemovalBackoffSteps,
@@ -201,7 +202,7 @@ func (c *IstioDefaultChartCustomizer) waitForService(object runtime.Object) {
 			return c.serviceReady(service), nil
 		})
 		if err != nil {
-			logger.Error(nil, "service failed to become ready in a timely manner", name)
+			log.Errorf("service failed to become ready in a timely manner: %s", name)
 		}
 	}
 }
@@ -209,10 +210,9 @@ func (c *IstioDefaultChartCustomizer) waitForService(object runtime.Object) {
 // XXX: configure wait period
 func (c *IstioDefaultChartCustomizer) waitForDeployment(object runtime.Object) {
 	gvk := object.GetObjectKind().GroupVersionKind()
-	logger := c.Reconciler.GetLogger()
 	objectAccessor, err := meta.Accessor(object)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("could not get object accessor for %s", gvk.Kind))
+		log.Error(fmt.Sprintf("could not get object accessor for %s", gvk.Kind))
 		return
 	}
 	name := objectAccessor.GetName()
@@ -220,7 +220,7 @@ func (c *IstioDefaultChartCustomizer) waitForDeployment(object runtime.Object) {
 	deployment := &unstructured.Unstructured{}
 	deployment.SetGroupVersionKind(gvk)
 	// wait for deployment replicas >= 1
-	logger.Info("waiting for deployment to become ready", gvk.Kind, name)
+	log.Infof("waiting for deployment to become ready: %s, %s", gvk.Kind, name)
 	err = wait.ExponentialBackoff(wait.Backoff{
 		Duration: finalizerRemovalBackoffDuration,
 		Steps:    finalizerRemovalBackoffSteps,
@@ -231,14 +231,14 @@ func (c *IstioDefaultChartCustomizer) waitForDeployment(object runtime.Object) {
 			val, _, _ := unstructured.NestedInt64(deployment.UnstructuredContent(), "status", "readyReplicas")
 			return val > 0, nil
 		} else if errors.IsNotFound(err) {
-			logger.Error(nil, "attempting to wait on unknown deployment", gvk.Kind, name)
+			log.Errorf("attempting to wait on unknown deployment: %s, %s", gvk.Kind, name)
 			return true, nil
 		}
-		logger.Error(err, "unexpected error occurred waiting for deployment to become ready", gvk.Kind, name)
+		log.Errorf("unexpected error occurred waiting for deployment to become ready: %s, %s: %s", gvk.Kind, name, err)
 		return false, err
 	})
 	if err != nil {
-		logger.Error(nil, "deployment failed to become ready in a timely manner", gvk.Kind, name)
+		log.Errorf("deployment failed to become ready in a timely manner: %s, %s", gvk.Kind, name)
 	}
 }
 

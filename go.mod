@@ -8,6 +8,8 @@ replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3 // indirect
+	github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c // indirect
+	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7
@@ -28,7 +30,7 @@ require (
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/common v0.2.0
+	github.com/prometheus/common v0.6.0
 	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
