@@ -62,6 +62,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-openapi/spec v0.19.3 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
@@ -161,7 +162,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20191001004624-ca4d65802c86
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
-	istio.io/operator v0.0.0-20190923170413-6e6db1228c1f
+	istio.io/operator v0.0.0-20191008215643-ac62f7e15efe
 	istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
