@@ -433,7 +433,7 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
 
 			go watcher.Run(ctx)
 

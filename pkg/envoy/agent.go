@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"time"
 
 	"istio.io/pkg/log"
@@ -56,15 +57,12 @@ import (
 // attempt timers. The call to schedule a configuration update will block until
 // the control loop is ready to accept and process the configuration update.
 type Agent interface {
-	// ConfigCh returns the config channel used to send configuration updates.
-	// Agent compares the current active configuration to the desired state and
-	// initiates a restart if necessary. If the restart fails, the agent attempts
-	// to retry with an exponential back-off.
-	ConfigCh() chan<- interface{}
-
 	// Run starts the agent control loop and awaits for a signal on the input
 	// channel to exit the loop.
 	Run(ctx context.Context) error
+
+	// Restart triggers a hot restart of envoy, applying the given config to the new process
+	Restart(config interface{})
 }
 
 var errAbort = errors.New("epoch aborted")
@@ -75,9 +73,9 @@ const errOutOfMemory = "signal: killed"
 func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
 	return &agent{
 		proxy:                    proxy,
-		configCh:                 make(chan interface{}),
+		mu:                       &sync.Mutex{},
 		statusCh:                 make(chan exitStatus),
-		abortCh:                  make(map[int]chan error),
+		activeEpochs:             map[int]chan error{},
 		terminationDrainDuration: terminationDrainDuration,
 		currentEpoch:             -1,
 	}
@@ -99,8 +97,8 @@ type agent struct {
 	// proxy commands
 	proxy Proxy
 
-	// desired configuration state
-	desiredConfig interface{}
+	mu           *sync.Mutex
+	activeEpochs map[int]chan error
 
 	// currentEpoch represents the epoch of the most recent proxy. When a new proxy is created this should be incremented
 	currentEpoch int
@@ -108,14 +106,8 @@ type agent struct {
 	// current configuration is the highest epoch configuration
 	currentConfig interface{}
 
-	// channel for posting desired configurations
-	configCh chan interface{}
-
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
-
-	// channel for aborting running instances
-	abortCh map[int]chan error
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
 	terminationDrainDuration time.Duration
@@ -126,24 +118,28 @@ type exitStatus struct {
 	err   error
 }
 
-func (a *agent) ConfigCh() chan<- interface{} {
-	return a.configCh
+func (a *agent) Restart(config interface{}) {
+	if !reflect.DeepEqual(a.currentConfig, config) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		log.Infof("Received new config")
+
+		a.currentConfig = config
+
+		// Increment the latest running epoch
+		a.currentEpoch++
+		abortCh := make(chan error, 1)
+		a.activeEpochs[a.currentEpoch] = abortCh
+		go a.runWait(a.currentConfig, a.currentEpoch, abortCh)
+	}
 }
 
 func (a *agent) Run(ctx context.Context) error {
 	log.Info("Starting proxy agent")
 	for {
 		select {
-		case config := <-a.configCh:
-			if !reflect.DeepEqual(a.desiredConfig, config) {
-				log.Infof("Received new config")
-				a.desiredConfig = config
-
-				a.reconcile()
-			}
-
 		case status := <-a.statusCh:
-			delete(a.abortCh, status.epoch)
+			a.mu.Lock()
 			if status.err != nil {
 				if status.err.Error() == errOutOfMemory {
 					log.Warnf("Envoy may have been out of memory killed. Check memory usage and limits.")
@@ -153,17 +149,17 @@ func (a *agent) Run(ctx context.Context) error {
 				log.Infof("Epoch %d exited normally", status.epoch)
 			}
 
-			a.proxy.Cleanup(status.epoch)
+			delete(a.activeEpochs, status.epoch)
 
-			if status.epoch == a.currentEpoch {
-				log.Infof("Latest epoch has exited. Aborting all epochs.")
-				if len(a.abortCh) == 0 {
-					log.Infof("All epoch aborted, exiting")
-					return status.err
-				}
-				a.abortAll()
-				log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
+			active := len(a.activeEpochs)
+			a.mu.Unlock()
+
+			if active == 0 {
+				log.Infof("No more active epochs, terminating")
+				return nil
 			}
+
+			log.Infof("%d active epochs running", active)
 
 		case <-ctx.Done():
 			a.terminate()
@@ -175,43 +171,26 @@ func (a *agent) Run(ctx context.Context) error {
 
 func (a *agent) terminate() {
 	log.Infof("Agent draining Proxy")
-	a.desiredConfig = DrainConfig{}
-	a.reconcile()
+	a.Restart(DrainConfig{})
 	log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 	time.Sleep(a.terminationDrainDuration)
 	log.Infof("Graceful termination period complete, terminating remaining proxies.")
 	a.abortAll()
 }
 
-func (a *agent) reconcile() {
-	// check that the config is current
-	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
-		log.Infof("Desired configuration is already applied")
-		return
-	}
-
-	// Increment the latest running epoch
-	a.currentEpoch++
-
-	// buffer aborts to prevent blocking on failing proxy
-	abortCh := make(chan error, 1)
-
-	a.abortCh[a.currentEpoch] = abortCh
-	a.currentConfig = a.desiredConfig
-
-	go a.runWait(a.desiredConfig, a.currentEpoch, abortCh)
-}
-
 // runWait runs the start-up command as a go routine and waits for it to finish
 func (a *agent) runWait(config interface{}, epoch int, abortCh <-chan error) {
 	log.Infof("Epoch %d starting", epoch)
 	err := a.proxy.Run(config, epoch, abortCh)
+	a.proxy.Cleanup(epoch)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}
 }
 
 // abortAll sends abort error to all proxies
 func (a *agent) abortAll() {
-	for epoch, abortCh := range a.abortCh {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for epoch, abortCh := range a.activeEpochs {
 		log.Warnf("Aborting epoch %d...", epoch)
 		abortCh <- errAbort
 	}
