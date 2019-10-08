@@ -34,7 +34,6 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
-{{ if .Values.pilot.enableCertificateController }}
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
@@ -44,6 +43,5 @@ rules:
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
   verbs: ["update", "create", "get", "delete"]
-{{ end }}
 ---
 {{ end }}

@@ -476,6 +476,15 @@ global:
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
 
+  # Configures DNS certificates provisioned through Chiron linked into Pilot.
+  # The DNS names in this file are all hard-coded; please ensure the namespaces
+  # in dnsNames are consistent with those of your services.
+  certificates:
+    - secretName: dns.istio-galley-service-account
+      dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+    - secretName: dns.istio-sidecar-injector-service-account
+      dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
 # For backward compat, it is set to 'true', resulting in the old-style installation.
