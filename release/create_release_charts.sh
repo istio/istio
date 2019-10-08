@@ -47,28 +47,21 @@ done
 
 set -x
 
-function get_version() {
-    # shellcheck disable=SC2155
-    local ver=$(git rev-parse --abbrev-ref HEAD)
-    if [[ "${ver}" == "HEAD" ]]; then
-      git describe --tags
-      return 0
-    fi
-    echo "${ver}"
-}
-
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
-OPERATOR_VERSION=$(get_version)
-TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio."${OPERATOR_VERSION}".XXXXXXXX)"}
+TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio.operator.XXXXXXXX)"}
 
-INSTALLER_VERSION=${INSTALLER_VERSION:-"${OPERATOR_VERSION}"}
+INSTALLER_SHA=$(cat "${OPERATOR_BASE_DIR}/installer.sha")
+INSTALLER_VERSION=${INSTALLER_VERSION:-"${INSTALLER_SHA}"}
 
 mkdir -p "${OUTPUT_DIR}"
 
 function copy_installer_charts() {
     cd "${TEMP_DIR}"
-    git clone -b "${INSTALLER_VERSION}" https://github.com/istio/${INSTALLER_REPO} || die "Could not clone installer repo at branch ${INSTALLER_VERSION}"
+    git clone https://github.com/istio/${INSTALLER_REPO} || die "Could not clone installer repo"
+    pushd ${INSTALLER_REPO}
+      git checkout "${INSTALLER_VERSION}"
+    popd
     local OUTPUT_CHARTS_DIR="${OUTPUT_DIR}/charts"
     mkdir -p "${OUTPUT_CHARTS_DIR}"
 
