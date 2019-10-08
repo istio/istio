@@ -73,6 +73,13 @@ const (
 
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
+
+	// CASecret stores the key/cert of self-signed CA for persistency purpose.
+	CASecret = "istio-ca-secret"
+	// caCertID is the CA certificate chain file.
+	caCertID = "ca-cert.pem"
+	// caPrivateKeyID is the private key file of CA.
+	caPrivateKeyID = "ca-key.pem"
 )
 
 var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
@@ -117,6 +124,8 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
+
+	caSecretController  *CaSecretController
 
 	// Controller and store for namespace objects
 	namespaceController cache.Controller
@@ -171,6 +180,7 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
 		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:  			 NewCaSecretController(core),
 		enableNamespacesByDefault: enableNamespacesByDefault,
 		minGracePeriod:            minGracePeriod,
 		dualUse:                   dualUse,
@@ -478,13 +488,33 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
+	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
+	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
+	// rotated by any Citadel and newer than the one in local key cert bundle.
+	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
+			sc.istioCaStorageNamespace, 100 * time.Millisecond, 5*time.Second)
+		if scrtErr != nil {
+			k8sControllerLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip updating secret %s",
+				sc.istioCaStorageNamespace, CASecret, scrtErr.Error(), name)
+			return
+		}
+		// If root cert in workload secret matches istio-ca-secret, and does not match
+		// the root cert in key cert bundle. Reload key cert bundle and skip updating
+		// workload secret.
+		if bytes.Equal(scrt.Data[RootCertID], caSecret.Data[caCertID]) {
+			if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
+				k8sControllerLog.Errorf("failed to reload CA KeyCertBundle (%v)", err)
+			}
+			return
+		}
+	}
+
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	// TODO(JimmyCYJ): Compare the root cert expiration time instead of raw bytes.
-	// When multiple Citadels are deployed, it is possible that root cert in local
-	// key cert bundle is older than the root cert in workload secret.
 	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		// if the namespace is not managed, don't refresh the expired secret, delete it
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})

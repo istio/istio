@@ -172,10 +172,18 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
+		rootCertificate := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
+		// If root certificate is different from the root certificate in local key
+		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
+		// Reload root certificate into key cert bundle.
+		if !bytes.Equal(rootCertificate, caSecret.Data[caCertID]) {
+			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
+				rootCertRotatorLog.Errorf("failed to reload CA KeyCertBundle (%v)", err)
+			}
+		}
 		return
 	}
-	// TODO(JimmyCYJ): If root cert in the secret is newer than the root cert in
-	// key cert bundle, we need to update key cert bundle.
 
 	rootCertRotatorLog.Info("Refresh root certificate")
 	options := util.CertOptions{
@@ -199,11 +207,6 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
-		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
-		return
-	}
-
 	caSecret.Data[caCertID] = pemCert
 	caSecret.Data[caPrivateKeyID] = pemKey
 	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.config.retryInterval, 30*time.Second); err != nil {
@@ -212,6 +215,13 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 	rootCertRotatorLog.Infof("A new self-generated root certificate is written into secret: %v", string(rootCerts))
+
+	// Only update key cert bundle after a new root certificate is written into
+	// istio-ca-secret.
+	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
+		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
+		return
+	}
 
 	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 	if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
