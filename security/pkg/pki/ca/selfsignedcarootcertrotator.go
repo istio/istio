@@ -17,6 +17,7 @@ package ca
 import (
 	"bytes"
 	"encoding/base64"
+	"math/rand"
 	"time"
 
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -33,16 +34,17 @@ import (
 var rootCertRotatorLog = log.RegisterScope("rootCertRotator", "Self-signed CA root cert rotator log", 0)
 
 type SelfSignedCARootCertRotatorConfig struct {
-	CheckInterval       time.Duration
-	caCertTTL           time.Duration
-	retryInterval       time.Duration
 	certInspector       certutil.CertUtil
 	caStorageNamespace  string
-	dualUse             bool
-	readSigningCertOnly bool
 	org                 string
 	rootCertFile        string
 	client              corev1.CoreV1Interface
+	CheckInterval       time.Duration
+	caCertTTL           time.Duration
+	retryInterval       time.Duration
+	dualUse             bool
+	readSigningCertOnly bool
+	enableJitter        bool
 }
 
 // SelfSignedCARootCertRotator automatically checks self-signed signing root
@@ -51,6 +53,7 @@ type SelfSignedCARootCertRotator struct {
 	configMapController *configmap.Controller
 	caSecretController  *controller.CaSecretController
 	config              *SelfSignedCARootCertRotatorConfig
+	backOffTime         time.Duration
 	ca                  *IstioCA
 }
 
@@ -64,11 +67,26 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 		config:              config,
 		ca:                  ca,
 	}
+	if config.enableJitter {
+		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
+		randSource := rand.NewSource(time.Now().UnixNano())
+		randBackOff := rand.New(randSource)
+		backOffSeconds := int(time.Duration(randBackOff.Int63n(int64(rotator.config.CheckInterval))).Seconds())
+		rotator.backOffTime = time.Duration(backOffSeconds) * time.Second
+		rootCertRotatorLog.Infof("Set up back off time %s to start rotator.", rotator.backOffTime.String())
+	} else {
+		rotator.backOffTime = time.Duration(0)
+	}
 	return rotator
 }
 
 // Run refreshes root certs and updates config map accordingly.
 func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
+	if rotator.config.enableJitter {
+		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
+			"starting root cert rotator.", rotator.backOffTime.String())
+		time.Sleep(rotator.backOffTime)
+	}
 	ticker := time.NewTicker(rotator.config.CheckInterval)
 	for {
 		select {
@@ -156,6 +174,8 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
 		return
 	}
+	// TODO(JimmyCYJ): If root cert in the secret is newer than the root cert in
+	// key cert bundle, we need to update key cert bundle.
 
 	rootCertRotatorLog.Info("Refresh root certificate")
 	options := util.CertOptions{

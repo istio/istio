@@ -22,6 +22,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -102,6 +103,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
 			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
 			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+		},
+		{
+			"skip namespace merge: one empty",
+			&PushRequest{Full: true, NamespacesUpdated: nil},
+			&PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{"ns2": {}}},
+			PushRequest{Full: true, NamespacesUpdated: nil},
+		},
+		{
+			"skip config type merge: one empty",
+			&PushRequest{Full: true, ConfigTypesUpdated: nil},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{"cfg2": {}}},
+			PushRequest{Full: true, ConfigTypesUpdated: nil},
 		},
 	}
 
@@ -268,6 +281,108 @@ func TestAuthNPolicies(t *testing.T) {
 		}
 	}
 
+}
+
+func TestJwtAuthNPolicy(t *testing.T) {
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	ps := NewPushContext()
+	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
+	ps.Env = env
+	authNPolicies := map[string]*authn.Policy{
+		constants.DefaultAuthenticationPolicyName: {},
+
+		"jwt-with-jwks-uri": {
+			Targets: []*authn.TargetSelector{{
+				Name: "jwt-svc-1",
+			}},
+			Origins: []*authn.OriginAuthenticationMethod{{
+				Jwt: &authn.Jwt{
+					Issuer:  "http://abc",
+					JwksUri: "http://xyz",
+				},
+			}},
+		},
+		"jwt-without-jwks-uri": {
+			Targets: []*authn.TargetSelector{{
+				Name: "jwt-svc-2",
+			}},
+			Origins: []*authn.OriginAuthenticationMethod{{
+				Jwt: &authn.Jwt{
+					Issuer: ms.URL,
+				},
+			}},
+		},
+	}
+
+	configStore := newFakeStore()
+	for key, value := range authNPolicies {
+		cfg := Config{
+			ConfigMeta: ConfigMeta{
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Domain:    "cluster.local",
+				Namespace: "default",
+			},
+			Spec: value,
+		}
+		if key == constants.DefaultAuthenticationPolicyName {
+			// Cluster-scoped policy
+			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
+			cfg.ConfigMeta.Namespace = NamespaceAll
+		} else {
+			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
+		}
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Error(err)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	if err := ps.initAuthnPolicies(env); err != nil {
+		t.Fatalf("init authn policies failed: %v", err)
+	}
+
+	cases := []struct {
+		hostname        host.Name
+		namespace       string
+		port            Port
+		expectedJwksURI string
+	}{
+		{
+			hostname:        "jwt-svc-1.default.svc.cluster.local",
+			namespace:       "default",
+			port:            Port{Port: 80},
+			expectedJwksURI: "http://xyz",
+		},
+		{
+			hostname:        "jwt-svc-2.default.svc.cluster.local",
+			namespace:       "default",
+			port:            Port{Port: 80},
+			expectedJwksURI: ms.URL + "/oauth2/v3/certs",
+		},
+	}
+
+	for _, c := range cases {
+		ps.ServiceByHostnameAndNamespace[c.hostname] = map[string]*Service{"default": nil}
+	}
+
+	for i, c := range cases {
+		service := &Service{
+			Hostname:   c.hostname,
+			Attributes: ServiceAttributes{Namespace: c.namespace},
+		}
+
+		if got := ps.AuthenticationPolicyForWorkload(service, &c.port); got.GetOrigins()[0].GetJwt().GetJwksUri() != c.expectedJwksURI {
+			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expectedJwksURI)
+		}
+	}
 }
 
 func TestEnvoyFilters(t *testing.T) {

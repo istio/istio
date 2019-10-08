@@ -194,7 +194,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,
@@ -256,7 +256,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,

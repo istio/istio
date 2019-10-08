@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -47,8 +47,8 @@ type AnalyzingDistributorSettings struct {
 	// The status updater to route diagnostic messages to
 	StatusUpdater StatusUpdater
 
-	// The analyzer that will perform the analysis
-	Analyzer analysis.Analyzer
+	// The top-level combined analyzer that will perform the analysis
+	Analyzer *analysis.CombinedAnalyzer
 
 	// The downstream distributor to call, after the analysis is done.
 	Distributor Distributor

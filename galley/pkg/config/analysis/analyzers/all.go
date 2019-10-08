@@ -32,11 +32,12 @@ func All() []analysis.Analyzer {
 		&virtualservice.DestinationRuleAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&injection.Analyzer{},
+		&injection.VersionAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 	}
 }
 
 // AllCombined returns all analyzers combined as one
-func AllCombined() analysis.Analyzer {
+func AllCombined() *analysis.CombinedAnalyzer {
 	return analysis.Combine("all", All()...)
 }

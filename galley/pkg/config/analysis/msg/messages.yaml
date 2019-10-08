@@ -80,3 +80,14 @@ messages:
         type: string
       - name: port
         type: int
+  
+  - name: "IstioProxyVersionMismatch"
+    code: IST0105
+    level: Warning
+    description: "The version of the Istio proxy running on the pod does not match the version used by the istio injector."
+    template: "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
+    args:
+      - name: proxyVersion
+        type: string
+      - name: injectionVersion
+        type: string

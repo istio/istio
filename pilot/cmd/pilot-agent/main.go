@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -28,6 +27,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -383,17 +383,12 @@ var (
 			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
-
 			ctx, cancel := context.WithCancel(context.Background())
-			defer func() {
-				log.Info("pilot-agent is terminating")
-				cancel()
-				wg.Wait()
-			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
 				if err != nil {
+					cancel()
 					return err
 				}
 				localHostAddr := "127.0.0.1"
@@ -410,6 +405,7 @@ var (
 					NodeType:           role.Type,
 				})
 				if err != nil {
+					cancel()
 					return err
 				}
 				go waitForCompletion(ctx, statusServer.Run)
@@ -434,14 +430,17 @@ var (
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 			})
-			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
-			go waitForCompletion(ctx, agent.Run)
-			go waitForCompletion(ctx, watcher.Run)
+			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			cmd.WaitSignal(make(chan struct{}))
-			return nil
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+
+			go watcher.Run(ctx)
+
+			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
+			go cmd.WaitSignalFunc(cancel)
+
+			return agent.Run(ctx)
 		},
 	}
 )
@@ -585,13 +584,12 @@ func timeDuration(dur *types.Duration) time.Duration {
 
 func fromJSON(j string) *meshconfig.RemoteService {
 	var m meshconfig.RemoteService
-	err := json.Unmarshal([]byte(j), &m)
+	err := jsonpb.UnmarshalString(j, &m)
 	if err != nil {
-		log.Warnf("Unable to unmarshal %s", j)
+		log.Warnf("Unable to unmarshal %s: %v", j, err)
 		return nil
 	}
 
-	log.Infof("%v", m)
 	return &m
 }
 

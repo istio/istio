@@ -19,8 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processor/groups"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
 )
 
 func TestDefault(t *testing.T) {

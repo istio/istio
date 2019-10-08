@@ -285,7 +285,7 @@ func TestApplyClusterPatches(t *testing.T) {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env)
+	push.InitContext(env, nil, nil)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ApplyClusterPatches(tc.patchContext, tc.proxy, push, tc.input)

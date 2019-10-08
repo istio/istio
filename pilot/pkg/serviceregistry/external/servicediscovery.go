@@ -85,17 +85,13 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 	return c
 }
 
-// AppendServiceHandler is an over-complicated way to add the v1 cache invalidation.
-// In <0.8 pilot it is not usingthe event or service param.
-// Deprecated: post 0.8 we're planning to use direct interface
+// AppendServiceHandler adds service resource event handler
 func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	d.serviceHandlers = append(d.serviceHandlers, f)
 	return nil
 }
 
-// AppendInstanceHandler is an over-complicated way to add the v1 cache invalidation.
-// In <0.8 pilot it is not usingthe event or service param.
-// Deprecated: post 0.8 we're planning to use direct interface
+// AppendInstanceHandler adds instance event handler.
 func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	d.instanceHandlers = append(d.instanceHandlers, f)
 	return nil

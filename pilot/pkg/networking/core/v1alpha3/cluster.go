@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -99,12 +100,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
-
 	switch proxy.Type {
 	case model.SidecarProxy:
+		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+		// DO NOT CALL PLUGINS for these two clusters.
+		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 		// apply load balancer setting for cluster endpoints
 		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
@@ -122,6 +122,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, inboundClusters...)
 
 	default: // Gateways
+		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
+		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env))
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
@@ -185,13 +187,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(service.Resolution)
+			discoveryType := convertResolution(proxy, service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", proxy.DNSDomain, port)
+				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
@@ -236,7 +238,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				}
 				subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
 				if len(env.Mesh.OutboundClusterStatName) != 0 {
-					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, proxy.DNSDomain, port)
+					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 				}
 				setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
@@ -305,7 +307,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(service.Resolution)
+			discoveryType := convertResolution(proxy, service.Resolution)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
@@ -525,17 +527,23 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			return nil
 		}
 
+		have := make(map[*model.Port]bool)
 		for _, instance := range instances {
-			pluginParams := &plugin.InputParams{
-				Env:             env,
-				Node:            proxy,
-				ServiceInstance: instance,
-				Port:            instance.Endpoint.ServicePort,
-				Push:            push,
-				Bind:            actualLocalHost,
+			// Filter out service instances with the same port as we are going to mark them as duplicates any way
+			// in normalizeClusters method.
+			if !have[instance.Endpoint.ServicePort] {
+				pluginParams := &plugin.InputParams{
+					Env:             env,
+					Node:            proxy,
+					ServiceInstance: instance,
+					Port:            instance.Endpoint.ServicePort,
+					Push:            push,
+					Bind:            actualLocalHost,
+				}
+				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+				clusters = append(clusters, localCluster)
+				have[instance.Endpoint.ServicePort] = true
 			}
-			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
-			clusters = append(clusters, localCluster)
 		}
 
 		// Add a passthrough cluster for traffic to management ports (health check ports)
@@ -653,7 +661,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", pluginParams.Node.DNSDomain, instance.Endpoint.ServicePort)
+			string(instance.Service.Hostname), "", instance.Endpoint.ServicePort, instance.Service.Attributes)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
@@ -680,14 +688,18 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	return localCluster
 }
 
-func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType {
+func convertResolution(proxy *model.Proxy, resolution model.Resolution) apiv2.Cluster_DiscoveryType {
 	switch resolution {
 	case model.ClientSideLB:
 		return apiv2.Cluster_EDS
 	case model.DNSLB:
 		return apiv2.Cluster_STRICT_DNS
 	case model.Passthrough:
-		return apiv2.Cluster_ORIGINAL_DST
+		// Gateways cannot use passthrough clusters. So fallback to EDS
+		if proxy.Type == model.SidecarProxy {
+			return apiv2.Cluster_ORIGINAL_DST
+		}
+		return apiv2.Cluster_EDS
 	default:
 		return apiv2.Cluster_EDS
 	}
@@ -1250,8 +1262,8 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 	}
 }
 
-func altStatName(statPattern string, host string, subset string, dnsDomain string, port *model.Port) string {
-	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, dnsDomain))
+func altStatName(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
+	name := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
 	name = strings.ReplaceAll(name, serviceFQDNStatPattern, host)
 	name = strings.ReplaceAll(name, subsetNameStatPattern, subset)
 	name = strings.ReplaceAll(name, servicePortStatPattern, strconv.Itoa(port.Port))
@@ -1259,14 +1271,12 @@ func altStatName(statPattern string, host string, subset string, dnsDomain strin
 	return name
 }
 
-func shortHostName(host string, dnsDomain string) string {
-	shortHost := strings.TrimSuffix(host, dnsDomain)
-	if parts := strings.Split(dnsDomain, "."); len(parts) > 1 {
-		shortHost += parts[0] // k8s will have namespace.<domain>
-	} else {
-		shortHost = host
+// shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
+func shortHostName(host string, attributes model.ServiceAttributes) string {
+	if attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
-	return shortHost
+	return host
 }
 
 func lbPolicyClusterProvided(proxy *model.Proxy) apiv2.Cluster_LbPolicy {

@@ -17,7 +17,6 @@ package v1alpha1
 import (
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // GetConsolidateAuthenticationPolicy returns the v1alpha1 authentication policy for workload specified by
@@ -31,7 +30,7 @@ func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceIns
 	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
-		if err := authn_model.JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+		if err := model.JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
 			return policy
 		}
 	}
@@ -65,4 +64,16 @@ func GetMutualTLSMode(policy *authn.Policy) MutualTLSMode {
 		return MTLSPermissive
 	}
 	return MTLSDisable
+}
+
+// String converts MutualTLSMode to human readable string for debugging.
+func (mode MutualTLSMode) String() string {
+	// declare an array of strings
+	names := [...]string{
+		"UNKNOWN",
+		"DISABLE",
+		"PERMISSIVE",
+		"STRICT"}
+
+	return names[mode]
 }

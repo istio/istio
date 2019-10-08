@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/schema/ast"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 // Metadata is the top-level container.
@@ -185,6 +185,17 @@ func (k KubeResources) MustFind(group, kind string) KubeResource {
 		panic(fmt.Sprintf("KubeSource.MustFind: unable to find %s/%s", group, kind))
 	}
 	return r
+}
+
+// DisabledCollections returns the names of disabled collections
+func (k KubeResources) DisabledCollections() collection.Names {
+	disabledCollections := make([]collection.Name, 0)
+	for _, r := range k {
+		if r.Disabled {
+			disabledCollections = append(disabledCollections, r.Collection.Name)
+		}
+	}
+	return disabledCollections
 }
 
 // DirectTransformSettings configuration

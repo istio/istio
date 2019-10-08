@@ -50,9 +50,7 @@ func TestReachability(t *testing.T) {
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false
 						}
-
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if src == rctx.Naked && opts.Target == rctx.Naked {
@@ -74,8 +72,7 @@ func TestReachability(t *testing.T) {
 							return false
 						}
 
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
@@ -95,15 +92,7 @@ func TestReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
-						if opts.Target == rctx.Naked {
-							return false
-						}
-
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-						return true
+						return opts.Target != rctx.Naked
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -113,10 +102,6 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "global-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {

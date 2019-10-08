@@ -31,11 +31,11 @@ fi
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
-DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-release}
-GCS_BUCKET=${GCS_BUCKET:-istio-prerelease/dev}
+DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=a873eb7c2b88222d649bc2df8f2ac8fb87990680
+BUILDER_SHA=f6aacd1d507eb989b09451f167ab021f4d89ef1a
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -50,7 +50,7 @@ mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
 version: ${VERSION}
-docker: docker.io/istio
+docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
   istio:
@@ -70,5 +70,7 @@ export PATH=${GOPATH}/bin:${PATH}
 release-builder build --manifest <(echo "${MANIFEST}")
 
 if [[ -z "${DRY_RUN:-}" ]]; then
-  release-builder publish --release "${WORK_DIR}/out" --gcsbucket "${GCS_BUCKET}" --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${NEXT_VERSION}-dev,latest"
+  release-builder publish --release "${WORK_DIR}/out" \
+    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
+    --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${NEXT_VERSION}-dev,latest"
 fi
