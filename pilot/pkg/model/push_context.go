@@ -1219,12 +1219,14 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // This replaces store.AuthenticationPolicyForWorkload
 func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
 	// Match by Service hostname
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
+	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
+		ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
 		return workloadPolicy, configMeta
 	}
 
 	// Match by namespace
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
+	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
+		ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
 		return workloadPolicy, configMeta
 	}
 
