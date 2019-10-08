@@ -70,7 +70,7 @@ export PATH=${GOPATH}/bin:${PATH}
 release-builder build --manifest <(echo "${MANIFEST}")
 
 if [[ -z "${DRY_RUN:-}" ]]; then
-  echo release-builder publish --release "${WORK_DIR}/out" \
+  release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
     --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${NEXT_VERSION}-dev,latest"
 fi
