@@ -172,21 +172,21 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
-		rootCertificate := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
-		// If root certificate is different from the root certificate in local key
+		caCert, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
+		// If CA certificate is different from the CA certificate in local key
 		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
 		// Reload root certificate into key cert bundle.
-		if !bytes.Equal(rootCertificate, caSecret.Data[caCertID]) {
-			rootCertRotatorLog.Warn("Root cert in KeyCertBundle does not match root cert in " +
+		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
 			if err != nil {
-				rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
+				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
 				return
 			}
 			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
-				rootCertRotatorLog.Errorf("failed to reload CA KeyCertBundle (%v)", err)
+				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 			}
 			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 		}

@@ -493,6 +493,7 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 	}
 }
 
+// TestAppendRootCerts verifies that AppendRootCerts works properly.
 func TestAppendRootCerts(t *testing.T) {
 	testCases := map[string]struct {
 		pemCert          []byte
@@ -523,6 +524,13 @@ func TestAppendRootCerts(t *testing.T) {
 			rootFile:         "../testdata/cert.pem",
 			expectedErr:      "",
 			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
+		},
+		"Not existing root file": {
+			pemCert:          []byte{},
+			rootFile:         "../testdata/notexistcert.pem",
+			expectedErr:      "failed to read root certificates (open ../testdata/notexistcert.pem: " +
+				"no such file or directory)",
+			expectedRootCert: []byte{},
 		},
 	}
 

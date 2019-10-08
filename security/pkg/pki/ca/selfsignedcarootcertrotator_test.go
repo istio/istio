@@ -222,7 +222,7 @@ func TestRootCertRotatorForSigningCitadel(t *testing.T) {
 }
 
 // TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel verifies that
-// rotator reloads key cert bundle if the root cert in key cert bundle is
+// rotator reloads root cert into KeyCertBundle if the root cert in key cert bundle is
 // different from istio-ca-secret.
 func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 	readOnlyCaOptions := getDefaultSelfSignedIstioCAOptions(nil)

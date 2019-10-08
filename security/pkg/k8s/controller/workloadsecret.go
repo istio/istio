@@ -165,7 +165,7 @@ type SecretController struct {
 func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
 	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
 	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string, rootCertFile string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -492,7 +492,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
 	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
-	// rotated by any Citadel and newer than the one in local key cert bundle.
+	// rotated by any Citadel and become newer than the one in local key cert bundle.
 	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
 			sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
@@ -501,11 +501,11 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 				sc.istioCaStorageNamespace, CASecret, scrtErr.Error(), name)
 			return
 		}
-		// The root cert from istio-ca-secret is the source of truth. If root cert
-		// in local keycertbundle does not match the root cert in istio-ca-secret,
+		// The CA cert from istio-ca-secret is the source of truth. If CA cert
+		// in local keycertbundle does not match the CA cert in istio-ca-secret,
 		// reload root cert into keycertbundle.
 		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
-			k8sControllerLog.Warn("Root cert in KeyCertBundle does not match root cert in " +
+			k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 			var err error
 			rootCertificate, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
