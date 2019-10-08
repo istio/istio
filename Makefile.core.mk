@@ -615,20 +615,12 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
+.PHONY: push artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
 push: docker.push installgen
-
-gcs.push: push gcs.push.istioctl-all gcs.push.deb
-
-gcs.push.istioctl-all: istioctl-all
-	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
-
-gcs.push.deb: deb
-	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
 
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
