@@ -67,10 +67,9 @@ type Agent interface {
 	Run(ctx context.Context) error
 }
 
-var (
-	errAbort       = errors.New("epoch aborted")
-	errOutOfMemory = "signal: killed"
-)
+var errAbort = errors.New("epoch aborted")
+
+const errOutOfMemory = "signal: killed"
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
@@ -158,14 +157,13 @@ func (a *agent) Run(ctx context.Context) error {
 
 			if status.epoch == a.currentEpoch {
 				log.Infof("Latest epoch has exited. Aborting all epochs.")
+				if len(a.abortCh) == 0 {
+					log.Infof("All epoch aborted, exiting")
+					return status.err
+				}
 				a.abortAll()
+				log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
 			}
-
-			if len(a.abortCh) == 0 {
-				log.Infof("All epoch aborted, exiting")
-				return status.err
-			}
-			log.Infof("Waiting for %d epochs to exit", len(a.abortCh))
 
 		case <-ctx.Done():
 			a.terminate()

@@ -35,7 +35,7 @@ func WaitSignal(stop chan struct{}) {
 	_ = log.Sync()
 }
 
-// WaitSignal awaits for SIGINT or SIGTERM and calls the cancel function
+// WaitSignalFunc awaits for SIGINT or SIGTERM and calls the cancel function
 func WaitSignalFunc(cancel func()) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
