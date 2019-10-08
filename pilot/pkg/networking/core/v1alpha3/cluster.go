@@ -76,6 +76,14 @@ var (
 	}
 
 	defaultDestinationRule = networking.DestinationRule{}
+
+	plaintextTransportSocketMatch = &apiv2.Cluster_TransportSocketMatch{
+		Name:  "plaintext",
+		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocket,
+		},
+	}
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -198,7 +206,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
 			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
-			if !service.MeshExternal {
+			if service.MeshExternal {
+				serviceMTLSMode = authn_v1alpha1_applier.MTLSDisable
+			} else {
 				// Only need the authentication MTLS mode when service is not external.
 				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
 			}
@@ -709,26 +719,29 @@ func conditionallyConvertToIstioMtls(
 	sni string,
 	proxy *model.Proxy,
 	serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode,
-	mtlsReady bool,
-) *networking.TLSSettings {
+	autoMTLSEnabled bool,
+) (*networking.TLSSettings, bool) {
+	enableTransportSocketMtls := false
 	if tls == nil {
 		switch serviceMTLSMode {
-		case authn_v1alpha1_applier.MTLSPermissive:
+		case authn_v1alpha1_applier.MTLSPermissive, authn_v1alpha1_applier.MTLSUnknown:
 			// Permissive mTLS enabled and all service instance are labeled mTLSReady
-			if mtlsReady {
+			if autoMTLSEnabled {
 				tls = &networking.TLSSettings{
 					Mode: networking.TLSSettings_ISTIO_MUTUAL,
 				}
+				enableTransportSocketMtls = true
 			} else {
-				return nil
+				return nil, false
 			}
 		case authn_v1alpha1_applier.MTLSStrict:
 			// Always use ISTIO_MUTUAL if destination service is strict-mTLS
 			tls = &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			}
-		case authn_v1alpha1_applier.MTLSDisable, authn_v1alpha1_applier.MTLSUnknown:
-			return nil
+			enableTransportSocketMtls = true
+		case authn_v1alpha1_applier.MTLSDisable:
+			return nil, false
 		}
 	}
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -742,9 +755,10 @@ func conditionallyConvertToIstioMtls(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy)
+		// TODO GregHanson enableTransportSocketMtls always true mode=Istio_Mutual case?
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), enableTransportSocketMtls
 	}
-	return tls
+	return tls, enableTransportSocketMtls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
@@ -821,10 +835,11 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
+		var enableTransportSocketMtls bool
 		// AutoMTLS and service.MTLSReady must both be true to enable
-		mtlsReady := opts.env.Mesh.GetEnableAutoMtls().Value && opts.mtlsReady
-		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, opts.serviceMTLSMode, mtlsReady)
-		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy.Metadata)
+		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value && opts.mtlsReady
+		tls, enableTransportSocketMtls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, opts.serviceMTLSMode, autoMTLSEnabled)
+		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy, enableTransportSocketMtls)
 	}
 }
 
@@ -1048,7 +1063,7 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata *model.NodeMetadata) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, proxy *model.Proxy, enableTransportSocketMtls bool) {
 	if tls == nil {
 		return
 	}
@@ -1058,7 +1073,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
 			Specifier: &core.DataSource_Filename{
-				Filename: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),
+				Filename: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
 			},
 		}
 	}
@@ -1066,39 +1081,6 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		certValidationContext = &auth.CertificateValidationContext{
 			TrustedCa:            trustedCa,
 			VerifySubjectAltName: tls.SubjectAltNames,
-		}
-	}
-
-	// TODO where to store harcoded strings
-	if env.Mesh.GetEnableAutoMtls().Value {
-		// Per envoy docs
-		// If an endpoint metadata's value under *envoy.transport_socket* does not match any
-		// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
-		// *transport_socket* specified in this cluster
-		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
-			{
-				Name: "enableMtls",
-				Match: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
-					},
-				},
-				TransportSocket: &core.TransportSocket{
-					Name: "tls",
-					ConfigType: &core.TransportSocket_Config{
-						Config: &structpb.Struct{
-							Fields: map[string]*structpb.Value{},
-						},
-					},
-				},
-			},
-			{
-				Name:  "defaultToPlaintext",
-				Match: &structpb.Struct{},
-				TransportSocket: &core.TransportSocket{
-					Name: "rawbuffer",
-				},
-			},
 		}
 	}
 
@@ -1141,12 +1123,12 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
+							Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
 						},
 					},
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(metadata.TLSClientKey, tls.PrivateKey),
+							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
 						},
 					},
 				},
@@ -1154,12 +1136,12 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
-					env.Mesh.SdsUdsPath, metadata))
+					env.Mesh.SdsUdsPath, proxy.Metadata))
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, metadata),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, proxy.Metadata),
 				},
 			}
 		}
@@ -1180,6 +1162,33 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 		}
 	}
+
+	if env.Mesh.GetEnableAutoMtls().Value && enableTransportSocketMtls {
+		// Per envoy docs
+		// If an endpoint metadata's value under *envoy.transport_socket* does not match any
+		// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
+		// *transport_socket* specified in this cluster
+		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
+			{
+				Name: "mtls",
+				Match: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+					},
+				},
+				TransportSocket: &core.TransportSocket{
+					Name: util.TlsSocketName,
+					ConfigType: &core.TransportSocket_Config{
+						Config: &structpb.Struct{
+							Fields: map[string]*structpb.Value{},
+						},
+					},
+				},
+			},
+			plaintextTransportSocketMatch,
+		}
+	}
+	// TODO GregHanson nil out cluster.tls field after building mtls transport socket match?
 }
 
 func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.Port, direction model.TrafficDirection) {

@@ -93,6 +93,8 @@ type Service struct {
 
 	// MTLSReady service is injected with istio sidecar and ready to configure Istio mTLS
 	// true only if all instances of service are mTLS ready, otherwise false
+	// TODO GregHanson the Service.MTLSReady logic can be deleted once endpoint level mtls
+	// is supported in envoy
 	MTLSReady bool
 }
 

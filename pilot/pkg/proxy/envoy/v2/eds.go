@@ -135,11 +135,10 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(uid, network)
 
-	// TODO GregHanson are map keys configured properly
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}
@@ -174,11 +173,10 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(e.UID, e.Network)
 
-	// TODO GregHanson are map keys configured properly
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				util.AcceptMTLSMetadataLabel: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}

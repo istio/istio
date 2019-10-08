@@ -957,12 +957,10 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 			}
 		}
-	} else {
+	} else if !svc.MTLSReady {
 		// handles scenario where all instances are mTLSReady except one, and that one is eventually deleted
-		if !svc.MTLSReady {
-			updateMTLSReadyStatus = c.checkMTLSStatusChange(svc)
-			serviceMTLSStatus = true
-		}
+		updateMTLSReadyStatus = c.checkMTLSStatusChange(svc)
+		serviceMTLSStatus = true
 	}
 
 	if c.Env.Mesh.GetEnableAutoMtls().GetValue() && updateMTLSReadyStatus {
@@ -1002,7 +1000,7 @@ func (c *Controller) updateSvcMtlsReady(svc *model.Service, mTLSStatus bool) {
 	c.Unlock()
 }
 
-// called only on delete events to handle scenario where Service.MTLSReady can tranistion from false -> true
+// called only on delete events to handle scenario where Service.MTLSReady can transition from false -> true
 // return true if all service instances are mTLSReady
 func (c *Controller) checkMTLSStatusChange(svc *model.Service) bool {
 	// TODO GregHanson are external services being handled properly?

@@ -72,13 +72,17 @@ const (
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 
-	// AcceptMTLSMetadataLabel having "acceptMTLS":"true" key/value pair set on EDS endpoints
-	// configures Envoy to use the "enableMTLS" socket configuration configured at cluster level
-	AcceptMTLSMetadataLabel = "acceptMTLS"
-
-	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to a endpoint
-	// for socket-level info
+	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
+	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket"
+
+	// EnvoyRawBufferSocket matched with hardcoded built-in Envoy transport name which determines
+	// endpoint level plantext transport socket configuration
+	EnvoyRawBufferSocket = "raw_buffer"
+
+	// TlsSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// level tls transport socket configuration
+	TlsSocketName = "tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
