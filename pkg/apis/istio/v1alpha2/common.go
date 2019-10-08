@@ -18,6 +18,8 @@ package v1alpha2
 
 import (
 	"github.com/gogo/protobuf/jsonpb"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -44,4 +46,11 @@ func FromInt(val int) IntOrStringForPB {
 // FromString creates an IntOrStringForPB object with a string value.
 func FromString(val string) IntOrStringForPB {
 	return IntOrStringForPB{intstr.FromString(val)}
+}
+
+// IstioControlPlaneList contains a list of IstioControlPlane
+type IstioControlPlaneList struct {
+	v1.TypeMeta `json:",inline"`
+	v1.ListMeta `json:"metadata,omitempty"`
+	Items       []IstioControlPlane `json:"items"`
 }

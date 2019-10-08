@@ -31,3 +31,8 @@ var (
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )
+
+// Register the IstioControlPlane and IstioControlPlaneList API kind
+func init() {
+	SchemeBuilder.Register(&IstioControlPlane{}, &IstioControlPlaneList{})
+}
