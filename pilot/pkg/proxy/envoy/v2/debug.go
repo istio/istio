@@ -38,11 +38,6 @@ const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
 	// destination rule when they are not specified.
 	configNameNotApplicable = "-"
-
-	// configNameUnknown is used to represent the name of the authentication policy when it is specified,
-	// but the information is not available to show. This is temporary, until we fix the push context to carry
-	// authN policy name.
-	configNameUnknown = "???"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
