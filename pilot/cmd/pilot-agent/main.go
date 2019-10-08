@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -28,6 +27,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -585,13 +585,12 @@ func timeDuration(dur *types.Duration) time.Duration {
 
 func fromJSON(j string) *meshconfig.RemoteService {
 	var m meshconfig.RemoteService
-	err := json.Unmarshal([]byte(j), &m)
+	err := jsonpb.UnmarshalString(j, &m)
 	if err != nil {
-		log.Warnf("Unable to unmarshal %s", j)
+		log.Warnf("Unable to unmarshal %s: %v", j, err)
 		return nil
 	}
 
-	log.Infof("%v", m)
 	return &m
 }
 

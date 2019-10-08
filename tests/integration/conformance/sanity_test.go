@@ -17,7 +17,7 @@ package conformance
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework"
 )
 

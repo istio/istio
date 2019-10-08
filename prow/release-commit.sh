@@ -31,11 +31,11 @@ fi
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
-DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-release}
-GCS_BUCKET=${GCS_BUCKET:-istio-prerelease/dev}
+DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=a873eb7c2b88222d649bc2df8f2ac8fb87990680
+BUILDER_SHA=9a5ee7a403a4575e6c78da15ae7ff9965fab7d3f
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -50,7 +50,7 @@ mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
 version: ${VERSION}
-docker: docker.io/istio
+docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
   istio:

@@ -17,8 +17,8 @@ package event
 import (
 	"fmt"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Event represents a change that occurred against a resource in the source config system.

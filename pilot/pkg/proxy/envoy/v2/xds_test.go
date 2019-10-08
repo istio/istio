@@ -153,6 +153,10 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		Hostname: hostname,
 		Address:  "10.10.0.3",
 		Ports:    testPorts(0),
+		Attributes: model.ServiceAttributes{
+			Name:      "service3",
+			Namespace: "default",
+		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -178,6 +182,10 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     80,
 				Protocol: protocol.HTTP,
 			}},
+		Attributes: model.ServiceAttributes{
+			Name:      "local",
+			Namespace: "default",
+		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -198,6 +206,10 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		Hostname: "service3.default.svc.cluster.local",
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
+		Attributes: model.ServiceAttributes{
+			Name:      "service3",
+			Namespace: "default",
+		},
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
@@ -243,6 +255,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Protocol: protocol.HTTPS,
 			},
 		},
+		// TODO: set attribute for this service. It may affect TestLDSIsolated as we now having service defined in istio-system namespaces
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{

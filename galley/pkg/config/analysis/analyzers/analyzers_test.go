@@ -29,8 +29,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 type message struct {
@@ -97,6 +97,16 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace/bar"},
 			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+		},
+	},
+	{
+		name: "istioInjectionVersionMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+		},
+		analyzer: &injection.VersionAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
 		},
 	},
 	{
@@ -177,6 +187,7 @@ var testGrid = []testCase{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17617")
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
 
 	// For each test case, verify we get the expected messages as output
