@@ -28,7 +28,7 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
