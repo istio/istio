@@ -40,9 +40,7 @@ func TestProxyTracing(t *testing.T) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
 
 			retry.UntilSuccessOrFail(t, func() error {
-				// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
-				// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
-				util.SendTraffic(tracing.GetIngressInstance(), t, "Sending traffic", "", "", 200)
+				util.VisitProductPage(ingress, /* time_out = */ 10, /* want_status = */ 200, t)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), "")
 				if err != nil {
