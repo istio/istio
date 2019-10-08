@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
+	"istio.io/pkg/env"
 	pkgcmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
@@ -328,8 +328,9 @@ func runCA() {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
 		sc, err := controller.NewSecretController(ca, opts.workloadCertTTL,
-			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks, opts.istioCaStorageNamespace)
+			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
+			opts.dualUse, cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks,
+			opts.istioCaStorageNamespace, opts.rootCertFile)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}

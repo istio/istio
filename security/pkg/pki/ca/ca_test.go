@@ -17,6 +17,7 @@ package ca
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
@@ -499,7 +500,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2*time.Hour, false)
+	ca, err := createCA(2*time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -516,8 +517,7 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
-// nolint: unparam
-func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
+func createCA(maxTTL time.Duration) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
