@@ -28,6 +28,6 @@ func NewPolicyApplier(push *model.PushContext,
 	service := serviceInstance.Service
 	// TODO GregHanson add support for authn policy label matching
 	port := serviceInstance.Endpoint.ServicePort
-	authnPolicy := push.AuthenticationPolicyForWorkload(service, port)
+	authnPolicy, _ := push.AuthenticationPolicyForWorkload(service, port)
 	return v1alpha1.NewPolicyApplier(authnPolicy)
 }

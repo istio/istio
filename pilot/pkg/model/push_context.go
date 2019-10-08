@@ -115,12 +115,15 @@ type processedDestRules struct {
 type processedAuthnPolicies struct {
 	policies map[host.Name][]*authnPolicyByPort
 	// default cluster-scoped (global) policy to be used if no other authn policy is found
-	defaultMeshPolicy *authn.Policy
+	defaultMeshPolicy     *authn.Policy
+	defaultMeshPolicyMeta ConfigMeta
 }
 
 type authnPolicyByPort struct {
 	portSelector *authn.PortSelector
 	policy       *authn.Policy
+	// store the config metadata for debugging purposes.
+	configMeta ConfigMeta
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -953,17 +956,17 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
 				if len(dest.Ports) > 0 {
 					for _, port := range dest.Ports {
-						ps.addAuthnPolicy(hostName, port, policy)
+						ps.addAuthnPolicy(hostName, port, policy, spec.ConfigMeta)
 					}
 				} else {
-					ps.addAuthnPolicy(hostName, nil, policy)
+					ps.addAuthnPolicy(hostName, nil, policy, spec.ConfigMeta)
 				}
 
 			}
 		} else {
 			// if no targets provided, store at namespace level
 			// TODO GregHanson possible refactor so namespace is not cast to host.Name
-			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy)
+			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy, spec.ConfigMeta)
 		}
 	}
 
@@ -971,6 +974,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
+				ps.AuthnPolicies.defaultMeshPolicyMeta = spec.ConfigMeta
 				break
 			}
 		}
@@ -979,9 +983,10 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy) {
+func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy, configMeta ConfigMeta) {
 	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
 		policy:       policy,
+		configMeta:   configMeta,
 		portSelector: selector,
 	})
 }
@@ -1212,26 +1217,26 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 
 // AuthenticationPolicyForWorkload returns the matching auth policy for a given service
 // This replaces store.AuthenticationPolicyForWorkload
-func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) *authn.Policy {
-	var workloadPolicy *authn.Policy
+func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
 	// Match by Service hostname
-	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
-		return workloadPolicy
+	if workloadPolicy, configMeta := authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
+		return workloadPolicy, configMeta
 	}
 
 	// Match by namespace
-	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
-		return workloadPolicy
+	if workloadPolicy, configMeta := authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
+		return workloadPolicy, configMeta
 	}
 
 	// Use default global authentication policy if no others found
-	return ps.AuthnPolicies.defaultMeshPolicy
+	return ps.AuthnPolicies.defaultMeshPolicy, &ps.AuthnPolicies.defaultMeshPolicyMeta
 }
 
-func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) *authn.Policy {
+func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) (*authn.Policy, *ConfigMeta) {
 	var matchedPolicy *authn.Policy
+	var matchedMeta *ConfigMeta
 	if policiesByPort == nil {
-		return nil
+		return nil, nil
 	}
 
 	for i, policyByPort := range policiesByPort {
@@ -1239,15 +1244,17 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 		// issue #17278
 		if policyByPort.portSelector == nil && matchedPolicy == nil {
 			matchedPolicy = policiesByPort[i].policy
+			matchedMeta = &policiesByPort[i].configMeta
 		}
 
 		if port != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
+			matchedMeta = &policiesByPort[i].configMeta
 			break
 		}
 	}
 
-	return matchedPolicy
+	return matchedPolicy, matchedMeta
 }
 
 // SetDestinationRules is updates internal structures using a set of configs.

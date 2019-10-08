@@ -267,7 +267,7 @@ func (p *AuthenticationDebug) String() string {
 		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
 }
 
-func configName(config *model.Config) string {
+func configName(config *model.ConfigMeta) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
 	}
@@ -327,28 +327,24 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy,
+func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
-	// TODO(diemvu): add policy config name to the cache push config for this.
-	authnPolicyName := configNameNotApplicable
-	if authnPolicy != nil {
-		authnPolicyName = configNameUnknown
-	}
-
+	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
 
 	baseDebugInfo := AuthenticationDebug{
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
-		DestinationRuleName:      configName(destConfig),
 		ServerProtocol:           serverMTLSMode.String(),
 		ClientProtocol:           configNameNotApplicable,
 	}
 
 	var rule *networking.DestinationRule
+	destinationRuleName := configNameNotApplicable
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
+		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
 	output := []*AuthenticationDebug{}
@@ -363,6 +359,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 	for _, ss := range subsets {
 		c := clientTLSModes[ss]
 		info := baseDebugInfo
+		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
 		}
