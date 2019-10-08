@@ -103,14 +103,14 @@ first. The next example performs the following actions:
 
 1. Runs the `create-ns-foo-bar-legacy.sh` script to create several pods in the
    `foo`, `bar`, and `legacy` namespaces.
-2. Calls the `WaitForPods` function with the built-in
+1. Calls the `WaitForPods` function with the built-in
    `examples.NewMultiPodFetch` to select all pods from the `foo` namespace.
 
 ```golang
 func TestMTLS(t *testing.T) {
   examples.New(t, "mtls-migration").
     RunScript("create-ns-foo-bar-legacy.sh", examples.TextOutput, nil).
-		WaitForPods(examples.NewMultiPodFetch("foo")).
+        WaitForPods(examples.NewMultiPodFetch("foo")).
     Run()
 }
 ```
@@ -128,7 +128,7 @@ To write a test for content in istio.io follow these steps:
     "istio.io/istio/pkg/test/istio.io/examples"
     ```
 
-2. Create a function called `TestMain`, following the example below. This
+1. Create a function called `TestMain`, following the example below. This
    function sets up the Istio environment that the test uses. The `Setup`
    function accepts an optional function to customize the Istio environment
    deployed.
@@ -161,7 +161,7 @@ To write a test for content in istio.io follow these steps:
     }
     ```
 
-3. To create the function for your test, you can combine the test functions
+1. To create the function for your test, you can combine the test functions
    above, for example:
 
     ```golang
