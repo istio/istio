@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,17 +69,6 @@ const (
 	pluggedCertCA
 )
 
-// CertificateAuthority contains methods to be supported by a CA.
-type CertificateAuthority interface {
-	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
-	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
-	GetCAKeyCertBundle() util.KeyCertBundle
-}
-
 // IstioCAOptions holds the configurations for creating an Istio CA.
 // TODO(myidpt): remove IstioCAOptions.
 type IstioCAOptions struct {
@@ -96,30 +84,6 @@ type IstioCAOptions struct {
 
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
-}
-
-// Append root certificates in rootCertFile to the input certificate.
-func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
-	var rootCerts []byte
-	if len(pemCert) > 0 {
-		// Copy the input certificate
-		rootCerts = make([]byte, len(pemCert))
-		copy(rootCerts, pemCert)
-	}
-	if len(rootCertFile) > 0 {
-		log.Debugf("append root certificates from %v", rootCertFile)
-		certBytes, err := ioutil.ReadFile(rootCertFile)
-		if err != nil {
-			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
-		}
-		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
-		if len(rootCerts) > 0 {
-			// Append a newline after the last cert
-			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
-		}
-		rootCerts = append(rootCerts, certBytes...)
-	}
-	return rootCerts, nil
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -182,7 +146,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 		}
 
-		rootCerts, err := appendRootCerts(pemCert, rootCertFile)
+		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
@@ -200,7 +164,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		log.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
 		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
@@ -213,6 +177,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 
 	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
+	} else {
+		log.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
 	}
 	return caOpts, nil
 }

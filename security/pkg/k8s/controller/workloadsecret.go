@@ -166,10 +166,10 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
-	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool, core corev1.CoreV1Interface,
-	forCA bool, pkcs8Key bool, namespaces []string, dnsNames map[string]*DNSNameEntry,
-	istioCaStorageNamespace string) (*SecretController, error) {
+func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
+	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -183,9 +183,10 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		certTTL:                   certTTL,
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
-		enableNamespacesByDefault: enableNamespacesByDefault,
 		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
 		caSecretController:        NewCaSecretController(core),
+		rootCertFile:              rootCertFile,
+		enableNamespacesByDefault: enableNamespacesByDefault,
 		minGracePeriod:            minGracePeriod,
 		dualUse:                   dualUse,
 		core:                      core,
@@ -558,9 +559,11 @@ func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []
 	if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
 		k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 			"istio-ca-secret. Start to reload root cert into KeyCertBundle")
-		// In self signed cert mode, no root cert file is appended, the root cert and ca cert
-		// are the same.
-		rootCertInMem = caSecret.Data[caCertID]
+		var err error
+		rootCertInMem, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
+		if err != nil {
+			return rootCertInMem, fmt.Errorf("failed to append root certificates: %s", err.Error())
+		}
 		if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 			caSecret.Data[caPrivateKeyID], nil, rootCertInMem); err != nil {
 			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)

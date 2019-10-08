@@ -516,9 +516,9 @@ func TestAppendRootCerts(t *testing.T) {
 	expRootCerts := `root-cert-1
 root-cert-2
 root-cert-3`
-	rootCerts, err := appendRootCerts([]byte(root1), "./root-certs-for-testing.pem")
+	rootCerts, err := util.AppendRootCerts([]byte(root1), "./root-certs-for-testing.pem")
 	if err != nil {
-		t.Errorf("appendRootCerts() returns an error: %v", err)
+		t.Errorf("AppendRootCerts() returns an error: %v", err)
 	} else if expRootCerts != string(rootCerts) {
 		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
 			expRootCerts, string(rootCerts))
@@ -530,9 +530,9 @@ func TestAppendRootCertsToNullCert(t *testing.T) {
 	var root1 []byte
 	expRootCerts := `root-cert-2
 root-cert-3`
-	rootCerts, err := appendRootCerts(root1, "./root-certs-for-testing.pem")
+	rootCerts, err := util.AppendRootCerts(root1, "./root-certs-for-testing.pem")
 	if err != nil {
-		t.Errorf("appendRootCerts() returns an error: %v", err)
+		t.Errorf("AppendRootCerts() returns an error: %v", err)
 	} else if expRootCerts != string(rootCerts) {
 		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
 			expRootCerts, string(rootCerts))

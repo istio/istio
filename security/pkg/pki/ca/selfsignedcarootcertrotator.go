@@ -140,9 +140,15 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
 			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+			if err != nil {
+				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
+				return
+			}
 			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
+				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+				return
 			} else {
 				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			}
@@ -176,16 +182,23 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
+	pemRootCerts, err := util.AppendRootCerts(pemCert, rotator.config.rootCertFile)
+	if err != nil {
+		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
+		return
+	}
+
 	oldCaCert := caSecret.Data[caCertID]
 	oldCaPrivateKey := caSecret.Data[caPrivateKeyID]
-	if rollback, err := rotator.updateRootCertificate(caSecret, true, pemCert, pemKey); err != nil {
+	oldRootCerts := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
+	if rollback, err := rotator.updateRootCertificate(caSecret, true, pemCert, pemKey, pemRootCerts); err != nil {
 		if !rollback {
 			rootCertRotatorLog.Errorf("Failed to roll forward root certificate (error: %s). "+
 				"Abort new root certificate", err.Error())
 			return
 		}
 		// caSecret is out-of-date. Need to load the latest istio-ca-secret to roll back root certificate.
-		_, err = rotator.updateRootCertificate(nil, false, oldCaCert, oldCaPrivateKey)
+		_, err = rotator.updateRootCertificate(nil, false, oldCaCert, oldCaPrivateKey, oldRootCerts)
 		if err != nil {
 			rootCertRotatorLog.Errorf("Failed to roll backward root certificate (error: %s).", err.Error())
 		}
@@ -199,7 +212,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 // to roll backward.
 // updateRootCertificate returns error when any step is failed, and a flag indicating whether a rollback is required.
 // Only when rollForward is true and failure happens, the returned rollback flag is true.
-func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.Secret, rollForward bool, cert, key []byte) (bool, error) {
+func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.Secret, rollForward bool, cert, key, rootCert []byte) (bool, error) {
 	var err error
 	if caSecret == nil {
 		caSecret, err = rotator.caSecretController.LoadCASecretWithRetry(CASecret,
@@ -215,7 +228,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is written into CA secret: %v", string(cert))
-	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, cert); err != nil {
+	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, rootCert); err != nil {
 		if rollForward {
 			// Rolling forward root certificate fails at keycertbundle update, notify caller to rollback.
 			return true, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())
