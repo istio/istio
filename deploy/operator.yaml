@@ -15,8 +15,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: docker.io/istio/controller
           command:
           - istio-operator
           - server
