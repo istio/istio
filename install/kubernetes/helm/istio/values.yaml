@@ -579,3 +579,8 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  # Configures DNS certificates provisioned through Chiron linked into Pilot.
+  # Te values in this file are all hard-coded; please ensure the namespaces
+  # in dnsNames are consistent with those of your services.
+  certificates: []
