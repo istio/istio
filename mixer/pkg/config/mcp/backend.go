@@ -32,7 +32,7 @@ import (
 	"istio.io/pkg/probe"
 
 	"istio.io/istio/galley/pkg/config/meta/metadata"
-	schema2 "istio.io/istio/galley/pkg/config/schema"
+	schema2 "istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/mixer/pkg/config/store"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
