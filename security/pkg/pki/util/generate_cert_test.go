@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -24,7 +25,27 @@ import (
 	"time"
 )
 
-var now = time.Now().Round(time.Second).UTC()
+var (
+	now     = time.Now().Round(time.Second).UTC()
+	certPem = `-----BEGIN CERTIFICATE-----
+MIIC5jCCAc6gAwIBAgIRAIDngVC9z3HRR4DdOvnKO38wDQYJKoZIhvcNAQELBQAw
+HDEaMBgGA1UEChMRazhzLmNsdXN0ZXIubG9jYWwwHhcNMTcxMTE1MDAzMzUyWhcN
+MjcxMTEzMDAzMzUyWjAcMRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOLNvPT59LqfuJFZEkHNg5BABXqX
+Yy0yu/t60lsd+Z43eTjEctnhyk45/4KE909wSVdzrq6jvlWCki/iHLkbnZ9Bfk0E
+mGwP2TOjihOPWH9F6i8yO6GI5wqeQki7yiT/NozMo/vSNrso0Xa8WoQSN6svziP8
+b9OeSIIMWIa8F1vD1EOvyHYlZHPMw/IJCqAxQef50FpVu2sB8t4FKeswyv0+Twh+
+J75hB9OiDnM1G8Ex3An4G6KeUX8ptuJS6aLemuZrqOG6dsaG4HrC6OuIuxfyRbe2
+zJyyHeOnGhozGVXS9TpCp3Mkr54NyKl4+p3XfeVtuBeG7UUvHS7EvS+2Bl0CAwEA
+AaMjMCEwDgYDVR0PAQH/BAQDAgIEMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcN
+AQELBQADggEBAEe3XmOAod4CoLkOWNFP6RbtSO3jDO6bzV0qOioS8Yj55eQ78hR9
+R14TG5+QCHXz4W3FQMsgEg1OQodmw6lhupkvQn1ZP/zf3a/kfTuK0VOIzqeKe4TI
+IgsccmELXGdxojN23311/tAcq3d8pSTKusH7KNwAQWmerkxB6wzSHTiJWICFJzs4
+RWeVWm0l72yZcYFaZ/LBkn+gRyV88r51BR+IR7sMDB7k6hsdMWdxvNESr1h9JU+Q
+NbOwbkIREzozcpaJ2eSiksLkPIxh8/zaULUpPbVMOeOIybUK4iW+K2FyibCc5r9d
+vbw9mUuRBuYCROUaNv2/TAkauxVPCYPq7Ow=
+-----END CERTIFICATE-----`
+)
 
 func TestGenCertKeyFromOptions(t *testing.T) {
 	// set "notBefore" to be one hour ago, this ensures the issued certifiate to
@@ -468,6 +489,57 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 
 		if cert == nil || key == nil {
 			t.Errorf("[%s] Failed to load signer credentials from files: %v, %v", id, tc.certFile, tc.keyFile)
+		}
+	}
+}
+
+func TestAppendRootCerts(t *testing.T) {
+	testCases := map[string]struct {
+		pemCert          []byte
+		rootFile         string
+		expectedErr      string
+		expectedRootCert []byte
+	}{
+		"Empty pem cert and root file": {
+			pemCert:          []byte{},
+			rootFile:         "",
+			expectedErr:      "",
+			expectedRootCert: []byte{},
+		},
+		"Non empty root file": {
+			pemCert:          []byte{},
+			rootFile:         "../testdata/cert.pem",
+			expectedErr:      "",
+			expectedRootCert: []byte(certPem + "\n"),
+		},
+		"Non empty pem cert": {
+			pemCert:          []byte(certPem),
+			rootFile:         "",
+			expectedErr:      "",
+			expectedRootCert: []byte(certPem),
+		},
+		"Non empty pem cert and non empty root file": {
+			pemCert:          []byte(certPem),
+			rootFile:         "../testdata/cert.pem",
+			expectedErr:      "",
+			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
+		},
+	}
+
+	for id, tc := range testCases {
+		rc, err := AppendRootCerts(tc.pemCert, tc.rootFile)
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("[%s] Succeeded. Error expected: %s", id, tc.expectedErr)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("[%s] incorrect error message: %s VS (expected) %s",
+					id, err.Error(), tc.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("[%s] Unexpected error: %s", id, err.Error())
+		}
+		if !bytes.Equal(rc, tc.expectedRootCert) {
+			t.Errorf("[%s] root cert does not match. %v VS (expected) %v", id, rc, tc.expectedRootCert)
 		}
 	}
 }
