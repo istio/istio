@@ -47,7 +47,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - istio.io
+  - install.istio.io
   resources:
   - '*'
   - istiocontrolplanes

@@ -1,7 +1,6 @@
-apiVersion: istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 metadata:
   name: example-istiocontrolplane
 spec:
-  # Add fields here
-  size: 3
+  profile: default
