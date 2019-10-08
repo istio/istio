@@ -154,7 +154,13 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(*model.Service, model.Event) { out.clearCache(&model.PushRequest{Full: true}) }
+	serviceHandler := func(*model.Service, model.Event) {
+		pushReq := &model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		}
+		out.clearCache(pushReq)
+	}
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		adsLog.Errorf("Append service handler failed: %v", err)
 		return nil
@@ -178,9 +184,11 @@ func NewDiscoveryServer(
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(c model.Config, e model.Event) {
-			updateReq := &model.PushRequest{Full: true}
-			updateReq.ConfigTypesUpdated = map[string]struct{}{c.Type: {}}
-			out.clearCache(updateReq)
+			pushReq := &model.PushRequest{
+				Full:               true,
+				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+			}
+			out.clearCache(pushReq)
 		}
 		for _, descriptor := range schemas.Istio {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
@@ -244,16 +252,15 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		return
 	}
 	// Reset the status during the push.
-	pc := s.globalPushContext()
-	if pc != nil {
-		pc.OnConfigChange()
+	oldPushContext := s.globalPushContext()
+	if oldPushContext != nil {
+		oldPushContext.OnConfigChange()
 	}
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
-	err := push.InitContext(s.Env)
-	if err != nil {
+	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
 		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Increment()
@@ -306,8 +313,8 @@ func (s *DiscoveryServer) ClearCache() {
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
-func (s *DiscoveryServer) clearCache(updateRequest *model.PushRequest) {
-	s.ConfigUpdate(updateRequest)
+func (s *DiscoveryServer) clearCache(pushRequest *model.PushRequest) {
+	s.ConfigUpdate(pushRequest)
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.

@@ -821,7 +821,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+		log.Debugf("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		hostname := svc.Name + "." + svc.Namespace
 		ports := map[string]uint32{}

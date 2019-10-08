@@ -85,7 +85,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 
 	return env
 }
@@ -645,7 +645,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env)
+	push.InitContext(env, nil, nil)
 
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext
