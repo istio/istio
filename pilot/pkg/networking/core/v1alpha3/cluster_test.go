@@ -791,14 +791,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name            string
-		tls             *networking.TLSSettings
-		sans            []string
-		sni             string
-		proxy           *model.Proxy
-		serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
-		mtlsReady       bool
-		want            *networking.TLSSettings
+		name                      string
+		tls                       *networking.TLSSettings
+		sans                      []string
+		sni                       string
+		proxy                     *model.Proxy
+		serviceMTLSMode           authn_v1alpha1_applier.MutualTLSMode
+		mtlsReady                 bool
+		want                      *networking.TLSSettings
+		enableTransportSocketMtls bool
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -809,6 +810,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSUnknown,
 			false,
 			tlsSettings,
+			false,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
@@ -833,6 +835,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			false,
 		},
 		{
 			"Cert path override",
@@ -854,6 +857,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
+			false,
 		},
 		{
 			"Ignore nil settings when mTLS Unknown",
@@ -864,6 +868,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSUnknown,
 			false,
 			nil,
+			false,
 		},
 		{
 			"Ignore nil settings when mTLS Disable",
@@ -874,6 +879,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSDisable,
 			false,
 			nil,
+			false,
 		},
 		{
 			"Ignore nil settings when mTLS Permissive",
@@ -884,6 +890,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSPermissive,
 			false,
 			nil,
+			false,
 		},
 		{
 			"Auto fill nil settings when mTLS Strict",
@@ -901,6 +908,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			true,
 		},
 		{
 			"Destination rule TLS sni and SAN override and mTLSReady",
@@ -911,6 +919,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSUnknown,
 			true,
 			tlsSettings,
+			false,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent and mTLSReady",
@@ -935,6 +944,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			false,
 		},
 		{
 			"Cert path override and mTLSReady",
@@ -956,6 +966,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
+			false,
 		},
 		{
 			"Ignore nil settings when mTLS Unknown and mTLSReady",
@@ -965,7 +976,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			authn_v1alpha1_applier.MTLSUnknown,
 			true,
-			nil,
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    constants.DefaultRootCert,
+				ClientCertificate: constants.DefaultCertChain,
+				PrivateKey:        constants.DefaultKey,
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+			true,
 		},
 		{
 			"Ignore nil settings when mTLS Disable and mTLSReady",
@@ -976,6 +995,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			authn_v1alpha1_applier.MTLSDisable,
 			true,
 			nil,
+			false,
 		},
 		{
 			"Auto fill nil settings when mTLS Permissive and mTLSReady",
@@ -993,6 +1013,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			true,
 		},
 		{
 			"Auto fill nil settings when mTLS Strict and mTLSReady",
@@ -1010,14 +1031,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, tt.mtlsReady)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			got, enableTransportSocketMtls := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, tt.mtlsReady)
+			if !reflect.DeepEqual(got, tt.want) || enableTransportSocketMtls != tt.enableTransportSocketMtls {
+				t.Errorf("Expected locality empty result %#v, %v but got %#v, %v", tt.want, tt.enableTransportSocketMtls, got, enableTransportSocketMtls)
 			}
 		})
 	}
