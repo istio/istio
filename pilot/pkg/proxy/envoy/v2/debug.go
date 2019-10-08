@@ -381,7 +381,7 @@ func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha
 	const conflictState string = "CONFLICT"
 
 	if clientMode == nil {
-		// TLS settings was not set explicitely, pilot will try a setting that work well with the
+		// TLS settings was not set explicitly, pilot will try a setting that work well with the
 		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
 		return okState
 	}
