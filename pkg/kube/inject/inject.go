@@ -31,6 +31,8 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -581,6 +583,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"structToJSON":        structToJSON,
+		"protoToJSON":         protoToJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
@@ -916,6 +919,21 @@ func structToJSON(v interface{}) string {
 	}
 
 	return string(ba)
+}
+
+func protoToJSON(v proto.Message) string {
+	if v == nil {
+		return "{}"
+	}
+
+	m := jsonpb.Marshaler{}
+	ba, err := m.MarshalToString(v)
+	if err != nil {
+		log.Warnf("Unable to marshal %v: %v", v, err)
+		return "{}"
+	}
+
+	return ba
 }
 
 func toJSON(m map[string]string) string {
