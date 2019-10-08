@@ -409,7 +409,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 		ForwardAttributes: &mpb.Attributes{Attributes: attributes{
 			"source.uid": attrUID(node),
 		}},
-		Transport: buildTransport(mesh, node),
+		Transport:                 buildTransport(mesh, node),
+		IgnoreForwardedAttributes: node.Type == model.Router,
 	}
 
 	out := &http_conn.HttpFilter{
@@ -433,8 +434,9 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 				DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 			},
 		},
-		MixerAttributes: &mpb.Attributes{Attributes: attrs},
-		Transport:       buildTransport(mesh, node),
+		MixerAttributes:           &mpb.Attributes{Attributes: attrs},
+		Transport:                 buildTransport(mesh, node),
+		IgnoreForwardedAttributes: node.Type == model.Router,
 	}
 	out := &http_conn.HttpFilter{
 		Name: mixer,
