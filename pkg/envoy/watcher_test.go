@@ -32,7 +32,7 @@ type TestAgent struct {
 	configCh chan interface{}
 }
 
-func (ta *TestAgent) Restart(c interface{})  {
+func (ta *TestAgent) Restart(c interface{}) {
 	ta.configCh <- c
 }
 
