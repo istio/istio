@@ -19,6 +19,7 @@ spec:
           image: REPLACE_IMAGE
           command:
           - istio-operator
+          - server
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
