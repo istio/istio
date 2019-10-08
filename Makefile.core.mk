@@ -326,10 +326,13 @@ ${TOP}/bin/kind: ${TOP}/src/sigs.k8s.io/kind
 ${TOP}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
-lint:
-	$(MAKE) kind-run TARGET="run-lint"
+lint: lint_modern
 
-lint_modern: lint-go lint-python lint-copyright-banner lint-markdown lint-protos
+lint-helm-global:
+	${FINDFILES} -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f global.yaml
+
+lint_modern: lint-go lint-python lint-copyright-banner lint-markdown lint-protos lint-helm-global
+
 
 .PHONY: istioctl
 istioctl: ${TOP}/bin/istioctl

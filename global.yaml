@@ -186,6 +186,18 @@ global:
       enabled: false
       host: # example: metrics-service.istio-system
       port: # example: 15000
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/ms/cert-chain.pem
+        privateKey:        # example: /etc/istio/ms/key.pem
+        caCertificates:    # example: /etc/istio/ms/root-cert.pem
+        sni:               # example: ms.somedomain
+        subjectAltNames: []
+        # - ms.somedomain
+      tcpKeepalive:
+        probes: 3
+        time: 10s
+        interval: 10s
 
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
@@ -398,9 +410,9 @@ global:
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
   # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
-  #defaultConfigVisibilitySettings:
-  #- '*'
-
+  defaultConfigVisibilitySettings: []
+#  - '*'
+  omitSidecarInjectorConfigMap: false
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
@@ -474,3 +486,6 @@ clusterResources: true
 # Version is set as 'version' label and part of the resource names when installing.
 # It is used to support multiple version in same namespace, similar with normal app traffic shift.
 version: ""
+
+certmanager:
+  enabled: false

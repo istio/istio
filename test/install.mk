@@ -101,22 +101,6 @@ run-build-demo: dep
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/kiali -t ${DEMO_OPTS} > test/demo/gen-kiali.yaml
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/tracing -t ${DEMO_OPTS} > test/demo/gen-tracing.yaml
 
-
-
-run-lint:
-	helm lint istio-control/istio-discovery -f global.yaml
-	helm lint istio-control/istio-config -f global.yaml
-	helm lint istio-control/istio-autoinject -f global.yaml
-	helm lint istio-policy -f global.yaml
-	helm lint istio-telemetry/grafana -f global.yaml
-	helm lint istio-telemetry/mixer-telemetry -f global.yaml
-	helm lint istio-telemetry/prometheus -f global.yaml
-	helm lint istio-telemetry/kiali -f global.yaml
-	helm lint security/citadel -f global.yaml
-	helm lint gateways/istio-egress -f global.yaml
-	helm lint gateways/istio-ingress -f global.yaml
-
-
 install-full: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy
 
 .PHONY: ${GOPATH}/out/yaml/crds

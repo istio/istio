@@ -10,16 +10,17 @@ mixer:
     autoscaleMax: 5
     cpu:
       targetAverageUtilization: 80
-
+    sessionAffinityEnabled: false
     podAnnotations: {}
 
     env:
       GODEBUG: gctrace=1
 
     adapters:
+      useAdapterCRDs: false
       kubernetesenv:
         enabled: true
-
+    resources: {}
     nodeSelector: {}
     tolerations: []
 

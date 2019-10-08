@@ -69,3 +69,6 @@ security:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  resources: {}
+kustomize: false

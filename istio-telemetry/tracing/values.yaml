@@ -28,12 +28,16 @@ tracing:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
+  contextPath: ""
+
+
   jaeger:
     hub: docker.io/jaegertracing
     image: all-in-one
     tag: 1.14
     memory:
       max_traces: 50000
+    resources: {}
     # spanStorageType value can be "memory" and "badger" for all-in-one image
     spanStorageType: badger
     persist: false

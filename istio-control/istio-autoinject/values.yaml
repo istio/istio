@@ -55,9 +55,10 @@ sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
   # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-
   neverInjectSelector: []
   alwaysInjectSelector: []
+
+  resources: {}
 
   # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   # It is disabled by default since this function will only work after k8s v1.15.
