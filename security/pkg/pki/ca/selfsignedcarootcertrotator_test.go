@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/security/pkg/cmd"
+
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -260,8 +262,9 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
+		readSigningCertOnly, cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
+		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
 		caNamespace, -1, client, rootCertFile, false)
 	return caopts
 }

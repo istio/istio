@@ -398,6 +398,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
+	// TODO(JimmyCYJ): Compare the root cert expiration time instead of raw bytes.
+	// When multiple Citadels are deployed, it is possible that root cert in local
+	// key cert bundle is older than the root cert in workload secret.
 	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		if waitErr != nil {
 			log.Infof("Refreshing about to expire secret %s/%s: %s", namespace, GetSecretName(name), waitErr.Error())

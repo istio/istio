@@ -46,7 +46,11 @@ import (
 )
 
 const (
-	enableJitterForRootCertRotator = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	selfSignedCaCertTTL                     = "CITADEL_SELF_SIGNED_CA_CERT_TTL"
+	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
+	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
+	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
+	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -61,10 +65,11 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA                    bool
-	selfSignedCACertTTL             time.Duration
-	selfSignedRootCertCheckInterval time.Duration
-	enableJitterForRootCertRotator  bool
+	selfSignedCA                            bool
+	selfSignedCACertTTL                     time.Duration
+	selfSignedRootCertCheckInterval         time.Duration
+	selfSignedRootCertGracePeriodPercentile int
+	enableJitterForRootCertRotator          bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -120,6 +125,21 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
+		selfSignedCACertTTL: env.RegisterDurationVar(selfSignedCaCertTTL,
+			cmd.DefaultSelfSignedCACertTTL,
+			"The TTL of self-signed CA root certificate.").Get(),
+		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
+			cmd.DefaultSelfSignedRootCertCheckInterval,
+			"The interval that self-signed CA checks its root certificate "+
+				"expiration time and rotates root certificate. Setting this interval "+
+				"to zero or a negative value disables automated root cert check and "+
+				"rotation. This interval is suggested to be larger than 10 minutes.").Get(),
+		selfSignedRootCertGracePeriodPercentile: env.RegisterIntVar(selfSignedRootCertGracePeriodPercentile,
+			cmd.DefaultRootCertGracePeriodPercentile,
+			"Grace period percentile for self-signed root cert.").Get(),
+		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
+			cmd.DefaultWorkloadMinCertGracePeriod,
+			"The minimum workload certificate rotation grace period.").Get(),
 		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
 			true,
 			"If true, set up a jitter to start root cert rotator. "+
@@ -187,11 +207,6 @@ func init() {
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
-	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
-		"The TTL of self-signed CA root certificate.")
-	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "self-signed-root-check-interval", cmd.DefaultSelfSignedRootCertCheckInterval,
-		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. "+
-			"Should not be shorter than one minute.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe ")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -210,8 +225,6 @@ func init() {
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
-	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
-		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
@@ -429,15 +442,12 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		} else {
 			checkInterval = -1
 		}
-		if opts.selfSignedRootCertCheckInterval > time.Duration(0) &&
-			opts.selfSignedRootCertCheckInterval < time.Duration(1) {
-			opts.selfSignedRootCertCheckInterval = 1 * time.Minute
-		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
-			opts.selfSignedCACertTTL, opts.selfSignedRootCertCheckInterval,
-			opts.workloadCertTTL, opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(),
-			opts.dualUse, opts.istioCaStorageNamespace, checkInterval, client,
-			opts.rootCertFile, opts.enableJitterForRootCertRotator)
+			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,
+			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
+			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
+			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile,
+			opts.enableJitterForRootCertRotator)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
