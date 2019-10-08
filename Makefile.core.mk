@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+TAG ?= latest
+
 pwd := $(shell pwd)
 
 # make targets
@@ -39,7 +41,6 @@ update-charts: installer.sha
 
 clean-charts:
 	@rm -fr data/charts
-
 # make target dependencies
 vfsgen: data/ update-charts
 	go generate ./...
@@ -62,6 +63,21 @@ default: mesh
 mesh: vfsgen
 	go build -o $(GOPATH)/bin/mesh ./cmd/mesh.go
 	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o /work/mesh ./cmd/mesh.go
+
+# NOTE: docker targets only work with local builds.
+
+controller: vfsgen
+	go build -o $(GOPATH)/bin/istio-operator ./cmd/manager
+
+docker: controller
+	mkdir -p build/out
+	cp $(GOPATH)/bin/istio-operator build/out/.
+	docker build -t $(HUB)/operator:$(TAG) -f build/Dockerfile .
+
+docker.push:
+	docker push $(HUB)/operator:$(TAG)
+
+docker.all: docker docker.push
 
 update-goldens:
 	export REFRESH_GOLDEN=true
@@ -87,7 +103,6 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 protoc_gen_k8s_support_plugins := --jsonshim_out=$(gogo_mapping):$(out_path) --deepcopy_out=$(gogo_mapping):$(out_path)
 
 ########################
-
 types_v1alpha2_path := pkg/apis/istio/v1alpha2
 types_v1alpha2_protos := $(wildcard $(types_v1alpha2_path)/*.proto)
 types_v1alpha2_pb_gos := $(types_v1alpha2_protos:.proto=.pb.go)

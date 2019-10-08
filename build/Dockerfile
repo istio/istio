@@ -5,8 +5,7 @@ ENV OPERATOR=/usr/local/bin/istio-operator \
     USER_NAME=istio-operator
 
 # install operator binary
-COPY build/_output/bin/istio-operator ${OPERATOR}
-
+COPY build/out/istio-operator /usr/local/bin/.
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
 
