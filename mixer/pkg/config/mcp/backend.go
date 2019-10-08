@@ -181,7 +181,7 @@ func (b *backend) Init(kinds []string) error {
 		watcher, er := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if er != nil {
 			cancel()
-			return err
+			return er
 		}
 		credentials := creds.CreateForClient(address, watcher)
 		securityOption = grpc.WithTransportCredentials(credentials)
