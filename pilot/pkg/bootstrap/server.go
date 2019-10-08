@@ -68,7 +68,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
@@ -989,7 +988,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			go func() {
 				<-stop
-				authn_model.JwtKeyResolver.Close()
+				model.JwtKeyResolver.Close()
 
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()

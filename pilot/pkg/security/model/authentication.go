@@ -54,9 +54,6 @@ const (
 	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
-// JwtKeyResolver resolves JWT public key and JwksURI.
-var JwtKeyResolver = model.NewJwksResolver(model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval)
-
 // ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
