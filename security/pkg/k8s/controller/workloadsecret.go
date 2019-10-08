@@ -500,8 +500,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			return
 		}
 		// If root cert in workload secret matches istio-ca-secret, and does not match
-		// the root cert in key cert bundle. Reload key cert bundle and skip updating
-		// workload secret.
+		// the root cert in key cert bundle. This implies that another Citadel has recently
+		// rotated root cert in istio-ca-secret and the workload secret. Reload key cert
+		// bundle and skip updating workload secret.
 		if bytes.Equal(scrt.Data[RootCertID], caSecret.Data[caCertID]) {
 			if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
