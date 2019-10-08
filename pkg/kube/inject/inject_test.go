@@ -52,7 +52,7 @@ var (
 
 // InitImageName returns the fully qualified image name for the istio
 // init image given a docker hub and tag and debug flag
-// This is used for testing
+// This is used for testing only
 func InitImageName(hub string, tag string, _ bool) string {
 	return hub + "/proxy_init:" + tag
 }
