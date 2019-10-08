@@ -110,7 +110,7 @@ function clone_cni() {
   if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
       TMP_DIR=$PWD
       cd ../ || return
-      git clone -b master "https://github.com/istio/cni.git"
+      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
       cd "${TMP_DIR}" || return
   fi
 }
