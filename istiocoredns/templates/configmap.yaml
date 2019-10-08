@@ -11,7 +11,7 @@ data:
     .:53 {
           errors
           health
-          {{ if eq -1 (semver  .Values.coreDNSTag  | (semver "1.4.0").Compare) }}
+          {{ if eq -1 (semver  .Values.istiocoredns.coreDNSTag  | (semver "1.4.0").Compare) }}
           # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
           grpc global 127.0.0.1:8053
           forward . /etc/resolv.conf {

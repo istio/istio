@@ -19,7 +19,7 @@
           - {{ $key }}
           {{- end }}
         {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.nodeSelector -}}
+        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.kiali.nodeSelector -}}
         {{- range $key, $val := $nodeSelector }}
         - key: {{ $key }}
           operator: In
@@ -43,13 +43,13 @@
 {{- end }}
 
 {{- define "podAntiAffinity" }}
-{{- if or .Values.podAntiAffinityLabelSelector .Values.podAntiAffinityTermLabelSelector}}
+{{- if or .Values.kiali.podAntiAffinityLabelSelector .Values.kiali.podAntiAffinityTermLabelSelector}}
   podAntiAffinity:
-    {{- if .Values.podAntiAffinityLabelSelector }}
+    {{- if .Values.kiali.podAntiAffinityLabelSelector }}
     requiredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityRequiredDuringScheduling" . }}
     {{- end }}
-    {{- if or .Values.podAntiAffinityTermLabelSelector}}
+    {{- if or .Values.kiali.podAntiAffinityTermLabelSelector}}
     preferredDuringSchedulingIgnoredDuringExecution:
     {{- include "podAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
@@ -57,7 +57,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.podAntiAffinityLabelSelector }}
+    {{- range $index, $item := .Values.kiali.podAntiAffinityLabelSelector }}
     - labelSelector:
         matchExpressions:
         - key: {{ $item.key }}
@@ -74,7 +74,7 @@
 {{- end }}
 
 {{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.podAntiAffinityTermLabelSelector }}
+    {{- range $index, $item := .Values.kiali.podAntiAffinityTermLabelSelector }}
     - podAffinityTerm:
         labelSelector:
           matchExpressions:

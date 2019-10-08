@@ -138,9 +138,9 @@ spec:
         {{- else }}
           - zipkin:9411
         {{- end }}
-        {{- if $gateway.envoyMetricsService }}
+        {{- if .Values.global.proxy.envoyMetricsService.enabled }}
           - --envoyMetricsServiceAddress
-          - {{ $gateway.envoyMetricsService.host }}:{{ $gateway.envoyMetricsService.port }}
+          - {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
         {{- end }}
         {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
           - --envoyAccessLogServiceAddress

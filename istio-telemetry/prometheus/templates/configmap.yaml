@@ -20,9 +20,6 @@ data:
         namespaces:
           names:
           - {{ .Release.Namespace }}
-          {{- range $key, $value := .Values.prometheus.datasources }}
-          - {{ $value }}
-          {{- end }}
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep

@@ -1,6 +1,7 @@
 cni:
   hub: gcr.io/istio-release
   tag: master-latest-daily
+  image: install-cni
   pullPolicy: Always
 
   logLevel: info
@@ -14,7 +15,7 @@ cni:
   # defaults:
   cniBinDir: /opt/cni/bin
   cniConfDir: /etc/cni/net.d
-
+  cniConfFileName: ""
   excludeNamespaces:
     - istio-system
 

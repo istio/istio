@@ -51,7 +51,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: {{ .Values.cni.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag }}
+          image: {{ .Values.cni.hub }}/{{ .Values.cni.image }}:{{ .Values.cni.tag }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
           command: ["/install-cni.sh"]
           env:

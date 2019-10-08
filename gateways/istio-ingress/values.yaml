@@ -121,6 +121,16 @@ gateways:
     # Domain name for telemetry addons
     telemetry_domain_name: ""
 
+    customService: false
+    externalTrafficPolicy: ""
+
+    ingressPorts: []
+    hosts: []
+    additionalContainers: []
+    configVolumes: []
+    certificates: false
+    tls: false
+
     # Ports to explicitly check for readiness. If configured, the readiness check will expect a
     # listener on these ports. A comma separated list is expected, such as "80,443".
     #

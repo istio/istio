@@ -76,11 +76,11 @@ spec:
 {{- end }}
           - name: GF_PATHS_DATA
             value: /data/grafana
-          {{- range $key, $value := $.Values.env }}
+          {{- range $key, $value := $.Values.grafana.env }}
           - name: {{ $key }}
             value: {{ $value | quote }}
           {{- end }}
-          {{- range $key, $secret := $.Values.envSecrets }}
+          {{- range $key, $secret := $.Values.grafana.envSecrets }}
           - name: {{ $key }}
             valueFrom:
               secretKeyRef:

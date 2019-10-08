@@ -86,7 +86,7 @@ spec:
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
-{{- if .Values.plugins }}
+{{- if .Values.pilot.plugins }}
           - --plugins={{ .Values.pilot.plugins }}
 {{- end }}
           - --keepaliveMaxServerConnectionAge

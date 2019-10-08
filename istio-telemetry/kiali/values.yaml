@@ -56,7 +56,7 @@ kiali:
 
   # When true, a secret will be created with a default username and password. Useful for demos.
   createDemoSecret: true
-
+  resources: {}
   security:
     enabled: true
     cert_file: /kiali-cert/cert-chain.pem
