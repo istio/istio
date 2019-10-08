@@ -45,6 +45,13 @@ import (
 	"istio.io/pkg/version"
 )
 
+const (
+	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
+	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
+	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
+	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+)
+
 type cliOptions struct { // nolint: maligned
 	// Comma separated string containing all listened namespaces
 	listenedNamespaces      string
@@ -122,6 +129,23 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
+		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
+			cmd.DefaultSelfSignedRootCertCheckInterval,
+			"The interval that self-signed CA checks its root certificate "+
+				"expiration time and rotates root certificate. Setting this interval "+
+				"to zero or a negative value disables automated root cert check and "+
+				"rotation. This interval is suggested to be larger than 10 minutes.").Get(),
+		selfSignedRootCertGracePeriodPercentile: env.RegisterIntVar(selfSignedRootCertGracePeriodPercentile,
+			cmd.DefaultRootCertGracePeriodPercentile,
+			"Grace period percentile for self-signed root cert.").Get(),
+		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
+			cmd.DefaultWorkloadMinCertGracePeriod,
+			"The minimum workload certificate rotation grace period.").Get(),
+		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
+			true,
+			"If true, set up a jitter to start root cert rotator. "+
+				"Jitter selects a backoff time in seconds to start root cert rotator, "+
+				"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -221,8 +245,6 @@ func init() {
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
-	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
-		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
