@@ -40,7 +40,7 @@ func TestProxyTracing(t *testing.T) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
 
 			retry.UntilSuccessOrFail(t, func() error {
-				util.VisitProductPage(ingress, /* time_out = */ 10, /* want_status = */ 200, t)
+				util.SendTraffic(tracing.GetIngressInstance(), t, "Sending traffic", "", "", 1)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), "")
 				if err != nil {

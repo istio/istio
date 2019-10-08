@@ -51,7 +51,7 @@ func TestClientTracing(t *testing.T) {
 			extraHeader := fmt.Sprintf("%s: %s", traceHeader, id)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				util.VisitProductPage(ingress, /* time_out = */ 10, /* want_status = */ 200, t)
+				util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 1)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), fmt.Sprintf("guid:x-client-trace-id=%s", id))
 				if err != nil {
