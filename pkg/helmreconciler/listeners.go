@@ -22,6 +22,8 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
 
+	"istio.io/pkg/log"
+
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 
 	"istio.io/operator/pkg/util"
@@ -228,66 +230,61 @@ func (l *LoggingRenderingListener) RegisterReconciler(reconciler *HelmReconciler
 
 // BeginReconcile logs the event
 func (l *LoggingRenderingListener) BeginReconcile(instance runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("begin reconciling resources")
+	log.Info("begin reconciling resources")
 	return nil
 }
 
 // BeginDelete logs the event
 func (l *LoggingRenderingListener) BeginDelete(instance runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("begin deleting resources")
+	log.Info("begin deleting resources")
 	return nil
 }
 
 // BeginChart logs the event and updates the logger to log with values chart=chart-name
 func (l *LoggingRenderingListener) BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
-	l.loggerStack = append(l.loggerStack, l.reconciler.logger)
-	l.reconciler.logger = l.reconciler.logger.WithValues("chart", chart)
-	l.reconciler.logger.V(l.Level).Info("begin updating resources for chart")
+	log.Info("begin updating resources for chart")
 	return manifests, nil
 }
 
 // BeginResource logs the event and updates the logger to log with values resource=name, kind=kind, apiVersion=api-version
 func (l *LoggingRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
-	l.loggerStack = append(l.loggerStack, l.reconciler.logger)
 	accessor := meta.NewAccessor()
 	kind, _ := accessor.Kind(obj)
 	name, _ := accessor.Name(obj)
 	version, _ := accessor.APIVersion(obj)
-	l.reconciler.logger = l.reconciler.logger.WithValues("resource", name, "kind", kind, "apiVersion", version)
-	l.reconciler.logger.V(l.Level).Info("begin resource update")
+	log.Infof("begin resource update (%s, %s, %s)", version, kind, name)
 	return obj, nil
 }
 
 // ResourceCreated logs the event
 func (l *LoggingRenderingListener) ResourceCreated(created runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("new resource created")
+	log.Info("new resource created")
 	return nil
 }
 
 // ResourceUpdated logs the event
 func (l *LoggingRenderingListener) ResourceUpdated(updated runtime.Object, old runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("existing resource updated")
+	log.Info("existing resource updated")
 	return nil
 }
 
 // ResourceDeleted logs the event
 func (l *LoggingRenderingListener) ResourceDeleted(deleted runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("resource deleted")
+	log.Info("resource deleted")
 	return nil
 }
 
 // ResourceError logs the event and the error
 func (l *LoggingRenderingListener) ResourceError(obj runtime.Object, err error) error {
-	l.reconciler.logger.Error(err, "error processing resource")
+	log.Errorf("error processing resource: %s", err)
 	return nil
 }
 
 // EndResource logs the event and resets the logger to its previous state (i.e. removes the resource specific labels).
 func (l *LoggingRenderingListener) EndResource(obj runtime.Object) error {
-	l.reconciler.logger.V(l.Level).Info("end resource update")
+	log.Info("end resource update")
 	lastIndex := len(l.loggerStack) - 1
 	if lastIndex >= 0 {
-		l.reconciler.logger = l.loggerStack[lastIndex]
 		l.loggerStack = l.loggerStack[:lastIndex]
 	}
 	return nil
@@ -295,10 +292,9 @@ func (l *LoggingRenderingListener) EndResource(obj runtime.Object) error {
 
 // EndChart logs the event and resets the logger to its previous state (i.e. removes the chart specific labels).
 func (l *LoggingRenderingListener) EndChart(chart string) error {
-	l.reconciler.logger.V(l.Level).Info("end chart update")
+	log.Info("end chart update")
 	lastIndex := len(l.loggerStack) - 1
 	if lastIndex >= 0 {
-		l.reconciler.logger = l.loggerStack[lastIndex]
 		l.loggerStack = l.loggerStack[:lastIndex]
 	}
 	return nil
@@ -306,18 +302,15 @@ func (l *LoggingRenderingListener) EndChart(chart string) error {
 
 // BeginPrune logs the event and updates the logger to log with values all=true/false
 func (l *LoggingRenderingListener) BeginPrune(all bool) error {
-	l.loggerStack = append(l.loggerStack, l.reconciler.logger)
-	l.reconciler.logger = l.reconciler.logger.WithValues("all", all)
-	l.reconciler.logger.V(l.Level).Info("begin pruning")
+	log.Info("begin pruning")
 	return nil
 }
 
 // EndPrune logs the event and resets the logger to its previous state (i.e. removes the all label).
 func (l *LoggingRenderingListener) EndPrune() error {
-	l.reconciler.logger.V(l.Level).Info("end pruning")
+	log.Info("end pruning")
 	lastIndex := len(l.loggerStack) - 1
 	if lastIndex >= 0 {
-		l.reconciler.logger = l.loggerStack[lastIndex]
 		l.loggerStack = l.loggerStack[:lastIndex]
 	}
 	return nil
@@ -326,15 +319,15 @@ func (l *LoggingRenderingListener) EndPrune() error {
 // EndDelete logs the event and any error that occurred
 func (l *LoggingRenderingListener) EndDelete(instance runtime.Object, err error) error {
 	if err != nil {
-		l.reconciler.logger.Error(err, "errors occurred during deletion")
+		log.Errorf("errors occurred during deletion: %s", err)
 	}
-	l.reconciler.logger.V(l.Level).Info("end deleting resources")
+	log.Info("end deleting resources")
 	return nil
 }
 
 // EndReconcile logs the event and any error that occurred
 func (l *LoggingRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha2.InstallStatus) error {
-	l.reconciler.logger.V(l.Level).Info("end reconciling resources")
+	log.Info("end reconciling resources")
 	return nil
 }
 

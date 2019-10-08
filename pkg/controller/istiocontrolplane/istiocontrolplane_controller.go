@@ -17,8 +17,6 @@ package istiocontrolplane
 import (
 	"context"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,13 +25,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/pkg/log"
 )
-
-var log = logf.Log.WithName("controller_istiocontrolplane")
 
 const (
 	finalizer = "istio-operator"
@@ -61,6 +58,7 @@ func newReconciler(mgr manager.Manager, _ string) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	log.Info("Adding controller for IstioControlPlane")
 	// Create a new controller
 	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -82,7 +80,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
+	log.Info("Controller added")
 	return nil
 }
 
@@ -105,8 +103,7 @@ type ReconcileIstioControlPlane struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling IstioControlPlane")
+	log.Info("Reconciling IstioControlPlane")
 
 	// Fetch the IstioControlPlane instance
 	instance := &v1alpha2.IstioControlPlane{}
@@ -128,16 +125,16 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 
 	if deleted {
 		if finalizerIndex < 0 {
-			reqLogger.Info("IstioControlPlane deleted")
+			log.Info("IstioControlPlane deleted")
 			return reconcile.Result{}, nil
 		}
-		reqLogger.Info("Deleting IstioControlPlane")
+		log.Info("Deleting IstioControlPlane")
 
-		reconciler, err := r.factory.New(instance, r.client, reqLogger)
+		reconciler, err := r.factory.New(instance, r.client)
 		if err == nil {
 			err = reconciler.Delete()
 		} else {
-			reqLogger.Error(err, "failed to create reconciler")
+			log.Errorf("failed to create reconciler: %s", err)
 		}
 		// TODO: for now, nuke the resources, regardless of errors
 		finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
@@ -146,7 +143,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			// workaround for https://github.com/kubernetes/kubernetes/issues/73098 for k8s < 1.14
 			// TODO: make this error message more meaningful.
-			reqLogger.Info("conflict during finalizer removal, retrying")
+			log.Info("conflict during finalizer removal, retrying")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, instance)
 			finalizers = instance.GetFinalizers()
 			finalizerIndex = indexOf(finalizers, finalizer)
@@ -155,24 +152,24 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 			finalizerError = r.client.Update(context.TODO(), instance)
 		}
 		if finalizerError != nil {
-			reqLogger.Error(finalizerError, "error removing finalizer")
+			log.Errorf("error removing finalizer: %s", finalizerError)
 		}
 		return reconcile.Result{}, err
 	} else if finalizerIndex < 0 {
 		// TODO: make this error message more meaningful.
-		reqLogger.V(2).Info("Adding finalizer", "finalizer", finalizer)
+		log.Infof("Adding finalizer %v", finalizer)
 		finalizers = append(finalizers, finalizer)
 		instance.SetFinalizers(finalizers)
 		err = r.client.Update(context.TODO(), instance)
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("Updating IstioControlPlane")
-	reconciler, err := r.factory.New(instance, r.client, reqLogger)
+	log.Info("Updating IstioControlPlane")
+	reconciler, err := r.factory.New(instance, r.client)
 	if err == nil {
 		err = reconciler.Reconcile()
 	} else {
-		reqLogger.Error(err, "failed to create reconciler")
+		log.Errorf("failed to create reconciler; %s", err)
 	}
 
 	return reconcile.Result{}, err

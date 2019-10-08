@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
 
+	"istio.io/pkg/log"
+
 	"istio.io/operator/pkg/util"
 )
 
@@ -154,7 +156,7 @@ func (l *DefaultChartCustomizerListener) BeginResource(obj runtime.Object) (runt
 	if l.customizer == nil {
 		// XXX: what went wrong
 		// this should actually be a warning
-		l.reconciler.GetLogger().Info("no active chart customizer")
+		log.Info("no active chart customizer")
 		return obj, nil
 	}
 	return l.customizer.BeginResource(obj)
@@ -165,7 +167,7 @@ func (l *DefaultChartCustomizerListener) ResourceCreated(created runtime.Object)
 	if l.customizer == nil {
 		// XXX: what went wrong
 		// this should actually be a warning
-		l.reconciler.GetLogger().Info("no active chart customizer")
+		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceCreated(created)
@@ -176,7 +178,7 @@ func (l *DefaultChartCustomizerListener) ResourceUpdated(updated runtime.Object,
 	if l.customizer == nil {
 		// XXX: what went wrong
 		// this should actually be a warning
-		l.reconciler.GetLogger().Info("no active chart customizer")
+		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceUpdated(updated, old)
@@ -187,7 +189,7 @@ func (l *DefaultChartCustomizerListener) ResourceError(obj runtime.Object, err e
 	if l.customizer == nil {
 		// XXX: what went wrong
 		// this should actually be a warning
-		l.reconciler.GetLogger().Info("no active chart customizer")
+		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceError(obj, err)
@@ -198,7 +200,7 @@ func (l *DefaultChartCustomizerListener) EndResource(obj runtime.Object) error {
 	if l.customizer == nil {
 		// XXX: what went wrong
 		// this should actually be a warning
-		l.reconciler.GetLogger().Info("no active chart customizer")
+		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.EndResource(obj)

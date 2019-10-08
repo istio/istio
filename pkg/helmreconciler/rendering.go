@@ -160,7 +160,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) error {
 	for _, raw := range objects {
 		rawJSON, err := yaml.YAMLToJSON([]byte(raw))
 		if err != nil {
-			h.logger.Error(err, "unable to convert raw data to JSON")
+			log.Errorf("unable to convert raw data to JSON: %s", err)
 			errs = append(errs, err)
 			continue
 		}
@@ -184,7 +184,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 		allErrors := []error{}
 		list, err := obj.ToList()
 		if err != nil {
-			h.logger.Error(err, "error converting List object")
+			log.Errorf("error converting List object: %s", err)
 			return err
 		}
 		for _, item := range list.Items {
@@ -198,13 +198,13 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 
 	mutatedObj, err := h.customizer.Listener().BeginResource(obj)
 	if err != nil {
-		h.logger.Error(err, "error preprocessing object")
+		log.Errorf("error preprocessing object: %s", err)
 		return err
 	}
 
 	err = kubectl.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
 	if err != nil {
-		h.logger.Error(err, "unexpected error adding apply annotation to object")
+		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
@@ -216,37 +216,37 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 	err = h.client.Get(context.TODO(), objectKey, receiver)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			h.logger.Info("creating resource")
+			log.Info("creating resource")
 			err = h.client.Create(context.TODO(), mutatedObj)
 			if err == nil {
 				// special handling
 				if err = h.customizer.Listener().ResourceCreated(mutatedObj); err != nil {
-					h.logger.Error(err, "unexpected error occurred during postprocessing of new resource")
+					log.Errorf("unexpected error occurred during postprocessing of new resource: %s", err)
 				}
 			} else {
 				listenerErr := h.customizer.Listener().ResourceError(mutatedObj, err)
 				if listenerErr != nil {
-					h.logger.Error(listenerErr, "unexpected error occurred invoking ResourceError on listener")
+					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
 				}
 			}
 		}
 	} else if patch, err = h.CreatePatch(receiver, mutatedObj); err == nil && patch != nil {
-		h.logger.Info("updating existing resource")
+		log.Info("updating existing resource")
 		mutatedObj, err = patch.Apply()
 		if err == nil {
 			if err = h.customizer.Listener().ResourceUpdated(mutatedObj, receiver); err != nil {
-				h.logger.Error(err, "unexpected error occurred during postprocessing of updated resource")
+				log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
 			}
 		} else {
 			listenerErr := h.customizer.Listener().ResourceError(mutatedObj, err)
 			if listenerErr != nil {
-				h.logger.Error(listenerErr, "unexpected error occurred invoking ResourceError on listener")
+				log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
 			}
 		}
 	}
-	h.logger.V(2).Info("resource reconciliation complete")
+	log.Info("resource reconciliation complete")
 	if err != nil {
-		h.logger.Error(err, "error occurred reconciling resource")
+		log.Errorf("error occurred reconciling resource: %s", err)
 	}
 	return err
 }
