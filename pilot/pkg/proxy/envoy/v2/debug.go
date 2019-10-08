@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/golang/protobuf/jsonpb"
 
@@ -31,6 +32,17 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
+)
+
+const (
+	// configNameNotApplicable is used to represent the name of the authentication policy or
+	// destination rule when they are not specified.
+	configNameNotApplicable = "-"
+
+	// configNameUnknown is used to represent the name of the authentication policy when it is specified,
+	// but the information is not available to show. This is temporary, until we fix the push context to carry
+	// authN policy name.
+	configNameUnknown = "???"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -61,7 +73,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
-	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
+	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
 	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
@@ -214,47 +226,28 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
-type authProtocol int
-
-const (
-	authnHTTP       authProtocol = 1
-	authnMTls       authProtocol = 2
-	authnPermissive              = authnHTTP | authnMTls
-	authnCustomTLS  authProtocol = 4
-	authnCustomMTls authProtocol = 8
-)
-
-// Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
-// TODO: check subsets possibly conflicts between subsets.
-func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) authProtocol {
-	if rule.TrafficPolicy == nil {
-		return authnHTTP
+// collectTLSSettingsForPort returns TLSSettings for the given port, key by subset name (the service-level settings
+// should have key is an empty string). TLSSettings could be nil, indicate it was not set.
+func collectTLSSettingsForPort(rule *networking.DestinationRule, port *model.Port) map[string]*networking.TLSSettings {
+	if rule == nil {
+		return map[string]*networking.TLSSettings{"": nil}
 	}
-	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	if tls != nil {
-		switch tls.Mode {
-		case networking.TLSSettings_ISTIO_MUTUAL:
-			return authnMTls
-		case networking.TLSSettings_SIMPLE:
-			return authnCustomTLS
-		case networking.TLSSettings_MUTUAL:
-			return authnCustomMTls
-		case networking.TLSSettings_DISABLE:
-			return authnHTTP
-		}
+	output := make(map[string]*networking.TLSSettings)
+	output[""] = getTLSSettingsForTrafficPolicyAndPort(rule.TrafficPolicy, port)
+	for _, subset := range rule.GetSubsets() {
+		output[subset.GetName()] = getTLSSettingsForTrafficPolicyAndPort(subset.GetTrafficPolicy(), port)
 	}
-	return authnHTTP
+
+	return output
 }
 
-func getServerAuthProtocol(mtls *authn.MutualTls) authProtocol {
-	if mtls == nil {
-		return authnHTTP
+func getTLSSettingsForTrafficPolicyAndPort(trafficPolicy *networking.TrafficPolicy, port *model.Port) *networking.TLSSettings {
+	if trafficPolicy == nil {
+		return nil
 	}
-	if mtls.Mode == authn.MutualTls_PERMISSIVE {
-		return authnPermissive
-	}
-	return authnMTls
+	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(trafficPolicy, port)
+	return tls
 }
 
 // AuthenticationDebug holds debug information for service authentication policy.
@@ -268,36 +261,25 @@ type AuthenticationDebug struct {
 	TLSConflictStatus        string `json:"TLS_conflict_status"`
 }
 
+// Pretty to-string function for unit test log.
+func (p *AuthenticationDebug) String() string {
+	return fmt.Sprintf("{%s:%d, authn=%q, dr=%q, server=%q, client=%q, status=%q}", p.Host, p.Port, p.AuthenticationPolicyName,
+		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
+}
+
 func configName(config *model.Config) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
 	}
-	return "-"
+	return configNameNotApplicable
 }
 
-func authProtocolToString(protocol authProtocol) string {
-	switch protocol {
-	case authnHTTP:
-		return "HTTP"
-	case authnMTls:
-		return "mTLS"
-	case authnPermissive:
-		return "HTTP/mTLS"
-	case authnCustomTLS:
-		return "TLS"
-	case authnCustomMTls:
-		return "custom mTLS"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// Authentication debugging
+// Authenticationz dumps the authn tls-check info.
 // This handler lists what authentication policy is used for a service and destination rules to
 // that service that a proxy instance received.
 // Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
 // are visible.
-func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
@@ -319,53 +301,99 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 	}
 	mostRecentProxy = connections[mostRecent].modelNode
-	_, _ = fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.Env.ServiceDiscovery.Services()
+	info := []*AuthenticationDebug{}
 	for _, ss := range svc {
+		if ss.MeshExternal {
+			// Skip external services
+			continue
+		}
 		for _, p := range ss.Ports {
-			info := AuthenticationDebug{
-				Host: string(ss.Hostname),
-				Port: p.Port,
-			}
-			// TODO: support querying with labels.
-			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyForWorkload(ss, nil, p)
-			info.AuthenticationPolicyName = configName(authnConfig)
-			var serverProtocol, clientProtocol authProtocol
-			if authnConfig != nil {
-				policy := authnConfig.Spec.(*authn.Policy)
-				mtls := authn_alpha1.GetMutualTLS(policy)
-				serverProtocol = getServerAuthProtocol(mtls)
-			} else {
-				serverProtocol = getServerAuthProtocol(nil)
-			}
-			info.ServerProtocol = authProtocolToString(serverProtocol)
-
+			authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 			destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-			info.DestinationRuleName = configName(destConfig)
-			if destConfig != nil {
-				rule := destConfig.Spec.(*networking.DestinationRule)
-				clientProtocol = clientAuthProtocol(rule, p)
-			} else {
-				clientProtocol = authnHTTP
-			}
-			info.ClientProtocol = authProtocolToString(clientProtocol)
-
-			if (clientProtocol & serverProtocol) == 0 {
-				if clientProtocol == authnCustomMTls && serverProtocol != authnHTTP {
-					info.TLSConflictStatus = "MAY CONFLICT"
-				} else {
-					info.TLSConflictStatus = "CONFLICT"
-				}
-			} else {
-				info.TLSConflictStatus = "OK"
-			}
-			if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
-				_, _ = w.Write(b)
-			}
-			_, _ = fmt.Fprintf(w, ",\n")
+			info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
 		}
 	}
-	_, _ = fmt.Fprint(w, "\n{}]")
+
+	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
+}
+
+// AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
+func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy,
+	destConfig *model.Config) []*AuthenticationDebug {
+	// TODO(diemvu): add policy config name to the cache push config for this.
+	authnPolicyName := configNameNotApplicable
+	if authnPolicy != nil {
+		authnPolicyName = configNameUnknown
+	}
+
+	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
+
+	baseDebugInfo := AuthenticationDebug{
+		Port:                     port.Port,
+		AuthenticationPolicyName: authnPolicyName,
+		DestinationRuleName:      configName(destConfig),
+		ServerProtocol:           serverMTLSMode.String(),
+		ClientProtocol:           configNameNotApplicable,
+	}
+
+	var rule *networking.DestinationRule
+
+	if destConfig != nil {
+		rule = destConfig.Spec.(*networking.DestinationRule)
+	}
+
+	output := []*AuthenticationDebug{}
+
+	clientTLSModes := collectTLSSettingsForPort(rule, port)
+	var subsets []string
+	for k := range clientTLSModes {
+		subsets = append(subsets, k)
+	}
+	sort.Strings(subsets)
+
+	for _, ss := range subsets {
+		c := clientTLSModes[ss]
+		info := baseDebugInfo
+		if c != nil {
+			info.ClientProtocol = c.GetMode().String()
+		}
+		if ss == "" {
+			info.Host = string(hostname)
+		} else {
+			info.Host = fmt.Sprintf("%s|%s", hostname, ss)
+		}
+		info.TLSConflictStatus = EvaluateTLSState(c, serverMTLSMode)
+
+		output = append(output, &info)
+	}
+	return output
+}
+
+// EvaluateTLSState returns the conflict state (string) for the input client+server settings.
+// The output string could be:
+// - "OK": both client and server TLS settings are set correctly.
+// - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
+func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha1.MutualTLSMode) string {
+	const okState string = "OK"
+	const conflictState string = "CONFLICT"
+
+	if clientMode == nil {
+		// TLS settings was not set explicitly, pilot will try a setting that work well with the
+		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
+		return okState
+	}
+
+	if (serverMode == authn_alpha1.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == authn_alpha1.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == authn_alpha1.MTLSPermissive &&
+			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
+		return okState
+	}
+
+	return conflictState
 }
 
 // adsz implements a status and debug interface for ADS.
