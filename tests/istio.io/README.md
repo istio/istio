@@ -143,7 +143,7 @@ To write a test for content in istio.io follow these steps:
     ```
 
     The following example shows how to use a `Setup` function to set the
-    `minikubEnabled` variable if `Minikube` is used for tests.
+    `minikubeEnabled` variable if `Minikube` is used for tests.
 
     ```golang
     var (
@@ -186,7 +186,7 @@ This example performs the following actions:
 
 ### Built in Verifiers
 
-The framework includes some predefined verifiers for scripts. Fore example, the
+The framework includes some predefined verifiers for scripts. For example, the
 `examples.GetCurlVerifier` function. You can use this function to
 create a verifier that parses the output of a curl script and compares each
 response. If curl returns `000`, the verifier compares the next line against the
