@@ -102,10 +102,6 @@ pilot:
   # Indicate if Galley is enabled to send MCP queries
   useMCP: true
 
-  # When true, DNS certificates will be provisioned through Chiron linked into Pilot.
-  # When false, such mechanism is not enabled.
-  enableCertificateController: false
-
 ## Mixer settings
 mixer:
   telemetry:

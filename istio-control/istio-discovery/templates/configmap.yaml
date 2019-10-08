@@ -208,12 +208,10 @@ data:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- end}}
 
-    {{- if .Values.pilot.enableCertificateController }}
+      # Configures DNS certificates provisioned through Chiron linked into Pilot.
+      # The DNS certificate provisioning is enabled by default now so it get tested.
+      # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
       certificates:
-        - secretName: istio-webhook-galley
-          dnsNames: [istio-galley.{{ .Release.Namespace }}.svc, istio-galley.{{ .Release.Namespace }}]
-        - secretName: istio-webhook-sidecar-injector
-          dnsNames: [istio-sidecar-injector.{{ .Release.Namespace }}.svc, istio-sidecar-injector.{{ .Release.Namespace }}]
-    {{- end }}
+{{ toYaml .Values.global.certificates | indent 6 }}
 ---
 {{- end }}
