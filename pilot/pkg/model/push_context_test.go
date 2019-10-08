@@ -104,6 +104,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
 			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
 		},
+		{
+			"skip namespace merge: one empty",
+			&PushRequest{Full: true, NamespacesUpdated: nil},
+			&PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{"ns2": {}}},
+			PushRequest{Full: true, NamespacesUpdated: nil},
+		},
+		{
+			"skip config type merge: one empty",
+			&PushRequest{Full: true, ConfigTypesUpdated: nil},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{"cfg2": {}}},
+			PushRequest{Full: true, ConfigTypesUpdated: nil},
+		},
 	}
 
 	for _, tt := range cases {
