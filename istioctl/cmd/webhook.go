@@ -246,9 +246,13 @@ istioctl experimental post-install webhook disable --injection=false
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
 			validationErr, injectionErr := disableWebhookConfig(client, opts)
-			if validationErr != nil || injectionErr != nil {
+			if validationErr != nil && injectionErr != nil {
 				return fmt.Errorf("error when disabling webhook configurations. validation err: %v. injection err: %v",
 					validationErr, injectionErr)
+			} else if validationErr != nil {
+				return fmt.Errorf("error when disabling validation webhook configuration: %v", validationErr)
+			} else if injectionErr != nil {
+				return fmt.Errorf("error when disabling injection webhook configuration: %v", injectionErr)
 			}
 			fmt.Println("webhook configurations have been disabled")
 			return nil
@@ -289,9 +293,13 @@ istioctl experimental post-install webhook status --validation --validation-conf
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
 			validationErr, injectionErr := displayWebhookConfig(client, opts)
-			if validationErr != nil || injectionErr != nil {
+			if validationErr != nil && injectionErr != nil {
 				return fmt.Errorf("error when displaying webhook configurations. validation err: %v. injection err: %v",
 					validationErr, injectionErr)
+			} else if validationErr != nil {
+				return fmt.Errorf("error when displaying validation webhook configuration: %v", validationErr)
+			} else if injectionErr != nil {
+				return fmt.Errorf("error when displaying injection webhook configuration: %v", injectionErr)
 			}
 			return nil
 		},
