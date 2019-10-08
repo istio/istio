@@ -116,9 +116,10 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
-	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
-	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
-	client corev1.CoreV1Interface, rootCertFile string, enableJitter bool) (caOpts *IstioCAOptions, err error) {
+	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
+	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
+	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
+	rootCertFile string, enableJitter bool) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -139,7 +140,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		}
 	}
 
-	rootCertGracePeriodPercentile := cmd.DefaultRootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -148,7 +148,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			CheckInterval:       rootCertCheckInverval,
 			caCertTTL:           caCertTTL,
 			retryInterval:       cmd.ReadSigningCertCheckInterval,
-			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriodPercentile)),
+			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace:  namespace,
 			dualUse:             dualUse,
 			readSigningCertOnly: readSigningCertOnly,
