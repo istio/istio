@@ -526,9 +526,9 @@ func TestAppendRootCerts(t *testing.T) {
 			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
 		},
 		"Not existing root file": {
-			pemCert:          []byte{},
-			rootFile:         "../testdata/notexistcert.pem",
-			expectedErr:      "failed to read root certificates (open ../testdata/notexistcert.pem: " +
+			pemCert:  []byte{},
+			rootFile: "../testdata/notexistcert.pem",
+			expectedErr: "failed to read root certificates (open ../testdata/notexistcert.pem: " +
 				"no such file or directory)",
 			expectedRootCert: []byte{},
 		},
