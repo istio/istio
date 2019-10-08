@@ -138,7 +138,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCit
 		// KeyCertBundle, this indicates that the local stored root cert is not
 		// up-to-date. Update root cert and key in KeyCertBundle and config map.
 		rootCertRotatorLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
 		if err != nil {
 			rootCertRotatorLog.Errorf("Failed to append root certificates (%v)", err)
 			return
@@ -172,10 +172,26 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
+		caCert, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
+		// If CA certificate is different from the CA certificate in local key
+		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
+		// Reload root certificate into key cert bundle.
+		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+			if err != nil {
+				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
+				return
+			}
+			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+			}
+			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
+		}
 		return
 	}
-	// TODO(JimmyCYJ): If root cert in the secret is newer than the root cert in
-	// key cert bundle, we need to update key cert bundle.
 
 	rootCertRotatorLog.Info("Refresh root certificate")
 	options := util.CertOptions{
@@ -193,12 +209,11 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	rootCerts, err := appendRootCerts(pemCert, rotator.config.rootCertFile)
+	rootCerts, err := util.AppendRootCerts(pemCert, rotator.config.rootCertFile)
 	if err != nil {
 		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
 		return
 	}
-
 	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
 		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		return
