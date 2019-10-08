@@ -818,6 +818,11 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 	for _, spec := range authNPolicies {
 		policy := spec.Spec.(*authn.Policy)
+		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
+		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
+		// to run Jwt validation.
+		_ = JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy)
+
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
 				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
