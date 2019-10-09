@@ -1,9 +1,10 @@
 policy: enabled
 alwaysInjectSelector: []
 neverInjectSelector: []
-injectedAnnotations: {}
+injectedAnnotations:
+  foo: bar
+  bar: baz
 template: |-
-  rewriteAppHTTPProbe: true
   initContainers:
   - name: istio-init
     image: example.com/init:latest
