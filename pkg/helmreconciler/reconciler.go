@@ -118,7 +118,7 @@ func (h *HelmReconciler) Reconcile() error {
 // where a child must wait for the parent to complete before starting.
 func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2.InstallStatus {
 	deps, dch := h.customizer.Input().GetProcessingOrder(manifests)
-	out := &v1alpha2.InstallStatus{}
+	out := &v1alpha2.InstallStatus{Status: make(map[string]*v1alpha2.InstallStatus_VersionStatus)}
 
 	var wg sync.WaitGroup
 	for c, m := range manifests {
@@ -132,6 +132,9 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				log.Infof("Dependency for %s has completed, proceeding.", c)
 			}
 
+			if _, ok := out.Status[c]; !ok {
+				out.Status[c] = &v1alpha2.InstallStatus_VersionStatus{}
+			}
 			out.Status[c].Status = v1alpha2.InstallStatus_NONE
 			if len(m) != 0 {
 				out.Status[c].Status = v1alpha2.InstallStatus_HEALTHY

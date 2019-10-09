@@ -67,8 +67,7 @@ func (i *IstioRenderingInput) GetChartPath() string {
 }
 
 func (i *IstioRenderingInput) GetInputConfig() interface{} {
-	// Not used in this renderer,
-	return nil
+	return i.instance
 }
 
 func (i *IstioRenderingInput) GetTargetNamespace() string {

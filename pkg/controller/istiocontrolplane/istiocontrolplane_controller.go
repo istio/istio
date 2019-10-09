@@ -161,7 +161,10 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		finalizers = append(finalizers, finalizer)
 		instance.SetFinalizers(finalizers)
 		err = r.client.Update(context.TODO(), instance)
-		return reconcile.Result{}, err
+		if err != nil {
+			log.Errorf("Failed to update IstioControlPlane with finalizer, %v", err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	log.Info("Updating IstioControlPlane")

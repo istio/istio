@@ -170,6 +170,8 @@ message IstioControlPlane {
     IstioControlPlaneSpec spec = 3;
     // Status reports the status of the Istio control plane.
     InstallStatus status = 4;
+    string kind = 5;
+    string apiVersion = 6;
 }
 
 // IstioControlPlaneSpec defines the desired state of IstioControlPlane.
