@@ -5,8 +5,8 @@ ENV OPERATOR=/usr/local/bin/istio-operator \
     USER_NAME=istio-operator
 
 # install operator binary
-COPY build/out/istio-operator /usr/local/bin/.
-COPY build/bin /usr/local/bin
+COPY istio-operator /usr/local/bin/.
+COPY bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

@@ -28,6 +28,7 @@
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 
+
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
     TARGET_ARCH ?= amd64
@@ -52,7 +53,11 @@ endif
 
 export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_ARCH)_$(TARGET_OS)
 
+# should be /gobin
+export GOBIN ?= /tmp/go
+
 ifeq ($(BUILD_WITH_CONTAINER),1)
+export TARGET_OUT = /work/out/$(TARGET_ARCH)_$(TARGET_OS)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:2019-10-09T15-00-30
@@ -87,6 +92,7 @@ endif
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 %:
+	@mkdir -p $(GOBIN)
 	@$(MAKE) $@
 
 default:
