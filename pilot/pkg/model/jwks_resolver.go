@@ -87,6 +87,9 @@ var (
 		"pilot_jwks_resolver_network_fetch_fail_total",
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
+
+	// JwtKeyResolver resolves JWT public key and JwksURI.
+	JwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.

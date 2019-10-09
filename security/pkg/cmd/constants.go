@@ -24,9 +24,9 @@ const (
 	// CA checks and rotates its root certificate.
 	DefaultSelfSignedRootCertCheckInterval = 1 * time.Hour
 
-	// DefaultRootCertGracePeriodRatio is the default length of root certificate
+	// DefaultRootCertGracePeriodPercentile is the default length of root certificate
 	// rotation grace period, configured as the ratio of the certificate TTL.
-	DefaultRootCertGracePeriodRatio = 0.2
+	DefaultRootCertGracePeriodPercentile = 20
 
 	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
 	ReadSigningCertCheckInterval = time.Second * 5

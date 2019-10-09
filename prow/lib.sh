@@ -145,6 +145,8 @@ function setup_kind_cluster() {
 
   KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
   export KUBECONFIG
+
+  kubectl apply -f ./prow/config/metrics
 }
 
 function cni_run_daemon_kind() {

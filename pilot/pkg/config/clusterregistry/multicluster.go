@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
 )
@@ -148,6 +149,10 @@ func (m *Multicluster) ReloadNetworkLookup(meshNetworks *meshconfig.MeshNetworks
 
 func (m *Multicluster) updateHandler() {
 	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true})
+		req := &model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		}
+		m.XDSUpdater.ConfigUpdate(req)
 	}
 }

@@ -9,7 +9,8 @@ initContainers:
 {{- else }}
   image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
-  args:
+  command:
+  - istio-iptables
   - "-p"
   - "15001"
   - "-z"
@@ -132,11 +133,11 @@ containers:
 {{- end }}
 {{- if .Values.global.proxy.envoyMetricsService.enabled }}
   - --envoyMetricsService
-  - '{{ structToJSON .ProxyConfig.EnvoyMetricsService }}'
+  - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogService
-  - '{{ structToJSON .ProxyConfig.EnvoyAccessLogService }}'
+  - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"

@@ -50,6 +50,24 @@ var (
 	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
+// InitImageName returns the fully qualified image name for the istio
+// init image given a docker hub and tag and debug flag
+// This is used for testing only
+func InitImageName(hub string, tag string, _ bool) string {
+	return hub + "/proxy_init:" + tag
+}
+
+// ProxyImageName returns the fully qualified image name for the istio
+// proxy image given a docker hub and tag and whether to use debug or not.
+// This is used for testing
+func ProxyImageName(hub string, tag string, debug bool) string {
+	// Allow overriding the proxy image.
+	if debug {
+		return hub + "/proxy_debug:" + tag
+	}
+	return hub + "/proxyv2:" + tag
+}
+
 func TestImageName(t *testing.T) {
 	want := "docker.io/istio/proxy_init:latest"
 	if got := InitImageName("docker.io/istio", "latest", true); got != want {

@@ -100,6 +100,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "istioInjectionVersionMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+		},
+		analyzer: &injection.VersionAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+		},
+	},
+	{
 		name: "gatewayNoWorkload",
 		inputFiles: []string{
 			"testdata/gateway-no-workload.yaml",
