@@ -71,7 +71,7 @@ spec:
 {{- if not $.Values.global.configValidation }}
           - --enable-validation=false
 {{- end }}
-{{- if .Values.global.certificates }}
+{{- if .Values.global.operator }}
           - --enable-reconcileWebhookConfiguration=false
 {{- else }}
           - --enable-reconcileWebhookConfiguration=true
