@@ -32,8 +32,8 @@ type TestAgent struct {
 	configCh chan interface{}
 }
 
-func (ta *TestAgent) ConfigCh() chan<- interface{} {
-	return ta.configCh
+func (ta *TestAgent) Restart(c interface{}) {
+	ta.configCh <- c
 }
 
 func (ta *TestAgent) Run(ctx context.Context) {
@@ -44,7 +44,7 @@ func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
-	watcher := NewWatcher([]string{"/random"}, agent.ConfigCh())
+	watcher := NewWatcher([]string{"/random"}, agent.Restart)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update

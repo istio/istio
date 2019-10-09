@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/security/pkg/cmd"
+
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -219,6 +221,55 @@ func TestRootCertRotatorForSigningCitadel(t *testing.T) {
 	verifyRootCertAndPrivateKey(t, false, certItem1, certItem2)
 }
 
+// TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel verifies that
+// rotator reloads root cert into KeyCertBundle if the root cert in key cert bundle is
+// different from istio-ca-secret.
+func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
+	readOnlyCaOptions := getDefaultSelfSignedIstioCAOptions(nil)
+	readOnlyCaOptions.RotatorConfig.readSigningCertOnly = false
+	rotator := getRootCertRotator(readOnlyCaOptions)
+
+	// Mutate the root cert and private key as if they are rotated by other Citadel.
+	certItem0 := loadCert(rotator)
+	oldRootCert := certItem0.rootCertInKeyCertBundle
+	options := util.CertOptions{
+		TTL:           rotator.config.caCertTTL,
+		SignerPrivPem: certItem0.caSecret.Data[caPrivateKeyID],
+		Org:           rotator.config.org,
+		IsCA:          true,
+		IsSelfSigned:  true,
+		RSAKeySize:    caKeySize,
+		IsDualUse:     rotator.config.dualUse,
+	}
+	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
+	if ckErr != nil {
+		t.Fatalf("failed to rotate secret: %s", ckErr.Error())
+	}
+	newSecret := certItem0.caSecret
+	newSecret.Data[caCertID] = pemCert
+	newSecret.Data[caPrivateKeyID] = pemKey
+	rotator.config.client.Secrets(rotator.config.caStorageNamespace).Update(newSecret)
+
+	// Change grace period percentage to 0, so that root cert is not going to expire soon.
+	rotator.config.certInspector = certutil.NewCertUtil(0)
+	rotator.checkAndRotateRootCert()
+	// Verifies that when root cert remaining life is not in grace period time,
+	// root cert is not rotated.
+	certItem1 := loadCert(rotator)
+	if !bytes.Equal(newSecret.Data[caCertID], certItem1.caSecret.Data[caCertID]) {
+		t.Error("root cert in istio-ca-secret should be the same.")
+	}
+	// Verifies that after rotation, the rotator should have reloaded root cert into
+	// key cert bundle.
+	if bytes.Equal(oldRootCert, rotator.ca.keyCertBundle.GetRootCertPem()) {
+		t.Error("root cert in key cert bundle should be different after rotation.")
+	}
+	if !bytes.Equal(certItem1.caSecret.Data[caCertID], rotator.ca.keyCertBundle.GetRootCertPem()) {
+		t.Error("root cert in key cert bundle should be the same as root " +
+			"cert in istio-ca-secret after root cert rotation.")
+	}
+}
+
 // TestRootCertRotatorGoroutineForSigningCitadel verifies that rotator
 // periodically rotates root cert, updates key cert bundle and config map.
 func TestRootCertRotatorGoroutineForSigningCitadel(t *testing.T) {
@@ -260,8 +311,9 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
-		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
+		readSigningCertOnly, cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
+		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
 		caNamespace, -1, client, rootCertFile, false)
 	return caopts
 }

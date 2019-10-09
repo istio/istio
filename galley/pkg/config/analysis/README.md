@@ -39,6 +39,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // The context object has several functions that let you access the configuration resources
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/processor/metadata/metadata.yaml
+    // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
     c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
         s.analyzeVirtualService(r, c)
         return true
@@ -94,12 +95,7 @@ If your analyzer requires any new message types (meaning a unique template and e
             type: string
     ```
 
-1. Run `go generate`:
-
-    ```sh
-    cd galley/pkg/config/analysis/msg
-    go generate
-    ```
+1. Run `BUILD_WITH_CONTAINER=1 make gen`:
 
 1. Use the new type in your analyzer
 
@@ -111,11 +107,13 @@ Also note:
 
 * Messages can have different levels (Error, Warning, Info).
 * The code range 0000-0100 is reserved for internal and/or future use.
-* Please keep entries in `metadata.yaml` ordered by code.
+* Please keep entries in `messages.yaml` ordered by code.
 
 ### 4. Adding unit tests
 
-For each new analyzer, you should add an entry to the test grid in [analyzers_test.go](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/analyzers/analyzers_test.go). If you want to add additional unit testing beyond this, you can, but analyzers are required to be covered in this test grid.
+For each new analyzer, you should add an entry to the test grid in
+[analyzers_test.go](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/analyzers/analyzers_test.go).
+If you want to add additional unit testing beyond this, you can, but analyzers are required to be covered in this test grid.
 
 e.g. for the GatewayAnalyzer used as an example above, you would add something like this to `analyzers_test.go`:
 
@@ -168,11 +166,14 @@ spec:
   - httpbin-gateway-bogus # Expected: validation error since this gateway does not exist
 ```
 
-You should include both positive and negative test cases in the input YAML: we want to verify both that bad entries generate messages and that good entries do not.
+You should include both positive and negative test cases in the input YAML: we want to verify both that bad entries
+generate messages and that good entries do not.
 
-Since the analysis is tightly scoped and the YAML isn't checked for completeness, it's OK to partially specify the resources in YAML to keep the test cases as simple and legible as possible.
+Since the analysis is tightly scoped and the YAML isn't checked for completeness, it's OK to partially specify the
+resources in YAML to keep the test cases as simple and legible as possible.
 
-Note that this test framework will also verify that the resources requested in testing match the resources listed as inputs in the analyzer metadata. This should help you find any unused inputs and/or missing test cases.
+Note that this test framework will also verify that the resources requested in testing match the resources listed as
+inputs in the analyzer metadata. This should help you find any unused inputs and/or missing test cases.
 
 ### 5. Testing via istioctl
 
@@ -182,8 +183,17 @@ You can use `istioctl experimental analyze` to run all analyzers, including your
 make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
 ```
 
+### 6. Write a user-facing documentation page
+
+Each analysis message needs to be documented for customers. This is done by introducing a markdown file for
+each message in the istio.io repo in the content/en/docs/reference/config/analysis directory. You create
+a subdirectory with the code of the error message, and add a `index.md` file that contains the
+full description of the problem with potential remediation steps, examples, etc. See the existing
+files in that directory for examples of how this is done.
+
 ## FAQ
 
 ### What if I need a resource not available as a collection?
 
-Please open an issue (directed at the "Configuration" product area) or visit the [\#config channel on Slack](https://istio.slack.com/messages/C7KSV4AHJ) to discuss it.
+Please open an issue (directed at the "Configuration" product area) or visit the
+[\#config channel on Slack](https://istio.slack.com/messages/C7KSV4AHJ) to discuss it.

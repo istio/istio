@@ -79,6 +79,13 @@ const (
 
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
+
+	// CASecret stores the key/cert of self-signed CA for persistency purpose.
+	CASecret = "istio-ca-secret"
+	// caCertID is the CA certificate chain file.
+	caCertID = "ca-cert.pem"
+	// caPrivateKeyID is the private key file of CA.
+	caPrivateKeyID = "ca-key.pem"
 )
 
 var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
@@ -123,6 +130,9 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
+
+	caSecretController *CaSecretController
+	rootCertFile       string
 
 	// Controller and store for namespace objects
 	namespaceController cache.Controller
@@ -174,10 +184,10 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
-	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
+func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
+	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -193,6 +203,8 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
 		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:        NewCaSecretController(core),
+		rootCertFile:              rootCertFile,
 		enableNamespacesByDefault: enableNamespacesByDefault,
 		minGracePeriod:            minGracePeriod,
 		dualUse:                   dualUse,
@@ -545,13 +557,53 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	rootCertificates := sc.getTrustAnchorsBundle()
+	rootsWithExtraTrustAnchors := sc.getTrustAnchorsBundle()
+
+	// Check if root certificates in key cert bundle are not up-to-date. With multiple
+	// Citadel deployed in Istio, the root certificated in istio-ca-secret could be
+	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	if !bytes.Equal(rootsWithExtraTrustAnchors, scrt.Data[RootCertID]) {
+		caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
+			sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
+		if scrtErr != nil {
+			k8sControllerLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip updating secret %s",
+				sc.istioCaStorageNamespace, CASecret, scrtErr.Error(), name)
+			return
+		}
+
+		// The CA cert from istio-ca-secret is the source of truth. If CA cert
+		// in local keycertbundle does not match the CA cert in istio-ca-secret,
+		// reload root cert into keycertbundle.
+		caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			var err error
+			rootCertificate, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
+			if err != nil {
+				k8sControllerLog.Errorf("failed to append root certificates: %s", err.Error())
+				return
+			}
+			if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+				caSecret.Data[caPrivateKeyID], nil, rootCertificate); err != nil {
+				k8sControllerLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+				return
+			}
+
+			// refresh the list of roots and trust anchors if Citadel's own root changed.
+			sc.extraTrustAnchorMu.Lock()
+			rootsWithExtraTrustAnchors = sc.refreshTrustAnchorsBundle()
+			sc.extraTrustAnchorMu.Unlock()
+
+			k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
+		}
+	}
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificates in the secret are different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if waitErr != nil || !bytes.Equal(rootCertificates, scrt.Data[RootCertID]) {
+	if waitErr != nil || !bytes.Equal(rootsWithExtraTrustAnchors, scrt.Data[RootCertID]) {
 		// if the namespace is not managed, don't refresh the expired secret, delete it
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})
 		if err == nil {
@@ -596,7 +648,7 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 }
 
 // The caller is responsible for holding the sc.extraTrustAnchorMu lock while calling this method.
-func (sc *SecretController) refreshTrustAnchorsBundle() {
+func (sc *SecretController) refreshTrustAnchorsBundle() []byte {
 	trustAnchorsSet := map[string]struct{}{}
 
 	sc.primaryTrustAnchor = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
@@ -617,6 +669,8 @@ func (sc *SecretController) refreshTrustAnchorsBundle() {
 	sort.Strings(trustAnchors)
 
 	sc.combinedTrustAnchorsBundle = []byte(strings.Join(trustAnchors, "\n"))
+
+	return sc.combinedTrustAnchorsBundle
 }
 
 func (sc *SecretController) getTrustAnchorsBundle() []byte {

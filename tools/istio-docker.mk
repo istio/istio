@@ -23,7 +23,7 @@ docker: build-linux docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -79,14 +79,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
-# pilot docker images
-
-docker.proxy_init: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxy_init: pilot/docker/Dockerfile.proxy_init
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
-	$(DOCKER_RULE)
-
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
@@ -107,6 +99,7 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxy_debug: tools/packaging/common/istio-iptables.sh
 	$(DOCKER_RULE)
 
 # The file must be named 'envoy', depends on the release.
@@ -127,6 +120,7 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
