@@ -125,8 +125,11 @@ const (
 )
 
 const (
+	// MTLSReadyLabelShortname name used for determining endpoint level tls transport socket configuration
+	MTLSReadyLabelShortname = "mtlsReady"
+
 	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
-	MTLSReadyLabelName = "security.istio.io/mtlsReady"
+	MTLSReadyLabelName = "security.istio.io/" + MTLSReadyLabelShortname
 )
 
 // Port represents a network port where a service is listening for

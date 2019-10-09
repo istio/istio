@@ -206,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
-			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
+			var serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
 			if service.MeshExternal {
 				serviceMTLSMode = authn_v1alpha1_applier.MTLSDisable
 			} else {
@@ -1167,31 +1167,32 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	if env.Mesh.GetEnableAutoMtls().Value && enableTransportSocketMtls {
 		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
 		if err != nil {
-			log.Errorf("error marshalling cluster tls context, err=%v", err)
-		}
-		// Per envoy docs
-		// If an endpoint metadata's value under *envoy.transport_socket* does not match any
-		// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
-		// *transport_socket* specified in this cluster
-		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
-			{
-				Name: "mtls",
-				Match: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+			log.Errorf("error marshaling cluster tls context to transport_socket config, err=%v", err)
+		} else {
+			// Per envoy docs
+			// If an endpoint metadata's value under *envoy.transport_socket* does not match any
+			// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
+			// *transport_socket* specified in this cluster
+			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
+				{
+					Name: "mtls",
+					Match: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+						},
+					},
+					TransportSocket: &core.TransportSocket{
+						Name: util.TLSSocketName,
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: tlsContext,
+						},
 					},
 				},
-				TransportSocket: &core.TransportSocket{
-					Name: util.TlsSocketName,
-					ConfigType: &core.TransportSocket_TypedConfig{
-						TypedConfig: tlsContext,
-					},
-				},
-			},
-			plaintextTransportSocketMatch,
+				plaintextTransportSocketMatch,
+			}
 		}
+		// TODO GregHanson nil out cluster.tls field after building mtls transport socket match?
 	}
-	// TODO GregHanson nil out cluster.tls field after building mtls transport socket match?
 }
 
 func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.Port, direction model.TrafficDirection) {

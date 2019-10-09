@@ -138,7 +138,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}
@@ -176,7 +176,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*
 	if mTLSReady {
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.MTLSReadyLabelName: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 			},
 		}
 	}

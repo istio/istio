@@ -80,9 +80,9 @@ const (
 	// endpoint level plantext transport socket configuration
 	EnvoyRawBufferSocket = "raw_buffer"
 
-	// TlsSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// TLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	TlsSocketName = "tls"
+	TLSSocketName = "tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
