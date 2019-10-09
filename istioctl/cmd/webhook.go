@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -73,7 +74,7 @@ func (opts *enableCliOptions) Validate() error {
 	}
 	if opts.enableValidationWebhook {
 		if len(opts.validationWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --validation-path")
+			return fmt.Errorf("must specify a valid --validation-path of the validation webhook configuration")
 		}
 		if len(opts.validatingWebhookServiceName) == 0 {
 			return fmt.Errorf("must specify a valid --validation-service")
@@ -84,7 +85,7 @@ func (opts *enableCliOptions) Validate() error {
 	}
 	if opts.enableMutationWebhook {
 		if len(opts.mutatingWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --injection-path")
+			return fmt.Errorf("must specify a valid --injection-path of the injection webhook configuration")
 		}
 		if len(opts.mutatingWebhookServiceName) == 0 {
 			return fmt.Errorf("must specify a valid --injection-service")
@@ -272,6 +273,7 @@ istioctl experimental post-install webhook disable --injection=false
 	return cmd
 }
 
+// TODO (lei-tang): support "-o yaml" option and a summary option instead of yaml.
 func newStatusCmd() *cobra.Command {
 	opts := &statusCliOptions{}
 	cmd := &cobra.Command{
@@ -293,6 +295,19 @@ istioctl experimental post-install webhook status --validation --validation-conf
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
 			validationErr, injectionErr := displayWebhookConfig(client, opts)
+			// Not found is not treated as an error
+			if errors.IsNotFound(validationErr) && errors.IsNotFound(injectionErr) {
+				fmt.Printf("validation webhook (%v) and injection webhook (%v) are not found\n",
+					opts.validatingWebhookConfigName, opts.mutatingWebhookConfigName)
+				return nil
+			} else if errors.IsNotFound(validationErr) && injectionErr == nil {
+				fmt.Printf("validation webhook (%v) is not found\n", opts.validatingWebhookConfigName)
+				return nil
+			} else if errors.IsNotFound(injectionErr) && validationErr == nil {
+				fmt.Printf("injection webhook (%v) is not found\n", opts.mutatingWebhookConfigName)
+				return nil
+			}
+
 			if validationErr != nil && injectionErr != nil {
 				return fmt.Errorf("error when displaying webhook configurations. validation err: %v. injection err: %v",
 					validationErr, injectionErr)
@@ -511,7 +526,7 @@ func readCACert(client kubernetes.Interface, certPath, secretName, secretNamespa
 			fmt.Printf("finished reading cert %v/%v\n", secretNamespace, secretName)
 			break
 		}
-		fmt.Printf("err reading secret %v/%v: %v\n", secretNamespace, secretName, err)
+		fmt.Printf("could not read secret %v/%v: %v\n", secretNamespace, secretName, err)
 		select {
 		case <-timerCh:
 			return nil, fmt.Errorf("the secret %v/%v is not readable within %v", secretNamespace, secretName, maxWaitTime)
