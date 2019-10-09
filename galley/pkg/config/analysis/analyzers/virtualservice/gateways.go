@@ -29,6 +29,8 @@ type GatewayAnalyzer struct{}
 
 var _ analysis.Analyzer = &GatewayAnalyzer{}
 
+const meshGateway = "mesh"
+
 // Metadata implements Analyzer
 func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
@@ -53,8 +55,8 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Co
 
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	for _, gwName := range vs.Gateways {
-		// "mesh" is a special-case accepted value
-		if gwName == "mesh" {
+		// This is a special-case accepted value
+		if gwName == meshGateway {
 			continue
 		}
 
