@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
@@ -955,7 +956,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				})
 				return
 			}
 		}
