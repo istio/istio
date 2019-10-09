@@ -36,28 +36,26 @@ else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
     TARGET_ARCH ?= arm
 else
-   $(error "This system's architecture $(LOCAL_ARCH) isn't recognized/supported")
+    $(error This system's architecture $(LOCAL_ARCH) isn't supported)
 endif
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   TARGET_OS ?= linux
-   READLINK_FLAGS="-f"
+    TARGET_OS ?= linux
+    READLINK_FLAGS="-f"
 else ifeq ($(LOCAL_OS),Darwin)
-   TARGET_OS ?= darwin
-   READLINK_FLAGS=""
+    TARGET_OS ?= darwin
+    READLINK_FLAGS=""
 else
-   $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
+    $(error This system's OS $(LOCAL_OS) isn't supported)
 endif
 
-REPO_ROOT = $(shell git rev-parse --show-toplevel)
-REPO_NAME = $(shell basename $(REPO_ROOT))
-TARGET_OUT ?= $(HOME)/istio_out/$(REPO_NAME)
+export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_ARCH)_$(TARGET_OS)
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-08T20-57-24
+IMG ?= gcr.io/istio-testing/build-tools:2019-10-09T15-00-30
 UID = $(shell id -u)
 PWD = $(shell pwd)
 
@@ -73,12 +71,13 @@ RUN = $(CONTAINER_CLI) run --net=host -t -i --sig-proxy=true -u $(UID):docker --
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
+	-e TARGET_OUT="$(TARGET_OUT)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
-	--mount type=bind,source="$(TARGET_OUT)",destination="/targetout" \
-	--mount type=volume,source=home,destination="/home" \
+	--mount type=volume,source=go,destination="/go" \
+	--mount type=volume,source=gocache,destination="/gocache" \
 	-w /work $(IMG)
 else
 $(info Building with your local toolchain.)
@@ -88,11 +87,9 @@ endif
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
 %:
-	@mkdir -p $(TARGET_OUT)
 	@$(MAKE) $@
 
 default:
-	@mkdir -p $(TARGET_OUT)
 	@$(MAKE)
 
 .PHONY: default
