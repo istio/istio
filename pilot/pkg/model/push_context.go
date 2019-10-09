@@ -80,8 +80,6 @@ type PushContext struct {
 	namespaceExportedDestRules map[string]*processedDestRules
 	allExportedDestRules       *processedDestRules
 
-	configVersion string
-
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
 	// envoy filters for each namespace including global config namespace

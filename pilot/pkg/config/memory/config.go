@@ -114,7 +114,7 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 }
 
 func buildKey(typ, name, namespace string) string {
-	return fmt.Sprintf("%s/%s/%s", typ, name, namespace)
+	return fmt.Sprintf("%s/%s.%s", typ, name, namespace)
 }
 
 func (cr *store) Delete(typ, name, namespace string) error {

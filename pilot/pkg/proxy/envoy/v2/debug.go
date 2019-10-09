@@ -254,8 +254,11 @@ func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache ma
 	if !ok {
 		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
 		if err != nil {
-			// maybe log something?
+			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			result = ""
 		}
+		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
+		// repeat the same error for many adsClients.
 		cache[key] = result
 	}
 	return result
