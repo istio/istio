@@ -89,6 +89,7 @@ func checkFields(un *unstructured.Unstructured) error {
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
 	schema, exists := schemas.Istio.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
 	if exists {
+		log.Errorf("CRWILSON_DEBUG0a: %v %v", un.GetKind(), crd.CamelCaseToKebabCase(un.GetKind()))
 		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
 		if err != nil {
 			return fmt.Errorf("cannot parse proto message: %v", err)
@@ -100,6 +101,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 
 	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
+		log.Errorf("CRWILSON_DEBUG0b")
 		if !v.mixerValidator.SupportsKind(un.GetKind()) {
 			return errKindNotSupported
 		}
@@ -110,7 +112,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
 				constant.HandlerKind, constant.InstanceKind)
 		}
-
+		log.Errorf("CRWILSON_DEBUG0bb")
 		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
 			Type: mixerstore.Update,
 			Key: mixerstore.Key{
