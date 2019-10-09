@@ -944,9 +944,9 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		policies: map[host.Name][]*authnPolicyByPort{},
 	}
 
-	// golang pass every thing by value, so use the old school for loop to avoid make extra copies.
-	for i := 0; i < len(authNPolicies); i++ {
-		spec := &authNPolicies[i]
+	for idx := range authNPolicies {
+		// golang pass every thing by value, so do this to access to the config object by pointer.
+		spec := &authNPolicies[idx]
 		policy := spec.Spec.(*authn.Policy)
 		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
 		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
