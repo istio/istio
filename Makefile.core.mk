@@ -62,18 +62,19 @@ clean: clean-values clean-types clean-vfs clean-charts
 default: mesh
 
 mesh: vfsgen
-	go build -o $(GOPATH)/bin/mesh ./cmd/mesh.go
-	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o /work/mesh ./cmd/mesh.go
-
-# NOTE: docker targets only work with local builds.
+	go build -o $(GOBIN)/mesh ./cmd/mesh.go
+	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/mesh ./cmd/mesh.go
 
 controller: vfsgen
-	go build -o $(GOPATH)/bin/istio-operator ./cmd/manager
+	go build -o $(GOBIN)/istio-operator ./cmd/manager
+	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/istio-operator ./cmd/manager
 
 docker: controller
-	mkdir -p build/out
-	cp $(GOPATH)/bin/istio-operator build/out/.
-	docker build -t $(HUB)/operator:$(TAG) -f build/Dockerfile .
+	mkdir -p $(GOBIN)/docker
+	cp -a $(GOBIN)/istio-operator $(GOBIN)/docker/istio-operator
+	cp -a build/Dockerfile $(GOBIN)/docker/Dockerfile.operator
+	cp -aR build/bin $(GOBIN)/docker/bin
+	cd $(GOBIN)/docker;docker build -t $(HUB)/operator:$(TAG) -f Dockerfile.operator .
 
 docker.push:
 	docker push $(HUB)/operator:$(TAG)
