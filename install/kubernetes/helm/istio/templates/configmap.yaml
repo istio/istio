@@ -149,6 +149,10 @@ data:
     rootNamespace: {{ .Release.Namespace }}
 {{- end }}
 
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    certificates:
+{{ toYaml .Values.global.certificates | trim | indent 6 }}
+
     {{- if .Values.global.defaultConfigVisibilitySettings }}
     defaultServiceExportTo:
       {{- range .Values.global.defaultConfigVisibilitySettings }}
