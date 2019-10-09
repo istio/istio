@@ -409,9 +409,10 @@ func TestExtraTrustAnchors(t *testing.T) {
 	}
 
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault, defaultTTL,
+	ca := createFakeCA()
+	controller, err := NewSecretController(ca, enableNamespacesByDefault, defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
-		[]string{metav1.NamespaceAll}, nil, "test-ns")
+		[]string{metav1.NamespaceAll}, nil, "test-ns", "")
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
