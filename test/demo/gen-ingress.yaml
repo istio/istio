@@ -96,7 +96,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+          image: "gcr.io/istio-testing/proxyv2:latest"
           imagePullPolicy: Always
           ports:
             - containerPort: 15020

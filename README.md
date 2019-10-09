@@ -152,7 +152,7 @@ This is currently required if any mTLS is used. In future other Spifee implement
 it is possible to use other tools that create the expected certificates for Istio.
 
 ```bash
-# use the default HUB=gcr.io/istio-release, TAG=master-latest-daily defined in global.yaml
+# use the default HUB=gcr.io/istio-testing, TAG=latest defined in global.yaml
 iop istio-system citadel $IBASE/security/citadel
 ```
 
@@ -204,7 +204,7 @@ currently supported in multiple namespaces.
 iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
 
 # Second Galley, using master version of istio
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
+TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-config-master $IBASE/istio-control/istio-config
 ```
 
 Other MCP providers can be used - currently the address and credentials need to match what galley is using.
@@ -225,7 +225,7 @@ iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
             --set global.policyNamespace=istio-policy
 
 # Second istio-discovery, using master version of istio
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
             --set global.istioNamespace=istio-master \
             --set global.configNamespace=istio-master \
@@ -256,7 +256,7 @@ iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject \
 
 # Second auto-inject using master version of istio
 # Notice the different options
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
+TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
         --set global.telemetryNamespace=istio-telemetry-master \
         --set global.configNamespace=istio-master
 ```
@@ -280,7 +280,7 @@ but in the case of K8S ingress it is currently required.
 
 ```bash
 iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress --set global.configNamespace=istio-control
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-ingress-master istio-ingress $IBASE/gateways/istio-ingress \
+TAG=latest HUB=gcr.io/istio-testing iop istio-ingress-master istio-ingress $IBASE/gateways/istio-ingress \
         --set global.configNamespace=istio-master\
 ```
 
@@ -299,14 +299,14 @@ iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.telemetryNamespace=istio-telemetry \
         --set global.policyNamespace=istio-policy
 
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
         --set global.configNamespace=istio-master
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
         --set global.configNamespace=istio-master \
         --set global.istioNamespace=istio-master \
         --set global.telemetryNamespace=istio-telemetry-master \
         --set global.policyNamespace=istio-policy-master
-TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.configNamespace=istio-master \
         --set global.istioNamespace=istio-master \
         --set global.telemetryNamespace=istio-telemetry-master \

@@ -130,7 +130,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "gcr.io/istio-release/citadel:master-latest-daily"
+          image: "gcr.io/istio-testing/citadel:latest"
           imagePullPolicy: Always
           args:
             - --append-dns-names=true
@@ -139,6 +139,7 @@ spec:
             - --custom-dns-names=$(CITADEL_DNS)
             - --self-signed-ca=true
             - --trust-domain=cluster.local
+            - --workload-cert-ttl=2160h
           env:
           - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
             value: "true"
@@ -150,8 +151,7 @@ spec:
             periodSeconds: 5
           resources:
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 10m
             
       affinity:      
         nodeAffinity:

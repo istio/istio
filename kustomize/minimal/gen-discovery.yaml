@@ -255,7 +255,7 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "/dev/stdout"
+    accessLogFile: ""
 
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -337,6 +337,20 @@ data:
       #
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-system:15010
+
+      # Configures DNS certificates provisioned through Chiron linked into Pilot.
+      # The DNS certificate provisioning is enabled by default now so it get tested.
+      # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+      certificates:
+      - dnsNames:
+        - istio-galley.istio-system.svc
+        - istio-galley.istio-system
+        secretName: dns.istio-galley-service-account
+      - dnsNames:
+        - istio-sidecar-injector.istio-system.svc
+        - istio-sidecar-injector.istio-system
+        secretName: dns.istio-sidecar-injector-service-account
+      
 ---
 
 ---
@@ -391,6 +405,15 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete"]
 ---
 
 
@@ -476,7 +499,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "gcr.io/istio-release/pilot:master-latest-daily"
+          image: "gcr.io/istio-testing/pilot:latest"
           imagePullPolicy: Always
           args:
           - "discovery"
@@ -486,6 +509,7 @@ spec:
           - cluster.local
           - --secureGrpcAddr
           - ""
+          - --plugins=health
           - --keepaliveMaxServerConnectionAge
           - "30m"
           ports:
