@@ -78,7 +78,7 @@ type XdsConnection struct {
 	// Currently based on the node name and a counter.
 	ConID string
 
-	modelNode *model.Proxy
+	node *model.Proxy
 
 	// Sending on this channel results in a push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
@@ -230,13 +230,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(cdsReject, con.modelNode.ID, errCode.String())
+						incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
-					adsLog.Debugf("ADS:CDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+					adsLog.Debugf("ADS:CDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
 				// CDS REQ is the first request an envoy makes. This shows up
@@ -253,13 +253,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(ldsReject, con.modelNode.ID, errCode.String())
+						incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
-					adsLog.Debugf("ADS:LDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+					adsLog.Debugf("ADS:LDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
@@ -272,9 +272,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(rdsReject, con.modelNode.ID, errCode.String())
+					incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -286,7 +286,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					con.mu.RUnlock()
 					if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
-							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
+							peerAddr, con.ConID, con.node, routeNonceSent, discReq.ResponseNonce)
 						rdsExpiredNonce.Increment()
 						continue
 					}
@@ -294,7 +294,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						sort.Strings(routes)
 						sortedRoutes = routes
 						if reflect.DeepEqual(con.Routes, sortedRoutes) {
-							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
@@ -303,9 +303,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
-							incrementXDSRejects(rdsReject, con.modelNode.ID, errCode.String())
+							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 						}
 						continue
 					} else if len(routes) == 0 {
@@ -329,9 +329,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(edsReject, con.modelNode.ID, errCode.String())
+					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
 					continue
 				}
 				clusters := discReq.GetResourceNames()
@@ -352,7 +352,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
 							edsClusterMutex.RLock()
@@ -418,7 +418,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 // update the node associated with the connection, after receiving a a packet from envoy.
 func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection) error {
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
-	if con.modelNode != nil {
+	if con.node != nil {
 		con.mu.RUnlock()
 		return nil // only need to init the node on first request in the stream
 	}
@@ -464,7 +464,7 @@ func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection
 	nt.SetGatewaysForProxy(s.globalPushContext())
 
 	con.mu.Lock()
-	con.modelNode = nt
+	con.node = nt
 	if con.ConID == "" {
 		// first request
 		con.ConID = connectionID(node.Id)
@@ -485,7 +485,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !ProxyNeedsPush(con.modelNode, pushEv) {
+		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -500,18 +500,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	// TODO: remove this ?
-	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+	if err := con.node.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
-	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
+	if err := con.node.SetServiceInstances(pushEv.push.Env); err != nil {
 		return err
 	}
-	if util.IsLocalityEmpty(con.modelNode.Locality) {
+	if util.IsLocalityEmpty(con.node.Locality) {
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(con.modelNode.ServiceInstances) > 0 {
-			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
+		if len(con.node.ServiceInstances) > 0 {
+			con.node.Locality = util.ConvertLocality(con.node.ServiceInstances[0].GetLocality())
 		}
 	}
 
@@ -519,11 +519,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	con.modelNode.SetSidecarScope(pushEv.push)
-	con.modelNode.SetGatewaysForProxy(pushEv.push)
+	con.node.SetSidecarScope(pushEv.push)
+	con.node.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !ProxyNeedsPush(con.modelNode, pushEv) {
+	if !ProxyNeedsPush(con.node, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -575,7 +575,7 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 
 	adsClientsMutex.RLock()
 	for _, v := range adsClients {
-		if v.modelNode.ClusterID == clusterID && v.modelNode.IPAddresses[0] == ip {
+		if v.node.ClusterID == clusterID && v.node.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
@@ -717,8 +717,8 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
 	xdsClients.Record(float64(len(adsClients)))
-	if con.modelNode != nil {
-		node := con.modelNode
+	if con.node != nil {
+		node := con.node
 
 		if _, ok := adsSidecarIDConnectionsMap[node.ID]; !ok {
 			adsSidecarIDConnectionsMap[node.ID] = map[string]*XdsConnection{conID: con}
@@ -744,8 +744,8 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	xdsClients.Record(float64(len(adsClients)))
-	if con.modelNode != nil {
-		node := con.modelNode
+	if con.node != nil {
+		node := con.node
 
 		delete(adsSidecarIDConnectionsMap[node.ID], conID)
 		if len(adsSidecarIDConnectionsMap[node.ID]) == 0 {

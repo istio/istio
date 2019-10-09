@@ -103,10 +103,10 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
 		con.mu.RLock()
-		if con.modelNode != nil {
+		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.modelNode.ID,
-				IstioVersion:    con.modelNode.Metadata.IstioVersion,
+				ProxyID:         con.node.ID,
+				IstioVersion:    con.node.Metadata.IstioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -305,7 +305,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 				mostRecent = key
 			}
 		}
-		mostRecentProxy = connections[mostRecent].modelNode
+		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
 		info := []*AuthenticationDebug{}
 		for _, ss := range svc {
@@ -462,7 +462,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters := s.generateRawClusters(conn.modelNode, s.globalPushContext())
+	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
