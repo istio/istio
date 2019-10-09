@@ -63,9 +63,9 @@ type accumulator struct {
 // Members of a snapshot group are defined via the per-collection accumulators that point to a group.
 type snapshotGroup struct {
 	// How many collections in the current group still need to receive a FullSync before we start publishing.
-	remaining int
+	remaining int32
 	// Set of collections that have already received a FullSync. If we get a duplicate, it will be ignored.
-	synced map[*coll.Instance]bool
+	synced atomic.Value
 	// Strategy to execute on handled events only after all collections in the group have been synced.
 	strategy strategy.Instance
 }
@@ -168,20 +168,21 @@ func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
 }
 
 func (sg *snapshotGroup) onSync(c *coll.Instance) {
-	if !sg.synced[c] {
-		sg.remaining--
-		sg.synced[c] = true
+	synced := sg.synced.Load().(map[*coll.Instance]bool)
+	if !synced[c] {
+		atomic.AddInt32(&sg.remaining, -1)
+		synced[c] = true
 	}
 
 	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
-	if sg.remaining == 0 {
+	if atomic.LoadInt32(&sg.remaining) <= 0 {
 		sg.strategy.OnChange()
 	}
 }
 
 func (sg *snapshotGroup) reset(size int) {
-	sg.remaining = size
-	sg.synced = make(map[*coll.Instance]bool)
+	atomic.StoreInt32(&sg.remaining, int32(size))
+	sg.synced.Store(make(map[*coll.Instance]bool))
 }
 
 // Start implements Processor
