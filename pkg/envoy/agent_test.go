@@ -159,7 +159,7 @@ func TestWaitForLive(t *testing.T) {
 	wg.Wait()
 
 	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
-	errThreshold := 500 * time.Millisecond
+	errThreshold := 1 * time.Second
 
 	// Verify that the second epoch is delayed until epoch 0 was live.
 	g.Expect(epoch1StartTime).Should(BeTemporally("~", expectedEpoch1StartTime, errThreshold))

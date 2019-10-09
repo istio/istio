@@ -149,20 +149,27 @@ func (a *agent) Restart(config interface{}) {
 // waitUntilLive waits for the current epoch (if there is one) to go live.
 func (a *agent) waitUntilLive() {
 	// Make sure there is a currently active epoch. If not, just return.
-	if a.currentEpoch < 0 {
+	if len(a.activeEpochs) == 0 {
 		log.Info("no previous epoch exists, starting now")
 		return
 	}
 
 	log.Infof("waiting for epoch %d to go live before performing a hot restart", a.currentEpoch)
 
-	interval := time.NewTicker(200 * time.Millisecond)
-	timer := time.NewTimer(5 * time.Second)
+	// Timeout after 20 seconds. Envoy internally uses a 15s timer, so we set ours a bit above that.
+	interval := time.NewTicker(500 * time.Millisecond)
+	timer := time.NewTimer(20 * time.Second)
 
 	defer func() {
 		interval.Stop()
 		timer.Stop()
 	}()
+
+	// Do an initial check on the live state to avoid any waits if possible.
+	if a.proxy.IsLive() {
+		// It's live!
+		return
+	}
 
 	for {
 		select {

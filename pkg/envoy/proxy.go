@@ -83,10 +83,18 @@ func NewProxy(cfg ProxyConfig) Proxy {
 
 func (e *envoy) IsLive() bool {
 	adminPort := uint32(e.Config.ProxyAdminPort)
-	if info, err := GetServerInfo(adminPort); err == nil && info.State == envoyAdmin.ServerInfo_LIVE {
+	info, err := GetServerInfo(adminPort)
+	if err != nil {
+		log.Infof("failed retrieving server from Envoy on port %d: %v", adminPort, err)
+		return false
+	}
+
+	if info.State == envoyAdmin.ServerInfo_LIVE {
 		// It's live.
 		return true
 	}
+
+	log.Infof("envoy server not yet live, state: %s", info.State.String())
 	return false
 }
 
