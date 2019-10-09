@@ -264,7 +264,7 @@ func (p *AuthenticationDebug) String() string {
 
 func configName(config *model.ConfigMeta) string {
 	if config != nil {
-		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
 	return configNameNotApplicable
 }
