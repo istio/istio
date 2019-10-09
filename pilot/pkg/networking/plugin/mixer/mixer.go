@@ -402,7 +402,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+				DisableCheckCalls:  disablePolicyChecks(outbound, mesh, node),
+				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
 		MixerAttributes: &mpb.Attributes{Attributes: attrs},
@@ -430,7 +431,8 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
+				DisableCheckCalls:  disablePolicyChecks(inbound, mesh, node),
+				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
 		MixerAttributes: &mpb.Attributes{Attributes: attrs},
@@ -452,15 +454,17 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
 	if isXDSMarshalingToAnyEnabled {
 		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
+			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
 		})
 	} else {
 		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
+			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
 		})
 	}
 }
@@ -471,11 +475,13 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	// default config, to be overridden by per-weighted cluster
 	if isXDSMarshalingToAnyEnabled {
 		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 		})
 	} else {
 		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 		})
 	}
 	switch action := httpRoute.Action.(type) {
@@ -499,15 +505,17 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				if isXDSMarshalingToAnyEnabled {
 					weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
-						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-						MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-						ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+						DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
+						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
 					})
 				} else {
 					weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
-						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-						MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-						ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+						DisableCheckCalls:  disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
+						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
 					})
 				}
 			}
@@ -536,8 +544,9 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 
 	attrs := addDestinationServiceAttributes(make(attributes), instance.Service)
 	out := &mccpb.ServiceConfig{
-		DisableCheckCalls: disablePolicyChecks(inbound, in.Env.Mesh, in.Node),
-		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+		DisableCheckCalls:  disablePolicyChecks(inbound, in.Env.Mesh, in.Node),
+		DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
+		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 	}
 
 	if configStore != nil {
