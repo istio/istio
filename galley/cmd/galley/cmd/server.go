@@ -144,7 +144,7 @@ func serverCmd() *cobra.Command {
 	_ = svr.PersistentFlags().MarkDeprecated("disableResourceReadyCheck", "")
 	svr.PersistentFlags().StringSliceVar(&serverArgs.ExcludedResourceKinds, "excludedResourceKinds",
 		serverArgs.ExcludedResourceKinds, "Comma-separated list of resource kinds that should not generate source events")
-	_ = svr.PersistentFlags().MarkDeprecated("excludeResaourceKinds", "")
+	_ = svr.PersistentFlags().MarkDeprecated("excludedResaourceKinds", "")
 	svr.PersistentFlags().StringVar(&serverArgs.SinkAddress, "sinkAddress",
 		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
 	svr.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
