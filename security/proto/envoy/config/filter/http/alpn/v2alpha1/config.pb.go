@@ -5,8 +5,9 @@ package v2alpha1
 
 import (
 	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
 	math "math"
+
+	proto "github.com/golang/protobuf/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -20,7 +21,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-// FilterConfig is the config for Istio-specific filter.
+// FilterConfig is the config for ALPN filter.
 type FilterConfig struct {
 	// A list of ALPN that will override the ALPN for upstream TLS connections.
 	AlpnOverride         []string `protobuf:"bytes,1,rep,name=alpn_override,json=alpnOverride,proto3" json:"alpn_override,omitempty"`
