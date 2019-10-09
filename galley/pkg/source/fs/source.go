@@ -273,7 +273,7 @@ func (s *source) parseFile(path string, data []byte) []*fileResource {
 		}
 		r, err := s.parseChunk(chunk)
 		if err != nil {
-			log.Scope.Errorf("Error processing %s[%d]: %v", path, i, err)
+			log.Scope.Warnf("Error processing %s[%d]: %v", path, i, err)
 			continue
 		}
 		if r == nil {
