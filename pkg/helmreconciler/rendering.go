@@ -42,15 +42,17 @@ import (
 )
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
-	icp, ok := in.GetInputConfig().(*v1alpha2.IstioControlPlaneSpec)
+	icp, ok := in.GetInputConfig().(*v1alpha2.IstioControlPlane)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type %T in renderCharts", in.GetInputConfig())
 	}
-	if err := validate.CheckIstioControlPlaneSpec(icp, false); err != nil {
+
+	icpSpec := icp.GetSpec()
+	if err := validate.CheckIstioControlPlaneSpec(icpSpec, false); err != nil {
 		return nil, err
 	}
 
-	mergedICPS, err := mergeICPSWithProfile(icp)
+	mergedICPS, err := mergeICPSWithProfile(icpSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +211,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 
 	receiver := &unstructured.Unstructured{}
 	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(receiver)
+	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	var patch Patch
 
