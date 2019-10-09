@@ -349,7 +349,6 @@ github.com/gogo/protobuf v0.0.0-20171007142547-342cbe0a0415/go.mod h1:r8qH/GZQm5
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/protobuf v1.2.0/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/protobuf v1.2.1/go.mod h1:hp+jE20tsWTFYpLwKvXlhS1hjn+gTNwPg2I6zVXpSg4=
-github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d/go.mod h1:SlYgWuQ5SjCEi6WLHjHCa1yvBfUnHcTbrrZtXPKa29o=
 github.com/gogo/protobuf v1.3.0 h1:G8O7TerXerS4F6sx9OV7/nRfJdnXgHZu/S/7F2SN+UE=
 github.com/gogo/protobuf v1.3.0/go.mod h1:SlYgWuQ5SjCEi6WLHjHCa1yvBfUnHcTbrrZtXPKa29o=
 github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
@@ -1175,14 +1174,12 @@ honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/api v0.0.0-20190930180221-6b9215326786 h1:g0rZzL/3NiG6Eo5Ej7FzFFyRk3Ygl0+a/RlbATaUCq4=
-istio.io/api v0.0.0-20190930180221-6b9215326786/go.mod h1:UP3a6saAz6eoOaXQqzy49/ygIjzUcEGZ0QTFpcfmSEA=
 istio.io/api v0.0.0-20191001004624-ca4d65802c86 h1:h3jdUnPw7biZbhtbz8T87gxJ7ehxBwuXNbXrjNbnXZg=
 istio.io/api v0.0.0-20191001004624-ca4d65802c86/go.mod h1:UP3a6saAz6eoOaXQqzy49/ygIjzUcEGZ0QTFpcfmSEA=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a h1:w7zILua2dnYo9CxImhpNW4NE/8ZxEoc/wfBfHrhUhrE=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
-istio.io/operator v0.0.0-20190923170413-6e6db1228c1f h1:brs//uV6My1Y+nKZDFdiG5sXn6B+ZthFhElzI/5VqEo=
-istio.io/operator v0.0.0-20190923170413-6e6db1228c1f/go.mod h1:zXW7+gecpItHqIChrAAepMbnLSOoV7AkUkKpI8Gx4Yo=
+istio.io/operator v0.0.0-20191008215643-ac62f7e15efe h1:CycGMch8VRmImmguz8N5ehAYgl6eBHOb9YRlX0ruZ/8=
+istio.io/operator v0.0.0-20191008215643-ac62f7e15efe/go.mod h1:HWaxee4wjcaPMBUaA6n9QC/gnoHdST1NqWz39BDdpl4=
 istio.io/pkg v0.0.0-20190515193414-9332430ad747/go.mod h1:0EkPwmR0tESYjN4Ilq1D52nTBurXaQvny3r2VY4j4tw=
 istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229 h1:BOAXiysHton3DsQZu/+lMSZ3gD3VBv9RZ9psETyB+7o=
 istio.io/pkg v0.0.0-20190905225920-6d0bbfe3b229/go.mod h1:We4ZQuCbiiNfXge2GfOshBsyDXVwzFwP8703V5DcM14=
@@ -1245,6 +1242,7 @@ modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03
 modernc.org/strutil v1.0.0/go.mod h1:lstksw84oURvj9y3tn8lGvRxyRC1S2+g5uuIzNfIOBs=
 modernc.org/xc v1.0.0/go.mod h1:mRNCo0bvLjGhHO9WsyuKVU4q0ceiDDDoEeWDJHrNx8I=
 sigs.k8s.io/controller-runtime v0.1.10/go.mod h1:HFAYoOh6XMV+jKF1UjFwrknPbowfyHEHHRdJMf2jMX8=
+sigs.k8s.io/controller-runtime v0.2.2 h1:JT/vJJhUjjL9NZNwnm8AXmqCBUXSCFKmTaNjwDi28N0=
 sigs.k8s.io/controller-runtime v0.2.2/go.mod h1:9dyohw3ZtoXQuV1e766PHUn+cmrRCIcBh6XIMFNMZ+I=
 sigs.k8s.io/controller-tools v0.0.0-20190411181648-9d55346c2bde/go.mod h1:ATWLRP3WGxuAN9HcT2LaKHReXIH+EZGzRuMHuxjXfhQ=
 sigs.k8s.io/kustomize v2.0.3+incompatible h1:JUufWFNlI44MdtnjUqVnvh29rR37PQFzPbLXqhyOyX0=
