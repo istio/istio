@@ -24,7 +24,6 @@ bin/protoc-gen-gogoslick*
 bin/protoc-min-version*
 bin/protoc-gen-docs*
 *.orig
-build/_output/
 .mesh-cli.log
 #mandiff output
 out/
