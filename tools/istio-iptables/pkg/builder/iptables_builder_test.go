@@ -133,8 +133,10 @@ func TestBuildV4AppendInsertMultipleRules(t *testing.T) {
 	}
 	actual := iptables.BuildV4()
 	expected := []string{
-		"iptables -t table -A chain -f foo -b bar", "iptables -t table -I chain 2 -f foo -b bar",
-		"iptables -t table -A chain -f foo -b baz"}
+		"iptables -t table -A chain -f foo -b bar",
+		"iptables -t table -I chain 2 -f foo -b bar",
+		"iptables -t table -A chain -f foo -b baz",
+	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, expected)
 	}
@@ -269,7 +271,8 @@ func TestBuildV4V6MultipleRules(t *testing.T) {
 		"ip6tables -t table -I chain 1 -f foo -b bar",
 	}
 	expectedV4 := []string{
-		"iptables -t table -A chain -f foo -b bar", "iptables -t table -I chain 2 -f foo -b bar",
+		"iptables -t table -A chain -f foo -b bar",
+		"iptables -t table -I chain 2 -f foo -b bar",
 		"iptables -t table -A chain -f foo -b baz",
 	}
 	if !reflect.DeepEqual(actualV4, expectedV4) {

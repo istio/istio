@@ -32,7 +32,8 @@ var rootCmd = &cobra.Command{
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		config := constructConfig()
-		run(config)
+		runner := NewRunner(config)
+		runner.run()
 	},
 }
 
