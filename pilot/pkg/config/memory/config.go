@@ -34,10 +34,14 @@ var (
 
 // Make creates an in-memory config store from a config descriptor
 func Make(descriptor schema.Set) model.ConfigStore {
+	return MakeWithLedger(descriptor, ledger.Make(time.Minute))
+}
+
+func MakeWithLedger(descriptor schema.Set, configLedger ledger.Ledger) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
-		ledger:     ledger.Make(time.Minute), // TODO: grab timeout from cmd line
+		ledger:     configLedger,
 	}
 	for _, typ := range descriptor.Types() {
 		out.data[typ] = make(map[string]*sync.Map)

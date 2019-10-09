@@ -47,6 +47,7 @@ type CoreDataModel interface {
 type Options struct {
 	DomainSuffix              string
 	ClearDiscoveryServerCache func(configType string)
+	ConfigLedger              ledger.Ledger
 }
 
 // Controller is a temporary storage for the changes received
@@ -82,7 +83,7 @@ func NewController(options Options) CoreDataModel {
 		descriptorsByCollection: descriptorsByMessageName,
 		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
 		synced:                  synced,
-		ledger:                  ledger.Make(time.Minute), // TODO: grab expiration from cmd line
+		ledger:                  options.ConfigLedger,
 	}
 }
 
@@ -185,6 +186,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 				conf.Name: conf,
 			}
 		}
+
 		c.ledger.Put(conf.Key(), obj.Metadata.Version)
 	}
 	for _, removed := range change.Removed {

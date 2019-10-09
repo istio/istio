@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -178,6 +180,20 @@ type ConfigArgs struct {
 
 	// Controller if specified, this controller overrides the other config settings.
 	Controller model.ConfigStoreCache
+
+	// DistributionTracking control
+	DistributionTrackingEnabled bool
+	DistributionCacheRetention  time.Duration
+}
+
+func (ca *ConfigArgs) buildLedger() ledger.Ledger {
+	var result ledger.Ledger
+	if ca.DistributionTrackingEnabled {
+		result = ledger.Make(ca.DistributionCacheRetention)
+	} else {
+		result = &model.DisabledLedger{}
+	}
+	return result
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -550,6 +566,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		ClearDiscoveryServerCache: func(configType string) {
 			s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{configType: {}}})
 		},
+		ConfigLedger: args.Config.buildLedger(),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -571,7 +588,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.Make(schemas.Istio)
+				store := memory.MakeWithLedger(schemas.Istio, options.ConfigLedger)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, configController)
