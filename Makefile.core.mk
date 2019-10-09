@@ -318,12 +318,12 @@ ${TOP}/src/sigs.k8s.io/kind:
 
 # Istio releases: deb and charts on https://storage.googleapis.com/istio-release
 #
-${TOP}/bin/kind: ${TOP}/src/sigs.k8s.io/kind
+${GOBIN}/kind: ${TOP}/src/sigs.k8s.io/kind
 	echo ${TOP}
 	mkdir -p ${TMPDIR}
 	GO111MODULE="on" go get -u sigs.k8s.io/kind@master
 
-${TOP}/bin/dep:
+${GOBIN}/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
 lint: lint_modern
@@ -333,12 +333,10 @@ lint-helm-global:
 
 lint_modern: lint-go lint-python lint-copyright-banner lint-markdown lint-protos lint-helm-global
 
-
 .PHONY: istioctl
-istioctl: ${TOP}/bin/istioctl
-${TOP}/bin/istioctl:
+istioctl: ${GOBIN}/istioctl
+${GOBIN}/istioctl:
 	mkdir -p ${TMPDIR}
-	mkdir -p ${TOP}/bin
 	cd ${TOP}/src/istio.io/istio; go install ./istioctl/cmd/istioctl
 
 include test/install.mk
