@@ -167,7 +167,7 @@ run-prometheus-operator-config-test: install-prometheus-operator install-prometh
 	kubectl -n ${ISTIO_CONTROL_NS} wait pod/prometheus-prometheus-0 --for=condition=Ready --timeout=${WAIT_TIMEOUT}
 
 run-base-reachability: ENABLE_NAMESPACES_BY-DEFAULT=false
-run-base-reachability: ${TOP}/bin/istioctl install-base run-reachability-test
+run-base-reachability: ${GOBIN}/istioctl install-base run-reachability-test
 
 run-reachability-test:
 	mkdir -p ${GOPATH}/out/logs ${GOPATH}/out/tmp

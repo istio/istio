@@ -4,7 +4,7 @@
 # Security is not enabled - this can be used for users who have ipsec or other secure VPC, or don't need the
 # security features. It is also intended to verify that Istio can work without citadel for a-la-carte modes.
 
-run-test-noauth: ${TOP}/bin/istioctl run-test-noauth-micro run-test-noauth-full run-test-knative
+run-test-noauth: ${GOBIN}/istioctl run-test-noauth-micro run-test-noauth-full run-test-knative
 
 # Run a test with the smallest/simplest install possible
 run-test-noauth-micro:

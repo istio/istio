@@ -8,7 +8,7 @@ INSTALL_OPTS="--set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.confi
 # The demo environment should be compatible and we should be able to upgrade from 1.2
 #
 # If you repeat the test without deleting the cluster the config will be fast, and will just run the curl calls.
-run-test-demo: ${TOP}/bin/istioctl run-build-cluster run-build-demo ${TMPDIR}
+run-test-demo: ${GOBIN}/istioctl run-build-cluster run-build-demo ${TMPDIR}
 	kubectl apply -k kustomize/cluster
 
 	kubectl apply -k test/demo --prune -l release=istio-system-istio
