@@ -194,7 +194,6 @@ func TestCommandLineArgs(t *testing.T) {
 			envoy.ServiceNode("mynode"),
 			envoy.DrainDuration(drainDuration),
 			envoy.ParentShutdownDuration(parentShutdownDuration),
-			envoy.AllowUnknownFields(true),
 		),
 	})
 	g.Expect(i.Epoch()).To(Equal(envoy.Epoch(1)))
@@ -419,7 +418,6 @@ func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint
 		"wildcard":     "0.0.0.0",
 		"adminPort":    adminPort,
 		"listenerPort": listenerPort,
-		"pilotPort":    1234,
 	}
 
 	// Read the template file.
@@ -458,7 +456,7 @@ func waitForError(t *testing.T, i envoy.Instance) {
 
 func waitLive(t *testing.T, i envoy.Instance) {
 	t.Helper()
-	if err := i.WaitLive().WithTimeout(2 * time.Second).Do(); err != nil {
+	if err := i.WaitLive().WithTimeout(10 * time.Second).Do(); err != nil {
 		t.Fatal(err)
 	}
 }

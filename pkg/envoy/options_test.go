@@ -161,16 +161,6 @@ func TestGoodOptions(t *testing.T) {
 			expectedArgs: []string{"--config-yaml", "{}", "--parent-shutdown-time-s", "15"},
 			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.ParentShutdownDuration(15 * time.Second)},
 		},
-		{
-			name:         "allow-unknown-fields:true",
-			expectedArgs: []string{"--config-yaml", "{}", "--allow-unknown-fields"},
-			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.AllowUnknownFields(true)},
-		},
-		{
-			name:         "allow-unknown-fields:false",
-			expectedArgs: []string{"--config-yaml", "{}"},
-			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.AllowUnknownFields(false)},
-		},
 	}
 
 	for _, c := range cases {

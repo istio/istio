@@ -36,6 +36,14 @@ var (
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
 	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it")
+
+	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
+	// Description: Unhandled gateway port
+	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
+
+	// IstioProxyVersionMismatch defines a diag.MessageType for message "IstioProxyVersionMismatch".
+	// Description: The version of the Istio proxy running on the pod does not match the version used by the istio injector.
+	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -101,6 +109,26 @@ func NewPodMissingProxy(entry *resource.Entry, pod string, namespace string) dia
 		originOrNil(entry),
 		pod,
 		namespace,
+	)
+}
+
+// NewGatewayPortNotOnWorkload returns a new diag.Message based on GatewayPortNotOnWorkload.
+func NewGatewayPortNotOnWorkload(entry *resource.Entry, selector string, port int) diag.Message {
+	return diag.NewMessage(
+		GatewayPortNotOnWorkload,
+		originOrNil(entry),
+		selector,
+		port,
+	)
+}
+
+// NewIstioProxyVersionMismatch returns a new diag.Message based on IstioProxyVersionMismatch.
+func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, injectionVersion string) diag.Message {
+	return diag.NewMessage(
+		IstioProxyVersionMismatch,
+		originOrNil(entry),
+		proxyVersion,
+		injectionVersion,
 	)
 }
 

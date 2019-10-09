@@ -31,6 +31,7 @@ var (
 	g             galley.Instance
 	p             pilot.Instance
 	isMtlsEnabled bool
+	rootNamespace string
 )
 
 const (
@@ -63,4 +64,5 @@ func setupConfig(cfg *istio.Config) {
 	}
 	isMtlsEnabled = cfg.IsMtlsEnabled()
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
+	rootNamespace = cfg.SystemNamespace
 }

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/pkg/env"
 )
@@ -96,7 +97,13 @@ var (
 			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
 			"This prevents envoy from getting stuck waiting on config during startup.",
 	)
-	InitialFetchTimeout = ptypes.DurationProto(initialFetchTimeoutVar.Get())
+	InitialFetchTimeout = func() *duration.Duration {
+		timeout, f := initialFetchTimeoutVar.Lookup()
+		if !f {
+			return nil
+		}
+		return ptypes.DurationProto(timeout)
+	}()
 
 	terminationDrainDurationVar = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
@@ -216,8 +223,15 @@ var (
 		true,
 		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
-			"if headless services have a large number of pods. ",
+			"if headless services have a large number of pods.",
 	)
+
+	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
+		"PILOT_BLOCK_HTTP_ON_443",
+		true,
+		"If enabled, any HTTP services will be blocked on HTTPS port (443). If this is disabled, any "+
+			"HTTP service on port 443 could block all external traffic",
+	).Get()
 )
 
 var (

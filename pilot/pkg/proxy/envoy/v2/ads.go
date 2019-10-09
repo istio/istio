@@ -87,10 +87,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Sending on this channel results in a reset on proxy attributes.
-	// Generally it comes before a XdsEvent.
-	updateChannel chan *UpdateEvent
-
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -182,7 +178,7 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	edsUpdatedServices map[string]struct{}
 
-	targetNamespaces map[string]struct{}
+	namespacesUpdated map[string]struct{}
 
 	configTypesUpdated map[string]struct{}
 
@@ -196,22 +192,15 @@ type XdsEvent struct {
 	done func()
 }
 
-// UpdateEvent represents a update request for the proxy.
-// This will trigger proxy specific attributes reset before each push.
-type UpdateEvent struct {
-	workloadLabel bool
-}
-
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:   make(chan *XdsEvent),
-		updateChannel: make(chan *UpdateEvent, 1),
-		PeerAddr:      peerAddr,
-		Clusters:      []string{},
-		Connect:       time.Now(),
-		stream:        stream,
-		LDSListeners:  []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:  make(chan *XdsEvent),
+		PeerAddr:     peerAddr,
+		Clusters:     []string{},
+		Connect:      time.Now(),
+		stream:       stream,
+		LDSListeners: []*xdsapi.Listener{},
+		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -254,7 +243,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
-	err := s.globalPushContext().InitContext(s.Env)
+	err := s.globalPushContext().InitContext(s.Env, nil, nil)
 	if err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
@@ -465,10 +454,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			} else {
 				con.mu.Unlock()
 			}
-		case updateEv := <-con.updateChannel:
-			if updateEv.workloadLabel && con.modelNode != nil {
-				_ = con.modelNode.SetWorkloadLabels(s.Env, true)
-			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
@@ -501,7 +486,11 @@ func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection
 	if node == nil || node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNodeWithMetadata(node.Id, model.ParseMetadata(node.Metadata))
+	meta, err := model.ParseMetadata(node.Metadata)
+	if err != nil {
+		return err
+	}
+	nt, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return err
 	}
@@ -525,7 +514,7 @@ func (s *DiscoveryServer) initConnectionNode(node *core.Node, con *XdsConnection
 		nt.Locality = node.Locality
 	}
 
-	if err := nt.SetWorkloadLabels(s.Env, false); err != nil {
+	if err := nt.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
@@ -555,7 +544,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
-		if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
+		if !ProxyNeedsPush(con.modelNode, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -569,7 +558,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env, false); err != nil {
+	// TODO: remove this ?
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
 
@@ -592,7 +582,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	con.modelNode.SetGatewaysForProxy(pushEv.push)
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !ProxyNeedsPush(con.modelNode, pushEv.targetNamespaces, pushEv.configTypesUpdated) {
+	if !ProxyNeedsPush(con.modelNode, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -637,6 +627,37 @@ func adsClientCount() int {
 	n = len(adsClients)
 	adsClientsMutex.RUnlock()
 	return n
+}
+
+func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+	var connection *XdsConnection
+
+	adsClientsMutex.RLock()
+	for _, v := range adsClients {
+		if v.modelNode.ClusterID == clusterID && v.modelNode.IPAddresses[0] == ip {
+			connection = v
+			break
+		}
+
+	}
+	adsClientsMutex.RUnlock()
+
+	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
+	if connection == nil {
+		return
+	}
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Debugf("Starting new push while %v were still pending", currentlyPending)
+		}
+	}
+
+	s.pushQueue.Enqueue(connection, &model.PushRequest{
+		Full:  true,
+		Push:  s.globalPushContext(),
+		Start: time.Now(),
+	})
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
@@ -696,9 +717,11 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 	adsClientsMutex.RUnlock()
 
-	currentlyPending := s.pushQueue.Pending()
-	if currentlyPending != 0 {
-		adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+	if adsLog.DebugEnabled() {
+		currentlyPending := s.pushQueue.Pending()
+		if currentlyPending != 0 {
+			adsLog.Infof("Starting new push while %v were still pending", currentlyPending)
+		}
 	}
 	req.Start = time.Now()
 	for _, p := range pending {
@@ -706,11 +729,14 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	}
 }
 
-func ProxyNeedsPush(proxy *model.Proxy, targetNamespaces map[string]struct{}, configs map[string]struct{}) bool {
+func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	if !features.ScopePushes.Get() {
 		// If push scoping is not enabled, we push for all proxies
 		return true
 	}
+
+	targetNamespaces := pushEv.namespacesUpdated
+	configs := pushEv.configTypesUpdated
 
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
 	appliesToProxy := false
@@ -731,20 +757,18 @@ func ProxyNeedsPush(proxy *model.Proxy, targetNamespaces map[string]struct{}, co
 		return false
 	}
 
-	appliesToNs := false
 	// If no only namespaces specified, this request applies to all proxies
 	if len(targetNamespaces) == 0 {
-		appliesToNs = true
+		return true
 	}
 
 	// Otherwise, only apply if the egress listener will import the config present in the update
 	for ns := range targetNamespaces {
 		if proxy.SidecarScope.DependsOnNamespace(ns) {
-			appliesToNs = true
-			break
+			return true
 		}
 	}
-	return appliesToNs
+	return false
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

@@ -179,6 +179,50 @@ func TestNewModelFromV1beta1(t *testing.T) {
 			},
 		},
 		{
+			name: "one permission condition",
+			rule: &security.Rule{
+				When: []*security.Condition{
+					newCondition(attrDestIP),
+				},
+			},
+			want: Model{
+				Permissions: []Permission{
+					{
+						Constraints: []KeyValues{
+							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
+						},
+					},
+				},
+				Principals: []Principal{
+					{
+						AllowAll: true,
+					},
+				},
+			},
+		},
+		{
+			name: "one principal condition",
+			rule: &security.Rule{
+				When: []*security.Condition{
+					newCondition(attrRequestHeader),
+				},
+			},
+			want: Model{
+				Permissions: []Permission{
+					{
+						AllowAll: true,
+					},
+				},
+				Principals: []Principal{
+					{
+						Properties: []KeyValues{
+							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "full rule",
 			rule: &security.Rule{
 				From: []*security.Rule_From{
@@ -296,7 +340,7 @@ func TestNewModelFromV1beta1(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewModelFromV1beta1(tc.rule)
 			if !reflect.DeepEqual(*got, tc.want) {
-				t.Errorf("got %+v\nbut want %+v", *got, tc.want)
+				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
 			}
 		})
 	}

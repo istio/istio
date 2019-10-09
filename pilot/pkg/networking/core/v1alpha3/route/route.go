@@ -221,15 +221,8 @@ func buildSidecarVirtualHostsForVirtualService(
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	port := listenerPort
-	if destination.Port != nil {
-		switch selector := destination.Port.Port.(type) {
-		// TODO: remove port name from route.Destination in the API
-		case *networking.PortSelector_Name:
-			log.Debuga("name based destination ports are not allowed => blackhole cluster")
-			return util.BlackHoleCluster
-		case *networking.PortSelector_Number:
-			port = int(selector.Number)
-		}
+	if destination.GetPort() != nil {
+		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
 		// if service only has one port defined, use that as the port, otherwise use default listenerPort
 		port = service.Ports[0].Port
@@ -818,16 +811,11 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func portLevelSettingsConsistentHash(dst *networking.Destination,
 	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
 	if dst.Port != nil {
-		switch dst.Port.Port.(type) {
-		case *networking.PortSelector_Name:
-			log.Warnf("using deprecated name on port selector - ignoring")
-		case *networking.PortSelector_Number:
-			portNumber := dst.GetPort().GetNumber()
-			for _, setting := range pls {
-				number := setting.GetPort().GetNumber()
-				if number == portNumber {
-					return setting.GetLoadBalancer().GetConsistentHash()
-				}
+		portNumber := dst.GetPort().GetNumber()
+		for _, setting := range pls {
+			number := setting.GetPort().GetNumber()
+			if number == portNumber {
+				return setting.GetLoadBalancer().GetConsistentHash()
 			}
 		}
 	}

@@ -22,13 +22,15 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 type message struct {
@@ -67,13 +69,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "virtualServiceDestinations",
+		name: "virtualServiceDestinationHosts",
 		inputFiles: []string{
-			"testdata/virtualservice_destinations.yaml",
+			"testdata/virtualservice_destinationhosts.yaml",
 		},
-		analyzer: &virtualservice.DestinationAnalyzer{},
+		analyzer: &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+		},
+	},
+	{
+		name: "virtualServiceDestinationRules",
+		inputFiles: []string{
+			"testdata/virtualservice_destinationrules.yaml",
+		},
+		analyzer: &virtualservice.DestinationRuleAnalyzer{},
+		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
 		},
 	},
@@ -88,10 +99,95 @@ var testGrid = []testCase{
 			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
 		},
 	},
+	{
+		name: "istioInjectionVersionMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+		},
+		analyzer: &injection.VersionAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+		},
+	},
+	{
+		name: "gatewayNoWorkload",
+		inputFiles: []string{
+			"testdata/gateway-no-workload.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name: "gatewayBadPort",
+		inputFiles: []string{
+			"testdata/gateway-no-port.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name: "gatewayCorrectPort",
+		inputFiles: []string{
+			"testdata/gateway-correct-port.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name: "gatewayCustomIngressGateway",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name: "gatewayCustomIngressGatewayBadPort",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway-badport.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name: "gatewayServiceMatchPod",
+		inputFiles: []string{
+			"testdata/gateway-custom-ingressgateway-svcselector.yaml",
+		},
+		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+		},
+	},
+	{
+		name: "deprecation",
+		inputFiles: []string{
+			"testdata/deprecation.yaml",
+		},
+		analyzer: &deprecation.FieldAnalyzer{},
+		expected: []message{
+			{msg.Deprecated, "VirtualService/route-egressgateway"},
+			{msg.Deprecated, "VirtualService/tornado"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
+			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
+		},
+	},
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17617")
 	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
 
 	// For each test case, verify we get the expected messages as output
@@ -109,7 +205,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer, cr)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), cr, true)
 
 			sa.AddFileKubeSource(testCase.inputFiles, "")
 			cancel := make(chan struct{})

@@ -27,6 +27,7 @@ import (
 )
 
 type TestCase struct {
+	NamePrefix    string
 	Request       connection.Checker
 	ExpectAllowed bool
 	Jwt           string
@@ -98,12 +99,17 @@ func (tc TestCase) CheckRBACRequest() error {
 
 func RunRBACTest(t *testing.T, cases []TestCase) {
 	for _, tc := range cases {
-		testName := fmt.Sprintf("%s->%s:%s%s[%v]",
+		want := "deny"
+		if tc.ExpectAllowed {
+			want = "allow"
+		}
+		testName := fmt.Sprintf("%s%s->%s:%s%s[%s]",
+			tc.NamePrefix,
 			tc.Request.From.Config().Service,
 			tc.Request.Options.Target.Config().Service,
 			tc.Request.Options.PortName,
 			tc.Request.Options.Path,
-			tc.ExpectAllowed)
+			want)
 		t.Run(testName, func(t *testing.T) {
 			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest,
 				retry.Delay(500*time.Millisecond), retry.Timeout(15*time.Second))

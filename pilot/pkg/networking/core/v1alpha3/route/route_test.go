@@ -54,7 +54,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses:  []string{"1.1.1.1"},
 		ID:           "someID",
 		DNSDomain:    "foo.com",
-		Metadata:     map[string]string{"ISTIO_VERSION": "1.3"},
+		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
@@ -379,9 +379,7 @@ var virtualServiceWithSubset = &networking.VirtualService{
 						Subset: "some-subset",
 						Host:   "*.example.org",
 						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 65000,
-							},
+							Number: 65000,
 						},
 					},
 					Weight: 100,
@@ -402,9 +400,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 						Subset: "port-level-settings-subset",
 						Host:   "*.example.org",
 						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 8484,
-							},
+							Number: 8484,
 						},
 					},
 					Weight: 100,
@@ -430,9 +426,7 @@ var virtualServicePlain = model.Config{
 						Destination: &networking.Destination{
 							Host: "*.example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 8484,
-								},
+								Number: 8484,
 							},
 						},
 						Weight: 100,
@@ -474,9 +468,7 @@ var portLevelDestinationRule = &networking.DestinationRule{
 					LbPolicy: loadBalancerPolicy("hash-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},
@@ -493,9 +485,7 @@ var portLevelDestinationRuleWithSubsetPolicy = &networking.DestinationRule{
 					LbPolicy: loadBalancerPolicy("hash-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},
@@ -523,7 +513,7 @@ var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.Destinatio
 					LbPolicy: loadBalancerPolicy("hash-cookie-1"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{Number: 8080},
+					Number: 8080,
 				},
 			},
 		},
@@ -557,9 +547,7 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 					LbPolicy: loadBalancerPolicy("port-level-settings-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},

@@ -19,14 +19,15 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 func TestNewSet(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := collection.NewSet([]collection.Name{data.Collection1, data.Collection2})
+	s := coll.NewSet([]collection.Name{data.Collection1, data.Collection2})
 
 	s1 := s.Collection(data.Collection1)
 	g.Expect(s1).NotTo(BeNil())
@@ -40,12 +41,12 @@ func TestNewSet(t *testing.T) {
 func TestNewSetFromCollections(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s1 := collection.New(data.Collection1)
+	s1 := coll.New(data.Collection1)
 	g.Expect(s1).NotTo(BeNil())
-	s2 := collection.New(data.Collection2)
+	s2 := coll.New(data.Collection2)
 	g.Expect(s2).NotTo(BeNil())
 
-	s := collection.NewSetFromCollections([]*collection.Instance{s1, s2})
+	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 
 	c := s.Collection(data.Collection1)
 	g.Expect(c).NotTo(BeNil())
@@ -59,12 +60,12 @@ func TestNewSetFromCollections(t *testing.T) {
 func TestSet_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s1 := collection.New(data.Collection1)
+	s1 := coll.New(data.Collection1)
 	g.Expect(s1).NotTo(BeNil())
-	s2 := collection.New(data.Collection2)
+	s2 := coll.New(data.Collection2)
 	g.Expect(s2).NotTo(BeNil())
 
-	s := collection.NewSetFromCollections([]*collection.Instance{s1, s2})
+	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 
 	s = s.Clone()
 
@@ -80,10 +81,10 @@ func TestSet_Clone(t *testing.T) {
 func TestSet_Names(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s1 := collection.New(data.Collection1)
-	s2 := collection.New(data.Collection2)
+	s1 := coll.New(data.Collection1)
+	s2 := coll.New(data.Collection2)
 
-	s := collection.NewSetFromCollections([]*collection.Instance{s1, s2})
+	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 	names := s.Names()
 	g.Expect(names).To(ConsistOf(
 		data.Collection1,

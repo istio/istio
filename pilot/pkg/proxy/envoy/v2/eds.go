@@ -434,7 +434,8 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
 	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
@@ -463,6 +464,11 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
+			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
+			s.ConfigUpdate(&model.PushRequest{
+				Full:              true,
+				NamespacesUpdated: map[string]struct{}{namespace: {}},
+			})
 		}
 		return
 	}
@@ -521,9 +527,9 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
-			Full:             requireFull,
-			TargetNamespaces: map[string]struct{}{namespace: {}},
-			EdsUpdates:       edsUpdates,
+			Full:              requireFull,
+			NamespacesUpdated: map[string]struct{}{namespace: {}},
+			EdsUpdates:        edsUpdates,
 		})
 	}
 }
@@ -690,7 +696,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
-		endpoints += len(l.Endpoints)
+		for _, e := range l.Endpoints {
+			endpoints += len(e.LbEndpoints)
+		}
+
 		if len(l.Endpoints) == 0 {
 			empty = append(empty, clusterName)
 		}

@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -53,11 +54,19 @@ type PushContext struct {
 	defaultVirtualServiceExportTo  map[visibility.Instance]bool
 	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
+	// Service related
+	// TODO: move to a sub struct
+
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
 	// publicServices are services reachable within the mesh.
 	publicServices []*Service
+	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
+	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
+	// VirtualService related
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
@@ -83,9 +92,6 @@ type PushContext struct {
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
-	// ServiceByHostnameAndNamespace has all services, indexed by hostname then namespace.
-	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
-
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
@@ -93,8 +99,8 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// AuthNPolicies contains a map of hostname and port to authentication policy
+	AuthnPolicies processedAuthnPolicies `json:"-"`
 
 	initDone bool
 }
@@ -104,6 +110,17 @@ type processedDestRules struct {
 	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
 	destRule map[host.Name]*combinedDestinationRule
+}
+
+type processedAuthnPolicies struct {
+	policies map[host.Name][]*authnPolicyByPort
+	// default cluster-scoped (global) policy to be used if no other authn policy is found
+	defaultMeshPolicy *authn.Policy
+}
+
+type authnPolicyByPort struct {
+	portSelector *authn.PortSelector
+	policy       *authn.Policy
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -137,6 +154,10 @@ type XDSUpdater interface {
 	// The requests may be collapsed and throttled.
 	// This replaces the 'cache invalidation' model.
 	ConfigUpdate(req *PushRequest)
+
+	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
+	// The requests may be collapsed and throttled.
+	ProxyUpdate(clusterID, ip string)
 }
 
 // PushRequest defines a request to push to proxies
@@ -145,12 +166,12 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// TargetNamespaces contains a list of namespaces that were changed in the update.
+	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// Currently, this will only scope EDS updates, as config updates are more complicated.
-	// If this is empty, then proxies in all namespaces will get an update
+	// If this is empty, then all proxies will get an update.
 	// If this is present, then only proxies that import this namespace will get an update
-	TargetNamespaces map[string]struct{}
+	NamespacesUpdated map[string]struct{}
 
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
@@ -211,18 +232,18 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	}
 
 	// Merge the target namespaces
-	if len(first.TargetNamespaces) > 0 || len(other.TargetNamespaces) > 0 {
-		merged.TargetNamespaces = make(map[string]struct{})
-		for update := range first.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
+		merged.NamespacesUpdated = make(map[string]struct{})
+		for update := range first.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
-		for update := range other.TargetNamespaces {
-			merged.TargetNamespaces[update] = struct{}{}
+		for update := range other.NamespacesUpdated {
+			merged.NamespacesUpdated[update] = struct{}{}
 		}
 	}
 
 	// Merge the config updates
-	if len(first.ConfigTypesUpdated) > 0 || len(other.ConfigTypesUpdated) > 0 {
+	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
 		merged.ConfigTypesUpdated = make(map[string]struct{})
 		for update := range first.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
@@ -304,6 +325,13 @@ var (
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
+	// HTTP listeners that conflicted with well known HTTPS ports
+	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_http_over_https",
+		"Number of conflicting HTTP listeners with well known HTTPS ports",
+	)
+
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
@@ -368,6 +396,7 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
+		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
@@ -406,6 +435,9 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
 		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:               map[host.Name]map[int][]string{},
+		AuthnPolicies: processedAuthnPolicies{
+			policies: map[host.Name][]*authnPolicyByPort{},
+		},
 	}
 }
 
@@ -664,51 +696,178 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment) error {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
 	ps.Mutex.Lock()
 	defer ps.Mutex.Unlock()
 	if ps.initDone {
 		return nil
 	}
+
 	ps.Env = env
-	var err error
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules
 	// use the default export map
 	ps.initDefaultExportMaps()
 
-	if err = ps.initServiceRegistry(env); err != nil {
+	// create new or incremental update
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigTypesUpdated) == 0 {
+		if err := ps.createNewContext(env); err != nil {
+			return err
+		}
+	} else {
+		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
+			return nil
+		}
+	}
+
+	ps.initDone = true
+	return nil
+}
+
+func (ps *PushContext) createNewContext(env *Environment) error {
+	if err := ps.initServiceRegistry(env); err != nil {
 		return err
 	}
 
-	if err = ps.initVirtualServices(env); err != nil {
+	if err := ps.initVirtualServices(env); err != nil {
 		return err
 	}
 
-	if err = ps.initDestinationRules(env); err != nil {
+	if err := ps.initDestinationRules(env); err != nil {
 		return err
 	}
 
-	if err = ps.initAuthorizationPolicies(env); err != nil {
+	if err := ps.initAuthnPolicies(env); err != nil {
+		return err
+	}
+
+	if err := ps.initAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 
-	if err = ps.initEnvoyFilters(env); err != nil {
+	if err := ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
 
-	if err = ps.initGateways(env); err != nil {
+	if err := ps.initGateways(env); err != nil {
 		return err
 	}
 
 	// Must be initialized in the end
-	if err = ps.initSidecarScopes(env); err != nil {
+	if err := ps.initSidecarScopes(env); err != nil {
 		return err
 	}
+	return nil
+}
 
-	ps.initDone = true
+func (ps *PushContext) updateContext(
+	env *Environment,
+	oldPushContext *PushContext,
+	pushReq *PushRequest) error {
+
+	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+
+	for k := range pushReq.ConfigTypesUpdated {
+		switch k {
+		case schemas.ServiceEntry.Type:
+			servicesChanged = true
+		case schemas.DestinationRule.Type:
+			destinationRulesChanged = true
+		case schemas.VirtualService.Type:
+			virtualServicesChanged = true
+		case schemas.Gateway.Type:
+			gatewayChanged = true
+		case schemas.Sidecar.Type:
+			sidecarsChanged = true
+		case schemas.EnvoyFilter.Type:
+			envoyFiltersChanged = true
+		case schemas.ServiceRoleBinding.Type, schemas.ServiceRole.Type,
+			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
+			schemas.AuthorizationPolicy.Type:
+			authzChanged = true
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+			authnChanged = true
+		}
+	}
+
+	if servicesChanged {
+		// Services have changed. initialize service registry
+		if err := ps.initServiceRegistry(env); err != nil {
+			return err
+		}
+	} else {
+		ps.privateServicesByNamespace = oldPushContext.privateServicesByNamespace
+		ps.publicServices = oldPushContext.publicServices
+		ps.ServiceByHostnameAndNamespace = oldPushContext.ServiceByHostnameAndNamespace
+		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+	}
+
+	if virtualServicesChanged {
+		if err := ps.initVirtualServices(env); err != nil {
+			return err
+		}
+	} else {
+		ps.privateVirtualServicesByNamespace = oldPushContext.privateVirtualServicesByNamespace
+		ps.publicVirtualServices = oldPushContext.publicVirtualServices
+	}
+
+	if destinationRulesChanged {
+		if err := ps.initDestinationRules(env); err != nil {
+			return err
+		}
+	} else {
+		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
+		ps.namespaceExportedDestRules = oldPushContext.namespaceExportedDestRules
+		ps.allExportedDestRules = oldPushContext.allExportedDestRules
+	}
+
+	if authnChanged {
+		if err := ps.initAuthnPolicies(env); err != nil {
+			return err
+		}
+	} else {
+		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+	}
+
+	if authzChanged {
+		if err := ps.initAuthorizationPolicies(env); err != nil {
+			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+			return err
+		}
+	} else {
+		ps.AuthzPolicies = oldPushContext.AuthzPolicies
+	}
+
+	if envoyFiltersChanged {
+		if err := ps.initEnvoyFilters(env); err != nil {
+			return err
+		}
+	} else {
+		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
+	}
+
+	if gatewayChanged {
+		if err := ps.initGateways(env); err != nil {
+			return err
+		}
+	} else {
+		ps.gatewaysByNamespace = oldPushContext.gatewaysByNamespace
+		ps.allGateways = oldPushContext.allGateways
+	}
+
+	// Must be initialized in the end
+	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+		if err := ps.initSidecarScopes(env); err != nil {
+			return err
+		}
+	} else {
+		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+	}
+
 	return nil
 }
 
@@ -770,8 +929,67 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 	}
 }
 
+// Caches list of authentication policies
+func (ps *PushContext) initAuthnPolicies(env *Environment) error {
+	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(authNPolicies)
+	ps.AuthnPolicies = processedAuthnPolicies{
+		policies: map[host.Name][]*authnPolicyByPort{},
+	}
+
+	for _, spec := range authNPolicies {
+		policy := spec.Spec.(*authn.Policy)
+		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
+		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
+		// to run Jwt validation.
+		_ = JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy)
+
+		if len(policy.Targets) > 0 {
+			for _, dest := range policy.Targets {
+				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
+				if len(dest.Ports) > 0 {
+					for _, port := range dest.Ports {
+						ps.addAuthnPolicy(hostName, port, policy)
+					}
+				} else {
+					ps.addAuthnPolicy(hostName, nil, policy)
+				}
+
+			}
+		} else {
+			// if no targets provided, store at namespace level
+			// TODO GregHanson possible refactor so namespace is not cast to host.Name
+			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy)
+		}
+	}
+
+	if specs, err := env.List(schemas.AuthenticationMeshPolicy.Type, NamespaceAll); err == nil {
+		for _, spec := range specs {
+			if spec.Name == constants.DefaultAuthenticationPolicyName {
+				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy) {
+	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
+		policy:       policy,
+		portSelector: selector,
+	})
+}
+
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
+	ps.privateVirtualServicesByNamespace = map[string][]Config{}
+	ps.publicVirtualServices = []Config{}
 	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -990,6 +1208,46 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	}
 	ps.SetDestinationRules(configs)
 	return nil
+}
+
+// AuthenticationPolicyForWorkload returns the matching auth policy for a given service
+// This replaces store.AuthenticationPolicyForWorkload
+func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) *authn.Policy {
+	var workloadPolicy *authn.Policy
+	// Match by Service hostname
+	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
+		return workloadPolicy
+	}
+
+	// Match by namespace
+	if workloadPolicy = authenticationPolicyForWorkload(ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
+		return workloadPolicy
+	}
+
+	// Use default global authentication policy if no others found
+	return ps.AuthnPolicies.defaultMeshPolicy
+}
+
+func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) *authn.Policy {
+	var matchedPolicy *authn.Policy
+	if policiesByPort == nil {
+		return nil
+	}
+
+	for i, policyByPort := range policiesByPort {
+		// TODO GregHanson correct default behavior if no port specified?
+		// issue #17278
+		if policyByPort.portSelector == nil && matchedPolicy == nil {
+			matchedPolicy = policiesByPort[i].policy
+		}
+
+		if port != nil && port.Match(policyByPort.portSelector) {
+			matchedPolicy = policiesByPort[i].policy
+			break
+		}
+	}
+
+	return matchedPolicy
 }
 
 // SetDestinationRules is updates internal structures using a set of configs.

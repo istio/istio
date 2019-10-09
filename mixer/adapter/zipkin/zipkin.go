@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/zipkin/config/config.proto -i mixer/adapter/zipkin/config
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -f mixer/adapter/zipkin/config/config.proto -i mixer/adapter/zipkin/config
 
 // Package zipkin contains a tracespan adapter for Zipkin (https://zipkin.io/).
 package zipkin

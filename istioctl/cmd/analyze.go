@@ -17,19 +17,20 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 var (
-	useKube bool
+	useKube      bool
+	useDiscovery string
 )
 
 // Analyze command
@@ -48,23 +49,26 @@ istioctl experimental analyze -k
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
 istioctl experimental analyze -k a.yaml b.yaml
+
+# Analyze yaml files, overriding service discovery to enabled
+istioctl experimental analyze -d true a.yaml b.yaml services.yaml
+
+# Analyze the current live cluster, overriding service discovery to disabled
+istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// These scopes are pretty verbose at the default log level and significantly clutter terminal output,
-			// so we adjust them here to avoid that.
-			loggingOptions.SetOutputLevel("processing", log.ErrorLevel)
-			loggingOptions.SetOutputLevel("source", log.ErrorLevel)
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
-
 			files, err := gatherFiles(args)
 			if err != nil {
 				return err
 			}
 			cancel := make(chan struct{})
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil)
+			sd, err := serviceDiscovery()
+			if err != nil {
+				return err
+			}
+
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil, sd)
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
@@ -82,7 +86,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 				if err != nil {
 					return err
 				}
-				k := client.NewKube(restConfig)
+				k := cfgKube.NewInterfaces(restConfig)
 
 				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
 				if selectedNamespace == "" {
@@ -103,8 +107,7 @@ istioctl experimental analyze -k a.yaml b.yaml
 					selectedNamespace = defaultNamespace
 				}
 
-				err := sa.AddFileKubeSource(files, selectedNamespace)
-				if err != nil {
+				if err = sa.AddFileKubeSource(files, selectedNamespace); err != nil {
 					return err
 				}
 			}
@@ -123,7 +126,11 @@ istioctl experimental analyze -k a.yaml b.yaml
 	}
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
-		"Use live kubernetes cluster for analysis")
+		"Use live Kubernetes cluster for analysis")
+	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
+		"'true' to enable service discovery, 'false' to disable it. "+
+			"Defaults to true if --use-kube is set, false otherwise. "+
+			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 
 	return analysisCmd
 }
@@ -137,4 +144,17 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
+}
+
+func serviceDiscovery() (bool, error) {
+	switch strings.ToLower(useDiscovery) {
+	case "":
+		return useKube, nil
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid argument value for discovery")
+	}
 }

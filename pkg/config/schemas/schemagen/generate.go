@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate go run $GOPATH/src/istio.io/istio/pkg/config/schemas/schemagen --input=$GOPATH/src/istio.io/istio/pkg/config/schemas/schemagen/schemas.yaml --output=$GOPATH/src/istio.io/istio/pkg/config/schemas/schemas.gen.go
-//go:generate goimports -w $GOPATH/src/istio.io/istio/pkg/config/schemas/schemas.gen.go
+//go:generate go run $REPO_ROOT/pkg/config/schemas/schemagen --input=$REPO_ROOT/pkg/config/schemas/schemagen/schemas.yaml --output=$REPO_ROOT/pkg/config/schemas/schemas.gen.go
+//go:generate goimports -w $REPO_ROOT/pkg/config/schemas/schemas.gen.go
 
 package main

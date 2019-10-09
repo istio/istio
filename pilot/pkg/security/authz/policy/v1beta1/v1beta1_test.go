@@ -33,6 +33,32 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		{
 			name: "no policy",
 		},
+		{
+			name: "one policy",
+			policies: []model.Config{
+				*policy.SimpleAuthzPolicy("default", "foo"),
+			},
+			wantRules: map[string][]string{
+				"ns[foo]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
+		{
+			name: "two policies",
+			policies: []model.Config{
+				*policy.SimpleAuthzPolicy("default", "foo"),
+				*policy.SimpleAuthzPolicy("default", "istio-system"),
+			},
+			wantRules: map[string][]string{
+				"ns[foo]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+				"ns[istio-system]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -43,13 +69,11 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 			}
 
 			got := g.Generate(tc.forTCPFilter)
-			gotStr := spew.Sdump(got)
-
 			if got.GetRules() == nil {
 				t.Fatal("rule must not be nil")
 			}
 			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
-				t.Fatalf("%s\n%s", err, gotStr)
+				t.Fatalf("%s\n%s", err, spew.Sdump(got))
 			}
 		})
 	}

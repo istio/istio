@@ -141,6 +141,7 @@ export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
 export ARTIFACTS ?= $(ISTIO_OUT)
+export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -321,17 +322,14 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format:
-	scripts/run_gofmt.sh
-	go mod tidy
+format: fmt
 
-fmt:
-	scripts/run_gofmt.sh
+fmt: format-go format-python
 	go mod tidy
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
-	GOBUILDFLAGS=-i $(MAKE) build
+	GOBUILDFLAGS=-i $(MAKE) -f Makefile.core.mk build
 
 # List of all binaries to build
 BINARIES:=./istioctl/cmd/istioctl \
@@ -370,19 +368,13 @@ $(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-li
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
-# Existence of build cache .a files actually affects the results of
-# some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
-
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml
+lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
-	@GOARCH=amd64 GOOS=linux bin/check_samples.sh
-	@GOARCH=amd64 GOOS=linux bin/check_dashboards.sh
-	@GOARCH=amd64 GOOS=linux go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@GOARCH=amd64 GOOS=linux bin/check_pilot_codegen.sh
+	@bin/check_samples.sh
+	@bin/check_dashboards.sh
+	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
 	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
@@ -395,6 +387,13 @@ lint_modern: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lin
 	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
+
+gen:
+	@mkdir -p /tmp/bin
+	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
+	@PATH=${PATH}:/tmp/bin go generate ./...
+
+gen-check: gen check-clean-repo
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -479,8 +478,8 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
-	$(MAKE) --keep-going $(TEST_OBJ) \
+	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
+	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
@@ -572,7 +571,7 @@ common-coverage:
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	$(MAKE) --keep-going $(RACE_TESTS) \
+	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 .PHONY: pilot-racetest
@@ -616,25 +615,17 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
+.PHONY: push artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
 push: docker.push installgen
 
-gcs.push: push gcs.push.istioctl-all gcs.push.deb
-
-gcs.push.istioctl-all: istioctl-all
-	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
-
-gcs.push.deb: deb
-	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
-
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
-	$(MAKE) istio.yaml
+	$(MAKE) -f Makefile.core.mk istio.yaml
 
 $(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
@@ -687,7 +678,7 @@ generate_e2e_yaml: $(e2e_files)
 
 generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
 generate_e2e_yaml_coredump:
-	$(MAKE) generate_e2e_yaml
+	$(MAKE) -f Makefile.core.mk generate_e2e_yaml
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
 $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml

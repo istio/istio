@@ -24,6 +24,7 @@ import (
 	envoy_config_grpc_credential_v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestConstructSdsSecretConfig(t *testing.T) {
@@ -53,7 +54,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		serviceAccount string
 		sdsUdsPath     string
 		expected       *auth.SdsSecretConfig
-		metadata       map[string]string
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -99,7 +99,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.metadata); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, &model.NodeMetadata{}); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 			fmt.Println(got)
 			fmt.Println(c.expected)

@@ -47,7 +47,7 @@ type Config struct {
 	Workload string
 
 	// Meta includes additional metadata for the node
-	Meta map[string]string
+	Meta *pstruct.Struct
 
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
 	NodeType string
@@ -97,7 +97,7 @@ type ADSC struct {
 
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
-	Metadata map[string]string
+	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
@@ -500,14 +500,7 @@ func (a *ADSC) node() *core.Node {
 				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
 			}}
 	} else {
-		f := map[string]*pstruct.Value{}
-
-		for k, v := range a.Metadata {
-			f[k] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: v}}
-		}
-		n.Metadata = &pstruct.Struct{
-			Fields: f,
-		}
+		n.Metadata = a.Metadata
 	}
 	return n
 }

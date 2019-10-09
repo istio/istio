@@ -50,11 +50,33 @@ func TestReachability(t *testing.T) {
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false
 						}
-
-						// Exclude headless->headless
-						return src != rctx.Headless || opts.Target != rctx.Headless
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.Naked && opts.Target == rctx.Naked {
+							// naked->naked should always succeed.
+							return true
+						}
+
+						// If one of the two endpoints is naked, expect failure.
+						return src != rctx.Naked && opts.Target != rctx.Naked
+					},
+				},
+				{
+					ConfigFile:          "global-mtls-on-no-dr.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule as in previous test case.
 						if src == rctx.Naked && opts.Target == rctx.Naked {
 							// naked->naked should always succeed.
 							return true
@@ -70,15 +92,7 @@ func TestReachability(t *testing.T) {
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the naked app.
-						if opts.Target == rctx.Naked {
-							return false
-						}
-
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-						return true
+						return opts.Target != rctx.Naked
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -88,10 +102,6 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "global-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {

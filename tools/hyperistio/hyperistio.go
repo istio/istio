@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	agent "istio.io/istio/pkg/bootstrap"
+	envoyBootstrap "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -113,17 +113,22 @@ func startMixer() error {
 }
 
 func startEnvoy() error {
-	cfg := &meshconfig.ProxyConfig{
-		DiscoveryAddress: "localhost:8080",
-		ConfigPath:       env.IstioOut,
-		BinaryPath:       env.IstioBin + "/envoy",
-		ServiceCluster:   "test",
-		CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
-		ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
-		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
-		StatNameLength:   189,
+	cfg := envoyBootstrap.Config{
+		Node:           "sidecar~127.0.0.2~a~a",
+		DNSRefreshRate: "60s",
+		LocalEnv:       os.Environ(),
+		Proxy: &meshconfig.ProxyConfig{
+			DiscoveryAddress: "localhost:8080",
+			ConfigPath:       env.IstioOut,
+			BinaryPath:       env.IstioBin + "/envoy",
+			ServiceCluster:   "test",
+			CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
+			ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
+			DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
+			StatNameLength:   189,
+		},
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ(), []string{}, "60s")
+	cfgF, err := envoyBootstrap.New(cfg).CreateFileForEpoch(1)
 	if err != nil {
 		return err
 	}
@@ -132,7 +137,7 @@ func startEnvoy() error {
 	if err != nil {
 		envoyLog = os.Stderr
 	}
-	_, err = agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
+	_, err = envoyBootstrap.RunProxy(cfg.Proxy, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
 		"--disable-hot-restart", // "-l", "trace",
 	})
 	return err

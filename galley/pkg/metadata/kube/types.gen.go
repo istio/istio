@@ -1,6 +1,6 @@
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh kube pkg/metadata/kube/types.go
+//go:generate $REPO_ROOT/galley/tools/gen-meta/gen-meta.sh kube pkg/metadata/kube/types.gen.go
 //
 
 package kube

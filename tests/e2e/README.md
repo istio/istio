@@ -51,6 +51,8 @@ To see its usage run:
 kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 ```
 
+or check [the source code](https://github.com/istio/istio/blob/master/pkg/test/echo/cmd/client/main.go).
+
 ## Adding New E2E Tests
 
 [demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, version routing, fault delay, and version migration.

@@ -27,11 +27,12 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	gogoproto "github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 
-	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
@@ -180,8 +181,8 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		attrs["context.proxy_version"] = attrStringValue(vs)
 	}
 
-	if meshID, found := in.Node.Metadata[model.NodeMetadataMeshID]; found {
-		attrs["destination.mesh.id"] = attrStringValue(meshID)
+	if len(in.Node.Metadata.MeshID) > 0 {
+		attrs["destination.mesh.id"] = attrStringValue(in.Node.Metadata.MeshID)
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -230,6 +231,9 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 // OnVirtualListener implements the Plugin interface method.
 func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return nil
+	}
 	if in.ListenerProtocol == plugin.ListenerProtocolTCP {
 		attrs := createOutboundListenerAttributes(in)
 		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
@@ -343,42 +347,40 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	}
 
 	// apply proxy-level overrides
-	if anno, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
-		switch anno {
-		case policyCheckEnable:
-			policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
-		case policyCheckEnableAllow, policyCheckDisable:
-			policy = mccpb.NetworkFailPolicy_FAIL_OPEN
-		}
+	switch node.Metadata.PolicyCheck {
+	case policyCheckEnable:
+		policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
+	case policyCheckEnableAllow, policyCheckDisable:
+		policy = mccpb.NetworkFailPolicy_FAIL_OPEN
 	}
 
 	networkFailPolicy := &mccpb.NetworkFailPolicy{Policy: policy}
 
 	networkFailPolicy.MaxRetry = defaultRetries
-	if anno, ok := node.Metadata[annotation.PolicyCheckRetries.Name]; ok {
-		retries, err := strconv.Atoi(anno)
+	if len(node.Metadata.PolicyCheckRetries) > 0 {
+		retries, err := strconv.Atoi(node.Metadata.PolicyCheckRetries)
 		if err != nil {
-			log.Warnf("unable to parse retry limit %q.", anno)
+			log.Warnf("unable to parse retry limit %q.", node.Metadata.PolicyCheckRetries)
 		} else {
 			networkFailPolicy.MaxRetry = uint32(retries)
 		}
 	}
 
 	networkFailPolicy.BaseRetryWait = defaultBaseRetryWaitTime
-	if anno, ok := node.Metadata[annotation.PolicyCheckBaseRetryWaitTime.Name]; ok {
-		dur, err := time.ParseDuration(anno)
+	if len(node.Metadata.PolicyCheckBaseRetryWaitTime) > 0 {
+		dur, err := time.ParseDuration(node.Metadata.PolicyCheckBaseRetryWaitTime)
 		if err != nil {
-			log.Warnf("unable to parse base retry wait time %q.", anno)
+			log.Warnf("unable to parse base retry wait time %q.", node.Metadata.PolicyCheckBaseRetryWaitTime)
 		} else {
 			networkFailPolicy.BaseRetryWait = ptypes.DurationProto(dur)
 		}
 	}
 
 	networkFailPolicy.MaxRetryWait = defaultMaxRetryWaitTime
-	if anno, ok := node.Metadata[annotation.PolicyCheckMaxRetryWaitTime.Name]; ok {
-		dur, err := time.ParseDuration(anno)
+	if len(node.Metadata.PolicyCheckMaxRetryWaitTime) > 0 {
+		dur, err := time.ParseDuration(node.Metadata.PolicyCheckMaxRetryWaitTime)
 		if err != nil {
-			log.Warnf("unable to parse max retry wait time %q.", anno)
+			log.Warnf("unable to parse max retry wait time %q.", node.Metadata.PolicyCheckMaxRetryWaitTime)
 		} else {
 			networkFailPolicy.MaxRetryWait = ptypes.DurationProto(dur)
 		}
@@ -542,7 +544,13 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 		quotaSpecs := configStore.QuotaSpecByDestination(instance)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {
-			out.QuotaSpec = append(out.QuotaSpec, quotaSpec.Spec.(*mccpb.QuotaSpec))
+			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
+			converted := &mccpb.QuotaSpec{}
+			if err := proto.Unmarshal(bytes, converted); err != nil {
+				log.Warnf("failing to convert from gogo to golang: %v", err)
+				continue
+			}
+			out.QuotaSpec = append(out.QuotaSpec, converted)
 		}
 	}
 
@@ -659,14 +667,13 @@ func disablePolicyChecks(dir direction, mesh *meshconfig.MeshConfig, node *model
 	}
 
 	// override with proxy settings
-	if policy, ok := node.Metadata[annotation.PolicyCheck.Name]; ok {
-		switch policy {
-		case policyCheckDisable:
-			disable = true
-		case policyCheckEnable, policyCheckEnableAllow:
-			disable = false
-		}
+	switch node.Metadata.PolicyCheck {
+	case policyCheckDisable:
+		disable = true
+	case policyCheckEnable, policyCheckEnableAllow:
+		disable = false
 	}
+
 	return
 }
 

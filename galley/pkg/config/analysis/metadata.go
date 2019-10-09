@@ -14,7 +14,9 @@
 
 package analysis
 
-import "istio.io/istio/galley/pkg/config/collection"
+import (
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+)
 
 // Metadata represents metadata for an analyzer
 type Metadata struct {

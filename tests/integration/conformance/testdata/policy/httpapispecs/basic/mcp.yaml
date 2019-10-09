@@ -6,40 +6,30 @@ constraints:
             "Body": {
               "api_keys": [
               {
-                "Key": {
-                  "Query": "key"
-                }
+                "query": "key"
               }
               ],
               "attributes": {
                 "attributes": {
                   "api.service": {
-                    "Value": {
-                      "StringValue": "bookinfo.endpoints.istio-manlinl.cloud.goog"
-                    }
+                    "stringValue": "bookinfo.endpoints.istio-manlinl.cloud.goog"
                   },
                   "api.version": {
-                    "Value": {
-                      "StringValue": "v1"
-                    }
+                    "stringValue": "v1"
                   }
                 }
               },
               "patterns": [
               {
-                "Pattern": {
-                  "UriTemplate": "/productpage"
-                },
                 "attributes": {
                   "attributes": {
                     "api.operation": {
-                      "Value": {
-                        "StringValue": "getProducts"
-                      }
+                      "stringValue": "getProducts"
                     }
                   }
                 },
-                "http_method": "GET"
+                "httpMethod": "GET",
+                "uriTemplate": "/productpage"
               }
               ]
             },

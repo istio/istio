@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processor"
-	check2 "istio.io/istio/galley/pkg/config/source/kube/check"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	fs2 "istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/source/fs"
@@ -38,6 +38,7 @@ var (
 	netListen                   = net.Listen
 	fsNew                       = fs.New
 	newKubeFromConfigFile       = client.NewKubeFromConfigFile
+	newInterfaces               = kube.NewInterfacesFromConfigFile
 	verifyResourceTypesPresence = check.ResourceTypesPresence
 	findSupportedResources      = check.FindSupportedResourceSchemas
 	newSource                   = kubeSource.New
@@ -46,16 +47,16 @@ var (
 	newFileWatcher              = filewatcher.NewWatcher
 	readFile                    = ioutil.ReadFile
 
-	meshcfgNewFS               = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
-	processorInitialize        = processor.Initialize
-	checkResourceTypesPresence = check2.ResourceTypesPresence
-	fsNew2                     = fs2.New
+	meshcfgNewFS        = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
+	processorInitialize = processor.Initialize
+	fsNew2              = fs2.New
 )
 
 func resetPatchTable() {
 	netListen = net.Listen
 	fsNew = fs.New
 	newKubeFromConfigFile = client.NewKubeFromConfigFile
+	newInterfaces = kube.NewInterfacesFromConfigFile
 	verifyResourceTypesPresence = check.ResourceTypesPresence
 	findSupportedResources = check.FindSupportedResourceSchemas
 	newSource = kubeSource.New
@@ -66,6 +67,5 @@ func resetPatchTable() {
 
 	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
 	processorInitialize = processor.Initialize
-	checkResourceTypesPresence = check2.ResourceTypesPresence
 	fsNew2 = fs2.New
 }

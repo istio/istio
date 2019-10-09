@@ -11,7 +11,7 @@ spec:
         - destination:
             host: b
       mirror:
-        host: c
+        host: {{.MirrorHost}}
 {{- if not .Absent }}
       mirror_percent: {{.Percent}}
 {{- end }}

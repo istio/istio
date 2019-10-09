@@ -340,7 +340,7 @@ spec:
         api.operation:
           exact: getProducts
     quotas:
-    - charge: "1"
+    - charge: 1
       quota: read-requests
 `)
 

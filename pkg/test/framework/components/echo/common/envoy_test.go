@@ -197,3 +197,11 @@ func (n *fakeNamespace) Name() string {
 func (n *fakeNamespace) ID() resource.ID {
 	panic("not implemented")
 }
+
+func (*testConfig) Logs() (string, error) {
+	panic("not implemented")
+}
+
+func (*testConfig) LogsOrFail(_ test.Failer) string {
+	panic("not implemented")
+}

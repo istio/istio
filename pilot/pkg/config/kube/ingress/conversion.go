@@ -207,14 +207,10 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 		return nil
 	}
 
-	port := &networking.PortSelector{
-		Port: nil,
-	}
+	port := &networking.PortSelector{}
 
 	if backend.ServicePort.Type == intstr.Int {
-		port.Port = &networking.PortSelector_Number{
-			Number: uint32(backend.ServicePort.IntVal),
-		}
+		port.Number = uint32(backend.ServicePort.IntVal)
 	} else {
 		// Port names are not allowed in destination rules.
 		return nil

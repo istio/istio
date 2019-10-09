@@ -514,9 +514,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/bar"
-                  }
+                  "exact": "/bar"
                 }
               }
             ],
@@ -525,9 +523,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
                 "destination": {
                   "host": "service2.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 2400
-                    }
+                    "number": 2400
                   }
                 },
                 "weight": 100
@@ -538,9 +534,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/foo"
-                  }
+                  "exact": "/foo"
                 }
               }
             ],
@@ -549,9 +543,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
                 "destination": {
                   "host": "service1.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 4200
-                    }
+                    "number": 4200
                   }
                 },
                 "weight": 100
@@ -719,9 +711,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/bar"
-                  }
+                  "exact": "/bar"
                 }
               }
             ],
@@ -730,9 +720,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
                 "destination": {
                   "host": "service5.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 5000
-                    }
+                    "number": 5000
                   }
                 },
                 "weight": 100
@@ -743,9 +731,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
             "match": [
               {
                 "uri": {
-                  "MatchType": {
-                    "Exact": "/foo"
-                  }
+                  "exact": "/foo"
                 }
               }
             ],
@@ -754,9 +740,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
                 "destination": {
                   "host": "service1.{{.Namespace}}.svc.cluster.local",
                   "port": {
-                    "Port": {
-                      "Number": 4200
-                    }
+                    "number": 4200
                   }
                 },
                 "weight": 100

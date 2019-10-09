@@ -17,8 +17,13 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"regexp"
+	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
@@ -43,6 +48,101 @@ var (
 	clusterName, status string
 )
 
+// Level is an enumeration of all supported log levels.
+type Level int
+
+const (
+	defaultLoggerName  = "level"
+	defaultOutputLevel = WarningLevel
+)
+
+const (
+	// OffLevel disables logging
+	OffLevel Level = iota
+	// CriticalLevel enables critical level logging
+	CriticalLevel
+	// ErrorLevel enables error level logging
+	ErrorLevel
+	// WarningLevel enables warning level logging
+	WarningLevel
+	// InfoLevel enables info level logging
+	InfoLevel
+	// DebugLevel enables debug level logging
+	DebugLevel
+	// TraceLevel enables trace level logging
+	TraceLevel
+)
+
+// existing sorted active loggers
+var activeLoggers = []string{
+	"admin",
+	"all",
+	"aws",
+	"assert",
+	"backtrace",
+	"client",
+	"config",
+	"connection",
+	"dubbo",
+	"file",
+	"filter",
+	"forward_proxy",
+	"grpc",
+	"hc",
+	"health_checker",
+	"http",
+	"http2",
+	"hystrix",
+	"init",
+	"io",
+	"jwt",
+	"kafka",
+	"lua",
+	"main",
+	"misc",
+	"mongo",
+	"quic",
+	"pool",
+	"rbac",
+	"redis",
+	"router",
+	"runtime",
+	"stats",
+	"secret",
+	"tap",
+	"testing",
+	"thrift",
+	"tracing",
+	"upstream",
+	"udp",
+	"wasm",
+}
+
+var levelToString = map[Level]string{
+	TraceLevel:    "trace",
+	DebugLevel:    "debug",
+	InfoLevel:     "info",
+	WarningLevel:  "warning",
+	ErrorLevel:    "error",
+	CriticalLevel: "critical",
+	OffLevel:      "off",
+}
+
+var stringToLevel = map[string]Level{
+	"trace":    TraceLevel,
+	"debug":    DebugLevel,
+	"info":     InfoLevel,
+	"warning":  WarningLevel,
+	"error":    ErrorLevel,
+	"critical": CriticalLevel,
+	"off":      OffLevel,
+}
+
+var (
+	loggerLevelString = ""
+	reset             = false
+)
+
 func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
@@ -59,6 +159,42 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 		return nil, err
 	}
 	return cw, nil
+}
+
+func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
+	}
+	path := "logging"
+	if param != "" {
+		path = path + "?" + param
+	}
+	result, err := kubeClient.EnvoyDo(podName, podNamespace, "POST", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+	}
+	return string(result), nil
+}
+
+func getLogLevelFromConfigMap() (string, error) {
+	valuesConfig, err := getValuesFromConfigMap(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+	var values struct {
+		SidecarInjectorWebhook struct {
+			Global struct {
+				Proxy struct {
+					LogLevel string `json:"logLevel"`
+				} `json:"proxy"`
+			} `json:"global"`
+		} `json:"sidecarInjectorWebhook"`
+	}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		return "", fmt.Errorf("failed to parse values config: %v [%v]", err, valuesConfig)
+	}
+	return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
 }
 
 // TODO(fisherxu): migrate this to config dump when implemented in Envoy
@@ -189,6 +325,108 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
+
+	logCmd := &cobra.Command{
+		Use:   "log <pod-name[.namespace]>",
+		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
+		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
+		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
+  istioctl proxy-config log <pod-name[.namespace]>
+
+  # Update levels of the specified loggers and retrieve all the information about logging levels.
+  istioctl proxy-config log <pod-name[.namespace]> --level all:warning,http:debug,redis:debug
+
+  # Reset levels of all the loggers to default value (warning) and retrieve all the information about logging levels.
+  istioctl proxy-config log <pod-name[.namespace]> -r
+`,
+		Aliases: []string{"o"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("log requires pod name")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			loggerNames, err := setupEnvoyLogConfig("", podName, ns)
+			if err != nil {
+				return err
+			}
+
+			destLoggerLevels := map[string]Level{}
+			if reset {
+				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
+				levelString, _ := getLogLevelFromConfigMap()
+				level, ok := stringToLevel[levelString]
+				if ok {
+					destLoggerLevels[defaultLoggerName] = level
+				} else {
+					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value: %v",
+						levelToString[defaultOutputLevel])
+					destLoggerLevels[defaultLoggerName] = defaultOutputLevel
+				}
+			} else if loggerLevelString != "" {
+				levels := strings.Split(loggerLevelString, ",")
+				for _, ol := range levels {
+					if !strings.Contains(ol, ":") && !strings.Contains(ol, "=") {
+						level, ok := stringToLevel[ol]
+						if ok {
+							destLoggerLevels = map[string]Level{
+								defaultLoggerName: level,
+							}
+						} else {
+							return fmt.Errorf("unrecognized logging level: %v", ol)
+						}
+					} else {
+						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
+						if !strings.Contains(loggerNames, loggerLevel[0]) {
+							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+						}
+						level, ok := stringToLevel[loggerLevel[1]]
+						if !ok {
+							return fmt.Errorf("unrecognized logging level: %v", loggerLevel[1])
+						}
+						destLoggerLevels[loggerLevel[0]] = level
+					}
+				}
+			}
+
+			var resp string
+			if len(destLoggerLevels) == 0 {
+				resp, err = setupEnvoyLogConfig("", podName, ns)
+			} else {
+				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+					// update levels of all loggers first
+					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
+					delete(destLoggerLevels, defaultLoggerName)
+				}
+				for lg, ll := range destLoggerLevels {
+					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
+				}
+			}
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+			return nil
+		},
+	}
+
+	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
+		levelToString[TraceLevel],
+		levelToString[DebugLevel],
+		levelToString[InfoLevel],
+		levelToString[WarningLevel],
+		levelToString[ErrorLevel],
+		levelToString[CriticalLevel],
+		levelToString[OffLevel])
+	s := strings.Join(activeLoggers, ", ")
+	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset log level to default value (warning).")
+	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
+		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
+			" <logger>:<level>,<logger>:<level>,... where logger can be one of %s and level can be one of %s",
+			s, levelListString))
 
 	routeConfigCmd := &cobra.Command{
 		Use:   "route <pod-name[.namespace]>",
@@ -349,7 +587,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	}
 
 	configCmd.AddCommand(
-		clusterConfigCmd, listenerConfigCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd, secretConfigCmd)
+		clusterConfigCmd, listenerConfigCmd, logCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd, secretConfigCmd)
 
 	return configCmd
 }

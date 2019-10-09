@@ -2017,9 +2017,7 @@ func TestValidateDestination(t *testing.T) {
 				Host:   "foo.bar",
 				Subset: "shiny",
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 5000,
-					},
+					Number: 5000,
 				},
 			},
 			valid: true,
@@ -3840,7 +3838,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	}
 }
 
-func TestValidateAuthorization(t *testing.T) {
+func TestValidateAuthorizationPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -3883,11 +3881,11 @@ func TestValidateAuthorization(t *testing.T) {
 						},
 						When: []*authz.Condition{
 							{
-								Key:    "key1",
-								Values: []string{"v1", "v2"},
+								Key:    "source.ip",
+								Values: []string{"1.2.3.4", "5.6.7.0/24"},
 							},
 							{
-								Key:    "key2",
+								Key:    "request.headers[:authority]",
 								Values: []string{"v1", "v2"},
 							},
 						},
@@ -3924,6 +3922,51 @@ func TestValidateAuthorization(t *testing.T) {
 						When: []*authz.Condition{
 							{
 								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: key",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "",
+						"version": "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: value",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid attribute",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*authz.Rule{
+					{
+						When: []*authz.Condition{
+							{
+								Key:    "key1",
+								Values: []string{"v1"},
 							},
 						},
 					},

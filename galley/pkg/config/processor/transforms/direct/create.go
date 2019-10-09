@@ -16,15 +16,15 @@ package direct
 
 import (
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/schema"
 )
 
 // GetProviders creates a transformer provider for each direct transform in the metadata
 func GetProviders(m *schema.Metadata) transformer.Providers {
 	var result []transformer.Provider
 
-	for k, v := range m.DirectTransform().Mapping() {
+	for k, v := range m.DirectTransformSettings().Mapping() {
 		from := k
 		to := v
 

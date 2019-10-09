@@ -19,7 +19,7 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -65,7 +65,7 @@ spec:
 var (
 	serviceEntryTemplate *template.Template
 
-	serviceEntryCollection = metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String()
+	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3Serviceentries.String()
 )
 
 func init() {
@@ -128,6 +128,7 @@ func newServiceEntry(g galley.Instance, address string, cfg echo.Config) (out *s
 	return se, nil
 }
 
+// Close implements io.Closer
 func (s *serviceEntry) Close() error {
 	return s.g.DeleteConfig(s.ns, s.yaml)
 }

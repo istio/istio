@@ -22,10 +22,9 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/testdata/validation"
 	"istio.io/istio/pkg/test/util/yml"
-
-	kubeSchema "istio.io/istio/galley/pkg/metadata/kube"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -79,7 +78,11 @@ func TestValidation(t *testing.T) {
 				if err == nil {
 					return false
 				}
-				return strings.Contains(err.Error(), "denied the request")
+				// We are only checking the string literals of the rejection reasons
+				// from the webhook and the k8s api server as the returned errors are not
+				// k8s typed errors.
+				return strings.Contains(err.Error(), "denied the request") ||
+					strings.Contains(err.Error(), "error validating data")
 			}
 
 			for _, d := range dataset {
@@ -89,20 +92,20 @@ func TestValidation(t *testing.T) {
 						return
 					}
 
-					ctx := framework.NewContext(t)
-					defer ctx.Done()
+					fctx := framework.NewContext(t)
+					defer fctx.Done()
 
-					yml, err := d.load()
+					ym, err := d.load()
 					if err != nil {
 						t.Fatalf("Unable to load test data: %v", err)
 					}
 
-					env := ctx.Environment().(*kube.Environment)
-					ns := namespace.NewOrFail(t, ctx, namespace.Config{
+					env := fctx.Environment().(*kube.Environment)
+					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
-					err = env.ApplyContents(ns.Name(), yml)
-					defer env.DeleteContents(ns.Name(), yml)
+					err = env.ApplyContents(ns.Name(), ym)
+					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
 
 					switch {
 					case err != nil && d.isValid():
@@ -179,11 +182,10 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			}
 
 			recognized := make(map[string]struct{})
-			for _, ty := range kubeSchema.Types.All() {
-				for _, v := range ty.Versions {
-					s := strings.Join([]string{ty.Group, v, ty.Kind}, "/")
-					recognized[s] = struct{}{}
-				}
+
+			for _, r := range metadata.MustGet().KubeSource().Resources() {
+				s := strings.Join([]string{r.Group, r.Version, r.Kind}, "/")
+				recognized[s] = struct{}{}
 			}
 
 			testedValid := make(map[string]struct{})
@@ -197,9 +199,9 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 					}
 
 					m := make(map[string]interface{})
-					by, err := yaml.YAMLToJSON([]byte(yamlPart))
-					if err != nil {
-						ctx.Fatalf("error loading test data: %v", err)
+					by, er := yaml.YAMLToJSON([]byte(yamlPart))
+					if er != nil {
+						ctx.Fatalf("error loading test data: %v", er)
 					}
 					if err = json.Unmarshal(by, &m); err != nil {
 						ctx.Fatalf("error parsing JSON: %v", err)

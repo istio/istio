@@ -17,6 +17,7 @@ package collection
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
@@ -26,14 +27,14 @@ type ChangeNotifierFn func()
 // Instance is collection of resources, indexed by name.
 type Instance struct {
 	mu          sync.RWMutex // TODO: This lock will most likely cause contention. We should investigate whether removing it would help.
-	collection  Name
+	collection  collection.Name
 	generation  int64
 	entries     map[resource.Name]*resource.Entry
 	copyOnWrite bool
 }
 
 // New returns a new collection.Instance
-func New(collection Name) *Instance {
+func New(collection collection.Name) *Instance {
 	return &Instance{
 		collection: collection,
 		entries:    make(map[resource.Name]*resource.Entry),

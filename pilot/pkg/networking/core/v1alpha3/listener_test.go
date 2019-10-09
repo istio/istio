@@ -57,9 +57,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -69,10 +69,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
+			HTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -81,9 +81,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -92,10 +92,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
+			HTTP10:          "1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -105,9 +105,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
@@ -141,9 +141,7 @@ var (
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 80,
-								},
+								Number: 80,
 							},
 						},
 						Weight: 100,
@@ -280,6 +278,48 @@ func TestOutboundListenerConflict_Unordered(t *testing.T) {
 		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
 }
 
+func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
+	cases := []struct {
+		name             string
+		service          *model.Service
+		expectedListener []string
+	}{
+		{
+			"http on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"http on 80",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"https on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTPS, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+		{
+			"tcp on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.TCP, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			listeners := buildOutboundListeners(p, &proxy, nil, nil, tt.service)
+			got := []string{}
+			for _, l := range listeners {
+				got = append(got, l.Name)
+			}
+			if !reflect.DeepEqual(got, tt.expectedListener) {
+				t.Fatalf("expected listener %v got %v", tt.expectedListener, got)
+			}
+		})
+	}
+}
+
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
@@ -405,11 +445,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
 			env.ServiceDiscovery = serviceDiscovery
-			if err := env.PushContext.InitContext(&env); err != nil {
+			if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 				t.Errorf("Failed to initialize push context: %v", err)
 			}
 
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
@@ -586,7 +625,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			}
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -613,7 +652,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -638,8 +677,8 @@ func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -677,8 +716,8 @@ func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, s
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy *model.Proxy) {
@@ -716,8 +755,8 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -729,12 +768,21 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 	}
 }
 
-func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection) {
 	t.Helper()
-	if len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
-		fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.1" ||
-		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.0" {
-		t.Fatalf("expected %d application protocols, [http/1.1, http/1.0]", 3)
+	if direction == model.TrafficDirectionInbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1]", 2)
+	}
+
+	if direction == model.TrafficDirectionOutbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
+			fc.FilterChainMatch.ApplicationProtocols[2] != "h2") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1, h2]", 3)
 	}
 }
 
@@ -812,7 +860,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3], model.TrafficDirectionOutbound)
 
 		if len(l.ListenerFilters) != 2 ||
 			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
@@ -842,7 +890,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		}
 	}
 
-	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound)
 	if len(l.ListenerFilters) != 2 ||
 		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -1319,7 +1367,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 
 	env := buildListenerEnv(services)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
@@ -1358,11 +1406,11 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		env = buildListenerEnv(services)
 	}
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1376,7 +1424,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -1387,7 +1435,7 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 		}
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -1453,7 +1501,7 @@ func isMysqlListener(listener *xdsapi.Listener) bool {
 }
 
 func isNodeHTTP10(proxy *model.Proxy) bool {
-	return proxy.Metadata[model.NodeMetadataHTTP10] == "1"
+	return proxy.Metadata.HTTP10 == "1"
 }
 
 func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {

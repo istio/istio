@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/stdio/config/config.proto -x "-n stdio -t logentry -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stdio/config/config.proto -x "-n stdio -t logentry -t metric"
 
 // Package stdio provides an adapter that implements the logEntry and metrics
 // templates to serialize generated logs and metrics to stdout, stderr, or files.

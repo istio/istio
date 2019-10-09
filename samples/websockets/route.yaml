@@ -30,4 +30,3 @@ spec:
     - destination:
         host: tornado
       weight: 100
-    websocketUpgrade: true

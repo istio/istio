@@ -25,18 +25,18 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/util/pb"
 )
 
 func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 	return &Adapter{
 		extractObject: func(o interface{}) metav1.Object {
-			r, ok := o.(*unstructured.Unstructured)
+			res, ok := o.(*unstructured.Unstructured)
 			if !ok {
 				return nil
 			}
-			return r
+			return res
 		},
 
 		extractResource: func(o interface{}) (proto.Message, error) {
@@ -54,7 +54,7 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 		},
 
 		newInformer: func() (cache.SharedIndexInformer, error) {
-			d, err := p.dynamicResource(r)
+			d, err := p.GetDynamicResourceInterface(r)
 			if err != nil {
 				return nil, err
 			}
@@ -85,6 +85,13 @@ func (p *Provider) getDynamicAdapter(r schema.KubeResource) *Adapter {
 			}
 
 			return u, nil
+		},
+		getStatus: func(o interface{}) interface{} {
+			u, ok := o.(*unstructured.Unstructured)
+			if !ok {
+				return nil
+			}
+			return u.Object["status"]
 		},
 		isEqual:   resourceVersionsMatch,
 		isBuiltIn: false,

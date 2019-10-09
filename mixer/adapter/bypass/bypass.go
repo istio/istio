@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/bypass/config/config.proto -x "-n bypass -t checknothing -t reportnothing -t metric -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/bypass/config/config.proto -x "-n bypass -t checknothing -t reportnothing -t metric -t quota"
 
 package bypass
 
@@ -24,7 +24,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -345,8 +345,7 @@ func (h *handler) Close() (err error) {
 	}
 
 	if h.conn != nil {
-		err2 := h.conn.Close()
-		err = multierr.Append(err, err2)
+		err = multierror.Append(err, h.conn.Close()).ErrorOrNil()
 	}
 
 	return

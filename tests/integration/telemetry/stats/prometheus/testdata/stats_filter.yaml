@@ -3,49 +3,27 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter
 spec:
-  filters:
-    - filterConfig:
-        configuration: |
-          {
-            "debug": "false",
-            "stat_prefix": "istio",
-          }
-        vm_config:
-          code:
-            inline_string: envoy.wasm.stats
-          vm: envoy.wasm.vm.null
-      filterName: envoy.wasm
-      filterType: HTTP
-      listenerMatch:
-        listenerProtocol: HTTP
-        listenerType: GATEWAY
-    - filterConfig:
-        configuration: |
-          {
-            "debug": "false",
-            "stat_prefix": "istio",
-          }
-        vm_config:
-          code:
-            inline_string: envoy.wasm.stats
-          vm: envoy.wasm.vm.null
-      filterName: envoy.wasm
-      filterType: HTTP
-      listenerMatch:
-        listenerProtocol: HTTP
-        listenerType: SIDECAR_INBOUND
-    - filterConfig:
-        configuration: |
-          {
-            "debug": "false",
-            "stat_prefix": "istio",
-          }
-        vm_config:
-          code:
-            inline_string: envoy.wasm.stats
-          vm: envoy.wasm.vm.null
-      filterName: envoy.wasm
-      filterType: HTTP
-      listenerMatch:
-        listenerProtocol: HTTP
-        listenerType: SIDECAR_OUTBOUND
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            configuration: |
+              {
+                "debug": "false",
+                "stat_prefix": "istio",
+              }
+            vm_config:
+              vm: envoy.wasm.vm.null
+              code:
+                inline_string: envoy.wasm.stats

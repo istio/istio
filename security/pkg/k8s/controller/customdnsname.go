@@ -55,7 +55,7 @@ func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
 					}
 				}
 			} else {
-				log.Warnf("Cannot process this invalid custom defined names %v, it "+
+				k8sControllerLog.Warnf("Cannot process this invalid custom defined names %v, it "+
 					"should follow SERVICE_ACCOUNT.NAMESPACE:DOMAIN format", customName)
 			}
 		}

@@ -278,8 +278,9 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod.ns",
-			Type: model.Router,
+			ID:       "pod.ns",
+			Type:     model.Router,
+			Metadata: &model.NodeMetadata{},
 		},
 		Service: &svc,
 		Push:    &pushContext,

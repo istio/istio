@@ -104,7 +104,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 				policy.SimpleAuthzPolicy("authz-foo", "a"),
 			},
-			wantPolicies: []string{"authz-bar[0]", "authz-foo[0]"},
+			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
 		},
 		{
 			name: "v1alpha1 and v1beta1",
@@ -114,7 +114,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleBinding("binding-1", "a", "role-1"),
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 			},
-			wantPolicies: []string{"authz-bar[0]"},
+			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
 		},
 	}
 

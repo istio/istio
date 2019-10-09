@@ -190,9 +190,15 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 		}
 	}
 	if len(rule.From) == 0 {
-		m.Principals = []Principal{{
-			AllowAll: true,
-		}}
+		if len(conditionsForPrincipal) != 0 {
+			m.Principals = []Principal{{
+				Properties: conditionsForPrincipal,
+			}}
+		} else {
+			m.Principals = []Principal{{
+				AllowAll: true,
+			}}
+		}
 	}
 
 	for _, to := range rule.To {
@@ -208,9 +214,15 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 		}
 	}
 	if len(rule.To) == 0 {
-		m.Permissions = []Permission{{
-			AllowAll: true,
-		}}
+		if len(conditionsForPermission) != 0 {
+			m.Permissions = []Permission{{
+				Constraints: conditionsForPermission,
+			}}
+		} else {
+			m.Permissions = []Permission{{
+				AllowAll: true,
+			}}
+		}
 	}
 
 	return m
@@ -223,7 +235,7 @@ func NewModelFromV1beta1(rule *security.Rule) *Model {
 func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
-		if permission.Match(service) {
+		if service == nil || permission.Match(service) {
 			p, err := permission.Generate(forTCPFilter)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)

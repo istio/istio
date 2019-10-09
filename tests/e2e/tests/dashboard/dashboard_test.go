@@ -112,6 +112,10 @@ func performanceQueryFilterFn(queries []string) []string {
 			continue
 		}
 
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(qry, "container_fs_usage_bytes") {
+			continue
+		}
 		ret = append(ret, qry)
 	}
 
@@ -270,6 +274,10 @@ func mixerQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "grpc_code!=") {
 			continue
 		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -325,6 +333,10 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "_virt_services") {
 			continue
 		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -369,6 +381,11 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "runtime_strategy_timer_max_time_reached_total") {
 			continue
 		}
+
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -400,6 +417,10 @@ func citadelQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "authentication_failure_count") {
+			continue
+		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
 			continue
 		}
 		filtered = append(filtered, query)

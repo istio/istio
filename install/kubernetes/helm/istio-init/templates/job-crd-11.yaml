@@ -14,6 +14,10 @@ spec:
       - name: istio-init-crd-11
         image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- if .Values.job.resources }}
+        resources:
+{{ toYaml .Values.job.resources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: crd-11
           mountPath: /etc/istio/crd-11

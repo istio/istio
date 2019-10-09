@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +51,7 @@ func validateUninjectFlags() error {
 	var err error
 
 	if uninjectInFilename == "" {
-		err = multierr.Append(err, errors.New("filename not specified (see --filename or -f)"))
+		err = multierror.Append(err, errors.New("filename not specified (see --filename or -f)"))
 	}
 	return err
 }
@@ -71,7 +71,7 @@ func extractResourceFile(in io.Reader, out io.Writer) error {
 
 		obj, err := inject.FromRawToObject(raw)
 		if err != nil && !runtime.IsNotRegisteredError(err) {
-			return multierr.Append(fmt.Errorf("cannot parse YAML input"), err)
+			return multierror.Append(err, fmt.Errorf("cannot parse YAML input"))
 		}
 
 		var updated []byte
@@ -104,7 +104,7 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 			if index < len(containers)-1 {
 				containers = append(containers[:index], containers[index+1:]...)
 			} else {
-				containers = append(containers[:index])
+				containers = containers[:index]
 			}
 			break
 		}
@@ -120,7 +120,7 @@ func removeInjectedVolumes(volumes []corev1.Volume, injectedVolume string) []cor
 			if index < len(volumes)-1 {
 				volumes = append(volumes[:index], volumes[index+1:]...)
 			} else {
-				volumes = append(volumes[:index])
+				volumes = volumes[:index]
 			}
 			break
 		}
@@ -142,9 +142,9 @@ func removeDNSConfig(podDNSConfig *corev1.PodDNSConfig) {
 				podDNSConfig.Searches = append(podDNSConfig.Searches[:index],
 					podDNSConfig.Searches[index+1:]...)
 			} else {
-				podDNSConfig.Searches = append(podDNSConfig.Searches[:index])
+				podDNSConfig.Searches = podDNSConfig.Searches[:index]
 			}
-			//reset to 0
+			// reset to 0
 			index = 0
 			l = len(podDNSConfig.Searches)
 		} else {
@@ -233,7 +233,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 
 	metadata.Annotations = handleAnnotations(metadata.Annotations)
-	//skip uninjection for pods
+	// skip uninjection for pods
 	sidecarInjected := false
 	for _, c := range podSpec.Containers {
 		if c.Name == proxyContainerName {
@@ -284,7 +284,7 @@ kubectl get deployment -o yaml | istioctl experimental kube-uninject -f - | kube
 			if err = validateUninjectFlags(); err != nil {
 				return err
 			}
-			//get the resource content
+			// get the resource content
 			var reader io.Reader
 			if uninjectInFilename == "-" {
 				reader = os.Stdin

@@ -29,4 +29,4 @@ file_list=(
 		"../../../test/spyAdapter/template/checkoutput/tmpl.yaml"
 )
 
-"${GOPATH}/src/istio.io/istio/scripts/run_gobindata.sh" --nocompress --nometadata --pkg test -o fixtures.gen.go "${file_list[@]}"
+go-bindata --nocompress --nometadata --pkg test -o fixtures.gen.go "${file_list[@]}"

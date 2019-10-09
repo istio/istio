@@ -25,11 +25,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/collection"
+
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 )
@@ -276,14 +277,10 @@ func ingressBackendToHTTPRoute(backend *ingress.IngressBackend, namespace string
 		return nil
 	}
 
-	port := &v1alpha3.PortSelector{
-		Port: nil,
-	}
+	port := &v1alpha3.PortSelector{}
 
 	if backend.ServicePort.Type == intstr.Int {
-		port.Port = &v1alpha3.PortSelector_Number{
-			Number: uint32(backend.ServicePort.IntVal),
-		}
+		port.Number = uint32(backend.ServicePort.IntVal)
 	} else {
 		// Port names are not allowed in destination rules.
 		return nil

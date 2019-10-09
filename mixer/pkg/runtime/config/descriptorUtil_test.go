@@ -13,12 +13,12 @@
 // limitations under the License.
 
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/foo.proto -otestdata/foo.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/foo.proto -otestdata/foo.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I.
 
 package config
 

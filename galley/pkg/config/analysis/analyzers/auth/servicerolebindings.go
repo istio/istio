@@ -19,8 +19,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
@@ -51,6 +51,11 @@ func (s *ServiceRoleBindingAnalyzer) Analyze(ctx analysis.Context) {
 func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Entry, ctx analysis.Context) {
 	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+
+	// If no servicerole is defined at all, just skip. The field is required, but that should be enforced elsewhere.
+	if srb.RoleRef == nil {
+		return
+	}
 
 	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewName(ns, srb.RoleRef.Name)) {
 		ctx.Report(metadata.IstioRbacV1Alpha1Servicerolebindings, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))

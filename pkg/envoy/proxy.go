@@ -41,52 +41,58 @@ const (
 )
 
 type envoy struct {
-	config         meshconfig.ProxyConfig
-	node           string
-	extraArgs      []string
-	pilotSAN       []string
-	opts           map[string]interface{}
-	nodeIPs        []string
-	dnsRefreshRate string
+	ProxyConfig
+	extraArgs []string
+}
+
+type ProxyConfig struct {
+	Config              meshconfig.ProxyConfig
+	Node                string
+	LogLevel            string
+	ComponentLogLevel   string
+	PilotSubjectAltName []string
+	MixerSubjectAltName []string
+	NodeIPs             []string
+	DNSRefreshRate      string
+	PodName             string
+	PodNamespace        string
+	PodIP               net.IP
+	SDSUDSPath          string
+	SDSTokenPath        string
+	ControlPlaneAuth    bool
+	DisableReportCalls  bool
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string,
-	componentLogLevel string, pilotSAN []string, nodeIPs []string, dnsRefreshRate string, opts map[string]interface{}) Proxy {
+func NewProxy(cfg ProxyConfig) Proxy {
 	// inject tracing flag for higher levels
 	var args []string
-	if logLevel != "" {
-		args = append(args, "-l", logLevel)
+	if cfg.LogLevel != "" {
+		args = append(args, "-l", cfg.LogLevel)
 	}
-	if componentLogLevel != "" {
-		args = append(args, "--component-log-level", componentLogLevel)
+	if cfg.ComponentLogLevel != "" {
+		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
 	return &envoy{
-		config:         config,
-		node:           node,
-		extraArgs:      args,
-		pilotSAN:       pilotSAN,
-		nodeIPs:        nodeIPs,
-		dnsRefreshRate: dnsRefreshRate,
-		opts:           opts,
+		ProxyConfig: cfg,
+		extraArgs:   args,
 	}
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
-	if isIPv6Proxy(e.nodeIPs) {
+	if isIPv6Proxy(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.config.ParentShutdownDuration) / time.Second)),
-		"--service-cluster", e.config.ServiceCluster,
-		"--service-node", e.node,
-		"--max-obj-name-len", fmt.Sprint(e.config.StatNameLength),
+		"--drain-time-s", fmt.Sprint(int(convertDuration(e.Config.DrainDuration) / time.Second)),
+		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),
+		"--service-cluster", e.Config.ServiceCluster,
+		"--service-node", e.Node,
+		"--max-obj-name-len", fmt.Sprint(e.Config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--allow-unknown-fields",
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
@@ -100,8 +106,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		}
 	}
 
-	if e.config.Concurrency > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.config.Concurrency))
+	if e.Config.Concurrency > 0 {
+		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency))
 	}
 
 	return startupArgs
@@ -110,19 +116,33 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
-
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if len(e.config.CustomConfigFile) > 0 {
-		// there is a custom configuration. Don't write our own config - but keep watching the certs.
-		fname = e.config.CustomConfigFile
-	} else if _, ok := config.(DrainConfig); ok {
+	if _, ok := config.(DrainConfig); ok {
+		// We are doing a graceful termination, apply an empty config to drain all connections
 		fname = drainFile
+	} else if len(e.Config.CustomConfigFile) > 0 {
+		// there is a custom configuration. Don't write our own config - but keep watching the certs.
+		fname = e.Config.CustomConfigFile
 	} else {
-		out, err := bootstrap.WriteBootstrap(
-			&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs, e.dnsRefreshRate)
+		out, err := bootstrap.New(bootstrap.Config{
+			Node:                e.Node,
+			DNSRefreshRate:      e.DNSRefreshRate,
+			Proxy:               &e.Config,
+			PilotSubjectAltName: e.PilotSubjectAltName,
+			MixerSubjectAltName: e.MixerSubjectAltName,
+			LocalEnv:            os.Environ(),
+			NodeIPs:             e.NodeIPs,
+			PodName:             e.PodName,
+			PodNamespace:        e.PodNamespace,
+			PodIP:               e.PodIP,
+			SDSUDSPath:          e.SDSUDSPath,
+			SDSTokenPath:        e.SDSTokenPath,
+			ControlPlaneAuth:    e.ControlPlaneAuth,
+			DisableReportCalls:  e.DisableReportCalls,
+		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
@@ -136,7 +156,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
-	cmd := exec.Command(e.config.BinaryPath, args...)
+	cmd := exec.Command(e.Config.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -160,21 +180,10 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 }
 
 func (e *envoy) Cleanup(epoch int) {
-	filePath := configFile(e.config.ConfigPath, epoch)
+	filePath := configFile(e.Config.ConfigPath, epoch)
 	if err := os.Remove(filePath); err != nil {
 		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}
-}
-
-func (e *envoy) Panic(epoch interface{}) {
-	log.Error("cannot start the proxy with the desired configuration")
-	if epochInt, ok := epoch.(int); ok {
-		// print the failed config file
-		filePath := configFile(e.config.ConfigPath, epochInt)
-		b, _ := ioutil.ReadFile(filePath)
-		log.Errorf(string(b))
-	}
-	os.Exit(-1)
 }
 
 // convertDuration converts to golang duration and logs errors
