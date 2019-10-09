@@ -1241,7 +1241,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			svcName := "istio.pilot"
 			dir := DefaultDirectoryForKeyCert
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
-				err := os.Mkdir(dir, os.ModePerm)
+				err := os.MkdirAll(dir, os.ModePerm)
 				if err != nil {
 					return fmt.Errorf("err to create directory %v: %v", dir, err)
 				}
