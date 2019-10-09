@@ -280,44 +280,50 @@ func configName(config *model.Config) string {
 // Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
 // are visible.
 func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
 
-	proxyID := req.Form.Get("proxyID")
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
+			for key := range adsSidecarIDConnectionsMap {
+				_, _ = fmt.Fprintf(w, "  %q,\n", key)
+			}
+			return
+		}
 
-	connections, ok := adsSidecarIDConnectionsMap[proxyID]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = fmt.Fprint(w, "\n[\n]")
+		var mostRecentProxy *model.Proxy
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		mostRecentProxy = connections[mostRecent].modelNode
+		svc, _ := s.Env.ServiceDiscovery.Services()
+		info := []*AuthenticationDebug{}
+		for _, ss := range svc {
+			if ss.MeshExternal {
+				// Skip external services
+				continue
+			}
+			for _, p := range ss.Ports {
+				authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
+				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
+				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
+			}
+		}
+		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+			_, _ = w.Write(b)
+		}
 		return
 	}
-	var mostRecentProxy *model.Proxy
-	mostRecent := ""
-	for key := range connections {
-		if mostRecent == "" || key > mostRecent {
-			mostRecent = key
-		}
-	}
-	mostRecentProxy = connections[mostRecent].modelNode
-	svc, _ := s.Env.ServiceDiscovery.Services()
-	info := []*AuthenticationDebug{}
-	for _, ss := range svc {
-		if ss.MeshExternal {
-			// Skip external services
-			continue
-		}
-		for _, p := range ss.Ports {
-			authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
-			destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-			info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
-		}
-	}
 
-	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
