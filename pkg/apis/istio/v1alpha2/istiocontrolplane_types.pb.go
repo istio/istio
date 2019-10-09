@@ -33,7 +33,7 @@
 //     overlays. The concept is similar to kustomize, where JSON patches are applied for object paths. This allows
 //     customization at the lowest level and eliminates the need to create ad-hoc template parameters, or edit templates.
 //
-// ## EXAMPLES
+// Here are a few example uses:
 //
 // 1. Default Istio install
 //
