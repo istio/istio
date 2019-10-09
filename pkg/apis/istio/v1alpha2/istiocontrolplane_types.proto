@@ -71,14 +71,14 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default minimal profile install
 //
-//     ```yaml
+//     ```
 //     spec:
 //       profile: minimal
 //     ```
 //
 // 1. Default install with telemetry disabled
 //
-//     ```yaml
+//     ```
 //     spec:
 //       telemetry:
 //         enabled: false
@@ -86,7 +86,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default install with each feature installed to different namespace and security components in separate namespaces
 //
-//     ```yaml
+//     ```
 //     spec:
 //       traffic_management:
 //         components:
@@ -112,7 +112,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default install with specialized k8s settings for pilot
 //
-//     ```yaml
+//     ```
 //     spec:
 //       traffic_management:
 //         components:
@@ -134,7 +134,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default install with values.yaml customizations for proxy
 //
-//     ```yaml
+//     ```
 //     spec:
 //       traffic_management:
 //         components:
@@ -146,7 +146,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default install with modification to container flag in galley
 //
-//     ```yaml
+//     ```
 //     spec:
 //       configuration_management:
 //         components:
