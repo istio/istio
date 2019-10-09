@@ -23,6 +23,7 @@ import (
 	"path"
 	"time"
 
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -78,6 +79,23 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		ProxyConfig: cfg,
 		extraArgs:   args,
 	}
+}
+
+func (e *envoy) IsLive() bool {
+	adminPort := uint32(e.Config.ProxyAdminPort)
+	info, err := GetServerInfo(adminPort)
+	if err != nil {
+		log.Infof("failed retrieving server from Envoy on port %d: %v", adminPort, err)
+		return false
+	}
+
+	if info.State == envoyAdmin.ServerInfo_LIVE {
+		// It's live.
+		return true
+	}
+
+	log.Infof("envoy server not yet live, state: %s", info.State.String())
+	return false
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
