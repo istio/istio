@@ -295,8 +295,7 @@ spec:
           mountPath: "/kiali-secret"
         resources:
           requests:
-            cpu: 0m
-            memory: 1Mi
+            cpu: 10m
           
       volumes:
       - name: kiali-configuration

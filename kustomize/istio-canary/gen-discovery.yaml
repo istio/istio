@@ -231,6 +231,7 @@ data:
     meshNetworks:
       networks: {}
     nodeSelector: {}
+    plugins: []
     podAnnotations: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
@@ -255,7 +256,7 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "/dev/stdout"
+    accessLogFile: ""
 
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -337,6 +338,20 @@ data:
       #
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-system:15011
+
+      # Configures DNS certificates provisioned through Chiron linked into Pilot.
+      # The DNS certificate provisioning is enabled by default now so it get tested.
+      # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+      certificates:
+      - dnsNames:
+        - istio-galley.istio-system.svc
+        - istio-galley.istio-system
+        secretName: dns.istio-galley-service-account
+      - dnsNames:
+        - istio-sidecar-injector.istio-system.svc
+        - istio-sidecar-injector.istio-system
+        secretName: dns.istio-sidecar-injector-service-account
+      
 ---
 
 ---
@@ -404,7 +419,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "gcr.io/istio-release/pilot:master-latest-daily"
+          image: "gcr.io/istio-testing/pilot:latest"
           imagePullPolicy: Always
           args:
           - "discovery"
@@ -452,7 +467,7 @@ spec:
           - name: config-volume
             mountPath: /etc/istio/config
         - name: istio-proxy
-          image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+          image: "gcr.io/istio-testing/proxyv2:latest"
           imagePullPolicy: Always
           ports:
           - containerPort: 15011
@@ -487,8 +502,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 100m
+              memory: 128Mi
             
           volumeMounts:
           - name: istio-certs

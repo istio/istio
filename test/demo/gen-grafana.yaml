@@ -14191,8 +14191,7 @@ spec:
             value: /data/grafana
           resources:
             requests:
-              cpu: 0m
-              memory: 1Mi
+              cpu: 10m
             
           volumeMounts:
           - name: data

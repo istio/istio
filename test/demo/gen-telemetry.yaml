@@ -460,7 +460,7 @@ spec:
                 - s390x      
       containers:
       - name: mixer
-        image: "gcr.io/istio-release/mixer:master-latest-daily"
+        image: "gcr.io/istio-testing/mixer:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -510,7 +510,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+        image: "gcr.io/istio-testing/proxyv2:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 15004

@@ -483,7 +483,7 @@ spec:
                 - s390x      
       containers:
       - name: mixer
-        image: "gcr.io/istio-release/mixer:master-latest-daily"
+        image: "gcr.io/istio-testing/mixer:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -533,7 +533,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "gcr.io/istio-release/proxyv2:master-latest-daily"
+        image: "gcr.io/istio-testing/proxyv2:latest"
         imagePullPolicy: Always
         ports:
         - containerPort: 15004
@@ -571,8 +571,8 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 0m
-            memory: 1Mi
+            cpu: 100m
+            memory: 128Mi
           
         volumeMounts:
         - name: telemetry-envoy-config
