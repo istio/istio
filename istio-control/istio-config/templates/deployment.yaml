@@ -63,6 +63,11 @@ spec:
   {{- else }}
           - --enable-validation=false
   {{- end }}
+  {{- if .Values.global.operator }}
+          - --enable-reconcileWebhookConfiguration=false
+  {{- else }}
+          - --enable-reconcileWebhookConfiguration=true
+  {{- end }}
           - --enable-server=true
   {{- if .Values.galley.enableAnalysis }}
           - --enableAnalysis=true
