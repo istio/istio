@@ -382,10 +382,8 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wan
 	got := []v2.AuthenticationDebug{}
 	if rr.Code != 200 {
 		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
-	} else {
-		if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-			t.Error(err)
-		}
+	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
 	}
 
 	return got
