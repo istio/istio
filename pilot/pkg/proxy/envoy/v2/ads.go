@@ -87,10 +87,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// TODO: migrate other fields as needed from model.Proxy and replace it
-
-	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
-
 	LDSListeners []*xdsapi.Listener                    `json:"-"`
 	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
 	CDSClusters  []*xdsapi.Cluster
