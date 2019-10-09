@@ -1145,7 +1145,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateImage("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
@@ -1196,10 +1195,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		}
 		if *pilotHub != "" && *pilotTag != "" {
 			content = updateImage("pilot", *pilotHub, *pilotTag, content)
-		}
-		if *proxyHub != "" && *proxyTag != "" {
-			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateImage("proxy_init", *proxyHub, *proxyTag, content)
 		}
 		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name
