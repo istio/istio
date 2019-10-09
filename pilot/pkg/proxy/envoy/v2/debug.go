@@ -290,7 +290,10 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 	connections, ok := adsSidecarIDConnectionsMap[proxyID]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = fmt.Fprint(w, "\n[\n]")
+		_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
+		for key, _ := range adsSidecarIDConnectionsMap {
+			_, _ = fmt.Fprintf(w, "  %q,\n", key)
+		}
 		return
 	}
 	var mostRecentProxy *model.Proxy

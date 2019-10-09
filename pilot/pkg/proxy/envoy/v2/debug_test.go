@@ -348,7 +348,7 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string) []v
 	authenticationz := http.HandlerFunc(s.Authenticationz)
 	authenticationz.ServeHTTP(rr, req)
 	if rr.Code != 200 {
-		t.Fatalf("authenticationz error with code %v", rr.Code)
+		t.Fatalf("authenticationz error with code %v: %v", rr.Code, rr.Body)
 	}
 
 	got := []v2.AuthenticationDebug{}
