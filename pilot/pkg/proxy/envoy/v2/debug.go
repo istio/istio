@@ -21,13 +21,16 @@ import (
 	"net/http"
 	"sort"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -453,6 +456,56 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusBadRequest)
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters := s.generateRawClusters(conn.modelNode, s.globalPushContext())
+
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
+	if len(routes) > 0 {
+		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with connections specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	return configDump, nil
 }
 
 // PushStatusHandler dumps the last PushContext
