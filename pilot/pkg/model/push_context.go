@@ -116,14 +116,14 @@ type processedAuthnPolicies struct {
 	policies map[host.Name][]*authnPolicyByPort
 	// default cluster-scoped (global) policy to be used if no other authn policy is found
 	defaultMeshPolicy     *authn.Policy
-	defaultMeshPolicyMeta ConfigMeta
+	defaultMeshPolicyMeta *ConfigMeta
 }
 
 type authnPolicyByPort struct {
 	portSelector *authn.PortSelector
 	policy       *authn.Policy
 	// store the config metadata for debugging purposes.
-	configMeta ConfigMeta
+	configMeta *ConfigMeta
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -944,7 +944,9 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		policies: map[host.Name][]*authnPolicyByPort{},
 	}
 
-	for _, spec := range authNPolicies {
+	// golang pass every thing by value, so use the old school for loop to avoid make extra copies.
+	for i := 0; i < len(authNPolicies); i++ {
+		spec := &authNPolicies[i]
 		policy := spec.Spec.(*authn.Policy)
 		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
 		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
@@ -956,17 +958,17 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
 				if len(dest.Ports) > 0 {
 					for _, port := range dest.Ports {
-						ps.addAuthnPolicy(hostName, port, policy, spec.ConfigMeta)
+						ps.addAuthnPolicy(hostName, port, policy, &spec.ConfigMeta)
 					}
 				} else {
-					ps.addAuthnPolicy(hostName, nil, policy, spec.ConfigMeta)
+					ps.addAuthnPolicy(hostName, nil, policy, &spec.ConfigMeta)
 				}
 
 			}
 		} else {
 			// if no targets provided, store at namespace level
 			// TODO GregHanson possible refactor so namespace is not cast to host.Name
-			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy, spec.ConfigMeta)
+			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy, &spec.ConfigMeta)
 		}
 	}
 
@@ -974,7 +976,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
-				ps.AuthnPolicies.defaultMeshPolicyMeta = spec.ConfigMeta
+				ps.AuthnPolicies.defaultMeshPolicyMeta = &spec.ConfigMeta
 				break
 			}
 		}
@@ -983,7 +985,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy, configMeta ConfigMeta) {
+func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy, configMeta *ConfigMeta) {
 	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
 		policy:       policy,
 		configMeta:   configMeta,
@@ -1231,7 +1233,7 @@ func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *P
 	}
 
 	// Use default global authentication policy if no others found
-	return ps.AuthnPolicies.defaultMeshPolicy, &ps.AuthnPolicies.defaultMeshPolicyMeta
+	return ps.AuthnPolicies.defaultMeshPolicy, ps.AuthnPolicies.defaultMeshPolicyMeta
 }
 
 func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) (*authn.Policy, *ConfigMeta) {
@@ -1246,12 +1248,12 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 		// issue #17278
 		if policyByPort.portSelector == nil && matchedPolicy == nil {
 			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = &policiesByPort[i].configMeta
+			matchedMeta = policiesByPort[i].configMeta
 		}
 
 		if port != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = &policiesByPort[i].configMeta
+			matchedMeta = policiesByPort[i].configMeta
 			break
 		}
 	}
