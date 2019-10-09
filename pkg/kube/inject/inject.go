@@ -275,6 +275,10 @@ type Config struct {
 	// It's an array of label selectors, that will be OR'ed, meaning we will iterate
 	// over it and stop at the first match
 	AlwaysInjectSelector []metav1.LabelSelector `json:"alwaysInjectSelector"`
+
+	// InjectedAnnotations are additional annotations that will be added to the pod spec after injection
+	// This is primarily to support PSP annotations.
+	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
 }
 
 func validateCIDRList(cidrs string) error {
