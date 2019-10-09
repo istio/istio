@@ -167,22 +167,6 @@ type SidecarTemplateData struct {
 	Values         map[string]interface{}
 }
 
-// InitImageName returns the fully qualified image name for the istio
-// init image given a docker hub and tag and debug flag
-func InitImageName(hub string, tag string, _ bool) string {
-	return hub + "/proxy_init:" + tag
-}
-
-// ProxyImageName returns the fully qualified image name for the istio
-// proxy image given a docker hub and tag and whether to use debug or not.
-func ProxyImageName(hub string, tag string, debug bool) string {
-	// Allow overriding the proxy image.
-	if debug {
-		return hub + "/proxy_debug:" + tag
-	}
-	return hub + "/proxyv2:" + tag
-}
-
 // Params describes configurable parameters for injecting istio proxy
 // into a kubernetes resource.
 type Params struct {
