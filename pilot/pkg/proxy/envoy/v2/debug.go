@@ -218,7 +218,7 @@ type SyncedVersions struct {
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
 	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
 		knownVersions := make(map[string]string)
-		results := []SyncedVersions{}
+		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
 			con.mu.RLock()

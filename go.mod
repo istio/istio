@@ -8,6 +8,8 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
+replace istio.io/pkg => github.com/therealmitchconnors/pkg v0.0.0-20191004225633-97077d703828
+
 require (
 	cloud.google.com/go v0.38.0
 	contrib.go.opencensus.io/exporter/ocagent v0.4.12 // indirect
@@ -20,6 +22,7 @@ require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.12 // indirect
+	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
