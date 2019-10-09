@@ -194,7 +194,7 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
+			scope.Source.Warnf("Error processing %s[%d]: %v", name, i, err)
 			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
 			continue
 		}
