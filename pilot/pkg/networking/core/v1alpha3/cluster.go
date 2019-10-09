@@ -26,6 +26,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -1164,6 +1165,10 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 
 	if env.Mesh.GetEnableAutoMtls().Value && enableTransportSocketMtls {
+		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
+		if err != nil {
+			log.Errorf("error marshalling cluster tls context, err=%v", err)
+		}
 		// Per envoy docs
 		// If an endpoint metadata's value under *envoy.transport_socket* does not match any
 		// *TransportSocketMatch*, socket configuration fallbacks to use the *tls_context* or
@@ -1178,10 +1183,8 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				},
 				TransportSocket: &core.TransportSocket{
 					Name: util.TlsSocketName,
-					ConfigType: &core.TransportSocket_Config{
-						Config: &structpb.Struct{
-							Fields: map[string]*structpb.Value{},
-						},
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: tlsContext,
 					},
 				},
 			},
