@@ -19,6 +19,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -74,24 +75,24 @@ func (opts *enableCliOptions) Validate() error {
 	}
 	if opts.enableValidationWebhook {
 		if len(opts.validationWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --validation-path of the validation webhook configuration")
+			return fmt.Errorf("--validation-path <yaml-file> is required for the validation webhook configuration")
 		}
 		if len(opts.validatingWebhookServiceName) == 0 {
-			return fmt.Errorf("must specify a valid --validation-service")
+			return fmt.Errorf("--validation-service <service-name> is required")
 		}
 		if len(opts.webhookSecretName) == 0 {
-			return fmt.Errorf("must specify a valid --webhook-secret")
+			return fmt.Errorf("--webhook-secret <Kubernetes-secret-name> is required")
 		}
 	}
 	if opts.enableMutationWebhook {
 		if len(opts.mutatingWebhookConfigPath) == 0 {
-			return fmt.Errorf("must specify a valid --injection-path of the injection webhook configuration")
+			return fmt.Errorf("--injection-path <yaml-file> is required for the injection webhook configuration")
 		}
 		if len(opts.mutatingWebhookServiceName) == 0 {
-			return fmt.Errorf("must specify a valid --injection-service")
+			return fmt.Errorf("--injection-service <service-name> is required")
 		}
 		if len(opts.webhookSecretName) == 0 {
-			return fmt.Errorf("must specify a valid --webhook-secret")
+			return fmt.Errorf("-webhook-secret <Kubernetes-secret-name> is required")
 		}
 	}
 	return nil
@@ -166,13 +167,16 @@ func newEnableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Enable webhook configurations",
+		Long: "This command is used to enable webhook configurations after installing Istio.\n" +
+			"For previous Istio versions (e.g., 1.2, 1.3, etc), this command is not needed\n" +
+			"because in previous versions webhooks manage their own configurations.",
 		Example: `
 # Enable the webhook configuration of Galley with the given webhook configuration
-istioctl experimental post-install webhook enable --validation --validation-secret istio.webhook.galley 
+istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
     --namespace istio-system --validation-path validatingwebhookconfiguration.yaml
 
 # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
-istioctl experimental post-install webhook enable --validation --validation-secret istio.webhook.galley 
+istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
     --namespace istio-system --validation-path validatingwebhookconfiguration.yaml --ca-bundle-file ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -189,7 +193,7 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 			if err != nil {
 				return fmt.Errorf("err when enabling webhook configurations: %v", err)
 			}
-			fmt.Println("webhook configurations have been enabled")
+			cmd.Println("webhook configurations have been enabled")
 			return nil
 		},
 	}
@@ -215,8 +219,8 @@ istioctl experimental post-install webhook enable --validation --validation-secr
 	flags.StringVar(&opts.mutatingWebhookServiceName, "injection-service", "istio-sidecar-injector",
 		"The service name of the injection webhook to manage.")
 	flags.StringVar(&opts.webhookSecretName, "webhook-secret", "",
-		"The name of the secret of a webhook. istioctl will verify that the webhook certificate "+
-			"is issued by the CA certificate.")
+		"The name of an existing Kubernetes secret of a webhook. istioctl will verify that the "+
+			"webhook certificate is issued by the CA certificate.")
 	flags.DurationVar(&opts.maxTimeForCheckingWebhookServer, "timeout", 60*time.Second,
 		"	Max time for checking the validating webhook server. If the validating webhook server is not ready"+
 			"in the given time, exit. Otherwise, apply the webhook configuration.")
@@ -246,6 +250,18 @@ istioctl experimental post-install webhook disable --injection=false
 			if err != nil {
 				return fmt.Errorf("err when creating Kubernetes client interface: %v", err)
 			}
+
+			var response string
+			cmd.Println("Are you sure to delete webhook configuration(s)?")
+			_, err = fmt.Scanln(&response)
+			if err != nil {
+				return err
+			}
+			response = strings.ToUpper(response)
+			if !(response == "Y" || response == "YES") {
+				return nil
+			}
+
 			validationErr, injectionErr := disableWebhookConfig(client, opts)
 			if validationErr != nil && injectionErr != nil {
 				return fmt.Errorf("error when disabling webhook configurations. validation err: %v. injection err: %v",
@@ -255,7 +271,12 @@ istioctl experimental post-install webhook disable --injection=false
 			} else if injectionErr != nil {
 				return fmt.Errorf("error when disabling injection webhook configuration: %v", injectionErr)
 			}
-			fmt.Println("webhook configurations have been disabled")
+			if len(opts.mutatingWebhookConfigName) > 0 && opts.disableInjectionWebhook {
+				cmd.Printf("webhook configuration %v has been disabled\n", opts.mutatingWebhookConfigName)
+			}
+			if len(opts.validatingWebhookConfigName) > 0 && opts.disableValidationWebhook {
+				cmd.Printf("webhook configuration %v has been disabled\n", opts.validatingWebhookConfigName)
+			}
 			return nil
 		},
 	}
@@ -297,14 +318,14 @@ istioctl experimental post-install webhook status --validation --validation-conf
 			validationErr, injectionErr := displayWebhookConfig(client, opts)
 			// Not found is not treated as an error
 			if errors.IsNotFound(validationErr) && errors.IsNotFound(injectionErr) {
-				fmt.Printf("validation webhook (%v) and injection webhook (%v) are not found\n",
+				cmd.Printf("validation webhook (%v) and injection webhook (%v) are not found\n",
 					opts.validatingWebhookConfigName, opts.mutatingWebhookConfigName)
 				return nil
 			} else if errors.IsNotFound(validationErr) && injectionErr == nil {
-				fmt.Printf("validation webhook (%v) is not found\n", opts.validatingWebhookConfigName)
+				cmd.Printf("validation webhook (%v) is not found\n", opts.validatingWebhookConfigName)
 				return nil
 			} else if errors.IsNotFound(injectionErr) && validationErr == nil {
-				fmt.Printf("injection webhook (%v) is not found\n", opts.mutatingWebhookConfigName)
+				cmd.Printf("injection webhook (%v) is not found\n", opts.mutatingWebhookConfigName)
 				return nil
 			}
 
