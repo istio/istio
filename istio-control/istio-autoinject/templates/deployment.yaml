@@ -56,6 +56,11 @@ spec:
             - --port=9443
             - --healthCheckInterval=2s
             - --healthCheckFile=/tmp/health
+{{- if .Values.global.operator }}
+            - --reconcileWebhookConfig=false
+{{- else }}
+            - --reconcileWebhookConfig=true
+{{- end }}
                   {{- if eq .Release.Namespace "istio-system"}}
             - --webhookConfigName=istio-sidecar-injector
                   {{ else }}
