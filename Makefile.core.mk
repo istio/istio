@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TAG ?= latest
+HUB ?= gcr.io/istio-testing
+TAG ?= master-latest-daily
 
 pwd := $(shell pwd)
 
