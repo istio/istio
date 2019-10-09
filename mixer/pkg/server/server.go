@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
@@ -162,9 +163,28 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	if network == "unix" {
 		// remove Unix socket before use.
-		if err = p.remove(address); err != nil && !os.IsNotExist(err) {
+		if err = p.remove(address); err != nil && !os.IsPermission(err) && !os.IsNotExist(err) {
 			// Anything other than "file not found" is an error.
 			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
+		}
+		// if no exist, try to run command with sudo to give permission for folder
+		if os.IsNotExist(err) {
+			if strings.Contains(address, "/") {
+				parentPath := address[0:strings.LastIndex(address, "/")]
+				if _, err := os.Stat(parentPath); err != nil && os.IsPermission(err) {
+					cmd := exec.Command("/bin/sh", "-c", "sudo chmod -R 666 "+parentPath)
+					_, err := cmd.CombinedOutput()
+					if err != nil {
+						return nil, fmt.Errorf("failed to update %q permission", address)
+					}
+				}
+			}
+		} else if os.IsPermission(err) {
+			cmd := exec.Command("/bin/sh", "-c", "sudo rm -r "+address)
+			_, err := cmd.CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("failed to remove unix://%s", address)
+			}
 		}
 	}
 
