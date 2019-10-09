@@ -5,12 +5,11 @@ package v1alpha1
 
 import (
 	fmt "fmt"
-	math "math"
-
 	protobuf "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	_ "k8s.io/api/core/v1"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -176,8 +175,8 @@ type AddonIngressConfig struct {
 	// Controls whether addon ingress is enabled.
 	Enabled              *protobuf.BoolValue     `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Hosts                []string                `protobuf:"bytes,2,rep,name=hosts,proto3" json:"hosts,omitempty"`
-	Annotations          *TypeMapStringInterface `protobuf:"bytes,3,opt,name=annotations,proto3" json:"annotations,omitempty"`
-	Tls                  *TypeMapStringInterface `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty"`
+	Annotations          map[string]interface{} `protobuf:"bytes,3,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	Tls                  map[string]interface{} `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -222,14 +221,14 @@ func (m *AddonIngressConfig) GetHosts() []string {
 	return nil
 }
 
-func (m *AddonIngressConfig) GetAnnotations() *TypeMapStringInterface {
+func (m *AddonIngressConfig) GetAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.Annotations
 	}
 	return nil
 }
 
-func (m *AddonIngressConfig) GetTls() *TypeMapStringInterface {
+func (m *AddonIngressConfig) GetTls() map[string]interface{} {
 	if m != nil {
 		return m.Tls
 	}
@@ -392,7 +391,7 @@ type CertManagerConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,5,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,5,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
@@ -455,7 +454,7 @@ func (m *CertManagerConfig) GetImage() string {
 	return ""
 }
 
-func (m *CertManagerConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *CertManagerConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -527,7 +526,7 @@ type CoreDNSConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// Number of replicas for Core DNS.
 	ReplicaCount         uint32   `protobuf:"varint,5,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -581,7 +580,7 @@ func (m *CoreDNSConfig) GetCoreDNSPluginImage() string {
 	return ""
 }
 
-func (m *CoreDNSConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *CoreDNSConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -703,11 +702,11 @@ type EgressGatewayConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations *TypeMapStringInterface `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// Pod anti-affinity label selector.
 	//
 	// Specify the pod anti-affinity that allows you to constrain which nodes
@@ -730,9 +729,9 @@ type EgressGatewayConfig struct {
 	//  This pod anti-affinity rule says that the pod requires not to be scheduled
 	//  onto a node if that node is already running a pod with label having key
 	//  “security” and value “S1”.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See PodAntiAffinityLabelSelector.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Ports Configuration for the egress gateway service.
 	Ports []*PortsConfig `protobuf:"bytes,14,rep,name=ports,proto3" json:"ports,omitempty"`
 	// K8s resources settings.
@@ -742,7 +741,7 @@ type EgressGatewayConfig struct {
 	// Config for secret volume mounts.
 	SecretVolumes []*SecretVolume `protobuf:"bytes,16,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
 	// Annotations to add to the egress gateway service.
-	ServiceAnnotations *TypeMapStringInterface `protobuf:"bytes,17,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations map[string]interface{} `protobuf:"bytes,17,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// Service type.
 	//
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
@@ -842,28 +841,28 @@ func (m *EgressGatewayConfig) GetLabels() *GatewayLabelsConfig {
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *EgressGatewayConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetPodAnnotations() *TypeMapStringInterface {
+func (m *EgressGatewayConfig) GetPodAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.PodAnnotations
 	}
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -891,7 +890,7 @@ func (m *EgressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
-func (m *EgressGatewayConfig) GetServiceAnnotations() *TypeMapStringInterface {
+func (m *EgressGatewayConfig) GetServiceAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.ServiceAnnotations
 	}
@@ -984,9 +983,9 @@ type GalleyConfig struct {
 	// TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
 	Mesh map[string]string `protobuf:"bytes,3,rep,name=mesh,proto3" json:"mesh,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,4,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,4,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,5,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,5,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Number of replicas in the Galley Deployment.
 	ReplicaCount uint32 `protobuf:"varint,6,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	// K8s resources settings.
@@ -1044,14 +1043,14 @@ func (m *GalleyConfig) GetMesh() map[string]string {
 	return nil
 }
 
-func (m *GalleyConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *GalleyConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *GalleyConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *GalleyConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -1123,11 +1122,11 @@ func (m *GatewayLabelsConfig) GetIstio() string {
 // Configuration for gateways.
 type GatewaysConfig struct {
 	// Configuration for an egress gateway.
-	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istioEgressgateway,proto3" json:"istio_egressgateway,omitempty"`
+	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istio-egressgateway,proto3" json:"istio_egressgateway,omitempty"`
 	// Controls whether any gateways are enabled.
 	Enabled *protobuf.BoolValue `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Configuration for an ingress gateway.
-	IstioIngressgateway  *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istioIngressgateway,proto3" json:"istio_ingressgateway,omitempty"`
+	IstioIngressgateway  *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istio-ingressgateway,proto3" json:"istio_ingressgateway,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -1196,7 +1195,7 @@ type GlobalConfig struct {
 	// Default k8s node selector for all the Istio control plane components
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	DefaultNodeSelector *TypeMapStringInterface `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"`
+	DefaultNodeSelector map[string]interface{} `protobuf:"bytes,6,opt,name=defaultNodeSelector,proto3" json:"defaultNodeSelector,omitempty"`
 	// Specifies the default pod disruption budget configuration.
 	DefaultPodDisruptionBudget *DefaultPodDisruptionBudgetConfig `protobuf:"bytes,7,opt,name=defaultPodDisruptionBudget,proto3" json:"defaultPodDisruptionBudget,omitempty"`
 	// Controls whether the policy enforcement is enabled.
@@ -1218,7 +1217,7 @@ type GlobalConfig struct {
 	//
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	ImagePullPolicy  string                         `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"`
-	ImagePullSecrets *TypeSliceOfMapStringInterface `protobuf:"bytes,37,opt,name=imagePullSecrets,proto3" json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []map[string]interface{} `protobuf:"bytes,37,opt,name=imagePullSecrets,proto3" json:"imagePullSecrets,omitempty"`
 	// Specifies the default namespace for the Istio control plane components.
 	IstioNamespace string `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
 	// Specifies the global locality load balancing settings.
@@ -1239,7 +1238,7 @@ type GlobalConfig struct {
 	//     to: eu-west
 	//   - from: us-west
 	//     to: us-east
-	LocalityLbSetting *TypeMapStringInterface `protobuf:"bytes,15,opt,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty"`
+	LocalityLbSetting map[string]interface{} `protobuf:"bytes,15,opt,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty"`
 	// Specifies the Configuration for the legacy kubernetes Ingress.
 	K8SIngress *KubernetesIngressConfig `protobuf:"bytes,16,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
 	// Specifies the global logging level settings for the Istio control plane components.
@@ -1273,7 +1272,7 @@ type GlobalConfig struct {
 	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
 	//       port: 443
 	//
-	MeshNetworks *TypeMapStringInterface `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
+	MeshNetworks map[string]interface{} `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the monitor port number for all Istio control plane components.
 	MonitoringPort uint32 `protobuf:"varint,20,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
 	// Specifies the MTLS settings for the applications that Istio manages.
@@ -1296,7 +1295,7 @@ type GlobalConfig struct {
 	// Specifies how proxies are configured within Istio.
 	Proxy *ProxyConfig `protobuf:"bytes,28,opt,name=proxy,proto3" json:"proxy,omitempty"`
 	// Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
-	ProxyInit *ProxyInitConfig `protobuf:"bytes,29,opt,name=proxyInit,proto3" json:"proxyInit,omitempty"`
+	ProxyInit *ProxyInitConfig `protobuf:"bytes,29,opt,name=proxy_init,proto3" json:"proxy_init,omitempty"`
 	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Specifies the tag for the Istio docker images.
@@ -1368,7 +1367,7 @@ func (m *GlobalConfig) GetControlPlaneSecurityEnabled() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *GlobalConfig) GetDefaultNodeSelector() *TypeMapStringInterface {
+func (m *GlobalConfig) GetDefaultNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.DefaultNodeSelector
 	}
@@ -1424,7 +1423,7 @@ func (m *GlobalConfig) GetImagePullPolicy() string {
 	return ""
 }
 
-func (m *GlobalConfig) GetImagePullSecrets() *TypeSliceOfMapStringInterface {
+func (m *GlobalConfig) GetImagePullSecrets() []map[string]interface{} {
 	if m != nil {
 		return m.ImagePullSecrets
 	}
@@ -1438,7 +1437,7 @@ func (m *GlobalConfig) GetIstioNamespace() string {
 	return ""
 }
 
-func (m *GlobalConfig) GetLocalityLbSetting() *TypeMapStringInterface {
+func (m *GlobalConfig) GetLocalityLbSetting() map[string]interface{} {
 	if m != nil {
 		return m.LocalityLbSetting
 	}
@@ -1466,7 +1465,7 @@ func (m *GlobalConfig) GetMeshExpansion() *MeshExpansionConfig {
 	return nil
 }
 
-func (m *GlobalConfig) GetMeshNetworks() *TypeMapStringInterface {
+func (m *GlobalConfig) GetMeshNetworks() map[string]interface{} {
 	if m != nil {
 		return m.MeshNetworks
 	}
@@ -1666,15 +1665,15 @@ type IngressGatewayConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,19,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,19,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations *TypeMapStringInterface `protobuf:"bytes,20,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations map[string]interface{} `protobuf:"bytes,20,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,21,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,21,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,22,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,22,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Port Configuration for the ingress gateway.
 	Ports []*PortsConfig `protobuf:"bytes,23,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Number of replicas for the ingress gateway Deployment.
@@ -1682,13 +1681,13 @@ type IngressGatewayConfig struct {
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources *TypeMapStringInterface `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"`
+	Resources map[string]interface{} `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"`
 	// Secret Discovery Service (SDS) Configuration for ingress gateway.
 	Sds *IngressGatewaySdsConfig `protobuf:"bytes,26,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Config for secret volume mounts.
 	SecretVolumes []*SecretVolume `protobuf:"bytes,27,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
 	// Annotations to add to the egress gateway service.
-	ServiceAnnotations *TypeMapStringInterface `protobuf:"bytes,28,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations map[string]interface{} `protobuf:"bytes,28,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// Service type.
 	//
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
@@ -1696,9 +1695,9 @@ type IngressGatewayConfig struct {
 	// Enables cross-cluster access using SNI matching.
 	Zvpn *IngressGatewayZvpnConfig `protobuf:"bytes,30,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxSurge *TypeIntOrStringForPB `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxUnavailable *TypeIntOrStringForPB `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	// Ports to explicitly check for readiness
 	ApplicationPorts     string   `protobuf:"bytes,33,opt,name=applicationPorts,proto3" json:"applicationPorts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1857,28 +1856,28 @@ func (m *IngressGatewayConfig) GetMeshExpansionPorts() []*PortsConfig {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *IngressGatewayConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetPodAnnotations() *TypeMapStringInterface {
+func (m *IngressGatewayConfig) GetPodAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.PodAnnotations
 	}
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -1899,7 +1898,7 @@ func (m *IngressGatewayConfig) GetReplicaCount() uint32 {
 	return 0
 }
 
-func (m *IngressGatewayConfig) GetResources() *TypeMapStringInterface {
+func (m *IngressGatewayConfig) GetResources() map[string]interface{} {
 	if m != nil {
 		return m.Resources
 	}
@@ -1920,7 +1919,7 @@ func (m *IngressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetServiceAnnotations() *TypeMapStringInterface {
+func (m *IngressGatewayConfig) GetServiceAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.ServiceAnnotations
 	}
@@ -1941,14 +1940,14 @@ func (m *IngressGatewayConfig) GetZvpn() *IngressGatewayZvpnConfig {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetRollingMaxSurge() *TypeIntOrStringForPB {
+func (m *IngressGatewayConfig) GetRollingMaxSurge() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxSurge
 	}
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetRollingMaxUnavailable() *TypeIntOrStringForPB {
+func (m *IngressGatewayConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxUnavailable
 	}
@@ -2462,7 +2461,7 @@ type MixerPolicyConfig struct {
 	// K8s annotations to attach to mixer policy deployment
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations *TypeMapStringInterface `protobuf:"bytes,7,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations map[string]interface{} `protobuf:"bytes,7,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// Number of replicas in the Mixer Policy Deployment
 	ReplicaCount uint32 `protobuf:"varint,8,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	// Configuration for different mixer adapters.
@@ -2539,7 +2538,7 @@ func (m *MixerPolicyConfig) GetImage() string {
 	return ""
 }
 
-func (m *MixerPolicyConfig) GetPodAnnotations() *TypeMapStringInterface {
+func (m *MixerPolicyConfig) GetPodAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.PodAnnotations
 	}
@@ -2592,17 +2591,17 @@ type MixerTelemetryConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations to attach to mixer telemetry deployment
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations *TypeMapStringInterface `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// Number of replicas in the Mixer Telemetry Deployment.
 	ReplicaCount uint32 `protobuf:"varint,12,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxSurge *TypeIntOrStringForPB `protobuf:"bytes,15,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,15,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxUnavailable *TypeIntOrStringForPB `protobuf:"bytes,16,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,16,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
 	UseMCP                *protobuf.BoolValue `protobuf:"bytes,17,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
 	ReportBatchMaxTime    string              `protobuf:"bytes,18,opt,name=reportBatchMaxTime,proto3" json:"reportBatchMaxTime,omitempty"`
@@ -2613,9 +2612,9 @@ type MixerTelemetryConfig struct {
 	Resources *Resources `protobuf:"bytes,13,opt,name=resources,proto3" json:"resources,omitempty"`
 	// Controls whether to enable the sticky session setting when choosing backend pods.
 	SessionAffinityEnabled           *protobuf.BoolValue            `protobuf:"bytes,14,opt,name=sessionAffinityEnabled,proto3" json:"sessionAffinityEnabled,omitempty"`
-	PodAntiAffinityLabelSelector     *TypeSliceOfMapStringInterface `protobuf:"bytes,20,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,21,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
-	Tolerations                      *TypeSliceOfMapStringInterface `protobuf:"bytes,22,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
+	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,20,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,21,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	Tolerations                      []map[string]interface{} `protobuf:"bytes,22,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
 	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
 	XXX_unrecognized                 []byte                         `json:"-"`
 	XXX_sizecache                    int32                          `json:"-"`
@@ -2702,14 +2701,14 @@ func (m *MixerTelemetryConfig) GetLoadshedding() *LoadSheddingConfig {
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *MixerTelemetryConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetPodAnnotations() *TypeMapStringInterface {
+func (m *MixerTelemetryConfig) GetPodAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.PodAnnotations
 	}
@@ -2723,14 +2722,14 @@ func (m *MixerTelemetryConfig) GetReplicaCount() uint32 {
 	return 0
 }
 
-func (m *MixerTelemetryConfig) GetRollingMaxSurge() *TypeIntOrStringForPB {
+func (m *MixerTelemetryConfig) GetRollingMaxSurge() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxSurge
 	}
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetRollingMaxUnavailable() *TypeIntOrStringForPB {
+func (m *MixerTelemetryConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxUnavailable
 	}
@@ -2772,21 +2771,21 @@ func (m *MixerTelemetryConfig) GetSessionAffinityEnabled() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *MixerTelemetryConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *MixerTelemetryConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
 	return nil
 }
 
-func (m *MixerTelemetryConfig) GetTolerations() *TypeSliceOfMapStringInterface {
+func (m *MixerTelemetryConfig) GetTolerations() []map[string]interface{} {
 	if m != nil {
 		return m.Tolerations
 	}
@@ -2845,13 +2844,13 @@ type NodeAgentConfig struct {
 	// env:
 	//   ENV_VAR_1: value1
 	//   ENV_VAR_2: value2
-	Env *TypeMapStringInterface `protobuf:"bytes,2,opt,name=env,proto3" json:"env,omitempty"`
+	Env map[string]interface{} `protobuf:"bytes,2,opt,name=env,proto3" json:"env,omitempty"`
 	// Image name for the Node Agent DaemonSet.
 	Image string `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector         *TypeMapStringInterface `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector         map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -2889,7 +2888,7 @@ func (m *NodeAgentConfig) GetEnabled() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *NodeAgentConfig) GetEnv() *TypeMapStringInterface {
+func (m *NodeAgentConfig) GetEnv() map[string]interface{} {
 	if m != nil {
 		return m.Env
 	}
@@ -2903,7 +2902,7 @@ func (m *NodeAgentConfig) GetImage() string {
 	return ""
 }
 
-func (m *NodeAgentConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *NodeAgentConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -2991,7 +2990,7 @@ type PilotConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,12,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,12,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// Maximum duration that a sidecar can be connected to a pilot.
 	//
 	// This setting balances out load across pilot instances, but adds some resource overhead.
@@ -3001,13 +3000,13 @@ type PilotConfig struct {
 	// Labels that are added to Pilot pods.
 	//
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-	DeploymentLabels *TypeMapStringInterface `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
+	DeploymentLabels map[string]interface{} `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
 	// Used to override control plane networks.
-	MeshNetworks *TypeMapStringInterface `protobuf:"bytes,15,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
+	MeshNetworks map[string]interface{} `protobuf:"bytes,15,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,16,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,16,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,17,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,17,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Configuration settings passed to Pilot as a ConfigMap.
 	//
 	// This controls whether the mesh config map, generated from values.yaml is generated.
@@ -3031,12 +3030,12 @@ type PilotConfig struct {
 	// Controls whether telemetry is exported for Pilot.
 	Telemetry *PilotTelemetryConfig `protobuf:"bytes,23,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxSurge *TypeIntOrStringForPB `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
+	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
 	// K8s rolling update strategy
-	RollingMaxUnavailable *TypeIntOrStringForPB `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	//
-	Tolerations          *TypeSliceOfMapStringInterface `protobuf:"bytes,26,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
-	AppNamespaces        *TypeSliceOfMapStringInterface `protobuf:"bytes,27,opt,name=appNamespaces,proto3" json:"appNamespaces,omitempty"`
+	Tolerations          []map[string]interface{} `protobuf:"bytes,26,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
+	AppNamespaces        []map[string]interface{} `protobuf:"bytes,27,opt,name=appNamespaces,proto3" json:"appNamespaces,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
 	XXX_unrecognized     []byte                         `json:"-"`
 	XXX_sizecache        int32                          `json:"-"`
@@ -3144,7 +3143,7 @@ func (m *PilotConfig) GetCpu() *CPUTargetUtilizationConfig {
 	return nil
 }
 
-func (m *PilotConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *PilotConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -3158,28 +3157,28 @@ func (m *PilotConfig) GetKeepaliveMaxServerConnectionAge() *duration.Duration {
 	return nil
 }
 
-func (m *PilotConfig) GetDeploymentLabels() *TypeMapStringInterface {
+func (m *PilotConfig) GetDeploymentLabels() map[string]interface{} {
 	if m != nil {
 		return m.DeploymentLabels
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetMeshNetworks() *TypeMapStringInterface {
+func (m *PilotConfig) GetMeshNetworks() map[string]interface{} {
 	if m != nil {
 		return m.MeshNetworks
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *PilotConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *PilotConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -3228,28 +3227,28 @@ func (m *PilotConfig) GetTelemetry() *PilotTelemetryConfig {
 	return nil
 }
 
-func (m *PilotConfig) GetRollingMaxSurge() *TypeIntOrStringForPB {
+func (m *PilotConfig) GetRollingMaxSurge() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxSurge
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetRollingMaxUnavailable() *TypeIntOrStringForPB {
+func (m *PilotConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
 	if m != nil {
 		return m.RollingMaxUnavailable
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetTolerations() *TypeSliceOfMapStringInterface {
+func (m *PilotConfig) GetTolerations() []map[string]interface{} {
 	if m != nil {
 		return m.Tolerations
 	}
 	return nil
 }
 
-func (m *PilotConfig) GetAppNamespaces() *TypeSliceOfMapStringInterface {
+func (m *PilotConfig) GetAppNamespaces() []map[string]interface{} {
 	if m != nil {
 		return m.AppNamespaces
 	}
@@ -3476,15 +3475,15 @@ type PrometheusConfig struct {
 	Hub                              string                         `protobuf:"bytes,4,opt,name=hub,proto3" json:"hub,omitempty"`
 	Tag                              string                         `protobuf:"bytes,5,opt,name=tag,proto3" json:"tag,omitempty"`
 	Retention                        string                         `protobuf:"bytes,6,opt,name=retention,proto3" json:"retention,omitempty"`
-	NodeSelector                     *TypeMapStringInterface        `protobuf:"bytes,7,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector                     map[string]interface{}        `protobuf:"bytes,7,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	ScrapeInterval                   *duration.Duration             `protobuf:"bytes,8,opt,name=scrapeInterval,proto3" json:"scrapeInterval,omitempty"`
 	ContextPath                      string                         `protobuf:"bytes,9,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
 	Ingress                          *AddonIngressConfig            `protobuf:"bytes,10,opt,name=ingress,proto3" json:"ingress,omitempty"`
 	Service                          *PrometheusServiceConfig       `protobuf:"bytes,11,opt,name=service,proto3" json:"service,omitempty"`
 	Security                         *PrometheusSecurityConfig      `protobuf:"bytes,12,opt,name=security,proto3" json:"security,omitempty"`
-	Tolerations                      *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
-	PodAntiAffinityLabelSelector     *TypeSliceOfMapStringInterface `protobuf:"bytes,14,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,15,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	Tolerations                      []map[string]interface{} `protobuf:"bytes,13,opt,name=tolerations,proto3" json:"tolerations,omitempty"`
+	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,15,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
 	XXX_unrecognized                 []byte                         `json:"-"`
 	XXX_sizecache                    int32                          `json:"-"`
@@ -3557,7 +3556,7 @@ func (m *PrometheusConfig) GetRetention() string {
 	return ""
 }
 
-func (m *PrometheusConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *PrometheusConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -3599,21 +3598,21 @@ func (m *PrometheusConfig) GetSecurity() *PrometheusSecurityConfig {
 	return nil
 }
 
-func (m *PrometheusConfig) GetTolerations() *TypeSliceOfMapStringInterface {
+func (m *PrometheusConfig) GetTolerations() []map[string]interface{} {
 	if m != nil {
 		return m.Tolerations
 	}
 	return nil
 }
 
-func (m *PrometheusConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *PrometheusConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *PrometheusConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *PrometheusConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -3715,7 +3714,7 @@ func (m *PrometheusSecurityConfig) GetEnabled() *protobuf.BoolValue {
 
 // Configuration for Prometheus adapter service.
 type PrometheusServiceConfig struct {
-	Annotations          *TypeMapStringInterface          `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	Annotations          map[string]interface{}          `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
 	NodePort             *PrometheusServiceNodePortConfig `protobuf:"bytes,2,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
 	XXX_unrecognized     []byte                           `json:"-"`
@@ -3747,7 +3746,7 @@ func (m *PrometheusServiceConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PrometheusServiceConfig proto.InternalMessageInfo
 
-func (m *PrometheusServiceConfig) GetAnnotations() *TypeMapStringInterface {
+func (m *PrometheusServiceConfig) GetAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.Annotations
 	}
@@ -4473,7 +4472,7 @@ type SecurityConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector         *TypeMapStringInterface `protobuf:"bytes,8,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector         map[string]interface{} `protobuf:"bytes,8,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -4560,7 +4559,7 @@ func (m *SecurityConfig) GetEnableNamespacesByDefault() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *SecurityConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *SecurityConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -4569,7 +4568,7 @@ func (m *SecurityConfig) GetNodeSelector() *TypeMapStringInterface {
 
 // ServiceConfig is described in istio.io documentation.
 type ServiceConfig struct {
-	Annotations          *TypeMapStringInterface `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	Annotations          map[string]interface{} `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
 	ExternalPort         uint32                  `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
 	Name                 string                  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Type                 string                  `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
@@ -4603,7 +4602,7 @@ func (m *ServiceConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ServiceConfig proto.InternalMessageInfo
 
-func (m *ServiceConfig) GetAnnotations() *TypeMapStringInterface {
+func (m *ServiceConfig) GetAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.Annotations
 	}
@@ -4646,19 +4645,19 @@ type SidecarInjectorConfig struct {
 	// K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
 	//
 	// Annotations in the pods have higher precedence than the label selectors.
 	// Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
 	// See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-	NeverInjectSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,11,opt,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
+	NeverInjectSelector []map[string]interface{} `protobuf:"bytes,11,opt,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
 	// See NeverInjectSelector.
-	AlwaysInjectSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,12,opt,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
+	AlwaysInjectSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Number of replicas in the Sidecar Injector Deployment.
 	ReplicaCount uint32 `protobuf:"varint,15,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"`
 	//  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
@@ -4719,35 +4718,35 @@ func (m *SidecarInjectorConfig) GetImage() string {
 	return ""
 }
 
-func (m *SidecarInjectorConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *SidecarInjectorConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
 	return nil
 }
 
-func (m *SidecarInjectorConfig) GetNeverInjectSelector() *TypeSliceOfMapStringInterface {
+func (m *SidecarInjectorConfig) GetNeverInjectSelector() []map[string]interface{} {
 	if m != nil {
 		return m.NeverInjectSelector
 	}
 	return nil
 }
 
-func (m *SidecarInjectorConfig) GetAlwaysInjectSelector() *TypeSliceOfMapStringInterface {
+func (m *SidecarInjectorConfig) GetAlwaysInjectSelector() []map[string]interface{} {
 	if m != nil {
 		return m.AlwaysInjectSelector
 	}
 	return nil
 }
 
-func (m *SidecarInjectorConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *SidecarInjectorConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *SidecarInjectorConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *SidecarInjectorConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -5259,7 +5258,7 @@ type TracingConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// Configures which tracing system to be installed.
 	Provider string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
 	// Controls K8s service for addon tracing components.
@@ -5268,9 +5267,9 @@ type TracingConfig struct {
 	Zipkin     *TracingZipkinConfig     `protobuf:"bytes,7,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
 	Opencensus *TracingOpencensusConfig `protobuf:"bytes,8,opt,name=opencensus,proto3" json:"opencensus,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
 	XXX_unrecognized                 []byte                         `json:"-"`
 	XXX_sizecache                    int32                          `json:"-"`
@@ -5322,7 +5321,7 @@ func (m *TracingConfig) GetJaeger() *TracingJaegerConfig {
 	return nil
 }
 
-func (m *TracingConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *TracingConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
@@ -5357,14 +5356,14 @@ func (m *TracingConfig) GetOpencensus() *TracingOpencensusConfig {
 	return nil
 }
 
-func (m *TracingConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *TracingConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *TracingConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *TracingConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -5380,7 +5379,7 @@ type TracingOpencensusConfig struct {
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources            *TypeMapStringInterface `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
+	Resources            map[string]interface{} `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -5432,7 +5431,7 @@ func (m *TracingOpencensusConfig) GetExporters() *TracingOpencensusExportersConf
 	return nil
 }
 
-func (m *TracingOpencensusConfig) GetResources() *TypeMapStringInterface {
+func (m *TracingOpencensusConfig) GetResources() map[string]interface{} {
 	if m != nil {
 		return m.Resources
 	}
@@ -5440,7 +5439,7 @@ func (m *TracingOpencensusConfig) GetResources() *TypeMapStringInterface {
 }
 
 type TracingOpencensusExportersConfig struct {
-	Stackdriver          *TypeMapStringInterface `protobuf:"bytes,1,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
+	Stackdriver          map[string]interface{} `protobuf:"bytes,1,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -5471,7 +5470,7 @@ func (m *TracingOpencensusExportersConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TracingOpencensusExportersConfig proto.InternalMessageInfo
 
-func (m *TracingOpencensusExportersConfig) GetStackdriver() *TypeMapStringInterface {
+func (m *TracingOpencensusExportersConfig) GetStackdriver() map[string]interface{} {
 	if m != nil {
 		return m.Stackdriver
 	}
@@ -5482,9 +5481,9 @@ func (m *TracingOpencensusExportersConfig) GetStackdriver() *TypeMapStringInterf
 type TracingIngressConfig struct {
 	// Enables k8s ingress for addon tracing components.
 	Enabled              *protobuf.BoolValue     `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Annotations          *TypeMapStringInterface `protobuf:"bytes,2,opt,name=annotations,proto3" json:"annotations,omitempty"`
+	Annotations          map[string]interface{} `protobuf:"bytes,2,opt,name=annotations,proto3" json:"annotations,omitempty"`
 	Hosts                []string                `protobuf:"bytes,3,rep,name=hosts,proto3" json:"hosts,omitempty"`
-	Tls                  *TypeMapStringInterface `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty"`
+	Tls                  map[string]interface{} `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -5522,7 +5521,7 @@ func (m *TracingIngressConfig) GetEnabled() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *TracingIngressConfig) GetAnnotations() *TypeMapStringInterface {
+func (m *TracingIngressConfig) GetAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.Annotations
 	}
@@ -5536,7 +5535,7 @@ func (m *TracingIngressConfig) GetHosts() []string {
 	return nil
 }
 
-func (m *TracingIngressConfig) GetTls() *TypeMapStringInterface {
+func (m *TracingIngressConfig) GetTls() map[string]interface{} {
 	if m != nil {
 		return m.Tls
 	}
@@ -6039,11 +6038,11 @@ type KialiConfig struct {
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector *TypeMapStringInterface `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations *TypeMapStringInterface `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
 	// Pod anti-affinity label selector.
 	//
 	// Specify the pod anti-affinity that allows you to constrain which nodes
@@ -6066,9 +6065,9 @@ type KialiConfig struct {
 	//  This pod anti-affinity rule says that the pod requires not to be scheduled
 	//  onto a node if that node is already running a pod with label having key
 	//  “security” and value “S1”.
-	PodAntiAffinityLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See PodAntiAffinityLabelSelector.
-	PodAntiAffinityTermLabelSelector *TypeSliceOfMapStringInterface `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
 	XXX_unrecognized                 []byte                         `json:"-"`
 	XXX_sizecache                    int32                          `json:"-"`
@@ -6169,28 +6168,28 @@ func (m *KialiConfig) GetContextPath() string {
 	return ""
 }
 
-func (m *KialiConfig) GetNodeSelector() *TypeMapStringInterface {
+func (m *KialiConfig) GetNodeSelector() map[string]interface{} {
 	if m != nil {
 		return m.NodeSelector
 	}
 	return nil
 }
 
-func (m *KialiConfig) GetPodAnnotations() *TypeMapStringInterface {
+func (m *KialiConfig) GetPodAnnotations() map[string]interface{} {
 	if m != nil {
 		return m.PodAnnotations
 	}
 	return nil
 }
 
-func (m *KialiConfig) GetPodAntiAffinityLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *KialiConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityLabelSelector
 	}
 	return nil
 }
 
-func (m *KialiConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStringInterface {
+func (m *KialiConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
 	if m != nil {
 		return m.PodAntiAffinityTermLabelSelector
 	}
@@ -6199,12 +6198,12 @@ func (m *KialiConfig) GetPodAntiAffinityTermLabelSelector() *TypeSliceOfMapStrin
 
 type Values struct {
 	Certmanager            *CertManagerConfig      `protobuf:"bytes,1,opt,name=certmanager,proto3" json:"certmanager,omitempty"`
-	IstioCni               *CNIConfig              `protobuf:"bytes,2,opt,name=istioCni,proto3" json:"istioCni,omitempty"`
+	IstioCni               *CNIConfig              `protobuf:"bytes,2,opt,name=istio_cni,proto3" json:"istio_cni,omitempty"`
 	Istiocoredns           *CoreDNSConfig          `protobuf:"bytes,3,opt,name=istiocoredns,proto3" json:"istiocoredns,omitempty"`
 	Galley                 *GalleyConfig           `protobuf:"bytes,4,opt,name=galley,proto3" json:"galley,omitempty"`
 	Gateways               *GatewaysConfig         `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
 	Global                 *GlobalConfig           `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	Grafana                *TypeMapStringInterface `protobuf:"bytes,7,opt,name=grafana,proto3" json:"grafana,omitempty"`
+	Grafana                map[string]interface{} `protobuf:"bytes,7,opt,name=grafana,proto3" json:"grafana,omitempty"`
 	Mixer                  *MixerConfig            `protobuf:"bytes,8,opt,name=mixer,proto3" json:"mixer,omitempty"`
 	Nodeagent              *NodeAgentConfig        `protobuf:"bytes,9,opt,name=nodeagent,proto3" json:"nodeagent,omitempty"`
 	Pilot                  *PilotConfig            `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
@@ -6287,7 +6286,7 @@ func (m *Values) GetGlobal() *GlobalConfig {
 	return nil
 }
 
-func (m *Values) GetGrafana() *TypeMapStringInterface {
+func (m *Values) GetGrafana() map[string]interface{} {
 	if m != nil {
 		return m.Grafana
 	}
@@ -6364,101 +6363,8 @@ func (m *Values) GetClusterResources() *protobuf.BoolValue {
 	return nil
 }
 
-// GOTYPE: map[string]interface{}
-type TypeMapStringInterface struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
 
-func (m *TypeMapStringInterface) Reset()         { *m = TypeMapStringInterface{} }
-func (m *TypeMapStringInterface) String() string { return proto.CompactTextString(m) }
-func (*TypeMapStringInterface) ProtoMessage()    {}
-func (*TypeMapStringInterface) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{72}
-}
 
-func (m *TypeMapStringInterface) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TypeMapStringInterface.Unmarshal(m, b)
-}
-func (m *TypeMapStringInterface) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TypeMapStringInterface.Marshal(b, m, deterministic)
-}
-func (m *TypeMapStringInterface) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TypeMapStringInterface.Merge(m, src)
-}
-func (m *TypeMapStringInterface) XXX_Size() int {
-	return xxx_messageInfo_TypeMapStringInterface.Size(m)
-}
-func (m *TypeMapStringInterface) XXX_DiscardUnknown() {
-	xxx_messageInfo_TypeMapStringInterface.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TypeMapStringInterface proto.InternalMessageInfo
-
-// GOTYPE: []map[string]interface{}
-type TypeSliceOfMapStringInterface struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TypeSliceOfMapStringInterface) Reset()         { *m = TypeSliceOfMapStringInterface{} }
-func (m *TypeSliceOfMapStringInterface) String() string { return proto.CompactTextString(m) }
-func (*TypeSliceOfMapStringInterface) ProtoMessage()    {}
-func (*TypeSliceOfMapStringInterface) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{73}
-}
-
-func (m *TypeSliceOfMapStringInterface) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TypeSliceOfMapStringInterface.Unmarshal(m, b)
-}
-func (m *TypeSliceOfMapStringInterface) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TypeSliceOfMapStringInterface.Marshal(b, m, deterministic)
-}
-func (m *TypeSliceOfMapStringInterface) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TypeSliceOfMapStringInterface.Merge(m, src)
-}
-func (m *TypeSliceOfMapStringInterface) XXX_Size() int {
-	return xxx_messageInfo_TypeSliceOfMapStringInterface.Size(m)
-}
-func (m *TypeSliceOfMapStringInterface) XXX_DiscardUnknown() {
-	xxx_messageInfo_TypeSliceOfMapStringInterface.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TypeSliceOfMapStringInterface proto.InternalMessageInfo
-
-// GOTYPE: *IntOrStringForPB
-type TypeIntOrStringForPB struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TypeIntOrStringForPB) Reset()         { *m = TypeIntOrStringForPB{} }
-func (m *TypeIntOrStringForPB) String() string { return proto.CompactTextString(m) }
-func (*TypeIntOrStringForPB) ProtoMessage()    {}
-func (*TypeIntOrStringForPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{74}
-}
-
-func (m *TypeIntOrStringForPB) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TypeIntOrStringForPB.Unmarshal(m, b)
-}
-func (m *TypeIntOrStringForPB) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TypeIntOrStringForPB.Marshal(b, m, deterministic)
-}
-func (m *TypeIntOrStringForPB) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TypeIntOrStringForPB.Merge(m, src)
-}
-func (m *TypeIntOrStringForPB) XXX_Size() int {
-	return xxx_messageInfo_TypeIntOrStringForPB.Size(m)
-}
-func (m *TypeIntOrStringForPB) XXX_DiscardUnknown() {
-	xxx_messageInfo_TypeIntOrStringForPB.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TypeIntOrStringForPB proto.InternalMessageInfo
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 type ZeroVPNConfig struct {
@@ -6595,9 +6501,6 @@ func init() {
 	proto.RegisterType((*KialiIngressConfig)(nil), "v1alpha1.KialiIngressConfig")
 	proto.RegisterType((*KialiConfig)(nil), "v1alpha1.KialiConfig")
 	proto.RegisterType((*Values)(nil), "v1alpha1.Values")
-	proto.RegisterType((*TypeMapStringInterface)(nil), "v1alpha1.TypeMapStringInterface")
-	proto.RegisterType((*TypeSliceOfMapStringInterface)(nil), "v1alpha1.TypeSliceOfMapStringInterface")
-	proto.RegisterType((*TypeIntOrStringForPB)(nil), "v1alpha1.TypeIntOrStringForPB")
 	proto.RegisterType((*ZeroVPNConfig)(nil), "v1alpha1.ZeroVPNConfig")
 }
 
