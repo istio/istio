@@ -172,10 +172,12 @@ func (sg *snapshotGroup) onSync(c *coll.Instance) {
 	if !synced[c] {
 		atomic.AddInt32(&sg.remaining, -1)
 		synced[c] = true
+		scope.Processing.Debugf("sg.onSync: %v fully synced, %d remaining", c.Name(), sg.remaining)
 	}
 
 	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
 	if atomic.LoadInt32(&sg.remaining) <= 0 {
+		scope.Processing.Debugf("sg.onSync: all collections synced, proceeding with strategy.OnChange()")
 		sg.strategy.OnChange()
 	}
 }
