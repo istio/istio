@@ -287,8 +287,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 
 	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != envoyListenerHTTPInspector {
+		l.ListenerFilters[1].Name != xdsutil.HttpInspector {
 		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
-			xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
+			xdsutil.OriginalDestination, xdsutil.HttpInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
 	}
 }

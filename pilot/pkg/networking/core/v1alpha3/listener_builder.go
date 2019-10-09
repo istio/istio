@@ -162,7 +162,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
-				Name: envoyListenerHTTPInspector,
+				Name: xdsutil.HttpInspector,
 			})
 	}
 
@@ -502,7 +502,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, []*http_conn.HttpFilter{})
+		connectionManager := buildHTTPConnectionManager(plugin, env, httpOpts, []*http_conn.HttpFilter{})
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,

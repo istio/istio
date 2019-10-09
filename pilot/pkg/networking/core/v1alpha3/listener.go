@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	alpn_filter "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/pkg/monitoring"
 )
 
@@ -80,9 +81,6 @@ const (
 )
 
 const (
-	// HTTP inspector listener filter
-	envoyListenerHTTPInspector = "envoy.listener.http_inspector"
-
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -139,16 +137,66 @@ const (
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
 
-	// TODO(yxue): separate h2c vs h2
-	H2Protocol = "h2"
-
 	// CanonicalHTTPSPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
 	// are not allowed on this port.
 	CanonicalHTTPSPort = 443
+
+	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
+	AlpnFilterName = "istio.alpn"
 )
 
+type FilterChainMatchOptions struct {
+	// Application protocols of the filter chain match
+	ApplicationProtocols []string
+	// Transport protocol of the filter chain match. "tls" or empty
+	TransportProtocol string
+	// Filter chain protocol. HTTP for rHTTP proxy and TCP for TCP proxy
+	Protocol plugin.ListenerProtocol
+}
+
 var (
-	applicationProtocols = []string{"http/1.0", "http/1.1"}
+	applicationProtocols = []string{"http/1.0", "http/1.1", "h2c"}
+
+	applicationProtocolsOverTLS = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+
+	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
+	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
+	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
+	//  FCM 1: ALPN [istio-http/1.0, istio-http/1.1, istio-h2] Transport protocol: tls      --> HTTP traffic from sidecar over TLS
+	//  FCM 2: ALPN [http/1.0, http/1.1, h2c] Transport protocol: N/A                       --> HTTP traffic over plain text
+	//  FCM 3: ALPN [istio] Transport protocol: tls                                         --> TCP traffic from sidecar over TLS
+	//  FCM 4: ALPN [] Transport protocol: N/A                                              --> TCP traffic over plain text
+	//  FCM 5: ALPN [] Transport protocol: tls                                              --> TCP traffic over TLS
+	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chaim match should be
+	//  FCM 1: ALPN [http/1.0, http/1.1, h2c, istio-http/1.0, istio-http/1.1, istio-h2]     --> HTTP traffic over plain text or TLS
+	//  FCM 2: ALPN []                                                                      --> TCP traffic over plain text or TLS
+	permissiveFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			ApplicationProtocols: applicationProtocolsOverTLS,
+			TransportProtocol:    "tls",
+			Protocol:             plugin.ListenerProtocolHTTP,
+		},
+		{
+			ApplicationProtocols: applicationProtocols,
+			Protocol:             plugin.ListenerProtocolHTTP,
+		},
+		{
+			ApplicationProtocols: []string{"istio"},
+			TransportProtocol:    "tls",
+		},
+		{},
+		{
+			TransportProtocol: "tls",
+		},
+	}
+
+	filterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			ApplicationProtocols: append(applicationProtocols, applicationProtocolsOverTLS...),
+			Protocol:             plugin.ListenerProtocolHTTP,
+		},
+		{},
+	}
 
 	// Headers added by the metadata exchange filter
 	// We need to propagate these as part of access log service stream
@@ -566,9 +614,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		allChains = []plugin.FilterChain{{}}
 	}
 
+	var filterChainMatchOption []FilterChainMatchOptions
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
 		allChains = append(allChains, allChains...)
+		// permissive mTLS.
+		// TODO(yxue) fragile here to determine permissive mTLS by number of filter chains
+		// Assumption: listener with permissive mTLS has 2 filter chains, other cases have 1 filter chain.
+		if len(allChains) == 4 {
+			allChains = append(allChains, allChains[3])
+			filterChainMatchOption = permissiveFilterChainMatchOptions
+		} else {
+			filterChainMatchOption = filterChainMatchOptions
+		}
 		listenerOpts.needHTTPInspector = true
 	}
 
@@ -580,6 +638,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
 			filterChainMatch = chain.FilterChainMatch
+			// This is the filter chain used by permissive mTLS. Append applicationProtocolsOverTLS as the client side will
+			// override the ALPN with applicationProtocolsOverTLS.
+			if filterChainMatch != nil && len(filterChainMatch.ApplicationProtocols) > 0 {
+				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, applicationProtocolsOverTLS...)
+			}
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 		case plugin.ListenerProtocolTCP:
@@ -587,38 +650,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
-			// TODO(crazyxy) avoid bypassing authN using TCP
-			// Build filter chain options for listener configured with protocol sniffing
-			// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
-			// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
-			// If mTLS is enabled, there are four filter chains. The filter chain match should be
-			//  FCM 1: ALPN [istio, http/1.0, http/1.1, h2] Transport protocol: tls
-			//  FCM 2: ALPN [http/1.0, http/1.1, h2] Transport protocol: N/A
-			//  FCM 3: ALPN [istio] Transport protocol: N/A
-			//  FCM 4: ALPN [] Transport protocol: N/A
-			// If mTLS is disabled, there are two filter chains. The filter chaim match should be
-			//  FCM 1: ALPN [http/1.0, http/1.1, h2]
-			//  FCM 2: ALPN []
-			if id < len(allChains)/2 {
-				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
-
-				fcm := listener.FilterChainMatch{}
-				if chain.FilterChainMatch != nil {
-					fcm = *chain.FilterChainMatch
-				}
-
-				fcm.ApplicationProtocols = append(fcm.ApplicationProtocols, applicationProtocols...)
-				filterChainMatch = &fcm
-
-				// Check mTLS filter chain
-				if filterChainMatch.ApplicationProtocols[0] == "istio" {
-					fcm.TransportProtocol = "tls"
-				}
-			} else {
-				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
-				filterChainMatch = chain.FilterChainMatch
+			if filterChainMatchOption == nil || len(filterChainMatchOption) <= id {
+				continue
 			}
 
+			// TODO(yxue) avoid bypassing authN using TCP
+			// Build filter chain options for listener configured with protocol sniffing
+			fcm := listener.FilterChainMatch{}
+			if chain.FilterChainMatch != nil {
+				fcm = *chain.FilterChainMatch
+			}
+			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
+			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
+
+			if filterChainMatchOption[id].Protocol == plugin.ListenerProtocolHTTP {
+				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
+			} else {
+				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+			}
+			filterChainMatch = &fcm
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
 				pluginParams.ServiceInstance.Endpoint.ServicePort)
@@ -1294,8 +1344,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
-			// TODO(yxue): merge applicationProtocols and H2Protocol when sniffing is enabled for inbound
-			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, H2Protocol)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1653,14 +1701,26 @@ type buildListenerOpts struct {
 	needHTTPInspector bool
 }
 
-func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
+func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Environment, httpOpts *httpListenerOpts,
 	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-
 	filters := make([]*http_conn.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
+	}
+
+	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
+	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
+		pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND {
+		filters = append(filters, &http_conn.HttpFilter{
+			Name: AlpnFilterName,
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
+					AlpnOverride: applicationProtocolsOverTLS,
+				}),
+			},
+		})
 	}
 
 	filters = append(filters,
@@ -1689,7 +1749,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
+	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
 		connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
@@ -1723,9 +1783,9 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: wellknown.FileAccessLog,
 		}
 
-		buildAccessLog(node, fl, env)
+		buildAccessLog(pluginParams.Node, fl, env)
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
@@ -1754,7 +1814,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: wellknown.HTTPGRPCAccessLog,
 		}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
+		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
@@ -1804,8 +1864,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	if opts.needHTTPInspector {
-		listenerFiltersMap[envoyListenerHTTPInspector] = true
-		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		listenerFiltersMap[wellknown.HttpInspector] = true
+		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: wellknown.HttpInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -1974,7 +2034,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
-			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opts.env, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
 				Name: wellknown.HTTPConnectionManager,
 			}
@@ -2160,7 +2220,6 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		}
 
 		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, H2Protocol)
 		newFilterChan = append(newFilterChan, fc)
 
 	}
@@ -2204,7 +2263,7 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	for _, f := range filters {
 		hasTLSInspector = hasTLSInspector || f.Name == wellknown.TlsInspector
-		hasHTTPInspector = hasHTTPInspector || f.Name == envoyListenerHTTPInspector
+		hasHTTPInspector = hasHTTPInspector || f.Name == wellknown.HttpInspector
 	}
 
 	if !hasTLSInspector {
@@ -2214,7 +2273,7 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+			append(filters, &listener.ListenerFilter{Name: wellknown.HttpInspector})
 	}
 
 	return filters

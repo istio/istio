@@ -24,6 +24,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -625,7 +626,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			}
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound, false)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -652,7 +653,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound, false)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -668,17 +669,7 @@ func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
-
-	if len(listeners[0].FilterChains) != 4 ||
-		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
-		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[3]) {
-		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
-	}
-
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
+	verifyFilterChainMatch(t, listeners[0])
 }
 
 func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -707,17 +698,7 @@ func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, s
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
-
-	if len(listeners[0].FilterChains) != 4 ||
-		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
-		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[3]) {
-		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
-	}
-
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
+	verifyFilterChainMatch(t, listeners[0])
 }
 
 func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy *model.Proxy) {
@@ -746,17 +727,7 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 	if expected := 1; len(listeners) != expected {
 		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
 	}
-
-	if len(listeners[0].FilterChains) != 4 ||
-		!isHTTPFilterChain(listeners[0].FilterChains[0]) ||
-		!isHTTPFilterChain(listeners[0].FilterChains[1]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[2]) ||
-		!isTCPFilterChain(listeners[0].FilterChains[3]) {
-		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
-	}
-
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
+	verifyFilterChainMatch(t, listeners[0])
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -768,22 +739,56 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 	}
 }
 
-func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection) {
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection, isTLS bool) {
 	t.Helper()
-	if direction == model.TrafficDirectionInbound &&
-		(len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
-			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
-			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1") {
-		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1]", 2)
+	if isTLS {
+		if direction == model.TrafficDirectionInbound &&
+			!reflect.DeepEqual(applicationProtocolsOverTLS, fc.FilterChainMatch.ApplicationProtocols) {
+			t.Fatalf("expected %d application protocols, %v", len(applicationProtocolsOverTLS), applicationProtocolsOverTLS)
+		}
+
+		if fc.FilterChainMatch.TransportProtocol != "tls" {
+			t.Fatalf("exepct %q transport protocol, found %q", "tls", fc.FilterChainMatch.TransportProtocol)
+		}
+	} else {
+		if direction == model.TrafficDirectionInbound &&
+			!reflect.DeepEqual(applicationProtocols, fc.FilterChainMatch.ApplicationProtocols) {
+			t.Fatalf("expected %d application protocols, %v", len(applicationProtocols), applicationProtocols)
+		}
+
+		if fc.FilterChainMatch.TransportProtocol != "" {
+			t.Fatalf("exepct %q transport protocol, found %q", "", fc.FilterChainMatch.TransportProtocol)
+		}
 	}
 
 	if direction == model.TrafficDirectionOutbound &&
-		(len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
-			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
-			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
-			fc.FilterChainMatch.ApplicationProtocols[2] != "h2") {
-		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1, h2]", 3)
+		!reflect.DeepEqual(applicationProtocols, fc.FilterChainMatch.ApplicationProtocols) {
+		t.Fatalf("expected %d application protocols, %v", len(applicationProtocols), applicationProtocols)
 	}
+
+	hcm := &http_conn.HttpConnectionManager{}
+	if err := getFilterConfig(fc.Filters[0], hcm); err != nil {
+		t.Fatalf("failed to get HCM, config %v", hcm)
+	}
+
+	hasAlpn := hasAlpnFilter(hcm.HttpFilters)
+
+	if direction == model.TrafficDirectionInbound && hasAlpn {
+		t.Fatal("ALPN filter is unexpected")
+	}
+
+	if direction == model.TrafficDirectionOutbound && !hasAlpn {
+		t.Fatal("ALPN filter is not found")
+	}
+}
+
+func hasAlpnFilter(filters []*http_conn.HttpFilter) bool {
+	for _, f := range filters {
+		if f.Name == AlpnFilterName {
+			return true
+		}
+	}
+	return false
 }
 
 func isHTTPFilterChain(fc *listener.FilterChain) bool {
@@ -860,7 +865,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[3], model.TrafficDirectionOutbound)
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3], model.TrafficDirectionOutbound, false)
 
 		if len(l.ListenerFilters) != 2 ||
 			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
@@ -890,7 +895,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		}
 	}
 
-	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound)
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound, false)
 	if len(l.ListenerFilters) != 2 ||
 		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -1350,6 +1355,20 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 			}
 		}
 	}
+}
+
+func verifyFilterChainMatch(t *testing.T, listener *xdsapi.Listener) {
+	if len(listener.FilterChains) != 5 ||
+		!isHTTPFilterChain(listener.FilterChains[0]) ||
+		!isHTTPFilterChain(listener.FilterChains[1]) ||
+		!isTCPFilterChain(listener.FilterChains[2]) ||
+		!isTCPFilterChain(listener.FilterChains[3]) ||
+		!isTCPFilterChain(listener.FilterChains[4]) {
+		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 5, 2, 3)
+	}
+
+	verifyHTTPFilterChainMatch(t, listener.FilterChains[0], model.TrafficDirectionInbound, true)
+	verifyHTTPFilterChainMatch(t, listener.FilterChains[1], model.TrafficDirectionInbound, false)
 }
 
 func getOldestService(services ...*model.Service) *model.Service {
