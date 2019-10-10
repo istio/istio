@@ -122,7 +122,11 @@ spec:
       volumes:
       - name: certs
         secret:
+{{- if .Values.global.certificates }}
+          secretName: dns.istio-galley-service-account
+{{- else }}
           secretName: istio.istio-galley-service-account
+{{- end }}
       - name: config
         configMap:
           name: istio-galley-configuration
