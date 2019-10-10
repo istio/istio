@@ -38,11 +38,6 @@ const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
 	// destination rule when they are not specified.
 	configNameNotApplicable = "-"
-
-	// configNameUnknown is used to represent the name of the authentication policy when it is specified,
-	// but the information is not available to show. This is temporary, until we fix the push context to carry
-	// authN policy name.
-	configNameUnknown = "???"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -267,7 +262,7 @@ func (p *AuthenticationDebug) String() string {
 		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
 }
 
-func configName(config *model.Config) string {
+func configName(config *model.ConfigMeta) string {
 	if config != nil {
 		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
 	}
@@ -280,69 +275,71 @@ func configName(config *model.Config) string {
 // Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
 // are visible.
 func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
 
-	proxyID := req.Form.Get("proxyID")
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
+			for key := range adsSidecarIDConnectionsMap {
+				_, _ = fmt.Fprintf(w, "  %q,\n", key)
+			}
+			return
+		}
 
-	connections, ok := adsSidecarIDConnectionsMap[proxyID]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = fmt.Fprint(w, "\n[\n]")
+		var mostRecentProxy *model.Proxy
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		mostRecentProxy = connections[mostRecent].modelNode
+		svc, _ := s.Env.ServiceDiscovery.Services()
+		info := []*AuthenticationDebug{}
+		for _, ss := range svc {
+			if ss.MeshExternal {
+				// Skip external services
+				continue
+			}
+			for _, p := range ss.Ports {
+				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
+				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
+				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+			}
+		}
+		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+			_, _ = w.Write(b)
+		}
 		return
 	}
-	var mostRecentProxy *model.Proxy
-	mostRecent := ""
-	for key := range connections {
-		if mostRecent == "" || key > mostRecent {
-			mostRecent = key
-		}
-	}
-	mostRecentProxy = connections[mostRecent].modelNode
-	svc, _ := s.Env.ServiceDiscovery.Services()
-	info := []*AuthenticationDebug{}
-	for _, ss := range svc {
-		if ss.MeshExternal {
-			// Skip external services
-			continue
-		}
-		for _, p := range ss.Ports {
-			authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
-			destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-			info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
-		}
-	}
 
-	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy,
+func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
-	// TODO(diemvu): add policy config name to the cache push config for this.
-	authnPolicyName := configNameNotApplicable
-	if authnPolicy != nil {
-		authnPolicyName = configNameUnknown
-	}
-
+	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
 
 	baseDebugInfo := AuthenticationDebug{
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
-		DestinationRuleName:      configName(destConfig),
 		ServerProtocol:           serverMTLSMode.String(),
 		ClientProtocol:           configNameNotApplicable,
 	}
 
 	var rule *networking.DestinationRule
+	destinationRuleName := configNameNotApplicable
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
+		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
 	output := []*AuthenticationDebug{}
@@ -357,6 +354,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 	for _, ss := range subsets {
 		c := clientTLSModes[ss]
 		info := baseDebugInfo
+		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
 		}

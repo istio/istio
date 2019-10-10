@@ -294,48 +294,76 @@ func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode
 // TestAuthenticationZ tests the /debug/authenticationz handle. Due to the limitation of the test setup,
 // this test converts only one simple scenario. See TestAnalyzeMTLSSettings for more
 func TestAuthenticationZ(t *testing.T) {
-	t.Run("TestAuthenticationZ", func(t *testing.T) {
-		s, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+	tests := []struct {
+		name           string
+		proxyID        string
+		wantCode       int
+		expectedLength int
+	}{
+		{
+			name:           "returns 400 if proxyID not provided",
+			proxyID:        "",
+			wantCode:       400,
+			expectedLength: 0,
+		},
+		{
+			name:           "returns 404 if proxy not found",
+			proxyID:        "not-found",
+			wantCode:       404,
+			expectedLength: 0,
+		},
+		{
+			name:           "dumps most recent proxy with 200",
+			proxyID:        "dumpApp-644fc65469-96dza.testns",
+			wantCode:       200,
+			expectedLength: 25,
+		},
+	}
 
-		envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, tearDown := initLocalPilotTestEnv(t)
+			defer tearDown()
 
-		// Make CDS/LDS/RDS requestst to make the proxy instance available.
-		if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := adsReceive(envoy, 5*time.Second); err != nil {
-			t.Fatal("Recv failed", err)
-		}
-
-		got := getAuthenticationZ(t, s.EnvoyXdsServer, "dumpApp-644fc65469-96dza.testns")
-		expectedLen := 25
-		if len(got) != expectedLen {
-			t.Errorf("AuthenticationZ should have %d entries, got got %d", expectedLen, len(got))
-		}
-		for _, info := range got {
-			expectedStatus := "OK"
-			if info.Host == "mymongodb.somedomain" {
-				expectedStatus = "CONFLICT"
+			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if info.TLSConflictStatus != expectedStatus {
-				t.Errorf("want TLS conflict status %q, got %v", expectedStatus, info)
+			defer cancel()
+
+			// Make CDS/LDS/RDS requestst to make the proxy instance available.
+			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
 			}
-		}
-	})
+			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := adsReceive(envoy, 5*time.Second); err != nil {
+				t.Fatal("Recv failed", err)
+			}
+
+			got := getAuthenticationZ(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
+
+			if len(got) != tt.expectedLength {
+				t.Errorf("AuthenticationZ should have %d entries, got %d", tt.expectedLength, len(got))
+			}
+			for _, info := range got {
+				expectedStatus := "OK"
+				if info.Host == "mymongodb.somedomain" {
+					expectedStatus = "CONFLICT"
+				}
+				if info.TLSConflictStatus != expectedStatus {
+					t.Errorf("want TLS conflict status %q, got %v", expectedStatus, info)
+				}
+			}
+		})
+	}
 }
 
-func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string) []v2.AuthenticationDebug {
+func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode int) []v2.AuthenticationDebug {
 	path := "/debug/authenticationz"
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)
@@ -347,14 +375,17 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string) []v
 	rr := httptest.NewRecorder()
 	authenticationz := http.HandlerFunc(s.Authenticationz)
 	authenticationz.ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("authenticationz error with code %v", rr.Code)
+	if rr.Code != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
 	}
 
 	got := []v2.AuthenticationDebug{}
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Error(err)
+	if rr.Code != 200 {
+		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
+	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
 	}
+
 	return got
 }
 
@@ -467,15 +498,21 @@ func TestEvaluateTLSState(t *testing.T) {
 }
 
 func TestAnalyzeMTLSSettings(t *testing.T) {
+	fakeConfigMeta := model.ConfigMeta{
+		Name:      "foo",
+		Namespace: "bar",
+	}
 	testCases := []struct {
 		name        string
 		authnPolicy *authn.Policy
+		authnMeta   *model.ConfigMeta
 		destConfig  *model.Config
 		expected    []*v2.AuthenticationDebug
 	}{
 		{
 			name:        "No policy",
 			authnPolicy: nil,
+			authnMeta:   nil,
 			destConfig:  nil,
 			expected: []*v2.AuthenticationDebug{
 				{
@@ -502,12 +539,13 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta:  &fakeConfigMeta,
 			destConfig: nil,
 			expected: []*v2.AuthenticationDebug{
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -528,6 +566,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -541,7 +580,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -562,6 +601,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -579,7 +619,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "DISABLE",
@@ -600,6 +640,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -627,7 +668,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -648,6 +689,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -693,7 +735,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -702,7 +744,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default|foobar",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "SIMPLE",
@@ -717,7 +759,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			port := model.Port{
 				Port: 8080,
 			}
-			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})

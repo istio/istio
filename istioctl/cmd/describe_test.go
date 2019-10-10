@@ -52,6 +52,57 @@ type execAndK8sConfigTestCase struct {
 }
 
 var (
+	cannedIngressGatewayService = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port:     80,
+					NodePort: 31380,
+					Name:     "http2",
+					Protocol: "TCP",
+				},
+			},
+			Selector: map[string]string{"istio": "ingressgateway"},
+		},
+		Status: coreV1.ServiceStatus{
+			LoadBalancer: coreV1.LoadBalancerStatus{
+				Ingress: []coreV1.LoadBalancerIngress{
+					{
+						IP: "10.1.2.3",
+					},
+				},
+			},
+		},
+	}
+
+	cannedIngressGatewayPod = coreV1.Pod{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingressgateway-5bf6c9887-vvvmj",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
+		},
+		Spec: coreV1.PodSpec{
+			NodeName: "foo_node",
+			Containers: []coreV1.Container{
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+		Status: coreV1.PodStatus{
+			Phase: coreV1.PodRunning,
+		},
+	}
+
 	cannedIstioConfig = []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{
@@ -74,6 +125,55 @@ var (
 				TrafficPolicy: &networking.TrafficPolicy{
 					Tls: &networking.TLSSettings{
 						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "bookinfo",
+				Namespace: "default",
+				Type:      schemas.VirtualService.Type,
+				Group:     schemas.VirtualService.Group,
+				Version:   schemas.VirtualService.Version,
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*"},
+				Gateways: []string{"bookinfo-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/logout"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
+								},
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -178,6 +278,7 @@ var (
 					Phase: coreV1.PodRunning,
 				},
 			},
+			cannedIngressGatewayPod,
 		}},
 		&coreV1.ServiceList{Items: []coreV1.Service{
 			{
@@ -234,6 +335,7 @@ var (
 					Selector: map[string]string{"app": "productpage"},
 				},
 			},
+			cannedIngressGatewayService,
 		}},
 	}
 
@@ -270,6 +372,7 @@ var (
 					Phase: coreV1.PodRunning,
 				},
 			},
+			cannedIngressGatewayPod,
 		}},
 		&coreV1.ServiceList{Items: []coreV1.Service{
 			{
@@ -291,6 +394,7 @@ var (
 					Selector: map[string]string{"app": "ratings"},
 				},
 			},
+			cannedIngressGatewayService,
 		}},
 	}
 )
@@ -320,6 +424,7 @@ func TestDescribe(t *testing.T) {
     "TLS_conflict_status": "OK"
 }
 ]`),
+		"istio-ingressgateway-5bf6c9887-vvvmj": util.ReadFile("testdata/describe/istio-ingressgateway-5bf6c9887-vvvmj.json", t),
 	}
 	cases := []execAndK8sConfigTestCase{
 		{ // case 0
@@ -383,6 +488,12 @@ Service: productpage
    Port:  9080/UnsupportedProtocol
    9080 is unnamed which does not follow Istio conventions
 Authn: None
+
+
+Exposed on Ingress Gateway http://10.1.2.3:0
+
+VirtualService: bookinfo
+   /productpage, /login, /logout, /api/v1/products*
 `,
 		},
 		{ // case 7 has 1.2 data, and a service with unnamed port, and no containerPort

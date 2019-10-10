@@ -579,3 +579,18 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  # Configures DNS certificates provisioned through Chiron linked into Pilot.
+  # The DNS names in this file are all hard-coded; please ensure the namespaces
+  # in dnsNames are consistent with those of your services.
+  # Example:
+  # certificates:
+  #   - secretName: dns.istio-galley-service-account
+  #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+  #   - secretName: dns.istio-sidecar-injector-service-account
+  #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  certificates: []
+
+  # Configures whether Operator manages webhook configurations. The current behavior
+  # of Galley and Sidecar Injector is that they manage their own webhook configurations.
+  operator: false
