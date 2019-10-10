@@ -26,7 +26,7 @@ import (
 
 // All returns all analyzers
 func All() []analysis.Analyzer {
-	return []analysis.Analyzer{
+	analyzers := []analysis.Analyzer{
 		&gateway.IngressGatewayPortAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},
@@ -35,8 +35,13 @@ func All() []analysis.Analyzer {
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
 		&deprecation.FieldAnalyzer{},
-		&schema.ValidationAnalyzer{},
 	}
+
+	for _, a := range schema.AllValidationAnalyzers() {
+		analyzers = append(analyzers, a)
+	}
+
+	return analyzers
 }
 
 // AllCombined returns all analyzers combined as one

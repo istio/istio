@@ -18,48 +18,49 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
-type ValidationAnalyzer struct{}
+type ValidationAnalyzer struct {
+	s schema.Instance
+}
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
+
+// AllValidationAnalyzers returns a slice with a validation analyzer for each Istio schema
+// This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
+func AllValidationAnalyzers() []*ValidationAnalyzer {
+	result := make([]*ValidationAnalyzer, 0)
+	for _, s := range schemas.Istio {
+		result = append(result, &ValidationAnalyzer{s: s})
+	}
+	return result
+}
 
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "schema.ValidationAnalyzer",
-		Inputs: collection.Names{ //TODO
-			metadata.IstioRbacV1Alpha1Serviceroles,
-			metadata.IstioRbacV1Alpha1Servicerolebindings,
-		},
+		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.VariableName),
+		Inputs: collection.Names{collection.NewName(a.s.Collection)},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
-	//TODO: How to iterate across everything in the snapshot?
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
-		//TODO: How to get the right schema for each coolection?
-		// TODO: Start with a handmade map of resources to validate?
-		// TODO: Or parse the schema name out of the collection name?
-		schema, exists := schemas.Istio.GetByType(crd.CamelCaseToKebabCase(metadata.IstioNetworkingV1Alpha3Virtualservices.String()))
-		//schemas.Istio.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
-		// vs := r.Item.(*v1alpha3.VirtualService)
-		ctx.Report(metadata.IstioMeshV1Alpha1MeshConfig, msg.NewInternalError(r, fmt.Sprintf("TODO: %v %v %v", metadata.IstioNetworkingV1Alpha3Virtualservices.String(), schema, exists)))
+	c := collection.NewName(a.s.Collection)
 
-		//TODO: Collect validation errors
+	ctx.ForEach(c, func(r *resource.Entry) bool {
 		name, ns := r.Metadata.Name.InterpretAsNamespaceAndName()
-		if exists {
-			schema.Validate(name, ns, r.Item)
-		} else {
-			//TODO: Shouldn't happen
+
+		err := a.s.Validate(name, ns, r.Item)
+		if err != nil {
+			ctx.Report(c, msg.NewSchemaValidationError(r, err))
 		}
+
 		return true
 	})
 

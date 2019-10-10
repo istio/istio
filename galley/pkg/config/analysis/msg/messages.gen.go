@@ -44,6 +44,10 @@ var (
 	// IstioProxyVersionMismatch defines a diag.MessageType for message "IstioProxyVersionMismatch".
 	// Description: The version of the Istio proxy running on the pod does not match the version used by the istio injector.
 	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
+
+	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
+	// Description: The resource has one or more schema validation errors.
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0201", "The resource has one or more schema validation errors: %v")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -129,6 +133,15 @@ func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, in
 		originOrNil(entry),
 		proxyVersion,
 		injectionVersion,
+	)
+}
+
+// NewSchemaValidationError returns a new diag.Message based on SchemaValidationError.
+func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Message {
+	return diag.NewMessage(
+		SchemaValidationError,
+		originOrNil(entry),
+		combinedErr,
 	)
 }
 
