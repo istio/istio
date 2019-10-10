@@ -1570,8 +1570,8 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 func BenchmarkInjectServe(b *testing.B) {
 	mesh := mesh.DefaultMeshConfig()
 	params := &Params{
-		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
-		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
+		InitImage:           InitImageName(unitTestHub, unitTestTag),
+		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag),
 		ImagePullPolicy:     "IfNotPresent",
 		Verbosity:           DefaultVerbosity,
 		SidecarProxyUID:     DefaultSidecarProxyUID,
