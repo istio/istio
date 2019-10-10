@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	kubernetes2 "k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
 
@@ -28,13 +29,17 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
 	printAll       bool
 	configDumpFile string
 	policyFiles    []string
+	serviceFiles   []string
+)
 
+var (
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
 		Short: "Check the TLS/JWT/RBAC settings based on Envoy config",
@@ -95,7 +100,40 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		},
 	}
 
-	// TODO(phillip): Add the upgrade command for the new authorization v1beta1 policy.
+	upgradeCmd = &cobra.Command{
+		Hidden: true,
+		Use:    "upgrade",
+		Short:  "Upgrade Istio Authorization Policy from version v1alpha1 to v1beta1",
+		Long: `Upgrade converts Istio authorization policy from version v1alpha1 to v1beta1. It requires access to Kubernetes
+service definition in order to translate the service name specified in the ServiceRole to the corresponding
+workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
+Kubernetes cluster or from a YAML file specified from command line.
+
+THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+`,
+		Example: `  # Upgrade the Istio authorization policy with service definition from the current Kubernetes cluster:
+  istioctl experimental auth upgrade -f rbac-v1-policy.yaml,rbac-v1-policy-2.yaml`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			upgrader, err := newUpgrader(policyFiles, serviceFiles)
+			if err != nil {
+				cleanupForTest()
+				return err
+			}
+			err = upgrader.ConvertV1alpha1ToV1beta1()
+			if err != nil {
+				cleanupForTest()
+				return err
+			}
+			writer := cmd.OutOrStdout()
+			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
+			if err != nil {
+				cleanupForTest()
+				return fmt.Errorf("failed writing config: %v", err)
+			}
+			cleanupForTest()
+			return nil
+		},
+	}
 
 	validatorCmd = &cobra.Command{
 		Use:   "validate <policy-file1,policy-file2,...>",
@@ -118,7 +156,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			writer := cmd.OutOrStdout()
 			_, err = writer.Write([]byte(validator.Report.String()))
 			if err != nil {
-				return fmt.Errorf("failed to write report with error %v", err)
+				return fmt.Errorf("failed to write report: %v", err)
 			}
 			return nil
 		},
@@ -174,6 +212,20 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
+func newUpgrader(v1PolicyFiles, serviceFiles []string) (*auth.Upgrader, error) {
+	if len(v1PolicyFiles) == 0 {
+		return nil, fmt.Errorf("no input file provided")
+	}
+
+	var k8sClient *kubernetes2.Clientset
+	k8sClient, err := kube.CreateClientset("", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
+	}
+	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles)
+	return upgrader, nil
+}
+
 func newValidator(policyFiles []string) (*auth.Validator, error) {
 	if len(policyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
@@ -201,6 +253,7 @@ func Auth() *cobra.Command {
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(validatorCmd)
+	cmd.AddCommand(upgradeCmd)
 	return cmd
 }
 
@@ -211,4 +264,15 @@ func init() {
 		"Check the TLS/JWT/RBAC setting from the config dump file")
 	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"Authorization policy file")
+	upgradeCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
+		"Authorization policy files")
+	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
+		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
+}
+
+// cleanupForTest clean the values of policyFiles and serviceFiles. Otherwise, the variables will be
+// appended with new values
+func cleanupForTest() {
+	policyFiles = nil
+	serviceFiles = nil
 }
