@@ -16,6 +16,7 @@ package analyzers
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -25,14 +26,12 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 type message struct {
@@ -132,14 +131,6 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "schemaValidation",
-		inputFiles: []string{"testdata/schema-validation.yaml"},
-		analyzer:   &schema.ValidationAnalyzer{S: schemas.VirtualService},
-		expected: []message{
-			{msg.SchemaValidationError, "VirtualService/ratings-bogus-weight"},
-		},
-	},
-	{
 		name:       "istioInjectionVersionMismatch",
 		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
 		analyzer:   &injection.VersionAnalyzer{},
@@ -173,26 +164,12 @@ var testGrid = []testCase{
 	},
 }
 
-// Analyzers being explicitly ignored for testing
-var ignoreAnalyzers = map[string]struct{}{
-	// We assume that testing for schema validation is being done elsewhere.
-	// We test VirtualService briefly just to be sure the analyzer wrapping the schema validation is working correctly.
-	"schema.ValidationAnalyzer.Gateway":                  struct{}{},
-	"schema.ValidationAnalyzer.ServiceEntry":             struct{}{},
-	"schema.ValidationAnalyzer.DestinationRule":          struct{}{},
-	"schema.ValidationAnalyzer.EnvoyFilter":              struct{}{},
-	"schema.ValidationAnalyzer.Sidecar":                  struct{}{},
-	"schema.ValidationAnalyzer.HTTPAPISpec":              struct{}{},
-	"schema.ValidationAnalyzer.HTTPAPISpecBinding":       struct{}{},
-	"schema.ValidationAnalyzer.QuotaSpec":                struct{}{},
-	"schema.ValidationAnalyzer.QuotaSpecBinding":         struct{}{},
-	"schema.ValidationAnalyzer.AuthenticationPolicy":     struct{}{},
-	"schema.ValidationAnalyzer.AuthenticationMeshPolicy": struct{}{},
-	"schema.ValidationAnalyzer.ServiceRole":              struct{}{},
-	"schema.ValidationAnalyzer.ServiceRoleBinding":       struct{}{},
-	"schema.ValidationAnalyzer.RbacConfig":               struct{}{},
-	"schema.ValidationAnalyzer.ClusterRbacConfig":        struct{}{},
-	"schema.ValidationAnalyzer.AuthorizationPolicy":      struct{}{},
+// regex patterns for analyzer names that should be explicitly ignored for testing
+var ignoreAnalyzers = []string{
+	// ValidationAnalyzer doesn't have any of its own logic, it just wraps the schema validation.
+	// We assume that detailed testing for schema validation is being done elsewhere.
+	// Testing the ValidationAnalyzer as a wrapper is done in a separate unit test.)
+	`schema\.ValidationAnalyzer\.*`,
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.
@@ -233,12 +210,19 @@ func TestAnalyzers(t *testing.T) {
 	// the collections declared as inputs for each of the analyzers
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
 		g := NewGomegaWithT(t)
+	outer:
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
 
 			// Skip this check for explicitly ignored analyzers
-			if _, ok := ignoreAnalyzers[analyzerName]; ok {
-				continue
+			for _, regex := range ignoreAnalyzers {
+				match, err := regexp.MatchString(regex, analyzerName)
+				if err != nil {
+					t.Fatalf("Error compiling ignoreAnalyzers regex %q: %v", regex, err)
+				}
+				if match {
+					continue outer
+				}
 			}
 
 			requestedInputs := make([]collection.Name, 0)

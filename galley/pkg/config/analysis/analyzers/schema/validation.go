@@ -26,7 +26,7 @@ import (
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
 type ValidationAnalyzer struct {
-	S schema.Instance
+	s schema.Instance
 }
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
@@ -36,7 +36,7 @@ var _ analysis.Analyzer = &ValidationAnalyzer{}
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	for _, s := range schemas.Istio {
-		result = append(result, &ValidationAnalyzer{S: s})
+		result = append(result, &ValidationAnalyzer{s: s})
 	}
 	return result
 }
@@ -44,19 +44,19 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.S.VariableName),
-		Inputs: collection.Names{collection.NewName(a.S.Collection)},
+		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.VariableName),
+		Inputs: collection.Names{collection.NewName(a.s.Collection)},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
-	c := collection.NewName(a.S.Collection)
+	c := collection.NewName(a.s.Collection)
 
 	ctx.ForEach(c, func(r *resource.Entry) bool {
 		name, ns := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-		err := a.S.Validate(name, ns, r.Item)
+		err := a.s.Validate(name, ns, r.Item)
 		if err != nil {
 			ctx.Report(c, msg.NewSchemaValidationError(r, err))
 		}

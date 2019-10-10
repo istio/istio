@@ -47,7 +47,7 @@ var (
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has one or more schema validation errors.
-	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0201", "The resource has one or more schema validation errors: %v")
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
