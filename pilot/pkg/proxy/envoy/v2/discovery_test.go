@@ -132,7 +132,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 	go doSendPushes(stopCh, semaphore, queue)
 
 	for _, proxy := range proxies {
-		queue.Enqueue(proxy, &model.PushRequest{})
+		queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}})
 	}
 
 	if !wgDoneOrTimeout(wg, time.Second) {
