@@ -201,7 +201,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
-				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
+				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
+				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
 			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
