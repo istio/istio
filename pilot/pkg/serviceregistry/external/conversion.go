@@ -65,9 +65,14 @@ func convertServices(cfg model.Config) []*model.Service {
 		}
 	}
 
-	mTLSReady := false
-	if cfg.Labels != nil && cfg.Labels[model.MTLSReadyLabelName] == "true" {
-		mTLSReady = true
+	mtlsReady := true
+	if len(serviceEntry.Endpoints) == 0 {
+		mtlsReady = false
+	}
+	for _, endpoint := range serviceEntry.Endpoints {
+		if !endpointMTLSReady(endpoint.Labels) {
+			mtlsReady = false
+		}
 	}
 
 	for _, hostname := range serviceEntry.Hosts {
@@ -93,7 +98,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
-						MTLSReady: mTLSReady,
+						MTLSReady: mtlsReady,
 					})
 				} else if net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
@@ -109,7 +114,7 @@ func convertServices(cfg model.Config) []*model.Service {
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
-						MTLSReady: mTLSReady,
+						MTLSReady: mtlsReady,
 					})
 				}
 			}
@@ -127,12 +132,19 @@ func convertServices(cfg model.Config) []*model.Service {
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
 				},
-				MTLSReady: mTLSReady,
+				MTLSReady: mtlsReady,
 			})
 		}
 	}
 
 	return out
+}
+
+func endpointMTLSReady(labels map[string]string) bool {
+	if labels != nil && labels[model.MTLSReadyLabelName] == "true" {
+		return true
+	}
+	return false
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
@@ -152,6 +164,8 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		family = model.AddressFamilyTCP
 	}
 
+	mtlsReady := endpointMTLSReady(endpoint.Labels)
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -163,8 +177,9 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			LbWeight:    endpoint.Weight,
 		},
 		// TODO ServiceAccount
-		Service: service,
-		Labels:  endpoint.Labels,
+		Service:   service,
+		Labels:    endpoint.Labels,
+		MTLSReady: mtlsReady,
 	}
 }
 
