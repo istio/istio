@@ -218,7 +218,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 	err = h.client.Get(context.TODO(), objectKey, receiver)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("creating resource")
+			log.Infof("creating resource: %s", objectKey)
 			err = h.client.Create(context.TODO(), mutatedObj)
 			if err == nil {
 				// special handling
