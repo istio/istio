@@ -74,6 +74,24 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 
 </td>
 </tr>
+<tr id="Params-redis_server_url">
+<td><code>redisServerUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Redis connection string <code>&lt;hostname&gt;:&lt;port number&gt;</code>
+ex) localhost:6379</p>
+
+</td>
+</tr>
+<tr id="Params-connection_pool_size">
+<td><code>connectionPoolSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Maximum number of idle connections to redis
+Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -95,6 +113,15 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 <p>The specific dimensions for which this override applies.
 String representation of instance dimensions is used to check against configured dimensions.
 <code>dimensions</code> should not be empty</p>
+
+</td>
+</tr>
+<tr id="Params-Override-max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota override.
+This value should be bigger than 0</p>
 
 </td>
 </tr>
@@ -173,6 +200,39 @@ The first matching override is applied.</p>
 
 </td>
 </tr>
+<tr id="Params-Quota-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the quota</p>
+
+</td>
+</tr>
+<tr id="Params-Quota-max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota. max_amount should be bigger than 0</p>
+
+</td>
+</tr>
+<tr id="Params-Quota-rate_limit_algorithm">
+<td><code>rateLimitAlgorithm</code></td>
+<td><code><a href="#Params-QuotaAlgorithm">Params.QuotaAlgorithm</a></code></td>
+<td>
+<p>Quota management algorithm. The default value is <code>FIXED_WINDOW</code></p>
+
+</td>
+</tr>
+<tr id="Params-Quota-overrides">
+<td><code>overrides</code></td>
+<td><code><a href="#Params-Override">Params.Override[]</a></code></td>
+<td>
+<p>Overrides associated with this quota.
+The first matching override is applied.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -188,6 +248,20 @@ The first matching override is applied.</p>
 </tr>
 </thead>
 <tbody>
+<tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
+<td><code>FIXED_WINDOW</code></td>
+<td>
+<p><code>FIXED_WINDOW</code> The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
+
+</td>
+</tr>
+<tr id="Params-QuotaAlgorithm-ROLLING_WINDOW">
+<td><code>ROLLING_WINDOW</code></td>
+<td>
+<p><code>ROLLING_WINDOW</code> The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
+
+</td>
+</tr>
 <tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
 <td><code>FIXED_WINDOW</code></td>
 <td>
