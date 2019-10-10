@@ -174,7 +174,7 @@ func NewDiscoveryServer(
 		out.ConfigUpdate(&model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			// TODO: extend ans set service instance type, so no need re-init push context
+			// TODO: extend and set service instance type, so no need re-init push context
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		})
 	}
