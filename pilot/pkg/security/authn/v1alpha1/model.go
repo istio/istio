@@ -19,7 +19,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
-
 // GetMutualTLSMode returns the mTLS mode for given. If the policy is nil, or doesn't define mTLS, it returns MTLSDisable.
 func GetMutualTLSMode(policy *authn.Policy) authn_model.MutualTLSMode {
 	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
