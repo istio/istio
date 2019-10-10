@@ -52,7 +52,7 @@ esac
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
-# docker images created by Dockerfile.proxy and Dockerfile.proxy_debug.
+# docker images created by Dockerfile.proxyv2 and Dockerfile.proxytproxy.
 
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
