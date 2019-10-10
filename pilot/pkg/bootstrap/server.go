@@ -276,6 +276,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, fmt.Errorf("mesh networks: %v", err)
 	}
+	// Certificate controller must be created before MCP
+	// controller to avoid deadlocks caused by the circular dependency, i.e.,
+	// MCP server pod waits to mount a certificate while
+	// Pilot waits for MCP server.
+	if err := s.initCertController(&args); err != nil {
+		return nil, fmt.Errorf("certificate controller: %v", err)
+	}
 	if err := s.initConfigController(&args); err != nil {
 		return nil, fmt.Errorf("config controller: %v", err)
 	}
@@ -290,9 +297,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
-	}
-	if err := s.initCertController(&args); err != nil {
-		return nil, fmt.Errorf("certificate controller: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
