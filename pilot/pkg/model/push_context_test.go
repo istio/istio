@@ -631,3 +631,10 @@ func (s *fakeStore) Create(config Config) (revision string, err error) {
 func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
 
 func (*fakeStore) Delete(typ, name, namespace string) error { return nil }
+
+func (*fakeStore) Version() string {
+	return "not implemented"
+}
+func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return "not implemented", nil
+}

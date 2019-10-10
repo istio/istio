@@ -758,3 +758,10 @@ func (fs *authzFakeStore) Create(config Config) (string, error) {
 func (fs *authzFakeStore) Update(config Config) (string, error) {
 	return "not implemented", nil
 }
+
+func (fs *authzFakeStore) Version() string {
+	return "not implemented"
+}
+func (fs *authzFakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return "not implemented", nil
+}

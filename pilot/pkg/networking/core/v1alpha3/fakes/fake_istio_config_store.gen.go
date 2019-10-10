@@ -2,11 +2,11 @@
 package fakes
 
 import (
-	"sync"
+	sync "sync"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema"
+	model "istio.io/istio/pilot/pkg/model"
+	labels "istio.io/istio/pkg/config/labels"
+	schema "istio.io/istio/pkg/config/schema"
 )
 
 type IstioConfigStore struct {
@@ -102,6 +102,20 @@ type IstioConfigStore struct {
 	getReturnsOnCall map[int]struct {
 		result1 *model.Config
 	}
+	GetResourceAtVersionStub        func(string, string) (string, error)
+	getResourceAtVersionMutex       sync.RWMutex
+	getResourceAtVersionArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
+	getResourceAtVersionReturns struct {
+		result1 string
+		result2 error
+	}
+	getResourceAtVersionReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	ListStub        func(string, string) ([]model.Config, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
@@ -181,6 +195,16 @@ type IstioConfigStore struct {
 	updateReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
+	}
+	VersionStub        func() string
+	versionMutex       sync.RWMutex
+	versionArgsForCall []struct {
+	}
+	versionReturns struct {
+		result1 string
+	}
+	versionReturnsOnCall map[int]struct {
+		result1 string
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -657,6 +681,70 @@ func (fake *IstioConfigStore) GetReturnsOnCall(i int, result1 *model.Config) {
 	}{result1}
 }
 
+func (fake *IstioConfigStore) GetResourceAtVersion(arg1 string, arg2 string) (string, error) {
+	fake.getResourceAtVersionMutex.Lock()
+	ret, specificReturn := fake.getResourceAtVersionReturnsOnCall[len(fake.getResourceAtVersionArgsForCall)]
+	fake.getResourceAtVersionArgsForCall = append(fake.getResourceAtVersionArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	fake.recordInvocation("GetResourceAtVersion", []interface{}{arg1, arg2})
+	fake.getResourceAtVersionMutex.Unlock()
+	if fake.GetResourceAtVersionStub != nil {
+		return fake.GetResourceAtVersionStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.getResourceAtVersionReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *IstioConfigStore) GetResourceAtVersionCallCount() int {
+	fake.getResourceAtVersionMutex.RLock()
+	defer fake.getResourceAtVersionMutex.RUnlock()
+	return len(fake.getResourceAtVersionArgsForCall)
+}
+
+func (fake *IstioConfigStore) GetResourceAtVersionCalls(stub func(string, string) (string, error)) {
+	fake.getResourceAtVersionMutex.Lock()
+	defer fake.getResourceAtVersionMutex.Unlock()
+	fake.GetResourceAtVersionStub = stub
+}
+
+func (fake *IstioConfigStore) GetResourceAtVersionArgsForCall(i int) (string, string) {
+	fake.getResourceAtVersionMutex.RLock()
+	defer fake.getResourceAtVersionMutex.RUnlock()
+	argsForCall := fake.getResourceAtVersionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *IstioConfigStore) GetResourceAtVersionReturns(result1 string, result2 error) {
+	fake.getResourceAtVersionMutex.Lock()
+	defer fake.getResourceAtVersionMutex.Unlock()
+	fake.GetResourceAtVersionStub = nil
+	fake.getResourceAtVersionReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *IstioConfigStore) GetResourceAtVersionReturnsOnCall(i int, result1 string, result2 error) {
+	fake.getResourceAtVersionMutex.Lock()
+	defer fake.getResourceAtVersionMutex.Unlock()
+	fake.GetResourceAtVersionStub = nil
+	if fake.getResourceAtVersionReturnsOnCall == nil {
+		fake.getResourceAtVersionReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.getResourceAtVersionReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *IstioConfigStore) List(arg1 string, arg2 string) ([]model.Config, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
@@ -1068,6 +1156,58 @@ func (fake *IstioConfigStore) UpdateReturnsOnCall(i int, result1 string, result2
 	}{result1, result2}
 }
 
+func (fake *IstioConfigStore) Version() string {
+	fake.versionMutex.Lock()
+	ret, specificReturn := fake.versionReturnsOnCall[len(fake.versionArgsForCall)]
+	fake.versionArgsForCall = append(fake.versionArgsForCall, struct {
+	}{})
+	fake.recordInvocation("Version", []interface{}{})
+	fake.versionMutex.Unlock()
+	if fake.VersionStub != nil {
+		return fake.VersionStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.versionReturns
+	return fakeReturns.result1
+}
+
+func (fake *IstioConfigStore) VersionCallCount() int {
+	fake.versionMutex.RLock()
+	defer fake.versionMutex.RUnlock()
+	return len(fake.versionArgsForCall)
+}
+
+func (fake *IstioConfigStore) VersionCalls(stub func() string) {
+	fake.versionMutex.Lock()
+	defer fake.versionMutex.Unlock()
+	fake.VersionStub = stub
+}
+
+func (fake *IstioConfigStore) VersionReturns(result1 string) {
+	fake.versionMutex.Lock()
+	defer fake.versionMutex.Unlock()
+	fake.VersionStub = nil
+	fake.versionReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *IstioConfigStore) VersionReturnsOnCall(i int, result1 string) {
+	fake.versionMutex.Lock()
+	defer fake.versionMutex.Unlock()
+	fake.VersionStub = nil
+	if fake.versionReturnsOnCall == nil {
+		fake.versionReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.versionReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
 func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -1087,6 +1227,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.gatewaysMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.getResourceAtVersionMutex.RLock()
+	defer fake.getResourceAtVersionMutex.RUnlock()
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	fake.quotaSpecByDestinationMutex.RLock()
@@ -1101,6 +1243,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.serviceRolesMutex.RUnlock()
 	fake.updateMutex.RLock()
 	defer fake.updateMutex.RUnlock()
+	fake.versionMutex.RLock()
+	defer fake.versionMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
