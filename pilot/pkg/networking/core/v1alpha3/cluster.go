@@ -82,7 +82,7 @@ var (
 		Name:  "plaintext",
 		Match: &structpb.Struct{},
 		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocket,
+			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
 )
@@ -829,7 +829,6 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
 		var enableTransportSocketMtls bool
-		// AutoMTLS and service.MTLSReady must both be true to enable
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		tls, enableTransportSocketMtls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, opts.serviceMTLSMode, autoMTLSEnabled)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy, enableTransportSocketMtls)
@@ -1174,7 +1173,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 						},
 					},
 					TransportSocket: &core.TransportSocket{
-						Name: util.TLSSocketName,
+						Name: util.EnvoyTLSSocketName,
 						ConfigType: &core.TransportSocket_TypedConfig{
 							TypedConfig: tlsContext,
 						},

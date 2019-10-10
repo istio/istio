@@ -791,15 +791,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name                      string
-		tls                       *networking.TLSSettings
-		sans                      []string
-		sni                       string
-		proxy                     *model.Proxy
-		serviceMTLSMode           authn_v1alpha1_applier.MutualTLSMode
-		mtlsReady                 bool
-		want                      *networking.TLSSettings
-		enableTransportSocketMtls bool
+		name              string
+		tls               *networking.TLSSettings
+		sans              []string
+		sni               string
+		proxy             *model.Proxy
+		serviceMTLSMode   authn_v1alpha1_applier.MutualTLSMode
+		mtlsReady         bool
+		want              *networking.TLSSettings
+		mtlsBySocketMatch bool
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -1037,9 +1037,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, enableTransportSocketMtls := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, tt.mtlsReady)
-			if !reflect.DeepEqual(got, tt.want) || enableTransportSocketMtls != tt.enableTransportSocketMtls {
-				t.Errorf("Expected locality empty result %#v, %v but got %#v, %v", tt.want, tt.enableTransportSocketMtls, got, enableTransportSocketMtls)
+			got, mtlsBySocketMatch := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, tt.mtlsReady)
+			if !reflect.DeepEqual(got, tt.want) || mtlsBySocketMatch != tt.mtlsBySocketMatch {
+				t.Errorf("Expected locality empty result %#v, %v but got %#v, %v", tt.want, tt.mtlsBySocketMatch, got, mtlsBySocketMatch)
 			}
 		})
 	}

@@ -97,7 +97,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, mTLSReady bool) *endpoint.LbEndpoint {
+	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -132,21 +132,14 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(uid, network)
-
-	if mTLSReady {
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
-			},
-		}
-	}
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = endpointMetadata(uid, network, mtlsReady)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -170,22 +163,15 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mTLSReady bool) (*
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(e.UID, e.Network)
-
-	if mTLSReady {
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
-			},
-		}
-	}
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = endpointMetadata(e.UID, e.Network, mtlsReady)
 
 	return ep, nil
 }
 
-// Create an Istio filter metadata object with the UID and Network fields (if exist).
-func endpointMetadata(uid string, network string) *core.Metadata {
+// Create an Istio filter metadata object with the UID, Network and MTLSReady fields (if exist).
+func endpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
 	if uid == "" && network == "" {
 		return nil
 	}
@@ -204,6 +190,14 @@ func endpointMetadata(uid string, network string) *core.Metadata {
 
 	if network != "" {
 		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: network}}
+	}
+
+	if mtlsReady {
+		metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+			},
+		}
 	}
 
 	return metadata

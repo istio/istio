@@ -74,15 +74,15 @@ const (
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
-	EnvoyTransportSocketMetadataKey = "envoy.transport_socket"
+	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
 
-	// EnvoyRawBufferSocket matched with hardcoded built-in Envoy transport name which determines
+	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
 	// endpoint level plantext transport socket configuration
-	EnvoyRawBufferSocket = "raw_buffer"
+	EnvoyRawBufferSocketName = "raw_buffer"
 
-	// TLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
-	TLSSocketName = "tls"
+	EnvoyTLSSocketName = "tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
