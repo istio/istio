@@ -621,6 +621,7 @@ github.com/mattn/go-sqlite3 v1.9.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOq
 github.com/mattn/go-sqlite3 v1.10.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
+github.com/maxbrunsfeld/counterfeiter v0.0.0-20181017030959-1aadac120687 h1:fJasMUaV/LYZvzK4bUOj13rNXc4fhVzU0Vu1OlcGUd4=
 github.com/maxbrunsfeld/counterfeiter v0.0.0-20181017030959-1aadac120687/go.mod h1:aoVsckWnsNzazwF2kmD+bzgdr4GBlbK91zsdivQJ2eU=
 github.com/mesos/mesos-go v0.0.9/go.mod h1:kPYCMQ9gsOXVAle1OsoY4I1+9kPu8GHkf88aV59fDr4=
 github.com/mholt/archiver v3.1.1+incompatible h1:1dCVxuqs0dJseYEhi5pl7MYPH9zDa1wBi7mF09cbNkU=

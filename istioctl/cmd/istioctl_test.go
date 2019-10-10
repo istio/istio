@@ -321,7 +321,6 @@ func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
 	return cs.store.ConfigDescriptor()
 }
 
-
 func (cs sortedConfigStore) Version() string {
 	return cs.store.Version()
 }
