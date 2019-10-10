@@ -226,7 +226,7 @@ github.com/gobwas/glob/syntax/ast
 github.com/gobwas/glob/syntax/lexer
 github.com/gobwas/glob/util/runes
 github.com/gobwas/glob/util/strings
-# github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
+# github.com/gogo/protobuf v1.3.0
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/jsonpb
 github.com/gogo/protobuf/proto
@@ -786,7 +786,7 @@ istio.io/api/rbac/v1alpha1
 istio.io/gogo-genproto/googleapis/google/api
 istio.io/gogo-genproto/googleapis/google/rpc
 istio.io/gogo-genproto/opencensus/proto/trace/v1
-# istio.io/operator v0.0.0-20190918235823-f754c5665bbf
+# istio.io/operator v0.0.0-20191010003958-b7f3c04cfd0b
 istio.io/operator/cmd/mesh
 istio.io/operator/pkg/apis/istio/v1alpha2
 istio.io/operator/pkg/compare

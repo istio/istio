@@ -102,6 +102,8 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCNIComponent(opts)
 	case name.TracingComponentName:
 		component = NewTracingComponent(opts)
+	case name.GrafanaComponentName:
+		component = NewGrafanaComponent(opts)
 	}
 	return component
 }

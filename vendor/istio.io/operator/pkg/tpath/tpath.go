@@ -222,7 +222,7 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 	return nil
 }
 
-// TODO Merge this into existing WritePathContext method
+// TODO Merge this into existing WritePathContext method (istio/istio#15494)
 // DeleteFromTree sets value at path of input untyped tree to nil
 func DeleteFromTree(valueTree map[string]interface{}, path util.Path, remainPath util.Path) (bool, error) {
 	if len(remainPath) == 0 {

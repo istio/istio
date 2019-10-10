@@ -93,7 +93,8 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 	}
 
 	for cn, cm := range ts.ComponentMaps {
-		if cn != name.IstioBaseComponentName {
+		f := ts.ToFeature[cn]
+		if f != name.IstioBaseFeatureName && f != name.ThirdPartyFeatureName {
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}
 	}

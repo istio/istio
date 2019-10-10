@@ -4423,6 +4423,12 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+      - name: {{ $key }}
+        value: "{{ $value }}"
+    {{- end }}
+    {{- end }}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
     {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
     readinessProbe:
@@ -33758,7 +33764,7 @@ spec:
         port:
 
     prometheus:
-      enabeld: false
+      enabled: false
 `)
 
 func profilesMinimalYamlBytes() ([]byte, error) {
