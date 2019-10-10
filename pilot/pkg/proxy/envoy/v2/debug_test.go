@@ -545,7 +545,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -580,7 +580,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -619,7 +619,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "DISABLE",
@@ -668,7 +668,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -735,7 +735,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -744,7 +744,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default|foobar",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "SIMPLE",
