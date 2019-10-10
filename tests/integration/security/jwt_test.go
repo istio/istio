@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jwt
+package security
 
 import (
 	"fmt"
@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"istio.io/istio/tests/integration/security/authn"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util/authn"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
