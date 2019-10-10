@@ -62,7 +62,7 @@ func NewIstioRenderingInput(instance *v1alpha2.IstioControlPlane) *IstioRenderin
 }
 
 // GetCRPath returns the path of IstioControlPlane CR.
-func (i *IstioRenderingInput) GetChartPath() string {
+func (i *IstioRenderingInput) GetCRPath() string {
 	return i.crPath
 }
 

@@ -74,8 +74,8 @@ type ChartManifestsMap map[string][]manifest.Manifest
 
 // RenderingInput specifies the details used for rendering charts.
 type RenderingInput interface {
-	// GetChartPath returns the absolute path locating the chart to be rendered.
-	GetChartPath() string
+	// GetCRPath returns the absolute path locating the cr.
+	GetCRPath() string
 	// GetInputConfig returns the values object used during rendering.
 	GetInputConfig() interface{}
 	// GetTargetNamespace returns the target namespace which should be applied to namespaced resources
