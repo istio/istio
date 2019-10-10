@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type message struct {
@@ -53,21 +54,17 @@ type testCase struct {
 //     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
-		name: "serviceRoleBindings",
-		inputFiles: []string{
-			"testdata/servicerolebindings.yaml",
-		},
-		analyzer: &auth.ServiceRoleBindingAnalyzer{},
+		name:       "serviceRoleBindings",
+		inputFiles: []string{"testdata/servicerolebindings.yaml"},
+		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "ServiceRoleBinding/test-bogus-binding"},
 		},
 	},
 	{
-		name: "deprecation",
-		inputFiles: []string{
-			"testdata/deprecation.yaml",
-		},
-		analyzer: &deprecation.FieldAnalyzer{},
+		name:       "deprecation",
+		inputFiles: []string{"testdata/deprecation.yaml"},
+		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService/route-egressgateway"},
 			{msg.Deprecated, "VirtualService/tornado"},
@@ -77,127 +74,125 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "gatewayNoWorkload",
-		inputFiles: []string{
-			"testdata/gateway-no-workload.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		name:       "gatewayNoWorkload",
+		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
 		},
 	},
 	{
-		name: "gatewayBadPort",
-		inputFiles: []string{
-			"testdata/gateway-no-port.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		name:       "gatewayBadPort",
+		inputFiles: []string{"testdata/gateway-no-port.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
 		},
 	},
 	{
-		name: "gatewayCorrectPort",
-		inputFiles: []string{
-			"testdata/gateway-correct-port.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
+		name:       "gatewayCorrectPort",
+		inputFiles: []string{"testdata/gateway-correct-port.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
 	{
-		name: "gatewayCustomIngressGateway",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
+		name:       "gatewayCustomIngressGateway",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
 	{
-		name: "gatewayCustomIngressGatewayBadPort",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway-badport.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		name:       "gatewayCustomIngressGatewayBadPort",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
 		},
 	},
 	{
-		name: "gatewayServiceMatchPod",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway-svcselector.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
+		name:       "gatewayServiceMatchPod",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
 		},
 	},
 
 	{
-		name: "istioInjection",
-		inputFiles: []string{
-			"testdata/injection.yaml",
-		},
-		analyzer: &injection.Analyzer{},
+		name:       "istioInjection",
+		inputFiles: []string{"testdata/injection.yaml"},
+		analyzer:   &injection.Analyzer{},
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace/bar"},
 			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
 		},
 	},
 	{
-		name: "schemaValidation",
-		inputFiles: []string{
-			"testdata/schema-validation.yaml",
-		},
-		analyzer: analysis.Combine("allValidation", schema.AllValidationAnalyzers()...),
+		name:       "schemaValidation",
+		inputFiles: []string{"testdata/schema-validation.yaml"},
+		analyzer:   &schema.ValidationAnalyzer{S: schemas.VirtualService},
 		expected: []message{
 			{msg.SchemaValidationError, "VirtualService/ratings-bogus-weight"},
 		},
 	},
 	{
-		name: "istioInjectionVersionMismatch",
-		inputFiles: []string{
-			"testdata/injection-with-mismatched-sidecar.yaml",
-		},
-		analyzer: &injection.VersionAnalyzer{},
+		name:       "istioInjectionVersionMismatch",
+		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
+		analyzer:   &injection.VersionAnalyzer{},
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
 		},
 	},
 	{
-		name: "virtualServiceDestinationHosts",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationhosts.yaml",
-		},
-		analyzer: &virtualservice.DestinationHostAnalyzer{},
+		name:       "virtualServiceDestinationHosts",
+		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
+		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
 		},
 	},
 	{
-		name: "virtualServiceDestinationRules",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationrules.yaml",
-		},
-		analyzer: &virtualservice.DestinationRuleAnalyzer{},
+		name:       "virtualServiceDestinationRules",
+		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
+		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
 		},
 	},
 	{
-		name: "virtualServiceGateways",
-		inputFiles: []string{
-			"testdata/virtualservice_gateways.yaml",
-		},
-		analyzer: &virtualservice.GatewayAnalyzer{},
+		name:       "virtualServiceGateways",
+		inputFiles: []string{"testdata/virtualservice_gateways.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
 		},
 	},
+}
+
+// Analyzers being explicitly ignored for testing
+var ignoreAnalyzers = map[string]struct{}{
+	// We assume that testing for schema validation is being done elsewhere.
+	// We test VirtualService briefly just to be sure the analyzer wrapping the schema validation is working correctly.
+	"schema.ValidationAnalyzer.Gateway":                  struct{}{},
+	"schema.ValidationAnalyzer.ServiceEntry":             struct{}{},
+	"schema.ValidationAnalyzer.DestinationRule":          struct{}{},
+	"schema.ValidationAnalyzer.EnvoyFilter":              struct{}{},
+	"schema.ValidationAnalyzer.Sidecar":                  struct{}{},
+	"schema.ValidationAnalyzer.HTTPAPISpec":              struct{}{},
+	"schema.ValidationAnalyzer.HTTPAPISpecBinding":       struct{}{},
+	"schema.ValidationAnalyzer.QuotaSpec":                struct{}{},
+	"schema.ValidationAnalyzer.QuotaSpecBinding":         struct{}{},
+	"schema.ValidationAnalyzer.AuthenticationPolicy":     struct{}{},
+	"schema.ValidationAnalyzer.AuthenticationMeshPolicy": struct{}{},
+	"schema.ValidationAnalyzer.ServiceRole":              struct{}{},
+	"schema.ValidationAnalyzer.ServiceRoleBinding":       struct{}{},
+	"schema.ValidationAnalyzer.RbacConfig":               struct{}{},
+	"schema.ValidationAnalyzer.ClusterRbacConfig":        struct{}{},
+	"schema.ValidationAnalyzer.AuthorizationPolicy":      struct{}{},
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.
@@ -240,6 +235,12 @@ func TestAnalyzers(t *testing.T) {
 		g := NewGomegaWithT(t)
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
+
+			// Skip this check for explicitly ignored analyzers
+			if _, ok := ignoreAnalyzers[analyzerName]; ok {
+				continue
+			}
+
 			requestedInputs := make([]collection.Name, 0)
 			for col := range requestedInputsByAnalyzer[analyzerName] {
 				requestedInputs = append(requestedInputs, col)
