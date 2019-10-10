@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package citadel
+package security
 
 import (
 	"reflect"
@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
@@ -45,6 +46,7 @@ const (
 // immediately exit with error.
 func TestCitadelBootstrapKubernetes(t *testing.T) {
 	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Label(label.CustomSetup). // test depends on the clusterrole name being "istio-citadel-istio-system"
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().IstioNamespace)

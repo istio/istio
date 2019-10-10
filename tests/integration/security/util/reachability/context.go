@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
+// TestCase represents reachability test cases.
 type TestCase struct {
 	// ConfigFile is the name of the yaml contains the authentication policy and destination rule CRs
 	// that are needed for the test setup.
@@ -122,7 +123,7 @@ func (rc *Context) Run(testCases []TestCase) {
 
 		test.Run(func(ctx framework.TestContext) {
 			// Apply the policy.
-			policyYAML := file.AsStringOrFail(ctx, filepath.Join("../testdata", c.ConfigFile))
+			policyYAML := file.AsStringOrFail(ctx, filepath.Join("./testdata", c.ConfigFile))
 			rc.g.ApplyConfigOrFail(ctx, c.Namespace, policyYAML)
 			ctx.WhenDone(func() error {
 				return rc.g.DeleteConfig(c.Namespace, policyYAML)
