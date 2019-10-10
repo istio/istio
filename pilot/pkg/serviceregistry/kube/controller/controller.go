@@ -344,7 +344,6 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	return fmt.Sprintf("%v/%v", region, zone)
 }
 
-
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
 	pod := c.pods.getPodByIP(addr)
