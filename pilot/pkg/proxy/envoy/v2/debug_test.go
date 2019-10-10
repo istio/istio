@@ -545,7 +545,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -580,8 +580,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
 					TLSConflictStatus:        "OK",
@@ -619,8 +619,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "DISABLE",
 					TLSConflictStatus:        "CONFLICT",
@@ -668,8 +668,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
 					TLSConflictStatus:        "OK",
@@ -735,8 +735,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
 					TLSConflictStatus:        "OK",
@@ -744,8 +744,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default|foobar",
 					Port:                     8080,
-					AuthenticationPolicyName: "foo/bar",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "SIMPLE",
 					TLSConflictStatus:        "CONFLICT",
