@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package manualmtls
+package security
 
 import (
 	"testing"
-
-	"istio.io/istio/tests/integration/security/reachability"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
 // This test verifies reachability under different authN scenario:
