@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multipletlsgateway
+package sdsingress 
 
 import (
-	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+
+	"testing"
 )
 
 var (
@@ -31,29 +32,34 @@ var (
 		"bookinfo4.example.com", "bookinfo5.example.com"}
 )
 
-// testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
-// private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
-// SSL connections successfully.
-func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
+// testMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
+// private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
+// mTLS connections successfully.
+func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, ingressutil.IngressCredentialA)
-	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, ingressutil.IngressCredentialA)
+	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 30*time.Second)
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+		Istio: inst,
+	})
+	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
+	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
 	if err != nil {
 		t.Errorf("sds update stats does not match: %v", err)
 	}
-	// Expect two active listeners, one listens on 443 and the other listens on 15090
+	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
 	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
 	if err != nil {
 		t.Errorf("total active listener stats does not match: %v", err)
 	}
 	tlsContext := ingressutil.TLSContext{
-		CaCert: ingressutil.CaCertA,
+		CaCert:     ingressutil.CaCertA,
+		PrivateKey: ingressutil.TLSClientKeyA,
+		Cert:       ingressutil.TLSClientCertA,
 	}
-	callType := ingress.TLS
+	callType := ingress.Mtls
 
 	for _, h := range hosts {
 		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
@@ -64,11 +70,11 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	}
 }
 
-func TestTlsGateways(t *testing.T) {
+func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			testMultiTLSGateways(t, ctx)
+			testMultiMtlsGateways(t, ctx)
 		})
 }

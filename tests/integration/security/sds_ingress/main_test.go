@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package multitlsgatewayinvalidsecret
+package sdsingress
 
 import (
 	"testing"
@@ -35,7 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_multi_tls_gateway_invalid_secret_test", m).
+		NewSuite("sds_ingress", m).
 		Label(label.CustomSetup).
 		Label(label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
@@ -60,6 +60,4 @@ func setupConfig(cfg *istio.Config) {
 	}
 	// Enable SDS key/certificate provisioning for ingress gateway.
 	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-	// TODO(https://github.com/istio/istio/issues/14084) remove this
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }

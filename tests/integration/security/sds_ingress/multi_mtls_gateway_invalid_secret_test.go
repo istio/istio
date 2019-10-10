@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multitlsgatewayinvalidsecret
+package sdsingress
 
 import (
 	"testing"
@@ -24,14 +24,14 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-// TestMultiTlsGateway_InvalidSecret tests a single TLS ingress gateway with SDS enabled. Creates kubernetes secret
+// TestMultiMtlsGateway_InvalidSecret tests a single mTLS ingress gateway with SDS enabled. Creates kubernetes secret
 // with invalid key/cert and verify the behavior.
-func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
+func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
+			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
 			testCase := []struct {
 				name                     string
@@ -44,11 +44,12 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				tlsContext               ingressutil.TLSContext
 			}{
 				{
-					name:       "tls ingress gateway invalid private key",
+					name:       "mtls ingress gateway invalid CA cert",
 					secretName: "bookinfo-credential-1",
 					ingressGatewayCredential: ingressutil.IngressCredential{
-						PrivateKey: "invalid",
+						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: ingressutil.TLSServerCertA,
+						CaCert:     "invalid",
 					},
 					ingressConfig: ingress.Config{
 						Istio: inst,
@@ -58,17 +59,19 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: ingress.TLS,
+					callType: ingress.Mtls,
 					tlsContext: ingressutil.TLSContext{
-						CaCert: ingressutil.CaCertA,
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 				{
-					name:       "tls ingress gateway invalid server cert",
+					name:       "mtls ingress gateway no CA cert",
 					secretName: "bookinfo-credential-2",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
-						ServerCert: "invalid",
+						ServerCert: ingressutil.TLSServerCertA,
 					},
 					ingressConfig: ingress.Config{
 						Istio: inst,
@@ -78,17 +81,20 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: ingress.TLS,
+					callType: ingress.Mtls,
 					tlsContext: ingressutil.TLSContext{
-						CaCert: ingressutil.CaCertA,
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 				{
-					name:       "tls ingress gateway mis-matched key and cert",
+					name:       "mtls ingress gateway mismatched CA cert",
 					secretName: "bookinfo-credential-3",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
-						ServerCert: ingressutil.TLSServerCertB,
+						ServerCert: ingressutil.TLSServerCertA,
+						CaCert:     ingressutil.CaCertB,
 					},
 					ingressConfig: ingress.Config{
 						Istio: inst,
@@ -98,53 +104,17 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						ResponseCode: 0,
 						ErrorMessage: "connection refused",
 					},
-					callType: ingress.TLS,
+					callType: ingress.Mtls,
 					tlsContext: ingressutil.TLSContext{
-						CaCert: ingressutil.CaCertA,
-					},
-				},
-				{
-					name:       "tls ingress gateway no private key",
-					secretName: "bookinfo-credential-4",
-					ingressGatewayCredential: ingressutil.IngressCredential{
-						ServerCert: ingressutil.TLSServerCertA,
-					},
-					ingressConfig: ingress.Config{
-						Istio: inst,
-					},
-					hostName: "bookinfo4.example.com",
-					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "connection refused",
-					},
-					callType: ingress.TLS,
-					tlsContext: ingressutil.TLSContext{
-						CaCert: ingressutil.CaCertA,
-					},
-				},
-				{
-					name:       "tls ingress gateway no server cert",
-					secretName: "bookinfo-credential-5",
-					ingressGatewayCredential: ingressutil.IngressCredential{
-						PrivateKey: ingressutil.TLSServerKeyA,
-					},
-					ingressConfig: ingress.Config{
-						Istio: inst,
-					},
-					hostName: "bookinfo5.example.com",
-					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "connection refused",
-					},
-					callType: ingress.TLS,
-					tlsContext: ingressutil.TLSContext{
-						CaCert: ingressutil.CaCertA,
+						CaCert:     ingressutil.CaCertA,
+						PrivateKey: ingressutil.TLSClientKeyA,
+						Cert:       ingressutil.TLSClientCertA,
 					},
 				},
 			}
 
 			for _, c := range testCase {
-				ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.TLS,
+				ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,
 					c.ingressGatewayCredential)
 				// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 				time.Sleep(3 * time.Second)
