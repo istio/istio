@@ -45,16 +45,6 @@ func (s Set) GetByType(name string) (Instance, bool) {
 	return Instance{}, false
 }
 
-// GetByCollection finds a schema by collection name if it is available
-func (s Set) GetByCollection(name string) (Instance, bool) {
-	for _, i := range s {
-		if i.Collection == name {
-			return i, true
-		}
-	}
-	return Instance{}, false
-}
-
 // Validate checks that each name conforms to the spec and has a schema Instance
 func (s Set) Validate() error {
 	var errs error

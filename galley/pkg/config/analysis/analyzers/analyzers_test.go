@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -47,6 +48,9 @@ type testCase struct {
 
 // Some notes on setting up tests for Analyzers:
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
+// * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
+// * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
+//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
 		name: "serviceRoleBindings",
@@ -59,54 +63,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "virtualServiceGateways",
+		name: "deprecation",
 		inputFiles: []string{
-			"testdata/virtualservice_gateways.yaml",
+			"testdata/deprecation.yaml",
 		},
-		analyzer: &virtualservice.GatewayAnalyzer{},
+		analyzer: &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
-		},
-	},
-	{
-		name: "virtualServiceDestinationHosts",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationhosts.yaml",
-		},
-		analyzer: &virtualservice.DestinationHostAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
-		},
-	},
-	{
-		name: "virtualServiceDestinationRules",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationrules.yaml",
-		},
-		analyzer: &virtualservice.DestinationRuleAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
-		},
-	},
-	{
-		name: "istioInjection",
-		inputFiles: []string{
-			"testdata/injection.yaml",
-		},
-		analyzer: &injection.Analyzer{},
-		expected: []message{
-			{msg.NamespaceNotInjected, "Namespace/bar"},
-			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
-		},
-	},
-	{
-		name: "istioInjectionVersionMismatch",
-		inputFiles: []string{
-			"testdata/injection-with-mismatched-sidecar.yaml",
-		},
-		analyzer: &injection.VersionAnalyzer{},
-		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+			{msg.Deprecated, "VirtualService/route-egressgateway"},
+			{msg.Deprecated, "VirtualService/tornado"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
+			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
+			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
 		},
 	},
 	{
@@ -169,18 +136,66 @@ var testGrid = []testCase{
 			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
 		},
 	},
+
 	{
-		name: "deprecation",
+		name: "istioInjection",
 		inputFiles: []string{
-			"testdata/deprecation.yaml",
+			"testdata/injection.yaml",
 		},
-		analyzer: &deprecation.FieldAnalyzer{},
+		analyzer: &injection.Analyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService/route-egressgateway"},
-			{msg.Deprecated, "VirtualService/tornado"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
-			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
+			{msg.NamespaceNotInjected, "Namespace/bar"},
+			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+		},
+	},
+	{
+		name: "schemaValidation",
+		inputFiles: []string{
+			"testdata/schema-validation.yaml",
+		},
+		analyzer: analysis.Combine("allValidation", schema.AllValidationAnalyzers()...),
+		expected: []message{
+			{msg.SchemaValidationError, "VirtualService/ratings-bogus-weight"},
+		},
+	},
+	{
+		name: "istioInjectionVersionMismatch",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+		},
+		analyzer: &injection.VersionAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+		},
+	},
+	{
+		name: "virtualServiceDestinationHosts",
+		inputFiles: []string{
+			"testdata/virtualservice_destinationhosts.yaml",
+		},
+		analyzer: &virtualservice.DestinationHostAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+		},
+	},
+	{
+		name: "virtualServiceDestinationRules",
+		inputFiles: []string{
+			"testdata/virtualservice_destinationrules.yaml",
+		},
+		analyzer: &virtualservice.DestinationRuleAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
+		},
+	},
+	{
+		name: "virtualServiceGateways",
+		inputFiles: []string{
+			"testdata/virtualservice_gateways.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
 		},
 	},
 }

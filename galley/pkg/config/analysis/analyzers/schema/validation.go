@@ -26,17 +26,17 @@ import (
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
 type ValidationAnalyzer struct {
-	s schema.Instance
+	S schema.Instance
 }
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
 
 // AllValidationAnalyzers returns a slice with a validation analyzer for each Istio schema
 // This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
-func AllValidationAnalyzers() []*ValidationAnalyzer {
-	result := make([]*ValidationAnalyzer, 0)
+func AllValidationAnalyzers() []analysis.Analyzer {
+	result := make([]analysis.Analyzer, 0)
 	for _, s := range schemas.Istio {
-		result = append(result, &ValidationAnalyzer{s: s})
+		result = append(result, &ValidationAnalyzer{S: s})
 	}
 	return result
 }
@@ -44,19 +44,19 @@ func AllValidationAnalyzers() []*ValidationAnalyzer {
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.VariableName),
-		Inputs: collection.Names{collection.NewName(a.s.Collection)},
+		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.S.VariableName),
+		Inputs: collection.Names{collection.NewName(a.S.Collection)},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
-	c := collection.NewName(a.s.Collection)
+	c := collection.NewName(a.S.Collection)
 
 	ctx.ForEach(c, func(r *resource.Entry) bool {
 		name, ns := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-		err := a.s.Validate(name, ns, r.Item)
+		err := a.S.Validate(name, ns, r.Item)
 		if err != nil {
 			ctx.Report(c, msg.NewSchemaValidationError(r, err))
 		}

@@ -27,14 +27,15 @@ import (
 // All returns all analyzers
 func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
-		&gateway.IngressGatewayPortAnalyzer{},
-		&virtualservice.GatewayAnalyzer{},
-		&virtualservice.DestinationHostAnalyzer{},
-		&virtualservice.DestinationRuleAnalyzer{},
+		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&auth.ServiceRoleBindingAnalyzer{},
+		&deprecation.FieldAnalyzer{},
+		&gateway.IngressGatewayPortAnalyzer{},
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
-		&deprecation.FieldAnalyzer{},
+		&virtualservice.DestinationHostAnalyzer{},
+		&virtualservice.DestinationRuleAnalyzer{},
+		&virtualservice.GatewayAnalyzer{},
 	}
 
 	for _, a := range schema.AllValidationAnalyzers() {
