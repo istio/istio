@@ -896,14 +896,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	updateMTLSReadyStatus := false
-	serviceMTLSStatus := true
-
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
@@ -933,11 +925,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 
 				mtlsReady := kube.PodMTLSReady(pod)
-				// Service mTLS status must be updated if mtlsReady does not match the mtlsReady state of all endpoints
-				if svc != nil && svc.MTLSReady != mtlsReady {
-					updateMTLSReadyStatus = true
-					serviceMTLSStatus = mtlsReady
-				}
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
@@ -957,14 +944,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 			}
 		}
-	} else if !svc.MTLSReady {
-		// handles scenario where all instances are mTLSReady except one, and that one is eventually deleted
-		updateMTLSReadyStatus = c.checkMTLSStatusChange(svc)
-		serviceMTLSStatus = true
-	}
-
-	if c.Env.Mesh.GetEnableAutoMtls().GetValue() && updateMTLSReadyStatus {
-		c.updateSvcMtlsReady(svc, serviceMTLSStatus)
 	}
 
 	if log.InfoEnabled() {
@@ -989,57 +968,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
-}
-
-// called when the overall mTLS ready status of endpoints have changed for a service and the cached Service object must be updated
-func (c *Controller) updateSvcMtlsReady(svc *model.Service, mTLSStatus bool) {
-	c.Lock()
-	serviceToModify := c.servicesMap[svc.Hostname]
-	serviceToModify.MTLSReady = mTLSStatus
-	c.servicesMap[svc.Hostname] = serviceToModify
-	c.Unlock()
-}
-
-// called only on delete events to handle scenario where Service.MTLSReady can transition from false -> true
-// return true if all service instances are mTLSReady
-func (c *Controller) checkMTLSStatusChange(svc *model.Service) bool {
-	// TODO GregHanson are external services being handled properly?
-	c.RLock()
-	instances := c.externalNameSvcInstanceMap[svc.Hostname]
-	c.RUnlock()
-	if instances != nil {
-		svcMTLSReady := true
-		for _, inst := range instances {
-			if !inst.Service.MTLSReady {
-				svcMTLSReady = false
-				break
-			}
-		}
-		return svcMTLSReady
-	}
-
-	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
-
-	if err != nil {
-		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return false
-	}
-	if !exists {
-		return false
-	}
-
-	svcMTLSReady := true
-	ep := item.(*v1.Endpoints)
-	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			pod := c.pods.getPodByIP(ea.IP)
-			if !kube.PodMTLSReady(pod) {
-				svcMTLSReady = false
-				break
-			}
-		}
-	}
-	return svcMTLSReady
 }
 
 // namedRangerEntry for holding network's CIDR and name
