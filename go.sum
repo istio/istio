@@ -499,6 +499,10 @@ github.com/opencontainers/image-spec v0.0.0-20170604055404-372ad780f634/go.mod h
 github.com/opencontainers/runc v0.0.0-20181113202123-f000fe11ece1/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
 github.com/opencontainers/runtime-spec v1.0.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opencontainers/selinux v0.0.0-20170621221121-4a2974bf1ee9/go.mod h1:+BLncwf63G4dgOzykXAxcmnFlUaOlkDdmw/CqsW6pjs=
+github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible h1:CIa+Zv6vIPhJl5OHmKxVpnekHC54YYe49L9GLr7IxGI=
+github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible/go.mod h1:dh9o4Fs58gpFXGSYfnVxGR9PnV53I8TW84pQaJDdGiY=
+github.com/openshift/cluster-network-operator v0.0.0-20191009144453-fdceef8e1a7b h1:o1gntdsbSA4ctFppBJ1Tlqlspwta1R3rSm/qz1KwqsY=
+github.com/openshift/cluster-network-operator v0.0.0-20191009144453-fdceef8e1a7b/go.mod h1:M9dusM6U0OOmpKjTacoXquDKPhRPu23PvFA/ws8QML0=
 github.com/openshift/origin v0.0.0-20160503220234-8f127d736703/go.mod h1:0Rox5r9C8aQn6j1oAOQ0c1uC86mYbUFObzjBRvUKHII=
 github.com/openzipkin/zipkin-go v0.1.1/go.mod h1:NtoC/o8u3JlF1lSlyPNswIbeQH9bJTmOf0Erfk+hxe8=
 github.com/openzipkin/zipkin-go v0.1.3/go.mod h1:NtoC/o8u3JlF1lSlyPNswIbeQH9bJTmOf0Erfk+hxe8=
@@ -921,6 +925,7 @@ k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30/go.mod h1:BXM9ceUBTj2QnfH
 k8s.io/kube-openapi v0.0.0-20190320154901-5e45bb682580/go.mod h1:BXM9ceUBTj2QnfH2MK1odQs778ajze1RxcmP6S8RVVc=
 k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d h1:Xpe6sK+RY4ZgCTyZ3y273UmFmURhjtoJiwOMbQsXitY=
 k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d/go.mod h1:1TqjTSzOxsLGIKfj0lK8EeCP7K1iUG65v09OM0/WG5E=
+k8s.io/kube-proxy v0.0.0-20190620085809-589f994ddf7f h1:ryjfK67+pjcRs7NPpZgRIieJFUlbvVmMPbgybM56oiA=
 k8s.io/kube-proxy v0.0.0-20190620085809-589f994ddf7f/go.mod h1:EP2frUhhC4rizGpCTYCnVS4+XZMh7Hyq40jOUvuAK5g=
 k8s.io/kube-scheduler v0.0.0-20190620085912-4acac5405ec6/go.mod h1:ktfBNqjRdtYUw2eFNk32TtxiGqOy00eiWua74iNEcLg=
 k8s.io/kube-state-metrics v1.6.0/go.mod h1:84+q9aGVQPzXYGgtvyhZr/fSI6BdLsbPWXn37RASc9k=

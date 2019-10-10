@@ -125,6 +125,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 		c, m := c, m
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			cn := name.ComponentName(c)
 			if s := dch[cn]; s != nil {
 				log.Infof("%s is waiting on dependency...", c)
@@ -149,7 +150,6 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				log.Infof("Unblocking dependency %s.", ch)
 				dch[ch] <- struct{}{}
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()

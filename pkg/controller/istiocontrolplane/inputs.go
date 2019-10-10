@@ -33,6 +33,12 @@ var (
 			name.SidecarInjectorComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
+			name.PrometheusComponentName,
+			name.PrometheusOperatorComponentName,
+			name.GrafanaComponentName,
+			name.KialiComponentName,
+			name.CNIComponentName,
+			name.TracingComponentName,
 		},
 	}
 

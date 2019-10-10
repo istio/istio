@@ -54,8 +54,8 @@ func (h *HelmReconciler) PruneResources(gvks []schema.GroupVersionKind, all bool
 		objects.SetGroupVersionKind(gvk)
 		err := h.client.List(context.TODO(), objects, client.MatchingLabels(ownerLabels), client.InNamespace(namespace))
 		if err != nil {
-			log.Errorf("error retrieving resources to prune type %s: %s", gvk.String(), err)
-			allErrors = append(allErrors, err)
+			// we only want to retrieve resources clusters
+			log.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
 	objectLoop:

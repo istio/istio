@@ -78,7 +78,8 @@ func NewIstioStatusUpdater(instance *v1alpha2.IstioControlPlane) helmreconciler.
 
 // EndReconcile updates the status field on the IstioControlPlane instance based on the resulting err parameter.
 func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status *v1alpha2.InstallStatus) error {
-	return u.reconciler.GetClient().Status().Update(context.TODO(), u.instance.DeepCopyObject())
+	u.instance.Status = status
+	return u.reconciler.GetClient().Status().Update(context.TODO(), u.instance)
 }
 
 // RegisterReconciler registers the HelmReconciler with this object

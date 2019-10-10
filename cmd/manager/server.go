@@ -24,6 +24,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	drm "github.com/openshift/cluster-network-operator/pkg/util/k8s"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
@@ -103,6 +104,8 @@ func run() {
 	mgr, err := manager.New(cfg, manager.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		// Workaround for https://github.com/kubernetes-sigs/controller-runtime/issues/321
+		MapperProvider: drm.NewDynamicRESTMapper,
 	})
 	if err != nil {
 		log.Fatalf("Could not create a controller manager: %v", err)

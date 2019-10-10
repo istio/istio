@@ -28,6 +28,8 @@ require (
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
+	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible // indirect
+	github.com/openshift/cluster-network-operator v0.0.0-20191009144453-fdceef8e1a7b
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.6.0
