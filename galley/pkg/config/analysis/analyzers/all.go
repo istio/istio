@@ -38,9 +38,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.GatewayAnalyzer{},
 	}
 
-	for _, a := range schema.AllValidationAnalyzers() {
-		analyzers = append(analyzers, a)
-	}
+	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)
 
 	return analyzers
 }
