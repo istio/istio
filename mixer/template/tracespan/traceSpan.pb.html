@@ -266,6 +266,216 @@ the <code>api.protocol</code> attribute. Should usually be set to <code>api.prot
 
 </td>
 </tr>
+<tr id="Template-trace_id">
+<td><code>traceId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Trace ID is the unique identifier for a trace. All spans from the same
+trace share the same Trace ID.</p>
+
+<p>Required.</p>
+
+</td>
+</tr>
+<tr id="Template-span_id">
+<td><code>spanId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Span ID is the unique identifier for a span within a trace. It is assigned
+when the span is created.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-parent_span_id">
+<td><code>parentSpanId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Parent Span ID is the unique identifier for a parent span of this span
+instance. If this is a root span, then this field MUST be empty.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-span_name">
+<td><code>spanName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Span name is a description of the span&rsquo;s operation.</p>
+
+<p>For example, the name can be a qualified method name or a file name
+and a line number where the operation is called. A best practice is to use
+the same display name within an application and at the same call point.
+This makes it easier to correlate spans in different traces.</p>
+
+<p>Required.</p>
+
+</td>
+</tr>
+<tr id="Template-start_time">
+<td><code>startTime</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td>
+<p>The start time of the span.</p>
+
+<p>Required.</p>
+
+</td>
+</tr>
+<tr id="Template-end_time">
+<td><code>endTime</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td>
+<p>The end time of the span.</p>
+
+<p>Required.</p>
+
+</td>
+</tr>
+<tr id="Template-span_tags">
+<td><code>spanTags</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td>
+<p>Span tags are a set of &lt; key, value &gt; pairs that provide metadata for the
+entire span. The values can be specified in the form of expressions.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-httpStatusCode">
+<td><code>httpStatusCode</code></td>
+<td><code>int64</code></td>
+<td>
+<p>HTTP status code used to set the span status. If unset or set to 0, the
+span status will be assumed to be successful.</p>
+
+</td>
+</tr>
+<tr id="Template-client_span">
+<td><code>clientSpan</code></td>
+<td><code>bool</code></td>
+<td>
+<p>client_span indicates the span kind. True for client spans and False or
+not provided for server spans. Using bool instead of enum is a temporary
+work around since mixer expression language does not yet support enum
+type.</p>
+
+<p>Optional</p>
+
+</td>
+</tr>
+<tr id="Template-rewrite_client_span_id">
+<td><code>rewriteClientSpanId</code></td>
+<td><code>bool</code></td>
+<td>
+<p>rewrite<em>client</em>span_id is used to indicate whether to create a new client
+span id to accommodate Zipkin shared span model. Some tracing systems like
+Stackdriver separates a RPC into client span and server span. To solve this
+incompatibility, deterministically rewriting both span id of client span and
+parent span id of server span to the same newly generated id.</p>
+
+<p>Optional</p>
+
+</td>
+</tr>
+<tr id="Template-source_name">
+<td><code>sourceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the source (client side) of this span.
+Should usually be set to <code>source.workload.name</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-source_ip">
+<td><code>sourceIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Client IP address. Should usually be set to <code>source.ip</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-destination_name">
+<td><code>destinationName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the destination (server side) of this span.
+Should usually be set to <code>destination.workload.name</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-destination_ip">
+<td><code>destinationIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Server IP address. Should usually be set to <code>destination.ip</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-request_size">
+<td><code>requestSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Request body size. Should usually be set to <code>request.size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-request_total_size">
+<td><code>requestTotalSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Total request size (headers and body).
+Should usually be set to <code>request.total_size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-response_size">
+<td><code>responseSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Response body size. Should usually be set to <code>response.size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-response_total_size">
+<td><code>responseTotalSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Response total size (headers and body).
+Should usually be set to <code>response.total_size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-api_protocol">
+<td><code>apiProtocol</code></td>
+<td><code>string</code></td>
+<td>
+<p>One of &ldquo;http&rdquo;, &ldquo;https&rdquo;, or &ldquo;grpc&rdquo; or any other value of
+the <code>api.protocol</code> attribute. Should usually be set to <code>api.protocol</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
