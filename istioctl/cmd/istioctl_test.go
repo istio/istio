@@ -321,6 +321,14 @@ func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
 	return cs.store.ConfigDescriptor()
 }
 
+
+func (cs sortedConfigStore) Version() string {
+	return cs.store.Version()
+}
+func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cs.store.GetResourceAtVersion(version, key)
+}
+
 // List() is a facade that always returns cs.store items sorted by name/namespace
 func (cs sortedConfigStore) List(typ, namespace string) ([]model.Config, error) {
 	out, err := cs.store.List(typ, namespace)
