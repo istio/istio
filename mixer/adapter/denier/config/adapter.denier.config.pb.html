@@ -53,6 +53,14 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 
 </td>
 </tr>
+<tr id="Params-valid_use_count">
+<td><code>validUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of times the denial may be used.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -125,6 +133,35 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
+<tr id="google-rpc-Status-code">
+<td><code>code</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The status code, which should be an enum value of
+<em>google.rpc.Code</em>.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-message">
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>
+<p>A developer-facing error message, which should be in English. Any
+user-facing error message should be localized and sent in the
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized
+by the client.</p>
+
+</td>
+</tr>
+<tr id="google-rpc-Status-details">
+<td><code>details</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
+<td>
+<p>A list of messages that carry the error details.  There is a common set of
+message types for APIs to use.</p>
+
+</td>
+</tr>
 <tr id="google-rpc-Status-code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
