@@ -28,6 +28,7 @@ import (
 )
 
 type sidecarSyncStatus struct {
+	// nolint: structcheck, unused
 	pilot string
 	v2.SyncStatus
 }
@@ -82,7 +83,7 @@ func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
 
 	pi := []istioVersion.ProxyInfo{}
 	for _, ss := range sss {
-		pi = append(pi, istioVersion.ProxyInfo {
+		pi = append(pi, istioVersion.ProxyInfo{
 			ID:           ss.ProxyID,
 			IstioVersion: ss.SyncStatus.IstioVersion,
 		})
