@@ -40,10 +40,14 @@ import (
 )
 
 const (
-	// NodeRegionLabel is the well-known label for kubernetes node region
+	// NodeRegionLabel is the well-known label for kubernetes node region in beta
 	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
-	// NodeZoneLabel is the well-known label for kubernetes node zone
+	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
+	NodeRegionLabelGA = "failure-domain.beta.kubernetes.io/region"
+	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
+	NodeZoneLabelGA = "failure-domain.beta.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -314,14 +318,16 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	region := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
+	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+
 	if region == "" && zone == "" {
 		return ""
 	}
 	locality := fmt.Sprintf("%v/%v", region, zone)
 	return model.GetLocalityOrDefault(locality, pod.Labels)
 }
+
 
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
