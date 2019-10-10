@@ -502,16 +502,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
-	// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
-	// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
-	// metadata already. Because of this, we can still get most of the information we need.
-	// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
-	// attempt to read the real pod.
-	instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
-	if err == nil {
-		return instances, nil
-	}
-
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
 		// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
@@ -534,7 +524,18 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 	}
 
-	// 2. Headless service
+	// 2. The pod is not present when this is called
+	// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
+	// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+	// metadata already. Because of this, we can still get most of the information we need.
+	// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+	// attempt to read the real pod.
+	instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
+	if err == nil {
+		return instances, nil
+	}
+
+	// 3. Headless service
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 	for _, item := range c.endpoints.informer.GetStore().List() {
