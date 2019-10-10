@@ -306,9 +306,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 				continue
 			}
 			for _, p := range ss.Ports {
-				authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
+				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
+				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
