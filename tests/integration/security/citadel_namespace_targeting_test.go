@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,7 +39,8 @@ const (
 
 // TestNamespaceTargeting verifies that Citadel respects the designated namespace targeting labels.
 func TestNamespaceTargeting(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).Run(func(ctx framework.TestContext) {
 
 		env := ctx.Environment().(*kube.Environment)
 

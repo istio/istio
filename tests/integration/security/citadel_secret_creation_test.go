@@ -19,13 +19,15 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/citadel"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/tests/integration/security/util/secret"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).Run(func(ctx framework.TestContext) {
 		c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
 
 		// Test the existence of istio.default secret.
